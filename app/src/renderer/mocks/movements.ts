@@ -7,10 +7,15 @@
 // Dataset: ~50 entries across ~6 months, EUR, realistic small-NGO mix
 // (Rett Spain pilot). Categories/accounts mirror docs/product/vision.md
 // and the prototype reference app.
+//
+// v0.2 additive fields (`tags`, `status`, nullable `category`) are derived
+// deterministically from row index — see the projection at the bottom of
+// the file. A small set of rows is forced to `category: null` so the
+// "solo sin categorizar" filter has data to act on.
 
-import type { DateRange, Movement } from '../types/movement.js';
+import type { DateRange, Movement, MovementStatus } from '../types/movement.js';
 
-type Seed = Omit<Movement, 'id' | 'currency'>;
+type Seed = Omit<Movement, 'id' | 'currency' | 'tags' | 'status'>;
 
 // Deterministic entries so snapshots are stable. Dates are ISO YYYY-MM-DD.
 // Amounts are positive; `type` carries the sign.
@@ -472,10 +477,47 @@ function newId(): string {
   return `mov-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
 }
 
-const ALL: readonly Movement[] = SEED.map((seed) => ({
+// ── Deterministic seeding for the v0.2 fields (tags, status, nullable category) ──
+//
+// We keep the SEED array above human-readable and derive the new fields by
+// index so edits stay localised. The distributions below approximate the
+// prototype: ~80% approved, ~15% pending, ~5% rejected; a handful of rows
+// have `category: null` so Trinity's "solo sin categorizar" filter has data
+// to act on.
+
+const TAG_POOL = ['urgente', 'beca-2025', 'proyecto-a', 'auditable', 'recurrente'] as const;
+
+function pickTags(index: number): readonly string[] {
+  // 0-3 tags per row. Deterministic on `index` so snapshots stay stable.
+  const count = index % 4; // 0,1,2,3,0,1,2,3,...
+  if (count === 0) return [];
+  const out: string[] = [];
+  for (let k = 0; k < count; k += 1) {
+    const pick = TAG_POOL[(index * 7 + k * 3) % TAG_POOL.length] as string;
+    if (!out.includes(pick)) out.push(pick);
+  }
+  return out;
+}
+
+function pickStatus(index: number): MovementStatus {
+  // Deterministic roughly-80/15/5 split: every 7th row pending, every 17th
+  // rejected, rest approved. Keeps totals realistic.
+  if (index > 0 && index % 17 === 0) return 'rejected';
+  if (index % 7 === 0) return 'pending';
+  return 'approved';
+}
+
+// Indices whose category should be forced to `null` (uncategorised) so the
+// prototype's "solo sin categorizar" checkbox has rows to filter to.
+const UNCATEGORIZED_INDICES = new Set<number>([4, 12, 27, 41]);
+
+const ALL: readonly Movement[] = SEED.map((seed, index) => ({
   ...seed,
   id: newId(),
   currency: 'EUR' as const,
+  category: UNCATEGORIZED_INDICES.has(index) ? null : seed.category,
+  tags: pickTags(index),
+  status: pickStatus(index),
 }));
 
 /** Inclusive date comparison on the YYYY-MM-DD prefix (timezone-agnostic). */

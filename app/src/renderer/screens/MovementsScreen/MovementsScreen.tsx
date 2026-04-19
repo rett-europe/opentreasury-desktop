@@ -73,7 +73,7 @@ function sortRows(
         cmp = a.account.localeCompare(b.account);
         break;
       case 'category':
-        cmp = a.category.localeCompare(b.category);
+        cmp = (a.category ?? '').localeCompare(b.category ?? '');
         break;
       case 'amount': {
         const aSigned = a.type === 'expense' ? -a.amount : a.amount;
@@ -152,7 +152,9 @@ export function MovementsScreen(): JSX.Element {
 
   const categoryOptions = useMemo(() => {
     const s = new Set<string>();
-    for (const m of allRows) s.add(m.category);
+    for (const m of allRows) {
+      if (m.category != null) s.add(m.category);
+    }
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [allRows]);
 
@@ -184,10 +186,9 @@ export function MovementsScreen(): JSX.Element {
       if (minN != null && !Number.isNaN(minN) && m.amount < minN) return false;
       if (maxN != null && !Number.isNaN(maxN) && m.amount > maxN) return false;
       if (uncategorizedOnly) {
-        // TODO: needs Movement.category to be nullable (or a dedicated
-        // `uncategorized` flag / empty-string convention). Current mock
-        // always sets a category, so this filter returns no rows.
-        if (m.category && m.category.length > 0) return false;
+        // `null` is the canonical "uncategorised" signal (see
+        // types/movement.ts). Treat empty strings defensively too.
+        if (m.category != null && m.category.length > 0) return false;
       }
       return true;
     });
@@ -277,7 +278,13 @@ export function MovementsScreen(): JSX.Element {
         id: 'category',
         header: t('movements.columns.category'),
         sortable: true,
-        render: (m) => (m.subcategory != null ? `${m.category} › ${m.subcategory}` : m.category),
+        render: (m) => {
+          // Minimal guard for nullable category; Trinity will revamp this
+          // cell in the v0.2 column-parity pass (adds Subcategoría / Tags /
+          // Estado as dedicated columns).
+          const cat = m.category ?? '—';
+          return m.subcategory != null ? `${cat} › ${m.subcategory}` : cat;
+        },
       },
       {
         id: 'amount',
