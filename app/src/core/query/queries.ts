@@ -20,39 +20,30 @@ export interface AccountBalance {
 
 export function getAccountBalances(): AccountBalance[] {
   const model = getReadModel();
-  const accountMap = new Map<string, Account>();
-  
-  for (const account of model.accounts) {
-    accountMap.set(account.id, account);
-  }
 
   const balanceMap = new Map<string, { income: number; expense: number }>();
-
   for (const tx of model.transactions) {
-    if (!balanceMap.has(tx.accountId)) {
-      balanceMap.set(tx.accountId, { income: 0, expense: 0 });
-    }
-    const balance = balanceMap.get(tx.accountId)!;
+    const entry = balanceMap.get(tx.accountId) ?? { income: 0, expense: 0 };
     if (tx.type === 'income') {
-      balance.income += tx.amount;
+      entry.income += tx.amount;
     } else {
-      balance.expense += tx.amount;
+      entry.expense += tx.amount;
     }
+    balanceMap.set(tx.accountId, entry);
   }
 
-  const result: AccountBalance[] = [];
-  for (const [accountId, { income, expense }] of balanceMap) {
-    const account = accountMap.get(accountId);
-    if (account) {
-      result.push({
-        accountId,
-        accountLabel: account.accountLabel,
-        income: Math.round(income * 100) / 100,
-        expense: Math.round(expense * 100) / 100,
-        net: Math.round((income - expense) * 100) / 100,
-      });
-    }
-  }
+  // Include every known account, even with zero activity — Panel renders one
+  // card per account regardless of transaction volume.
+  const result: AccountBalance[] = model.accounts.map((account: Account) => {
+    const { income, expense } = balanceMap.get(account.id) ?? { income: 0, expense: 0 };
+    return {
+      accountId: account.id,
+      accountLabel: account.accountLabel,
+      income: Math.round(income * 100) / 100,
+      expense: Math.round(expense * 100) / 100,
+      net: Math.round((income - expense) * 100) / 100,
+    };
+  });
 
   return result.sort((a, b) => a.accountLabel.localeCompare(b.accountLabel));
 }

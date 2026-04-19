@@ -333,3 +333,37 @@ All accounts currently render in the same color. The prototype and the Movements
 - Test files MUST be `*.test.ts` (vitest config `include`), NOT `*.spec.ts` — task brief used `.spec.ts` but the repo convention wins. Documenting so no one else trips.
 - Validation ordering matters: type → amount → currency → description → date format → account existence. Cheapest checks first; account lookup last (it's O(n) in accounts).
 - Calendar-date validation via regex + round-trip ISO parse: `new Date('2026-02-31T00:00:00Z').toISOString().slice(0,10)` yields `'2026-03-03'` ≠ original, so we reject. The regex alone is insufficient.
+
+
+## 2026-04-19 — WI-4′ shipped: local NDJSON event log + startup hydration
+
+**Scope:** M1.5 vertical slice storage layer. Deferred OneDrive + crypto to M2
+(WI-4 / WI-5). Delivered a swappable EventLog interface with a local NDJSON
+adapter, startup hydration, and prototype-shaped dev-seed on first run.
+
+**Files added:**
+- `app/src/core/eventLog/EventLog.ts` — interface (LOCKED contract, shared with WI-11).
+- `app/src/core/eventLog/JsonFileEventLog.ts` — NDJSON implementation (`fs/promises`, fsync on append, in-memory idempotency set).
+- `app/src/core/eventLog/index.ts` — barrel.
+- `app/src/core/eventLog/JsonFileEventLog.test.ts` — 4 unit tests (round-trip, missing file, idempotency, crash tail).
+- `app/src/main/bootstrap.ts` — resolves `app.getPath(''userData'')/dev-events/`, constructs the log, hydrates via `replayEvents`, gates dev-seed behind NODE_ENV !== ''production'' AND empty log.
+- `app/src/main/devSeed.ts` — mirrors prototype/data.js (5 accounts, 8 categories, 6 tags, 30 transactions) as real DomainEvents.
+
+**Files modified:**
+- `app/src/main/index.ts` — awaits `initializeApp()` inside `app.whenReady()` before registering IPC.
+- `app/src/main/ipc/handlers/panel.ts` — mock fixtures replaced with thin projections over `core/query` (same IPC contract).
+- `app/src/core/query/queries.ts` — `getAccountBalances()` now includes accounts with zero activity (so Panel renders one card per account).
+- `app/src/core/tsconfig.json` — added `"types": ["node"]` so core can import `node:fs` / `node:path` for the adapter.
+
+**Verification:** `npx vitest run app/src/core/eventLog` 4/4 green · `npm test` 66/66 green · `npm run lint` clean · `npm run typecheck` clean · `npm run build` produces dist/main + dist/preload + dist/renderer.
+
+### Learnings
+
+- **EventLog interface shape (LOCKED):** `append(event): Promise<void>` (idempotent by `event.id`) + `load(): Promise<DomainEvent[]>` (insertion order). Two methods, no cursor, no query — reducers fold the full stream. Keeping the surface this small is what lets OneDrive drop in later without touching core/query or IPC.
+- **NDJSON rationale:** one JSON object per line + trailing `\n` makes `append` a single syscall with zero read-modify-write, and recovery from a truncated tail is a one-liner (skip unparseable lines). A JSON array would require rewriting the closing bracket on every append and has no natural crash-recovery story. `fs.open(path, ''a'') → writeFile(line) → sync() → close()` gives ordering guarantees strong enough for single-writer M1.5; M2 will revisit when concurrent sync arrives.
+- **Dev-seed gate:** seed ONLY when `events.ndjson` does not yet exist AND `NODE_ENV !== ''production''`. Never overwrite existing events, ever — append-only is the whole point. Seed emits real domain events (AccountCreated / CategoryCreated / TagCreated / TransactionCreated) so the replay path is identical in seeded and user-written modes.
+- **Electron userData timing gotcha:** `app.getPath(''userData'')` is only stable after `app.whenReady()` resolves — calling it earlier can return a value that Electron later overrides. Bootstrap MUST be awaited inside the `whenReady()` callback, not at module load. Same reason `initializeApp()` isn''t a top-level side effect.
+- **Pure core, path resolution in main:** keeping `JsonFileEventLog` Electron-free (no `app.getPath` inside the class) is what makes it unit-testable in vitest''s `node` environment with real `fs.mkdtemp` tmp dirs. The bootstrap file in `main/` is the only place the two worlds meet.
+- **Fake-ULID seed IDs:** the event envelope schema requires `z.string().length(26)`; dev-seed derives deterministic 26-char Crockford-alphabet strings from short names (e.g. `ACCUNI000…`). Real production events will use crypto-random ULIDs. Side effect: the renderer''s `MOCK_TX_COUNTS` keyed on prototype short ids no longer matches — it falls back to `kpis.transactionCount`, which is acceptable for M1.5 and tracked for WI-6 replacement.
+- **Idempotency scope:** in-memory Set per process is sufficient for M1.5 (single-writer, load-before-write ordering enforced by bootstrap). When sync arrives (M2), the seen-set must persist alongside the log or be reconstructed eagerly on startup; today''s adapter already seeds the Set during `load()` so the invariant holds across restarts.
+- **Corruption tolerance:** `load()` skips malformed lines with a warning rather than throwing. Throwing would brick the app on a single bad byte; silently dropping interior bad lines is worse but avoidable in practice because append is line-atomic with fsync. The crash-simulation test locks this behaviour in.

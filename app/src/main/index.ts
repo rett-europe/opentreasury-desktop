@@ -4,6 +4,7 @@ import { app, BrowserWindow, ipcMain, session } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { registerIpcHandlers } from './ipc/handlers.js';
+import { initializeApp } from './bootstrap.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -97,8 +98,12 @@ function installCspHeader(): void {
   });
 }
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   installCspHeader();
+  // WI-4′ — hydrate the read model from the local NDJSON event log BEFORE
+  // handlers are registered, so the first IPC query sees real data (and the
+  // dev-seed has run on first launch).
+  await initializeApp();
   registerIpcHandlers(ipcMain);
   createMainWindow();
 
