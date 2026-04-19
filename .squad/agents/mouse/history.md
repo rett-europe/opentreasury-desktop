@@ -30,3 +30,8 @@ ADR-001 is Accepted. Implementation constraints locked: no passphrase UI in v1 (
 
 ## 2026-04-19 — Team update (via Scribe)
 Niobe's UX baseline and flows published under docs/ux/. Your visual design work follows her flows, NOT the prototype's pixels. Three flow skeletons (first-run, device-enrollment, movements-date-range) are your anchor points. Niobe also flagged design needs: visual tokens extraction, sync indicator, error severity, admin-only affordances, date-range picker, focus states.
+
+### 2026-04-19: Product reshape — Design implications
+- **No pending-state visual design needed** (product has no pending concept).
+- **Both Spanish and English layouts must be considered from day 0.** Text-expansion factor matters (EN often ~30% longer than ES) — pad components and avoid fixed-width text containers.
+

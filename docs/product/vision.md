@@ -264,11 +264,11 @@ None of these risks are blockers for *writing the vision*. All of them **must be
 Numbered for easy reply. These block the next step (PRDs + tech stack ADR).
 
 1. ~~**Tech stack beyond Electron**~~ — **RESOLVED (2026-04-19):** Neo will propose 2–3 options with trade-offs; Pedro picks. See [ADR-001](../architecture/adr-001-tech-stack.md) (in progress).
-2. ~~**Storage scope**~~ — do we support *both* OneDrive Personal AND SharePoint/OneDrive Business in v1, or pick one (e.g., OneDrive Business since NGOs are on M365) and defer the other? This materially affects complexity.
+2. ~~**Storage scope**~~ — **RESOLVED (2026-04-19):** v1 targets **OneDrive for Business / SharePoint only**. **OneDrive Personal (consumer accounts) is explicitly deferred to v1.x.** Rationale: NGOs are on M365; Business/SharePoint gives us tenant-grade ACLs and is the pilot NGO's (Rett Spain) actual environment. Folder-picker UX and all storage integration work in v1 targets Business/SharePoint. See [`roadmap-v1.md`](./roadmap-v1.md) §5.
 3. ~~**Data file format**~~ — **DEFERRED (2026-04-19):** decision deferred until the encryption approach (Q4) is settled; format choice depends on what the crypto envelope allows. Neo will revisit after Switch's security requirements land.
 4. ~~**Encryption at rest**~~ — **RESOLVED (2026-04-19):** **YES, required.** Data contains PII (donor names, phone numbers, emails). Switch has final say on the HOW; see [security requirements v0.1](../security/security-requirements-v0.1.md) (in progress).
 5. ~~**Target OS coverage for v1**~~ — **RESOLVED (2026-04-19, via ADR-001 security review):** v1 is **Windows-first** for binary distribution. macOS binary distribution is **out of v1 scope** (AR10 — no Apple Developer account). Linux ships as AppImage/deb with Ed25519 detached signature. See [`security-requirements-v0.1.md`](../security/security-requirements-v0.1.md) v0.2 AR9/AR10 and [`roadmap-v1.md`](./roadmap-v1.md#5-out-of-v1-deferred--explicit-triggers).
-6. **Language coverage** — prototype is Spanish. Is v1 **Spanish + English**, or Spanish-only with i18n scaffolding for later? *Current plan per [`roadmap-v1.md`](./roadmap-v1.md): ES + EN complete by M3 (v1.0 Public); i18n scaffolding from M1. Still needs Pedro confirmation.*
+6. ~~**Language coverage**~~ — **RESOLVED (2026-04-19):** v1 ships **Spanish + English from day 0.** i18n is a **foundational (M0)** concern, not an M3 feature. Rationale: pilot NGO (Rett Spain) is Spanish-primary; future NGOs may be English-primary; localising after the fact is structurally harder than designing for it. i18n framework is selected at M0; every user-facing string goes through it from M1 onward. See [`roadmap-v1.md`](./roadmap-v1.md) §2 M0/M1.
 7. ~~**Prototype as v1 UI baseline**~~ — **RESOLVED (2026-04-19):** **Yes, prototype is the v1 UX contract.** The three screens in `prototype/` (Panel / Movimientos / Saldo) are the baseline composition for M1. Niobe refines; deviations require a UX-spec rationale. Encoded in [PRD-001](./prds/prd-001-movements.md), [PRD-002](./prds/prd-002-saldo.md), [PRD-003](./prds/prd-003-panel.md). Niobe's prototype-review work runs in parallel with this PM work.
 8. **Repo structure approval** — does the proposed layout in section 12 work, or do you want adjustments before we scaffold it? *Note: [ADR-002](../architecture/adr-002-repo-structure.md) (Proposed) now carries the detailed layout; this section's intent is captured there.*
 
@@ -287,7 +287,11 @@ Forward links (authored 2026-04-19 after security sign-off):
 - [`docs/product/prds/prd-002-saldo.md`](./prds/prd-002-saldo.md) — Saldo (M1).
 - [`docs/product/prds/prd-003-panel.md`](./prds/prd-003-panel.md) — Panel (M1).
 
-Still open: Q2 (OneDrive storage scope — Personal vs Business), Q6 (language coverage confirmation), Q8 (repo layout — now covered by ADR-002 Proposed).
+- **Q2 — OneDrive storage scope:** Business/SharePoint only for v1; Personal deferred to v1.x.
+- **Q6 — Language coverage:** Spanish + English from day 0; i18n is foundational (M0), not M3.
+- **Pilot NGO + dogfooder (new 2026-04-19):** Pilot NGO is **Rett Spain** (Spanish locale; Pedro is primary contact; no external blocker — pilot can start when M2 ships). Internal alpha dogfooder is **Pedro**. See [`roadmap-v1.md`](./roadmap-v1.md) §1 Release Gates.
+
+Still open: Q8 (repo layout — now covered by ADR-002 Proposed).
 
 ---
 

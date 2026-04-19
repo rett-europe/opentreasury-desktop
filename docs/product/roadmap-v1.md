@@ -20,9 +20,9 @@ Three user-facing gates, each with entry criteria. "Done" for a gate = **every**
 
 | Gate | After milestone | Audience | Entry criteria |
 |---|---|---|---|
-| **Internal Alpha** | M1 | Team only (Pedro + squad) | All M1 exit criteria met. At least one team member has used it for real for ≥1 week on their own data. Zero P0 bugs open. |
-| **NGO Pilot** | M2 | 1 real NGO (invited) | All M2 exit criteria met. First-run security wizard (R20) ships. AR9/AR10 install-time warnings documented with screenshots. Pilot NGO has a signed-off backup plan. A named Pedro-approved escalation contact exists. |
-| **v1.0 Public** | M3 | General availability (GitHub Releases) | All M3 exit criteria met. ≥2 NGOs running on the pilot build for ≥30 days with zero data-loss incidents. i18n ES+EN complete. Install guide (incl. SmartScreen walkthrough per AR9) published. CONTRIBUTING.md + CODE_OF_CONDUCT.md in place. |
+| **Internal Alpha** | M1 | Team only (Pedro + squad) | All M1 exit criteria met. **Named dogfooder is Pedro**, who runs the app on real NGO-like data for ≥1 week; zero data-loss incidents; sharp edges documented as bugs. Zero P0 bugs open. |
+| **NGO Pilot** | M2 | 1 real NGO (invited) | All M2 exit criteria met. **Named pilot NGO is Rett Spain** (Pedro is primary contact; no external blocker — can start as soon as M2 ships). **Pilot uses Spanish locale; English is tested but not required for pilot.** First-run security wizard (R20) ships. AR9/AR10 install-time warnings documented with screenshots. Pilot NGO has a signed-off backup plan. A named Pedro-approved escalation contact exists. |
+| **v1.0 Public** | M3 | General availability (GitHub Releases) | All M3 exit criteria met. ≥2 NGOs running on the pilot build for ≥30 days with zero data-loss incidents. **Both ES and EN are ship-blockers** (i18n is foundational — see M0). Install guide (incl. SmartScreen walkthrough per AR9) published. CONTRIBUTING.md + CODE_OF_CONDUCT.md in place. |
 
 **Non-goals at each gate:**
 - Alpha is NOT a "feature-complete" gate — it is "the core loop actually works end-to-end on one machine".
@@ -44,6 +44,8 @@ Three user-facing gates, each with entry criteria. "Done" for a gate = **every**
 - `app/` scaffolding per ADR-002 §4 (main / preload / renderer / shared / core / crypto / storage / read-model).
 - `src/crypto/` implemented against crypto-spec §1–§3 (C1–C5, C8). Pure functions, 100% unit-tested under plain Node.
 - `src/storage/` with both `onedrive-folder.ts` (fs-based) and `memory.ts` (in-memory) adapters.
+- **Folder-picker targets OneDrive for Business / SharePoint only.** Personal OneDrive (consumer accounts) is explicitly NOT supported in v1 — validation rejects Personal OneDrive paths with a clear "unsupported in v1 — Business/SharePoint only" message. Personal OneDrive support is deferred to v1.x (see §5).
+- **i18n framework selected and integrated.** Every renderer surface from M1 onward goes through the i18n layer — no hardcoded user-facing strings. String-table skeletons bootstrapped for **English** and **Spanish** (empty values allowed in M0; populated as features are built). CI has a "missing key" lint from M1 onward.
 - `src/shared/events/` and `src/shared/ipc-contracts/` Zod schemas for the M1 event set.
 - Electron hardening (C7) in one place — every `BrowserWindow` goes through a hardened helper.
 - CI: lint, typecheck, test, `electronegativity` check, `npm audit` gate, secret scan (R14).
@@ -79,7 +81,7 @@ Three user-facing gates, each with entry criteria. "Done" for a gate = **every**
 - **Accounts** — CRUD (multiple bank accounts, PayPal-style).
 - **Categories & subcategories** — CRUD, typed (income/expense).
 - **Tags** — CRUD, coloured.
-- **Transactions** — create, edit, delete (as tombstone event), status workflow (pending → approved), uncategorized-only flag, bulk selection UI (bulk *actions* are v1.x).
+- **Transactions** — create, edit, delete (as tombstone event), uncategorized-only flag, bulk selection UI (bulk *actions* are v1.x). All transactions are **confirmed** from the moment they're created (bank/PayPal statement import ships M2, PRD-006; manual entry in M1). No pending/draft state.
 - **First-setup flow (solo)** — pick a folder (local OR OneDrive — treated the same at M1), app creates `escrow.json` with the current device as sole admin, generates DEK v1. Enrollment/revocation deferred to M2.
 - **Local SQLite read model** — rebuild-from-events on start.
 - **Search** — in-app (over decrypted descriptions + subcategories + tags).
@@ -90,12 +92,12 @@ Three user-facing gates, each with entry criteria. "Done" for a gate = **every**
 - CSV import — deferred to M2 (first real NGO needs this; team can type data in for alpha).
 - CSV/PDF/Excel export — M3 (CSV) and M4 (PDF/Excel).
 - Audit log UI — M2 (the **data** must be written from M1; the **viewer** is M2).
-- i18n — structure scaffolded; strings Spanish only until M3.
+- **All three prototype screens (Movements / Saldo / Panel) ship with both ES and EN strings populated** — per Q6 resolution, i18n is foundational. The i18n *framework* ships in M0; M1 populates ES + EN strings for every surface it introduces.
 - Dark mode — M3.
 - Snapshots — M2.
 
 **Exit criteria (testable)**
-- A user can complete the "core treasury loop" end-to-end: create account → import one tx by hand → categorize → tag → approve → see it on Panel, Movements, Saldo.
+- A user can complete the "core treasury loop" end-to-end: create account → enter one tx by hand → categorize → tag → see it on Panel, Movements, Saldo.
 - Transaction list **starts empty** (team decision 2026-04-19) and only loads on date-range selection.
 - Every mutation produces an encrypted event file (C1–C3, C11) AND an audit entry (C10) — even though the audit viewer is M2.
 - At 1,000 events: Panel loads ≤500ms from cold start; Movements filter ≤100ms on a typical query.
@@ -126,6 +128,7 @@ Three user-facing gates, each with entry criteria. "Done" for a gate = **every**
 - **Foreign-event detection** — file-watcher picks up events written by other devices, rebuilds read model incrementally.
 - **CSV import** — bank statements with column mapping + deduplication (the first pilot NGO will need this).
 - **Install guide with AR9 SmartScreen walkthrough + AR10 macOS source-build note.**
+- **Localisation at ship:** device enrollment, first-run onboarding, security wizard copy, audit-viewer UI, and all admin surfaces introduced in M2 ship fully localized (ES + EN) — i18n is not a post-M2 cleanup pass.
 
 **Scope — OUT**
 - CSV export — M3.
@@ -161,12 +164,12 @@ Three user-facing gates, each with entry criteria. "Done" for a gate = **every**
 **Scope — IN**
 - **CSV export** — transactions + current filter set + summary (R17 output safety: Excel-injection quarantine).
 - **Global search** across transactions, categories, tags (in-app, on decrypted read model).
-- **i18n ES + EN complete** — every string in both locales; locale switcher persists.
 - **Dark mode** — token-driven, design parity with prototype.
-- **Status workflow polish** — pending→approved transitions are auditable (they already are from M1), with approval UX affordances on the Movements page.
+- **Status workflow polish** — (copy refinements only; the status model is confirmed-only per product decision — transactions come from bank/PayPal statements and are always confirmed).
 - **Install guide v1** — web page + screenshots per OS.
 - **CONTRIBUTING.md, CODE_OF_CONDUCT.md** — ADR-002 §3 deferred items.
 - **Release notes template** per published version (feeds update-payload manifest, R13.1).
+- **i18n completeness audit** — both ES and EN fully populated across every surface (i18n framework itself shipped in M0; M3 closes any remaining coverage gaps as a ship-blocker for v1.0).
 
 **Scope — OUT**
 - PDF reports — M4.
@@ -248,6 +251,9 @@ flowchart LR
     PRD002[PRD-002<br/>Saldo]
     PRD003[PRD-003<br/>Panel]
 
+    %% PRDs (M0 foundational)
+    PRD_I18N[PRD-009<br/>i18n Foundations<br/>framework + ES/EN]
+
     %% PRDs (M2)
     PRD_ENROLL[PRD-004<br/>Device enrollment]
     PRD_AUDIT[PRD-005<br/>Audit viewer]
@@ -256,17 +262,20 @@ flowchart LR
 
     %% PRDs (M3)
     PRD_EXPORT[PRD-008<br/>CSV export]
-    PRD_I18N[PRD-009<br/>i18n EN]
 
     ADR001 --> M0
     ADR002 --> M0
     CRYPTO --> M0
     SEC --> M0
+    PRD_I18N --> M0
 
     M0 --> M1
     PRD001 --> M1
     PRD002 --> M1
     PRD003 --> M1
+    PRD_I18N -. strings populated .-> M1
+    PRD_I18N -. strings populated .-> M2
+    PRD_I18N -. coverage complete .-> M3
 
     M1 --> ALPHA --> M2
     CRYPTO -- §4–§8 enrollment/audit --> M2
@@ -277,7 +286,6 @@ flowchart LR
 
     M2 --> PILOT --> M3
     PRD_EXPORT --> M3
-    PRD_I18N --> M3
 
     M3 --> V1 --> M4
 
@@ -310,9 +318,8 @@ Expanded from [vision §9](./vision.md#9-high-level-feature-map). Every row reso
 | Dashboard (Panel) | M1 | **PRD-003** *(draft)* | ADR-001; Accounts, Categories, Transactions | Aggregation is read-model projection. |
 | Balance (Saldo / YoY) | M1 | **PRD-002** *(draft)* | ADR-001; Categories, Transactions | Period selector; projections. |
 | Search (in-app global) | M3 | PRD-013 (planned) | Read-model indexes | Tx-list search is in PRD-001; *global* search is M3. |
-| Status workflow (pending→approved) | M1 | Part of PRD-001 | ADR-001 C10, R8 | Each state change = audit entry. |
 | Dark mode | M3 | PRD-014 (planned) | Design tokens from Mouse | Token-driven. |
-| i18n ES + EN | M3 | PRD-009 (planned) | — | Scaffolding from M1; EN strings complete by M3. |
+| **i18n framework + ES/EN string tables** | **M0** (framework) / **M1–M3** (coverage) | PRD-009 (**i18n Foundations**, re-scoped to M0) | — | Foundational per Q6 resolution: framework at M0, every feature ships localised from M1; EN+ES are v1.0 ship-blockers. |
 | Audit log (local, viewer) | M2 | PRD-005 (planned) | crypto-spec §8; R8 | Data written from M1; viewer is M2. |
 | **Device enrollment flow** | M2 | PRD-004 (planned) | crypto-spec §5; C9 | 6-char visual code; admin online. |
 | **Device revocation + DEK rotation** | M2 | Part of PRD-004 | crypto-spec §6, §7 | AR2 accepted; documented. |
@@ -344,6 +351,7 @@ Things we are not doing in v1, with the **trigger that would bring them back in*
 | Feature | Why deferred | Trigger to reconsider |
 |---|---|---|
 | **PDF / Excel export** | M1–M3 focus on core loop + distribution. Export formats require their own design work and testing discipline. | ≥3 pilot NGOs report it as blocker for board reporting. (M4 anyway.) |
+| **OneDrive Personal (consumer accounts)** | v1 targets **OneDrive for Business / SharePoint only** (per Q2 resolution). Personal OneDrive has different auth, different ACL semantics, and is not the pilot NGO's environment. | Pilot NGO feedback or ≥2 community requests for Personal-OneDrive storage after v1.0 ships. Targeted for **v1.x**. |
 | **Reports module (custom periods)** | Saldo + Movements filters cover 80% of report needs. | Pilot feedback: "I need period-comparison reports I can save and rerun." (M4.) |
 | **Bulk actions** | Selection UI ships M1; action wiring is deferred to avoid scope bloat. | First NGO tries to categorize 200 uncategorized imports one-by-one. (M4.) |
 | **Recurring transactions** | Needs a template-event model; not on the M1 critical path. | First pilot has monthly rent auto-entry friction. (M4.) |
@@ -380,7 +388,7 @@ Things we are not doing in v1, with the **trigger that would bring them back in*
 | CR3 | Event-sourcing learning curve slows contributor velocity | M1 | Spec-driven PRs keep contributors on rails; CONTRIBUTING.md (M3) documents the mental model. |
 | CR4 | Prototype UX assumptions fail under real multi-user data | M1/M2 | Niobe owns the prototype↔spec reconciliation in parallel with PRD work. |
 | CR5 | SmartScreen warning (AR9) kills pilot installs | M2 | Install guide screenshots the exact dialog; reads as expected behaviour. Revisit cost of EV cert if blocker. |
-| CR6 | i18n completeness drift | M3 | Lint rule + 100%-coverage gate in CI. |
+| CR6 | i18n completeness drift | M1–M3 (continuous) | Framework lands M0; "missing key" lint rule in CI from M1; 100%-coverage gate at M3 (v1.0 ship-blocker). |
 
 ---
 
@@ -388,10 +396,10 @@ Things we are not doing in v1, with the **trigger that would bring them back in*
 
 Numbered. Answering these unblocks planning for later PRDs and gate decisions.
 
-1. **Pilot NGO identity.** Who is the single pilot NGO after M2? We need a named contact and a backup plan before NGO Pilot gate opens.
-2. **Alpha dogfooder.** Which squad member holds the "I used it for 1 week on real data" commitment for Internal Alpha?
+1. ~~**Pilot NGO identity.**~~ **RESOLVED (2026-04-19):** Pilot NGO is **Rett Spain**; Pedro is primary contact; no external blocker (pilot can start as soon as M2 ships). Pilot runs in **Spanish locale**.
+2. ~~**Alpha dogfooder.**~~ **RESOLVED (2026-04-19):** Alpha dogfooder is **Pedro**. Success criterion: runs the app on real NGO-like data for ≥1 week; zero data-loss incidents; sharp edges logged as bugs.
 3. **M4 prioritization signal.** Do you want M4 PRDs authored against *Pedro-defined* priority, or driven purely by v1.0 user evidence? I recommend the latter, but defer to you.
-4. **Localisation timing.** i18n EN is planned for M3. Do any pilot NGOs operate primarily in English? If yes, EN must move earlier (into M2).
+4. ~~**Localisation timing.**~~ **RESOLVED (2026-04-19):** i18n is **foundational (M0)**, not M3. Both **Spanish and English from day 0**; every feature ships localised; ES+EN are v1.0 ship-blockers.
 5. **Explicit "no" on v1 telemetry.** Per R2, v1 ships zero telemetry. Any opt-in setup-step metric (e.g., time-to-first-tx in §8 of vision) requires its own PRD + Switch sign-off; confirm you want me to hold that line through v1.0.
 
 ---

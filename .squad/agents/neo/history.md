@@ -73,3 +73,23 @@ Published `docs/architecture/adr-002-repo-structure.md` (Status: Proposed) and s
 
 ## 2026-04-19 — Team update (via Scribe)
 Link's roadmap v1 + PRDs 001–003 and Niobe's UX plan both depend on ADR-002 being Accepted. Your 5 open questions to Pedro (package manager, monorepo tool, TS strictness, app/ layout, tests layout) block acceptance.
+
+### 2026-04-19: ADR-002 Accepted — all 5 questions resolved
+Pedro resolved all 5 open questions. Locked-in decisions:
+1. **Package manager:** npm (parity with cloud opentreasury).
+2. **Monorepo tool:** none — single `app/` with `tsc -b` project references.
+3. **TS strictness:** `strict: true` + `noUncheckedIndexedAccess: true` + `exactOptionalPropertyTypes: true` — all three on.
+4. **Top folder:** flat `app/` (not `apps/opentreasury-desktop/`).
+5. **Tests:** hybrid — co-located `*.test.ts` for units, `tests/integration/` + `tests/e2e/` separate.
+
+Updated `docs/architecture/adr-002-repo-structure.md`: Status Proposed → Accepted (Decided 2026-04-19), §9 open questions annotated RESOLVED inline (kept for traceability), §4 language moved from "recommended/TBD" to definitive, added §11 Implementation Next Steps, added Changelog.
+
+**Next step:** Scaffold the `app/` source tree in a dedicated follow-up PR — NOT part of this ADR commit. That PR lands: `app/package.json` (npm), `app/tsconfig.base.json` + per-subproject configs with project references, ESLint with `import/no-restricted-paths`, Vitest for unit tests (proposed), Playwright for E2E, CI grep/lint for §4.1 import boundaries. Downstream work (Link's PRDs, Niobe's UX spec plan, Morpheus/Trinity implementation ticketing) is now fully unblocked.
+
+**Lesson:** Keeping the "Options Considered" / "Open Questions" sections in the ADR *after* acceptance (with RESOLVED markers) pays for itself the first time someone asks "why npm and not pnpm?" six months later. Don't delete the reasoning trail — annotate it.
+
+### 2026-04-19: Roadmap + PRDs updated by Link
+- i18n framework selection is now an **M0 deliverable** (was M3). Need a short ADR or spec note before M0 kicks off — candidates: `i18next`/`react-i18next` vs FormatJS/`react-intl`.
+- Storage scope narrowed: **OneDrive for Business / SharePoint only** in v1; Personal deferred to v1.x.
+- ADR-002 repo structure ACCEPTED (my own decision, captured in decisions.md).
+

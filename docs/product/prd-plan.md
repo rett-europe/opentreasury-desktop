@@ -13,6 +13,17 @@ PRDs live at `docs/product/prds/{prd-id}-{slug}.md`.
 
 ---
 
+## 0.1 Assumptions
+
+Product-level assumptions that every PRD inherits. Changing one of these is a cross-cutting decision that requires updating this section and every affected PRD.
+
+- **No pending/draft/future-dated transactions.** Transactions are imported from bank and PayPal statements (CSV import ships M2) or entered manually; either way they are **always confirmed / settled**. The product has **no** pending / draft / provisional / future-dated state. Balance, dashboard, and totals always reflect the full confirmed set in scope. (Resolved 2026-04-19 by Pedro.)
+- **i18n is foundational, not a late feature.** The i18n framework ships in **M0**; every user-facing surface is localised from the moment it is introduced. v1 ships **Spanish (primary, pilot) and English (pilot-ready)**. Both locales are v1.0 ship-blockers. (Resolved 2026-04-19 by Pedro.)
+- **v1 storage is OneDrive for Business / SharePoint only.** OneDrive Personal (consumer accounts) is explicitly deferred to **v1.x**. Folder-picker UX, validation rules, and all storage integration work target Business/SharePoint. (Resolved 2026-04-19 by Pedro.)
+- **Pilot NGO is Rett Spain.** Pedro is primary contact; pilot runs in Spanish. Internal alpha dogfooder is **Pedro**. (Resolved 2026-04-19.)
+
+---
+
 ## 1. PRD Lifecycle
 
 ```mermaid
@@ -37,6 +48,14 @@ flowchart LR
 ---
 
 ## 2. PRD Index
+
+### M0 — Foundations
+
+| PRD ID | Title | Status | Milestone | Author | Reviewers | Paired spec |
+|---|---|---|---|---|---|---|
+| PRD-009 | **i18n Foundations** (framework + ES/EN string-table bootstrap) | Planned | **M0** | Link | Pedro, Niobe, Neo | TBD |
+
+> **Note (re-scope 2026-04-19):** PRD-009 was originally "i18n EN + locale switcher" targeted at M3. Following Pedro's resolution of vision Q6, i18n is a **foundational concern** rather than a late feature. PRD-009 is re-scoped as an **infrastructure PRD** covering: i18n framework selection, string-table layout, locale switcher shell, CI "missing key" lint rule. Per-feature string coverage remains the responsibility of each feature PRD (PRD-001/002/003 etc.) — this PRD owns the plumbing, not the content.
 
 ### M1 — Single-user happy path
 
@@ -64,7 +83,6 @@ flowchart LR
 | PRD ID | Title | Status | Milestone | Author | Reviewers | Paired spec |
 |---|---|---|---|---|---|---|
 | PRD-008 | CSV export | Planned | M3 | Link | Pedro, Switch (R17 export), Niobe | TBD |
-| PRD-009 | i18n EN + locale switcher | Planned | M3 | Link | Pedro, Niobe | TBD |
 | PRD-013 | Global search | Planned | M3 | Link | Pedro, Niobe | TBD |
 | PRD-014 | Dark mode | Planned | M3 | Link | Pedro, Mouse, Niobe | TBD |
 
@@ -142,6 +160,7 @@ This is **inspired by** `docs/specs/_template.md` but intentionally simpler — 
 | Date | Status | By | Notes |
 |---|---|---|---|
 | 2026-04-19 | Draft v0.1 | Link | Initial index: 22 PRD reservations (3 drafted: PRD-001/002/003). |
+| 2026-04-19 | Draft v0.2 | Link | Added Assumptions §0.1 (no pending concept; i18n foundational; v1 = OneDrive Business/SharePoint only; pilot = Rett Spain / dogfooder = Pedro). Re-scoped PRD-009 from M3 "i18n EN" to M0 **i18n Foundations** (infrastructure). |
 
 ---
 

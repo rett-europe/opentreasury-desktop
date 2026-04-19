@@ -92,3 +92,10 @@ ADR-001 is Accepted. Implementation constraints locked: no passphrase UI in v1 (
 
 ## 2026-04-19 — Team update (via Scribe)
 Link's PRDs 001–003 drafted as your upstream. 28 UX specs planned. Blocker gaps G1, G2, G5, G4, G9 are top priorities. Wave 1 sequence locked: UX-004 → UX-001 → UX-009 → UX-003 → UX-006.
+
+### 2026-04-19: Product reshape — UX implications
+- **Pending-transaction concept REMOVED from product.** Drop any pending-state UX from specs.
+- **Folder-picker needs 'Personal OneDrive unsupported in v1' rejection state** with copy pointing at v1.x.
+- **Every UX string now requires both ES and EN copy at handoff** — no 'translate later'. Pilot is Rett Spain (Spanish-first) but EN is v1.0 ship-blocker.
+- Several of your PRD-aligned open questions are now CLOSED — check PRDs 001/002/003 for RESOLVED markers.
+

@@ -2,7 +2,7 @@
 
 > **Status:** Draft · **Owner:** Link (PM) · **Last updated:** 2026-04-19
 > **Target milestone:** [M1 — Single-user happy path](../roadmap-v1.md#m1--single-user-happy-path)
-> **Depends on:** [vision §5](../vision.md#5--scope--in-v1), [ADR-001 §3 Option A](../../architecture/adr-001-tech-stack.md) C1–C3/C10/C11, [security-requirements v0.2](../../security/security-requirements-v0.1.md) R3/R5/R8, [crypto-spec](../../security/crypto-spec.md) §2.1/§8, [PRD-010 Accounts](#), [PRD-011 Categories](#), [PRD-012 Tags](#)
+> **Depends on:** [vision §5](../vision.md#5--scope--in-v1), [ADR-001 §3 Option A](../../architecture/adr-001-tech-stack.md) C1–C3/C10/C11, [security-requirements v0.2](../../security/security-requirements-v0.1.md) R3/R5/R8, [crypto-spec](../../security/crypto-spec.md) §2.1/§8, **[PRD-009 i18n Foundations (M0)](../prd-plan.md#m0--foundations)**, [PRD-006 CSV import (M2)](../prd-plan.md#m2--multi-device-shared-folder), [PRD-010 Accounts](#), [PRD-011 Categories](#), [PRD-012 Tags](#)
 > **Prototype reference:** [`prototype/movimientos.jsx`](../../../prototype/movimientos.jsx)
 
 ---
@@ -33,7 +33,7 @@ The Movements page is the treasurer's primary working surface — a **filterable
 
 **S4 — Bulk cleanup.** After importing a CSV (M2) the treasurer ticks "Solo sin categorizar", selects all, and would like to assign a category to all of them at once. **(Bulk *actions* are M4; the selection UI lives here from M1.)**
 
-**S5 — Approval workflow.** A co-treasurer creates tentative entries as `pending`. The head treasurer opens Movements, filters by status = Pending, and approves each one. Every approval produces an audit entry (C10 / R8).
+**S5 — Statement import.** A treasurer downloads a month of bank statement CSV from Unicaja and a PayPal CSV. They run the import (M2). Every row lands as a **confirmed** transaction (no approvals queue, no pending state) and shows up on Movements, Panel, and Saldo immediately.
 
 ## 4. Product Requirements
 
@@ -47,14 +47,14 @@ Numbered, testable. Each maps to a success metric in §6 and at least one test i
 - **PR4 — Filter bar.** The filter bar MUST support: type (All / Income / Expense), account, category, month-within-range, amount min/max, "uncategorized only", text search over description + subcategory. Filters apply in real time.
 - **PR5 — Totals strip.** A summary strip MUST show: total income, total expense, net (income − expense), count of matching rows, all updating live as filters change.
 - **PR6 — Selection.** A checkbox column MUST allow selecting one, many, or all visible rows. Selection count displays in the totals strip. **Bulk actions are out of scope for M1** (see §5); selection UI ships so M4 can wire them.
-- **PR7 — Row actions.** Each row exposes: edit, delete, approve (if status = pending). Edits and deletes produce new events per ADR-001 Option A (event-sourced, no in-place mutation).
-- **PR8 — New transaction.** A "Nuevo Movimiento" button opens a create-transaction form. Mandatory fields: date, account, amount, type inferred from amount sign (positive = income, negative = expense — consistent with cloud). Optional: description, category, subcategory, tags, status (default = pending). Submission produces a `tx.created` event.
-- **PR9 — Status workflow.** Transactions MUST support two statuses: `pending` and `approved`. A pending row is visually distinct (design tokens owned by Mouse). An `approve` action produces a `tx.approved` event. Only the `approve` transition is user-driven in M1; `pending` is the default on create (may be made configurable in a later PRD).
+- **PR7 — Row actions.** Each row exposes: edit, delete. Edits and deletes produce new events per ADR-001 Option A (event-sourced, no in-place mutation).
+- **PR8 — New transaction.** A "Nuevo Movimiento" button opens a create-transaction form. Mandatory fields: date, account, amount, type inferred from amount sign (positive = income, negative = expense — consistent with cloud). Optional: description, category, subcategory, tags. All manually-entered transactions are **confirmed on submission** — there is no draft or pending state. Submission produces a `tx.created` event.
+- **PR9 — Transactions are always confirmed.** The product has **no** pending / draft / provisional / future-dated transaction state. All transactions — whether imported from a bank or PayPal statement (M2, PRD-006) or entered manually — are treated as settled and confirmed from the moment they are created. Totals, filters, and downstream views (Saldo, Panel) never need a "pending vs confirmed" distinction.
 - **PR10 — Clear filters.** When any filter is active, a "Limpiar filtros" action MUST be available that resets filters (but preserves the loaded date range).
 
 ### Data integrity
 
-- **PR11 — Every mutation is an event.** Create/edit/delete/approve all produce encrypted event files per crypto-spec §2.1 with AAD binding (C2). ULID filenames (C11). No in-place file rewrites.
+- **PR11 — Every mutation is an event.** Create/edit/delete all produce encrypted event files per crypto-spec §2.1 with AAD binding (C2). ULID filenames (C11). No in-place file rewrites.
 - **PR12 — Every mutation writes an audit entry.** Per R8 / C10: actor device_id, timestamp, action, target id, before/after hashes, chain hash, Ed25519 signature. Even though the **viewer** ships in M2, the **data** is written from M1.
 - **PR13 — Read-model rebuildable.** The transaction list is rendered from the derived SQLite read model (ADR-001 Option A). Deleting the local cache and restarting the app MUST reproduce the same list by replaying events.
 
@@ -71,7 +71,8 @@ Numbered, testable. Each maps to a success metric in §6 and at least one test i
 
 ### Localisation
 
-- **PR19 — i18n-ready.** All user-visible strings MUST come from the i18n resource layer from day one. M1 ships ES only; EN resource file exists but may be empty (blank EN fails CI in M3, not M1).
+- **PR19 — i18n-ready (day-0).** All user-visible strings MUST be sourced from the i18n framework shipped in M0 (PRD-009 i18n Foundations). **Both ES and EN string tables are populated in M1** for every label, empty-state, filter control, validation message, and totals-strip term that this PRD introduces. No hardcoded user-visible strings. CI "missing key" lint MUST pass.
+- **PR19.1 — Locale-aware formatting.** Dates, amounts, and numbers MUST be rendered through locale-aware formatters (e.g., `Intl.DateTimeFormat`, `Intl.NumberFormat`). Currency symbol and decimal conventions respect the active locale. The filter bar's amount-min/max inputs accept locale-native numeric input.
 
 ### Security-adjacent
 
@@ -84,9 +85,10 @@ Numbered, testable. Each maps to a success metric in §6 and at least one test i
 
 - Empty-on-open + date-range gate.
 - Full filter bar, totals strip, selection UI (no bulk *actions*).
-- Create, edit, delete, approve transactions.
+- Create, edit, delete transactions. All created transactions are immediately **confirmed** (no pending/draft state).
 - In-page text search over the current result set.
 - Prototype screen parity: the columns, filter chips, account pills, totals strip, and "Nuevo Movimiento" CTA shown in `movimientos.jsx` are the M1 baseline.
+- ES + EN strings populated day-0 via the M0 i18n framework.
 
 ### Out (later milestones)
 
@@ -95,7 +97,7 @@ Numbered, testable. Each maps to a success metric in §6 and at least one test i
 | CSV **import** | M2 (PRD-006) | Multi-device + import safety (R17) packaged together. |
 | CSV **export** | M3 (PRD-008) | Part of v1 feature-parity batch. |
 | PDF / Excel export | M4 | Separate PRDs. |
-| Bulk *actions* (categorize, tag, approve N rows) | M4 (PRD-019) | Selection UI ships M1 so the M4 work is wiring only. |
+| Bulk *actions* (categorize, tag N rows) | M4 (PRD-019) | Selection UI ships M1 so the M4 work is wiring only. |
 | Recurring / template transactions | M4 (PRD-020) | Needs its own event model. |
 | Attachments (receipts) | M4 (PRD-022) | Encrypted file storage design. |
 | Cross-page **global** search | M3 (PRD-013) | This PRD only covers in-list search over the current range. |
@@ -124,7 +126,7 @@ Every dependency resolves to a doc path.
 - **ADR-001 conditions satisfied by the paired spec** — **C1** (AEAD envelope on every tx event), **C2** (AAD binding `record_type=event`, `record_id=ULID`, `dataset_id`, `dek_version`), **C3** (192-bit random nonces), **C6** (renderer isolation: all reads go via IPC), **C7** (Electron hardening: renders in the sandboxed renderer), **C10** (audit entry on every mutation), **C11** (ULID filenames for events), **C13** (schema-validated IPC for tx channels).
 - **Security requirements** — [`security-requirements-v0.1.md`](../../security/security-requirements-v0.1.md) v0.2: **R1** (data classification), **R3** (AEAD), **R5** (integrity), **R8** (append-only audit log), **R11** (Electron hardening), **R12** (IPC schema validation), **R15** (logging redaction).
 - **Crypto-spec** — [`crypto-spec.md`](../../security/crypto-spec.md) **§2.1** (per-file envelope), **§8** (audit log format — data, not viewer).
-- **Other PRDs** — PRD-010 Accounts (the account filter needs accounts), PRD-011 Categories (category filter), PRD-012 Tags (tag assignment on create/edit; list display is v1.x).
+- **Other PRDs** — **PRD-009 i18n Foundations (M0)** — the framework this PRD's PR19/PR19.1 depend on; **PRD-006 CSV import (M2)** — bank/PayPal statement ingestion (scenario S5); PRD-010 Accounts (the account filter needs accounts), PRD-011 Categories (category filter), PRD-012 Tags (tag assignment on create/edit; list display is v1.x).
 - **Prototype** — [`prototype/movimientos.jsx`](../../../prototype/movimientos.jsx) is the **UX baseline**. Niobe resolves any prototype↔PRD conflict in the paired UX spec; deviations require a UX-spec rationale.
 
 ## 8. UX Handoff Notes (for Niobe)
@@ -138,9 +140,10 @@ Niobe owns the detailed UX spec at `docs/ux/001-movements.md`. Points that need 
   3. "Range + filters active, result is empty" — affordance to clear filters (PR10).
 - **Date-range selector affordance.** Prototype has a simple month select; M1 needs the full preset set (PR2). Niobe chooses visual pattern (segmented control? popover?) — but the behavioural contract is fixed by PR2.
 - **Selection UX without bulk actions.** Users will select rows and wonder what they can do. Niobe: decide whether to (a) show a disabled-with-tooltip bulk-action bar or (b) suppress it entirely in M1. I lean (a) with copy "Las acciones en lote llegan en v1.x" — but it's her call.
-- **Status pill vs colour.** Status = pending must be unambiguous without relying on colour alone (PR9 + PR18). Niobe specs the dual channel (pill + icon + text).
+- **No pending-state affordance to spec.** Per PR9, transactions are always confirmed — there is no status pill, no approval action, no "pending" filter chip. If the prototype contains any such affordance, Niobe removes it in the paired UX spec.
 - **Error states on create/edit.** Invalid amount, missing required field, account missing — Niobe specs the inline validation pattern; do not reinvent per field.
 - **Keyboard affordances** (PR17) — tab order, focus rings, Escape closes modals.
+- **Locale-switch affordance.** Strings-switch UI lives in the global app chrome (PRD-009 owns), not in Movements. But Niobe validates that every string she specs has both ES and EN copy before handoff.
 
 Niobe: DO NOT respec the filter-bar fields or the totals-strip fields — those are locked by the prototype and this PRD. DO spec the micro-interactions.
 
@@ -149,7 +152,7 @@ Niobe: DO NOT respec the filter-bar fields or the totals-strip fields — those 
 1. **Default date-range preset on first-ever open.** After PR1 (empty state), should the app *preselect* a preset in the UI (still requiring a click to load), or present the presets as equally-weighted buttons? *Recommendation: equally-weighted, no preselection — the empty rule is cleanest when nothing is auto-chosen.*
 2. **Remembering the last selected range across sessions.** Currently out of scope. If you want "reopen to the range I last looked at" it adds a user-settings file + a PR. *Recommendation: do not remember; it re-introduces the "stale ledger" smell the empty rule was designed to prevent.*
 3. **Amount sign convention for create-tx.** Prototype has positive=income, negative=expense inferred from sign (PR8). Do you want an explicit type toggle instead of sign-based inference? *Recommendation: keep sign-based (matches cloud + prototype).*
-4. **Pending → Approved reversibility.** Can an approver *un*-approve (move back to pending)? M1 currently says no (forward-only). Reversible approval requires a new event type. *Recommendation: forward-only in M1; revisit at pilot feedback.*
+4. ~~**Pending → Approved reversibility.**~~ **RESOLVED (2026-04-19):** there is no pending/approved distinction in this product — all transactions are confirmed. Any future approval-style workflow (e.g., co-treasurer dual-signoff) is a v1.x+ conversation and would require its own PRD.
 5. **Uncategorized visual treatment.** Prototype shows a "Sin categorizar" badge. Should uncategorized transactions also appear in a sticky section at the top of the list (regardless of sort)? *Recommendation: no — let the "Solo sin categorizar" filter do that work.*
 
 ## 10. Status History
@@ -157,6 +160,7 @@ Niobe: DO NOT respec the filter-bar fields or the totals-strip fields — those 
 | Date | Status | By | Notes |
 |---|---|---|---|
 | 2026-04-19 | Draft v0.1 | Link | Initial PRD for the Movements screen in M1. Team decision on empty-on-open encoded as PR1. |
+| 2026-04-19 | Draft v0.2 | Link | **Removed pending/approved status workflow entirely** per Pedro resolution — transactions are always confirmed (bank/PayPal statements + manual entry). PR9 re-scoped; S5 scenario replaced with statement-import; Q4 closed. **Strengthened i18n (PR19, PR19.1)** to reflect foundational i18n decision: EN+ES populated day-0, locale-aware formatters. Added PRD-009 + PRD-006 to Dependencies. |
 
 ---
 

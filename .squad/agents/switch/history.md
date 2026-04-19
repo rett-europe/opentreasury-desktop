@@ -94,3 +94,8 @@ Security considerations for Electron desktop treasury app:
 
 ## 2026-04-19 — Team update (via Scribe)
 Roadmap sequences crypto-heavy work into M2 (multi-device enrollment + DEK rotation). Niobe flagged crypto error states (decryption failure, audit chain break, bad escrow signature, update signature failure) as blocker UX gap G4 — user-facing messages need your input on what's safe to say. Enrollment language (UX-002 / flow-002 step 4 approval modal) must harden against impersonation.
+
+### 2026-04-19: v1 storage scope narrowed
+- **OneDrive for Business / SharePoint only in v1.** Personal OneDrive deferred to v1.x.
+- Narrows the v1 threat-model surface (no consumer-account ACL handling). Worth noting in the next `security-requirements` revision.
+

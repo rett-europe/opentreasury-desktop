@@ -30,3 +30,9 @@ Crypto spec v1.0 at `docs/security/crypto-spec.md`. Security Requirements bumped
 
 ## 2026-04-19 — Team update (via Scribe)
 Roadmap v1 + 3 PRDs drafted (Link). Tests layout is one of Neo's 5 open questions in ADR-002 (recommended: hybrid — co-located *.test.ts for unit + separate 	ests/integration/ and 	ests/e2e/). Niobe's flow skeletons at docs/ux/flows/ (first-run, device-enrollment, movements-date-range) will drive E2E test scenarios.
+
+### 2026-04-19: Test plan implications
+- No pending-state test cases needed (product has no pending concept).
+- **i18n testing (ES + EN) required from M1** — both locales populated as each feature ships; CI `missing key` lint from M1.
+- Hybrid tests layout confirmed (ADR-002): unit co-located as `*.test.ts`; `app/tests/integration/` and `app/tests/e2e/` as separate trees.
+

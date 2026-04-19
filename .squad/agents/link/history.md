@@ -61,3 +61,35 @@ ADR-001 Accepted. Security Requirements v0.2. Pedro's six open security question
 
 ## 2026-04-19 — Team update (via Scribe)
 Niobe confirmed the 3 canonical screens match your PRDs 001–003. 12 prototype gaps cataloged. 5 of Niobe's blocker gaps (G1 first-run, G2 enrollment, G4 crypto errors, G5 date-range gate, G6 empty-DB) cross-cut your PRDs — may need PRD updates after Niobe's detailed spec work. G1/G2/G6/G8 each deserve a PRD line item per Niobe's hand-off.
+
+### 2026-04-19 — Pedro resolved Q6/Q7/Q8/Q9/Q10: pilot, dogfooder, no-pending, i18n day-0, OneDrive Business-only
+
+Five product decisions that cascade through roadmap, PRD plan, and the three M1 PRDs. Minimal-touch edits; no scope expansion.
+
+- **Pilot NGO = Rett Spain.** Spanish locale; Pedro is primary contact; no external blocker — pilot can start as soon as M2 ships. Captured on Internal-Alpha/Pilot gate rows of `roadmap-v1.md` §1.
+- **Dogfooder = Pedro.** Added as Internal Alpha entry criterion ("Pedro runs the app on real NGO-like data for ≥1 week; zero data-loss incidents"). Roadmap §8 Q1+Q2 now resolved.
+- **No pending/draft/future-dated transaction concept.** Pedro was explicit: "all transactions are real and confirmed, coming from bank or paypal statements". This is a structural simplification:
+  - PRD-001 PR9 rewritten (was status workflow → now "always confirmed"); S5 scenario replaced (approval→statement-import); PR7/PR8 lose `approve` action; PR11 event list no longer has `tx.approved`; Q4 closed.
+  - PRD-002 PR13 rewritten (was "include pending" → now "no pending distinction"); Q1 closed.
+  - PRD-003 PR11 rewritten; Q2 closed.
+  - Roadmap M1 scope + M1 exit criterion + M3 scope "status workflow polish" + feature map all lose pending→approved phrasing.
+  - PRD-plan gained §0.1 Assumptions codifying this so future PRDs inherit it.
+- **i18n is day-0 (M0), not M3.** Structural change: framework selected + ES/EN string tables bootstrapped in M0; every feature ships localised from M1; EN+ES are v1.0 ship-blockers. PRD-009 re-scoped from M3 "i18n EN" → M0 "i18n Foundations" (infrastructure PRD owning framework + locale switcher + CI missing-key lint; per-feature coverage stays with each feature PRD). Each of PRD-001/002/003 got a PR19/PR18/PR17 strengthened to require populated ES+EN on ship + locale-aware Intl formatters. Dep graph updated so i18n flows OUT of M0 into M1/M2/M3. Roadmap Q4 resolved. CR6 (i18n drift) rewritten across M1–M3 continuous.
+- **OneDrive scope: Business/SharePoint only for v1; Personal deferred to v1.x.** Vision Q2 resolved. Roadmap M0 folder-picker scope now explicitly rejects Personal. Deferred table gained a row for Personal OneDrive with a clear re-entry trigger. PRD-plan Assumptions codify this.
+
+**Pedro's constraints honoured:**
+- Minimal-touch edits; no rewrites. Every changed section stays self-coherent.
+- Existing content preserved; resolved questions kept visible with "RESOLVED" so traceability is intact.
+- Scope not expanded beyond what the 5 answers dictate.
+- Trunk-based policy honoured — all edits on `docs/roadmap-v1-and-first-prds`.
+
+**Follow-ups for the team:**
+- **Niobe:** the three-screen UX specs she'll draft now have (a) no pending-state affordances to design around, (b) a folder-picker UX that must reject Personal OneDrive with clear copy, (c) every string needs both ES and EN copy at handoff. Prototype contains a "Sin aprobar"/pending pill on Movimientos she should remove in the UX spec.
+- **Switch:** folder-picker Business/SharePoint-only decision is a security-adjacent affordance (tenant ACL surface). Worth a note in security-requirements next revision that Personal OneDrive is out-of-scope for v1 threat model.
+- **Neo:** i18n framework selection is now an M0 deliverable. Likely candidates: `i18next` + `react-i18next`, or FormatJS/`react-intl`. Needs a lightweight ADR or a spec note before M0 kicks off.
+
+
+### 2026-04-19: Neo's ADR-002 Accepted
+- All 5 repo-structure decisions locked (npm, no monorepo tool, strict TS, flat `app/`, hybrid tests).
+- **i18n framework selection is a dependency for your M0 plan** — Neo owes a short ADR/spec note on framework choice before M0 scaffolding.
+

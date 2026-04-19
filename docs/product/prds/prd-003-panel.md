@@ -2,7 +2,7 @@
 
 > **Status:** Draft · **Owner:** Link (PM) · **Last updated:** 2026-04-19
 > **Target milestone:** [M1 — Single-user happy path](../roadmap-v1.md#m1--single-user-happy-path)
-> **Depends on:** [vision §5](../vision.md#5--scope--in-v1), [ADR-001](../../architecture/adr-001-tech-stack.md), [PRD-001 Movements](./prd-001-movements.md), [PRD-002 Saldo](./prd-002-saldo.md), [PRD-010 Accounts](#)
+> **Depends on:** [vision §5](../vision.md#5--scope--in-v1), [ADR-001](../../architecture/adr-001-tech-stack.md), [PRD-001 Movements](./prd-001-movements.md), [PRD-002 Saldo](./prd-002-saldo.md), **[PRD-009 i18n Foundations (M0)](../prd-plan.md#m0--foundations)**, [PRD-010 Accounts](#)
 > **Prototype reference:** [`prototype/panel.jsx`](../../../prototype/panel.jsx)
 
 ---
@@ -50,7 +50,7 @@ The Panel is the treasurer's **at-a-glance dashboard** — the default landing p
 
 - **PR9 — Read-only from the derived read model.** Panel produces zero events. It is a pure aggregation of the read model (ADR-001 Option A), same as Saldo.
 - **PR10 — Consistency.** Account-card balance MUST equal the sum of the account's event amounts through today (accounts PRD-010 defines the reducer). Monthly KPIs MUST equal the sum of the month's events. The recent-transactions list MUST match the first 8 rows of a Movements query with no filter and date range = all.
-- **PR11 — Pending inclusion.** Balances and monthly KPIs MUST include **pending and approved** transactions (same rule as Saldo PR13). Consistency with Movements is paramount. *See Open Question Q2.*
+- **PR11 — All transactions are confirmed.** Per PRD-001 PR9, the product has **no pending/draft/provisional transaction concept**. Panel balances, monthly KPIs, 12-month bars, and the recent-tx preview reflect **all confirmed transactions** — there is no pending/approved distinction, no toggle, no status badge. (Resolved 2026-04-19.)
 
 ### Performance / NFR
 
@@ -65,7 +65,8 @@ The Panel is the treasurer's **at-a-glance dashboard** — the default landing p
 
 ### Localisation
 
-- **PR17 — i18n-ready.** All strings via i18n layer. Month labels use locale-aware short names.
+- **PR17 — i18n-ready (day-0).** All user-visible strings MUST be sourced from the M0 i18n framework (PRD-009). **Both ES and EN string tables populated in M1** for every KPI caption, card label, empty state, chart legend, month label, and the recent-tx preview column headers. No hardcoded strings.
+- **PR17.1 — Locale-aware formatting.** Month labels on the 12-month bars chart, dates in the recent-tx preview, and all currency amounts MUST be rendered through locale-aware formatters (`Intl.DateTimeFormat` with `month: 'short'`, `Intl.NumberFormat`). Sparkline tooltips follow the active locale.
 
 ### Security-adjacent
 
@@ -111,7 +112,7 @@ The Panel is the treasurer's **at-a-glance dashboard** — the default landing p
 - **ADR-001 conditions touched** — **C6** (renderer isolation), **C7** (Electron hardening), **C13** (schema-validated IPC for Panel aggregation queries).
 - **Security requirements** — **R11**, **R12**, **R15**. No direct crypto or audit-log interaction (read-only, no mutations).
 - **Crypto-spec** — None direct; Panel consumes already-decrypted read model.
-- **Other PRDs** — PRD-001 (same event source), PRD-002 (same read model, overlapping aggregations — consistency tests shared), PRD-010 Accounts (account colours, metadata).
+- **Other PRDs** — **PRD-009 i18n Foundations (M0)** — PR17/PR17.1 depend on its framework; PRD-001 (same event source), PRD-002 (same read model, overlapping aggregations — consistency tests shared), PRD-010 Accounts (account colours, metadata).
 - **Prototype** — [`prototype/panel.jsx`](../../../prototype/panel.jsx) is the UX baseline: the account-card grid, the KPI strip, the 12-month bars chart, and the recent-tx preview table.
 
 ## 8. UX Handoff Notes (for Niobe)
@@ -130,7 +131,7 @@ Niobe: DO NOT respec the overall composition (cards + KPIs + chart + recent). DO
 ## 9. Open Questions (for Pedro)
 
 1. **Monthly KPI period definition.** "Current month" = calendar month (Apr 1 – Apr 30)? Or rolling-30-days? Prototype says calendar month. *Recommendation: keep calendar month.*
-2. **Pending inclusion in Panel totals** (echoes PRD-002 Q1). Include pending? *Recommendation: yes, consistent with PRD-002.*
+2. ~~**Pending inclusion in Panel totals**~~ **RESOLVED (2026-04-19):** there is **no pending concept** in this product — all transactions are confirmed. PR11 rewritten. No toggle, no distinction, no open design question.
 3. **Account-card click behaviour.** M1 says not clickable (read-only overview). Should clicking navigate to Movements filtered by account? *Recommendation: defer to v1.x to keep M1 contract clean.*
 4. **Inactive-account display.** If an account has zero transactions or was archived (archival is v1.x), should it still appear as a card? *Recommendation: v1.x when archival ships. M1 shows all accounts that exist.*
 5. **Recent-tx count — 8, 10, or configurable.** Prototype says 8. Board screens might want more. *Recommendation: fix at 8 in M1; make configurable only if pilot feedback demands.*
@@ -140,6 +141,7 @@ Niobe: DO NOT respec the overall composition (cards + KPIs + chart + recent). DO
 | Date | Status | By | Notes |
 |---|---|---|---|
 | 2026-04-19 | Draft v0.1 | Link | Initial PRD for Panel dashboard in M1. Read-only contract (PR7) is the load-bearing shape decision. |
+| 2026-04-19 | Draft v0.2 | Link | **Removed pending-transaction distinction** per Pedro resolution — totals reflect all confirmed transactions. PR11 rewritten; Q2 closed. **Strengthened i18n (PR17, PR17.1)** for day-0 ES+EN + locale-aware month/currency formatting. Added PRD-009 to Dependencies. |
 
 ---
 

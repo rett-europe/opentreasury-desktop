@@ -1,7 +1,8 @@
 # ADR-002 — Repository Structure for OpenTreasury Desktop
 
-- **Status:** **Proposed** — 2026-04-19
+- **Status:** **Accepted**
 - **Date:** 2026-04-19
+- **Decided:** 2026-04-19 (Pedro resolved all 5 open questions)
 - **Authors:** Neo (Lead / Architect)
 - **Reviewers required:** Pedro (decision owner), Switch (security — boundaries), Link (PM — docs layout), Niobe (UX) & Mouse (design) — confirm their folders
 - **Depends on:** [ADR-001](./adr-001-tech-stack.md) (Accepted with conditions C1–C15), [`docs/security/crypto-spec.md`](../security/crypto-spec.md) v1.0, [`docs/security/security-requirements-v0.1.md`](../security/security-requirements-v0.1.md) v0.2
@@ -97,9 +98,16 @@ opentreasury-desktop/
 
 ## 4. Package / Source Layout (inside `app/`)
 
-**Deferred creation.** The ADR describes the *intended* layout; actual folders are created in the first implementation PR, when package-manager and TypeScript-config choices are settled (see §9 Open Questions). Stubbing them now would freeze decisions we haven't made.
+**Decided layout — scaffolding deferred to first implementation PR.** The structure below is the accepted target. Actual folder creation happens in a dedicated follow-up PR (see §11 Implementation Next Steps); this ADR does not add source files.
 
-The proposed structure:
+**Locked decisions (from §9 resolutions):**
+- **Package manager:** `npm` (parity with cloud repo).
+- **Monorepo tool:** none — single `app/` package; `tsc -b` with project references provides the main/preload/renderer/core/crypto/storage split.
+- **TypeScript strictness:** `strict: true` + `noUncheckedIndexedAccess: true` + `exactOptionalPropertyTypes: true` — all three enabled from day one.
+- **Top-level folder name:** flat `app/` (not `apps/opentreasury-desktop/`).
+- **Tests layout:** hybrid — unit tests co-located as `*.test.ts` next to source; `tests/integration/` and `tests/e2e/` as separate top-level trees under `app/`.
+
+The accepted structure:
 
 ```text
 app/
@@ -158,8 +166,9 @@ app/
 │   │   ├── onedrive-folder.ts   # Node fs implementation (production)
 │   │   ├── memory.ts            # In-memory implementation (tests)
 │   │   └── paths.ts             # ULID filename helpers (C11), path-traversal guards (R18)
-│   │
-│   └── read-model/              # LOCAL SQLITE CACHE — separate from core
+├── src/**/*.test.ts             # UNIT TESTS — co-located next to source (Vitest, plain Node)
+│
+└── tests/
 │       ├── sqlite.ts            # better-sqlite3 wrapper
 │       ├── schema.sql           # Cache schema
 │       ├── cache-crypto.ts      # Per-cache-key XChaCha20-Poly1305 (C14)
@@ -325,7 +334,7 @@ Template lives at `docs/specs/_template.md`. The `README.md` in the same folder 
 | `docs/guides/` | `docs/guides/` (deferred) | Direct mirror. Will hold install guide (incl. AR9 SmartScreen screenshots) and contributor guide. |
 | `.github/workflows/` | `.github/workflows/` (deferred) | CI pipelines; ours target lint + test + build + signed-release, not cloud deploy. |
 | `.github/agents/` | `.github/agents/` (exists) | Direct mirror — we already use this. |
-| `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md` | Deferred — mirror on v1 approach | Community hygiene; not urgent for pre-implementation. |
+| `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md` | Deferred — m| Lockfile committed per R9. Package manager is npm (§9 Q1 resolved) for pre-implementation. |
 | `package-lock.json` at root | `app/package-lock.json` (or root, TBD per §9 Q1) | Lockfile committed per R9. |
 | `scripts/` | `scripts/` (direct mirror) | Release + dev tooling. |
 
@@ -352,7 +361,7 @@ Per team decision 2026-04-19 (trunk-based):
 
 - **Folders:** `kebab-case`.
 - **TypeScript source files:** `kebab-case.ts`; one top-level export per file where practical.
-- **React components:** `PascalCase.tsx`.
+- **React comunit tests are **co-located** as `*.test.ts` next to the source file they exercise. Integration tests live under `app/tests/integration/`, E2E tests under `app/tests/e2e/`
 - **Tests:** mirror source path under `tests/unit/` with `.test.ts` suffix; co-located `*.test.ts` next to source is also acceptable, team preference TBD.
 - **Specs / ADRs / PRDs:** `kebab-case.md`.
 - **Schemas:** `kebab-case.schema.json` when JSON Schema; `kebab-case.ts` when Zod.
@@ -380,17 +389,45 @@ Per team decision 2026-04-19 (trunk-based):
 8. **Local cache uses a separate key from the DEK.** The `src/read-model/cache-crypto.ts` module takes its key from `src/crypto/keychain.ts` via a distinct keychain service name; the DEK never reaches this module (C14).
 
 ---
+resolved for "Accepted")
 
-## 9. Open Questions (block "Accepted")
+Questions retained verbatim for traceability. All five were resolved by Pedro on 2026-04-19.
 
 1. **Package manager — `npm`, `pnpm`, or `yarn`?** Recommendation: **`npm`** for ecosystem compatibility with the cloud repo and zero setup for volunteer contributors. `pnpm` only if we adopt workspaces (we don't, yet). **Pedro decides.**
+   - ✅ **RESOLVED (2026-04-19, Pedro):** **npm.** Parity with the cloud `opentreasury` repo; zero extra setup for volunteer contributors.
 2. **Monorepo tool — Nx, Turborepo, or none?** Recommendation: **none.** Single `app/` package, plain `tsc -b` with project references for the main/preload/renderer split. Revisit only if a second consumer of `src/shared/` appears (e.g., a CLI or a companion tool). **Pedro decides.**
+   - ✅ **RESOLVED (2026-04-19, Pedro):** **None.** Single `app/` package with `tsc -b` project references carving out `core/`, `crypto/`, `storage/`, `main/`, `preload/`, `renderer/`. Revisit only if a second consumer of `src/shared/` appears.
 3. **TypeScript strictness level?** Recommendation: `strict: true` + `noUncheckedIndexedAccess: true` + `exactOptionalPropertyTypes: true`. Stricter now is cheaper than loosening retroactively. **Pedro confirms.**
+   - ✅ **RESOLVED (2026-04-19, Pedro):** **All three flags ON.** `strict: true` + `noUncheckedIndexedAccess: true` + `exactOptionalPropertyTypes: true` from day one. Non-negotiable; loosening retroactively costs more than enforcing now.
 4. **Root-level `app/` vs `apps/opentreasury-desktop/`?** Recommendation: `app/` (flat) for now — aligns with cloud's `frontend/` tone and avoids premature workspace structure. If we ever add a companion CLI, we promote to `apps/` at that point. **Pedro confirms.**
+   - ✅ **RESOLVED (2026-04-19, Pedro):** **Flat `app/`.** Promote to `apps/` only if/when a second deployable appears.
+5. **Tests — co-located `*.test.ts` or separate `tests/` tree?** Recommendation: **separate `tests/`** for `integration/` and `e2e/`, **co-located `*.test.ts`** for pure unit tests next to the code they test. Hybrid is pragmatic. **Team confirms.**
+   - ✅ **RESOLVED (2026-04-19, Pedro):** **Hybrid.** Unit tests co-located as `*.test.ts` next to source; `tests/integration/` and `tests/e2e/` as separate trees under `app/`.Pedro confirms.**
 5. **Tests — co-located `*.test.ts` or separate `tests/` tree?** Recommendation: **separate `tests/`** for `integration/` and `e2e/`, **co-located `*.test.ts`** for pure unit tests next to the code they test. Hybrid is pragmatic. **Team confirms.**
 
 ---
 
+
+---
+
+## 11. Implementation Next Steps (Unblocked)
+
+With this ADR Accepted, the following work is now unblocked. Each item is a **separate follow-up ticket / PR** — none is part of this ADR's commit:
+
+- **Scaffold `app/` source tree** — `app/package.json` (npm), `app/tsconfig.base.json` + per-subproject `tsconfig.*.json` with project references, ESLint config including `import/no-restricted-paths` rules enforcing §4.1 boundaries.
+- **Define internal packages via TS project references** — `core/`, `crypto/`, `storage/`, `main/`, `preload/`, `renderer/`, `shared/`, `read-model/`, each with its own `tsconfig.json` and explicit `references` wiring. No runtime package-manager workspaces; boundaries are compile-time only.
+- **Unit test runner — propose Vitest.** Fits co-located `*.test.ts` layout, runs under plain Node for the Electron-free modules (`core/`, `crypto/`, `storage/`, `shared/`, `read-model/`), and has a Vite-native story for renderer tests. Final choice deferred to the scaffolding PR if a blocker surfaces.
+- **E2E runner — Playwright** against the built Electron binary (standard tooling for Electron E2E; `@playwright/test` with `electron` launcher).
+- **CI import-boundary checks** — ESLint runs in CI as the primary gate; a grep-based CI step backs it up (no `import ... from 'electron'` under `src/crypto/**` or `src/core/**`; no imports from `src/main/**` under `src/renderer/**`; no `node:fs` outside `src/storage/onedrive-folder.ts`).
+
+**Explicitly out of scope for this ADR's commit:** no `app/` source files, no `package.json`, no `tsconfig.json`, no ESLint config. This ADR finalizes the decision; scaffolding lands in the first implementation PR.
+
+---
+
+## Changelog
+
+- **2026-04-19 — Accepted.** All 5 open questions (§9) resolved by Pedro: npm, no monorepo tool, TS strict + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`, flat `app/`, hybrid tests (co-located unit + separate `tests/integration/` and `tests/e2e/`). Options/recommendations retained in §9 for traceability — RESOLVED markers added inline. §4 layout language upgraded from tentative ("recommended", "TBD") to definitive. §11 Implementation Next Steps added.
+- **2026-04-19 — Proposed.** Initial draft with 5 open questions gating acceptance.
 ## 10. What's Deferred
 
 - **CI workflows** (`.github/workflows/*.yml`) — separate piece of work; scope: lint, test, build, Electron security check (C7 via `electronegativity`), `npm audit`, release with Ed25519 signed update payload (R13.1). Tracked as its own ADR when we start.

@@ -265,6 +265,58 @@ Conditions (C1–C15) added to ADR-001 §9 "Security Review — Switch", binding
 
 **Why:** UX baseline runs in parallel with Link's PRDs, Mouse's design tokens, and Morpheus/Trinity's ticket breakdown against ADR-001 C1–C15.
 
+### 2026-04-19: ADR-002 ACCEPTED — repo structure locked
+**By:** Neo (Lead/Architect), requested by Pedro
+**What:** `docs/architecture/adr-002-repo-structure.md` moved **Proposed → Accepted** (Decided 2026-04-19). Pedro resolved all 5 open questions:
+
+1. **Package manager:** **npm** (parity with cloud `rett-europe/opentreasury`; zero extra setup for volunteer contributors).
+2. **Monorepo tool:** **none.** Single `app/` package; `tsc -b` with project references carves out `core/`, `crypto/`, `storage/`, `main/`, `preload/`, `renderer/`, `shared/`, `read-model/`. Revisit only if a second consumer of `src/shared/` appears.
+3. **TypeScript strictness:** `strict: true` + `noUncheckedIndexedAccess: true` + `exactOptionalPropertyTypes: true` — **all three enabled from day one.** Non-negotiable.
+4. **Top-level folder name:** flat **`app/`** (not `apps/opentreasury-desktop/`). Promote to `apps/` only if a second deployable appears.
+5. **Tests layout:** **hybrid.** Unit tests co-located as `*.test.ts` next to source; `app/tests/integration/` and `app/tests/e2e/` as separate trees.
+
+**ADR changes:** Status/Decided header updated; §9 open questions annotated RESOLVED inline (kept verbatim for traceability); §4 + §7.3 layout language upgraded from tentative to definitive; §11 Implementation Next Steps added; Changelog added.
+
+**Unblocked downstream work (all separate follow-up tickets, NOT part of this ADR commit):**
+- Scaffold `app/` source tree — `package.json` (npm), `tsconfig.base.json` + project references, ESLint with `import/no-restricted-paths`.
+- Define internal packages (`core/`, `crypto/`, `storage/`, `main/`, `preload/`, `renderer/`, `shared/`, `read-model/`) via TS project references.
+- Unit test runner — **propose Vitest** (fits co-located layout; Vite-native for renderer). Final choice deferred to scaffolding PR.
+- E2E runner — **Playwright** (standard Electron E2E tooling).
+- CI import-boundary checks — ESLint primary, grep backup.
+- Link's roadmap v1 + PRDs 001–003 and Niobe's UX spec plan no longer gated on repo structure.
+- Morpheus / Trinity can now break down implementation tickets against the accepted layout + crypto-spec §11 checklist.
+
+**Why:** Structure must be locked before the first implementation PR so module boundaries, test locations, and package-manager choice are established rather than retrofitted.
+
+### 2026-04-19: Pilot, dogfooder, no-pending, i18n day-0, OneDrive scope (Pedro → Link)
+**By:** Pedro (perocha) — decisions captured by Link (PM)
+**Artifacts updated:** `docs/product/vision.md`, `docs/product/roadmap-v1.md`, `docs/product/prd-plan.md`, `docs/product/prds/prd-001-movements.md`, `prd-002-saldo.md`, `prd-003-panel.md`.
+
+1. **Pilot NGO = Rett Spain.** Pedro primary contact. Pilot runs in **Spanish locale**; English tested but not required for pilot. Roadmap §1 NGO Pilot gate updated.
+
+2. **Alpha dogfooder = Pedro.** Post-M1. Success = ≥1 week real NGO-like data, zero data-loss, sharp edges logged as bugs. Roadmap §1 Internal Alpha + §8 Q2 resolved.
+
+3. **No pending / draft / provisional / future-dated transaction concept.** Product models transactions as **confirmed/settled only**. Transactions come from bank or PayPal statement import (CSV, PRD-006) or manual entry — both paths produce immediately-confirmed records. No status field, no include/exclude-pending toggle, no filter chip, no `tx.approved` event. Applies everywhere: Movements, Saldo, Panel, totals, exports.
+   - Pedro's words: *"all transactions are real and confirmed, coming from bank or paypal statements.. not sure what pending means"*.
+   - PRD-001 PR9/S5 rewritten (statement-import replaces approval); Q4 closed. PRD-002 PR13 rewritten; Q1 closed. PRD-003 PR11 rewritten; Q2 closed. Roadmap M1 scope + exit criterion + M3 "status workflow polish" + feature-map row all rewritten. PRD-plan §0.1 Assumptions codifies for future PRDs.
+   - If co-treasurer dual-signoff is ever wanted, it's a v1.x+ conversation requiring its own PRD.
+
+4. **i18n is foundational (M0), not M3; Spanish + English from day 0.**
+   - Framework selected and integrated in **M0**. Every user-facing surface from M1 onward goes through the i18n layer — no hardcoded strings. ES (primary) + EN (pilot-ready) populated as each feature ships. EN + ES are **v1.0 ship-blockers**. CI "missing key" lint from M1.
+   - PRD-009 re-scoped M3 "i18n EN + locale switcher" → M0 **"i18n Foundations"** (framework choice, string-table layout, locale-switcher shell, CI lint rule).
+   - PRD-001 PR19/PR19.1, PRD-002 PR18/PR18.1, PRD-003 PR17/PR17.1 strengthened: both locales day-0 + locale-aware `Intl` formatters (dates, currency, numbers, month labels).
+   - Roadmap §2 M0 gains i18n framework + ES/EN string tables; M1 ships 3 screens localised; M2 device enrollment / onboarding / security wizard localised at ship; M3 closes coverage gaps. Dep graph reshaped: i18n flows **out** of M0. Risk CR6 rewritten as M1–M3 continuous. Vision §14 Q6 + Roadmap §8 Q4 resolved.
+   - **Neo action:** framework choice at M0 start — candidates `i18next`/`react-i18next` or FormatJS/`react-intl`. Short ADR or spec note required.
+
+5. **v1 storage scope = OneDrive for Business / SharePoint only; OneDrive Personal deferred to v1.x.**
+   - All folder-picker UX, validation rules, sync-metadata reads, and storage-integration work in v1 target OneDrive for Business and SharePoint. Personal (consumer accounts) is explicitly **out of v1**. M0 folder-picker validation rejects Personal paths with "unsupported in v1 — Business/SharePoint only".
+   - Rationale: NGOs on M365; Business/SharePoint provides tenant-grade ACLs; Rett Spain's actual environment. Personal has different auth, different ACL semantics, different sync behaviour.
+   - Roadmap §2 M0 scope-IN explicit; §5 deferred table gains OneDrive Personal row with re-entry trigger (pilot feedback or ≥2 community requests post-v1.0). PRD-plan §0.1 codifies. Vision §14 Q2 resolved.
+   - **Switch action:** Personal OneDrive out-of-scope for v1 threat model (different ACL surface) — note for next security-requirements revision.
+   - **Niobe action:** folder-picker UX needs "rejected: Personal OneDrive" state with copy pointing at v1.x.
+
+**Traceability preserved:** every resolved Open Question kept visible in its original doc with inline "RESOLVED (2026-04-19): …" markers.
+
 ## Governance
 
 - All meaningful changes require team consensus
