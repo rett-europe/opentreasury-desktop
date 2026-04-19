@@ -52,7 +52,7 @@ describe('Event-sourced read model', () => {
 
     applyEvent(event);
     const model = getReadModel();
-    
+
     expect(model.transactions).toHaveLength(1);
     expect(model.transactions[0].id).toBe(ulid('TX01'));
     expect(model.transactions[0].amount).toBe(1500.0);

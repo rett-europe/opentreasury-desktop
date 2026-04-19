@@ -124,10 +124,7 @@ describe('createTransaction — happy path', () => {
 
 describe('createTransaction — validation failures', () => {
   it('rejects unknown accountId', () => {
-    const result = createTransaction(
-      baseInput({ accountId: ulid('GHOST') }),
-      baseDeps(),
-    );
+    const result = createTransaction(baseInput({ accountId: ulid('GHOST') }), baseDeps());
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe('ACCOUNT_NOT_FOUND');
@@ -180,10 +177,7 @@ describe('createTransaction — validation failures', () => {
   });
 
   it('rejects empty currency', () => {
-    const result = createTransaction(
-      baseInput({ currency: '' as unknown as 'EUR' }),
-      baseDeps(),
-    );
+    const result = createTransaction(baseInput({ currency: '' as unknown as 'EUR' }), baseDeps());
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe('CURRENCY_EMPTY');

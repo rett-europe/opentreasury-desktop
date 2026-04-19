@@ -66,7 +66,7 @@ export function PanelScreen(): JSX.Element {
         if (cancelled) return;
 
         const sparklinePromises = accountsResp.accounts.map((acc) =>
-          panelApi.getAccountSparklines(acc.id).then((resp) => [acc.id, resp.sparkline] as const)
+          panelApi.getAccountSparklines(acc.id).then((resp) => [acc.id, resp.sparkline] as const),
         );
         const sparklineEntries = await Promise.all(sparklinePromises);
 
@@ -185,7 +185,7 @@ export function PanelScreen(): JSX.Element {
     const [year, month] = parts;
     const date = new Date(parseInt(year!), parseInt(month!) - 1, 1);
     return new Intl.DateTimeFormat(navigator.language, { month: 'long', year: 'numeric' }).format(
-      date
+      date,
     );
   };
 
@@ -217,7 +217,7 @@ export function PanelScreen(): JSX.Element {
       tabular: true,
       render: (row) =>
         new Intl.DateTimeFormat(navigator.language, { dateStyle: 'medium' }).format(
-          new Date(`${row.date}T00:00:00Z`)
+          new Date(`${row.date}T00:00:00Z`),
         ),
     },
     {

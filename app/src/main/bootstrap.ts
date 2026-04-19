@@ -32,9 +32,7 @@ export function getEventLog(): EventLog {
 
 export function getHydratedReadModel(): ReadModel {
   if (!bootstrapped) {
-    throw new Error(
-      '[bootstrap] getHydratedReadModel() called before initializeApp() resolved',
-    );
+    throw new Error('[bootstrap] getHydratedReadModel() called before initializeApp() resolved');
   }
   return getReadModel();
 }
@@ -76,9 +74,7 @@ export async function initializeApp(): Promise<void> {
     }
     events = await log.load();
     // eslint-disable-next-line no-console
-    console.log(
-      `[bootstrap] dev-seed wrote ${seedEvents.length} events to ${dir} (first run)`,
-    );
+    console.log(`[bootstrap] dev-seed wrote ${seedEvents.length} events to ${dir} (first run)`);
   }
 
   // Fold disk history into the in-memory read model. queries.ts reads from
@@ -89,7 +85,5 @@ export async function initializeApp(): Promise<void> {
   bootstrapped = true;
 
   // eslint-disable-next-line no-console
-  console.log(
-    `[bootstrap] hydrated ${events.length} events from ${dir}`,
-  );
+  console.log(`[bootstrap] hydrated ${events.length} events from ${dir}`);
 }

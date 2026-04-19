@@ -60,7 +60,6 @@
   border-top-right-radius: var(--radius-lg);
 }
 
-
 .ot-table thead th[aria-sort] {
   cursor: pointer;
   user-select: none;

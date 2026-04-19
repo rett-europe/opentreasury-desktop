@@ -43,9 +43,27 @@ describe('reducers — TransactionCreated projection (WI-11)', () => {
 
     // Build 3 transactions via the command, wired to the in-memory read model.
     const specs = [
-      { date: '2026-03-10', type: 'income' as const, amount: 500, desc: 'Cuota socio marzo', createdAt: '2026-03-10T09:00:00.000Z' },
-      { date: '2026-04-05', type: 'expense' as const, amount: 120, desc: 'Suministros abril', createdAt: '2026-04-05T12:00:00.000Z' },
-      { date: '2026-04-20', type: 'income' as const, amount: 2000, desc: 'Donación abril', createdAt: '2026-04-20T15:30:00.000Z' },
+      {
+        date: '2026-03-10',
+        type: 'income' as const,
+        amount: 500,
+        desc: 'Cuota socio marzo',
+        createdAt: '2026-03-10T09:00:00.000Z',
+      },
+      {
+        date: '2026-04-05',
+        type: 'expense' as const,
+        amount: 120,
+        desc: 'Suministros abril',
+        createdAt: '2026-04-05T12:00:00.000Z',
+      },
+      {
+        date: '2026-04-20',
+        type: 'income' as const,
+        amount: 2000,
+        desc: 'Donación abril',
+        createdAt: '2026-04-20T15:30:00.000Z',
+      },
     ];
 
     const evtIds = ['E1', 'T1', 'E2', 'T2', 'E3', 'T3'];

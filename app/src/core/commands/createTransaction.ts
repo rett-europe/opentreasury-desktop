@@ -9,10 +9,7 @@
 //   - Mirrors cloud `transactions.amount` (Decimal, positive) + `transaction_type`.
 //     Do NOT introduce a signed amount here.
 
-import type {
-  TransactionCreatedEvent,
-  TransactionCreatedPayload,
-} from '../events/schemas';
+import type { TransactionCreatedEvent, TransactionCreatedPayload } from '../events/schemas';
 import type { ReadModel } from '../query/types';
 
 export type TransactionType = 'income' | 'expense';

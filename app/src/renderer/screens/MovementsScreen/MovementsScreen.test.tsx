@@ -28,9 +28,7 @@ describe('MovementsScreen', () => {
     renderWithI18n();
     // Wait for mock load to flip the disabled state off (200 ms round-trip).
     await waitFor(() => {
-      const btn = screen
-        .getAllByRole('button')
-        .find((b) => /nuevo|new/i.test(b.textContent ?? ''));
+      const btn = screen.getAllByRole('button').find((b) => /nuevo|new/i.test(b.textContent ?? ''));
       expect(btn).toBeDefined();
     });
   });
@@ -42,4 +40,3 @@ describe('MovementsScreen', () => {
     });
   });
 });
-

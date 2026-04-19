@@ -59,7 +59,7 @@ export interface MonthKPIs {
 
 export function getMonthKPIs(yearMonth: string): MonthKPIs {
   const model = getReadModel();
-  
+
   let income = 0;
   let expense = 0;
   let count = 0;
@@ -97,7 +97,7 @@ export interface MonthBucket {
 
 export function getAccountSparklines(accountId: string): AccountSparkline {
   const model = getReadModel();
-  
+
   // Get the last 12 months relative to now
   const now = new Date();
   const months: string[] = [];

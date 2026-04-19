@@ -10,7 +10,7 @@ describe('KPIStrip', () => {
     render(
       <I18nextProvider i18n={i18n}>
         <KPIStrip income={5000} expense={3000} net={2000} month="Abril 2026" />
-      </I18nextProvider>
+      </I18nextProvider>,
     );
     expect(screen.getByText(/5.*000/)).toBeDefined(); // Income
     expect(screen.getByText(/3.*000/)).toBeDefined(); // Expense
@@ -21,7 +21,7 @@ describe('KPIStrip', () => {
     render(
       <I18nextProvider i18n={i18n}>
         <KPIStrip income={5000} expense={3000} net={2000} month="Abril 2026" />
-      </I18nextProvider>
+      </I18nextProvider>,
     );
     const monthLabels = screen.getAllByText('Abril 2026');
     expect(monthLabels.length).toBe(3); // One per KPI
@@ -36,7 +36,7 @@ describe('KPIStrip', () => {
     render(
       <I18nextProvider i18n={i18n}>
         <KPIStrip income={income} expense={expense} net={net} month="March 2026" />
-      </I18nextProvider>
+      </I18nextProvider>,
     );
 
     expect(screen.getByText(/4.*000/)).toBeDefined();

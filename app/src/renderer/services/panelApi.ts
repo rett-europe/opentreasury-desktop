@@ -44,7 +44,7 @@ export async function getMonthKPIs(yearMonth: string): Promise<GetMonthKPIsRespo
  * @param accountId - Account ID
  */
 export async function getAccountSparklines(
-  accountId: string
+  accountId: string,
 ): Promise<GetAccountSparklinesResponse> {
   const raw = await window.opentreasury.panel.getAccountSparklines({ accountId });
   return getAccountSparklinesResponseSchema.parse(raw);
@@ -55,7 +55,7 @@ export async function getAccountSparklines(
  * @param limit - Number of transactions to fetch (default: 10)
  */
 export async function queryRecentTransactions(
-  limit: number = 10
+  limit: number = 10,
 ): Promise<QueryRecentTransactionsResponse> {
   const raw = await window.opentreasury.panel.queryRecentTransactions({ limit });
   return queryRecentTransactionsResponseSchema.parse(raw);

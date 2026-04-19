@@ -9,13 +9,8 @@ describe('AccountCard', () => {
   it('renders account name and transaction count', () => {
     render(
       <I18nextProvider i18n={i18n}>
-        <AccountCard
-          shortName="BBVA"
-          color="#0075BE"
-          transactionCount={12}
-          balance={1500.5}
-        />
-      </I18nextProvider>
+        <AccountCard shortName="BBVA" color="#0075BE" transactionCount={12} balance={1500.5} />
+      </I18nextProvider>,
     );
     expect(screen.getByText('BBVA')).toBeDefined();
     expect(screen.getByText(/12/)).toBeDefined();
@@ -24,13 +19,8 @@ describe('AccountCard', () => {
   it('renders positive balance in green', () => {
     const { container } = render(
       <I18nextProvider i18n={i18n}>
-        <AccountCard
-          shortName="BBVA"
-          color="#0075BE"
-          transactionCount={12}
-          balance={1500.5}
-        />
-      </I18nextProvider>
+        <AccountCard shortName="BBVA" color="#0075BE" transactionCount={12} balance={1500.5} />
+      </I18nextProvider>,
     );
     const balanceEl = container.querySelector('.ot-account-card__balance');
     expect(balanceEl?.className).not.toContain('--negative');
@@ -39,13 +29,8 @@ describe('AccountCard', () => {
   it('renders negative balance in red with negative class', () => {
     const { container } = render(
       <I18nextProvider i18n={i18n}>
-        <AccountCard
-          shortName="Credit"
-          color="#FF0000"
-          transactionCount={5}
-          balance={-250.75}
-        />
-      </I18nextProvider>
+        <AccountCard shortName="Credit" color="#FF0000" transactionCount={5} balance={-250.75} />
+      </I18nextProvider>,
     );
     const balanceEl = container.querySelector('.ot-account-card__balance');
     expect(balanceEl?.className).toContain('--negative');
@@ -61,7 +46,7 @@ describe('AccountCard', () => {
           balance={1500.5}
           hasSparkline
         />
-      </I18nextProvider>
+      </I18nextProvider>,
     );
     expect(container.querySelector('.ot-account-card__sparkline-placeholder')).toBeDefined();
   });
@@ -76,7 +61,7 @@ describe('AccountCard', () => {
           balance={100}
           hasSparkline={false}
         />
-      </I18nextProvider>
+      </I18nextProvider>,
     );
     expect(container.querySelector('.ot-account-card__sparkline-placeholder')).toBeNull();
   });

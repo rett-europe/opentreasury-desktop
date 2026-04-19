@@ -60,7 +60,10 @@ export function SaldoScreen(): JSX.Element {
         <div className="ot-kpi">
           <div
             className="ot-kpi__icon"
-            style={{ background: 'var(--color-brand-surface)', color: 'var(--color-brand-primary)' }}
+            style={{
+              background: 'var(--color-brand-surface)',
+              color: 'var(--color-brand-primary)',
+            }}
           >
             <Calculator size={20} />
           </div>

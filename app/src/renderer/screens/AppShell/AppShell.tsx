@@ -187,4 +187,3 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps):
     </div>
   );
 }
-

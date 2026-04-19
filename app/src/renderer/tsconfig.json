@@ -16,7 +16,5 @@
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.json"],
   "exclude": ["**/*.test.ts", "**/*.test.tsx"],
-  "references": [
-    { "path": "../shared" }
-  ]
+  "references": [{ "path": "../shared" }]
 }

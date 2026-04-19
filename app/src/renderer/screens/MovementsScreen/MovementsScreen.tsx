@@ -32,7 +32,14 @@ type ScreenState =
   | { kind: 'loaded'; rows: readonly Movement[] }
   | { kind: 'error'; message: string };
 
-type SortColumn = 'date' | 'account' | 'description' | 'category' | 'subcategory' | 'status' | 'amount';
+type SortColumn =
+  | 'date'
+  | 'account'
+  | 'description'
+  | 'category'
+  | 'subcategory'
+  | 'status'
+  | 'amount';
 
 type TypeFilter = 'all' | 'income' | 'expense';
 type MonthFilter = 'all' | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
@@ -169,10 +176,7 @@ export function MovementsScreen(): JSX.Element {
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [allRows]);
 
-  const monthFmt = useMemo(
-    () => new Intl.DateTimeFormat(locale, { month: 'long' }),
-    [locale],
-  );
+  const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'long' }), [locale]);
   const monthNames = useMemo(() => {
     const out: string[] = [];
     for (let i = 0; i < 12; i += 1) {
@@ -248,10 +252,7 @@ export function MovementsScreen(): JSX.Element {
 
   // ── Selection helpers ──────────────────────────────────────────────────
   // Derived set of IDs currently visible through the filter pipeline.
-  const visibleIds = useMemo(
-    () => new Set(filteredRows.map((m) => m.id)),
-    [filteredRows],
-  );
+  const visibleIds = useMemo(() => new Set(filteredRows.map((m) => m.id)), [filteredRows]);
 
   // Count of visible rows that are currently in `selected`. Used for the
   // header checkbox tri-state (none / indeterminate / all).
@@ -322,10 +323,7 @@ export function MovementsScreen(): JSX.Element {
     [TAG_COLORS],
   );
 
-  const statusLabel = useCallback(
-    (s: MovementStatus) => t(`movements.status.${s}`),
-    [t],
-  );
+  const statusLabel = useCallback((s: MovementStatus) => t(`movements.status.${s}`), [t]);
   const statusClass = (s: MovementStatus): string => {
     if (s === 'pending') return 'ot-badge ot-badge--pending';
     if (s === 'rejected') return 'ot-badge ot-badge--rejected';
@@ -419,11 +417,7 @@ export function MovementsScreen(): JSX.Element {
         header: t('movements.columns.subcategory'),
         sortable: true,
         render: (m) =>
-          m.subcategory != null ? (
-            m.subcategory
-          ) : (
-            <span className="ot-text-muted">—</span>
-          ),
+          m.subcategory != null ? m.subcategory : <span className="ot-text-muted">—</span>,
       },
       {
         id: 'tags',
@@ -465,7 +459,17 @@ export function MovementsScreen(): JSX.Element {
         },
       },
     ],
-    [t, currencyFmt, dateFmt, selected, toggleRow, tagColor, statusLabel, allVisibleSelected, toggleAllVisible],
+    [
+      t,
+      currencyFmt,
+      dateFmt,
+      selected,
+      toggleRow,
+      tagColor,
+      statusLabel,
+      allVisibleSelected,
+      toggleAllVisible,
+    ],
   );
 
   return (
@@ -488,7 +492,11 @@ export function MovementsScreen(): JSX.Element {
       </header>
 
       <div className="ot-filter-bar" role="group" aria-label={t('movements.filters.aria-label')}>
-        <div className="ot-filter-bar__chips" role="tablist" aria-label={t('movements.filters.type.label')}>
+        <div
+          className="ot-filter-bar__chips"
+          role="tablist"
+          aria-label={t('movements.filters.type.label')}
+        >
           <button
             type="button"
             role="tab"
@@ -570,7 +578,9 @@ export function MovementsScreen(): JSX.Element {
           <select
             value={monthFilter === 'all' ? 'all' : String(monthFilter)}
             onChange={(e) =>
-              setMonthFilter(e.target.value === 'all' ? 'all' : (Number(e.target.value) as MonthFilter))
+              setMonthFilter(
+                e.target.value === 'all' ? 'all' : (Number(e.target.value) as MonthFilter),
+              )
             }
             aria-label={t('movements.filters.month.label')}
           >
@@ -617,11 +627,7 @@ export function MovementsScreen(): JSX.Element {
         </label>
 
         {hasActiveFilters ? (
-          <button
-            type="button"
-            className="ot-filter-bar__clear"
-            onClick={clearFilters}
-          >
+          <button type="button" className="ot-filter-bar__clear" onClick={clearFilters}>
             <X size={14} aria-hidden="true" />
             {t('movements.filters.clear')}
           </button>
