@@ -2,6 +2,36 @@
 
 ## Active Decisions
 
+### 2026-04-19: prototype/ is the visual and interaction contract for v1
+**By:** Neo (Lead/Architect) + Link (Product Manager), jointly — requested by Pedro
+**Branch:** `fix/prototype-fidelity-audit`
+**Artifact:** `docs/product/prototype-fidelity-audit.md`
+
+**Rule:**
+The `prototype/` folder is the v1 north star for OpenTreasury Desktop. Any implementation that diverges from it requires **either**:
+(a) explicit written sign-off from Link (product) AND Pedro, logged as a decision in `.squad/decisions.md`; **or**
+(b) a logged technical impossibility from Neo, with an alternative approved by Link + Pedro.
+
+The design system in `docs/design/` is a **translation layer**, not an authority. When the design system and the prototype conflict, the **prototype wins and the design system is updated to match**, not the other way around.
+
+**Enforcement:**
+- Every frontend PR must include before/after screenshots vs the prototype.
+- Every UX spec must include a "Prototype Reference" block citing the specific prototype file + section.
+- Every frontend agent spawn must name `prototype/` files as input artifacts.
+- Accessibility improvements to the prototype (e.g., focus rings, ARIA semantics) do not require deviation sign-off when they add a11y behavior without changing the visual/interaction contract.
+
+**Why:**
+An M1 implementation review revealed ~49 tracked deltas between `app/src/renderer/**` and `prototype/**` — 20 blockers, 20 important, 9 polish. Root cause: tokens were invented rather than extracted from the prototype; the design system became the de-facto authority; frontend spawns routed against `docs/design/` instead of `prototype/`. Pedro flagged the drift. This rule closes the loop so the gap can't reopen silently.
+
+**Implications:**
+- Mouse re-extracts tokens from the prototype (tokens-v0.2) before any more component work.
+- Trinity stops implementing against `docs/design/` as the sole source; prototype files join required inputs.
+- Niobe backfills a "Prototype Reference" block on every Wave-1 UX spec.
+- Link resolves the six prototype-vs-design-system conflicts (estado column, pending tone, Exportar button, category/subcategory split, ES/EN toggle location, theme toggle location) — each gets an explicit decision entry.
+- Neo updates the PR template with a mandatory prototype-parity checklist.
+
+**Not a scope reopener:** M1 PRD scope (what features ship when) is unchanged. What changes is **how** they look and behave — they must match the prototype within the 3 allowed deviation gates.
+
 ### 2026-04-19: Trinity — Frontend Wave 1 implementation choices
 **By:** Trinity (Frontend Dev), requested by Pedro
 **Branch:** `feat/trinity-wave-1-impl`
