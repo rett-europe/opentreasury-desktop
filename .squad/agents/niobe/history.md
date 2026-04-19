@@ -26,3 +26,8 @@ A prototype exists in `/prototype/` with React-based JSX components.
 
 ### 2026-04-19: Product Vision v0.1 exists (team context)
 Link drafted `docs/product/vision.md`. UX-relevant principles: **offline-capable by default**, prototype kept as reference (Q7 asks whether prototype is a UX contract or we're free to depart — Pedro to decide). No custom auth screens in v1 — OneDrive handles it. Spanish + English TBD (Q6). Scope/principles are now decided team context for all UX work. Transaction list starts empty is already locked in.
+
+## 2026-04-19 — Team Context Update (from Scribe)
+- ADR-001 (Proposed) at `docs/architecture/adr-001-tech-stack.md` — Neo recommends Option A (React+TS, append-only event-sourced JSON, `age` encryption).
+- Security Requirements v0.1 at `docs/security/security-requirements-v0.1.md` — Switch: 20 requirements, 15 stack constraints, 8 accepted risks, 6 open questions for Pedro.
+- Both are team context now.

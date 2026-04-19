@@ -20,3 +20,8 @@ The cloud version has an Angular 19 frontend with:
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+## 2026-04-19 — Team Context Update (from Scribe)
+- ADR-001 (Proposed) at `docs/architecture/adr-001-tech-stack.md` — Neo recommends Option A (React+TS, append-only event-sourced JSON, `age` encryption).
+- Security Requirements v0.1 at `docs/security/security-requirements-v0.1.md` — Switch: 20 requirements, 15 stack constraints, 8 accepted risks, 6 open questions for Pedro.
+- Both are team context now.

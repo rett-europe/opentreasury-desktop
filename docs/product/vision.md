@@ -98,7 +98,7 @@ These are the **tie-breakers** for every future decision. When in doubt, apply t
 3. **Spec before code.** Every non-trivial feature ships with a spec in `docs/specs/{feature}.md` — reviewed before implementation. Mirrors the cloud repo's spec-driven cadence.
 4. **Feature parity through adaptation, not translation.** We mirror *what* the cloud version does, but we reimagine *how* for a file-based, desktop, offline-first world. Don't port code — port the user outcome.
 5. **Offline-capable by default.** The app must be fully usable with zero connectivity. OneDrive syncs when it's ready; we don't block on it.
-6. **Secure by default, Switch has final say.** Financial data encrypted at rest in the data file. Switch (Security Engineer) has non-negotiable final say on the crypto/storage/threat-model decisions (team decision 2026-04-19).
+6. **Secure by default, Switch has final say.** Financial data encrypted at rest in the data file. **Data contains PII (donor names, phone numbers, emails) → encryption at rest is non-negotiable.** Switch (Security Engineer) has non-negotiable final say on the crypto/storage/threat-model decisions (team decision 2026-04-19).
 7. **Boring technology wins.** We're shipping to volunteer treasurers, not distributed-systems engineers. Every dependency is a tax they pay. Prefer mature, well-understood tech.
 
 ---
@@ -263,14 +263,22 @@ None of these risks are blockers for *writing the vision*. All of them **must be
 
 Numbered for easy reply. These block the next step (PRDs + tech stack ADR).
 
-1. **Tech stack beyond Electron** — do you have a preference (React vs Angular vs Svelte vs Vue for renderer; TypeScript default yes?), or should Neo propose options with trade-offs? *Recommended: let Neo propose 2–3 options, you pick.*
-2. **Storage scope** — do we support *both* OneDrive Personal AND SharePoint/OneDrive Business in v1, or pick one (e.g., OneDrive Business since NGOs are on M365) and defer the other? This materially affects complexity.
-3. **Data file format** — is it acceptable for the "database" to be a **folder of JSON files** (one per transaction, append-only) rather than a single SQLite/JSON blob? This dramatically reduces merge conflicts on OneDrive. Neo will have a strong opinion — do you want to weigh in now or defer?
-4. **Encryption at rest** — are donor names/amounts considered sensitive enough to require encryption in the shared folder, knowing it breaks OneDrive search and adds a key-management problem? **Switch will have final say; your input on the business requirement is needed.**
+1. ~~**Tech stack beyond Electron**~~ — **RESOLVED (2026-04-19):** Neo will propose 2–3 options with trade-offs; Pedro picks. See [ADR-001](../architecture/adr-001-tech-stack.md) (in progress).
+2. ~~**Storage scope**~~ — do we support *both* OneDrive Personal AND SharePoint/OneDrive Business in v1, or pick one (e.g., OneDrive Business since NGOs are on M365) and defer the other? This materially affects complexity.
+3. ~~**Data file format**~~ — **DEFERRED (2026-04-19):** decision deferred until the encryption approach (Q4) is settled; format choice depends on what the crypto envelope allows. Neo will revisit after Switch's security requirements land.
+4. ~~**Encryption at rest**~~ — **RESOLVED (2026-04-19):** **YES, required.** Data contains PII (donor names, phone numbers, emails). Switch has final say on the HOW; see [security requirements v0.1](../security/security-requirements-v0.1.md) (in progress).
 5. **Target OS coverage for v1** — Windows only (where most NGO treasurers live), or Windows + macOS + Linux from day one? Installers, signing certs, and CI cost scale with this.
 6. **Language coverage** — prototype is Spanish. Is v1 **Spanish + English**, or Spanish-only with i18n scaffolding for later?
 7. **Prototype as v1 UI baseline** — should Mouse/Niobe treat the existing `prototype/` as the v1 UX contract (refine, don't reinvent), or is it a sketch we can depart from? *Recommended: treat as contract, deviations require UX spec.*
 8. **Repo structure approval** — does the proposed layout in section 12 work, or do you want adjustments before we scaffold it?
+
+### Decisions recorded (2026-04-19)
+
+- **Q1 — Tech stack:** Neo to propose 2–3 options with trade-offs; Pedro picks. Follow-on artifact: [`docs/architecture/adr-001-tech-stack.md`](../architecture/adr-001-tech-stack.md) (being drafted in parallel).
+- **Q3 — Encryption at rest:** required. Rationale: data contains PII (names, phone numbers, emails). Switch owns the HOW. Follow-on artifact: [`docs/security/security-requirements-v0.1.md`](../security/security-requirements-v0.1.md) (being drafted in parallel).
+- **Q2 — Data file format:** deferred until Q3's encryption approach is finalized; format choice depends on the crypto envelope.
+
+Still open: Q2 (storage scope — Personal vs Business), Q5 (OS coverage), Q6 (language coverage), Q7 (prototype as UX contract), Q8 (repo layout approval).
 
 ---
 
