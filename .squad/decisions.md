@@ -33,6 +33,80 @@ Revisit if upstream resolves the conflict.
 **Why:** Root cause was `"Resolve error: typescript with invalid interface loaded as resolver"` — the resolver package was missing. The `import './App.js'` pattern in `main.tsx` is intentional for ESM-compatible TS output and was left unchanged. Renderer/crypto/storage/core boundary rules remain enforced — Switch-relevant.
 
 **Result:** `npm run lint` — 0 errors, 0 warnings. Revisit `--legacy-peer-deps` when upgrading to ESLint 9 / `@typescript-eslint` v8.
+### 2026-04-19: Wave-1 UX specs Batch 2 authored — Wave 1 complete
+**By:** Niobe (Spec / UX Analyst), requested by Pedro
+**Branch:** `docs/ux-specs-m1-wave-1`
+**What:**
+
+**Three new UX screen specs at Draft v0.1:**
+- `docs/ux/specs/ux-003-movements-screen.md` — Movements (paired PRD-001). Empty-on-open as first-class state; date-range presets + custom; full state machine; statement-import banner hand-off; `Estado` column explicitly removed. 14 edge cases. Mermaid state diagram.
+- `docs/ux/specs/ux-004-saldo-screen.md` — Saldo (paired PRD-002). Auto-loads default period; two comparison panels + KPI strip + net-monthly chart; linear pro-rata projection spec for partial periods; collapsible screen-reader data-table for chart. No Mermaid (single trajectory).
+- `docs/ux/specs/ux-005-panel-screen.md` — Panel (paired PRD-003). Default landing; account cards + sparklines + current-month KPIs + 12-month chart + latest-8 recent-tx (read-only, no `Estado`). Empty-DB branch specified (3 sub-states). Prototype's "Nuevo Movimiento" header button hidden in M1 to preserve PR7 read-only contract.
+
+**Wave 1 is now COMPLETE** — all 6 Wave-1 UX specs at Draft v0.1:
+UX-001 · UX-002 · UX-003 · UX-004 · UX-005 · UX-006.
+
+**`docs/ux/ux-spec-plan.md` updated:**
+- UX-003 row: Skeleton → Draft v0.1 with link.
+- New rows: UX-004 (Saldo) and UX-005 (Panel) at Draft v0.1.
+- Legacy UX-007 / UX-008 rows marked **Superseded** (numbering reconciliation deferred to a follow-up plan-revision ticket, matching UX-006 precedent).
+
+**Cross-screen consistency (now locked across Wave 1):**
+- No pending/status column, badge, filter, toggle, or tooltip on ANY screen.
+- `Intl.*` formatters for currency (EUR, Rett Spain pilot), dates, numbers, month labels everywhere.
+- Global states (offline / syncing / locked / error-banner / device-revoked) live in UX-006 shell slot and stack above per-screen content.
+- Chart a11y pattern: Saldo and Panel both ship collapsible data-table equivalents under their bar charts.
+- First-run → Panel default (UX-001 step 8); Panel handles empty-DB cleanly.
+- Panel "Ver todos" → Movements hand-off recommended to pre-load `This month` (click = range-selection intent). Pedro ratify.
+
+**Top blocker-level open questions (batch 2 — addressed to named owners):**
+
+*Switch (security-sensitive copy):*
+- UX-003 Q9 — exact ES/EN copy for single-row decrypt-failed footnote (aligns with UX-009 catalog).
+- UX-004 Q10 — Saldo partial-decrypt-failed banner exact copy.
+- UX-005 Q8 — Panel decrypt-partial banner exact copy.
+
+*Link (PRD clarifications):*
+- UX-003 Q1 — confirm statement-import wizard lives entirely under UX-016/PRD-006; UX-003 surface is banner-only.
+- UX-003 Q2 — "Exportar" header button in M1: hide vs disabled-with-tooltip. (Recommendation: hide.)
+- UX-003 Q6 — remove within-range month dropdown (duplicates range pill). (Recommendation: remove.)
+- UX-004 Q2 — zero-in-current, non-zero-in-prior category (dropped): show as -100% (recommended) or hide.
+- UX-005 Q1 — sparkline partial-data threshold: hide until ≥3 months (recommended) vs partial.
+
+*Morpheus / Neo:*
+- UX-003 Q3 — large-range guard threshold (>5000 events) — parametrise from measured p95.
+
+*Pedro (ratifications):*
+- UX-003 Q7 / UX-005 Q4 — Panel → Movements hand-off pre-loads `This month` (recommended).
+- UX-005 Q2 — hide "Nuevo Movimiento" header button on Panel in M1 (preserves PR7). (Recommendation: hide.)
+- UX-004 Q4 — "previous period" for Mes selector = same-month-prior-year (recommended) vs preceding month.
+
+**Unblocked downstream work:**
+- **Mouse** — UNBLOCKED for ALL 6 Wave-1 screens. Visual tokens, breakpoints, skeleton patterns, chart visuals, range-picker pattern, negative-balance treatment, responsive layouts, admin-only affordance pattern. Wave-1 UX contract is stable.
+- **Morpheus / Trinity** — read-model query shapes now documented per screen (range queries on Movements, aggregation queries on Saldo, five parallel queries on Panel mount). Ticket breakdown can proceed against concrete IPC surfaces.
+- **Cypher** — Traceability matrices in each spec map requirements → PRDs/ADRs/R-series/C-series/crypto-spec §-numbers for acceptance-test authoring.
+- **Switch** — 3 user-facing crypto-error copy items batched for UX-009 ratification (one per screen — same pattern).
+
+**Why:** Closes the Wave-1 UX blocker set. Mouse can now produce visual specs for the entire treasurer-facing happy path (install → first-run → enroll → shell → Panel → Movements → Saldo). Morpheus/Trinity can scope M1 implementation tickets against concrete UX state sets, not assumptions.
+
+### 2026-04-19: UX specs Batch 1 (Wave 1) authored — Draft v0.1
+**By:** Niobe (Spec / UX Analyst), requested by Pedro
+**Branch:** `docs/ux-specs-m1-wave-1`
+**What:** Three Wave-1 UX specs authored as Draft v0.1:
+- `docs/ux/specs/ux-001-first-run-setup.md` — first-run / folder setup (admin-create + join-existing; R20 posture gate; Personal-OneDrive explicit rejection).
+- `docs/ux/specs/ux-002-device-enrollment.md` — requester + admin enrollment aligned to crypto-spec §5 (6-char code, out-of-band compare, pubkey-substitution defense).
+- `docs/ux/specs/ux-006-app-shell-and-navigation.md` — topbar/sidebar/content shell, 5 global states (`locked`/`normal`/`syncing`/`offline`/`error-banner`), **no `pending` state**, locale switcher in topbar (day-0 i18n).
+
+`docs/ux/ux-spec-plan.md` updated: UX-001/002/006 rows at Draft v0.1.
+
+**Open questions routed:**
+- **Switch (must ratify before Draft → In Review):** bad-escrow-signature copy (UX-001 Q7), 6-char code alphabet/grouping (UX-002 Q1), mismatch escalation policy (Q2), pending-entry expiry (Q3), requester self-cancel (Q4), UPN "not a trust anchor" tooltip (Q6).
+- **Pedro:** non-OneDrive override (Q1), language pre-selection (Q2), backup-admin soft prompt (Q5), Ctrl+N shortcut (UX-006 Q1), locale switcher placement (UX-006 Q5).
+- **Link:** NGO display-name source (Q3), M1 search affordance (UX-006 Q3).
+
+**Why:** Unblocks Wave-1. These three are the shell + onboarding skeleton on which the three screen specs (batch 2) and the error catalog (UX-009) depend.
+
+**Note:** Batch 2 (screens UX-003/007/008) is in flight — spawn prompt referenced "UX-003/004/005" but current plan numbers them UX-003/007/008. Coordinator + Niobe to reconcile numbering at batch-2 kickoff.
 
 ### 2026-04-19: Project scope — OpenTreasury Desktop
 **By:** Pedro (project owner)

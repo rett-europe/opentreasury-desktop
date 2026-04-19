@@ -37,3 +37,10 @@ Niobe's UX baseline and flows published under docs/ux/. Your visual design work 
 
 
 ### 2026-04-19: app/src/renderer/ is minimal React shell with ES/EN wired via react-i18next. Design tokens and components pending your work.
+### 2026-04-19 — From Scribe: UX-001/002/006 Draft v0.1 landed
+- Batch 2 (UX-003/004/005 screens) spawning now.
+- After batch 2 lands you can start design tokens and component primitives anchored to these specs.
+
+
+## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
+Wave 1 UX COMPLETE - all 6 specs Draft v0.1. UNBLOCKED for ALL Wave-1 screens: design tokens, breakpoints, skeletons, range-picker pattern, charts (collapsible data-table equivalent used by Saldo + Panel), negative-balance treatment, account-pill language, admin-only affordance patterns. Happy path install->first-run->enroll->shell->Panel->Movements->Saldo has a stable UX contract.

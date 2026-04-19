@@ -42,3 +42,6 @@ Roadmap v1 + 3 PRDs drafted (Link). Tests layout is one of Neo's 5 open question
 
 ### 2026-04-19: Scaffold GREEN (team note from Scribe)
 You can clone, `npm install --legacy-peer-deps`, and run: `npm run typecheck`, `npm run lint`, `npm test`. First real feature work can begin against feat/app-scaffold-and-i18n-adr once merged to main.
+
+## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
+Wave 1 UX COMPLETE. Acceptance criteria sections in each spec give you testable statements for E2E test derivation.

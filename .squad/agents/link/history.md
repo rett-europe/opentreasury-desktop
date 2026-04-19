@@ -95,3 +95,11 @@ Five product decisions that cascade through roadmap, PRD plan, and the three M1 
 
 
 ### 2026-04-19: react-i18next is the chosen i18n framework. Strings at app/src/renderer/locales/{lang}/common.json. PRD-009 i18n Foundations is now technically underpinned.
+### 2026-04-19 — From Scribe: Niobe batch 1 complete
+- UX-001 first-run (with Personal-OneDrive rejection state).
+- UX-002 enrollment (aligned to crypto-spec §5).
+- UX-006 shell (5 global states, locale switcher in topbar). All Draft v0.1.
+
+
+## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
+UX-003 Q1 (statement-import scope -> UX-016/PRD-006) and UX-005 Q2 (Panel read-only contract: hide 'Nuevo Movimiento' header button in M1) need your call.
