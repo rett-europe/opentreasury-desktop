@@ -2,15 +2,43 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron';
 import { resolve } from 'node:path';
+import { build as esbuild } from 'esbuild';
 
 // Vite config for Electron + React renderer (ADR-002 §4, §11).
-// `vite-plugin-electron` wires main + preload + renderer in a single dev loop.
-// Main/preload compile via esbuild (fast); renderer via Vite (HMR).
+// `vite-plugin-electron` wires main + renderer. The preload is built directly
+// with esbuild (below) because vite-plugin-electron's dev-mode double-build
+// concatenates outputs and produces broken preload files.
+async function buildPreload() {
+  await esbuild({
+    entryPoints: [resolve(__dirname, 'app/src/preload/index.ts')],
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    target: 'node20',
+    external: ['electron'],
+    outfile: resolve(__dirname, 'dist/preload/index.cjs'),
+    sourcemap: true,
+    logLevel: 'info',
+  });
+}
+
 export default defineConfig({
   root: resolve(__dirname, 'app/src/renderer'),
   base: './',
   plugins: [
     react(),
+    {
+      name: 'opentreasury-preload-esbuild',
+      async buildStart() {
+        await buildPreload();
+      },
+      async handleHotUpdate({ file, server }) {
+        if (file.includes('app/src/preload/') || file.includes('app\\src\\preload\\')) {
+          await buildPreload();
+          server.ws.send({ type: 'full-reload' });
+        }
+      },
+    },
     electron([
       {
         // Main process entry (relative to project root)
@@ -25,26 +53,7 @@ export default defineConfig({
           },
         },
       },
-      {
-        // Preload script (ADR-001 C6 — narrow, audited bridge)
-        entry: resolve(__dirname, 'app/src/preload/index.ts'),
-        onstart(options) {
-          // Reload renderer on preload rebuild
-          options.reload();
-        },
-        vite: {
-          build: {
-            outDir: resolve(__dirname, 'dist/preload'),
-            sourcemap: true,
-            rollupOptions: {
-              external: ['electron'],
-            },
-          },
-        },
-      },
     ]),
-    // Optional: enables nodeIntegration-like imports in renderer (we don't need it — ADR-001 C7)
-    // renderer(),
   ],
   build: {
     outDir: resolve(__dirname, 'dist/renderer'),

@@ -8,22 +8,30 @@ import { registerIpcHandlers } from './ipc/handlers.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ADR-001 C7 — strict CSP. No 'unsafe-inline', no 'unsafe-eval', no CDN.
-// Dev mode allows ws:// and http://localhost:5173 for Vite HMR.
 const isDev = !!process.env['VITE_DEV_SERVER_URL'];
-const CSP =
-  "default-src 'self'; " +
-  "script-src 'self'; " +
-  "style-src 'self' 'unsafe-inline'; " + // TODO(C7): remove 'unsafe-inline' once CSS-in-JS strategy picked
-  "img-src 'self' data:; " +
-  "font-src 'self'; " +
-  (isDev
-    ? "connect-src 'self' ws://localhost:5173 http://localhost:5173; "
-    : "connect-src 'self'; ") +
-  "object-src 'none'; " +
-  "base-uri 'self'; " +
-  "form-action 'none'; " +
-  "frame-ancestors 'none';";
+const CSP = isDev
+  ? // Dev: Vite injects an inline React-Refresh preamble and uses eval for HMR.
+    // We relax script-src only in dev; production keeps strict 'self'.
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+    "style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data:; " +
+    "font-src 'self' data:; " +
+    "connect-src 'self' ws://localhost:5173 http://localhost:5173; " +
+    "object-src 'none'; " +
+    "base-uri 'self'; " +
+    "form-action 'none'; " +
+    "frame-ancestors 'none';"
+  : "default-src 'self'; " +
+    "script-src 'self'; " +
+    "style-src 'self' 'unsafe-inline'; " + // TODO(C7): remove once CSS-in-JS strategy picked
+    "img-src 'self' data:; " +
+    "font-src 'self'; " +
+    "connect-src 'self'; " +
+    "object-src 'none'; " +
+    "base-uri 'self'; " +
+    "form-action 'none'; " +
+    "frame-ancestors 'none';";
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -37,7 +45,7 @@ function createMainWindow(): BrowserWindow {
       sandbox: true,
       webSecurity: true,
       // No @electron/remote. Forbidden by C7.
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, '../preload/index.cjs'),
     },
   });
 
@@ -46,12 +54,25 @@ function createMainWindow(): BrowserWindow {
   const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
   if (VITE_DEV_SERVER_URL) {
     void win.loadURL(VITE_DEV_SERVER_URL);
+    win.webContents.openDevTools({ mode: 'detach' });
   } else {
     // Production: load from file://
     void win.loadFile(join(__dirname, '../renderer/index.html'));
   }
 
+  // Surface load failures so we don't stare at a blank window.
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    console.error(`[main] did-fail-load: ${code} ${desc} (${url})`);
+  });
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[main] render-process-gone:', details);
+  });
+
   win.once('ready-to-show', () => win.show());
+  // Fallback: if ready-to-show never fires (e.g. module load blocked), still show after 2s.
+  setTimeout(() => {
+    if (!win.isDestroyed() && !win.isVisible()) win.show();
+  }, 2000);
 
   // ADR-001 C7 — block all new-window / navigation that is not file:// or dev server.
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
