@@ -21,6 +21,9 @@ html {
 }
 
 body {
+  /* Scroll isolation — only `.ot-shell__main` scrolls. The viewport itself
+   * stays locked so the topbar and sidebar never disappear. */
+  overflow: hidden;
   margin: 0;
   font-family: var(--font-family-sans);
   font-size: var(--type-body-size);

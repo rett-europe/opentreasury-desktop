@@ -257,3 +257,42 @@ Columns in order: select, type-arrow, date, account, observations, category, sub
 
 ### Build status
 typecheck OK, lint OK (0 warnings), 39/39 tests pass, vite build OK (1790 modules, 42.93 kB CSS / 249.22 kB JS).
+
+
+## 2026-04-19 — Movements/shell: uppercase thead + sticky thead + scroll isolation (fix/trinity-prototype-parity)
+
+One-commit pass with three tightly-coupled fixes.
+
+### Part A — UPPERCASE table headers (reversal)
+- Previous pass stripped `text-transform: uppercase` + `letter-spacing` from `.ot-table thead th` based on coordinator instruction. Pedro visually verified the prototype renders headers UPPERCASE ("FECHA", "CUENTA", "OBSERVACIONES"); the prototype CSS (`.tx-table th`, prototype/styles.css L430–441) confirms.
+- Restored: `font-size: var(--font-size-11)` (11px = `--font-xs`), `text-transform: uppercase`, `letter-spacing: 0.08em` (= `--ls-section`), semibold, muted color, opaque `--color-surface-primary` background.
+- Decision note: `.squad/decisions/inbox/trinity-movements-table-casing-reversal.md`.
+- Lesson: when a decision-note flags a prototype discrepancy, the prototype CSS wins until screenshot/CSS evidence proves otherwise.
+
+### Part B — Sticky thead
+- `.ot-table thead th` keeps `position: sticky; top: 0; z-index: var(--z-sticky)`. Background is opaque so rows don't bleed through under the sticky header.
+- Anchor: sticky searches for the nearest scrolling ancestor. After Part C, that is `.ot-shell__main` — exactly what we want. To ensure the table wrap does NOT create a nested scroll container, I flipped `.ot-table-wrap` from `overflow: auto; max-height: 100%` to `overflow: hidden` (still clips the rounded corners; `overflow: hidden` does NOT establish a scroll container for sticky).
+- Panel / Saldo stubs don't use the Table primitive with a scrolling parent — no regression.
+
+### Part C — AppShell scroll isolation
+Prototype behavior: `.shell { display: grid; grid-template-rows: 60px 1fr; grid-template-columns: 240px 1fr; height: 100vh; }` — only `.main` scrolls. Implemented:
+
+- `body { overflow: hidden; height: 100%; }` in globals.css (html + #root already had height 100%).
+- `.ot-shell`: `min-height: 100vh` → `height: 100vh; overflow: hidden;`.
+- `.ot-shell__topbar`: kept grid-area topbar + `position: sticky; top: 0; z-index: var(--z-topbar)` (belt-and-braces since the grid row locks it anyway), added `overflow: hidden; min-width: 0`.
+- `.ot-shell__sidebar`: flex column, `overflow: hidden; min-height: 0;`. `.ot-shell__nav` got `overflow-y: auto; min-height: 0;` so it scrolls if it ever overflows, while `.ot-shell__sidebar-spacer` (flex:1) keeps the user-strip pinned to the bottom. `.ot-shell__user-strip` got `flex-shrink: 0`.
+- `.ot-shell__main`: grid-area main, `overflow-y: auto; overflow-x: hidden; min-width: 0; min-height: 0`.
+
+Net result: with many rows, only `.ot-shell__main` scrolls; topbar + sidebar + user strip + sticky thead all stay on-screen.
+
+### Decision notes landed
+- `.squad/decisions/inbox/trinity-movements-table-casing-reversal.md` — reversal rationale.
+- `.squad/decisions/inbox/trinity-appshell-scroll-isolation.md` — fundamental layout contract for every future screen: only `.ot-shell__main` scrolls; nested scrolls are a red flag; sticky anchors to `.ot-shell__main`; modals must be `position: fixed; inset: 0` with z-index > `--z-topbar`.
+
+### Follow-ups queued by Pedro (not in this commit)
+- Bulk operations on selected rows — must-have feature (see `.squad/decisions/inbox/copilot-movements-bulk-ops-scope.md`).
+- Tag filter in the filter bar (see `.squad/decisions/inbox/copilot-movements-tag-filter-scope.md`).
+- Account colors currently all identical — data gap, Morpheus/Mouse.
+
+### Build status
+typecheck OK · lint OK (0 warnings) · 39/39 tests pass · vite build OK (43.08 kB CSS / 249.22 kB JS).

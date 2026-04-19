@@ -10,7 +10,11 @@
   grid-template-areas:
     'topbar topbar'
     'sidebar main';
-  min-height: 100vh;
+  /* Scroll isolation: the shell locks to the viewport so only `.ot-shell__main`
+   * scrolls. Topbar stays fixed at the top, sidebar + user-strip fixed at the
+   * left. See .squad/decisions/inbox/trinity-appshell-scroll-isolation.md. */
+  height: 100vh;
+  overflow: hidden;
   background: var(--color-surface-app);
   color: var(--color-text-primary);
 }
@@ -39,9 +43,12 @@
   padding: 0 var(--space-7) 0 var(--space-8);
   background: var(--color-surface-primary);
   border-bottom: 1px solid var(--color-border-default);
+  /* Fixed by the grid row; sticky kept as a belt-and-braces guard. */
   position: sticky;
   top: 0;
   z-index: var(--z-topbar);
+  overflow: hidden;
+  min-width: 0;
 }
 
 .ot-shell__brand {
@@ -187,7 +194,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  /* Sidebar fills the viewport height; nav scrolls if it ever overflows,
+   * user-strip stays pinned to the bottom via the flex spacer. */
   overflow: hidden;
+  min-height: 0;
   z-index: var(--z-sidebar);
 }
 
@@ -207,6 +217,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  /* If nav ever exceeds sidebar height, scroll it — user-strip stays pinned. */
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .ot-shell__nav-item {
@@ -254,7 +267,7 @@
   flex: 1;
 }
 
-/* User strip (sidebar bottom) */
+/* User strip (sidebar bottom) — pinned via the flex spacer above. */
 .ot-shell__user-strip {
   display: flex;
   align-items: center;
@@ -262,6 +275,7 @@
   padding: var(--space-5) var(--space-6);
   border-top: 1px solid var(--color-divider);
   margin-top: var(--space-4);
+  flex-shrink: 0;
 }
 .ot-shell__user-avatar {
   width: 32px;
@@ -315,7 +329,11 @@
 /* ── Main ──────────────────────────────────────────────── */
 .ot-shell__main {
   grid-area: main;
-  overflow: auto;
+  /* The ONLY scrolling region in the app shell. Sticky elements inside page
+   * content (e.g. `.ot-table thead th`) anchor to this container. */
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: var(--space-9) var(--space-10);
   min-width: 0;
+  min-height: 0;
 }
