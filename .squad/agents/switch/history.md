@@ -126,3 +126,7 @@ Three decrypt-failed UX copy strings pending your ratification: UX-003 Q9 (per-r
 - **"Jargon" isn't always obvious.** "KPIs" is second-nature to anyone in tech or business ops, and I nearly approved it before re-reading as a volunteer treasurer. "Resúmenes" / "summaries" is the right register. Copy review needs a persona check, not just a security check.
 - **Alphabet math:** Crockford base32 already excludes I/L/O/U. "Crockford minus 0/1/I/L/O/U" = Crockford minus 0/1 = 30 chars, not 26. Small thing, but pinning the exact alphabet in a security doc means the number had better be right. Worth the second count.
 - **Diagnostic bundle is the pressure-release valve.** You can maintain strict UI opacity (P1/P2) only if there's a legitimate, user-initiated path for the failure details to escape — otherwise the first time something goes wrong in production, pressure builds to loosen UI copy. User-exported JSON bundle, public-keys-only, whitelisted fields per CE-XXX, one-click export from every CE surface. No auto-upload. Keeps the security model intact AND the debuggability intact.
+
+### 2026-04-19: Cross-agent update from Scribe
+Frontend uses native `<input type="date">` pair in DateRangePicker v0.1. No crypto touchpoints yet — data is pure mock. When real storage lands, the crypto error-copy catalog strings should be wired into error surfaces here.
+

@@ -106,3 +106,7 @@ UX-003 Q1 (statement-import scope -> UX-016/PRD-006) and UX-005 Q2 (Panel read-o
 
 - 2026-04-19 — Wave 1 UX unblocked (Draft -> In Review). Switch's ratification complete: docs/security/crypto-error-copy-catalog.md v1.0 closes all crypto-sensitive copy questions across UX-001/002/003/004/005.
 - 2026-04-19 — Design system v0.1 visual translation of Wave 1 UX is complete. 5 design docs under docs/design/. Trinity unblocked for implementation.
+
+### 2026-04-19: Cross-agent update from Scribe
+PRD-001 (Movements) has a walking skeleton: empty-state-until-date-range, preset chips, sortable table, totals row, mock data (~48 entries Oct 2025 → Apr 2026). Ready for Pedro to click through.
+

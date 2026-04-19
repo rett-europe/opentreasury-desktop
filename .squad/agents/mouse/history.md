@@ -75,3 +75,7 @@ Wave 1 UX COMPLETE - all 6 specs Draft v0.1. UNBLOCKED for ALL Wave-1 screens: d
 - **Chart library** — visx vs custom SVG vs Recharts; benchmark against PR12 perf target. → **Trinity**.
 - **Account colour palette** — v1 uses 10 curated colours (contrast-safe in both themes). Mouse to propose palette in tokens-v0.2 pass. → **Mouse follow-up**.
 - **Empty-state icon defaults** — ship zero (current plan) vs subtle 32 px Lucide per context. Recommend zero for v1. → **Niobe / Pedro**.
+
+### 2026-04-19: Cross-agent update from Scribe
+Trinity implemented tokens.md v0.1 + 8 primitives. Design system translated to CSS custom properties under `app/src/renderer/styles/tokens.css`. Check her decisions inbox entry (now merged into decisions.md 2026-04-19: Trinity — Frontend Wave 1 implementation choices) for any token deltas or gaps she flagged.
+

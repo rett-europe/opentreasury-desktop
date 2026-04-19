@@ -2,6 +2,68 @@
 
 ## Active Decisions
 
+### 2026-04-19: Trinity — Frontend Wave 1 implementation choices
+**By:** Trinity (Frontend Dev), requested by Pedro
+**Branch:** `feat/trinity-wave-1-impl`
+**Scope:** Runnable Movements screen with mock data + 8-primitive UI kit + app shell + theme + i18n.
+
+1. **CSS approach: plain CSS files with BEM-ish `.ot-*` classes, tokens as CSS custom properties.**
+   No CSS Modules, no CSS-in-JS, no Tailwind. Mouse's v0.1 tokens live in
+   `app/src/renderer/styles/tokens.css` as CSS variables on `:root` / `[data-theme=light]` /
+   `[data-theme=dark]`, with `[data-theme=system]` deferring to `@media (prefers-color-scheme: dark)`.
+   Every primitive imports its own `.css` sibling. Rationale: simplest working path, zero build
+   plugins, zero runtime cost, trivially debuggable in Electron devtools.
+
+2. **DateRangePicker v0.1 = native `<input type="date">` + preset chips (radiogroup).**
+   Presets are `radiogroup`/`radio` with arrow-key traversal; custom range uses native date inputs
+   with an inline Apply button that disables on `from > to`. No calendar popover, no date-fns, no
+   third-party date library. Rationale: native inputs inherit OS locale formatting, are accessible
+   by default, and satisfy UX-003 Wave 1. Calendar popover can land in Wave 2 if needed.
+
+3. **No router — `useState<Route>` in `App.tsx` drives page switching.**
+   Three routes (`panel` / `movements` / `saldo`) rendered inside `AppShell`. Rationale: the app
+   has a tiny, fixed nav surface; react-router adds bundle weight and complexity we don't need.
+   Upgrade path: swap `useState` for `useReducer` or add react-router when deep linking / history
+   becomes a real requirement.
+
+4. **Vitest split environment: `environment: 'node'` default, React tests opt-in via
+   `// @vitest-environment jsdom` top-of-file comment.**
+   Pure-logic tests (e.g. `core/events.test.ts`) stay fast under node; component tests get a
+   real DOM. Required infra: `setupFiles: ['app/src/renderer/test-setup.ts']` registering
+   `afterEach(cleanup)` — because `globals: false` disables @testing-library/react's implicit
+   auto-cleanup. Without this, co-located `it()` blocks leak DOM and break `getByRole`/`getByText`
+   queries with "multiple elements" errors.
+
+5. **Theme persistence = `localStorage['opentreasury.theme']` (v0.1 stand-in).**
+   Final design per ADR-003 §7.3 reads/writes through a main-process user-prefs file in
+   `%APPDATA%`. For Wave 1 (renderer-only preview, no Electron main wired) localStorage keeps
+   the toggle usable. The `useTheme` hook is the seam — swap the persistence layer without
+   touching components.
+
+6. **Icons: `lucide-react` (Mouse-ratified).** Tree-shakable, zero-dep, outline style matches the
+   tokens. Used in AppShell nav (LayoutDashboard / ArrowLeftRight / Scale), theme toggle
+   (Monitor / Sun / Moon), amount columns (ArrowUpRight / ArrowDownRight), DateRangePill clear
+   (X), Table sort (ChevronUp / ChevronDown).
+
+7. **Mock data shape = the real `Movement` type.** `app/src/renderer/types/movement.ts` defines
+   the contract; `app/src/renderer/mocks/movements.ts` seeds ~48 entries (Oct 2025 → Apr 2026).
+   When the real storage/crypto pipeline lands, the screen imports from a different module — type
+   stays identical. `getMockMovements(range)` uses a 200ms `setTimeout` to simulate I/O so the
+   loading spinner path is exercised. UUIDs for now; real impl will use ULID per crypto-spec §11.
+
+8. **i18n key namespaces: `common.*` / `shell.*` / `movements.*`.** ES is primary, EN fallback.
+   No user-visible string is hardcoded in a component — every label, button, empty-state copy,
+   and totals label flows through `useTranslation`. ICU plural keys (`count_one` / `count_other`)
+   used for the "N movements" count.
+
+**Non-decisions (deferred):**
+- Calendar popover UI for DateRangePicker — native inputs good enough for Wave 1.
+- Virtualization for Movements table — ~48 rows today, `react-virtual` can slot in later.
+- Electron main-process wiring — tracked in ADR-002 §11; `npm run dev` currently spawns the Vite renderer only.
+- Storage / crypto wiring into the renderer — scaffolds exist but not imported by the renderer; mock data fills the gap.
+
+**Gates green:** typecheck 0, lint 0/0, format clean, vitest 38/38.
+
 ### 2026-04-19: Switch — Crypto Error Copy Catalog v1.0 ratified; Wave 1 UX unblocked
 **By:** Switch (Security Engineer, final say), requested by Pedro
 **Branch:** `feat/crypto-error-copy-ratification`

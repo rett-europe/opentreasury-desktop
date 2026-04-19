@@ -5,5 +5,94 @@
   },
   "action": {
     "toggle-language": "Switch language"
+  },
+  "common": {
+    "cancel": "Cancel",
+    "apply": "Apply",
+    "close": "Close",
+    "loading": "Loading…",
+    "retry": "Retry",
+    "clear": "Clear"
+  },
+  "shell": {
+    "nav": {
+      "panel": "Dashboard",
+      "movements": "Transactions",
+      "balance": "Balance"
+    },
+    "theme": {
+      "label": "Theme",
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark",
+      "toggle": "Toggle theme"
+    },
+    "language": {
+      "label": "Language",
+      "spanish": "Español",
+      "english": "English"
+    },
+    "coming-soon": {
+      "title": "Coming soon",
+      "body": "This section will arrive in a future release."
+    },
+    "brand": "OpenTreasury"
+  },
+  "movements": {
+    "title": "Transactions",
+    "subtitle": "Pick a range to see your transactions.",
+    "empty": {
+      "pick-range": {
+        "title": "Pick a date range",
+        "body": "Pick a preset or a custom range to see your transactions."
+      },
+      "in-range": {
+        "title": "No transactions in this period",
+        "body": "Widen the range or record a transaction in this period."
+      },
+      "filters": {
+        "title": "No results for the current filters"
+      },
+      "db": {
+        "title": "You haven't recorded any transactions yet",
+        "body": "Record your first transaction or import from a statement."
+      }
+    },
+    "loading": "Loading transactions for {{range}}…",
+    "error": {
+      "query": "We couldn't load your transactions. Please try again."
+    },
+    "columns": {
+      "date": "Date",
+      "description": "Description",
+      "account": "Account",
+      "category": "Category",
+      "amount": "Amount"
+    },
+    "totals": {
+      "income": "Income",
+      "expense": "Expense",
+      "net": "Net",
+      "count_one": "{{count}} transaction",
+      "count_other": "{{count}} transactions"
+    },
+    "cta": {
+      "new": "New Transaction",
+      "clear-filters": "Clear filters",
+      "widen-range": "Widen range",
+      "first-tx": "Record first transaction"
+    },
+    "presets": {
+      "this-month": "This month",
+      "last-30-days": "Last 30 days",
+      "ytd": "Year to date"
+    },
+    "range": {
+      "from": "From",
+      "to": "To",
+      "apply": "Apply range",
+      "clear": "Clear range",
+      "invalid": "\"To\" must be later than \"From\"."
+    }
   }
 }

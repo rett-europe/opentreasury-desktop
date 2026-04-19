@@ -1,21 +1,30 @@
-import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
+import { AppShell } from './screens/AppShell/index.js';
+import type { Route } from './screens/AppShell/index.js';
+import { MovementsScreen } from './screens/MovementsScreen/index.js';
+import { ComingSoonScreen } from './screens/ComingSoonScreen/index.js';
 
-// Minimal shell — confirms i18n wiring per ADR-003.
-// Real screens (Panel, Movements, Saldo) arrive with their feature PRDs.
+/**
+ * App entry — wires AppShell (UX-006) around the current route. M1 routes in
+ * scope: Movimientos (UX-003). Panel and Saldo show ComingSoon placeholders
+ * until their screens ship.
+ *
+ * No router library at v0.1 — a single useState is sufficient for the 3-route
+ * shell and keeps the bundle small. Wire React Router or TanStack Router when
+ * deep-linking / history becomes a requirement.
+ */
 export function App(): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-
-  const toggle = (): void => {
-    void i18n.changeLanguage(i18n.language.startsWith('es') ? 'en' : 'es');
-  };
+  const [route, setRoute] = useState<Route>('movements');
 
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem', maxWidth: '40rem' }}>
-      <h1>{t('app.title')}</h1>
-      <p>{t('app.tagline')}</p>
-      <button onClick={toggle} type="button">
-        {t('action.toggle-language')} ({i18n.language})
-      </button>
-    </main>
+    <AppShell currentRoute={route} onNavigate={setRoute}>
+      {route === 'movements' ? (
+        <MovementsScreen />
+      ) : route === 'panel' ? (
+        <ComingSoonScreen />
+      ) : (
+        <ComingSoonScreen />
+      )}
+    </AppShell>
   );
 }

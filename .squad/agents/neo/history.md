@@ -135,3 +135,7 @@ typecheck/lint/test all pass. skipLibCheck:true deviation documented in ADR-002 
 
 - 2026-04-19 — Switch shipped docs/security/crypto-error-copy-catalog.md v1.0 (9 CE scenarios CE-001..CE-009). Informs IPC error surfaces, diagnostic-bundle contract (user-initiated export, public keys only, whitelisted fields per CE-XXX). Integrity-class errors (CE-001/006/007/009) are BLOCKING — no 'continue anyway' path.
 - 2026-04-19 — Design system v0.1 shipped by Mouse. Lucide icon library, dark mode mandatory at v0.1, OS system fonts (no runtime downloads). Brand anchor #6d4d8c preserved from prototype. Zero illustrations in v1. Trinity unblocked for Wave-1 component implementation.
+
+### 2026-04-19: Cross-agent update from Scribe
+Trinity wired Vite dev server successfully. `npm run dev` now serves the renderer at http://localhost:5173. Electron integration still TODO per ADR-002 §11. Vitest config gained `css: true` and `setupFiles` — noted for future test infra work.
+

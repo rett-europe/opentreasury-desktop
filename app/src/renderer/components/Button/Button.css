@@ -1,0 +1,131 @@
+.ot-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  white-space: nowrap;
+  transition:
+    background-color var(--motion-duration-fast) var(--motion-easing-standard),
+    border-color var(--motion-duration-fast) var(--motion-easing-standard),
+    color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Sizes ──────────────────────────────────────────────── */
+.ot-button--sm {
+  height: 28px;
+  padding: 0 var(--space-3);
+  font-size: var(--type-small-size);
+  min-width: 64px;
+}
+.ot-button--md {
+  height: 36px;
+  padding: 0 var(--space-4);
+  font-size: var(--type-body-size);
+  min-width: 88px;
+}
+.ot-button--lg {
+  height: 44px;
+  padding: 0 var(--space-5);
+  font-size: var(--type-body-size);
+  min-width: 120px;
+}
+
+/* ── Variants ───────────────────────────────────────────── */
+.ot-button--primary {
+  background: var(--color-accent-default);
+  color: var(--color-text-inverse);
+}
+.ot-button--primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+.ot-button--primary:active:not(:disabled) {
+  background: var(--color-accent-active);
+}
+
+.ot-button--secondary {
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+.ot-button--secondary:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-secondary);
+}
+
+.ot-button--ghost {
+  background: transparent;
+  color: var(--color-text-primary);
+}
+.ot-button--ghost:hover:not(:disabled) {
+  background: var(--color-accent-subtle);
+}
+
+.ot-button--destructive {
+  background: var(--color-danger-default);
+  color: var(--color-text-inverse);
+}
+.ot-button--destructive:hover:not(:disabled) {
+  background: var(--color-danger-hover);
+}
+.ot-button--destructive:active:not(:disabled) {
+  background: var(--color-danger-active);
+}
+
+/* ── Disabled ───────────────────────────────────────────── */
+.ot-button:disabled,
+.ot-button[aria-disabled='true'] {
+  cursor: not-allowed;
+  color: var(--color-text-disabled);
+}
+.ot-button--primary:disabled,
+.ot-button--primary[aria-disabled='true'] {
+  background: var(--color-accent-disabled);
+  color: var(--color-text-inverse);
+}
+.ot-button--secondary:disabled,
+.ot-button--secondary[aria-disabled='true'] {
+  background: var(--color-surface-sunken);
+  border-color: var(--color-border-default);
+}
+.ot-button--ghost:disabled,
+.ot-button--ghost[aria-disabled='true'] {
+  background: transparent;
+}
+.ot-button--destructive:disabled,
+.ot-button--destructive[aria-disabled='true'] {
+  background: var(--color-accent-disabled);
+  color: var(--color-text-inverse);
+}
+
+/* ── Loading ────────────────────────────────────────────── */
+.ot-button--loading .ot-button__label {
+  opacity: 0.8;
+}
+.ot-button__spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ot-button-spin 0.7s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ot-button__spinner {
+    animation-duration: 2s;
+  }
+}
+@keyframes ot-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
