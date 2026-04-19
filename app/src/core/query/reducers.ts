@@ -1,13 +1,18 @@
 import type { DomainEvent } from '../events/schemas';
-import type { ReadModel } from './types';
+import type { ConfigAccount, ConfigCategory, ConfigTag, ReadModel } from './types';
 
 // In-memory read model state
-let readModel: ReadModel = {
+const emptyReadModel = (): ReadModel => ({
   transactions: [],
   accounts: [],
   categories: [],
   tags: [],
-};
+  configAccounts: [],
+  configCategories: [],
+  configTags: [],
+});
+
+let readModel: ReadModel = emptyReadModel();
 
 // Reducer: fold events into read model
 export function applyEvent(event: DomainEvent): void {
@@ -89,17 +94,55 @@ export function applyEvent(event: DomainEvent): void {
         ],
       };
       break;
+
+    case 'AccountCreated': {
+      const next: ConfigAccount = {
+        id: event.id,
+        name: event.name,
+        currency: event.currency,
+        openingBalance: event.openingBalance,
+        createdAt: event.createdAt,
+        ...(event.bankName !== undefined ? { bankName: event.bankName } : {}),
+      };
+      readModel = {
+        ...readModel,
+        configAccounts: [...readModel.configAccounts, next],
+      };
+      break;
+    }
+
+    case 'CategoryCreated': {
+      const next: ConfigCategory = {
+        id: event.id,
+        name: event.name,
+        createdAt: event.createdAt,
+        ...(event.color !== undefined ? { color: event.color } : {}),
+      };
+      readModel = {
+        ...readModel,
+        configCategories: [...readModel.configCategories, next],
+      };
+      break;
+    }
+
+    case 'TagCreated': {
+      const next: ConfigTag = {
+        id: event.id,
+        name: event.name,
+        createdAt: event.createdAt,
+      };
+      readModel = {
+        ...readModel,
+        configTags: [...readModel.configTags, next],
+      };
+      break;
+    }
   }
 }
 
 // Replay multiple events (for testing and initialization)
 export function replayEvents(events: DomainEvent[]): void {
-  readModel = {
-    transactions: [],
-    accounts: [],
-    categories: [],
-    tags: [],
-  };
+  readModel = emptyReadModel();
   for (const event of events) {
     applyEvent(event);
   }
@@ -112,10 +155,5 @@ export function getReadModel(): ReadModel {
 
 // Reset (for testing)
 export function resetReadModel(): void {
-  readModel = {
-    transactions: [],
-    accounts: [],
-    categories: [],
-    tags: [],
-  };
+  readModel = emptyReadModel();
 }

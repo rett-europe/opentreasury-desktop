@@ -1,0 +1,172 @@
+/* Config modals (WI-15-lite) — shared shell for AddAccount/AddCategory/AddTag. */
+
+.ot-config-modal {
+  max-width: 480px;
+  width: 90%;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dialog, var(--shadow-card));
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+}
+
+.ot-config-modal::backdrop {
+  background: var(--color-surface-overlay);
+  backdrop-filter: blur(2px);
+}
+
+.ot-config-modal__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.ot-config-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-7) var(--space-7) var(--space-5);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.ot-config-modal__title {
+  margin: 0;
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.ot-config-modal__close {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-config-modal__close:hover {
+  background: var(--color-row-hover);
+  color: var(--color-text-primary);
+}
+
+.ot-config-modal__close:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ot-config-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: 0 var(--space-7);
+}
+
+.ot-config-modal__error {
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-brand-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-13);
+}
+
+.ot-config-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ot-config-modal__label {
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.ot-config-modal__label-hint {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+  margin-left: var(--space-2);
+}
+
+.ot-config-modal__input {
+  padding: 9px var(--space-5);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--font-size-14);
+  color: var(--color-text-primary);
+  background: var(--color-surface-primary);
+  transition:
+    border-color var(--motion-duration-fast) var(--motion-easing-standard),
+    box-shadow var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-config-modal__input:focus {
+  outline: none;
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px var(--color-brand-surface);
+}
+
+.ot-config-modal__input[aria-invalid='true'] {
+  border-color: var(--color-error-default, #b82828);
+}
+
+.ot-config-modal__field-error {
+  font-size: var(--font-size-12);
+  color: var(--color-error-default, #b82828);
+}
+
+.ot-config-modal__palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.ot-config-modal__swatch {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  background-clip: padding-box;
+  transition:
+    transform var(--motion-duration-fast) var(--motion-easing-standard),
+    border-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-config-modal__swatch:hover {
+  transform: scale(1.08);
+}
+
+.ot-config-modal__swatch[aria-checked='true'] {
+  border-color: var(--color-text-primary);
+}
+
+.ot-config-modal__swatch:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ot-config-modal__swatch--clear {
+  background: var(--color-surface-secondary);
+  color: var(--color-text-muted);
+  display: inline-grid;
+  place-items: center;
+  font-size: var(--font-size-12);
+}
+
+.ot-config-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-7) var(--space-7);
+  border-top: 1px solid var(--color-border-default);
+}

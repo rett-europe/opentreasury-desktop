@@ -26,7 +26,6 @@
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
     "@napi-rs/keyring": "^1.1.0",
-    "electron": "^41.0.0",
     "i18next": "^23.11.0",
     "i18next-browser-languagedetector": "^7.2.0",
     "lucide-react": "^1.8.0",
@@ -46,6 +45,7 @@
     "@typescript-eslint/eslint-plugin": "^7.13.0",
     "@typescript-eslint/parser": "^7.13.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^41.0.0",
     "electron-builder": "^26.0.0",
     "eslint": "^8.57.0",
     "eslint-import-resolver-typescript": "^3.6.0",

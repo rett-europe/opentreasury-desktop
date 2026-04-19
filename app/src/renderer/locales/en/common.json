@@ -12,13 +12,16 @@
     "close": "Close",
     "loading": "Loading…",
     "retry": "Retry",
-    "clear": "Clear"
+    "clear": "Clear",
+    "save": "Save",
+    "saving": "Saving…"
   },
   "shell": {
     "nav": {
       "panel": "Dashboard",
       "movements": "Transactions",
-      "balance": "Balance"
+      "balance": "Balance",
+      "configuracion": "Settings"
     },
     "theme": {
       "label": "Theme",
@@ -37,7 +40,8 @@
       "body": "This section will arrive in a future release."
     },
     "sections": {
-      "main": "Main"
+      "main": "Main",
+      "config": "Settings"
     },
     "user": {
       "name": "Pedro Rocha",
@@ -210,6 +214,70 @@
         "accountNotFound": "Please select an account.",
         "submitFailed": "Failed to save the transaction. Please try again."
       }
+    }
+  },
+  "configuracion": {
+    "title": "Settings",
+    "subtitle": "Manage your accounts, categories and tags.",
+    "optional": "(optional)",
+    "tabs": {
+      "label": "Settings sections",
+      "cuentas": "Accounts",
+      "categorias": "Categories",
+      "etiquetas": "Tags"
+    },
+    "cuentas": {
+      "heading": "Accounts",
+      "add": "Add account",
+      "name": "Account name",
+      "bank": "Bank",
+      "openingBalance": "Opening balance (€)",
+      "modal": {
+        "title": "New account"
+      },
+      "empty": {
+        "title": "No accounts yet",
+        "body": "Add your first bank or PayPal account to start recording transactions."
+      }
+    },
+    "categorias": {
+      "heading": "Categories",
+      "add": "Add category",
+      "name": "Category name",
+      "color": "Color",
+      "colorNone": "No color",
+      "none": "No category",
+      "modal": {
+        "title": "New category"
+      },
+      "empty": {
+        "title": "No categories yet",
+        "body": "Create categories to group your income and expenses."
+      }
+    },
+    "etiquetas": {
+      "heading": "Tags",
+      "add": "Add tag",
+      "name": "Tag name",
+      "modal": {
+        "title": "New tag"
+      },
+      "empty": {
+        "title": "No tags yet",
+        "body": "Tags let you mark cross-cutting themes like \"COVID-19\" or \"Grant A\"."
+      }
+    },
+    "error": {
+      "loadFailed": "Couldn't load the list. Please try again."
+    },
+    "errors": {
+      "nameEmpty": "Name is required.",
+      "nameTooLong": "Name is too long.",
+      "nameDuplicate": "Another item already uses this name.",
+      "openingBalanceInvalid": "Opening balance must be a valid number.",
+      "colorInvalid": "That color isn't valid.",
+      "schemaInvalid": "Some of the data is invalid.",
+      "submitFailed": "Couldn't save. Please try again."
     }
   }
 }

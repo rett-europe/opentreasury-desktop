@@ -10,12 +10,13 @@ import {
   Scale,
   Search,
   Settings,
+  SlidersHorizontal,
   Sun,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme.js';
 import './AppShell.css';
 
-export type Route = 'panel' | 'movements' | 'balance';
+export type Route = 'panel' | 'movements' | 'balance' | 'configuracion';
 
 export interface AppShellProps {
   readonly currentRoute: Route;
@@ -29,10 +30,30 @@ interface NavItem {
   readonly icon: ReactNode;
 }
 
-const NAV: readonly NavItem[] = [
-  { id: 'panel', labelKey: 'shell.nav.panel', icon: <LayoutDashboard size={18} /> },
-  { id: 'movements', labelKey: 'shell.nav.movements', icon: <ArrowLeftRight size={18} /> },
-  { id: 'balance', labelKey: 'shell.nav.balance', icon: <Scale size={18} /> },
+interface NavSection {
+  readonly labelKey: string;
+  readonly items: readonly NavItem[];
+}
+
+const NAV_SECTIONS: readonly NavSection[] = [
+  {
+    labelKey: 'shell.sections.main',
+    items: [
+      { id: 'panel', labelKey: 'shell.nav.panel', icon: <LayoutDashboard size={18} /> },
+      { id: 'movements', labelKey: 'shell.nav.movements', icon: <ArrowLeftRight size={18} /> },
+      { id: 'balance', labelKey: 'shell.nav.balance', icon: <Scale size={18} /> },
+    ],
+  },
+  {
+    labelKey: 'shell.sections.config',
+    items: [
+      {
+        id: 'configuracion',
+        labelKey: 'shell.nav.configuracion',
+        icon: <SlidersHorizontal size={18} />,
+      },
+    ],
+  },
 ];
 
 export function AppShell({ currentRoute, onNavigate, children }: AppShellProps): JSX.Element {
@@ -141,24 +162,28 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps):
 
       {/* ── Sidebar ───────────────────────────────────────── */}
       <nav className="ot-shell__sidebar" aria-label="Primary">
-        <div className="ot-shell__nav-section-label">{t('shell.sections.main')}</div>
-        <ul className="ot-shell__nav">
-          {NAV.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                className="ot-shell__nav-item"
-                aria-current={currentRoute === item.id ? 'page' : undefined}
-                onClick={() => onNavigate(item.id)}
-              >
-                <span className="ot-shell__nav-icon" aria-hidden="true">
-                  {item.icon}
-                </span>
-                <span className="ot-shell__nav-label">{t(item.labelKey)}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.labelKey}>
+            <div className="ot-shell__nav-section-label">{t(section.labelKey)}</div>
+            <ul className="ot-shell__nav">
+              {section.items.map((item) => (
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className="ot-shell__nav-item"
+                    aria-current={currentRoute === item.id ? 'page' : undefined}
+                    onClick={() => onNavigate(item.id)}
+                  >
+                    <span className="ot-shell__nav-icon" aria-hidden="true">
+                      {item.icon}
+                    </span>
+                    <span className="ot-shell__nav-label">{t(item.labelKey)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
 
         <div className="ot-shell__sidebar-spacer" />
 

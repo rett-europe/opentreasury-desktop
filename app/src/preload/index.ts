@@ -29,6 +29,27 @@ import {
   type MovementRecord,
   type MovementsListRequest,
 } from '../shared/ipc-contracts/movements.js';
+import {
+  IPC_ACCOUNTS_CREATE,
+  IPC_ACCOUNTS_LIST,
+  type CreateAccountRequest,
+  type CreateAccountResponse,
+  type AccountsListResponse,
+} from '../shared/ipc-contracts/accounts.js';
+import {
+  IPC_CATEGORIES_CREATE,
+  IPC_CATEGORIES_LIST,
+  type CreateCategoryRequest,
+  type CreateCategoryResponse,
+  type CategoriesListResponse,
+} from '../shared/ipc-contracts/categories.js';
+import {
+  IPC_TAGS_CREATE,
+  IPC_TAGS_LIST,
+  type CreateTagRequest,
+  type CreateTagResponse,
+  type TagsListResponse,
+} from '../shared/ipc-contracts/tags.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -65,6 +86,30 @@ const api = {
   movements: {
     list: (req?: MovementsListRequest): Promise<MovementRecord[]> => {
       return ipcRenderer.invoke(IPC_MOVEMENTS_LIST, req ?? {});
+    },
+  },
+  accounts: {
+    create: (req: CreateAccountRequest): Promise<CreateAccountResponse> => {
+      return ipcRenderer.invoke(IPC_ACCOUNTS_CREATE, req);
+    },
+    list: (): Promise<AccountsListResponse> => {
+      return ipcRenderer.invoke(IPC_ACCOUNTS_LIST);
+    },
+  },
+  categories: {
+    create: (req: CreateCategoryRequest): Promise<CreateCategoryResponse> => {
+      return ipcRenderer.invoke(IPC_CATEGORIES_CREATE, req);
+    },
+    list: (): Promise<CategoriesListResponse> => {
+      return ipcRenderer.invoke(IPC_CATEGORIES_LIST);
+    },
+  },
+  tags: {
+    create: (req: CreateTagRequest): Promise<CreateTagResponse> => {
+      return ipcRenderer.invoke(IPC_TAGS_CREATE, req);
+    },
+    list: (): Promise<TagsListResponse> => {
+      return ipcRenderer.invoke(IPC_TAGS_LIST);
     },
   },
 } as const;

@@ -117,9 +117,52 @@ export const tagCreatedEventSchema = eventEnvelopeSchema.extend({
 
 export type TagCreatedEvent = z.infer<typeof tagCreatedEventSchema>;
 
+// ---------------------------------------------------------------------------
+// WI-15-lite — Configuración events (flat wire-style events, PascalCase type).
+// These are stored on the same NDJSON log as the enveloped events above, but
+// use a flat structure because the Configuración contract intentionally keeps
+// the wire shape minimal (no datasetId/actorDeviceId/dekVersion — deferred to
+// M2 along with crypto). The JsonFileEventLog only requires a string `id`
+// and the reducer switches on `type`, so both shapes coexist cleanly.
+// ---------------------------------------------------------------------------
+
+export const configAccountCreatedEventSchema = z.object({
+  type: z.literal('AccountCreated'),
+  id: z.string().min(1),
+  name: z.string().min(1),
+  bankName: z.string().optional(),
+  currency: z.literal('EUR'),
+  openingBalance: z.number(),
+  createdAt: z.string().datetime(),
+});
+
+export type ConfigAccountCreatedEvent = z.infer<typeof configAccountCreatedEventSchema>;
+
+export const configCategoryCreatedEventSchema = z.object({
+  type: z.literal('CategoryCreated'),
+  id: z.string().min(1),
+  name: z.string().min(1),
+  color: z.string().optional(),
+  createdAt: z.string().datetime(),
+});
+
+export type ConfigCategoryCreatedEvent = z.infer<typeof configCategoryCreatedEventSchema>;
+
+export const configTagCreatedEventSchema = z.object({
+  type: z.literal('TagCreated'),
+  id: z.string().min(1),
+  name: z.string().min(1),
+  createdAt: z.string().datetime(),
+});
+
+export type ConfigTagCreatedEvent = z.infer<typeof configTagCreatedEventSchema>;
+
 // Union type for all domain events
 export type DomainEvent =
   | TransactionCreatedEvent
   | AccountCreatedEvent
   | CategoryCreatedEvent
-  | TagCreatedEvent;
+  | TagCreatedEvent
+  | ConfigAccountCreatedEvent
+  | ConfigCategoryCreatedEvent
+  | ConfigTagCreatedEvent;

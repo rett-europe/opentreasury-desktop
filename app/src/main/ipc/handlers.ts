@@ -31,6 +31,24 @@ import {
   movementsListResponseSchema,
 } from '../../shared/ipc-contracts/movements.js';
 import {
+  IPC_ACCOUNTS_CREATE,
+  IPC_ACCOUNTS_LIST,
+  createAccountResponseSchema,
+  accountsListResponseSchema,
+} from '../../shared/ipc-contracts/accounts.js';
+import {
+  IPC_CATEGORIES_CREATE,
+  IPC_CATEGORIES_LIST,
+  createCategoryResponseSchema,
+  categoriesListResponseSchema,
+} from '../../shared/ipc-contracts/categories.js';
+import {
+  IPC_TAGS_CREATE,
+  IPC_TAGS_LIST,
+  createTagResponseSchema,
+  tagsListResponseSchema,
+} from '../../shared/ipc-contracts/tags.js';
+import {
   handleGetAccounts,
   handleGetAccountBalances,
   handleGetMonthKPIs,
@@ -39,6 +57,12 @@ import {
 } from './handlers/panel.js';
 import { createTransactionCreateHandler } from './handlers/transaction.js';
 import { createMovementsListHandler } from './handlers/movements.js';
+import { createAccountsCreateHandler, createAccountsListHandler } from './handlers/accounts.js';
+import {
+  createCategoriesCreateHandler,
+  createCategoriesListHandler,
+} from './handlers/categories.js';
+import { createTagsCreateHandler, createTagsListHandler } from './handlers/tags.js';
 import { getEventLog } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { ACTOR_DEVICE_ID, DATASET_ID, newUlid } from '../ids.js';
@@ -109,5 +133,46 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_MOVEMENTS_LIST, async (_event, raw: unknown) => {
     const response = await handleMovementsList(raw);
     return movementsListResponseSchema.parse(response);
+  });
+
+  // WI-15-lite — Configuración (accounts / categories / tags) create + list.
+  const configDeps = {
+    eventLog: getEventLog(),
+    getReadModel,
+    now: () => new Date(),
+    newId: newUlid,
+  };
+
+  const handleAccountsCreate = createAccountsCreateHandler(configDeps);
+  const handleAccountsList = createAccountsListHandler({ getReadModel });
+  ipcMain.handle(IPC_ACCOUNTS_CREATE, async (_event, raw: unknown) => {
+    const response = await handleAccountsCreate(raw);
+    return createAccountResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_ACCOUNTS_LIST, async (_event, _raw: unknown) => {
+    const response = await handleAccountsList();
+    return accountsListResponseSchema.parse(response);
+  });
+
+  const handleCategoriesCreate = createCategoriesCreateHandler(configDeps);
+  const handleCategoriesList = createCategoriesListHandler({ getReadModel });
+  ipcMain.handle(IPC_CATEGORIES_CREATE, async (_event, raw: unknown) => {
+    const response = await handleCategoriesCreate(raw);
+    return createCategoryResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_CATEGORIES_LIST, async (_event, _raw: unknown) => {
+    const response = await handleCategoriesList();
+    return categoriesListResponseSchema.parse(response);
+  });
+
+  const handleTagsCreate = createTagsCreateHandler(configDeps);
+  const handleTagsList = createTagsListHandler({ getReadModel });
+  ipcMain.handle(IPC_TAGS_CREATE, async (_event, raw: unknown) => {
+    const response = await handleTagsCreate(raw);
+    return createTagResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_TAGS_LIST, async (_event, _raw: unknown) => {
+    const response = await handleTagsList();
+    return tagsListResponseSchema.parse(response);
   });
 }

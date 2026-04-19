@@ -11,9 +11,12 @@ import { AddTransactionModal } from '../../components/AddTransactionModal/index.
 import { listMovements } from '../../services/movementsApi.js';
 import { createTransaction } from '../../services/transactionApi.js';
 import { getAccounts } from '../../services/panelApi.js';
+import { listCategories } from '../../services/categoriesApi.js';
+import { listTags } from '../../services/tagsApi.js';
 import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
 import type { CreateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
+import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import type { Movement, MovementStatus, MovementTotals } from '../../types/movement.js';
 import './MovementsScreen.css';
 
@@ -125,7 +128,14 @@ function sortRows(
   return sorted;
 }
 
-export function MovementsScreen(): JSX.Element {
+export interface MovementsScreenProps {
+  /** Bumped by the App when Configuración creates a new account/category/tag.
+   *  Forces a re-fetch of reference data so the Add-Transaction modal selects
+   *  hydrate fresh values without a full reload. WI-15-lite. */
+  readonly configRevision?: number;
+}
+
+export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {}): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
 
@@ -136,6 +146,8 @@ export function MovementsScreen(): JSX.Element {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [categories, setCategories] = useState<readonly CategoryRecord[]>([]);
+  const [tags, setTags] = useState<readonly TagRecord[]>([]);
 
   // Filter state
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
@@ -154,12 +166,21 @@ export function MovementsScreen(): JSX.Element {
   const loadAll = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const [accountsResp, records] = await Promise.all([getAccounts(), listMovements()]);
+      const [accountsResp, records, categoriesResp, tagsResp] = await Promise.all([
+        getAccounts(),
+        listMovements(),
+        // Reference-data calls may fail if Morpheus's handlers aren't online
+        // yet; swallow so the main movements list keeps working.
+        listCategories().catch(() => ({ categories: [] as readonly CategoryRecord[] })),
+        listTags().catch(() => ({ tags: [] as readonly TagRecord[] })),
+      ]);
 
       const accountsMap = new Map(accountsResp.accounts.map((a) => [a.id, a]));
       const rows = records.map((r) => mapMovementRecord(r, accountsMap));
 
       setAccounts(accountsResp.accounts);
+      setCategories(categoriesResp.categories);
+      setTags(tagsResp.tags);
       setState({ kind: 'loaded', rows });
     } catch (err) {
       setState({
@@ -171,7 +192,7 @@ export function MovementsScreen(): JSX.Element {
 
   useEffect(() => {
     void loadAll();
-  }, [loadAll]);
+  }, [loadAll, configRevision]);
 
   const handleRetry = useCallback(() => {
     void loadAll();
@@ -556,6 +577,8 @@ export function MovementsScreen(): JSX.Element {
         onClose={handleCloseModal}
         onSubmit={handleSubmitTransaction}
         accounts={accounts}
+        categories={categories}
+        tags={tags}
       />
 
       <div className="ot-filter-bar" role="group" aria-label={t('movements.filters.aria-label')}>

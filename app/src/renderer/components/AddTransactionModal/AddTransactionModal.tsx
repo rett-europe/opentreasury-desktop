@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import type { CreateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
+import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import './AddTransactionModal.css';
 
 interface AddTransactionModalProps {
@@ -11,6 +12,8 @@ interface AddTransactionModalProps {
   onClose: () => void;
   onSubmit: (input: CreateTransactionRequest) => Promise<void>;
   accounts: Account[];
+  categories?: readonly CategoryRecord[];
+  tags?: readonly TagRecord[];
 }
 
 interface FormErrors {
@@ -33,6 +36,8 @@ export function AddTransactionModal({
   onClose,
   onSubmit,
   accounts,
+  categories = [],
+  tags = [],
 }: AddTransactionModalProps): JSX.Element {
   const { t } = useTranslation('common');
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -329,6 +334,50 @@ export function AddTransactionModal({
                 {errors.description}
               </span>
             )}
+          </div>
+
+          <div className="ot-add-transaction-modal__row">
+            <div className="ot-add-transaction-modal__field">
+              <label htmlFor="tx-category" className="ot-add-transaction-modal__label">
+                {t('movements.form.fields.category')}
+              </label>
+              <select
+                id="tx-category"
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className="ot-add-transaction-modal__input"
+              >
+                <option value="">{t('configuracion.categorias.none')}</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="ot-add-transaction-modal__field">
+              <label htmlFor="tx-tags" className="ot-add-transaction-modal__label">
+                {t('movements.form.fields.tags')}
+              </label>
+              <select
+                id="tx-tags"
+                multiple
+                value={tagIds}
+                onChange={(e) => {
+                  const opts = Array.from(e.target.selectedOptions).map((o) => o.value);
+                  setTagIds(opts);
+                }}
+                className="ot-add-transaction-modal__input"
+                size={Math.min(4, Math.max(2, tags.length))}
+              >
+                {tags.map((tg) => (
+                  <option key={tg.id} value={tg.id}>
+                    {tg.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <footer className="ot-add-transaction-modal__footer">

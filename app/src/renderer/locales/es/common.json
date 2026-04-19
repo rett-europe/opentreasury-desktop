@@ -12,13 +12,16 @@
     "close": "Cerrar",
     "loading": "Cargando…",
     "retry": "Reintentar",
-    "clear": "Limpiar"
+    "clear": "Limpiar",
+    "save": "Guardar",
+    "saving": "Guardando…"
   },
   "shell": {
     "nav": {
       "panel": "Panel",
       "movements": "Movimientos",
-      "balance": "Saldo"
+      "balance": "Saldo",
+      "configuracion": "Configuración"
     },
     "theme": {
       "label": "Tema",
@@ -37,7 +40,8 @@
       "body": "Esta sección llegará en una próxima versión."
     },
     "sections": {
-      "main": "Principal"
+      "main": "Principal",
+      "config": "Configuración"
     },
     "user": {
       "name": "Pedro Rocha",
@@ -210,6 +214,70 @@
         "accountNotFound": "Selecciona una cuenta.",
         "submitFailed": "No se pudo guardar el movimiento. Inténtalo de nuevo."
       }
+    }
+  },
+  "configuracion": {
+    "title": "Configuración",
+    "subtitle": "Gestiona tus cuentas, categorías y etiquetas.",
+    "optional": "(opcional)",
+    "tabs": {
+      "label": "Secciones de configuración",
+      "cuentas": "Cuentas",
+      "categorias": "Categorías",
+      "etiquetas": "Etiquetas"
+    },
+    "cuentas": {
+      "heading": "Cuentas",
+      "add": "Añadir cuenta",
+      "name": "Nombre de la cuenta",
+      "bank": "Banco",
+      "openingBalance": "Saldo inicial (€)",
+      "modal": {
+        "title": "Nueva cuenta"
+      },
+      "empty": {
+        "title": "Aún no hay cuentas",
+        "body": "Añade tu primera cuenta bancaria o PayPal para empezar a registrar movimientos."
+      }
+    },
+    "categorias": {
+      "heading": "Categorías",
+      "add": "Añadir categoría",
+      "name": "Nombre de la categoría",
+      "color": "Color",
+      "colorNone": "Sin color",
+      "none": "Sin categoría",
+      "modal": {
+        "title": "Nueva categoría"
+      },
+      "empty": {
+        "title": "Aún no hay categorías",
+        "body": "Crea categorías para agrupar tus ingresos y gastos."
+      }
+    },
+    "etiquetas": {
+      "heading": "Etiquetas",
+      "add": "Añadir etiqueta",
+      "name": "Nombre de la etiqueta",
+      "modal": {
+        "title": "Nueva etiqueta"
+      },
+      "empty": {
+        "title": "Aún no hay etiquetas",
+        "body": "Las etiquetas te permiten marcar temas transversales como «COVID-19» o «Beca A»."
+      }
+    },
+    "error": {
+      "loadFailed": "No se pudo cargar la lista. Inténtalo de nuevo."
+    },
+    "errors": {
+      "nameEmpty": "El nombre es obligatorio.",
+      "nameTooLong": "El nombre es demasiado largo.",
+      "nameDuplicate": "Ya existe un elemento con ese nombre.",
+      "openingBalanceInvalid": "El saldo inicial debe ser un número válido.",
+      "colorInvalid": "Ese color no es válido.",
+      "schemaInvalid": "Algunos datos no son válidos.",
+      "submitFailed": "No se pudo guardar. Inténtalo de nuevo."
     }
   }
 }

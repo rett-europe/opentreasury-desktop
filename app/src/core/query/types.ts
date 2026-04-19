@@ -52,9 +52,34 @@ export interface Tag {
   readonly createdAt: string; // ISO 8601 UTC
 }
 
+export interface ConfigAccount {
+  readonly id: string;
+  readonly name: string;
+  readonly bankName?: string;
+  readonly currency: 'EUR';
+  readonly openingBalance: number;
+  readonly createdAt: string;
+}
+
+export interface ConfigCategory {
+  readonly id: string;
+  readonly name: string;
+  readonly color?: string;
+  readonly createdAt: string;
+}
+
+export interface ConfigTag {
+  readonly id: string;
+  readonly name: string;
+  readonly createdAt: string;
+}
+
 export interface ReadModel {
   readonly transactions: readonly Transaction[];
   readonly accounts: readonly Account[];
   readonly categories: readonly Category[];
   readonly tags: readonly Tag[];
+  readonly configAccounts: readonly ConfigAccount[];
+  readonly configCategories: readonly ConfigCategory[];
+  readonly configTags: readonly ConfigTag[];
 }
