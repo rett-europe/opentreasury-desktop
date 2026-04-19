@@ -66,6 +66,12 @@ Inline `style={{ color: 'var(--token)' }}` works but scatters token names across
 
 **Full summary:** See .squad/decisions.md § Neo — Panel-First Work Package Decomposition (10 WIs, critical path, M1 sequencing locked). Archive: 	rinity-history-archive.md.
 
+## 2026-04-19T18:56:23Z — WI-12 renderer half complete: transactionApi + movementsApi services
+
+**Status:** Completed — 4 service tests green, typed clients validated against Morpheus preload contract.
+
+Trinity wired the renderer half of WI-12: transactionApi (create command client), movementsApi (list query client), typed window.opentreasury surface. Services follow the existing panel.* pattern. Ready for WI-13 (Add-Transaction modal + Movements list real-data wiring). No renderer-side changes needed until WI-14 (Panel invalidation subscription).
+
 ## 2026-04-19 — WI-3: Panel IPC wiring complete
 
 **Pattern: Skeleton→Loaded transition**  

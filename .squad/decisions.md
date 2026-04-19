@@ -1593,3 +1593,234 @@ Added to .squad/skills/css-sticky-patterns/SKILL.md:
 - Author: perocha <pedrojrocha@outlook.com>
 - Date: 2026-04-19T16:46:21+0200
 - Files: Table.css (+28, -5), SKILL.md (+127, -0)
+
+---
+
+## 2026-04-19: Morpheus — WI-12 IPC contract (transaction.create + movements.list)
+**Status:** Finalized
+**By:** Morpheus (Backend) — implementation delivered, recorded for cross-agent reference
+**Branch:** main (commits 4495e51 + d894382)
+**Artifact:** .squad/decisions/inbox/morpheus-ipc-transaction-contract.md → merged into decisions.md
+
+# Morpheus — WI-12 IPC contract (transaction.create + movements.list)
+
+**Status:** Finalized 2026-04-19
+**Owner:** Morpheus (Backend)
+**Consumers:** Trinity (renderer), future IPC authors
+
+This document records the locked IPC contract Trinity + future devs consume.
+Source of truth is `app/src/shared/ipc-contracts/transaction.ts` and
+`app/src/shared/ipc-contracts/movements.ts` — this is a summary for
+decision-history. When the files diverge from this doc, the files win.
+
+## Channel 1: `transaction:create`
+
+Creates a new transaction. Runs the WI-11 command, persists the event to the
+EventLog, and updates the in-memory read model.
+
+### Request — `CreateTransactionRequest`
+
+| Field          | Type                           | Required | Notes                                           |
+|----------------|--------------------------------|----------|-------------------------------------------------|
+| `accountId`    | `string`                       | yes      | Boundary-level check `min(1)`; existence is a business rule (`ACCOUNT_NOT_FOUND`). |
+| `date`         | `string` `YYYY-MM-DD`          | yes      | Business rule: must be a real calendar date.   |
+| `type`         | `'income' \| 'expense'`        | yes      | Sign is carried by `type`, amount is always > 0.|
+| `amount`       | `number > 0`, finite           | yes      |                                                 |
+| `currency`     | `'EUR'`                        | yes      | Multi-currency deferred.                        |
+| `description`  | `string` 1–500 chars           | yes      |                                                 |
+| `categoryId`   | `string \| null`               | no       | Defaults to `null`.                             |
+| `subcategoryId`| `string \| null`               | no       | Defaults to `null`.                             |
+| `tagIds`       | `string[]`                     | no       | Defaults to `[]`.                               |
+| `status`       | `'pending' \| 'approved'`      | no       | Defaults to `'approved'`.                       |
+
+### Response — `CreateTransactionResponse` (discriminated union)
+
+```ts
+| { ok: true;  event: TransactionCreatedEventWire }
+| { ok: false; error: { code: TransactionValidationErrorCode; message: string; field?: string } }
+```
+
+`TransactionValidationErrorCode` values:
+
+- `ACCOUNT_NOT_FOUND` — `accountId` not in read model
+- `AMOUNT_NON_POSITIVE` — amount `<= 0`, NaN, or Infinity
+- `CURRENCY_EMPTY` — currency blank
+- `DATE_INVALID` — not YYYY-MM-DD or not a real calendar date
+- `DESCRIPTION_EMPTY` — blank description
+- `TYPE_INVALID` — type not in enum
+- `SCHEMA_INVALID` — top-level zod parse failed (renderer sent malformed payload)
+- `INTERNAL` — unexpected throw in the handler; `message` carries the cause
+
+**Invariants:**
+
+- Nothing throws across IPC. Validation failures are always structured results.
+- Idempotency: the EventLog dedupes by `event.id`. A successful response for a
+  previously-seen id is valid but does NOT re-apply the reducer.
+- Event envelope is stamped with runtime `datasetId` + `actorDeviceId` + new
+  ULID ids from `app/src/main/ids.ts` (`newUlid`).
+
+## Channel 2: `movements:list`
+
+Returns the full list of transactions from the read model, projected into the
+wire-level `MovementRecord` shape (IDs, not labels). Label resolution
+(`accountId` → `accountLabel` etc.) is the renderer's job per WI-14.
+
+### Request — `MovementsListRequest` (all fields optional)
+
+| Field      | Type                  | Notes                                |
+|------------|-----------------------|--------------------------------------|
+| `accountId`| `string`              | Exact match on `accountId`.          |
+| `dateFrom` | `string` `YYYY-MM-DD` | Inclusive lower bound.               |
+| `dateTo`   | `string` `YYYY-MM-DD` | Inclusive upper bound.               |
+| `limit`    | `number`, positive int, ≤5000 | Defaults to unbounded.        |
+| `offset`   | `number`, non-negative int    | Defaults to 0.                |
+
+### Response — `MovementRecord[]`
+
+Same columns as `recentTransactionSchema` in `panel.ts`; `Movement` is exported
+as an alias so either name compiles.
+
+```ts
+interface MovementRecord {
+  id: string;
+  date: string;           // YYYY-MM-DD
+  type: 'income' | 'expense';
+  amount: number;         // > 0
+  currency: 'EUR';
+  description: string;
+  accountId: string;
+  categoryId: string | null;
+  subcategoryId: string | null;
+  tagIds: string[];
+  status: 'pending' | 'approved';
+  createdAt: string;      // ISO 8601 UTC
+}
+```
+
+**Sort:** DESC by `date` then by `createdAt`. Most recent first.
+**No structured-error discriminated union** — `movements:list` is a pure query
+with no validation failures reachable from valid input; zod parse errors on
+the request side will propagate as handler throws (caught by ipcMain and
+surfaced as Electron IPC errors). Trinity should wrap the caller in a try/catch
+if she wants to tolerate shape mismatches during dev.
+
+## Preload surface
+
+`window.opentreasury` grows two new namespaces (matching `panel.*` pattern):
+
+```ts
+transaction: {
+  create(input: CreateTransactionRequest): Promise<CreateTransactionResponse>;
+},
+movements: {
+  list(filter?: MovementsListRequest): Promise<MovementRecord[]>;
+}
+```
+
+Exposed via `contextBridge.exposeInMainWorld('opentreasury', api)` in
+`app/src/preload/index.ts`. Channel constants (`IPC_TRANSACTION_CREATE`,
+`IPC_MOVEMENTS_LIST`) are re-exported from the shared contracts — never
+hardcode the string in renderer or preload.
+
+## Files touched
+
+- `app/src/shared/ipc-contracts/transaction.ts` (new)
+- `app/src/shared/ipc-contracts/movements.ts` (new)
+- `app/src/main/ipc/handlers/transaction.ts` (new, factory)
+- `app/src/main/ipc/handlers/movements.ts` (new, factory)
+- `app/src/main/ipc/handlers.ts` (registration)
+- `app/src/main/ids.ts` (new — `newUlid`, `DATASET_ID`, `ACTOR_DEVICE_ID`)
+- `app/src/preload/index.ts` (two new API methods)
+- Tests: `app/src/main/ipc/handlers/{transaction,movements}.test.ts` (11 tests,
+  in-memory EventLog stub, fresh reducer per test)
+
+## Verification
+
+- `npx vitest run app/src/main/ipc/handlers` — 11/11 green
+- `npm test` — 81/81 green
+- `npm run typecheck` / `npm run lint` — clean
+- `npm run build` — clean (dist/main + dist/preload + dist/renderer)
+- `node --check dist/preload/index.cjs` — exit 0 (preload CJS bundle valid)
+
+
+---
+
+## 2026-04-19: Neo — E2E Vertical Slice Plan (M1.5 Storage Fallback Decision)
+**Status:** Decided + Implemented
+**By:** Neo (Lead/Architect) — re-sequencing decision, endorsed by Pedro
+**Artifact:** .squad/decisions/inbox/neo-e2e-vertical-slice-plan.md → merged into decisions.md
+
+# Neo — E2E Vertical Slice Plan (M1.5)
+
+**Date:** 2026-04-19
+**Requested by:** Pedro
+**Status:** Proposed — decision requested on storage fallback (see §5)
+
+## 1. Where we are now
+
+- **Panel screen:** shipped and wired through real IPC bridge. Handlers return **mock** data (see `app/src/main/ipc/handlers/panel.ts`; Morpheus WI-1/WI-2/WI-3 landed).
+- **Event-sourced core:** event schemas + read-model queries + reducers exist (`app/src/core/events`, `app/src/core/query`). **No commands, no append path, no storage.**
+- **Movements screen:** UI exists (`MovementsScreen.tsx`) but reads `getMockMovements()` directly in the renderer — no IPC, no core, no add-transaction form.
+- **Net:** we can *read* a fake world. We cannot *write* anything. Nothing persists across app restarts.
+
+## 2. Gap to a real E2E scenario
+
+To let Pedro **add a transaction → see it in the list → see Panel KPIs + recent movements update**, we need, minimally:
+
+1. **Core write path** — `commands/createTransaction.ts` (pure: request + state → event[]), plus a `TransactionCreated` event shape (already half-there in schemas).
+2. **Event log persistence** — append one event file per command. Either WI-4 (OneDrive) or a **local-JSON dev fallback** (see §5).
+3. **Append-and-project orchestrator** in main — load log, fold reducers into in-memory read model, expose a "dispatch command" entry point that appends + re-projects.
+4. **Movements IPC contract** — `movements.list`, `transaction.create` (Zod schemas, handler, preload bridge, typed client) — mirrors the Panel IPC pattern Morpheus already established.
+5. **Add-transaction modal** — form UI (account, date, amount, type, category, description) per prototype; triggers `transaction.create`.
+6. **Wire MovementsScreen to real IPC** — drop `getMockMovements`, subscribe to a store that re-fetches after `transaction.create` resolves.
+7. **Panel re-read** — after a successful create, invalidate Panel queries (simple event-bus ping or re-run loaders on window focus + on command success).
+
+## 3. Updated WI sequencing — target: **M1.5 Vertical Slice** demo
+
+| # | WI | Owner | Shape | Status |
+|---|----|-------|-------|--------|
+| WI-1 | Core read model | Morpheus | ✅ done | done |
+| WI-2 | Panel IPC contract | Morpheus | ✅ done | done |
+| WI-3 | Panel UI wiring | Trinity | ✅ done | done |
+| **WI-4′** | **Local-JSON event log (dev fallback)** — `app/src/storage/local/` append-only `events/*.json`, plaintext, no crypto | **Morpheus** | **NEW — critical path** | next |
+| **WI-11** | **Transaction command** — `core/commands/createTransaction.ts` + `TransactionCreated` event + reducer update for movements/KPIs | **Morpheus** | **NEW — critical path** | next |
+| **WI-12** | **Movements IPC contract** — `movements.list`, `transaction.create` (schemas, handlers, preload, client) | **Morpheus + Trinity** | **NEW — critical path** | next |
+| **WI-13** | **Add-Transaction modal + Movements real-data wiring** — form per prototype, replaces `getMockMovements`, calls `transaction.create`, refetches list + nudges Panel | **Trinity** | **NEW — critical path** | next |
+| **WI-14** | **Panel invalidation** — simple "command dispatched" event bus so Panel loaders re-run | **Trinity + Morpheus** | **NEW — critical path** | next |
+| WI-4 | OneDrive event append (real) | Morpheus | ⏸ **deferred to M2** | later |
+| WI-5 | Crypto layer (age/XChaCha) | Morpheus + Switch | ⏸ **deferred to M2** | later |
+| WI-6 | Wire real core to Panel handlers (now folded into WI-14) | Morpheus | merged | — |
+| WI-7/8/9/10 | Sparklines, 12-month bars, empty states, skeletons | Trinity / Mouse | ⏸ polish after M1.5 | later |
+
+**Critical path to M1.5:** WI-4′ → WI-11 → WI-12 → WI-13 → WI-14. Estimate: **4–6 working days**, mostly Morpheus on days 1–3, Trinity on days 3–5, joint wiring day 5–6.
+
+**Deferred (explicit):** OneDrive sync, crypto at rest, multi-device concurrency, sparklines, 12-month chart, deep empty states. None of these block a local single-user "add-and-see" demo.
+
+## 4. Near-term plan — next 3 WIs to pick up
+
+### WI-4′ — Local-JSON event log (Morpheus)
+- **Shape:** `app/src/storage/local/eventLog.ts` — `append(event): Promise<void>` writes `{ulid}.json` under `%APPDATA%/opentreasury/dev-events/`; `load(): Promise<Event[]>` reads + sorts by ULID; nothing else. No encryption, no OneDrive, no locking (single-writer dev mode).
+- **Done =** vitest covers round-trip append + load; main process uses it at startup to hydrate the read model.
+
+### WI-11 — Transaction command + projection (Morpheus)
+- **Shape:** `core/commands/createTransaction.ts` pure function; `TransactionCreated` event in schemas; reducer feeds both `recentMovements` and `monthKPIs` projections. Existing read-model queries automatically reflect new state.
+- **Done =** unit tests: append 3 TransactionCreated events → `queryRecentTransactions` returns them newest-first; `getMonthKPIs` reflects totals.
+
+### WI-12 — Movements IPC + WI-13 Add-Transaction modal (Morpheus + Trinity, parallelizable)
+- **Shape:** Contract package `shared/ipc-contracts/movements.ts` (Zod schemas for `list` + `create`). Main handlers call `dispatch(command)` → append → re-project → return. Renderer gets typed client. Trinity builds the "+ Add" modal per `prototype/movimientos.jsx`, wires submit → `window.ipc.transaction.create(...)` → refresh list + emit `panel:invalidate`.
+- **Done =** run the app, click **+ Add**, fill form, submit. New row appears in Movements. Switch to Panel — balance, month KPI, and recent-movements list reflect it. Restart app — data still there.
+
+## 5. Storage fallback — **DECISION RECOMMENDED**
+
+**Call: ship a local-JSON event log now (WI-4′); defer OneDrive (WI-4) + crypto (WI-5) to M2.**
+
+**Rationale (one sentence):** OneDrive + crypto are 6–8 days of work with Switch review dependencies; a local append-only JSON log is <1 day, keeps the event-sourced architecture intact (same event shape, same reducers, storage is a swappable adapter), and unblocks a working demo this week — which is what Pedro asked for.
+
+**Boundary:** WI-4′ is explicitly dev-only. The storage interface (`EventLog` with `append`/`load`) is the same one WI-4 will implement against OneDrive. No code written for WI-4′ is thrown away — only the adapter behind it is replaced.
+
+## 6. Milestone
+
+- **M1.5 — Vertical Slice:** Add-transaction → list → Panel reflects. Target: end of next week. Single-user, local, unencrypted. Proves the event-sourcing loop end-to-end.
+- **M1 Panel Alpha** (original): folds into M1.5 since real data now flows through the same path.
+- **M2:** OneDrive adapter (WI-4) + crypto (WI-5) + multi-device concurrency — swap storage adapter, no UI or core changes.
+

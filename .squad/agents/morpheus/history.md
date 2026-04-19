@@ -22,6 +22,12 @@ The desktop version needs equivalent functionality with local persistence (no cl
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-19T18:56:23Z — WI-12 shipped: IPC contract frozen (transaction:create + movements:list)
+
+**Status:** Completed — both main-side handlers + preload surface + 11 tests green.
+
+Morpheus delivered WI-12 main-side IPC bridge (transaction:create handler, movements:list handler, ULID generation, preload namespaces). Contract finalized and locked. Trinity's renderer clients (transactionApi, movementsApi) integrate against this contract. Next: WI-13 (Add-Transaction modal) ready to spawn. No further contract changes until WI-14 (Panel invalidation event bus).
+
 ## 2026-04-19T16:14:07Z — TEAM DECISION: Panel-first unlock for M1 → M1.25 Saldo (from Scribe)
 
 **Link + Neo agreed:** Shift M1 implementation sequence to Panel → Movements (not Movements → Panel).

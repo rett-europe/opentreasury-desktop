@@ -22,6 +22,12 @@ The desktop version aims to replicate this functionality without requiring Azure
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-19T18:56:23Z — WI-12 landed: E2E IPC bridge unlocks M1.5 demo path
+
+**Status:** IPC contract finalized by Morpheus + Trinity, unblocking WI-13 + WI-14.
+
+Morpheus + Trinity completed WI-12 (transaction:create + movements:list IPC bridge). Main-side handlers + renderer clients are production-ready. Contract is locked — no changes until Panel invalidation event bus (WI-14). M1.5 critical path now proven viable: WI-4′ (event log) + WI-11 (command) + WI-12 (IPC) complete; WI-13 (Add-Transaction modal) + WI-14 (Panel invalidation) ready to spawn. ETA: 2–3 days to "add transaction → see it live" demo.
+
 ## 2026-04-19 — M1.5 Vertical Slice Re-sequencing
 
 **Trigger:** Pedro asked when we'd have an end-to-end "add a transaction, see it reflected" scenario.
