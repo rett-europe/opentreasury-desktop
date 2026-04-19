@@ -367,3 +367,19 @@ adapter, startup hydration, and prototype-shaped dev-seed on first run.
 - **Fake-ULID seed IDs:** the event envelope schema requires `z.string().length(26)`; dev-seed derives deterministic 26-char Crockford-alphabet strings from short names (e.g. `ACCUNI000…`). Real production events will use crypto-random ULIDs. Side effect: the renderer''s `MOCK_TX_COUNTS` keyed on prototype short ids no longer matches — it falls back to `kpis.transactionCount`, which is acceptable for M1.5 and tracked for WI-6 replacement.
 - **Idempotency scope:** in-memory Set per process is sufficient for M1.5 (single-writer, load-before-write ordering enforced by bootstrap). When sync arrives (M2), the seen-set must persist alongside the log or be reconstructed eagerly on startup; today''s adapter already seeds the Set during `load()` so the invariant holds across restarts.
 - **Corruption tolerance:** `load()` skips malformed lines with a warning rather than throwing. Throwing would brick the app on a single bad byte; silently dropping interior bad lines is worse but avoidable in practice because append is line-atomic with fsync. The crash-simulation test locks this behaviour in.
+
+---
+
+## 2026-04-19T18-27-12Z — Team Update (from Scribe): M1.5 Storage + Domain Complete
+
+**Status:** WI-4′ (local event log) and WI-11 (createTransaction command) both shipped. Storage and domain layers of M1.5 vertical slice are complete.
+
+**Decisions locked (now live in `.squad/decisions.md`):**
+1. **Transaction schema:** positive `amount` + `type: 'income' | 'expense'` (cloud-mirror, not signed). Validation: 6 codes, cheap-first ordering.
+2. **EventLog interface:** `append(event)` idempotent by `event.id` + `load()` insertion-order. Contracts locked for WI-4 (OneDrive) and WI-11 (commands).
+
+**Trinity's status:** Panel visuals polished (icons, CSS consolidation, responsive 5→4→3→2, prototype mocks). Ready for WI-6 (replace mocks with real queries) and WI-13 (Add-Transaction form).
+
+**Pedro verified:** App runs with 49 hydrated events, Panel renders 5 accounts + KPIs + transactions, no console errors, no visual regressions. Ready for command-side wiring (WI-12/13/14).
+
+**Your next:** WI-12 (IPC handlers for createTransaction — thin pass-through). Then WI-14 (Panel invalidation after commit). Coordinate with Trinity on form field → validation code mapping for i18n keys.

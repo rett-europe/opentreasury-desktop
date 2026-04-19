@@ -1089,6 +1089,170 @@ Full work package decomposition for Panel-first M1 sequence: 10 sequenced work i
 
 ---
 
+### 2026-04-19: Panel mocks now mirror prototype/data.js verbatim (Trinity decision)
+**By:** Trinity (Frontend Dev)
+**Status:** Merged from inbox
+**Commit:** c78002a
+
+**Decision:**
+The desktop Panel's IPC mock fixtures in `app/src/main/ipc/handlers/panel.ts` are now a direct port of `prototype/data.js` — same 5 accounts (`unicaja`, `caixa-ops`, `caixa-fin`, `caixa-0951`, `paypal`), same `oklch` colours, same April-2026 KPIs (48,843.79 / 30,750.19 / 18,093.60), same first-12 transactions with real Rett NGO descriptions.
+
+**Why:**
+The previous scaffolding (Santander Cuenta Principal / BBVA Corriente / PayPal tesoreria@rett.es with random amounts) made Panel look nothing like the prototype screenshots that are the product's north star per ADR-002. Visual parity is impossible to verify against unrealistic data.
+
+**Implications for the rest of the team:**
+- **Morpheus (WI-6):** When the real core/query calls replace the mock handlers, the prototype accountIds (`unicaja`, `caixa-ops`, …) can be reused as account "seed" slugs for a demo/onboarding fixture, or dropped once the real ULID ingest is wired. Either way, the contract shape did not change — only the mock payload. Your real resolver can slot in without touching ipc-contracts or panelApi.ts.
+- **Cypher (tests):** Snapshot tests that captured the old Santander/BBVA strings will need updating. The new mock is stable (deterministic sparklines via a per-account string hash) so snapshots remain reliable.
+- **Niobe (copy):** Prototype account *labels* are data, not copy — they stay in Spanish ("Principal", "Operaciones", "Eventos", "Donaciones", "FinRett") because they represent account names an NGO would configure, not UI strings.
+
+**Non-decision:**
+The IPC contract (`ipc-contracts/panel.ts`) was **not** changed. The mock overloads `categoryId` / `subcategoryId` to carry display labels as an interim convenience — WI-6 should return real IDs plus a separate resolver/lookup path (e.g. `getCategories`) that Panel can cache.
+
+**Files touched:**
+- `app/src/main/ipc/handlers/panel.ts` — mock payloads rewritten
+- `app/src/renderer/screens/PanelScreen/PanelScreen.tsx` — per-row account-pill colouring uses `account.color` via `color-mix`
+- `app/src/renderer/screens/PanelScreen/PanelScreen.css` — new card wrapper for the recent-movements table + footer link
+- `app/src/renderer/components/AccountCard/AccountCard.css` — stripped duplicate rules; icon uses `--radius-md`, removed broken `min-width`
+- `app/src/renderer/components/KPIStrip/KPIStrip.css` — stripped duplicate rules that shadowed `globals.css` prototype-parity recipe
+- `app/src/renderer/styles/globals.css` — account-card grid gained a 4-col breakpoint at 1440px to bridge the 5→3 jump
+
+---
+
+### 2026-04-19: Transaction Schema + Validation Rules (WI-11, Morpheus decision)
+**By:** Morpheus (Core/Domain)
+**Status:** Merged from inbox
+**Commit:** 8f2eb7b
+
+**Decision:**
+The `tx.created` event uses **positive `amount` + `type: 'income' | 'expense'`** — NOT a signed amount, NOT credit/debit split.
+
+This matches the cloud FastAPI schema (`docs/schemas/cloud-reference-notes.md` §Transactions):
+- Cloud: `amount: Decimal (positive, 12.2)` + `transaction_type: enum('income'|'expense'|'transfer'|'refund')`.
+- Desktop M1 subset: `amount: number (> 0, finite)` + `type: 'income' | 'expense'` (transfer/refund deferred).
+
+**Event payload shape (locked in `app/src/core/events/schemas.ts`):**
+```ts
+TransactionCreatedPayload = {
+  id: string;              // ULID — transactionId
+  date: string;            // YYYY-MM-DD
+  type: 'income' | 'expense';
+  amount: number;          // positive, finite
+  currency: 'EUR';         // hardcoded for M1
+  description: string;     // max 500 chars
+  accountId: string;       // ULID — must exist
+  categoryId: string | null;      // ULID or null
+  subcategoryId: string | null;   // ULID or null
+  tagIds: string[];               // array of ULIDs (may be empty)
+  status: 'pending' | 'approved'; // review flag, NOT ledger state
+  createdAt: string;       // ISO 8601 UTC — set by command via deps.now()
+}
+```
+
+Envelope: `id` (event ULID ≠ transactionId), `type: 'tx.created'`, `datasetId`, `actorDeviceId`, `createdAt`, `dekVersion`, `version: 1`, `payload`.
+
+**Command signature:**
+```ts
+createTransaction(
+  input: CreateTransactionInput,
+  deps: { now, newId, readModel, datasetId, actorDeviceId, dekVersion? }
+): Result<TransactionCreatedEvent, ValidationError>
+```
+
+`newId()` is called **twice**: first for the event envelope `id`, then for the `payload.id` (transactionId). Both are ULIDs. They MUST differ.
+
+**Validation rules (enforced at command boundary):**
+| Code | Field | Rule |
+|---|---|---|
+| `TYPE_INVALID` | `type` | must be `'income'` or `'expense'` exactly |
+| `AMOUNT_NON_POSITIVE` | `amount` | must be finite AND > 0. Rejects 0, negatives, NaN, Infinity. Sign carried by `type`, never by amount. |
+| `CURRENCY_EMPTY` | `currency` | non-empty string after trim (schema currently pins to `'EUR'`) |
+| `DESCRIPTION_EMPTY` | `description` | non-empty string after trim |
+| `DATE_INVALID` | `date` | matches `YYYY-MM-DD` regex AND round-trips through `Date.toISOString().slice(0,10)` (rejects impossible calendar dates like `2026-02-31`) |
+| `ACCOUNT_NOT_FOUND` | `accountId` | must exist in `deps.readModel.accounts` |
+
+**Order:** type → amount → currency → description → date → account. Cheap checks first; account lookup last. First failure short-circuits.
+
+**Cross-WI impact:**
+- **WI-12 (IPC):** the IPC request schema for `createTransaction` MUST mirror `CreateTransactionInput`. Do NOT re-validate at the IPC boundary differently from the command — keep IPC as a thin pass-through. The command is the single source of truth for validation errors.
+- **WI-13 (renderer form):** UI form fields must surface the six error codes as translatable messages. Amount input should be a non-negative number field (never show a sign toggle — use income/expense radio/segment for `type`). Map codes → i18n keys:
+  - `TYPE_INVALID` → `movements.errors.typeInvalid`
+  - `AMOUNT_NON_POSITIVE` → `movements.errors.amountNonPositive`
+  - `CURRENCY_EMPTY` → `movements.errors.currencyEmpty`
+  - `DESCRIPTION_EMPTY` → `movements.errors.descriptionEmpty`
+  - `DATE_INVALID` → `movements.errors.dateInvalid`
+  - `ACCOUNT_NOT_FOUND` → `movements.errors.accountNotFound`
+- **WI-4′ (event log):** no impact — `TransactionCreatedEvent` is just another member of the `DomainEvent` union. The event log serializes/validates via the existing zod schemas.
+
+**What's explicitly NOT in this shape (M1.5):**
+- **`counterparty_name` / `counterparty_reference`:** cloud has them; desktop M1.5 does not. Deferring to a later WI.
+- **`currency` other than EUR:** hardcoded for M1. Multi-currency is a future migration.
+- **Signed amount or credit/debit fields:** rejected. Cloud never used them; adding would diverge from the cloud schema and require a read-model migration.
+- **`transfer` / `refund` transaction types:** cloud has them; desktop M1.5 does not.
+- **`originalAmount` (edit history):** will land with `tx.edited` event in a later WI.
+
+**Reducer / read-model note:**
+The existing `applyEvent` in `app/src/core/query/reducers.ts` already handles `tx.created` (WI-1). The read model stores a flat `transactions: Transaction[]` and computes `recentMovements` / `monthKPIs` / `accountBalances` on demand via queries — there are NO pre-materialized aggregates to update. Future WIs that add materialized projections (e.g., per-month buckets for Saldo) can extend the reducer; WI-11 did not require this.
+
+**Tests:**
+- `app/src/core/commands/createTransaction.test.ts` — 12 tests (happy path, all 6 error codes, optional fields, determinism of injected `now`/`newId`).
+- `app/src/core/query/reducers.test.ts` — 2 tests covering the full command → event → reducer → query pipeline (3-transaction projection + out-of-order insertion sort).
+
+All green (`npm test` → 66/66).
+
+---
+
+### 2026-04-19: EventLog interface — LOCKED contract for WI-4′ / WI-11 / (future) WI-4 (Morpheus decision)
+**By:** Morpheus (Core/Backend)
+**Status:** Merged from inbox
+**Commit:** 73bfb8d
+**Scope:** WI-4′ (M1.5 local-JSON adapter) + WI-11 (command-side write path). Supersedes nothing. Will be honoured by the M2 OneDrive+crypto adapter (WI-4).
+
+**Interface:**
+```ts
+// app/src/core/eventLog/EventLog.ts
+export interface EventLog {
+  append(event: DomainEvent): Promise<void>;  // idempotent by event.id
+  load(): Promise<DomainEvent[]>;             // insertion order
+}
+```
+
+Where `DomainEvent` is the discriminated union already defined in `app/src/core/events/schemas.ts` (AccountCreated, CategoryCreated, TagCreated, TransactionCreated — WI-11 extends as needed).
+
+**Guarantees:**
+- **`append` is idempotent by `event.id`.** Re-appending the same event is a no-op. Callers MAY retry without deduping themselves.
+- **`append` is durable on resolve.** The local adapter calls `fsync`. Network adapters (M2 OneDrive) will resolve only after the remote has acknowledged.
+- **`load` returns every event ever appended, in insertion order.** Reducers assume this order is deterministic across restarts.
+- **`load` tolerates per-line corruption.** Malformed NDJSON lines are skipped with a warning; the rest of the log is returned.
+- **Empty log → `load()` returns `[]`** (not a thrown error, not `undefined`).
+
+**Non-goals (by design):**
+- No cursor / pagination — reducers are cheap for M1.5 volumes, and OneDrive's delta-token model will be hidden behind the same interface in M2.
+- No query — this is a log, not a database. Query surface lives in `app/src/core/query/` and is populated by `replayEvents`.
+- No delete — append-only. Tombstones (future) are just more events.
+- No transactions / batching — callers append one event at a time.
+
+**Contract for implementations:**
+1. Validate nothing beyond `event.id` presence. Schema validation is the reducer layer's responsibility (Zod in `core/events/schemas.ts`).
+2. Preserve byte-for-byte equality of serialized payloads so `load()[i]` deep-equals the `append()`ed event.
+3. Surface I/O errors. Don't silently swallow, don't wrap in domain errors — callers need the original to decide retry vs. abort.
+
+**Consumers:**
+- **WI-4′ (this slice):** `main/bootstrap.ts` constructs a `JsonFileEventLog` under `app.getPath('userData')/dev-events/`, calls `load()` then `replayEvents(events)`. IPC read handlers in `main/ipc/handlers/panel.ts` then project over the hydrated read model.
+- **WI-11 (command-side, in-flight):** `main/ipc/handlers/commands.ts` will call `eventLog.append(event)` then `applyEvent(event)` to update the live read model. Singleton is exported from `main/bootstrap.ts`.
+- **WI-4 (M2, OneDrive + crypto):** swap the `JsonFileEventLog` constructor in `bootstrap.ts` for `OneDriveEventLog` + envelope encryption in the adapter. No other file should need to change.
+
+**Adapter choice for M1.5: `JsonFileEventLog` / NDJSON:**
+- One JSON object per line + trailing `\n`.
+- File: `<userData>/dev-events/events.ndjson`.
+- `append()` = `fs.open('a') → writeFile(line) → sync() → close()`.
+- `load()` = `readFile → split('\n') → JSON.parse each → skip malformed`.
+- In-memory `Set<event.id>` for idempotency; re-populated on `load()`.
+
+**Dev-seed behaviour (bootstrap, not the adapter):**
+When `events.ndjson` does not exist AND `NODE_ENV !== 'production'`, bootstrap emits prototype-shaped events (5 accounts / 8 categories / 6 tags / 30 txs) via `append()` before hydration. Never overwrites existing events. The adapter has no concept of seeding — seeding is a main-process concern.
+
+---
+
 ### 2026-04-19: Morpheus — Movement schema v0.2 (subcategory/tags/status + nullable category)
 **By:** Morpheus (Backend / Data Model), requested by Pedro
 **Branch:** `fix/trinity-prototype-parity`

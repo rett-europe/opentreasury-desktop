@@ -221,6 +221,31 @@ a:hover {
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  /* Lucide glyphs use stroke="currentColor"; keep the glyph white over the
+   * tinted tile regardless of tone (mirrors AccountCard's icon recipe). */
+  color: #ffffff;
+}
+/* Tone modifiers drive KPI tile background + value color from tokens. The
+ * prototype uses `tone` props (income / expense / net) on KpiCard; we mirror
+ * that here so the coloring lives in CSS, matching the `.ot-amount--income`
+ * / `.ot-amount--expense` pattern elsewhere in this file. */
+.ot-kpi--income .ot-kpi__icon {
+  background: var(--color-income-bg);
+}
+.ot-kpi--income .ot-kpi__value {
+  color: var(--color-income-default);
+}
+.ot-kpi--expense .ot-kpi__icon {
+  background: var(--color-expense-bg);
+}
+.ot-kpi--expense .ot-kpi__value {
+  color: var(--color-expense-default);
+}
+.ot-kpi--net .ot-kpi__icon {
+  background: var(--color-brand-surface);
+}
+.ot-kpi--net .ot-kpi__value {
+  color: var(--color-brand-primary);
 }
 .ot-kpi__label {
   font-size: var(--font-size-11);

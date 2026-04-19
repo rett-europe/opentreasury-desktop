@@ -21,6 +21,34 @@ The cloud version has an Angular 19 frontend with:
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-21 — KPI card tone fix (icon stroke + income value color)
+
+**Issue 1 root cause — icon inheriting stroke color:**
+Lucide icons render SVGs with `stroke="currentColor"`. The KPI tile had inline
+`style={{ background: tone.bg, color: tone.fg }}` where `tone.fg` was the
+*colored* token (e.g. `var(--color-income-default)`). The SVG inherited that
+`color` via `currentColor`, so the glyph matched the background hue instead
+of being white. AccountCard avoided this by setting `color: #ffffff` in CSS
+(see `ot-account-card__icon`). Fix: removed inline `color` from the KPI icon
+tile and added `color: #ffffff` to `.ot-kpi__icon` in globals.css. The tile's
+background now comes from tone-modifier classes (`.ot-kpi--income/expense/net`),
+keeping white glyphs on all three tones.
+
+**Issue 2 — income value token:**
+Correct token is `--color-income-default` (same one used by `.ot-amount--income`
+and `.ot-type-arrow--income`). It already existed — no new token invented.
+Paired with `--color-expense-default` (expense) and `--color-brand-primary`
+(net). Moved coloring off inline `style={{ color: 'var(...)' }}` and onto
+`.ot-kpi--<tone> .ot-kpi__value` selectors in globals.css. Class-based coloring
+mirrors the prototype's `tone` prop and the existing `.ot-amount--*` recipe,
+eliminating per-instance inline style strings and the risk of them drifting
+out of sync across Panel / Saldo / future KPI consumers.
+
+**Pattern to keep:** when a recipe has a small, fixed set of variants (tones,
+states, severities), prefer modifier classes over inline-style CSS-var strings.
+Inline `style={{ color: 'var(--token)' }}` works but scatters token names across
+`.tsx` files and makes dark-theme overrides harder to audit.
+
 ## 2026-04-19T16:21:30Z — Panel-First Work Package Decomposition (from Neo)
 
 **Your assignments (awaiting Pedro approval on Q1–Q6):**
@@ -109,3 +137,46 @@ Error states and fallback cases are easy to miss during i18n sweeps because they
 **Verification:**  
 All CI checks pass (typecheck, lint, test, build). Commit 1583135 on main.
 
+
+## 2026-04-21 — Panel prototype-alignment sweep
+
+**Root causes of the six visual drifts:**
+
+1. **Icon radius bug**: AccountCard.css referenced `var(--radius-full)` — a token that does not exist in tokens.css. Silent fallback produced a square icon tile. Prototype uses `--rad-md` (8px). Now using `var(--radius-md)`.
+2. **Shadowed tokens**: Both AccountCard.css and KPIStrip.css defined their own `.ot-account-card` / `.ot-kpi-strip` rules using undefined tokens (`--color-surface-tertiary`, `--color-text-tertiary`, `--font-size-base`, `--line-height-tight`, `--font-size-3xl`, `--radius-full`). Because component CSS imports after globals.css, the prototype-parity recipe in globals.css lost every conflict. Fix: strip duplicated rules from component CSS; keep globals.css as the single source of truth for prototype recipes.
+3. **Pile-up at ~1200–1400px**: AccountCard.css had `min-width: 200px` on the card; combined with the prototype's 5-column grid and the desktop shell's 240px sidebar, content width at 1200px is only ~920px, so 5×200+4×12 = 1048 > 920 → cards overflowed/wrapped. Removed the min-width and added an intermediate 4-col breakpoint at 1440px so the grid degrades 5→4→3→2.
+4. **Arrows mismatch**: Panel used lucide `ArrowUp`/`ArrowDown` with inline colour; Movements uses a CSS chip `ot-type-arrow ot-type-arrow--income/expense` with ↑/↓ glyph on tinted bg. Unified Panel to the chip pattern.
+5. **View-all link position**: Was centered in the Table `tfoot`. Prototype puts it bottom-right of the card above a top divider. New `.ot-panel-recent__footer` wrapper achieves that without a `tfoot`.
+6. **Mock data**: handlers/panel.ts still had the original three-account Santander/BBVA/PayPal scaffold with random values. Replaced verbatim with prototype/data.js — 5 accounts, real balances (incl. negatives), real Rett-specific transaction descriptions, KPIs 48,843.79 / 30,750.19 / 18,093.60.
+
+**Gotchas worth remembering:**
+
+- **Duplicate CSS classes across globals + component files silently override** because import order makes the component rule win. Anti-pattern — either put the generic recipe in globals and leave the component CSS nearly-empty (current rule), or keep it all in the component CSS. Don't split.
+- **Undefined CSS custom properties fail silently**. `var(--radius-full)` with no fallback renders `0` for `border-radius`. Always pair new tokens with a fallback or add a lint rule.
+- **Prototype token names ≠ desktop token names**. Prototype uses `--clr-income`, `--rad-md`, `--spc-16`; desktop uses `--color-income-default`, `--radius-md`, `--space-7`. The mapping is documented in tokens.css comments (`v0.2: was X, now Y`).
+- **oklch colours survive the IPC boundary**. Passing `'oklch(0.72 0.11 265)'` through the Zod `color: z.string().nullable()` field + CSS `color-mix(in oklch, …)` works in modern Electron — no need to convert to hex.
+- **Schema tolerates the mock convention**. `recentTransactionSchema.categoryId: z.string().nullable()` accepts either a ULID or a label string — today the mock returns labels; WI-6 will swap to ULIDs and resolve via a separate lookup.
+- **Responsive breakpoints must account for the sidebar**. The prototype's `max-width: 1200px` MQ works in the prototype (no sidebar) but jumps straight from 5→3 on the desktop shell. Add a 4-col step at 1440px to keep the grid tidy in the 1200–1439px range.
+
+---
+
+## 2026-04-19T18-27-12Z — Team Update (from Scribe): Transaction Schema Locked for WI-13
+
+**Context:** Morpheus shipped WI-11 (createTransaction command + event schema). Schema is now locked and final. You'll need it for WI-13 (Add-Transaction form).
+
+**Transaction schema you're building against:**
+- **`type: 'income' | 'expense'`** — use radio buttons or segment control. NOT a sign toggle; the sign is part of the type. 
+- **`amount: number`** — ALWAYS positive. Input field should be unsigned (no `-` prefix in UI). Sign comes from `type`.
+- **Validation codes (map to i18n keys for form errors):**
+  - `TYPE_INVALID` → `movements.errors.typeInvalid`
+  - `AMOUNT_NON_POSITIVE` → `movements.errors.amountNonPositive`
+  - `CURRENCY_EMPTY` → `movements.errors.currencyEmpty`
+  - `DESCRIPTION_EMPTY` → `movements.errors.descriptionEmpty`
+  - `DATE_INVALID` → `movements.errors.dateInvalid`
+  - `ACCOUNT_NOT_FOUND` → `movements.errors.accountNotFound`
+
+**Full spec:** `.squad/decisions.md` § "Transaction Schema + Validation Rules (WI-11)"
+
+**Storage layer status:** WI-4′ also shipped. Events are now persisted to NDJSON on disk, hydrated at startup. No more mock data — when WI-6 lands, Panel will render from real encrypted events.
+
+**Your WI-6 blocker:** Both Morpheus deliverables (WI-4′ + WI-11) are complete. IPC wiring (WI-12) is next. You're unblocked for WI-13 form design anytime after WI-12 lands.

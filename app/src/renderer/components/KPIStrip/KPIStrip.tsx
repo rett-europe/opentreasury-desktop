@@ -24,48 +24,33 @@ export function KPIStrip({ income, expense, net, month }: KPIStripProps): JSX.El
 
   return (
     <div className="ot-kpi-strip" role="status" aria-live="polite">
-      <div className="ot-kpi">
-        <div
-          className="ot-kpi__icon"
-          style={{ background: 'var(--color-income-bg)', color: 'var(--color-income-default)' }}
-        >
+      <div className="ot-kpi ot-kpi--income">
+        <div className="ot-kpi__icon">
           <TrendingUp size={20} />
         </div>
         <div>
           <div className="ot-kpi__label">{t('movements.totals.income')}</div>
-          <div className="ot-kpi__value" style={{ color: 'var(--color-income-default)' }}>
-            {formatCurrency(income)}
-          </div>
+          <div className="ot-kpi__value">{formatCurrency(income)}</div>
           <div className="ot-kpi__delta">{month}</div>
         </div>
       </div>
-      <div className="ot-kpi">
-        <div
-          className="ot-kpi__icon"
-          style={{ background: 'var(--color-expense-bg)', color: 'var(--color-expense-default)' }}
-        >
+      <div className="ot-kpi ot-kpi--expense">
+        <div className="ot-kpi__icon">
           <TrendingDown size={20} />
         </div>
         <div>
           <div className="ot-kpi__label">{t('movements.totals.expense')}</div>
-          <div className="ot-kpi__value" style={{ color: 'var(--color-expense-default)' }}>
-            {formatCurrency(expense)}
-          </div>
+          <div className="ot-kpi__value">{formatCurrency(expense)}</div>
           <div className="ot-kpi__delta">{month}</div>
         </div>
       </div>
-      <div className="ot-kpi">
-        <div
-          className="ot-kpi__icon"
-          style={{ background: 'var(--color-brand-surface)', color: 'var(--color-brand-primary)' }}
-        >
+      <div className="ot-kpi ot-kpi--net">
+        <div className="ot-kpi__icon">
           <Calculator size={20} />
         </div>
         <div>
           <div className="ot-kpi__label">{t('movements.totals.net')}</div>
-          <div className="ot-kpi__value" style={{ color: 'var(--color-brand-primary)' }}>
-            {formatCurrency(net)}
-          </div>
+          <div className="ot-kpi__value">{formatCurrency(net)}</div>
           <div className="ot-kpi__delta">{month}</div>
         </div>
       </div>
