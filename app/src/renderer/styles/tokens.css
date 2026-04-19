@@ -12,9 +12,12 @@
  */
 
 /* ══════════════════════════════════════════════════════════════
-   Inter font import — source: prototype/styles.css line 140
+   Inter font — self-hosted via @fontsource/inter
+   Imported in app/src/renderer/main.tsx (weights 400/500/600/700).
+   Previous Google Fonts CDN @import was unreliable in Electron
+   (CSP / offline / cold cache) and caused bold glyphs to fall back
+   to system fonts.
    ══════════════════════════════════════════════════════════════ */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root,
 :root[data-theme='light'] {
