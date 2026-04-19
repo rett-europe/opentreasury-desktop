@@ -153,6 +153,82 @@ An M1 implementation review revealed ~49 tracked deltas between `app/src/rendere
 - **Morpheus / Neo** — diagnostic bundle main-process implementation unblocked; scenario-specific field whitelists are pinned.
 
 **Why:** Niobe surfaced 5 security-sensitive UX copy questions in Wave-1 specs that required Switch's final say. Catalog consolidates them + 4 additional scenarios Switch identified as gaps (CE-002b admin rejection copy, CE-006/007 audit integrity blocking surfaces, CE-008 mid-session revocation, CE-009 update-signature failure). Wave-1 UX and Mouse's design-system-wave-1 both depended on these being ratified.
+
+### 2026-04-19: Mouse tokens v0.2 — re-extract from prototype (remediation 5.1.1)
+**By:** Mouse (UI Designer), requested by Pedro
+**Branch:** `fix/mouse-tokens-v0.2`
+**Status:** Delivered → Awaiting orchestration + merge
+**Artifact:** `app/src/renderer/styles/tokens.css` v0.2 (replacement for v0.1), `.squad/decisions/inbox/mouse-tokens-v0.2.md`
+
+**Decision:** Replace `app/src/renderer/styles/tokens.css` with v0.2 — extracted directly from `prototype/styles.css` per the north-star rule: **prototype is the v1 visual and interaction contract.**
+
+**Summary of Changes:**
+- **20 new tokens** introduced (colour, typography, spacing, shadow, chrome)
+- **58 value corrections** to match prototype exactly
+- Every token value either (a) matches prototype with `Source:` comment, (b) preserves v0.1 where no prototype equivalent, or (c) is new from prototype
+- Legacy token names preserved for Trinity compatibility — where values changed, inline `/* v0.2: was X, now Y */` migration comments added
+
+**Breaking Changes (⚠️ Action Required):**
+
+1. **Spacing token rescale** — all `--space-N` indexes shifted due to prototype's finer grid
+   - `--space-1` was 4px → now 2px; `--space-2` was 8px → now 4px; ... (full map in decision doc)
+   - Trinity action: global search/replace across all component CSS per provided migration table
+   - Alternatively: Trinity can add `--compat-space-N` aliases for one sprint, then remove
+
+2. **Primary button hover direction inverted** — **VISUAL CHANGE**
+   - v0.1: hover darkened to `#5a3d75` → v0.2: hover lightens to `#9c7cb5`
+   - Matches prototype's "airy + anchored" aesthetic; no code change (token ref stays same)
+   - Trinity action: visually test all primary buttons (Panel CTA, Movements CTA, dialogs)
+
+3. **Radius +2px on every step** (xs 2→4, sm 4→6, md 6→8, lg 10→12; pill 9999px→16px)
+   - Prototype uses fixed-radius rounded rectangles, not perfect circles
+
+4. **Font face change:** OS system stack → **Inter (Google Fonts)**
+   - ⚠️ Offline bundling gap flagged; remediation ticket needed (M1 blocker)
+
+5. **Border paradigm shift:** Flat hex → **purple-tinted alpha** `rgba(109,77,140,0.14)`
+   - Prototype's signature brand-tinted materiality
+
+**Pending-Tone Conflict (⚠️ FLAGGED for Link ratification):**
+
+**Conflict:** v0.1 design system explicitly removed pending tone. Prototype ships pending badges on Movements (`estado` column: `Pendiente` / `Aprobado`) using `--color-status-pending: #e65100` on `#fff3e0` background.
+
+**v0.2 resolution per north-star rule:** Adopted prototype values. Added `--color-status-pending` and `--color-status-pending-bg` tokens.
+
+**Link's call required:** 
+- [ ] **Approve** — Prototype wins; estado column ships with pending badges in M1 (requires Link + Pedro sign-off per audit §6)
+- [ ] **Deviation** — File explicit deviation explaining why prototype's pending badges are omitted
+
+**Mouse recommendation:** Approve. The prototype's estado column is a core data-integrity affordance (pending = not yet bank-reconciled). Removing it would be a functional downgrade, not just visual. The "no pending tone" v0.1 decision was made in design-system vacuum without prototype context.
+
+**Other Notable Changes:**
+- Dark mode radial + linear gradient body background (signature brand-lit corner)
+- Section-label recipe tokenized (uppercase + letter-spaced + muted for group headings)
+- Shadow colors updated to purple tint (warm materiality vs neutral gray)
+- Motion timing: fast 140ms→120ms, base 220ms→200ms
+- Topbar height 56px→60px
+
+**Trinity's Next Steps:**
+1. Migrate spacing token references per migration table (global search/replace)
+2. Test all primary buttons (hover direction flip)
+3. Verify card corners render correctly (radius +2px on every step)
+4. Check dark mode body background gradient renders without z-index issues
+5. File feedback if any token breaks existing layout (flag in new inbox decision file if needed)
+
+**Link's Next Step:**
+- Ratify or file deviation on pending-tone (decision doc has Mouse's recommendation + rationale)
+
+**Mouse's Follow-up Tickets (out-of-scope for this decision):**
+1. Inter offline bundling — download WOFF2 files, bundle in `app/src/renderer/assets/fonts/`, update @font-face. Target: before M1 ship.
+2. Account colour palette — propose 10-color palette extracted from prototype (uses `color-mix(in oklch, …)` formula; v0.2 does not yet tokenize this).
+
+**Why:** Remediation item 5.1.1 of `docs/product/prototype-fidelity-audit.md`. Root cause of v0.1 drift: tokens were invented rather than extracted from prototype; design system became de-facto authority. Prototype wins; design system is translation layer. This re-extraction unblocks all frontend remediation (Trinity Panel/Saldo/Movements rebuild).
+
+**Impact:**
+- ✅ Unblocks: Trinity's Wave-1 rebuild, Panel/Saldo implementation, all 49-delta fidelity audit remediation tickets
+- ⚠️ Blocks merge until: Link ratifies or deviates on pending-tone, Trinity ready to rebase + migrate spacing tokens
+- ⚠️ Dependency: All frontend PRs until merged must reference this v0.2 token state
+
 ### 2026-04-19: Design System v0.1 shipped (Wave 1 visual foundation)
 **By:** Mouse (UI Designer), requested by Pedro
 **Branch:** `feat/design-system-wave-1`

@@ -97,3 +97,36 @@ Built the first runnable vertical slice. All 4 CI gates green: typecheck · lint
 Did NOT commit — Scribe owns commits.
 ### 2026-04-19: Wave 1 impl drifted from prototype — rebuild side-by-side after tokens v0.2
 Wave 1 implementation drifted from the prototype. After Mouse's tokens-v0.2 lands, rebuild screens side-by-side with the prototype open (literally two windows). Match pixel-for-pixel within reason. Every frontend PR now requires before/after screenshots comparing to the prototype. See `docs/product/prototype-fidelity-audit.md` and the 2026-04-19 decision `prototype/ is the visual and interaction contract for v1`.
+
+### 2026-04-19: Mouse tokens v0.2 landing — spacing rescale + hover-direction flip (BREAKING)
+
+**On branch `fix/mouse-tokens-v0.2` (awaiting orchestration + merge):**
+
+**Spacing token rescale (⚠️ ACTION REQUIRED):**
+- All `--space-N` indexes shifted due to prototype's finer grid
+- `--space-1` was 4px → now 2px
+- `--space-2` was 8px → now 4px
+- `--space-3` was 12px → now 6px
+- `--space-4` was 16px → now 8px
+- ... (full migration map in `.squad/decisions.md` entry for tokens-v0.2)
+- **Fix:** Global search/replace across all component CSS per the provided migration table (search for `--space-N`, replace with new index)
+- Or temporarily use `--compat-space-N` aliases, then remove after one sprint
+
+**Primary button hover direction flip (⚠️ VISUAL CHANGE):**
+- v0.1: hover darkened to `#5a3d75`
+- v0.2: hover **lightens** to `#9c7cb5`
+- Matches prototype's "airy + anchored" feel; inverted interaction but no code change
+- **Test:** All primary buttons (Panel CTA, Movements CTA, dialogs) — verify new lightening behavior feels right
+
+**Other token changes (no code required):**
+- Radius: every step +2px (xs 2→4, sm 4→6, md 6→8, lg 10→12)
+- Pill: 9999px → 16px (fixed-radius rectangles, not circles)
+- Font: OS system → Inter (Google Fonts) — ⚠️ offline bundling gap flagged for follow-up
+- Borders: flat hex → purple-tinted alpha (brand materiality)
+- Dark mode: radial + linear gradient body background
+- Motion: fast 120ms (was 140ms), base 200ms (was 220ms)
+
+**Rebase plan:** Rebase on `fix/mouse-tokens-v0.2` once merged to main, then perform spacing migration + hover testing.
+
+**Pending-tone note:** Link must ratify whether estado column ships with pending badges (prototype has them; v0.1 design system removed them). Awaiting `.squad/decisions.md` decision.
+

@@ -110,6 +110,23 @@ UX-003 Q1 (statement-import scope -> UX-016/PRD-006) and UX-005 Q2 (Panel read-o
 ### 2026-04-19: Cross-agent update from Scribe
 PRD-001 (Movements) has a walking skeleton: empty-state-until-date-range, preset chips, sortable table, totals row, mock data (~48 entries Oct 2025 → Apr 2026). Ready for Pedro to click through.
 
+### 2026-04-19: Pending-tone ratification needed on tokens-v0.2 branch
+
+**On branch `fix/mouse-tokens-v0.2` (awaiting merge):**
+
+Mouse completed tokens v0.2 re-extraction from prototype. Conflict flagged for your ratification:
+- **v0.1 design system explicitly removed pending tone** ("No pending tone anywhere")
+- **Prototype ships pending badges** on Movements estado column (`Pendiente` / `Aprobado`)
+- **v0.2 adopts prototype values** per north-star rule (prototype wins; design system is translation layer)
+
+**Your call required:**
+- [ ] **Approve:** Prototype wins; estado column ships with pending badges in M1 (requires your + Pedro sign-off per audit §6)
+- [ ] **Deviation:** File explicit deviation explaining why prototype's pending badges are omitted
+
+**Mouse's recommendation (in decision doc):** Approve. The estado column is a core data-integrity affordance (pending = not yet bank-reconciled). Removing it would be functional downgrade, not just visual. The v0.1 "no pending" decision was made in design-system vacuum without prototype context.
+
+See `.squad/decisions.md` entry "2026-04-19: Mouse tokens v0.2 — re-extract from prototype" for full rationale + token change summary.
+
 ### 2026-04-19: Prototype fidelity audit — PRD-side ownership of the drift
 Co-authored `docs/product/prototype-fidelity-audit.md` with Neo after Pedro flagged visual drift in the M1 walking skeleton. ~49 tracked deltas vs the prototype (20 🔴 / 20 🟡 / 9 🟢). Two entire canonical screens (Panel, Saldo) are still `<ComingSoonScreen />` placeholders — they were counted as "scaffold in" but that did not translate to "visually matches prototype". That's on me.
 
