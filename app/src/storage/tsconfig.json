@@ -1,0 +1,12 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../../dist/storage",
+    "rootDir": ".",
+    "types": ["node"],
+    "lib": ["ES2022"]
+  },
+  "include": ["**/*.ts"],
+  "exclude": ["**/*.test.ts"],
+  "references": [{ "path": "../shared" }]
+}

@@ -1,0 +1,9 @@
+{
+  "app": {
+    "title": "OpenTreasury",
+    "tagline": "Tesorería sin infraestructura para pequeñas ONG."
+  },
+  "action": {
+    "toggle-language": "Cambiar idioma"
+  }
+}

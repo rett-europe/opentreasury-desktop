@@ -323,3 +323,32 @@ Conditions (C1–C15) added to ADR-001 §9 "Security Review — Switch", binding
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
 - Switch has FINAL SAY on all security decisions
+
+
+### 2026-04-19: ADR-003 (i18n framework) Accepted + app/ source tree scaffolded
+**By:** Neo (Lead/Architect), requested by Pedro
+**Branch:** `feat/app-scaffold-and-i18n-adr`
+
+**Artifacts:**
+- `docs/architecture/adr-003-i18n-framework.md` — Status: **Accepted**. Pedro delegated the day-0 i18n framework choice to Neo as a structural M0 decision.
+- `app/` source tree scaffolded per ADR-002 §4 (main / preload / renderer / shared / core / crypto / storage, flat, tsc-b project references, strict TS).
+- Root config: `package.json`, `tsconfig.base.json`, `tsconfig.json`, `.eslintrc.cjs` (with `import/no-restricted-paths` wiring the ADR-002 §4.1 boundaries), `.prettierrc.json`, `vite.config.ts`, `vitest.config.ts`, `electron-builder.yml`, extended `.gitignore`.
+- `tests/integration/` + `tests/e2e/` (Playwright smoke test skipped until first `npm install`).
+- `.github/workflows/ci.yml` — lint · typecheck · test · format-check.
+- `README.md` — appended a "Getting started" section for developers.
+
+**i18n framework chosen: `react-i18next`.** See ADR-003 §4 for full rationale — shortest "add a string" path, best TS support via module augmentation (matches the strict-TS posture from ADR-002), bundle cost irrelevant in Electron. Locales ship at `app/src/renderer/locales/{lang}/{namespace}.json`; EN + ES seeded with `common.json` containing one real string (`app.title`, `app.tagline`, `action.toggle-language`) to prove the pipeline. `<App />` toggles language on click to demonstrate wiring. Default locale ES (Rett Spain pilot).
+
+**Scaffold decisions captured in ADR-003 §12 for revisability** (not load-bearing, marked revisable): Vite (SD1), Vitest (SD2), Playwright (SD3), electron-builder (SD4), Zod for IPC validation (SD6), per-namespace JSON files (SD8), ES default locale (SD9).
+
+**Known follow-ups (not part of this PR):**
+1. **Pedro: `npm install`** — I deliberately did NOT run any install scripts per the task brief. Pedro runs `npm install` first; the lockfile lands in the next commit.
+2. **First real feature work:** once deps are in, the next likely branch is PRD-001 (Movements) — Morpheus/Trinity own implementation-ticket breakdown. UX-004 app shell + UX-001 first-run (Niobe) and PRD-009 i18n foundations finalization (Link + Neo) also kick off against this scaffold.
+3. **Wire Vite dev server URL + Electron main** — `npm run dev:electron` currently exits 1 by design; needs an electron launcher that waits for Vite to boot then loads http://localhost:5173 in dev / `file://` in prod.
+4. **electron-updater + pinned Ed25519 pubkey for update payload verification (C12)** — tracked in `src/main/updater/` directory (not yet created); owned jointly with Switch.
+5. **CI "missing key" i18n lint** — scheduled with PRD-009 implementation, NOT this scaffold.
+6. **E2E smoke test** — currently `test.skip(...)`; remove skip once first build succeeds.
+
+**Traceability:** ADR-001 (React+TS stack, C1–C15 cited throughout scaffold comments), ADR-002 (repo structure, §4.1 module boundaries enforced by ESLint rules), ADR-003 (this i18n framework choice), crypto-spec v1.0 (stub crypto module README lists audit rules), roadmap M0 (i18n foundations day-0).
+
+**What the scaffold does NOT include** (intentional): real crypto implementation, OneDrive storage impl, any business logic, read-model / SQLite cache module (added with first feature needing it), and `npm install` was not run.
