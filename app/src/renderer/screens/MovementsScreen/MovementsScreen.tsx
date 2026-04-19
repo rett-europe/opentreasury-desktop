@@ -231,6 +231,24 @@ export function MovementsScreen(): JSX.Element {
   const columns: readonly TableColumn<Movement>[] = useMemo(
     () => [
       {
+        id: 'type',
+        header: '',
+        sortable: false,
+        align: 'center',
+        width: 36,
+        render: (m) => {
+          const cls =
+            m.type === 'income'
+              ? 'ot-type-arrow ot-type-arrow--income'
+              : 'ot-type-arrow ot-type-arrow--expense';
+          return (
+            <span className={cls} aria-hidden="true">
+              {m.type === 'income' ? '↑' : '↓'}
+            </span>
+          );
+        },
+      },
+      {
         id: 'date',
         header: t('movements.columns.date'),
         sortable: true,
@@ -263,17 +281,8 @@ export function MovementsScreen(): JSX.Element {
         tabular: true,
         render: (m) => {
           const cls = m.type === 'income' ? 'ot-amount--income' : 'ot-amount--expense';
-          const arrowCls =
-            m.type === 'income' ? 'ot-type-arrow ot-type-arrow--income' : 'ot-type-arrow ot-type-arrow--expense';
           const sign = m.type === 'expense' ? -m.amount : m.amount;
-          return (
-            <span className={cls}>
-              <span className={arrowCls} aria-hidden="true" style={{ marginRight: 8 }}>
-                {m.type === 'income' ? '↑' : '↓'}
-              </span>
-              {currencyFmt.format(sign)}
-            </span>
-          );
+          return <span className={cls}>{currencyFmt.format(sign)}</span>;
         },
       },
     ],

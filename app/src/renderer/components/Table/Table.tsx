@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import './Table.css';
 
 export type SortDirection = 'asc' | 'desc' | null;
@@ -8,8 +8,9 @@ export interface TableColumn<T> {
   readonly id: string;
   readonly header: string;
   readonly sortable?: boolean;
-  readonly align?: 'left' | 'right';
+  readonly align?: 'left' | 'center' | 'right';
   readonly tabular?: boolean;
+  readonly width?: string | number;
   readonly render: (row: T) => ReactNode;
 }
 
@@ -58,14 +59,23 @@ export function Table<T>({
                       ? 'descending'
                       : 'none'
                   : 'none';
-              const align = col.align === 'right' ? 'ot-table__cell--right' : '';
+              const align =
+                col.align === 'right'
+                  ? 'ot-table__cell--right'
+                  : col.align === 'center'
+                    ? 'ot-table__cell--center'
+                    : '';
+              const thStyle: CSSProperties = {};
+              if (col.align === 'right') thStyle.textAlign = 'right';
+              else if (col.align === 'center') thStyle.textAlign = 'center';
+              if (col.width != null) thStyle.width = col.width;
               return (
                 <th
                   key={col.id}
                   scope="col"
                   aria-sort={ariaSort}
                   className={align}
-                  style={col.align === 'right' ? { textAlign: 'right' } : undefined}
+                  style={Object.keys(thStyle).length > 0 ? thStyle : undefined}
                 >
                   {col.sortable && onSort ? (
                     <button
@@ -97,13 +107,23 @@ export function Table<T>({
             <tr key={getRowKey(row)}>
               {columns.map((col) => {
                 const classes = [
-                  col.align === 'right' ? 'ot-table__cell--right' : '',
+                  col.align === 'right'
+                    ? 'ot-table__cell--right'
+                    : col.align === 'center'
+                      ? 'ot-table__cell--center'
+                      : '',
                   col.tabular ? 'ot-table__cell--tnum' : '',
                 ]
                   .filter(Boolean)
                   .join(' ');
+                const tdStyle: CSSProperties = {};
+                if (col.width != null) tdStyle.width = col.width;
                 return (
-                  <td key={col.id} className={classes || undefined}>
+                  <td
+                    key={col.id}
+                    className={classes || undefined}
+                    style={Object.keys(tdStyle).length > 0 ? tdStyle : undefined}
+                  >
                     {col.render(row)}
                   </td>
                 );

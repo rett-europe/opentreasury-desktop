@@ -177,3 +177,8 @@ Typography scale (h1 28 px, KPI 24 px tabular-nums, section label 11 px / 0.08em
 2. **`Stack` primitive takes gap via inline `var(--space-${gap})`** — meaning callers pass the token *index*, not pixels. When token values rescale, caller props (not just CSS) must migrate. Only one live caller in this pass, but worth remembering.
 3. **Tokens v0.2 introduced `--space-11/12/13` as new slots** — we now have 0–13. Old `--space-10` (which was 64 px) is now `--space-13`.
 4. **`icon-btn` / `section-label` / `page-header` / `kpi` / `account-card` / `badge`** are common prototype recipes — inlining them in globals.css keeps screens thin without creating new primitives (per the task guardrail).
+
+## Movements type-arrow column split
+- Split the type indicator out of the amount cell into its own narrow (36px) centered column as 1st column; amount cell now shows only the formatted currency with income/expense color class.
+- Extended Table primitive: TableColumn gained optional 'width' and 'center' align; Table.css adds .ot-table__cell--center.
+- Typecheck, lint and build all pass.
