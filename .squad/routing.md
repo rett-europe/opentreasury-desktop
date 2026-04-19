@@ -6,13 +6,19 @@ How to decide who handles what.
 
 | Work Type | Route To | Examples |
 |-----------|----------|----------|
-| {domain 1} | {Name} | {example tasks} |
-| {domain 2} | {Name} | {example tasks} |
-| {domain 3} | {Name} | {example tasks} |
-| Code review | {Name} | Review PRs, check quality, suggest improvements |
-| Testing | {Name} | Write tests, find edge cases, verify fixes |
-| Scope & priorities | {Name} | What to build next, trade-offs, decisions |
+| Architecture & design | Neo | System design, tech stack decisions, scope trade-offs |
+| Frontend / Electron renderer | Trinity | UI components, views, routing, state management, IPC (renderer side) |
+| Backend / Electron main process | Morpheus | Data persistence, business logic, IPC handlers, import/export |
+| Testing & QA | Cypher | Unit tests, integration tests, E2E tests, quality gates |
+| Documentation & writing | Oracle | Feature docs, user guides, README, changelogs, in-app help |
+| Security | Switch | Auth design, Electron hardening, security reviews, threat modeling |
+| Specs & UX analysis | Niobe | Feature specs, user workflows, usability review, accessibility |
+| UI design & theming | Mouse | Visual design, design tokens, component specs, color/typography |
+| Code review | Neo | Review PRs, check quality, architectural alignment |
+| Security review | Switch | Review PRs touching auth, IPC, data access, dependencies |
+| Scope & priorities | Neo | What to build next, trade-offs, decisions |
 | Session logging | Scribe | Automatic — never needs routing |
+| Work monitoring | Ralph | Backlog tracking, issue status, keep-alive |
 
 ## Issue Routing
 

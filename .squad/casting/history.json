@@ -1,0 +1,25 @@
+{
+  "universe_usage_history": [
+    {
+      "universe": "The Matrix",
+      "assignment_id": "opentreasury-desktop-init-2026-04-19",
+      "used_at": "2026-04-19T12:00:00Z"
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "opentreasury-desktop-init-2026-04-19": {
+      "universe": "The Matrix",
+      "agents": {
+        "lead": "Neo",
+        "frontend-dev": "Trinity",
+        "backend-dev": "Morpheus",
+        "tester": "Cypher",
+        "docs-writer": "Oracle",
+        "security-engineer": "Switch",
+        "spec-ux-analyst": "Niobe",
+        "ui-designer": "Mouse"
+      },
+      "created_at": "2026-04-19T12:00:00Z"
+    }
+  }
+}
