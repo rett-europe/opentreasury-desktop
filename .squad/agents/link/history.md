@@ -153,3 +153,25 @@ Co-authored `docs/product/prototype-fidelity-audit.md` with Neo after Pedro flag
 ### 2026-04-19 — From Scribe: Trinity CSS sticky-scroll fix deployed
 Trinity fixed the visual regression on Movimientos (rows rendering above sticky header during scroll). Root cause: padded scroll container. Fix: structural (moved top gutter from scroll container to page-header). All gates green; skills doc updated. Contract recorded: every future screen must start with a top-gutter element, or it renders flush against the topbar. Visual behavior unchanged for end user; this is a maintenance win for future sticky work.
 
+## 2026-04-19 — Product recommendation: "Panel-first" unlock for M1 completion path
+
+**State snapshot:** Movements is ~70% UI-complete (sticky header ✅, table structure ✅, empty-state gate ✅, date picker scaffold ✅, mock data render ✅, sort ✅). Panel and Saldo remain as `<ComingSoonScreen />` placeholders. M1 exit criterion is "core treasury loop end-to-end: create account → enter tx → categorize → see on Panel/Movements/Saldo". Movements is unblocked for wiring to the event-sourced core; Panel and Saldo are still blocked on UI. Trinity's sticky-header parity pass proves the team can unblock screens fast once the structure is right.
+
+**Top 3 candidates for next product milestone:**
+
+1. **Complete Movements UI wiring (core M1 path)** — remaining work: (a) wire date-range selection to mock/real data, (b) build account/category CRUD forms, (c) build tag picker, (d) set up two-way binding to event core. **Why now:** Movements is closest to done; it's the primary transaction surface; wiring it unblocks the internal alpha and reveals event-sourcing friction early. **User value:** The treasurer can actually record a donation or expense. **Risk:** Low — Trinity + Morpheus have already shaped the UI contract.
+
+2. **"Panel-first" unblock (user-perceived value accelerator)** — shift UX work to Panel (the at-a-glance dashboard); finish sticky/scroll, render recent-tx table, wire sparklines to real data. Skip Saldo temporarily. **Why now:** Panel is the treasurer's first impression — it signals "this works" faster than a filtered transaction list. Prototype Panel code is cleaner (fewer columns). Panel has no empty-state gate (it can auto-load). **User value:** Non-technical treasurers see "aha, my balance is here" on first open, even if Movements is sparse. **Trade:** Saldo ships M1+0.5 instead of M1, but we still gate alpha-go on "core loop" (which now means Account→Tx→Panel visibility, not Saldo). Saldo is lower-touch once Panel is done.
+
+3. **Saldo + Movements in parallel (high-touch, lower velocity)** — both teams work both screens; collision risk on event-core wiring; longer M1. **Why not now:** Trinity is the bottleneck for UI structure. Movements + Panel can each own a trinity sprint. Saldo is lower priority in the treasurer's workflow (balance drill-down matters less than recording + dashboard summary). Velocity < 2.
+
+**My recommendation: Candidate 2 — "Panel-first unlock"**
+
+**Rationale:**
+- **Why Panel first, not Movements:** Movements is technically complete but conceptually complex (empty-state discipline, date-range logic, sort persistence). Panel is simpler (no gate, no filters, no sort — just recent txs + sparklines + totals), so it's a faster confidence-builder for "real data flowing through the core". Ship Panel, unblock internal alpha early, let the team dogfood while Movements gets final wiring. Parallel work de-risks both.
+- **Scope discipline:** Don't pull Saldo into M1-final. It's a "second view" for power treasurers. The core loop is "I see my balance + recent activity on Panel, I manage details on Movements". Saldo is M1.25 — it ships within days of Panel but not on the critical path to alpha.
+- **Why it matters to *users*:** The prototype showed dashboard-first (Panel) as the landing experience. That's the right UX for a non-technical treasurer — show me the summary before you ask me to filter. Our M1 wiring should match that.
+- **Unblocks:** (a) Niobe can finish Panel UX spec while Trinity finishes Movements structure. (b) Internal alpha test can validate "real data → encrypted event → read model → live UI" on the simplest screen first (Panel has no interactivity to block on). (c) Movements full wiring slides into early M2 if needed without blocking the alpha gate.
+
+**Action for Neo/Trinity/Morpheus:** Take Movements UI + Panel UX spec → Panel implementation sprint (3–5 days). Movements full core-wiring follows. This keeps M1 on track, ships alpha sooner, and proves the event-sourced core before we attempt the harder multi-device merge in M2.
+

@@ -32,6 +32,98 @@ An M1 implementation review revealed ~49 tracked deltas between `app/src/rendere
 
 **Not a scope reopener:** M1 PRD scope (what features ship when) is unchanged. What changes is **how** they look and behave — they must match the prototype within the 3 allowed deviation gates.
 
+### 2026-04-19: Panel-First Unlock for M1 → M1.25 Saldo (Link + Neo joint decision)
+**By:** Link (Product Manager) + Neo (Lead/Architect), jointly — requested by Pedro
+**Branch:** Reference artifacts in `.squad/decisions/inbox/`
+**Status:** **Awaiting Pedro go/no-go**
+
+**Summary:**
+Shift M1 priority from Movements-centric completion to "Panel first, then Movements" sequence. Saldo defers to M1.25.
+
+**Decision:** Sequence M1 as Panel → Movements, not Movements → Panel.
+
+**Why this sequence:**
+- **Movements** is 70% UI done but conceptually complex (date range, account/category CRUD, state mgmt). Takes 2–3 sprints to wire fully.
+- **Panel** is conceptually simple (no gate, no sort, no filter — just recent-tx table + sparklines + balance totals). Takes 1 sprint to wire.
+- **Panel is the treasurer's UX entry point.** Prototype shows dashboard-first; validate that early.
+- **Panel has no empty-state complexity.** Auto-loads; no date-range gate; no sort persistence. Simplest path to prove the event-sourced core.
+- **Saldo can ship M1.25.** It's a power-user screen (year-over-year drill-down), not the core loop.
+
+**Implications (all agents):**
+
+*For Neo (Architecture / Core):*
+- Event-sourced core validation happens on Panel first (fewer state mutations; simpler read model for balance totals).
+- Movements core wiring follows, exposing account/category mutation edge cases if any.
+- M1 alpha unblocked 3–5 days sooner.
+
+*For Trinity (UI / Implementation):*
+- Panel sprint starts immediately (Niobe's Panel UX spec + prototype reference).
+- Movements full form wiring (account picker, category picker, tag picker) starts in parallel after Panel is wired.
+- Saldo implementation defers — don't allocate to M1 final sprint.
+
+*For Niobe (UX):*
+- Panel UX spec must include prototype reference block.
+- Movements UX spec remains as drafted; timeline shifts right.
+
+*For Morpheus (Core):*
+- Phase 1: finalize `core/query/` interface (Panel-only, read-only). Gate: Vitest 100%.
+- Phase 1b: wire IPC contract for Panel. Gate: IPC round-trip vitest.
+- Phase 2 (parallel or M1+1): command-side Movements wiring.
+
+*For Pedro (Product Lead):*
+- Internal alpha gate now means "Panel + one Movements tx end-to-end" instead of "all three screens complete".
+- Saldo still ships before public release, just not in M1 final.
+- No scope loss; sequence change only.
+
+**Work packages:**
+
+**Phase 1: Panel MVP (1 sprint, unblocks Trinity → Morpheus → Trinity)**
+- 1a. Core query surface (Morpheus, 2–3 days) — `queryRecentMovements(limit, offset)` → sorted DESC by created_at
+- 1b. IPC contract for Panel (Morpheus + Trinity, 1 day) — `app/src/main/ipc/handlers.ts`, Zod schema
+- 1c. Panel UI wiring (Trinity, 3–4 days) — recent-txs table + totals strip, read-only surface
+- 1d. Crypto wiring for Panel reads (Morpheus + Switch, 3–4 days) — DEK load, event decrypt
+
+**Phase 2: Movements full wiring (parallel to Phase 1 end, M1+8–12 days)**
+- 2a. Command-side Movements (Morpheus, ~5 days)
+- 2b. Movements form wiring (Trinity, ~5 days)
+- 2c. IPC + crypto for Movements (Morpheus + Switch, ~3 days)
+
+**Phase 3: Saldo (M1.25, after Panel proves the stack)**
+- Same data layer, different query surface and layout.
+
+**M1 exit criterion redefined:**
+- Account → Tx → **Panel visibility** (not Saldo visibility; Saldo slides to M1.25).
+- Movements structure UI complete; command-side (forms, filters, date selection) lands M1+1.
+
+**Unblocked by this decision:**
+- Niobe can finish Panel UX spec in parallel.
+- Mouse can finalize Panel tokens.
+- Trinity can start Panel UI from prototype immediately.
+- Morpheus can design the `core/query` surface without waiting for command-side complexity.
+
+**Risks & mitigations:**
+| Risk | Mitigation |
+|------|-----------|
+| "Event sourcing doesn't scale to 10k events" | Panel proves it on day 1 with real data. If broken, pivot before Movements wiring lands. |
+| "OneDrive conflict resolution missing" | Intentional. Single-device alpha doesn't need it. M2 adds it. |
+| "Users expect full Movements CRUD on M1" | Scope redefinition documented. Panel + Movements read enough for internal alpha. |
+| "Crypto keychain blocks Panel" | Risk low. Switch reviews crypto; `@napi-rs/keyring` pre-approved. Implement in parallel with UI. |
+
+**Merge sequence:**
+1. `fix/trinity-prototype-parity` → `main` (now) — Sticky-thead polish, low risk.
+2. Create `feat/panel-first-spike` branch (from main) — Morpheus + Trinity collaborative sprint.
+3. Panel lives in main by M1+5 days. Movements full wiring M1+10–12 days (parallel).
+4. Saldo lands M1+14 days (M1.25 gate).
+
+**ADR updates required:**
+- ADR-002 §11 "Electron wiring" — Add checkpoint: "Phase 1 (Panel IPC) gates the main-process impl; Phase 2 (Movements) expands the handler surface. Concurrency & offline-first lands in M2 addendum."
+
+**Why:** De-risk the event-sourced core on the simplest code path (read-only Panel). Unblock internal alpha non-empty. Preserve M1 scope discipline. Let the team prove single-device core before M2 multi-device concurrency.
+
+**Cross-reference:** `.squad/decisions/inbox/link-next-milestone.md` (product rationale) and `.squad/decisions/inbox/neo-next-implementation.md` (architecture + work packages).
+
+**Status update:** Awaiting Pedro go/no-go before spawning Phase 1 sprints (Morpheus + Trinity).
+
 ### 2026-04-19: Trinity — Frontend Wave 1 implementation choices
 **By:** Trinity (Frontend Dev), requested by Pedro
 **Branch:** `feat/trinity-wave-1-impl`
