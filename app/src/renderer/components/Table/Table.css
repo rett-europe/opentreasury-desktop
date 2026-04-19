@@ -2,24 +2,12 @@
   background: var(--color-surface-primary);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
-  /* Use `overflow: clip` (NOT `hidden`) so the sticky thead can escape this
-   * wrap and anchor to the nearest scrolling ancestor (`.ot-shell__main`).
-   * `overflow: hidden` establishes a scroll containing block which traps
-   * `position: sticky` inside this box — the header would then vanish as
-   * soon as the user scrolls past the table's own height. `clip` still
-   * visually clips children (rounded corners work) but does NOT create a
-   * scroll container, preserving sticky escape. Do not "optimize" back to
-   * hidden. Supported by Electron/Chromium. */
+  /* `overflow: clip` (NOT `hidden`) so the sticky thead can escape this wrap
+   * and anchor to the nearest scrolling ancestor (`.ot-shell__main`).
+   * `hidden` would establish a scroll containing block and trap the sticky
+   * thead inside this box. `clip` still visually clips children (rounded
+   * corners work) but does NOT create a scroll container. */
   overflow: clip;
-  /* Inline-axis only: let the sticky-thead mask pseudo (see
-   * `.ot-table thead th::before`) bleed 1px past the wrap's left/right
-   * padding edges so it covers the wrap's 1px side borders in the
-   * pin-offset band when scrolled. The block axis stays at 0 on purpose —
-   * if we allowed top bleed, the mask (which sits at `bottom: 100%` of the
-   * sticky th = the wrap's padding-box top at rest) would paint over the
-   * wrap's 1px top border and erase it before the user ever scrolls. Using
-   * `*-inline` keeps the scrolled fix without breaking the at-rest frame. */
-  overflow-clip-margin-inline: 1px;
 }
 
 .ot-table {
@@ -40,8 +28,11 @@
   /* Sticky anchors to the nearest scrolling ancestor — `.ot-shell__main`.
    * Pin offset = `--sticky-top-offset` (28px) so the thead's top edge lines
    * up visually with the sidebar's "PRINCIPAL" section label rather than
-   * the absolute scrollport top. The 0..offset band is masked by `::before`
-   * below so rows don't bleed through it.
+   * the absolute scrollport top. Rows scrolling up in the 0..offset band
+   * pass behind the pinned thead naturally — no separate opaque mask band
+   * (prior implementations tried a `::before` pseudo, but painting a solid
+   * `--color-surface-app` rectangle over a scrollport whose backdrop is a
+   * radial+linear gradient in dark mode produced a visible "banded" strip).
    * Background must be opaque so rows don't bleed through while sticking. */
   position: sticky;
   top: var(--sticky-top-offset, 0);
@@ -54,53 +45,22 @@
   font-size: var(--font-size-11);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  /* Top border appears seamless at rest (sits flush against the wrap's 1px
+   * top border, same color), and provides the pinned thead a visible top
+   * edge when the wrap itself has scrolled out of view. */
+  border-top: 1px solid var(--color-border-default);
   border-bottom: 1px solid var(--color-border-default);
   white-space: nowrap;
 }
-
-/* Opaque mask that fills the 0..`--sticky-top-offset` band above the pinned
- * thead with the app background, so rows scrolling up are hidden before they
- * reach the sidebar section-label baseline. Anchored to the sticky `<th>` so
- * it travels with it; clipped by `.ot-table-wrap { overflow: clip }` at rest
- * (the pseudo sits above the wrap's top edge when the thead is at its
- * natural position, so `clip` hides it until the thead actually sticks).
- * Pointer-events off so it never steals input.
- *
- * Borders: explicitly zero. The pseudo must not paint any edge chrome — the
- * mask is meant to be a seamless continuation of the page background in the
- * pin-offset band. First/last-child variants below extend -1px horizontally
- * to cover `.ot-table-wrap`'s 1px side borders (which would otherwise show
- * as hairlines on each side of the mask strip when the thead is pinned).
- * That bleed is only possible because the wrap sets `overflow-clip-margin: 1px`. */
-.ot-table thead th::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  height: var(--sticky-top-offset, 0);
-  background: var(--color-surface-app);
-  border: 0;
-  pointer-events: none;
-}
-.ot-table thead th:first-child::before {
-  left: -1px;
-}
-.ot-table thead th:last-child::before {
-  right: -1px;
-}
-
-/* Round the outer top corners of the sticky thead so that when the header
- * pins and the wrap's own rounded frame has scrolled out of the pinned band,
- * the first/last header cells still present the card's rounded top edge.
- * Unconditional by design: at rest the th sits inside the wrap's 1px border,
- * so matching the wrap's *inner* radius (outer radius minus border width)
- * aligns the th's corners exactly with the wrap's inner curve — visually a
- * no-op. When stuck, these corners are what the user sees as the card top. */
 .ot-table thead th:first-child {
+  border-left: 1px solid var(--color-border-default);
+  /* Match the wrap's *inner* radius (outer radius minus border width) so at
+   * rest the th corner aligns exactly with the wrap's inner curve (no-op);
+   * when stuck this is the visible top-left of the pinned card edge. */
   border-top-left-radius: calc(var(--radius-lg) - 1px);
 }
 .ot-table thead th:last-child {
+  border-right: 1px solid var(--color-border-default);
   border-top-right-radius: calc(var(--radius-lg) - 1px);
 }
 
