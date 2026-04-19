@@ -1001,3 +1001,44 @@ Pending tone from the prototype (`#e65100` on `#fff3e0`) is ratified into tokens
 **Outcome:** Pedro confirmed visually — arrows much bolder, font rendering consistent across system.
 
 **Why:** Electron doesn't load external CDN reliably; self-hosting resolves the issue. Font is now bundled as Vite asset and loads offline consistently.
+
+### 2026-04-19: Table header capitalization + sticky-header clipping fix (CSS polish)
+**By:** Trinity (Frontend Dev)
+**Branch:** `fix/trinity-prototype-parity`
+**Commit:** 2508ba0
+**Status:** Delivered ✅
+
+**Problem 1: Inconsistent header capitalization**
+
+After Movements table columns parity pass, table headers were inconsistent:
+- `tags` column (non-sortable): rendered UPPERCASE via `.ot-table th { text-transform: uppercase; }`
+- Other columns (sortable): rendered natural case because `.ot-table__sort-btn` (button element) had UA default `text-transform: none`, overriding the inherited rule
+
+**Fix:** `.ot-table__sort-btn` now inherits both `text-transform` and `letter-spacing` from parent `th`:
+```css
+.ot-table__sort-btn {
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+```
+
+**Problem 2: Sticky table header clipped off-screen on scroll**
+
+Pedro reported table headers disappeared when scrolling past the Movimientos table height.
+
+**Root cause:** `.ot-table-wrap { overflow: hidden }` establishes a **scroll containing block**, which traps `position: sticky` descendants inside its boundary. When the wrap scrolls off-screen in `.ot-shell__main`, the sticky thead goes with it.
+
+**Fix:** Changed `.ot-table-wrap` from `overflow: hidden` to `overflow: clip`:
+- `overflow: clip` still visually clips children → rounded corners preserved
+- `overflow: clip` does **NOT** create a scroll container → `position: sticky` escapes to the nearest scrolling ancestor (`.ot-shell__main`), so headers stay pinned as intended
+- Electron/Chromium fully supports `overflow: clip`
+
+**Durable Rule:**
+
+When a wrapper element needs rounded-corner clipping **AND** contains a `position: sticky` descendant that must anchor to an outer scroll container, use `overflow: clip` (not `overflow: hidden`). Document in CSS so future devs don't "optimize" it back.
+
+**Scope:** `app/src/renderer/components/Table/Table.css` only (2 edits)
+
+**Impact:** Table now renders with consistent header capitalization and sticky headers remain visible during scroll.
+
+**Test Status:** ✅ 39/39 tests pass, lint 0 warnings, build green
