@@ -1,7 +1,17 @@
 import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeftRight, LayoutDashboard, Moon, Scale, Sun, Monitor } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  LayoutDashboard,
+  LogOut,
+  Monitor,
+  Moon,
+  Scale,
+  Search,
+  Settings,
+  Sun,
+} from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme.js';
 import './AppShell.css';
 
@@ -40,77 +50,98 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps):
 
   return (
     <div className="ot-shell">
+      {/* ── Topbar ────────────────────────────────────────── */}
       <header className="ot-shell__topbar" role="banner">
         <span className="ot-shell__brand">
           <span className="ot-shell__brand-mark" aria-hidden="true">
-            <Scale size={16} />
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2 L22 12 L12 22 L2 12 Z" />
+            </svg>
           </span>
           <span>{t('shell.brand')}</span>
         </span>
 
+        <span className="ot-shell__divider-v" aria-hidden="true" />
+        <span className="ot-shell__tenant">Demo NGO</span>
+
         <div className="ot-shell__topbar-spacer" />
 
-        <div className="ot-shell__topbar-controls">
-          <div
-            className="ot-shell__control-group"
-            role="radiogroup"
-            aria-label={t('shell.language.label') satisfies string}
-          >
-            <button
-              type="button"
-              className="ot-shell__control-btn"
-              aria-pressed={activeLang === 'es'}
-              onClick={() => setLang('es')}
-            >
-              ES
-            </button>
-            <button
-              type="button"
-              className="ot-shell__control-btn"
-              aria-pressed={activeLang === 'en'}
-              onClick={() => setLang('en')}
-            >
-              EN
-            </button>
-          </div>
+        <label className="ot-shell__search">
+          <Search size={16} aria-hidden="true" />
+          <input type="search" placeholder={t('shell.search.placeholder') satisfies string} />
+          <kbd>⌘K</kbd>
+        </label>
 
-          <div
-            className="ot-shell__control-group"
-            role="radiogroup"
-            aria-label={t('shell.theme.label') satisfies string}
+        <div
+          className="ot-shell__control-group"
+          role="radiogroup"
+          aria-label={t('shell.language.label') satisfies string}
+        >
+          <button
+            type="button"
+            className="ot-shell__control-btn"
+            aria-pressed={activeLang === 'es'}
+            onClick={() => setLang('es')}
           >
-            <button
-              type="button"
-              className="ot-shell__control-btn"
-              aria-pressed={theme === 'system'}
-              onClick={() => setTheme('system')}
-              title={t('shell.theme.system') satisfies string}
-            >
-              <Monitor size={14} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="ot-shell__control-btn"
-              aria-pressed={theme === 'light'}
-              onClick={() => setTheme('light')}
-              title={t('shell.theme.light') satisfies string}
-            >
-              <Sun size={14} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="ot-shell__control-btn"
-              aria-pressed={theme === 'dark'}
-              onClick={() => setTheme('dark')}
-              title={t('shell.theme.dark') satisfies string}
-            >
-              <Moon size={14} aria-hidden="true" />
-            </button>
-          </div>
+            ES
+          </button>
+          <button
+            type="button"
+            className="ot-shell__control-btn"
+            aria-pressed={activeLang === 'en'}
+            onClick={() => setLang('en')}
+          >
+            EN
+          </button>
         </div>
+
+        <div
+          className="ot-shell__control-group"
+          role="radiogroup"
+          aria-label={t('shell.theme.label') satisfies string}
+        >
+          <button
+            type="button"
+            className="ot-shell__control-btn"
+            aria-pressed={theme === 'system'}
+            onClick={() => setTheme('system')}
+            title={t('shell.theme.system') satisfies string}
+          >
+            <Monitor size={14} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="ot-shell__control-btn"
+            aria-pressed={theme === 'light'}
+            onClick={() => setTheme('light')}
+            title={t('shell.theme.light') satisfies string}
+          >
+            <Sun size={14} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="ot-shell__control-btn"
+            aria-pressed={theme === 'dark'}
+            onClick={() => setTheme('dark')}
+            title={t('shell.theme.dark') satisfies string}
+          >
+            <Moon size={14} aria-hidden="true" />
+          </button>
+        </div>
+
+        <button
+          type="button"
+          className="ot-shell__icon-btn"
+          title={t('shell.theme.label') satisfies string}
+          aria-label="Settings"
+        >
+          <Settings size={18} aria-hidden="true" />
+        </button>
       </header>
 
+      {/* ── Sidebar ───────────────────────────────────────── */}
       <nav className="ot-shell__sidebar" aria-label="Primary">
+        <div className="ot-shell__nav-section-label">{t('shell.sections.main')}</div>
         <ul className="ot-shell__nav">
           {NAV.map((item) => (
             <li key={item.id}>
@@ -128,6 +159,26 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps):
             </li>
           ))}
         </ul>
+
+        <div className="ot-shell__sidebar-spacer" />
+
+        <div className="ot-shell__user-strip">
+          <div className="ot-shell__user-avatar" aria-hidden="true">
+            PR
+          </div>
+          <div className="ot-shell__user-meta">
+            <div className="ot-shell__user-name">{t('shell.user.name')}</div>
+            <div className="ot-shell__user-role">{t('shell.user.role')}</div>
+          </div>
+          <button
+            type="button"
+            className="ot-shell__user-logout"
+            title={t('shell.user.logout') satisfies string}
+            aria-label={t('shell.user.logout') satisfies string}
+          >
+            <LogOut size={14} aria-hidden="true" />
+          </button>
+        </div>
       </nav>
 
       <main className="ot-shell__main" role="main">
@@ -136,3 +187,4 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps):
     </div>
   );
 }
+

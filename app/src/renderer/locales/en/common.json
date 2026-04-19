@@ -36,7 +36,47 @@
       "title": "Coming soon",
       "body": "This section will arrive in a future release."
     },
+    "sections": {
+      "main": "Main"
+    },
+    "user": {
+      "name": "Pedro Rocha",
+      "role": "Admin",
+      "logout": "Sign out"
+    },
+    "search": {
+      "placeholder": "Search transactions, categories, accounts…"
+    },
     "brand": "OpenTreasury"
+  },
+  "panel": {
+    "title": "Dashboard",
+    "subtitle": "Month overview",
+    "cta": {
+      "new-movement": "New Transaction",
+      "date-range": "April 2026"
+    },
+    "sections": {
+      "accounts": "Balances by account",
+      "summary": "Month summary",
+      "monthly-trend": "Income vs. Expense · Last 12 months",
+      "recent": "Recent transactions"
+    },
+    "skeleton": "Preview — data in a future iteration."
+  },
+  "balance": {
+    "title": "Balance",
+    "subtitle": "Year-over-year income and expense comparison",
+    "cta": {
+      "export": "Export"
+    },
+    "sections": {
+      "summary": "Yearly totals",
+      "income": "Income by category",
+      "expense": "Expense by category",
+      "monthly-net": "Monthly net balance"
+    },
+    "skeleton": "Preview — data in a future iteration."
   },
   "movements": {
     "title": "Transactions",

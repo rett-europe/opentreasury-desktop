@@ -36,7 +36,47 @@
       "title": "Próximamente",
       "body": "Esta sección llegará en una próxima versión."
     },
+    "sections": {
+      "main": "Principal"
+    },
+    "user": {
+      "name": "Pedro Rocha",
+      "role": "Admin",
+      "logout": "Cerrar sesión"
+    },
+    "search": {
+      "placeholder": "Buscar movimientos, categorías, cuentas…"
+    },
     "brand": "OpenTreasury"
+  },
+  "panel": {
+    "title": "Panel",
+    "subtitle": "Vista general del mes",
+    "cta": {
+      "new-movement": "Nuevo Movimiento",
+      "date-range": "Abril 2026"
+    },
+    "sections": {
+      "accounts": "Saldos por cuenta",
+      "summary": "Resumen del mes",
+      "monthly-trend": "Ingresos vs. Gastos · Últimos 12 meses",
+      "recent": "Últimos movimientos"
+    },
+    "skeleton": "Vista previa — datos en una próxima iteración."
+  },
+  "balance": {
+    "title": "Saldo",
+    "subtitle": "Vista comparativa de ingresos y gastos por categoría",
+    "cta": {
+      "export": "Exportar"
+    },
+    "sections": {
+      "summary": "Totales del año",
+      "income": "Ingresos por categoría",
+      "expense": "Gastos por categoría",
+      "monthly-net": "Saldo neto mensual"
+    },
+    "skeleton": "Vista previa — datos en una próxima iteración."
   },
   "movements": {
     "title": "Movimientos",

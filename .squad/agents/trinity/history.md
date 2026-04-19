@@ -130,3 +130,50 @@ Wave 1 implementation drifted from the prototype. After Mouse's tokens-v0.2 land
 
 **Pending-tone note:** Link must ratify whether estado column ships with pending badges (prototype has them; v0.1 design system removed them). Awaiting `.squad/decisions.md` decision.
 
+
+
+## 2026-04-19 — Prototype parity pass (branch: fix/trinity-prototype-parity)
+
+Shipped Wave 1 remediation against `docs/product/prototype-fidelity-audit.md` on top of Mouse's tokens v0.2.
+
+### Migrated
+- **Spacing tokens (v0.1→v0.2 index shift)** — batch-rewrote every `var(--space-N)` in 11 CSS files via PowerShell script using a two-pass placeholder swap to avoid chained renames. Map used: 10→13, 9→12, 8→11, 7→10, 6→9, 5→8, 4→7, 3→6, 2→4, 1→2. Tokens file (Mouse's domain) untouched.
+- **Stack gap prop** — live caller in MovementsScreen bumped from `gap={3}` → `gap={6}` to preserve the original 12 px intent under the new index scheme. Default left at `gap=3` (now 6 px); existing tests still pass since they assert on the token name only.
+- **Hover direction** — v0.2 already flipped `--color-accent-hover` to `--color-brand-primary-light` (lightens). All `.ot-button--primary:hover` references inherit via the accent alias; visually verified the lighten direction is now live.
+- **Inter font** — tokens.css already `@import`s Google Fonts Inter 400/500/600/700. Globals sets `font-family: var(--font-family-sans)` on body. Added `font-feature-settings: var(--font-feature-settings)` on body via globals (already there from v0.2 work). No hardcoded hex colors introduced; all new styles reference tokens.
+
+### Rebuilt surfaces
+- **AppShell** (tsx + css) — 3-section chrome per `prototype/shell.jsx`:
+  - Topbar (60 px): brand+diamond mark, vertical divider, tenant label ("Demo NGO"), flex spacer, 320 px search input with ⌘K kbd hint, ES/EN radiogroup, theme tri-state radiogroup, settings icon-button. Uses `var(--topbar-height)` from tokens.
+  - Sidebar (240 px): "Principal" section label (11 px uppercase 0.08em), nav items (9 px × 12 px padding, `--color-row-hover` hover, `--color-brand-surface` + `--color-brand-primary` active), spacer, user strip at bottom (32 px avatar, name/role, logout icon-button).
+  - Collapses under 960 px to 64 px rail; search/tenant/user-meta hidden.
+- **MovementsScreen** — page-header now uses global `.ot-page-header` (h1 28 px -0.01em letter-spacing), totals strip rebuilt as 4-card KPI grid (24 px tabular-nums values, 11 px uppercase 0.08em labels), amount cells use prototype's `.ot-type-arrow` + `.ot-amount--income/expense` recipe. `Stack` kept for picker block.
+- **PanelScreen** (new) — renders page-header with Abril 2026 / Nuevo Movimiento CTAs (disabled), section labels for accounts/summary/monthly-trend/recent, 5×1 account-card grid with placeholders, 3-KPI strip, skeleton panels for trend + recent.
+- **SaldoScreen** (new) — page-header + Exportar CTA, yearly-totals KPI strip, skeleton panels for monthly-net + income/expense YoY grid.
+- Both stubs render dashes/placeholder text, no data wiring, but correct typography/spacing/palette.
+
+### Primitives touched
+- `Table.css`: headers now 11 px uppercase 0.08em letter-spaced `--color-text-muted`; zebra striping removed; hover uses `--color-row-hover`; dividers use `--color-divider` (purple-tinted alpha). Padding normalized to `--space-6` both axes.
+- `globals.css`: added 10 shared prototype recipes (`.ot-page-header`, `.ot-section-label`, `.ot-p-card`, `.ot-kpi-strip`/`.ot-kpi`, `.ot-account-cards`/`.ot-account-card`, `.ot-type-arrow`, `.ot-amount--income/expense`, `.ot-badge[--pending/--approved/--uncategorized]`, `.ot-account-pill`, `.ot-skeleton`). These live in globals so Panel/Saldo/Movements can share without forcing new primitives.
+- `ComingSoonScreen` — left in tree (unused) in case we want it for future routes.
+
+### Build status
+All four gates green on branch: `npm run typecheck` ✅ · `npm run lint` ✅ (0 warnings) · `npm test` ✅ (38/38) · `npm run build` ✅ (Vite, 1795 modules, 34.92 kB CSS / 245.85 kB JS).
+
+### Audit deltas closed (by rough count — see inbox note for per-delta mapping)
+Typography scale (h1 28 px, KPI 24 px tabular-nums, section label 11 px / 0.08em), sidebar structure (section label + user strip), topbar (brand + search + tenant + controls), primary button hover direction, table header styling, row hover + dividers, Inter font + feature settings, purple-tinted shadows, pill radius 16 px. Panel/Saldo no longer generic "Coming soon".
+
+### Audit deltas still open (documented for Pedro/Mouse/Niobe triage)
+- **No pending-tone badges rendered yet in Movements** — mock data doesn't carry a `status` field; `--color-status-pending-*` tokens available but untouched. Needs either `Movement.status: 'pending'|'approved'` on the type + mock generator tweak (small Morpheus-or-me follow-up) or an explicit deviation from Link.
+- **No account-pill + dot + tag-chip rendering in Movements table** — account column is plain text right now. Out of scope this pass (no mock account-color data wired).
+- **No filter bar** — prototype has chip group + 4 selects + min/max amount + "uncategorized only" toggle. Out of scope; we have only the date-range picker from UX-003.
+- **No monthly bar chart / account sparklines** — charts library decision still open (visx vs Recharts vs custom SVG per tokens.md). Panel/Saldo ship skeleton placeholders instead.
+- **No "density compact" mode** — prototype has `body.density-compact` spacing+font shrink. Not tokenized in v0.2.
+- **Dark-mode body gradient** — verified tokens.css has the radial+linear gradient on `:root[data-theme="dark"]::before`; not visually smoke-tested at runtime by me in this pass (port 5173 was already in use from another session).
+- **Inter offline bundling** — still Google Fonts CDN @import. Mouse flagged as M1 blocker.
+
+### Gotchas learned
+1. **Two-pass placeholder rewrite is safer than single-pass regex for index renames** — because `--space-1` is a prefix of `--space-10`, naive sed-like replacement collides. Used `__SPC_PLACEHOLDER_N__` as intermediate.
+2. **`Stack` primitive takes gap via inline `var(--space-${gap})`** — meaning callers pass the token *index*, not pixels. When token values rescale, caller props (not just CSS) must migrate. Only one live caller in this pass, but worth remembering.
+3. **Tokens v0.2 introduced `--space-11/12/13` as new slots** — we now have 0–13. Old `--space-10` (which was 64 px) is now `--space-13`.
+4. **`icon-btn` / `section-label` / `page-header` / `kpi` / `account-card` / `badge`** are common prototype recipes — inlining them in globals.css keeps screens thin without creating new primitives (per the task guardrail).

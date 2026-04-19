@@ -1,108 +1,107 @@
 .ot-movements {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-8);
   max-width: 1440px;
 }
 
 .ot-movements__header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-4);
 }
 
 .ot-movements__subtitle {
   color: var(--color-text-muted);
-  font-size: var(--type-small-size);
+  font-size: var(--font-size-14);
 }
 
 .ot-movements__toolbar {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-5);
+  gap: var(--space-6);
+  padding: var(--space-7);
   background: var(--color-surface-primary);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
 }
 
 .ot-movements__range-active {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-7);
   flex-wrap: wrap;
 }
 
+/* KPI-style totals strip (prototype-aligned: 24px tabular-nums values,
+ * 11px uppercase labels with letter-spacing, purple-tinted card surfaces). */
 .ot-movements__totals {
-  display: flex;
-  gap: var(--space-7);
-  padding: var(--space-4) var(--space-5);
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-6);
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+@media (max-width: 960px) {
+  .ot-movements__totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .ot-movements__totals > div {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  padding: var(--space-7) var(--space-8);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
 }
 .ot-movements__totals-label {
-  font-size: var(--type-caption-size);
+  font-size: var(--font-size-11);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   font-weight: var(--font-weight-semibold);
 }
 .ot-movements__totals-value {
-  font-size: var(--type-h3-size);
+  font-size: var(--font-size-24);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
+  letter-spacing: -0.01em;
 }
 .ot-movements__totals-value--income {
-  color: var(--color-success-default);
+  color: var(--color-income-default);
 }
 .ot-movements__totals-value--expense {
-  color: var(--color-danger-default);
+  color: var(--color-expense-default);
 }
 .ot-movements__totals-value--net-pos {
-  color: var(--color-success-default);
+  color: var(--color-income-default);
 }
 .ot-movements__totals-value--net-neg {
-  color: var(--color-danger-default);
-}
-
-.ot-movements__amount--income {
-  color: var(--color-success-default);
-}
-.ot-movements__amount--expense {
-  color: var(--color-danger-default);
-}
-
-.ot-movements__type-icon {
-  display: inline-flex;
-  margin-right: var(--space-1);
-}
-
-.ot-movements__table-empty {
-  padding: var(--space-5);
+  color: var(--color-expense-default);
 }
 
 .ot-movements__error {
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-7) var(--space-8);
   background: var(--color-danger-subtle);
   color: var(--color-danger-default);
   border: 1px solid var(--color-danger-default);
   border-radius: var(--radius-md);
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-7);
   align-items: center;
   justify-content: space-between;
 }
 
 .ot-movements__loading {
-  padding: var(--space-7);
+  padding: var(--space-10);
   text-align: center;
   color: var(--color-text-muted);
 }
+

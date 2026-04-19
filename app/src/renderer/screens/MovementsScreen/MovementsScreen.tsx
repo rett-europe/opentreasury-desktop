@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowDownRight, ArrowUpRight, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { Card } from '../../components/Card/index.js';
@@ -262,14 +262,14 @@ export function MovementsScreen(): JSX.Element {
         align: 'right',
         tabular: true,
         render: (m) => {
-          const cls =
-            m.type === 'income' ? 'ot-movements__amount--income' : 'ot-movements__amount--expense';
-          const Icon = m.type === 'income' ? ArrowUpRight : ArrowDownRight;
+          const cls = m.type === 'income' ? 'ot-amount--income' : 'ot-amount--expense';
+          const arrowCls =
+            m.type === 'income' ? 'ot-type-arrow ot-type-arrow--income' : 'ot-type-arrow ot-type-arrow--expense';
           const sign = m.type === 'expense' ? -m.amount : m.amount;
           return (
             <span className={cls}>
-              <span className="ot-movements__type-icon" aria-hidden="true">
-                <Icon size={14} />
+              <span className={arrowCls} aria-hidden="true" style={{ marginRight: 8 }}>
+                {m.type === 'income' ? '↑' : '↓'}
               </span>
               {currencyFmt.format(sign)}
             </span>
@@ -301,7 +301,7 @@ export function MovementsScreen(): JSX.Element {
 
   const pickerBlock = (
     <Card padding="md">
-      <Stack gap={3}>
+      <Stack gap={6}>
         <Text variant="h3">{t('movements.empty.pick-range.title')}</Text>
         <Text variant="body" tone="secondary">
           {t('movements.empty.pick-range.body')}
@@ -322,9 +322,11 @@ export function MovementsScreen(): JSX.Element {
 
   return (
     <div className="ot-movements">
-      <header className="ot-movements__header">
-        <Text variant="h1">{t('movements.title')}</Text>
-        <p className="ot-movements__subtitle">{t('movements.subtitle')}</p>
+      <header className="ot-page-header">
+        <div>
+          <h1>{t('movements.title')}</h1>
+          <p className="ot-page-header__subtitle">{t('movements.subtitle')}</p>
+        </div>
       </header>
 
       {showDbEmpty ? (

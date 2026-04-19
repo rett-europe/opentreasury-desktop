@@ -109,3 +109,258 @@ a:hover {
   white-space: nowrap;
   border: 0;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Prototype-parity recipes — shared across screens.
+   Source: prototype/styles.css .page-header / .section-label /
+   .card / .badge / .type-arrow / .kpi.
+   ═══════════════════════════════════════════════════════════ */
+
+.ot-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: var(--space-9);
+  gap: var(--space-7);
+  flex-wrap: wrap;
+}
+.ot-page-header h1 {
+  margin: 0;
+  font-size: var(--font-size-28);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+.ot-page-header__subtitle {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-14);
+}
+.ot-page-header__actions {
+  display: inline-flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.ot-section-label {
+  font-size: var(--font-size-11);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  margin: var(--space-9) 0 var(--space-6);
+}
+.ot-section-label:first-child {
+  margin-top: 0;
+}
+
+/* Simple prototype-style card (used where `Card` primitive is too opinionated) */
+.ot-p-card {
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition:
+    box-shadow var(--motion-duration-base) var(--motion-easing-standard),
+    transform var(--motion-duration-base) var(--motion-easing-standard);
+}
+.ot-p-card--hoverable:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+.ot-p-card--padded {
+  padding: var(--space-7);
+}
+
+/* KPI strip (Panel/Movements) */
+.ot-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-6);
+}
+@media (max-width: 720px) {
+  .ot-kpi-strip {
+    grid-template-columns: 1fr;
+  }
+}
+.ot-kpi {
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  padding: var(--space-7) var(--space-8);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+.ot-kpi__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.ot-kpi__label {
+  font-size: var(--font-size-11);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+.ot-kpi__value {
+  font-size: var(--font-size-24);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  margin-top: 2px;
+}
+.ot-kpi__delta {
+  font-size: var(--font-size-11);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* Account cards grid */
+.ot-account-cards {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--space-6);
+}
+@media (max-width: 1200px) {
+  .ot-account-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 800px) {
+  .ot-account-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.ot-account-card {
+  padding: var(--space-7);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  min-height: 108px;
+}
+.ot-account-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+.ot-account-card__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--color-brand-surface);
+  color: var(--color-brand-primary);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.ot-account-card__name {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-16);
+  color: var(--color-text-primary);
+  line-height: 1.1;
+}
+.ot-account-card__count {
+  font-size: var(--font-size-11);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+.ot-account-card__balance {
+  font-size: var(--font-size-24);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+/* Type arrow (income/expense round chip) */
+.ot-type-arrow {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+}
+.ot-type-arrow--income {
+  color: var(--color-income-default);
+  background: var(--color-income-bg);
+}
+.ot-type-arrow--expense {
+  color: var(--color-expense-default);
+  background: var(--color-expense-bg);
+}
+
+.ot-amount--income {
+  color: var(--color-income-default);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.ot-amount--expense {
+  color: var(--color-expense-default);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Badges (status pending/approved + uncategorized) */
+.ot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-medium);
+}
+.ot-badge--pending {
+  color: var(--color-status-pending);
+  background: var(--color-status-pending-bg);
+}
+.ot-badge--approved {
+  color: var(--color-status-approved);
+  background: var(--color-status-approved-bg);
+}
+.ot-badge--uncategorized {
+  color: var(--color-text-muted);
+  background: var(--color-uncategorized-bg);
+  font-style: italic;
+}
+
+/* Account pill (column display) */
+.ot-account-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-medium);
+  background: var(--color-brand-surface);
+  color: var(--color-brand-primary);
+}
+.ot-account-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-brand-primary);
+}
+
+/* Skeleton placeholder surface */
+.ot-skeleton {
+  background: var(--color-surface-secondary);
+  border: 1px dashed var(--color-border-default);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-muted);
+  padding: var(--space-9) var(--space-8);
+  text-align: center;
+  font-size: var(--font-size-14);
+}
+
