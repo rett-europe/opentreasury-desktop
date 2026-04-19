@@ -1134,3 +1134,60 @@ Applies anywhere a sticky mask band pattern is used inside a bordered card/wrapp
 **Gates:** ✅ typecheck · ✅ lint (0 warnings) · ✅ 39/39 tests · ✅ vite build.
 
 **Open questions:** none. `overflow-clip-margin` ships in Chromium 90 (2021); current Electron is well past that baseline.
+
+---
+
+## 2026-04-19: Sticky-thead top border + rounded corners (Commit 38038a9)
+
+**By:** Trinity (Component Agent) + Scribe (Session Lead)  
+**Branch:** ix/trinity-prototype-parity  
+**Scope:** pp/src/renderer/components/Table/Table.css  
+**Status:** ✅ Merged (gates all green)
+
+After shipping the mask-band side-border fix (1350d95, gotcha #4), two CSS polish items remained on the Movements table card:
+
+1. **At rest:** the wrap's 1px top border erased by mask pseudo bleed on block axis
+2. **When stuck:** rounded top corners lost (overflow:clip doesn't trap sticky)
+
+### Decision 1: Use overflow-clip-margin-inline: 1px
+
+Constrains clip bleed to horizontal axis only. Keeps side-border bleed fix while restoring zero bleed on block axis. The mask pseudo's bottom 1px no longer paints over the wrap's top border.
+
+`css
+.ot-table-wrap {
+  overflow: clip;
+  overflow-clip-margin-inline: 1px; /* NOT overflow-clip-margin: 1px */
+}
+`
+
+**Rationale:** Per-axis longhands supported in Chromium 122+; Electron 41 is on ~Chromium 134.
+
+### Decision 2: Unconditional inner-radius on first/last th cells
+
+The thead's first and last cells inherit the wrap's inner radius (calc(var(--radius-lg) - 1px)). At rest this is a no-op (th geometry already matches wrap's inner curve). When thead sticks and wrap scrolls, those corners become the visible pinned top edge, preserving card silhouette.
+
+`css
+.ot-table thead th:first-child {
+  border-top-left-radius: calc(var(--radius-lg) - 1px);
+}
+.ot-table thead th:last-child {
+  border-top-right-radius: calc(var(--radius-lg) - 1px);
+}
+`
+
+**Rejected:** scroll-driven .is-stuck class (adds runtime state), radius on <thead> (browser inconsistency), radius on mask ::before (sits above th, can't provide corners).
+
+### Skill Updates
+
+Added to .squad/skills/css-sticky-patterns/SKILL.md:
+
+- **Gotcha #5:** overflow-clip-margin bleed is axis-scoped for a reason — watch for masks anchored at ottom: 100% of sticky elements inside bordered wraps
+- **Gotcha #6:** Sticky elements inside overflow: clip wraps escape the radius — match the wrap's inner radius on sticky element corners (no-op at rest, preserves silhouette when stuck)
+
+### Quality Gates
+✅ Typecheck · Lint (0-warn) · Test (39/39) · Build
+
+### Commit Info
+- Author: perocha <pedrojrocha@outlook.com>
+- Date: 2026-04-19T16:46:21+0200
+- Files: Table.css (+28, -5), SKILL.md (+127, -0)
