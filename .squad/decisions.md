@@ -61,6 +61,42 @@
 - **Morpheus / Neo** — diagnostic bundle main-process implementation unblocked; scenario-specific field whitelists are pinned.
 
 **Why:** Niobe surfaced 5 security-sensitive UX copy questions in Wave-1 specs that required Switch's final say. Catalog consolidates them + 4 additional scenarios Switch identified as gaps (CE-002b admin rejection copy, CE-006/007 audit integrity blocking surfaces, CE-008 mid-session revocation, CE-009 update-signature failure). Wave-1 UX and Mouse's design-system-wave-1 both depended on these being ratified.
+### 2026-04-19: Design System v0.1 shipped (Wave 1 visual foundation)
+**By:** Mouse (UI Designer), requested by Pedro
+**Branch:** `feat/design-system-wave-1`
+**What:** Five design artifacts authored under `docs/design/`:
+- `docs/design/design-principles.md` — 8 visual-design principles (P1 Calm · P2 High contrast · P3 Text-first · P4 Desktop-native · P5 Bilingual-first · P6 Empty states teach · P7 Density is a preference · P8 Security-adjacent surfacing).
+- `docs/design/tokens.md` — authoritative token catalog: colour (light + dark, both **WCAG AA verified** with explicit ratios), typography (OS system font stack; body 14 px / 8-step scale), spacing (4 px base), radius, elevation (light + dark shadow sets), motion (duration + easing + `prefers-reduced-motion` at token level), z-index (11 named layers, no ad-hoc `z-index`), breakpoints (compact 960 / standard 1280 / wide 1600).
+- `docs/design/components-v1.md` — 16 component primitives covering all Wave-1 needs: Button, TextField, Select, DateRangePicker (critical for UX-003), Banner, Dialog, Sidebar, Topbar, Toast, Badge/Pill, EmptyState, Skeleton, DataTable, Chart, LocaleSwitcher, CodeDisplay (security primitive for UX-002). Each spec has anatomy + states + props shape + a11y + i18n + UX-spec consumers.
+- `docs/design/screen-visuals-v1.md` — per-screen visual specs for all 6 Wave-1 screens (UX-001/002/003/004/005/006) with Mermaid layout diagrams and per-state treatment tables. No pixel-perfect mockups.
+- `docs/design/icons-and-illustrations.md` — Lucide locked as icon library with icon-to-semantic mappings. Zero illustrations in v1.
+
+**Key design decisions locked:**
+1. **Icon library: Lucide** (single-weight consistency, Wave-1 domain coverage including `Scale`/`Wallet`/`ArrowLeftRight`, MIT, tree-shakable, inline SVG — no runtime font download). Phosphor / Heroicons / Tabler evaluated and rejected.
+2. **Dark mode mandatory at v0.1.** Both light and dark themes specified and WCAG AA verified with explicit contrast ratios for every shipped fg/bg pair. Theme defaults to OS `prefers-color-scheme`, user-overridable in Settings, persisted to `%APPDATA%` user-prefs (not OneDrive — per-device preference, matches ADR-003 §7.3).
+3. **OS system font stack, no web fonts at runtime.** `Segoe UI Variable` → `Segoe UI` → `-apple-system` → `system-ui` → Roboto → fallback. Honours Principle P4 (desktop-native) and vision Principle 5 (offline-first). Monospace stack (`Cascadia Code` → `Consolas` → `SF Mono`) for `CodeDisplay` and folder-path rendering.
+4. **Brand anchor preserved from prototype.** `#6d4d8c` purple carried forward; surrounding palette rebalanced for AA+. Rett Spain treasurers see continuity with cloud version.
+5. **Zero illustrations in v1.** EmptyState component has icon slot but ships unused — Principle P1 (calm over flashy) + volunteer-project budget + i18n friction + dark-mode doubling cost. Revisit triggers captured.
+6. **No `pending` tone anywhere** (Badge/Pill, Banner). Reinforces product decision at the token level — not even possible to accidentally reintroduce the concept.
+7. **Tabular numerics on every financial cell** via `font-variant-numeric: tabular-nums`. No web font needed.
+
+**Unblocked downstream work:**
+- **Trinity** — UNBLOCKED for Wave-1 component implementation. Start with `tokens.md` → CSS custom properties (light + dark) + theme switching hook, then work down the component list in `components-v1.md`. Benchmark chart library (`visx` vs custom SVG vs Recharts) against UX-005 PR12 ≤500 ms / 1 k events before committing.
+- **Niobe** — new UX follow-ups flagged in questions (density-toggle placement, toast Ctrl+Shift+T addition, right-click menus M1 vs v1.x).
+- **Switch** — UX-002 admin UPN tooltip copy ("identity not a trust anchor") — final wording.
+
+**Top open questions for Pedro / Niobe / Switch / Trinity:**
+1. **Custom brand mark** (Pedro) — ship v1 with Lucide `Scale` placeholder or commission a mark? Recommend defer to v1.1.
+2. **Sidebar taxonomy + order** (Pedro / Niobe) — confirm visual order Panel · Movimientos · Saldo · Cuentas · Categorías · Etiquetas · Importación · Exportar (disabled M1).
+3. **Density toggle placement on Movements** (Niobe) — filter bar (proposed) vs global Settings only.
+4. **Right-click context menus on data-table rows** (Pedro / Niobe) — M1 or v1.x. Recommend v1.x.
+5. **UX-002 admin UPN tooltip copy** (Switch) — "identity not a trust anchor" line final wording.
+6. **Chart library choice** (Trinity) — visx vs custom SVG vs Recharts. Benchmark first.
+7. **Account colour palette** (Mouse follow-up) — Mouse to propose a 10-colour contrast-safe palette in tokens-v0.2 pass.
+8. **Empty-state icon defaults** (Niobe / Pedro) — ship zero (current plan) or a subtle 32 px Lucide per context.
+9. **Toast action keyboard shortcut** `Ctrl+Shift+T` (Niobe) — add to UX-006 §8 map.
+
+**Why:** Wave 1 (6 UX specs at Draft v0.1) described layout regions and interactive roles but deliberately no pixels. Trinity needed a stable visual foundation — tokens, primitives, screen-level composition, and icon choice — before any React component could ship. This v0.1 closes that gap. The system is bilingual-first (P5), accessible by design (AA contrast, keyboard-reachable, reduced-motion honoured at token level), and desktop-native (P4). Principle-grounded — every future visual question has a tie-breaker to check first.
 
 
 ### 2026-04-19: Scaffold typecheck fixes — skipLibCheck deviation from ADR-002
