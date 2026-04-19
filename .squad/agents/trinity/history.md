@@ -21,6 +21,9 @@ The cloud version has an Angular 19 frontend with:
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-19: CSS sticky patterns — two subtle gotchas
+- **Sortable header `<button>` resets text-transform and letter-spacing.** `font: inherit` on the child button does NOT cover `text-transform` or `letter-spacing`; the `<button>` UA default overrides both. When a `th` uses `text-transform: uppercase` + `letter-spacing: 0.08em`, any inner `<button class="ot-table__sort-btn">` must explicitly `text-transform: inherit; letter-spacing: inherit;` or sortable columns render in mixed case while non-sortable ones stay uppercase.
+- **`overflow: clip` vs `overflow: hidden` for sticky escape.** `hidden` establishes a scroll containing block and traps `position: sticky` inside the clipped box (thead vanishes as soon as user scrolls past the table's own height). `overflow: clip` still visually clips children (rounded corners OK) but does NOT create a scroll container — sticky can escape to the nearest real scrolling ancestor (`.ot-shell__main`). Use `clip` on wrappers that want rounded corners AND contain a sticky header.
 ## 2026-04-19 — Team Context Update (from Scribe)
 - ADR-001 (Proposed) at `docs/architecture/adr-001-tech-stack.md` — Neo recommends Option A (React+TS, append-only event-sourced JSON, `age` encryption).
 - Security Requirements v0.1 at `docs/security/security-requirements-v0.1.md` — Switch: 20 requirements, 15 stack constraints, 8 accepted risks, 6 open questions for Pedro.

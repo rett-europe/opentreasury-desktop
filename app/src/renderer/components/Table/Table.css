@@ -2,11 +2,15 @@
   background: var(--color-surface-primary);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
-  /* `overflow: hidden` clips the rounded corners but does NOT establish a
-   * scroll container for `position: sticky`. The thead therefore sticks to
-   * the nearest scrolling ancestor, which is `.ot-shell__main` after the
-   * AppShell scroll-isolation fix. */
-  overflow: hidden;
+  /* Use `overflow: clip` (NOT `hidden`) so the sticky thead can escape this
+   * wrap and anchor to the nearest scrolling ancestor (`.ot-shell__main`).
+   * `overflow: hidden` establishes a scroll containing block which traps
+   * `position: sticky` inside this box — the header would then vanish as
+   * soon as the user scrolls past the table's own height. `clip` still
+   * visually clips children (rounded corners work) but does NOT create a
+   * scroll container, preserving sticky escape. Do not "optimize" back to
+   * hidden. Supported by Electron/Chromium. */
+  overflow: clip;
 }
 
 .ot-table {
@@ -48,6 +52,12 @@
   padding: 0;
   font: inherit;
   color: inherit;
+  /* `font: inherit` does NOT cover text-transform or letter-spacing, and the
+   * <button> UA default resets both. Without these inherits the sortable
+   * column headers would render in mixed case while non-sortable ones stay
+   * uppercase (per `.ot-table thead th`). */
+  text-transform: inherit;
+  letter-spacing: inherit;
   cursor: pointer;
 }
 .ot-table__sort-btn:focus-visible {
