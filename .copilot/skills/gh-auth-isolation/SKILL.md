@@ -1,13 +1,13 @@
 ---
-name: "gh-auth-isolation"
-description: "Safely manage multiple GitHub identities (EMU + personal) in agent workflows"
-domain: "security, github-integration, authentication, multi-account"
-confidence: "high"
-source: "earned (production usage across 50+ sessions with EMU corp + personal GitHub accounts)"
+name: 'gh-auth-isolation'
+description: 'Safely manage multiple GitHub identities (EMU + personal) in agent workflows'
+domain: 'security, github-integration, authentication, multi-account'
+confidence: 'high'
+source: 'earned (production usage across 50+ sessions with EMU corp + personal GitHub accounts)'
 tools:
-  - name: "gh"
-    description: "GitHub CLI for authenticated operations"
-    when: "When accessing GitHub resources requiring authentication"
+  - name: 'gh'
+    description: 'GitHub CLI for authenticated operations'
+    when: 'When accessing GitHub resources requiring authentication'
 ---
 
 ## Context
@@ -27,6 +27,7 @@ gh auth status
 ```
 
 Look for:
+
 - `Logged in to github.com as USERNAME` — the active account
 - `Token scopes: ...` — what permissions are available
 - Multiple accounts will show separate entries
@@ -89,6 +90,7 @@ gh auth status  # Back to EMU account
 ```
 
 **Setup (one-time):**
+
 ```bash
 # Create isolated config for personal account
 mkdir ~/.config/gh-public

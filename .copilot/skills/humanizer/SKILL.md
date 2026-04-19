@@ -1,9 +1,9 @@
 ---
-name: "humanizer"
-description: "Tone enforcement patterns for external-facing community responses"
-domain: "communication, tone, community"
-confidence: "low"
-source: "manual (RFC #426 — PAO External Communications)"
+name: 'humanizer'
+description: 'Tone enforcement patterns for external-facing community responses'
+domain: 'communication, tone, community'
+confidence: 'low'
+source: 'manual (RFC #426 — PAO External Communications)'
 ---
 
 ## Context

@@ -25,8 +25,8 @@
 - **Feature spec:** <!-- link to docs/specs/NNN-...md or "N/A — see rationale below" -->
 - **PRD (if applicable):** <!-- docs/product/prds/... -->
 - **Spec status at merge time:** <!-- Draft / In Review / Accepted -->
-  *(Implementation PRs MUST cite a spec in **Accepted** status — see
-  [`docs/specs/README.md`](../docs/specs/README.md).)*
+  _(Implementation PRs MUST cite a spec in **Accepted** status — see
+  [`docs/specs/README.md`](../docs/specs/README.md).)_
 
 If **N/A**, justify (typo fix, dependency bump, ADR-only change, etc.):
 
@@ -48,19 +48,19 @@ If **N/A**, justify (typo fix, dependency bump, ADR-only change, etc.):
 
 - [ ] No plaintext PII or financial data in committed files or logs
       ([R1](../docs/security/security-requirements-v0.1.md),
-       [R15](../docs/security/security-requirements-v0.1.md)).
+      [R15](../docs/security/security-requirements-v0.1.md)).
 - [ ] No secrets, keys, tokens, or signing material in the diff
       ([R14](../docs/security/security-requirements-v0.1.md)).
 - [ ] AEAD envelope unchanged OR change is reviewed in
       [`crypto-spec.md`](../docs/security/crypto-spec.md) §2.1
       ([C1](../docs/architecture/adr-001-tech-stack.md),
-       [C2](../docs/architecture/adr-001-tech-stack.md)).
+      [C2](../docs/architecture/adr-001-tech-stack.md)).
 - [ ] Electron hardening unchanged OR loosening reviewed by Switch
       ([R11](../docs/security/security-requirements-v0.1.md),
-       [C7](../docs/architecture/adr-001-tech-stack.md)).
+      [C7](../docs/architecture/adr-001-tech-stack.md)).
 - [ ] New IPC channels are schema-validated at the preload/main boundary
       ([R12](../docs/security/security-requirements-v0.1.md),
-       [C13](../docs/architecture/adr-001-tech-stack.md)).
+      [C13](../docs/architecture/adr-001-tech-stack.md)).
 - [ ] New native dependency? Switch approval obtained (pre-approved: `sodium-native`,
       `@napi-rs/keyring`; anything else blocks merge until reviewed —
       [R9](../docs/security/security-requirements-v0.1.md),
@@ -69,7 +69,7 @@ If **N/A**, justify (typo fix, dependency bump, ADR-only change, etc.):
       ([R17](../docs/security/security-requirements-v0.1.md)).
 - [ ] Filenames for encrypted artifacts are ULID/opaque; no PII or amounts in names
       ([R3](../docs/security/security-requirements-v0.1.md),
-       [C11](../docs/architecture/adr-001-tech-stack.md)).
+      [C11](../docs/architecture/adr-001-tech-stack.md)).
 - [ ] Switch review requested (required for any PR touching `src/crypto/**`,
       `src/main/windows/**`, `src/preload/**`, IPC contracts, audit log, escrow, or
       update/release tooling).
