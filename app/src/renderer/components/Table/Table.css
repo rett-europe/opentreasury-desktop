@@ -22,9 +22,13 @@
 
 .ot-table thead th {
   /* Sticky anchors to the nearest scrolling ancestor — `.ot-shell__main`.
+   * Pin offset = `--sticky-top-offset` (28px) so the thead's top edge lines
+   * up visually with the sidebar's "PRINCIPAL" section label rather than
+   * the absolute scrollport top. The 0..offset band is masked by `::before`
+   * below so rows don't bleed through it.
    * Background must be opaque so rows don't bleed through while sticking. */
   position: sticky;
-  top: 0;
+  top: var(--sticky-top-offset, 0);
   z-index: var(--z-sticky);
   text-align: left;
   padding: var(--space-6) var(--space-6);
@@ -36,6 +40,24 @@
   letter-spacing: 0.08em;
   border-bottom: 1px solid var(--color-border-default);
   white-space: nowrap;
+}
+
+/* Opaque mask that fills the 0..`--sticky-top-offset` band above the pinned
+ * thead with the app background, so rows scrolling up are hidden before they
+ * reach the sidebar section-label baseline. Anchored to the sticky `<th>` so
+ * it travels with it; clipped by `.ot-table-wrap { overflow: clip }` at rest
+ * (the pseudo sits above the wrap's top edge when the thead is at its
+ * natural position, so `clip` hides it until the thead actually sticks).
+ * Pointer-events off so it never steals input. */
+.ot-table thead th::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--sticky-top-offset, 0);
+  background: var(--color-surface-app);
+  pointer-events: none;
 }
 
 .ot-table thead th[aria-sort] {
