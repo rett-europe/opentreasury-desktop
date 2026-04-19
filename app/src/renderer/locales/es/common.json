@@ -54,7 +54,8 @@
     "subtitle": "Vista general del mes",
     "cta": {
       "new-movement": "Nuevo Movimiento",
-      "date-range": "Abril 2026"
+      "date-range": "Abril 2026",
+      "view-all-movements": "Ver todos los movimientos"
     },
     "sections": {
       "accounts": "Saldos por cuenta",
@@ -62,7 +63,18 @@
       "monthly-trend": "Ingresos vs. Gastos · Últimos 12 meses",
       "recent": "Últimos movimientos"
     },
-    "skeleton": "Vista previa — datos en una próxima iteración."
+    "skeleton": "Vista previa — datos en una próxima iteración.",
+    "card": {
+      "count_one": "{{count}} movimiento",
+      "count_other": "{{count}} movimientos"
+    },
+    "recent": {
+      "type": {
+        "income": "Ingreso",
+        "expense": "Gasto"
+      },
+      "uncategorized": "Sin categorizar"
+    }
   },
   "balance": {
     "title": "Saldo",

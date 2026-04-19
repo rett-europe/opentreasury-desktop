@@ -13,7 +13,7 @@ import type {
   GetAccountSparklinesResponse,
   QueryRecentTransactionsRequest,
   QueryRecentTransactionsResponse,
-} from '../../shared/ipc-contracts/panel';
+} from '../../../shared/ipc-contracts/panel.js';
 
 // MOCK fixtures — replace with real core/query calls in WI-6
 
@@ -140,9 +140,9 @@ export async function handleQueryRecentTransactions(
   for (let i = 0; i < limit; i++) {
     const date = new Date();
     date.setDate(date.getDate() - i * 2);
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = date.toISOString().split('T')[0]!;
 
-    const type = types[i % 2];
+    const type: 'income' | 'expense' = types[i % 2]!;
     const amount = Math.round((Math.random() * 500 + 50) * 100) / 100;
 
     mockTransactions.push({
@@ -151,7 +151,7 @@ export async function handleQueryRecentTransactions(
       type,
       amount,
       currency: 'EUR',
-      description: descriptions[i % descriptions.length],
+      description: descriptions[i % descriptions.length]!,
       accountId: '01HZ1234567890ABCDEFGHIJKL',
       categoryId: i % 3 === 0 ? null : '01HZCAT1234567890ABCDEFGH',
       subcategoryId: i % 5 === 0 ? null : '01HZSUB1234567890ABCDEFGH',

@@ -54,7 +54,8 @@
     "subtitle": "Month overview",
     "cta": {
       "new-movement": "New Transaction",
-      "date-range": "April 2026"
+      "date-range": "April 2026",
+      "view-all-movements": "View all transactions"
     },
     "sections": {
       "accounts": "Balances by account",
@@ -62,7 +63,18 @@
       "monthly-trend": "Income vs. Expense · Last 12 months",
       "recent": "Recent transactions"
     },
-    "skeleton": "Preview — data in a future iteration."
+    "skeleton": "Preview — data in a future iteration.",
+    "card": {
+      "count_one": "{{count}} transaction",
+      "count_other": "{{count}} transactions"
+    },
+    "recent": {
+      "type": {
+        "income": "Income",
+        "expense": "Expense"
+      },
+      "uncategorized": "Uncategorized"
+    }
   },
   "balance": {
     "title": "Balance",

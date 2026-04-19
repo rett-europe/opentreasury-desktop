@@ -1,20 +1,20 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
-  transactionCreatedEventSchema,
-  accountCreatedEventSchema,
+  transactionCreatedEventSchema as _transactionCreatedEventSchema,
+  accountCreatedEventSchema as _accountCreatedEventSchema,
 } from '../events/schemas';
 import {
   applyEvent,
-  replayEvents,
+  replayEvents as _replayEvents,
   resetReadModel,
   getReadModel,
 } from './reducers';
 import {
-  queryRecentTransactions,
-  getAccountBalances,
-  getMonthKPIs,
-  getAccountSparklines,
-  getAccounts,
+  queryRecentTransactions as _queryRecentTransactions,
+  getAccountBalances as _getAccountBalances,
+  getMonthKPIs as _getMonthKPIs,
+  getAccountSparklines as _getAccountSparklines,
+  getAccounts as _getAccounts,
 } from './queries';
 import type { DomainEvent } from '../events/schemas';
 

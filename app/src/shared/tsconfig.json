@@ -4,7 +4,8 @@
     "outDir": "../../../dist/shared",
     "rootDir": ".",
     "types": [],
-    "lib": ["ES2022"]
+    "lib": ["ES2022"],
+    "composite": true
   },
   "include": ["**/*.ts"],
   "exclude": ["**/*.test.ts"]

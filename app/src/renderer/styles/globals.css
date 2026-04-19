@@ -122,6 +122,13 @@ a:hover {
    .card / .badge / .type-arrow / .kpi.
    ═══════════════════════════════════════════════════════════ */
 
+.ot-account-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-5);
+  margin-bottom: var(--space-9);
+}
+
 .ot-page-header {
   display: flex;
   align-items: flex-end;
