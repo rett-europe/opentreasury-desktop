@@ -18,6 +18,19 @@ The cloud version's backend (Python FastAPI) features:
 
 The desktop version needs equivalent functionality with local persistence (no cloud DB).
 
+## Core Context
+
+Event-sourced core on NDJSON log + `JsonFileEventLog`. Two event shapes coexist in the same log:
+- **Enveloped** (WI-11/WI-12 transactions, legacy Panel dev-seed): `{ id, type, datasetId, actorDeviceId, createdAt, dekVersion, version, payload }`.
+- **Flat** (WI-15-lite config — `AccountCreated`/`CategoryCreated`/`TagCreated`): `{ type, id, …fields, createdAt }`.
+Reducers switch on `type`; `JsonFileEventLog` only requires a string `id`. Consolidation is a future WI.
+
+IPC contracts live in `app/src/shared/ipc-contracts/`. Invariant across all channels: **nothing throws across IPC** — validation failures return `{ ok: false, error: { code, message, field? } }`. IDs are 26-char Crockford base32 ULIDs from `main/ids.ts#newUlid`. Uniqueness on config entities is case-insensitive + trimmed.
+
+Shipped so far: WI-11 (event log + crypto), WI-12 (transaction:create + movements:list), WI-15-lite (accounts/categories/tags create+list, event-sourced, EUR-only, no `type` on categories). Read model has two parallel projection streams: legacy (`accounts`/`categories`/`tags` from enveloped seed events) and new (`configAccounts`/`configCategories`/`configTags` from flat WI-15 events). `selectPanelSnapshot` unchanged; `accounts:list` etc. return only user-created config entities.
+
+Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (CSV/XLSX import with row-hash dedup + bank-specific parsers per Pedro Q5), full WI-15 (edit/archive/delete/subcategorías + stream consolidation).
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
@@ -412,3 +425,14 @@ adapter, startup hydration, and prototype-shaped dev-seed on first run.
 - **Contract naming coordination with Trinity.** She authored renderer stubs expecting `MovementRecord` (ID-based, wire-level) because WI-14 will do the label-resolution pass. I initially mirrored the renderer''s `types/movement.ts` display shape (labels). Mid-task pivot: moved the contract to `MovementRecord` (IDs) and kept `Movement` as a type alias to avoid breaking her in-flight files. Lesson: when two agents author opposite sides of a contract, re-read both sides'' TODO comments before locking the shape — the renderer''s `types/movementsFilter.ts` explicitly documented the wire contract and said ''Morpheus, please match''.
 - **ULID at runtime in main.** No existing util; added `newUlid()` in `app/src/main/ids.ts` using `node:crypto.randomBytes` + the 32-char Crockford base32 alphabet. 10-char timestamp prefix + 16 random chars, 26 total. Kept in `main/` because `node:crypto` is unreachable from preload (sandbox) and from renderer (no Node). Also exported `DATASET_ID` + `ACTOR_DEVICE_ID` as the deterministic fake-ULIDs used by `devSeed` so new transactions land in the same dataset as seeded ones.
 - **Preload CJS stayed clean.** No new preload-specific patterns needed — the contract files are pure zod/TS with no Node imports, so the esbuild CJS bundle built cleanly (`node --check dist/preload/index.cjs` exit 0). The only preload change was extending the `api` object; contextBridge surface grew by 2 methods.
+
+
+## 2026-04-19T19:47:16Z — WI-15-lite shipped (main-side)
+
+Delivered the event-sourced main half of Configuración v1: `AccountCreated` / `CategoryCreated` / `TagCreated` events, six IPC channels (`accounts|categories|tags : create|list`), projections over the read model, preload surface, **28 new tests** (10 accounts + 8 categories + 7 tags + 3 projections). Suite 121 pass / 9 skip / 27 files. Contracts frozen in `app/src/shared/ipc-contracts/{accounts,categories,tags}.ts` — source of truth; flat event shape `{ type, id, …fields, createdAt }`; responses are discriminated unions, nothing throws across IPC. Uniqueness case-insensitive + trimmed; IDs are ULIDs from `main/ids.ts#newUlid`. EUR hard-coded (field kept for M2 forward-compat). **No `type` field on categories** (direction-agnostic per Pedro's Q3).
+
+Trinity consumes these contracts in the renderer and shipped the Configuración screen + Add-Transaction category/tag wiring in the same window. Stream-coexistence: WI-15-lite flat events live alongside Panel's legacy enveloped `account.created` etc. events in the same NDJSON log; reducers switch on `type`. `accounts:list` etc. return only user-created entities, not seed data. Consolidation deferred.
+
+Coordinator moved `electron` from `dependencies` to `devDependencies` — `npm run package` now produces `out/OpenTreasury Setup 0.0.0.exe` cleanly. Encode in future PR reviews: only native Electron-runtime addons belong in `dependencies`.
+
+Shipped as commit 2d9ac7c (pushed). **Next on my docket:** WI-17 (CSV/XLSX import with row-hash dedup + bank-specific parsers per Pedro Q5) is scoped but not started. Full WI-15 (edit/archive/delete/subcategorías + stream consolidation) remains open.

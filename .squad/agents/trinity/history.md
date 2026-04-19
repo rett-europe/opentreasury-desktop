@@ -17,6 +17,16 @@ The cloud version has an Angular 19 frontend with:
 - Multi-language (Spanish + English)
 - MSAL-based authentication with Entra ID
 
+## Core Context
+
+Renderer architecture: single-useState router in `App.tsx` (no React Router), AppShell sidebar with two sections — **Principal** (Panel, Movimientos, Saldo) and **Configuración** (Configuración). Icon set: `lucide-react`. i18n via `locales/{en,es}/common.json`; ES + EN parity mandatory.
+
+IPC consumption: renderer imports types from `app/src/shared/ipc-contracts/*` — never from `main/` or `core/`. Service layer lives in `renderer/services/*Api.ts`. Modals are native `<dialog>` via `showModal()` — Escape + backdrop click both invoke `onClose`; `role="dialog"` + `aria-modal="true"` + labelled header. All colors via design tokens (no inline hex in component CSS). Prototype (`prototype/`) is the visual/interaction contract per the prototype-fidelity ruling; design system is a translation layer.
+
+Contract shape (post WI-15-lite): create responses are flat-event discriminated unions — `{ ok: true, event: { type, id, …fields, createdAt } }` or `{ ok: false, error: { code, message, field? } }`. List endpoints currently return wrapped objects (`{ accounts: [...] }` etc.) — keep matching that. `CreateTransactionRequest` already carries `categoryId` / `tagIds` — no contract change was needed to wire Category + Tags into Add-Transaction.
+
+Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering, WI-15-lite Configuración (3 tabs + 3 modals + service apis + AppShell wiring). No toast primitive yet (WI-16). No archive/edit/delete, no subcategories (WI-15-lite scope). Deferred: WI-17 import UI, full WI-15 edit/archive/delete.
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
@@ -313,3 +323,14 @@ accidentally drop it into the pass-through layer.
 - `npx vitest run app/src/renderer/services` → 4/4 green.
 - `npm test` → 81/81 green (was 66 pre-WI-11/WI-12).
 - `npm run typecheck` / `npm run lint` / `npm run format:check` → clean.
+
+
+## 2026-04-19T19:47:16Z — WI-15-lite shipped (renderer)
+
+Delivered the renderer half of Configuración v1 on Morpheus's frozen contracts: ConfiguracionScreen with 3 tabs (Cuentas / Categorías / Etiquetas), 3 create modals (`AddAccountModal` / `AddCategoryModal` / `AddTagModal` + shared `ConfigModalShell` + `errorMap`), 3 service apis, AppShell sidebar split (Principal + Configuración section, `SlidersHorizontal` icon), App.tsx route, `configRevision` counter to re-hydrate MovementsScreen selects on create. Add-Transaction modal now renders optional Category `<select>` + Tags multi-`<select>` — `CreateTransactionRequest` already carried `categoryId` / `tagIds`, so no contract change. ES + EN i18n under `configuracion.*`. **+13 tests** (4×3 service apis + 5 ConfiguracionScreen). All gates green: `tsc -b`, `vitest --run` (121 pass / 9 skip / 27 files), eslint (0/0), format:check.
+
+Shared contract shape now locked with Morpheus: flat events `{ type, id, …fields, createdAt }` (not the `{ payload }` envelope used for WI-11/12 transactions). List endpoints return wrapped objects (`{ accounts: [...] }` etc.) — keep matching that. `renderer/types/config.ts` is a re-export shim over `shared/ipc-contracts/*` (inline-able later).
+
+Deliberate omissions: no subcategory in Add-Transaction (WI-15-lite has none), no archive/edit/delete, no toast primitive (modals close + parent silently re-fetches; wire toasts in WI-16). Cleanup: removed stray `.d.ts` / `.js` / `.js.map` emits under `app/src/shared/ipc-contracts/` — `shared/tsconfig.json`'s `outDir` is `dist/shared`, so in-tree emits are a build-invocation bug to watch.
+
+Coordinator's `electron` devDep move unblocked `npm run package` — `out/OpenTreasury Setup 0.0.0.exe` produced end-to-end for the first time. Shipped as commit 2d9ac7c (pushed). **Next:** WI-17 (import UI on top of Morpheus's bank-specific parsers) is scoped but not started.

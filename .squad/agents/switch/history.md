@@ -17,6 +17,12 @@ Security considerations for Electron desktop treasury app:
 - Dependency supply chain risks (npm ecosystem)
 - OWASP Desktop App Security Top 10
 
+## Core Context
+
+Security posture locked in v0.1: Electron hardened (contextIsolation, nodeIntegration=false, sandbox, CSP), AEAD-only at rest (XChaCha20-Poly1305 preferred; AES-256-GCM acceptable with nonce discipline), DEK in OS keychain via `@napi-rs/keyring`, no passphrase UI in v1. Financial + donor/member PII classified 🔴 High. STRIDE threat model in `docs/security/security-requirements-v0.1.md` — top threats: phishing of MS accounts, accidental folder oversharing, npm supply-chain, renderer RCE, audit-log tamper, revoked-member key residue.
+
+Implications currently in flight: ADR-001 accepted (event-sourced JSON + age/AEAD encryption), device enrollment needs QR/6-char visual-code pairing UX. Two event shapes (enveloped with `dekVersion` + flat for WI-15 config) coexist in the NDJSON log — crypto wiring only covers enveloped events today; flat config events are currently unencrypted. Revisit when full WI-15 / multi-device lands.
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->

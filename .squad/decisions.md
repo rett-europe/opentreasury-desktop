@@ -2211,3 +2211,237 @@ Explicitly deferred to M1.1 or later:
 
 ---
 
+
+
+## 2026-04-19T19:22Z — WI-15/16/17 scope rulings (Pedro via Copilot directive)
+
+**Source:** `.squad/decisions/inbox/copilot-directive-wi15-answers.md` (merged).
+**Context:** Answers to Neo's six open questions from `neo-wi15-configuracion-datos-scope.md`.
+
+**Rulings:**
+1. **Q1 — Event-sourced config vs separate store:** ✅ **Event-sourced.** Accounts, categories, tags are first-class domain events appended to the same NDJSON log as transactions.
+2. **Q2 — EUR-only for v1:** ✅ Confirmed. Schema keeps a `currency` field for forward-compatibility but UI hides it (always EUR). Multi-currency deferred.
+3. **Q3 — Category-type conflict on import:** ⚠️ Re-scoped. **Categories do NOT carry a `type` (income/expense) field.** Direction lives on the transaction. A category like "Donaciones" can be either income (donation received) or expense (refund issued). Categories are *labels / groupings*, not direction-constrained. No keyword-based type-guessing during import.
+4. **Q4 — Partial-success imports:** ✅ Confirmed — with a critical clarification: **duplicate handling is by row-hash, not file-hash.** Re-importing the same file after some rows failed must NOT double-insert the rows that already succeeded.
+5. **Q5 — Bank-specific parsers vs generic manual mapping:** ✅ **Bank-specific parsers.** WI-17 will ship a small set of per-bank CSV/XLSX parsers rather than a generic manual column-mapping wizard.
+6. **Q6 — WI-15-lite first:** ✅ Confirmed. Ship minimum CRUD (add Cuenta / Categoría / Etiqueta, show them in Configuración + feed into Add-Transaction) before going wide on edit/archive/subcategorías/import.
+
+**Impact:** Unblocked WI-15-lite kickoff. Q3 removed `CategoryType` from the schema. Q1 fixed the storage model as event-sourced. Q5 shapes WI-17 implementation.
+
+---
+
+## 2026-04-19T~21:29Z — Morpheus: WI-15-lite IPC contracts (FROZEN)
+
+**Source:** `.squad/decisions/inbox/morpheus-wi15-contracts.md` (merged).
+**Status:** Frozen. Authoritative files: `app/src/shared/ipc-contracts/{accounts,categories,tags}.ts`. If this doc and the files diverge, the files win.
+
+### Channels
+
+```
+accounts:create   accounts:list
+categories:create categories:list
+tags:create       tags:list
+```
+
+### Accounts — `accounts.ts`
+
+```ts
+interface AccountCreatedEvent {
+  type: 'AccountCreated';
+  id: string;
+  name: string;
+  bankName?: string;
+  currency: 'EUR';
+  openingBalance: number;
+  createdAt: string; // ISO 8601 UTC
+}
+
+interface CreateAccountRequest {
+  name: string;            // required, non-empty after trim
+  bankName?: string;
+  openingBalance?: number; // defaults to 0 if omitted
+  // currency is hard-coded EUR in the handler; not on the wire.
+}
+
+type CreateAccountResponse =
+  | { ok: true;  event: AccountCreatedEvent }
+  | { ok: false; error: { code: AccountErrorCode; message: string; field?: string } };
+
+type AccountErrorCode =
+  | 'NAME_EMPTY'
+  | 'NAME_DUPLICATE'            // case-insensitive name collision
+  | 'OPENING_BALANCE_INVALID'   // not finite (NaN / Infinity)
+  | 'SCHEMA_INVALID'            // zod boundary parse failed
+  | 'INTERNAL';
+
+interface AccountRecord {
+  id: string;
+  name: string;
+  bankName?: string;
+  currency: 'EUR';
+  openingBalance: number;
+  createdAt: string;
+}
+```
+
+`accounts:list` returns `AccountRecord[]` in createdAt ASC (insertion order).
+
+### Categories — `categories.ts`
+
+**No `type` field on category** (per Pedro's Q3 — direction-agnostic).
+
+```ts
+interface CategoryCreatedEvent {
+  type: 'CategoryCreated';
+  id: string;
+  name: string;
+  color?: string;
+  createdAt: string;
+}
+
+interface CreateCategoryRequest { name: string; color?: string; }
+
+type CategoryErrorCode = 'NAME_EMPTY' | 'NAME_DUPLICATE' | 'SCHEMA_INVALID' | 'INTERNAL';
+
+interface CategoryRecord { id: string; name: string; color?: string; createdAt: string; }
+```
+
+### Tags — `tags.ts`
+
+```ts
+interface TagCreatedEvent { type: 'TagCreated'; id: string; name: string; createdAt: string; }
+interface CreateTagRequest { name: string; }
+type TagErrorCode = 'NAME_EMPTY' | 'NAME_DUPLICATE' | 'SCHEMA_INVALID' | 'INTERNAL';
+interface TagRecord { id: string; name: string; createdAt: string; }
+```
+
+### Invariants (all three entities)
+
+- **Nothing throws across IPC.** Validation failures always return `{ ok: false, error }`.
+- **Uniqueness:** case-insensitive + trimmed per entity type. `'Banco ABC'` vs `'banco abc'` → `NAME_DUPLICATE`.
+- **Idempotency:** events appended to the shared NDJSON event log, deduped by `id`. Replaying the same log yields the same projections.
+- **IDs:** `main/ids.ts#newUlid` — 26-char Crockford base32 ULID. Opaque to the renderer.
+- **currency:** Accounts hard-code `'EUR'`; field is present on the record for M2 forward-compat but absent from `CreateAccountRequest`.
+
+### Preload surface
+
+`window.opentreasury` grows three namespaces:
+
+```ts
+accounts:   { create(req): Promise<CreateAccountResponse>;  list(): Promise<AccountRecord[]>; }
+categories: { create(req): Promise<CreateCategoryResponse>; list(): Promise<CategoryRecord[]>; }
+tags:       { create(req): Promise<CreateTagResponse>;      list(): Promise<TagRecord[]>; }
+```
+
+### Notes
+
+- The dev-seed in `main/devSeed.ts` continues to write the legacy enveloped `account.created` / `category.created` / `tag.created` events used by Panel. These **do not** appear in the new `*:list` endpoints — the WI-15-lite events are a separate stream. Empty arrays from the three list endpoints are valid and expected on a fresh install / seeded-but-never-configured install. Consolidation of the two streams is a future WI.
+- **Implementation deviation:** `*:list` actually returns a wrapped object `{ accounts|categories|tags: Record[] }` rather than a bare array. Trinity's renderer + three service tests consumed the wrapped shape; the contract doc only specified the record shape. Wrapping chosen as lower-blast-radius given parallel work.
+- No archive / edit / delete / subcategories / import in this slice.
+
+---
+
+## 2026-04-19T~21:45Z — Morpheus: WI-15-lite main-process shipped
+
+**Source:** `.squad/decisions/inbox/morpheus-wi15-lite-summary.md` (merged).
+
+**Scope:** Main-process half of WI-15-lite — Cuentas / Categorías / Etiquetas, create + list only, event-sourced, EUR-only, no `type` on categories, no archive/edit/delete, no import.
+
+### Files
+
+**New:**
+- `app/src/shared/ipc-contracts/{accounts,categories,tags}.ts` — Zod schemas + types + channel names.
+- `app/src/main/ipc/handlers/{accounts,categories,tags}.ts` + tests (10 + 8 + 7).
+- `app/src/main/projections/config.ts` — `selectAccounts` / `selectCategories` / `selectTags` selectors + 3 tests.
+
+**Modified:**
+- `app/src/core/events/schemas.ts` — three flat event schemas + extended `DomainEvent` union.
+- `app/src/core/query/types.ts` — added `ConfigAccount` / `ConfigCategory` / `ConfigTag` rows + extended `ReadModel` with `configAccounts` / `configCategories` / `configTags`. Kept separate from legacy `accounts` / `categories` / `tags` arrays (Panel + dev-seed).
+- `app/src/core/query/reducers.ts` — cases for the three PascalCase event types; `replayEvents` / `resetReadModel` initialise all seven projection arrays.
+- `app/src/main/ipc/handlers.ts` — registered six new channels.
+- `app/src/preload/index.ts` — exposed `window.opentreasury.{accounts,categories,tags}.{create,list}`.
+- `app/src/renderer/types/config.ts` — rewritten to re-export the frozen shared contracts.
+
+### Deviations from task spec
+
+1. `*:list` returns a wrapped object not a bare array (see contracts note above).
+2. `selectPanelSnapshot` NOT modified — Panel already reads from the hydrated read model, no hardcoded list found. Legacy `account.created` envelopes and new `AccountCreated` flat events coexist as **separate** projection streams; `accounts:list` returns only user-created (WI-15-lite) accounts, seed data does not leak through.
+3. Event shape is **flat** (`{ type, id, …fields, createdAt }`), not the WI-11/12 envelope (`{ id, type, datasetId, actorDeviceId, createdAt, dekVersion, version, payload }`). Both coexist in the NDJSON log; `JsonFileEventLog` only requires a string `id`; reducers switch on `type`.
+4. IDs use `newUlid()` (matches `main/ids.ts`), not `crypto.randomUUID()` — consistent with existing transaction IDs.
+
+### Tests
+
+| Before | After |
+|--------|-------|
+| 81 pass + 4 skip = 85 | 121 pass + 9 skip = 130 |
+
++40 passing, +5 skipped. `npm run typecheck`, `lint`, `format:check`, `test -- --run`, `build:preload` all clean.
+
+### Not in this slice
+
+- Archive / edit / delete → full WI-15.
+- Subcategories → full WI-15.
+- CSV / XLSX import/export → WI-17.
+- Multi-currency → deferred (Pedro Q2).
+- `categoryType` / direction on categories → dropped (Pedro Q3).
+- Seed-migration tool for legacy Panel envelope events → follow-up when WI-15 full scope lands.
+
+---
+
+## 2026-04-19T~22:00Z — Trinity: WI-15-lite renderer shipped
+
+**Source:** `.squad/decisions/inbox/trinity-wi15-lite-summary.md` (merged).
+
+Builds on Morpheus's frozen contracts. Gates green: `tsc -b`, `vitest --run` (121 pass / 9 skip / 27 files), `eslint` (0/0), `format:check`. +13 tests (4 accountsApi + 4 categoriesApi + 4 tagsApi + 5 ConfiguracionScreen).
+
+### Files
+
+**Added:**
+- `app/src/renderer/services/{accounts,categories,tags}Api.ts` + tests.
+- `app/src/renderer/components/ConfigModals/` — `ConfigModalShell.tsx`, `AddAccountModal.tsx`, `AddCategoryModal.tsx`, `AddTagModal.tsx`, `errorMap.ts`, `index.ts`, `ConfigModal.css`.
+- `app/src/renderer/screens/ConfiguracionScreen/` — `ConfiguracionScreen.tsx` + `.css` + `.test.tsx`, `CuentasTab.tsx`, `CategoriasTab.tsx`, `EtiquetasTab.tsx`, `index.ts`.
+- `app/src/renderer/types/config.ts` — shim re-exporting shared contracts.
+
+**Modified:**
+- `App.tsx` — adds `'configuracion'` route, bumps `configRevision` counter on create, passes it to `MovementsScreen`.
+- `AppShell.tsx` — sidebar split into **Principal** + **Configuración** sections; nav entry with `SlidersHorizontal` icon.
+- `MovementsScreen.tsx` — fetches categories + tags alongside accounts; re-hydrates whenever `configRevision` changes; `.catch()` swallows failures so pre-existing tests stay green without new mocks.
+- `AddTransactionModal.tsx` — adds optional Category `<select>` and Tags multi-`<select>`. No contract modification needed — `CreateTransactionRequest` already carried `categoryId` / `tagIds`.
+- `locales/{en,es}/common.json` — new `configuracion.*` namespace, `shell.nav.configuracion`, `shell.sections.config`, `common.save` / `common.saving`.
+
+**Cleanup:**
+- Deleted stray `.d.ts` / `.js` / `.js.map` emits under `app/src/shared/ipc-contracts/`. `shared/tsconfig.json`'s `outDir` is `dist/shared`, so in-tree emits are a build-invocation bug to fix upstream.
+
+### UX compliance (Niobe / AA)
+
+- Tabs: `role="tablist"` / `role="tab"` / `aria-selected` / `aria-controls` / tabIndex juggling per ARIA authoring practices.
+- Modals: native `<dialog>` via `showModal()`; Escape + backdrop click both invoke `onClose`; `role="dialog"` + `aria-modal="true"` + labelled header.
+- Empty states: icon + title + body + primary CTA.
+- All colors via design tokens (no inline `#hex` in component CSS). The 8-color category palette is a data palette (hex stored on the category record) as a constant in `AddCategoryModal`.
+- i18n: every string keyed under `configuracion.*`; ES + EN parity.
+
+### Deliberate deviations / TODOs
+
+- **No subcategory in Add-Transaction.** Matches Morpheus's contract for WI-15-lite.
+- **No archive/edit/delete.** Out of scope.
+- **No toast primitive yet.** On successful create, modals close and the parent tab silently re-fetches. Wire toasts later (WI-16?).
+- **Icon choice:** `SlidersHorizontal` for Settings in the sidebar. Swap to `Settings` (gear) trivially if preferred.
+- **`MovementsScreen` test (pre-existing):** mocks `movementsApi` / `transactionApi` / `panelApi` but not the new `categoriesApi` / `tagsApi`. `.catch()` fallback in `loadAll()` keeps it green.
+
+### Don't-list compliance
+
+- ❌ No edit / archive / delete.
+- ❌ No import / export UI.
+- ❌ No preload touched (Morpheus owns it).
+
+---
+
+## 2026-04-19T~22:10Z — Coordinator: electron moved to devDependencies (packaging unblock)
+
+**Problem:** `npm run package` failed because `electron` was listed in `dependencies`, causing `electron-builder` to double-bundle it / trip ASAR resolution.
+
+**Fix:** Moved `electron` from `dependencies` to `devDependencies` in `app/package.json`.
+
+**Verification:** `npm run package` now produces `out/OpenTreasury Setup 0.0.0.exe` cleanly. End-to-end packaging pipeline verified for the first time.
+
+**Convention going forward:** `electron` stays a dev-only dependency; only Electron **runtime** modules (native addons like `@napi-rs/keyring`, preload deps) belong in `dependencies`. This matches standard electron-builder practice and is worth encoding in PR review checklists.

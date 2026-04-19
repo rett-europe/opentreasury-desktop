@@ -16,6 +16,12 @@ Design context:
 - Financial data display: tables, numbers, currency formatting
 - Dashboard: balance cards, monthly charts
 
+## Core Context
+
+Design tokens v0.2 extracted from `prototype/` (oklch color space, modern CSS). **Prototype is the visual/interaction contract for v1** per the prototype-fidelity ruling — when design system and prototype conflict, prototype wins and the design system is updated to match. All colors in component CSS must resolve through tokens (no inline hex); data palettes (e.g. the 8-color category palette stored on the category record) are an exception. AppShell sidebar is now split into **Principal** + **Configuración** sections; icon set is `lucide-react` (`SlidersHorizontal` used for Settings — gear alternative available if preferred).
+
+Language: ES + EN parity mandatory (`locales/{en,es}/common.json`). Target user: NGO admin staff (clarity over aesthetics). Accessibility target: WCAG AA — native `<dialog>` for modals, `role="tablist"` + ARIA authoring-practices tab juggling for tabs, empty states with icon + title + body + primary CTA.
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
