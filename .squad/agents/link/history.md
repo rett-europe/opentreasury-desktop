@@ -103,3 +103,5 @@ Five product decisions that cascade through roadmap, PRD plan, and the three M1 
 
 ## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
 UX-003 Q1 (statement-import scope -> UX-016/PRD-006) and UX-005 Q2 (Panel read-only contract: hide 'Nuevo Movimiento' header button in M1) need your call.
+
+- 2026-04-19 — Design system v0.1 visual translation of Wave 1 UX is complete. 5 design docs under docs/design/. Trinity unblocked for implementation.

@@ -44,3 +44,34 @@ Niobe's UX baseline and flows published under docs/ux/. Your visual design work 
 
 ## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
 Wave 1 UX COMPLETE - all 6 specs Draft v0.1. UNBLOCKED for ALL Wave-1 screens: design tokens, breakpoints, skeletons, range-picker pattern, charts (collapsible data-table equivalent used by Saldo + Panel), negative-balance treatment, account-pill language, admin-only affordance patterns. Happy path install->first-run->enroll->shell->Panel->Movements->Saldo has a stable UX contract.
+
+## 2026-04-19 — Design system v0.1 shipped (branch: feat/design-system-wave-1)
+**5 artifacts authored under `docs/design/`:**
+- `design-principles.md` — 8 principles (P1 Calm over flashy · P2 High contrast by default · P3 Text-first; icons support · P4 Desktop-native feel · P5 Bilingual-first layout · P6 Empty state teaches · P7 Density is a preference · P8 Security-adjacent language is surfaced).
+- `tokens.md` — full catalog: colour (light + dark, both WCAG AA verified with explicit ratios in §1.4), typography (OS system stack, 8-step scale, body 14 px, tabular-nums rule), spacing (4 px base), radius, elevation (light + dark shadow sets), motion (duration + easing + reduced-motion), z-index (11 named layers), breakpoints (compact 960 / standard 1280 / wide 1600).
+- `components-v1.md` — 16 primitives (Button, TextField, Select, DateRangePicker, Banner, Dialog, Sidebar, Topbar, Toast, Badge/Pill, EmptyState, Skeleton, DataTable, Chart, LocaleSwitcher, CodeDisplay). Each has anatomy + states + props shape + a11y + i18n + UX-spec consumers.
+- `screen-visuals-v1.md` — layout region breakdowns + per-state visual treatment for all 6 Wave-1 screens. Mermaid diagrams for region structure. NO pixel mockups (spec, not Figma).
+- `icons-and-illustrations.md` — Lucide locked. Icon-to-semantic mapping table for Wave-1 surfaces. No illustrations in v1 (Principle P1 + budget + i18n friction + dark-mode doubling cost).
+
+## Learnings
+- **Brand anchor preserved.** Carried `#6d4d8c` from prototype/cloud — Rett Spain sees continuity. All surrounding values rebalanced for AA+.
+- **Dark theme is not a variant; it's mandatory at v0.1.** Treasurer at 10 PM matters. Verified AA on every shipped fg/bg pair in both themes.
+- **4 px base grid (not 8 px).** Prototype used 8 px but I needed half-steps for compact density without sub-pixel rendering. Spacing scale remains 8 px-rhythmed by default.
+- **Tabular numerics on every amount cell** — `font-variant-numeric: tabular-nums` + `font-feature-settings: 'tnum'` fallback. System fonts all support it; no download needed.
+- **System font stack, no web fonts** — `Segoe UI Variable` → `Segoe UI` → `-apple-system` → `system-ui` → Roboto. Offline-first per vision P5, honours OS accessibility.
+- **No pending tone anywhere.** Badge/Pill primitive explicitly does NOT ship `pending` — reinforces product decision 2026-04-19 at the token level.
+- **P8 Security-adjacent surfacing** — the `CodeDisplay` primitive is deliberately the most prominent element on UX-002 (pubkey-substitution defense only works if humans can't miss the code).
+- **No illustrations in v1** — decided + documented. Principle P1 + budget + i18n friction + dark-mode doubling cost. Revisit triggers captured.
+- **Chart library deferred to Trinity** — benchmark `visx` vs hand-rolled SVG vs Recharts against UX-005 PR12 (500ms at 1k events). Recharts flagged as risky (DOM node explosion).
+- **Lucide over Phosphor/Heroicons/Tabler** — single-weight consistency + `Scale` glyph coverage + Shadcn ecosystem familiarity.
+
+## Top open questions (for Pedro / Niobe / Switch / Trinity)
+- **Custom brand mark** — v1 ship with Lucide `Scale` placeholder, or commission a mark? Recommend defer to v1.1. → **Pedro**.
+- **Sidebar taxonomy final** — `Cuentas` / `Categorías` / `Etiquetas` / `Importación` / `Exportar` visual order confirmed? → **Pedro / Niobe**.
+- **Density toggle placement** — filter bar (proposed), table footer, or global-settings-only? → **Niobe**.
+- **Right-click context menus on data-table rows** — M1 or v1.x? Recommend v1.x. → **Pedro / Niobe**.
+- **Toast action keyboard shortcut** (`Ctrl+Shift+T`) — add to UX-006 shortcut map? → **Niobe**.
+- **UX-002 admin UPN tooltip copy** — final wording for "identity not a trust anchor" line. → **Switch**.
+- **Chart library** — visx vs custom SVG vs Recharts; benchmark against PR12 perf target. → **Trinity**.
+- **Account colour palette** — v1 uses 10 curated colours (contrast-safe in both themes). Mouse to propose palette in tokens-v0.2 pass. → **Mouse follow-up**.
+- **Empty-state icon defaults** — ship zero (current plan) vs subtle 32 px Lucide per context. Recommend zero for v1. → **Niobe / Pedro**.

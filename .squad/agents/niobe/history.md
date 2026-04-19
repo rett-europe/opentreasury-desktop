@@ -184,3 +184,5 @@ UX-001 (first-run), UX-002 (enrollment), UX-003 (movements), UX-004 (saldo), UX-
 
 ## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
 Wave 1 COMPLETE. Wave 2 (non-M1 specs per ux-spec-plan.md) is next, after Wave 1 moves to In Review.
+
+- 2026-04-19 — Mouse's design system v0.1 shipped: 5 docs under docs/design/ translating Wave 1 to visuals. Dark mode + Lucide icons locked. OS system font stack. Follow-ups for me: density-toggle placement on UX-003, toast Ctrl+Shift+T addition to UX-006, right-click row menus (M1 vs v1.x).

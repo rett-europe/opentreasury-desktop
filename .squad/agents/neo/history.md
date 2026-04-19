@@ -132,3 +132,5 @@ First `npm run typecheck` after `npm install` surfaced 22 errors across the scaf
 
 ### 2026-04-19: Scaffold is GREEN
 typecheck/lint/test all pass. skipLibCheck:true deviation documented in ADR-002 Addendum. Install requires `--legacy-peer-deps` (peerOptional conflict with eslint-import-resolver-typescript; revisit if we upgrade to ESLint 9 / @typescript-eslint v8).
+
+- 2026-04-19 — Design system v0.1 shipped by Mouse. Lucide icon library, dark mode mandatory at v0.1, OS system fonts (no runtime downloads). Brand anchor #6d4d8c preserved from prototype. Zero illustrations in v1. Trinity unblocked for Wave-1 component implementation.
