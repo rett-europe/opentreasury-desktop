@@ -11,11 +11,15 @@
    * scroll container, preserving sticky escape. Do not "optimize" back to
    * hidden. Supported by Electron/Chromium. */
   overflow: clip;
-  /* Allow the sticky-thead mask pseudo (see `.ot-table thead th::before`)
-   * to paint 1px outside the wrap's padding edge so it covers the wrap's
-   * 1px left/right borders in the pin-offset band. Without this, those
-   * side borders show as hairlines flanking the mask strip when scrolled. */
-  overflow-clip-margin: 1px;
+  /* Inline-axis only: let the sticky-thead mask pseudo (see
+   * `.ot-table thead th::before`) bleed 1px past the wrap's left/right
+   * padding edges so it covers the wrap's 1px side borders in the
+   * pin-offset band when scrolled. The block axis stays at 0 on purpose —
+   * if we allowed top bleed, the mask (which sits at `bottom: 100%` of the
+   * sticky th = the wrap's padding-box top at rest) would paint over the
+   * wrap's 1px top border and erase it before the user ever scrolls. Using
+   * `*-inline` keeps the scrolled fix without breaking the at-rest frame. */
+  overflow-clip-margin-inline: 1px;
 }
 
 .ot-table {
@@ -77,6 +81,20 @@
 }
 .ot-table thead th:last-child::before {
   right: -1px;
+}
+
+/* Round the outer top corners of the sticky thead so that when the header
+ * pins and the wrap's own rounded frame has scrolled out of the pinned band,
+ * the first/last header cells still present the card's rounded top edge.
+ * Unconditional by design: at rest the th sits inside the wrap's 1px border,
+ * so matching the wrap's *inner* radius (outer radius minus border width)
+ * aligns the th's corners exactly with the wrap's inner curve — visually a
+ * no-op. When stuck, these corners are what the user sees as the card top. */
+.ot-table thead th:first-child {
+  border-top-left-radius: calc(var(--radius-lg) - 1px);
+}
+.ot-table thead th:last-child {
+  border-top-right-radius: calc(var(--radius-lg) - 1px);
 }
 
 .ot-table thead th[aria-sort] {

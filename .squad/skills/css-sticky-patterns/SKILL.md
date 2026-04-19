@@ -214,9 +214,136 @@ explicit no-op so the mask itself never paints chrome of its own.
 
 ---
 
+## 5. `overflow-clip-margin` bleed is axis-scoped for a reason
+
+### Symptom
+
+After adding `overflow-clip-margin: 1px` on a bordered wrap so a sticky mask
+pseudo could cover the wrap's side borders (see gotcha #4), the wrap's
+**top border disappears at rest** — before the user has scrolled at all.
+The thead appears to have no top border, unlike sibling card-framed
+components on the page.
+
+### Why
+
+`overflow-clip-margin: 1px` (shorthand) expands the overflow-clip edge 1px
+outward on **all four sides**. The sticky mask `::before` sits at
+`bottom: 100%` of the sticky `<th>`, which at rest is flush with the wrap's
+padding-box top — i.e. immediately *inside* the wrap's 1px top border.
+Without a clip margin the pseudo is clipped there and paints nothing. With
+`overflow-clip-margin: 1px` applied isotropically, the bottom 1px of the
+pseudo now bleeds into the wrap's top border band, painting it over with
+the app background. Net effect: top border erased at rest.
+
+### Fix
+
+Scope the bleed to the inline axis only — which is the only axis that
+needed it (side borders flanking the mask strip, gotcha #4):
+
+```css
+.ot-table-wrap {
+  overflow: clip;
+  /* inline-axis only — see the long comment in Table.css */
+  overflow-clip-margin-inline: 1px;
+}
+```
+
+`overflow-clip-margin-inline` / `-block` / per-side longhands
+(`-top`/`-right`/`-bottom`/`-left`) ship in Chromium 122+, which covers
+Electron 41+ (Chromium ~134). Prefer the logical `*-inline` property when
+the need is symmetric left+right.
+
+### Rule
+
+**When `overflow-clip-margin` is introduced to let a sticky pseudo cover a
+wrapper's borders, apply it only on the axis where the bleed is needed.**
+Using the isotropic shorthand invites collateral bleed (typically a top
+border erased by a mask anchored at `bottom: 100%` of the sticky element).
+
+### Checklist
+
+- [ ] Is the pseudo anchored to the top of the sticky element (`bottom: 100%`)?
+      → block-axis clip-margin WILL leak the top border at rest. Use inline-only.
+- [ ] Would any other side's pseudo-bleed repaint chrome? Audit all 4 sides
+      before reaching for the shorthand.
+
+---
+
+## 6. Sticky element inside `overflow: clip` wrap escapes the radius
+
+### Symptom
+
+The outer wrap has `border-radius: var(--radius-lg)` + `overflow: clip`.
+A `<thead>` inside it is `position: sticky; top: Npx;` and anchored to a
+scrolling ancestor above the wrap (gotcha #2). At rest the wrap's rounded
+top corners look correct. **When the thead sticks and the wrap scrolls
+up past the pin offset, the pinned header presents square top corners** —
+the card's rounded top is visually gone.
+
+### Why
+
+`overflow: clip` does not trap `position: sticky` (that's the whole point
+of gotcha #2). The sticky thead keeps painting in the scrollport after
+the wrap has scrolled out of the pinned band. At that point the wrap's
+rounded corner geometry is no longer on screen to mask anything, and the
+thead's own cells are plain rectangles. The user sees a flat top edge
+where the card's rounded corners used to be.
+
+### Fix
+
+Round the **outer top corners of the first and last header cells** to
+match the wrap's *inner* corner radius. Apply unconditionally — no
+scroll-driven class needed:
+
+```css
+.ot-table thead th:first-child {
+  border-top-left-radius: calc(var(--radius-lg) - 1px);
+}
+.ot-table thead th:last-child {
+  border-top-right-radius: calc(var(--radius-lg) - 1px);
+}
+```
+
+Why it's a no-op at rest: at rest the th sits 1px inside the wrap's 1px
+border. The wrap's outer radius is `var(--radius-lg)`; its inner curve
+(the one that actually touches the th) is `outer - border-width`. Matching
+that exactly means the th's rounded corners align with the wrap's inner
+curve and the visual is unchanged. When the wrap scrolls away, the th
+becomes the visible top edge and its rounded corners are what the user
+sees as the card's rounded top.
+
+### Rule
+
+**When a sticky element escapes a rounded `overflow: clip` wrap, give the
+sticky element's outer corners a `border-radius` equal to the wrap's inner
+radius (`outer − border-width`).** It costs two rules, needs no JS, and
+is a no-op in the at-rest state because the geometry lines up.
+
+### Alternatives (rejected)
+
+- Scroll-driven `.is-stuck` class toggled by JS or a sentinel
+  IntersectionObserver — works, but adds runtime state for a purely
+  visual detail.
+- `border-top-radius` on the `thead` itself — not honored reliably across
+  browsers for table-header-group boxes; applying to the `<th>` cells is
+  the robust path.
+- Putting the radius on the sticky mask `::before` — the mask sits
+  *above* the th, not on it, so it can't contribute corners to the
+  pinned header row.
+
+### Checklist
+
+- [ ] Outer corners on `th:first-child` / `th:last-child` set to the wrap's
+      inner radius (not the outer radius).
+- [ ] Verified visually at rest: wrap's rounded frame still reads cleanly.
+- [ ] Verified at stuck: pinned thead presents the card's rounded top.
+
+---
+
 ## See also
 
 - Decision note: `.squad/decisions/inbox/trinity-table-sticky-clip.md`
 - Decision note: `.squad/decisions/inbox/trinity-sticky-padding-gap.md`
 - Decision note: `.squad/decisions/inbox/trinity-mask-band-borders.md`
+- Decision note: `.squad/decisions/inbox/trinity-thead-border-radius.md`
 - Affected file: `app/src/renderer/components/Table/Table.css`
