@@ -84,3 +84,28 @@ i18n import must be import { i18n } from '../../i18n/index.js' (named export), n
 - Core query shapes locked; IPC contract stable for remaining work
 - Panel renders from real encrypted events by day 10 (M1 alpha gate)
 
+## 2026-04-21 — Critical i18n bug fix: hardcoded Spanish in error paths
+
+**Issue:** Panel error state showed hardcoded Spanish text "No se pudo cargar el Panel. Inténtalo de nuevo." even when user locale was English. Root cause: error state path (lines 150-152 of PanelScreen.tsx) didn't use t() for the error message.
+
+**Additional hardcoded strings found:**
+- Error message (Spanish): "No se pudo cargar el Panel. Inténtalo de nuevo."
+- Retry button: Used generic `common.retry` instead of Panel-specific key
+- Unknown account label: Hardcoded English "Unknown" in recent transactions table
+
+**Fix applied:**
+- Added `panel.error.loadFailed` and `panel.error.retry` keys to both EN and ES locales
+- Added `panel.recent.unknownAccount` for the fallback account label
+- Updated PanelScreen.tsx to use t() for all three cases
+- EN: "Couldn't load the Panel. Please try again." / "Try Again" / "Unknown"
+- ES: "No se pudo cargar el Panel. Inténtalo de nuevo." / "Reintentar" / "Desconocida"
+
+**Key learning: Always use t() even in error paths**  
+Error states and fallback cases are easy to miss during i18n sweeps because they only appear when something breaks. Add a pre-merge checklist item: "grep for user-visible string literals outside t() calls" or enforce with an ESLint rule if the codebase grows. This is especially critical for multilingual apps where error messages are user-facing.
+
+**Pattern candidate for skill system:**  
+"Always internationalize error messages and fallback labels" — this is a general frontend i18n practice, not OpenTreasury-specific, so it may not qualify as a project memory. But worth surfacing if other agents build user-facing components: check *all* code paths (success, error, empty, loading) for hardcoded strings, not just the happy path.
+
+**Verification:**  
+All CI checks pass (typecheck, lint, test, build). Commit 1583135 on main.
+
