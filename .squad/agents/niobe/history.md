@@ -20,6 +20,68 @@ UX considerations from the cloud version:
 
 A prototype exists in `/prototype/` with React-based JSX components.
 
+## Learnings
+
+### 2026-04-19 — UX-007 Configuración v1 spec finalized
+
+Completed 34KB comprehensive UX spec for WI-15 Configuración screens. Covers Cuentas (bank + PayPal, 
+card grid list, modal create/edit with type toggle, color picker, IBAN formatting, currency selector, 
+soft-delete + archive patterns), Categorías (tree view with nested subcategories, inline subcategory 
+editor in modal, type badges income/expense, activation toggle), Etiquetas (simple card grid, color 
+picker, basic CRUD). Empty-state flows for first-time user (no accounts/categories/tags). Integration 
+with WI-13 Add-Transaction modal (reference data refresh strategy). Full accessibility (WCAG 2.1 AA 
+keyboard nav, focus management, screen-reader labels). i18n structure (config.* namespace). Five open 
+questions flagged for Pedro/Link (modal state persistence on nav, Panel empty-state CTA routing, sort 
+order field visibility, IBAN checksum validation, subcategory deletion behavior). Out-of-scope deferred 
+features (bulk import, drag-drop reorder, custom hex colors, multi-currency, category type mutation, 
+undo/redo). Spec is authoritative reference for Trinity's WI-15 implementation post-Pedro approval.
+
+### 2026-04-19: Configuración UX Patterns from Web Reference
+
+**Key learnings from `rett-europe/opentreasury` analysis for UX-007 (Configuración v1 spec):**
+
+1. **Card-grid pattern for entity lists:** All three config screens (accounts, categories, tags) use responsive card grids (not tables). Each card is a self-contained unit with metadata + inline actions (edit, delete, toggle active). This is more scannable than dense tables for non-technical users who need to recognize entities visually (e.g., by color-coded account cards or category type badges).
+
+2. **Modal-based CRUD, not inline editing:** Create and Edit flows open centered modals (520–600px wide) with form validation. No inline-edit or slide-out panels. Modals have explicit Cancel/Save actions with loading states. This matches the WI-13 Add Transaction modal pattern — consistency across all forms.
+
+3. **Type selectors as toggle cards (not dropdowns):** Account type (Bank/PayPal) and Category type (Income/Expense) use two-button toggle cards with icons, not a traditional select dropdown. This makes the binary choice more visual and reduces cognitive load (no need to open a dropdown to see options).
+
+4. **Hierarchical category model with inline subcategory editor:** Subcategories are not separate top-level entities. The category form includes an inline list editor (add/remove subcategories within the same modal). This avoids navigation overhead and keeps the parent-child relationship explicit in the UI.
+
+5. **Soft-delete (isActive toggle) preferred over hard-delete:** All three entities support an `isActive: false` state (archived). Delete is blocked if the entity is referenced by transactions. This prevents accidental data loss and aligns with the "no-delete-only-archive" philosophy for financial data.
+
+6. **Color as a first-class UI affordance:** Accounts and Tags use color not just for decoration but as a functional identifier (left-border stripe on account cards, pill background for tags). The color picker is a required field (with defaults) to encourage visual distinction.
+
+7. **Confirmation dialogs show impact (transaction counts):** When archiving/deleting, dialogs display "{entity} tiene {count} movimientos asociados" to inform the user of downstream impact. This is critical for treasurers who need to understand consequences before confirming.
+
+8. **Validation is inline + specific, not just "required field":** IBAN formatting (auto-add spaces), email validation, duplicate-name checks — all show field-level errors on blur with actionable copy (e.g., "IBAN no válido. Verifica el formato."). No generic "Form is invalid" toast.
+
+9. **Empty states are instructional, not just decorative:** Each config screen's empty state includes an icon + 2-line explanation of *why* you need this entity + a primary CTA to create the first one. This reduces the "What do I do now?" moment for first-time users.
+
+10. **i18n copy pattern: entity name + action verb:** Translation keys follow `{screen}.{entity}.{action}` structure (e.g., `config.cuentas.new`, `config.categorias.delete.confirm`). This makes key discovery predictable and avoids copy duplication.
+
+**UX pitfalls to avoid:**
+
+- **Don't mix card grids and tables:** The web app is consistent — all config screens use cards. Switching to a table for "Categorías" (because of subcategories) would break the pattern. Keep it cards + inline subcategory chips.
+  
+- **Don't auto-save on toggle switches:** The web app's Active/Inactive toggle (on account/tag cards) triggers a confirmation dialog if the entity has transaction references. Auto-saving without confirmation would be dangerous for accidental clicks.
+
+- **Don't hide the color picker in "Advanced options":** Color is a primary affordance for accounts/tags, not an edge-case customization. Make it prominent in the form.
+
+- **Don't allow category type mutation after creation:** Changing "Ingreso" → "Gasto" on an existing category would require reclassifying all referencing transactions. The web app makes this field immutable in edit mode. Follow that pattern.
+
+**Integration notes for WI-13 (Add Transaction modal):**
+
+- **Dropdown refresh:** The web app uses a `ReferenceDataService` that caches accounts/categories/tags globally and invalidates on CRUD operations. When a user creates a new category in Configuración, the service refetches, and any open dropdowns (e.g., in Add Transaction modal) get the updated list. Trinity should implement a similar invalidation mechanism (IPC event or React context).
+
+- **Two-step category selector:** Category dropdown shows only parent categories; selecting a category reveals a second dropdown for subcategories (if any exist). This is clearer than a single combo-select with indented tree structure for non-technical users.
+
+- **Tag multi-select:** Tags use a chip input (type to filter + click to add). The desktop prototype doesn't show this yet, but the web app does. Note for Trinity: consider a simple multi-select dropdown for v1 (defer chip-input to v1.1 unless it's already in the component library).
+
+**Reusable pattern candidate:**
+
+The **modal-based CRUD with type toggle cards + inline nested-entity editor** (used for categories+subcategories) could be extracted as a general pattern for hierarchical config UX. If we add "Projects" or "Cost Centers" later, the same pattern applies. Consider documenting this in `.squad/skills/hierarchical-config-crud/SKILL.md` if we see a third use case.
+
 ## Core Context
 
 **Niobe's charter:** Author UX specs for OpenTreasury Desktop. Wave 1 COMPLETE (6 specs at Draft v0.1: UX-001 first-run, UX-002 enrollment, UX-003 movements, UX-004 saldo, UX-005 panel, UX-006 shell). Each spec has Traceability Matrix to PRDs/ADRs/R-series/C-series. All crypto-sensitive copy questions ratified by Switch (see crypto-error-copy-catalog.md v1.0).

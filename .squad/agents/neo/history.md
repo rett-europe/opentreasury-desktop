@@ -22,6 +22,43 @@ The desktop version aims to replicate this functionality without requiring Azure
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-19 — WI-15/16 scope finalized (Configuración + Datos deep-dive from web reference)
+
+Completed comprehensive scope inventory of rett-europe/opentreasury (web reference app). 
+Mapped Accounts/Categories/Subcategories/Tags CRUD, Import (3-step wizard, alias-based column mapping, 
+hash-based dedup, partial-success model, category auto-creation with type guessing + override), 
+Export (XLSX only, date-range + optional filters). Event model additions defined (10 new event types: 
+account.*, category.*, subcategory.*, tag.*, import.*). Work packages WI-15 (10–12d), WI-16 (12–14d), 
+WI-17 (5–6d integration + polish). Six blocking open questions for Pedro (event-sourced config vs 
+separate store, multi-currency, bank parsers, category type mutability, import rollback, export format). 
+v1-minimal slice (WI-15-lite, create-only for accounts/categories/tags) proposed as separate 3–4d 
+milestone if Pedro prefers faster proof-of-concept before full CRUD.
+
+
+
+**Context:** Scoped CONFIGURACIÓN + DATOS work packages by studying `rett-europe/opentreasury` (Angular 19 + Python FastAPI web reference).
+
+**Import flow insight:**
+The web app's bank statement import (XLSX/CSV → transactions) has **three complexity centers** that desktop must replicate:
+
+1. **Column alias detection** — hardcoded bank-specific logic (`/api/app/constants/import_constants.py`). Parser normalizes headers (lowercase, strip accents), then checks aliases: `"FECHA": ["fecha", "f. valor", "date"]`, `"IMPORTE": ["importe", "amount", "cargo", "abono"]`, etc. **No user-configurable mapping UI** — parser either auto-detects or fails with "Missing required columns" error. This simplifies UX but breaks if banks change formats.
+
+2. **Duplicate detection** — hash-based idempotency. For each row, compute `md5(accountId + date + amount + description)` → stored as `source_reference`. Before insert, query for existing txn with same hash; if found, skip. **No external bank transaction ID** used — hash is the only de-dup mechanism. Edge case: if same real-world transaction appears in two files with different descriptions (bank truncates), hash won't match → duplicate inserted.
+
+3. **Category auto-creation** — parser extracts unique (category, subcategory) pairs from import file, compares against existing categories by name (case-insensitive). If not found, creates new category with type guessed from keywords ("Cuota", "Donación" → income; "Gasto", "Alquiler" → expense) OR user override via `categoryTypeOverrides` metadata. **User override is critical** — without it, imports fail or create wrong-type categories when parser guesses incorrectly.
+
+**Partial success model works well:** Web app commits valid rows, skips malformed rows (invalid date/amount), returns warnings array. User can fix errors in subsequent import (duplicates auto-skipped via hash). This is better UX than atomic rollback.
+
+**Desktop implication:** Replicate all three mechanisms in `app/src/main/services/import-parser.ts`. Use same alias lookup (port Python constants to TS). Use same hash logic for `source_reference`. Support category type overrides in import wizard Step 2. Accept partial success (warnings array).
+
+**Reusable pattern — "mirroring a web reference repo into desktop twin":**
+1. API endpoints → command surface (each POST/PUT/DELETE = one command that appends event).
+2. Service layer → business logic (port validation rules: IBAN format, soft-delete protection, txn count checks).
+3. Frontend components → UI patterns (modal dialogs, inline toggles, confirmation dialogs map cleanly from Angular to React).
+4. **Do NOT port database layer** — web uses Cosmos DB (document store); desktop uses event log + in-memory projections. Schema conversion required (e.g., web stores `is_deleted: bool` on document; desktop appends `AccountDeleted` event).
+
+**Artifact:** `.squad/decisions/inbox/neo-wi15-configuracion-datos-scope.md` (21-day work package plan, 6 open questions for Pedro).
+
 ## 2026-04-19T18:56:23Z — WI-12 landed: E2E IPC bridge unlocks M1.5 demo path
 
 **Status:** IPC contract finalized by Morpheus + Trinity, unblocking WI-13 + WI-14.

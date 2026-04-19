@@ -1824,3 +1824,390 @@ To let Pedro **add a transaction → see it in the list → see Panel KPIs + rec
 - **M1 Panel Alpha** (original): folds into M1.5 since real data now flows through the same path.
 - **M2:** OneDrive adapter (WI-4) + crypto (WI-5) + multi-device concurrency — swap storage adapter, no UI or core changes.
 
+---
+
+## 2026-04-19: WI-13 (Trinity) — Add-Transaction Modal Implementation
+
+**Status:** ✅ Completed (81/85 tests pass, 4 skipped jsdom). Commit 17134be.
+
+**Summary:**  
+Trinity completed end-to-end vertical slice for transaction creation: user clicks "+ New Transaction" → fills modal form → submits → sees new row at top of Movements list.
+
+**Form Field List:**
+
+| Field | Type | Required | Default | Validation |
+|-------|------|----------|---------|------------|
+| `date` | date input | ✅ | Today (ISO YYYY-MM-DD) | Regex `/^\d{4}-\d{2}-\d{2}$/` |
+| `type` | select | ✅ | "expense" | One of "income" \| "expense" |
+| `amount` | number | ✅ | — | Positive, > 0, step 0.01 |
+| `description` | text | ✅ | — | Non-empty after trim, max 500 chars |
+| `account` | select | ✅ | First account in list | Must exist in Panel accounts |
+| `categoryId` | — | ❌ | — | Wired in contract, omitted from UI (v1) |
+| `subcategoryId` | — | ❌ | — | Wired in contract, omitted from UI (v1) |
+| `tagIds` | — | ❌ | — | Wired in contract, omitted from UI (v1) |
+| `status` | — | — | "approved" | Hardcoded, not user-editable |
+
+**Validation Strategy — Two-tier approach:**
+1. **Client-side pre-flight** (instant feedback, no IPC): Validates shape before calling `createTransaction()`. Fires on form submit.
+2. **Server-side validation** (business rules): Core command validates account exists, amount positive, date valid ISO string. Returns structured errors.
+
+**Modal Pattern Details — Native `<dialog>` element** (no 3rd-party deps):
+- Lifecycle: `useEffect` keyed on `isOpen` prop calls `dialog.showModal()` / `dialog.close()`
+- Backdrop click closes modal
+- Escape key handled by native `cancel` event
+- Focus trap handled by browser (modal mode blocks interaction outside dialog)
+
+**Panel-Invalidation Approach (WI-14-lite):**
+After `createTransaction` resolves `{ok:true}`:
+1. Modal closes
+2. `MovementsScreen.loadAll()` re-runs → calls `listMovements()` + `getAccounts()`
+3. Table re-renders with new row at top
+
+**Panel screen does NOT auto-refresh.** User must reload the app or navigate away/back to see updated KPIs and recent-transactions list. Known limitation documented in code.
+
+**WI-14 proper will add:**
+- Event-bus pattern (e.g., `window.opentreasury.events.emit('panel:invalidate')`)
+- Panel screen subscribes on mount, re-runs loaders when event fires
+- Any write command emits the event
+- No polling, no global refresh — targeted invalidation per command
+
+**Testing Coverage:**
+- Modal component: 3 tests (skipped — jsdom dialog API incomplete)
+- MovementsScreen: 4 tests
+- CI status: 81/85 pass, 4 skipped, typecheck/lint/format green
+
+**Files Changed:**
+- New: `app/src/renderer/components/AddTransactionModal/` (modal component, styles, tests, barrel)
+- Modified: `app/src/renderer/screens/MovementsScreen/`, `app/src/renderer/locales/{en,es}/common.json`
+
+**Learnings for Future WIs:**
+Reusable modal form submission pattern established. IPC contract gap identified: MovementRecord is ID-based but UI needs labels. WI-14 should either add labels inline to `movements.list` response or add separate lookup tables.
+
+**Accessibility reminder:** Always pair `aria-invalid` with `aria-describedby` for validation errors. Screen readers need the linkage to announce errors on focus.
+
+**Next steps (WI-14):**  
+Event-bus subscription for panel invalidation + category/tag label resolution.
+
+---
+
+## 2026-04-19: WI-15/16 Scope — CONFIGURACIÓN + DATOS Work Packages
+
+**Status:** 🔶 Draft — awaiting Pedro approval on 6 open questions.
+
+**Author:** Neo (Lead/Architect)  
+**Date:** 2026-04-19  
+**Reference Repo:** `rett-europe/opentreasury` (Angular 19 + Python FastAPI web app)
+
+### Section A — Inventory (What the Web App Has)
+
+#### A1. Accounts (`/api/accounts`)
+- **CRUD Operations:** List, Create, Read, Update, Delete (soft-delete if zero transactions)
+- **Business Rules:** IBAN uniqueness, Account color palette (normalized hex), Soft-delete protection, Activation toggle, Sort order
+- **UX Patterns:** Modal dialog for create/edit, Inline toggle for isActive, Confirmation dialog before delete, Color picker widget
+- **Reference Files:** API router (`/api/app/routers/accounts.py`), Service layer, Schema
+
+#### A2. Categories + Subcategories
+- **CRUD Operations:** List categories (nested), Create/Update/Delete categories, Add/Update/Remove subcategories
+- **Business Rules:** Parent-child hierarchy, Type constraint (income/expense), Uniqueness (case-insensitive), Soft-delete protection, Subcategory removal validation
+- **UX Patterns:** Modal dialog with nested subcategory inline editor, Expandable list, Inline activation toggle, Confirmation dialog with transaction count
+
+#### A3. Tags/Labels (`/api/tags`)
+- **CRUD Operations:** List, Create, Read, Update, Delete (soft-delete if zero transactions)
+- **Business Rules:** Uniqueness (case-insensitive), Free-form color (not palette), Soft-delete protection
+- **UX Patterns:** Modal dialog, Inline toggle, Confirmation dialog
+
+#### A4. Import (`/api/imports`) — 3-step wizard
+1. **Upload + Account Selection:** User uploads file, selects target account
+2. **Sheet Selection + Preview:** Shows row counts, new categories/subcategories, duplicates, allows category type overrides
+3. **Confirm + Import:** Creates categories, inserts transactions, returns summary
+
+**Column Mapping (Auto-Detected):** Via hardcoded alias lookup (no user-configurable mapping in v1)  
+**Duplicate Detection:** Hash-based idempotency key `md5(accountId + date + amount + description)`  
+**Category Auto-Creation:** Parses unique (category, subcategory) pairs, guesses type from keywords, user can override  
+**Error Handling:** Malformed rows skipped with warnings; partial success model
+
+#### A5. Export (`/api/export`) — Filter + Download
+- **Output format:** XLSX only, includes Date, Account, Category, Subcategory, Amount, Balance, Description, Tags, Review Status
+- **UX Pattern:** Filter form (date range picker, optional account/category dropdowns), Download button
+
+### Section B — Import Deep-Dive (Complexity Analysis)
+
+**3-step wizard:**
+1. Upload + Account Select → call `POST /api/imports/preview`
+2. Preview + Sheet Selection → user can override category types
+3. Confirm + Import → call `POST /api/imports/workbook`
+
+**Column Mapping:** Auto-detected via alias lookup (case-insensitive, diacritic-normalized). No user-configurable mapping UI in v1.
+
+**Duplicate Detection:** Hash-based `source_reference`, no external transaction ID.
+
+**Error Handling:** Malformed rows skipped; partial success continues; warnings returned.
+
+**Side Effects on Domain:**
+- Events appended: `CategoryCreated` × N, `SubcategoryCreated` × M, `TransactionCreated` × K
+- `import_batch_id` (ULID) + `import_source` (filename) stored on each transaction
+
+### Section C — Event Model Additions
+
+**New event types needed:**
+- Account: `account.created`, `account.updated`, `account.deactivated`, `account.deleted`
+- Category: `category.created`, `category.updated`, `category.deactivated`, `category.deleted`
+- Subcategory: `subcategory.created`, `subcategory.updated`, `subcategory.deactivated`, `subcategory.deleted`
+- Tag: `tag.created`, `tag.updated`, `tag.deactivated`, `tag.deleted`
+- Import: `import.batch-started`, `import.batch-completed`
+
+**Event Ordering + Projection Consistency:**
+- Account/Category/Tag must exist before Transaction references it
+- Delete protection requires txn count query
+- Panel + Movements invalidation broadcasts after config events
+
+### Section D — Work Packages (Deliverables)
+
+#### WI-15: CONFIGURACIÓN — Reference Data CRUD (Accounts, Categories, Tags)
+**Purpose:** Build the UI + command layer for managing accounts, categories, subcategories, and tags.  
+**Owner:** Trinity (UI + IPC client), Morpheus (commands + IPC handlers)  
+**Size:** L (10–12 days, split Morpheus 6d + Trinity 6d with 2d overlap)
+
+**Acceptance Criteria (5 phases):**
+1. **Command Layer (Morpheus):** All CRUD commands, vitest 100%
+2. **Query Projections (Morpheus):** `queryAccounts`, `queryCategories`, `queryTags`, vitest coverage
+3. **IPC Contracts (Morpheus + Trinity):** Zod schemas, handlers, typed clients
+4. **UI Components (Trinity):** Card grids, form dialogs, inline toggles, delete confirmation
+5. **Integration (Trinity + Morpheus):** Wire nav, test all flows, broadcast invalidation events
+
+#### WI-16: DATOS — Import/Export
+**Purpose:** Build the import wizard (upload XLSX → preview → commit) and export flow (filter → download XLSX).  
+**Owner:** Morpheus (parser + command), Trinity (wizard UI + export UI)  
+**Size:** L (12–14 days, split Morpheus 8d + Trinity 6d with 2d overlap)
+
+**Phases:**
+1. **Import Parser (Morpheus):** Read XLSX, auto-detect sheets, parse rows, compute hash
+2. **Import Command (Morpheus):** Validate account, parse file, create categories, append events
+3. **Export Service (Morpheus):** Query transactions, generate XLSX, return file
+4. **IPC Contracts (Morpheus + Trinity):** Define contracts, handlers, clients
+5. **Import Wizard UI (Trinity):** 3-step flow with preview + category overrides
+6. **Export UI (Trinity):** Filter form + download button
+
+#### WI-17: Integration + Polish
+**Purpose:** End-to-end wiring, edge case handling, accessibility, and UX polish.  
+**Owner:** Trinity (UI polish), Niobe (UX audit), Mouse (a11y + design tokens)  
+**Size:** M (5–6 days)
+
+### Section E — Open Questions for Pedro (BLOCKING)
+
+**E1. Configuration Events vs Separate Config Store**  
+Should accounts/categories/tags produce domain events (event-sourced) or live in separate store (SQLite/JSON)?  
+**Neo's Recommendation:** Option A (event-sourced). Aligns with ADR-001, audit trail valuable, event log manageable.
+
+**E2. Multi-Currency Accounts in v1?**  
+Support USD/GBP or hardcode EUR?  
+**Neo's Recommendation:** Hardcode EUR, add field for future, UI hides it.
+
+**E3. Import: Match All Banks or Start Generic?**  
+Replicate bank-specific parsers or ship manual column mapping?  
+**Neo's Recommendation:** Option B (bank-specific parsers for v1), covers 90% of RETT imports.
+
+**E4. Category Type Change — Allow or Block?**  
+If category has transactions, allow type change (income → expense)?  
+**Neo's Recommendation:** Option A (allow + warn). Matches web app.
+
+**E5. Import Batch Rollback on Error?**  
+Partial success (80 of 100) or atomic (0 or 100)?  
+**Neo's Recommendation:** Option A (partial success). Web app UX works well.
+
+**E6. Export: CSV Option, or XLSX Only?**  
+Both formats or XLSX only?  
+**Neo's Recommendation:** XLSX only for v1.
+
+### Section F — v1 Minimum Slice (WI-15-lite)
+
+**Goal:** Smallest subset allowing Pedro to add account/category/tag through UI + see them in Add-Transaction modal.
+
+**Scope:**
+- Accounts: Create only (hardcoded EUR, no color picker, no PayPal toggle)
+- Categories: Create only (hardcoded income/expense, no subcategories)
+- Tags: Create only
+- No import/export
+
+**Size:** S (3–4 days)
+
+**Is WI-15-lite valuable as separate milestone, or go straight to full WI-15?**  
+ASK PEDRO.
+
+---
+
+## 2026-04-19: UX-007 — Configuración UI v1 Spec
+
+**Status:** 🔶 Draft v0.1 — awaiting review  
+**Author:** Niobe (UX/Spec Analyst)  
+**Date:** 2026-04-19  
+**Related:** WI-15 (Neo scoping), WI-13 (Add Transaction modal), prototype/shell.jsx
+
+### Prototype Reference
+
+The prototype sidebar navigation defines **Configuración** section (lines 53–57 in `prototype/shell.jsx`):
+```jsx
+{ section: 'Configuración', items: [
+  { id: 'categorias',  label: 'Categorías',   icon: 'folder' },
+  { id: 'etiquetas',   label: 'Etiquetas',    icon: 'tag' },
+  { id: 'cuentas',     label: 'Cuentas',      icon: 'bank' },
+]},
+```
+
+The desktop v1 must match: **three distinct screens** (Cuentas, Categorías, Etiquetas) with CRUD operations.
+
+### 1. User Goals
+
+- **UG-1: Account Creation** — Quick add of organization's bank + PayPal accounts to start recording transactions
+- **UG-2: Category & Subcategory Management** — Define income/expense categories with optional subcategories
+- **UG-3: Label/Tag Creation** — Create custom labels for cross-cutting themes (e.g., "COVID-19 Relief")
+
+### 2. Navigation & Information Architecture
+
+**Sidebar Placement:** Configuración between Principal (Panel, Movimientos, Saldo) and Datos (Importación, Exportar)  
+**Route Structure:** `/configuracion/cuentas`, `/configuracion/categorias`, `/configuracion/etiquetas` — sibling top-level screens
+
+**Empty States (First-Time User):**
+1. **Cuentas empty:** Icon `Landmark`, Heading "No hay cuentas bancarias", CTA "Añadir Cuenta"
+2. **Categorías empty:** Icon `FolderOpen`, Heading "No hay categorías", CTA "Añadir Categoría"
+3. **Etiquetas empty:** Icon `Tag`, Heading "No hay etiquetas", CTA "Añadir Etiqueta"
+
+### 3. Core Flows
+
+#### Cuentas (Bank Accounts & PayPal)
+
+**List View:**
+- Card grid (responsive: 1 col mobile, 2–3 cols desktop)
+- Card contents: Left border stripe (color), Icon (Landmark/CreditCard), Title + currency badge, Subtitle (bank name), Metadata (IBAN masked/PayPal email), Actions (Edit/Activate-Toggle/Delete)
+- Sort: by `sortOrder`, then creation date
+- States: Active (full opacity), Inactive (0.65 opacity + dashed border + "Inactivo" badge)
+
+**Create Flow:**
+- Modal with Type selector (Bank/PayPal), fields: Bank name, Short name, Account label, IBAN (bank only)/PayPal email (PayPal only), Color picker (preset palette), Currency (EUR/USD/GBP), Sort order
+- Validation: IBAN format (basic length check), email, required fields
+- Success: Toast "Cuenta creada: {accountLabel}"
+
+**Edit Flow:**
+- Modal pre-filled, Type immutable, IBAN/Email editable with warning, Activa toggle (with confirmation if >0 txns)
+
+**Archive/Delete Flow:**
+- Archive: Toggle → confirmation (if >0 txns, show count), Toast "{accountLabel} desactivada"
+- Delete: Trash icon → block if >0 txns with message, allow if 0 with hard-delete confirmation
+
+#### Categorías + Subcategorías
+
+**List View:**
+- Card grid, Card contents: Header row (name + type badge "Ingreso"/"Gasto"), Description (optional, truncated), Subcategories (chip list, max 5 + "y {n} más"), Actions (Edit/Delete)
+- Sort: Alphabetical + inactive last
+- Empty: "Sin subcategorías"
+
+**Create Flow:**
+- Modal with Type selector (Ingreso/Gasto), Name, Description, Inline subcategory editor (list container, add row with Enter shortcut)
+- Validation: Subcategory names unique within category, show error on blur
+- Success: Toast "Categoría creada: {name}"
+
+**Edit Flow:**
+- Modal pre-filled, Type immutable, Subcategory editing (rename/delete/add), Activa toggle
+
+**Delete Flow:**
+- Block if >0 txns, Allow if 0
+
+#### Etiquetas (Labels/Tags)
+
+**List View:**
+- Card grid (smaller cards), Tag preview chip (colored pill), Name + Inactivo badge (if applicable), Actions (toggle/edit/delete)
+- Sort: Alphabetical + inactive last
+
+**Create Flow:**
+- Modal with Name (required, max 30 chars), Color picker (12 preset swatches, default purple)
+- Validation: Tag names unique (case-insensitive)
+- Success: Toast "Etiqueta creada: {name}"
+
+**Edit Flow:**
+- Modal pre-filled, Activa toggle
+
+**Delete Flow:**
+- Block if >0 txns, Allow if 0
+
+### 4. Integration with Add Transaction Modal (WI-13)
+
+**Contract:** Newly-created accounts/categories/tags appear immediately in modal dropdowns.
+
+**Optimistic Refresh Strategy:**
+1. After successful create, Configuración screen calls local refetch
+2. Modal listens to "config changed" event (IPC channel or React context) and refetches reference data
+
+**Open Question Q1 (for Pedro):** Should modal close on nav away (Option A, simpler) or persist state (Option B, better UX)?
+
+### 5. Error & Empty States
+
+**First-Time User Journey:**
+1. App opens to Panel
+2. Panel empty state: "No hay cuentas configuradas. Configura tu primera cuenta."
+3. CTA links to `/configuracion/cuentas`
+4. User creates account, returns to Panel (or is auto-routed?)
+
+**Validation Errors (Inline):**
+- Below field, red text + red left border + warning icon
+- Copy style: plain, actionable Spanish (e.g., "IBAN no válido. Verifica el formato.")
+
+**Destructive Action Guards:**
+- Confirmation dialog before irreversible action
+- Body: plain-language impact (show txn count if applicable)
+- Actions: "Cancelar" | "{Action}" (danger red for delete, warn orange for deactivate)
+
+### 6. Accessibility Requirements (WCAG 2.1 AA)
+
+**Keyboard-Only Navigation:** All CRUD fully keyboard-accessible (Tab through cards, Enter to activate, Escape to close modal, Arrow keys for color picker)
+
+**Focus Management:**
+- Modal open: focus moves to first interactive element, background inert
+- Modal close: focus returns to trigger button
+- After delete: focus moves to next card (or "Añadir" button if list empty)
+
+**Screen Reader Labels:**
+- Action buttons: `aria-label="Editar {accountLabel}"`
+- Validation errors: `aria-describedby="error-{fieldName}"`
+- Color picker: `role="radiogroup"` with individual swatches as `role="radio"`
+
+### 7. i18n Considerations
+
+**Primary:** Spanish (ES)  
+**Required:** English (EN) fallback  
+**Key namespace:** `config.*` (cuentas, categorias, etiquetas)  
+**ICU Pluralization:** For count messages (e.g., "{count, plural, one {1 movimiento} other {# movimientos}}")
+
+### 8. Out of Scope for v1
+
+Explicitly deferred to M1.1 or later:
+- Bulk import of categories/tags
+- Category reordering (drag-drop)
+- Custom color picker (hex input) — v1 preset palette only
+- Multi-currency transactions
+- Category type mutation
+- Undo/Redo for deletions
+- Category/tag usage analytics
+- Subcategory-only view
+- Account reconciliation UI
+- Custom fields for accounts
+- Advanced IBAN validation (checksum)
+- "Archived" list view filter
+
+### 9. Acceptance Criteria (5 key scenarios)
+
+**AC-1:** User creates PayPal account via modal → modal closes → list refreshes → toast confirms  
+**AC-2:** User creates category with two subcategories → category card shows subcategories as chips  
+**AC-3:** User creates tag "COVID-19" with orange color → tag card shows orange pill  
+**AC-4:** User creates new account in Configuración → returns to Add-Transaction modal → new account in picker  
+**AC-5:** Keyboard-only user tabs through cards, Escape closes modal, Arrow keys navigate color picker
+
+### 10. Open Questions
+
+**Q1:** Modal state persistence — close on nav away (A, simpler) vs persist form (B, better UX)?  
+**Q2:** Panel empty-state routing — link to `/configuracion/cuentas` (A) or quick-create modal (B)?  
+**Q3:** Sort order field visibility — show by default (A) or behind "Opciones avanzadas" (B)?  
+**Q4:** IBAN validation — full checksum (A) or basic length check (B)?  
+**Q5:** Subcategory deletion — keep parent category (A), fully uncategorize (B), or block (C)?
+
+---
+

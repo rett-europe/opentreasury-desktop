@@ -21,7 +21,18 @@ The cloud version has an Angular 19 frontend with:
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
-## 2026-04-21 — KPI card tone fix (icon stroke + income value color)
+## 2026-04-19 — WI-13 landed (Movements + Add-Transaction modal wired)
+
+Commit 17134be ships Add-Transaction modal integrated with real IPC (createTransaction), 
+Movements list renders live data. Modal pattern (native `<dialog>`, two-tier validation, 
+client-side pre-flight + server-side business rules) reusable for future forms (WI-15 config CRUD). 
+81/85 tests pass (4 skipped jsdom). Panel auto-refresh on create deferred to WI-14 (event-bus pattern).
+WI-15/16 scoped (Configuración + Datos) by Neo; awaiting Pedro Q&A on 6 decisions (event-sourced 
+config, multi-currency, bank parsers, category type mutability, import rollback, export format).
+UX-007 Configuración spec drafted by Niobe (Cuentas/Categorías/Etiquetas CRUD flows, accessibility, 
+empty states, integration notes with 5 open questions for Pedro/Link).
+
+
 
 **Issue 1 root cause — icon inheriting stroke color:**
 Lucide icons render SVGs with `stroke="currentColor"`. The KPI tile had inline
