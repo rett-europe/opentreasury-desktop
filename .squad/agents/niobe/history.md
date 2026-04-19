@@ -23,3 +23,6 @@ A prototype exists in `/prototype/` with React-based JSX components.
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+### 2026-04-19: Product Vision v0.1 exists (team context)
+Link drafted `docs/product/vision.md`. UX-relevant principles: **offline-capable by default**, prototype kept as reference (Q7 asks whether prototype is a UX contract or we're free to depart — Pedro to decide). No custom auth screens in v1 — OneDrive handles it. Spanish + English TBD (Q6). Scope/principles are now decided team context for all UX work. Transaction list starts empty is already locked in.

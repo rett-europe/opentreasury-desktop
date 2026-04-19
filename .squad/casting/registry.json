@@ -55,6 +55,13 @@
       "created_at": "2026-04-19T12:00:00Z",
       "legacy_named": false,
       "status": "active"
+    },
+    "product-manager": {
+      "persistent_name": "Link",
+      "universe": "The Matrix",
+      "created_at": "2026-04-19T14:00:00Z",
+      "legacy_named": false,
+      "status": "active"
     }
   }
 }

@@ -20,6 +20,7 @@
 | Switch | Security Engineer | `.squad/agents/switch/charter.md` | 🔒 Security |
 | Niobe | Spec / UX Analyst | `.squad/agents/niobe/charter.md` | 📐 Spec/UX |
 | Mouse | UI Designer | `.squad/agents/mouse/charter.md` | 🎨 UI Design |
+| Link | Product Manager | `.squad/agents/link/charter.md` | 🗺️ Product |
 | Scribe | Session Logger | `.squad/agents/scribe/charter.md` | 📋 Silent |
 | Ralph | Work Monitor | — | 🔄 Monitor |
 

@@ -14,9 +14,10 @@ How to decide who handles what.
 | Security | Switch | Auth design, Electron hardening, security reviews, threat modeling |
 | Specs & UX analysis | Niobe | Feature specs, user workflows, usability review, accessibility |
 | UI design & theming | Mouse | Visual design, design tokens, component specs, color/typography |
+| Product management | Link | Roadmap, PRDs, prioritization, milestones, user research synthesis, release planning |
 | Code review | Neo | Review PRs, check quality, architectural alignment |
 | Security review | Switch | Review PRs touching auth, IPC, data access, dependencies |
-| Scope & priorities | Neo | What to build next, trade-offs, decisions |
+| Scope & priorities | Link + Neo | Link owns product priorities; Neo owns technical decomposition. Co-decide when product value vs. technical cost conflicts. |
 | Session logging | Scribe | Automatic — never needs routing |
 | Work monitoring | Ralph | Backlog tracking, issue status, keep-alive |
 
