@@ -116,3 +116,30 @@ All accounts currently render in the same color. The prototype and the Movements
 **Decision doc:** `.squad/decisions/inbox/morpheus-movement-v0.2-schema.md` — includes the real-backend mapping (events → SQLite projection columns, `tx_tags` M:N, review_status default, ULID vs UUID, audit log surface, `month` bucket follow-up). Trinity's superseded gap note removed.
 
 **Commit:** `feat(movements): expand Movement schema with subcategory/tags/status/nullable category (Morpheus)` on `fix/trinity-prototype-parity`.
+
+## 2026-04-19T16:21:30Z — Panel-First Work Package Decomposition (from Neo)
+
+**Neo completed:** Full decomposition of Panel-first M1 implementation into 10 sequenced work items (WI-1 through WI-10) with owners, acceptance criteria, dependency graph, and critical-path analysis. Artifact: `.squad/decisions.md` § Neo — Panel-First Work Package Decomposition.
+
+**Your assignments (awaiting Pedro approval on Q1–Q6):**
+
+| WI | Phase | Owner | Your Role | Est. Days | Gate |
+|---|---|---|---|---|---|
+| WI-1 | Early | Morpheus | Lead | 2–3 | Vitest 100%, `core/query/` interface |
+| WI-2 | Gate | Morpheus+Trinity | Collab with Trinity | 1 | IPC round-trip vitest |
+| WI-4 | Parallel | Morpheus | Lead | 3–4 | OneDrive storage layer tested |
+| WI-5 | After WI-4 | Morpheus+Switch | Collab with Switch | 3–4 | Switch reviews; crypto round-trip vitest |
+| WI-6 | Final | Morpheus | Lead | 1 | Real core wired to IPC handlers |
+
+**First wave (day 1, after Pedro answers Q1–Q6):** 
+- WI-1 (you, Morpheus core) starts immediately — no blocking dependencies.
+- WI-3 (Trinity, Panel UI) starts immediately in parallel with WI-1 — can mock IPC calls.
+- WI-2 (you + Trinity, IPC contract) starts after WI-1 query signatures stabilize (~1 day lag).
+
+**Critical path to M1 Panel alpha:** WI-1 → WI-2 → WI-3 + (WI-4→WI-5) → WI-6 → polish. By day 10, Panel renders from real encrypted OneDrive events. Days 11–15 = sparklines + chart + empty states + skeleton.
+
+**Your Q1–Q6 blocking reads:**
+- Q3: **Accounts metadata** — You need to know: does Link draft PRD-010 Accounts, or do you infer the schema from prototype? Neo recommends: minimal schema (id, short, color, createdAt) in WI-1 prep, or Morpheus infers from `prototype/data.js` accounts.
+- Q4: **Chart library** — Neo recommends custom SVG for M1 (no deps, matches prototype). Benchmark deferred to M1+1.
+
+**Status:** Work package merged to `.squad/decisions.md`. Awaiting Pedro approval to spawn first-wave agents (you on WI-1, Trinity on WI-3, dual-spawn WI-2 once WI-1 stabilizes).

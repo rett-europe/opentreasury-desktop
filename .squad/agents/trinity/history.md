@@ -207,6 +207,39 @@ Typography scale (h1 28 px, KPI 24 px tabular-nums, section label 11 px / 0.08em
 4. **`icon-btn` / `section-label` / `page-header` / `kpi` / `account-card` / `badge`** are common prototype recipes — inlining them in globals.css keeps screens thin without creating new primitives (per the task guardrail).
 
 ## Movements type-arrow column split
+
+## 2026-04-19T16:21:30Z — Panel-First Work Package Decomposition (from Neo)
+
+**Neo completed:** Full decomposition of Panel-first M1 implementation into 10 sequenced work items (WI-1 through WI-10) with owners, acceptance criteria, dependency graph, and critical-path analysis. Artifact: `.squad/decisions.md` § Neo — Panel-First Work Package Decomposition.
+
+**Your assignments (awaiting Pedro approval on Q1–Q6):**
+
+| WI | Phase | Owner | Your Role | Est. Days | Gate |
+|---|---|---|---|---|---|
+| WI-2 | Gate | Morpheus+Trinity | Collab with Morpheus | 1 | IPC round-trip vitest |
+| WI-3 | Early | Trinity | Lead | 3–4 | Panel UI with mock IPC calls; before/after vs prototype |
+| WI-7 | Polish | Trinity/Mouse | Lead (or Mouse?) | 1–2 | Sparkline component; render 12-month net |
+| WI-8 | Polish | Trinity/Mouse | Lead (or Mouse?) | 1–2 | 12-month bars chart (custom SVG or lib?) |
+| WI-9 | Polish | Trinity+Niobe | Collab with Niobe | 1 | Empty states; three copies ratified in Wave 1 specs |
+| WI-10 | Polish | Trinity | Lead | 1 | Loading skeleton polish; no layout shift between skeleton+loaded |
+
+**First wave (day 1, after Pedro answers Q1–Q6):**
+- WI-3 (you, Panel UI) starts immediately — no blocking dependencies. Morpheus will mock the IPC calls; you wire them on the renderer side.
+- WI-1 (Morpheus, core) starts immediately in parallel — no blocking dependencies.
+- WI-2 (you + Morpheus, IPC contract) starts after WI-1 query signatures stabilize (~1 day lag).
+
+**Critical path to M1 Panel alpha:** WI-1 → WI-2 → WI-3 + (WI-4→WI-5) → WI-6 → polish (WI-7/8/9/10). By day 10, Panel renders from real encrypted OneDrive events. Days 11–15 = sparklines + chart + empty states + skeleton.
+
+**Your Q1–Q6 reads:**
+- Q2: **Real sparklines M1 or fake?** — You'll need to know if WI-7 (sparklines) is real monthly aggregation (comes from Morpheus's query) or fake seeded data for M1 alpha. Neo recommends real; ship Panel with or without the chart rendering?
+- Q4: **Chart library (WI-8)** — Neo recommends custom SVG for M1 (no deps, matches prototype). You might pair with Mouse for this. No bench yet on visx vs Recharts vs hand-rolled SVG.
+- Q7–Q10 are out of scope for you (Morpheus/Niobe/Switch).
+
+**Next steps:**
+- Work package merged to `.squad/decisions.md`.
+- Awaiting Pedro approval to spawn first-wave agents (Morpheus on WI-1, you on WI-3, dual-spawn WI-2 once WI-1 stabilizes).
+
+## Movements type-arrow column split
 - Split the type indicator out of the amount cell into its own narrow (36px) centered column as 1st column; amount cell now shows only the formatted currency with income/expense color class.
 - Extended Table primitive: TableColumn gained optional 'width' and 'center' align; Table.css adds .ot-table__cell--center.
 - Typecheck, lint and build all pass.

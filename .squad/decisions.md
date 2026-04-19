@@ -943,6 +943,62 @@ Mirrors the prototype `.shell / .topbar / .sidebar / .main` pattern in
 
 **What the scaffold does NOT include** (intentional): real crypto implementation, OneDrive storage impl, any business logic, read-model / SQLite cache module (added with first feature needing it), and `npm install` was not run.
 
+### 2026-04-19: Neo — Panel-First Work Package Decomposition (10 Work Items, M1 Sequencing)
+**By:** Neo (Lead/Architect), requested by Pedro
+**Branch:** Reference `.squad/decisions/inbox/neo-panel-first-work-package.md` (full artifact)
+**Status:** **Proposed — awaiting Pedro answers to Q1–Q6 before first-wave spawn**
+
+**Summary:**
+Full work package decomposition for Panel-first M1 sequence: 10 sequenced work items (WI-1 through WI-10) with owners, acceptance criteria, dependency graph, and critical-path analysis.
+
+**Core Findings:**
+- **Current state:** `app/` scaffold green. Trinity's Panel stub UI exists (no data wiring). Morpheus has skeleton events, no core/storage/crypto.
+- **Gaps:** Panel needs 5 read-model queries, event-sourced core, OneDrive storage, IPC contracts, and UI wiring.
+- **First-wave recommendation:** 3 parallel spawns — WI-1 (Morpheus core), WI-2 (Morpheus+Trinity IPC), WI-3 (Trinity UI).
+- **Critical path:** WI-1 → WI-2 → WI-3 + (WI-4→WI-5) → WI-6 → polish (WI-7/8/9/10).
+- **M1 Panel alpha gate:** ~Day 10 when WI-6 lands (real data flows); days 11–15 = polish.
+- **Total ETA:** 12–15 days (assumes Switch reviews WI-5 within 1–2 days).
+
+**The 10 Work Items:**
+
+| # | Owner | Scope | Est. Days | Parallel? | Blocks |
+|---|---|---|---|---|---|
+| WI-1 | Morpheus | Core event-sourced foundation (read-side) | 2–3 | ✅ Day 1 | WI-2, WI-4 |
+| WI-2 | M+T | IPC contract for Panel | 1 | ⏸️ After WI-1 | WI-3, WI-6 |
+| WI-3 | Trinity | Panel UI data wiring (mock IPC) | 3–4 | ✅ Day 1 | WI-7, WI-9, WI-10 |
+| WI-4 | Morpheus | OneDrive event append (plaintext) | 3–4 | ✅ Day 2–3 | WI-5, WI-6 |
+| WI-5 | M+Switch | Crypto layer (encrypt/decrypt events) | 3–4 | ❌ After WI-4 | WI-6 |
+| WI-6 | Morpheus | Wire real core to IPC handlers | 1 | ❌ After WI-1/2/4/5 | WI-7, WI-8 |
+| WI-7 | Trinity/Mouse | Panel sparkline rendering | 1–2 | ✅ Partial | — |
+| WI-8 | Trinity/Mouse | 12-month bars chart | 1–2 | ✅ Day 1 | — |
+| WI-9 | Trinity+Niobe | Panel empty states | 1 | ✅ Partial | — |
+| WI-10 | Trinity | Loading / skeleton polish | 1 | ✅ After WI-3 | — |
+
+**Six Open Questions for Pedro (must answer before first-wave spawn):**
+
+- **Q1:** UX-005 (Panel spec) complete? *Recommendation: proceed WI-1–6; Niobe refines parallel.*
+- **Q2:** Real sparklines M1 or fake seeds? *Recommendation: real (WI-1 includes it); ship Panel alpha with/without?*
+- **Q3:** Accounts metadata (PRD-010)? *Recommendation: Neo drafts minimal schema (id, short, color, createdAt) as WI-1 prep.*
+- **Q4:** Chart library (WI-8) or custom SVG? *Recommendation: custom SVG for M1 (simplest, matches prototype).*
+- **Q5:** "Ver todos" link to Movements pre-filtered? *Recommendation: simple link, no pre-filter for M1.*
+- **Q6:** Panel before Movements command-side? *Recommendation: yes — Panel proves stack, Movements M1+1.*
+
+**Key Decisions Locked:**
+- ✅ Panel-first sequence (Panel → Movements) unlocks core + crypto + IPC on simplest code path.
+- ✅ First wave = 3 parallel: WI-1, WI-2 (after WI-1 stabilizes), WI-3.
+- ✅ WI-4 + WI-5 (storage + crypto) can start day 2–3, parallelizing with WI-3 tail end.
+- ✅ M1 Panel alpha gate = WI-6 lands (~day 10), renders real encrypted data.
+
+**Next Steps:**
+1. Pedro approves/modifies Q1–Q6.
+2. Coordinator spawns WI-1 (Morpheus), WI-2 (Morpheus+Trinity), WI-3 (Trinity) as background agents.
+3. Scribe merges inbox entry to decisions.md (deduplicates with existing "Panel-First Unlock" entry).
+
+**Artifact:**
+`.squad/decisions/inbox/neo-panel-first-work-package.md` — full work package with detailed WI-1 through WI-10 acceptance criteria, rationale, and risks/mitigations matrix.
+
+---
+
 ### 2026-04-19: Morpheus — Movement schema v0.2 (subcategory/tags/status + nullable category)
 **By:** Morpheus (Backend / Data Model), requested by Pedro
 **Branch:** `fix/trinity-prototype-parity`

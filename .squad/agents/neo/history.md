@@ -22,6 +22,10 @@ The desktop version aims to replicate this functionality without requiring Azure
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-19: Panel-First Work Package Decomposition
+
+Decomposed Panel-first strategy (approved in `.squad/decisions.md`) into 10 concrete work items with owners, dependencies, and parallelization plan. Critical path: WI-1 (Morpheus: core read queries) → WI-2 (collab: IPC contract) → WI-3 (Trinity: Panel UI wiring) + WI-4 (Morpheus: storage) → WI-5 (Morpheus+Switch: crypto) → WI-6 (Morpheus: wire real core to IPC) → WI-7/8/9/10 (Trinity: sparklines, chart, empty states, skeleton polish). Total ETA ~12–15 days. **First wave (day 1 parallel spawns):** WI-1 (Morpheus, core queries, 2–3d), WI-2 (collab, IPC schemas, 1d after WI-1 stabilizes), WI-3 (Trinity, Panel UI with mock IPC, 3–4d). Six open questions for Pedro: (Q1) UX-005 sufficient? (Q2) real sparklines or defer? (Q3) does PRD-010 Accounts exist? (Q4) chart library or custom SVG? (Q5) "Ver todos" hand-off pre-filters or not? (Q6) ship Panel before Movements command-side? **Recommendation on all six:** proceed with minimal scope (UX-005 is sufficient, real sparklines in WI-1, infer account schema from prototype, custom SVG for chart, no pre-filter on link, ship Panel alpha first to prove the stack). Work package written to `.squad/decisions/inbox/neo-panel-first-work-package.md`.
+
 ### 2026-04-19: Product Vision v0.1 exists (team context)
 Link drafted `docs/product/vision.md`. Core bet: **OneDrive is the database** — no Azure, no backend, no custom auth (folder ACLs = auth). 7 principles established. Three high-risk architecture items are explicitly routed to me: (1) OneDrive concurrency/conflict resolution, (2) file corruption + snapshot strategy, (3) tech stack (Electron + framework TBD, Tauri on the table). Scope/principles are now decided team context — architecture work must align with the vision. Open questions Q1/Q3 block my ADR work (tech stack, data file format).
 
