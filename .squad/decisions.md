@@ -95,6 +95,26 @@ Shift M1 priority from Movements-centric completion to "Panel first, then Moveme
 - Account → Tx → **Panel visibility** (not Saldo visibility; Saldo slides to M1.25).
 - Movements structure UI complete; command-side (forms, filters, date selection) lands M1+1.
 
+### 2026-04-19: Preload Built with esbuild Inline Plugin, Not vite-plugin-electron
+**By:** Coordinator (lightweight direct action) — requested by Pedro  
+**Branch:** main (commit 3c376fd)  
+**Artifact:** vite.config.ts (lines 1–100, inline "opentreasury-preload-esbuild" plugin)  
+
+**Decision:** Bypass `vite-plugin-electron` for preload build. Implement inline Vite plugin that calls esbuild directly with:
+- **Format:** CJS (Electron sandbox requirement, ADR-001 §C7)
+- **External:** electron
+- **Hot reload:** `handleHotUpdate` triggers rebuild + full reload on preload source changes
+
+**Why:** `vite-plugin-electron` runs two parallel rollup builds for preload in dev mode; both write to the same outdir and concatenate on disk, creating invalid CJS syntax (two valid bundles joined mid-statement). `emptyOutDir: true` only clears on first build, not subsequent rebuilds. Direct esbuild call with single invocation produces a valid, single output file.
+
+**Gotcha:** Dev loop is NOT done until an Electron window actually renders content. Build success ≠ working app. Always verify visually.
+
+**Implications:**
+- Preload rebuilds faster (~100ms vs plugin overhead).
+- Dev reload on preload changes verified working.
+- Production build unaffected (uses vite build, same result).
+- Future preload changes use this pattern, not vite-plugin-electron.
+
 **Unblocked by this decision:**
 - Niobe can finish Panel UX spec in parallel.
 - Mouse can finalize Panel tokens.

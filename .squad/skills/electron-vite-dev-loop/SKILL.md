@@ -2,7 +2,8 @@
 
 **Created:** 2026-04-19  
 **Author:** Morpheus  
-**Context:** Wiring Electron + Vite for unified dev/build workflow
+**Context:** Wiring Electron + Vite for unified dev/build workflow  
+**Confidence:** HIGH (verified in production dev loop, commit 3c376fd)  
 
 ## Problem
 
@@ -15,7 +16,7 @@ Electron apps with Vite renderers need:
 
 ## Solution Pattern
 
-Use **`vite-plugin-electron`** for integrated Electron + Vite workflow.
+Use **`vite-plugin-electron`** for integrated Electron + Vite workflow. **⚠️ Exception: preload must use an inline Vite plugin with esbuild (see Common Pitfalls §1).**
 
 ### Installation
 
@@ -173,10 +174,31 @@ The plugin handles:
 
 ## Common Pitfalls
 
-1. **Path resolution:** Use `resolve(__dirname, 'path')` for entry paths, not relative strings
-2. **CSP:** Must allow ws:// and http:// to localhost:5173 for HMR to work
-3. **External modules:** Mark 'electron' as external in rollupOptions
-4. **Navigation guard:** Update to allow dev server URLs during development
+1. **Preload via vite-plugin-electron (UNRELIABLE):** `vite-plugin-electron` runs two parallel rollup builds for preload in dev mode. Both write to the same outdir and concatenate on disk, creating invalid CJS syntax (two valid bundles joined mid-statement). `emptyOutDir: true` only clears on first build, not subsequent rebuilds. **Fix: implement an inline Vite plugin that calls esbuild directly with format=cjs, external:electron, and handleHotUpdate for dev reload.** Example:
+   ```typescript
+   {
+     name: 'opentreasury-preload-esbuild',
+     apply: 'serve',
+     async handleHotUpdate(ctx) {
+       if (ctx.file.includes('preload')) {
+         await esbuild.build({
+           entryPoints: [resolve(__dirname, 'app/src/preload/index.ts')],
+           outfile: resolve(__dirname, 'dist/preload/index.cjs'),
+           format: 'cjs',
+           external: ['electron'],
+         });
+         ctx.server.ws.send({ type: 'full', event: 'full-reload' });
+       }
+     },
+   }
+   ```
+   Preload is production-ready; it's only dev mode that needs the bypass.
+
+2. **Path resolution:** Use `resolve(__dirname, 'path')` for entry paths, not relative strings
+3. **CSP:** Must allow ws:// and http:// to localhost:5173 for HMR to work
+4. **External modules:** Mark 'electron' as external in rollupOptions
+5. **Navigation guard:** Update to allow dev server URLs during development
+6. **Dev-loop validation:** Dev loop is NOT done until an Electron window actually renders content. Build success ≠ working app. Add console.log to preload and verify it fires. Check the renderer visually. Don't trust "build succeeded".
 
 ## Verification Checklist
 
