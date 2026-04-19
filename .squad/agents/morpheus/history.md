@@ -383,3 +383,26 @@ adapter, startup hydration, and prototype-shaped dev-seed on first run.
 **Pedro verified:** App runs with 49 hydrated events, Panel renders 5 accounts + KPIs + transactions, no console errors, no visual regressions. Ready for command-side wiring (WI-12/13/14).
 
 **Your next:** WI-12 (IPC handlers for createTransaction — thin pass-through). Then WI-14 (Panel invalidation after commit). Coordinate with Trinity on form field → validation code mapping for i18n keys.
+
+## 2026-04-19 — WI-12 main-side: transaction.create + movements.list IPC bridge
+
+**Task:** Ship main-side handlers + preload exposure for the WI-12 IPC contracts Trinity consumes on the renderer.
+
+**Scope delivered:**
+- Contracts (new, under `app/src/shared/ipc-contracts/`): `transaction.ts` (`transaction:create`) + `movements.ts` (`movements:list`), each with request/response zod schemas and wire-level type aliases.
+- Handler factories (`app/src/main/ipc/handlers/`): `transaction.ts` + `movements.ts` — deps-injected, unit-testable without Electron.
+- Registration (`app/src/main/ipc/handlers.ts`): pulls `eventLog` from bootstrap, `getReadModel` from core/query reducers, new `newUlid`/`DATASET_ID`/`ACTOR_DEVICE_ID` from new `app/src/main/ids.ts`.
+- Preload exposure (`app/src/preload/index.ts`): `window.opentreasury.transaction.create(input)` + `window.opentreasury.movements.list(filter?)`.
+- Tests (vitest, 11/11 green): happy path + validation failures (ACCOUNT_NOT_FOUND, SCHEMA_INVALID, enum reject) + idempotency (same `event.id` → reducer applied once) + unexpected-throw → `INTERNAL` for transaction; date/accountId/date-range/limit+offset filters for movements.
+
+**Verification:** `npx vitest run app/src/main/ipc/handlers` 11/11 · `npm test` 81/81 · `npm run typecheck` clean · `npm run lint` clean · `npm run build` clean · `node --check dist/preload/index.cjs` valid.
+
+### Learnings
+
+- **Handler factories > module-level singletons.** The panel handlers bind the read-model singleton implicitly via imports; for commands (which also need EventLog + clock + id gen) the deps set is too big to thread through module scope. Factory pattern (`createTransactionCreateHandler(deps)`) keeps tests pure — pass an in-memory `EventLog` stub and you exercise the full happy/error path without touching `ipcMain` or Electron.
+- **Two-layer validation at the IPC boundary.** (1) Zod-parse the raw payload — renderer is untrusted, malformed shapes → `SCHEMA_INVALID` structured error. (2) Business-rule validation inside the core command — unknown account etc. → `ACCOUNT_NOT_FOUND`/`AMOUNT_NON_POSITIVE`. Both paths return the discriminated union; nothing throws across IPC. `try/catch` around the whole handler converts any unexpected throw (e.g. `EventLog.append` rejecting) to `{ ok: false, error: { code: ''INTERNAL'' } }` so structured errors always round-trip.
+- **Idempotency guard for the reducer.** The NDJSON log dedupes by `event.id`, but the in-memory reducer has no such guard — applying the same event twice would double-project the transaction. Pattern: check `(await load()).length` before+after `append`; only call `applyEvent` when the log actually grew. Avoids double-book on retries and matches the log''s own semantics.
+- **Shared contract must not import core/.** `app/src/shared/ipc-contracts/` is renderer-safe; renderer → core is forbidden by ESLint zones. Initially I imported `transactionCreatedEventSchema` from `core/events` into the transaction contract — TS compiled but the lint boundary would reject any renderer import path that pulls core transitively. Fix: mirror the event envelope schema inline in the contract (~25 LOC). Contracts stay the canonical wire types, core owns the domain types; they happen to be shape-compatible.
+- **Contract naming coordination with Trinity.** She authored renderer stubs expecting `MovementRecord` (ID-based, wire-level) because WI-14 will do the label-resolution pass. I initially mirrored the renderer''s `types/movement.ts` display shape (labels). Mid-task pivot: moved the contract to `MovementRecord` (IDs) and kept `Movement` as a type alias to avoid breaking her in-flight files. Lesson: when two agents author opposite sides of a contract, re-read both sides'' TODO comments before locking the shape — the renderer''s `types/movementsFilter.ts` explicitly documented the wire contract and said ''Morpheus, please match''.
+- **ULID at runtime in main.** No existing util; added `newUlid()` in `app/src/main/ids.ts` using `node:crypto.randomBytes` + the 32-char Crockford base32 alphabet. 10-char timestamp prefix + 16 random chars, 26 total. Kept in `main/` because `node:crypto` is unreachable from preload (sandbox) and from renderer (no Node). Also exported `DATASET_ID` + `ACTOR_DEVICE_ID` as the deterministic fake-ULIDs used by `devSeed` so new transactions land in the same dataset as seeded ones.
+- **Preload CJS stayed clean.** No new preload-specific patterns needed — the contract files are pure zod/TS with no Node imports, so the esbuild CJS bundle built cleanly (`node --check dist/preload/index.cjs` exit 0). The only preload change was extending the `api` object; contextBridge surface grew by 2 methods.
