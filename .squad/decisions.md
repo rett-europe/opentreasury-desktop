@@ -907,6 +907,76 @@ Mirrors the prototype `.shell / .topbar / .sidebar / .main` pattern in
 
 **Traceability preserved:** every resolved Open Question kept visible in its original doc with inline "RESOLVED (2026-04-19): …" markers.
 
+## Panel-First Wave 1 — WI-1, WI-2, WI-3 COMPLETE
+
+### 2026-04-19T18:25Z: Pedro approved Panel-first work package (Neo's 10-item plan) — Q1–Q6 GREENLIGHT
+
+**By:** Pedro (perocha) via Copilot  
+**Status:** ✅ APPROVED + IMPLEMENTED (WI-1/2/3 shipped)  
+**Decisions Captured Below**
+
+**Approvals given:**
+- **Q1 ✅** Proceed with UX-005 as-is; Niobe refines in parallel.
+- **Q2 ✅** Real 12-month sparklines (`getAccountSparklines`); if blocked, ship alpha without.
+- **Q3 🔁 REFINED** Data model (Account + all entities) is a **replication of the cloud tool at https://github.com/rett-europe/opentreasury** unless that imposes a feature limitation. Morpheus must pull the schema shapes from that repo (likely Python/FastAPI models + Cosmos DB documents) and translate to TypeScript/Zod. Deviate only if there's a concrete reason; log any deviation as its own decision.
+- **Q4 ✅** Custom SVG for 12-month bars chart (zero deps, matches prototype).
+- **Q5 🔁 REFINED (overrides Neo's rec)** Panel's "Ver todos los movimientos →" link **pre-filters Movements to the current month** so the treasurer sees continuity. This supersedes PRD-001's "lands empty" default *only when entered via the Panel link*; direct Movements navigation still lands empty-on-open per PRD-001.
+- **Q6 ✅** Ship Panel before Movements command-side — that IS the Panel-first premise.
+
+**Why:** Unblocks the Panel-first work package. WI-1 (Morpheus) and WI-3 (Trinity) cleared to start in parallel. WI-2 (IPC contract) drafted inside WI-1.
+
+**Standing directive extracted:** When designing domain schemas (accounts, transactions, categories, etc.), Morpheus SHOULD treat github.com/rett-europe/opentreasury as the reference implementation. Only deviate with a logged rationale.
+
+### 2026-04-19T18:40Z: WI-1 + WI-2 Complete — Event-sourced read model + IPC contract
+
+**By:** Morpheus (Backend Dev)  
+**Status:** ✅ SHIPPED  
+**Commits:** `0f427fe` (feat), `cf30e92` (docs)
+
+**Deliverables:**
+- **WI-1:** Event-sourced read-side (core/events + core/query)
+  - Zod schemas: `tx.created`, `account.created`, `category.created`, `tag.created`
+  - Entity types: Transaction, Account, Category, Subcategory, Tag (mirrored from cloud repo)
+  - Reducers: `applyEvent()`, `replayEvents()`, `resetReadModel()`, `getReadModel()`
+  - 5 query functions: `queryRecentTransactions()`, `getAccountBalances()`, `getMonthKPIs()`, `getAccountSparklines()`, `getAccounts()`
+  - Vitest 100% coverage with realistic ULID fixtures
+
+- **WI-2:** IPC contract + mock handlers
+  - Zod request/response schemas for all 5 queries
+  - Channel constants: `IPC_PANEL_GET_ACCOUNTS`, `IPC_PANEL_GET_ACCOUNT_BALANCES`, etc.
+  - TypeScript types exported for Trinity immediate use
+  - Mock handlers in `app/src/main/ipc/handlers/panel.ts` — deterministic fixtures
+
+- **Cloud reference study:** `docs/schemas/cloud-reference-notes.md`
+  - Field-by-field mapping of rett-europe/opentreasury Python models
+  - Deviations logged: ULIDs vs UUIDs, simplified review_status, deferred features
+
+**Unblocking:** Trinity can wire Panel UI to mock IPC calls immediately.
+
+**Next:** WI-4 (OneDrive storage), WI-5 (crypto wiring), WI-6 (wire real core/query into handlers)
+
+### 2026-04-19T18:45Z: WI-3 Complete — Panel UI wired to IPC
+
+**By:** Trinity (Frontend Dev)  
+**Status:** ✅ SHIPPED  
+**Commits:** `7cdd132` (feat), `ed8ee62` (docs)  
+**CI Gates:** typecheck · lint · test · build — ALL GREEN
+
+**Deliverables:**
+- **Panel components:** AccountCard, KPIStrip, recent transactions table
+- **IPC integration:** panelApi.ts (Zod parse-on-receive, adapter for Morpheus contract)
+- **PanelScreen states:** Skeleton (zero layout shift) → Loaded (5 IPC queries in parallel) → Error (retry button)
+- **i18n:** New keys in `panel.*` namespace (ES + EN), 6 strings added, all required keys present
+- **"Ver todos →" link:** Navigates to `/movements?range=this-month` (Pedro's Q5 refinement)
+- **TypeScript fixes:** Added `shared` reference to renderer/tsconfig.json; made shared composite
+- **8 new tests:** AccountCard balance coloring, KPIStrip aggregation, all passing
+
+**Coordination:** Used Morpheus's WI-2 IPC contract. Real preload bridge wiring deferred to WI-6.
+
+**Deferred (Wave 2):** Real sparklines (WI-7), 12-month bars chart (WI-8), empty states (WI-9), deep error handling (UX-005 §6)
+
+**Next:** WI-6 (Morpheus wires preload handlers), WI-7/8 (sparklines + chart)
+
 ## Governance
 
 - All meaningful changes require team consensus

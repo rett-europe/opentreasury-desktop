@@ -65,3 +65,22 @@ AccountCard and KPIStrip are isolated primitives — no Panel-specific logic ins
 **Test setup quirk**  
 i18n import must be import { i18n } from '../../i18n/index.js' (named export), not import i18n from ... (default export). The i18n module re-exports the i18next instance as a named export.
 
+## 2026-04-19T16:49:03Z — Team Update: WI-3 complete, Panel-first Wave 1 shipped
+
+**What shipped:**
+- ✅ **WI-3 complete:** Panel UI fully wired to Morpheus's IPC contract (commits 7cdd132, ed8ee62)
+- ✅ **CI green:** typecheck · lint · test · build all passing
+- ✅ **i18n ready:** 6 new panel keys in ES + EN, all user-facing copy present
+- ✅ **"Ver todos →" link:** Pre-filters Movements to current month (Pedro Q5 ratification)
+
+**What's next for you:**
+- **WI-6 (Morpheus):** Wire preload bridge methods, switch handlers from mock to real core/query calls
+- **WI-7/8:** Sparklines + 12-month bars chart (coordinate with Mouse on rendering)
+- **WI-9:** Empty states (coordinate with Niobe on copy)
+- **WI-10:** Loading skeleton polish
+
+**How it unblocks you:**
+- Real data flows once Morpheus ships WI-6 — no more mock fixtures
+- Core query shapes locked; IPC contract stable for remaining work
+- Panel renders from real encrypted events by day 10 (M1 alpha gate)
+

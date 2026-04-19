@@ -86,3 +86,21 @@ UX-003 Movements screen + UX-006 AppShell now have a working implementation unde
 
 ### 2026-04-19: Every UX spec must open with a Prototype Reference block
 Every UX spec going forward must open with a `Prototype reference` block citing the exact prototype file + section. Retro-apply this to UX-001..006. See `docs/product/prototype-fidelity-audit.md` and the 2026-04-19 decision `prototype/ is the visual and interaction contract for v1`.
+
+## 2026-04-19T16:49:03Z — Team Update: WI-1/2/3 shipped, Panel-first Wave 1 complete
+
+**What shipped:**
+- ✅ **Morpheus (WI-1/WI-2):** Event-sourced read model, IPC contract, mock handlers (commits 0f427fe, cf30e92)
+- ✅ **Trinity (WI-3):** Panel UI wired to IPC, i18n complete (commits 7cdd132, ed8ee62)
+- ✅ **Pedro approved Q1–Q6** greenlight; Q3 (cloud schema mirroring) and Q5 ("Ver todos →" pre-filter) ratified with refinements
+
+**What's next for you:**
+- **UX-005 Panel spec → In Review** — ready for Niobe finalization + Mouse visual design
+- **UX-003 Movements spec** remains on track (timeline shifts but scope unchanged; full form wiring M1+1)
+- **UX-004 Saldo** defers to M1.25 (after Panel proves core)
+- **Wave 2 UX specs** queue after Wave 1 → In Review complete
+
+**How it unblocks you:**
+- Panel MVP now has testable UX contract (prototype reference locked in decision doc)
+- Core query shapes documented (Panel needs 5 parallel queries; IPC shapes finalized)
+- Trinity's render path proves the event-sourced core before Movements complexity lands

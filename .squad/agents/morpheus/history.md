@@ -78,6 +78,33 @@ You can clone, `npm install --legacy-peer-deps`, and run: `npm run typecheck`, `
 ## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
 Wave 1 UX COMPLETE - all 6 specs Draft v0.1. Implementation specs/tickets can anchor to these. Every spec has a Traceability Matrix mapping to PRDs/ADRs/R-series/C-series/crypto sections.
 
+## 2026-04-19T16:49:03Z — Team Update: WI-1/2 complete, Panel-first Wave 1 shipped
+
+**What shipped:**
+- ✅ **WI-1 complete:** Event-sourced read model (commits 0f427fe, cf30e92)
+  - Zod schemas, entity types, reducers, 5 query functions
+  - Vitest 100% coverage with realistic ULID fixtures
+  - Cloud reference study: field mapping + deviations logged
+
+- ✅ **WI-2 complete:** IPC contract + mock handlers
+  - TypeScript types exported for Trinity's use
+  - Zod request/response schemas locked
+  - Mock handlers return deterministic fixtures
+
+- ✅ **Pedro approved Q1–Q6:**
+  - Q3 refined: Cloud schema mirroring; deviations logged in docs/schemas/cloud-reference-notes.md
+  - Q5 refined: "Ver todos →" pre-filters to current month
+
+**What's next for you:**
+- **WI-4:** OneDrive storage (events.jsonl.age read path)
+- **WI-5:** Crypto wiring (DEK from keychain; coordinate with Switch)
+- **WI-6:** Wire real core/query into IPC handlers (replace mocks)
+
+**How it unblocks you:**
+- Trinity can wire Panel UI immediately (real data flows once WI-6 lands)
+- Core query interface is stable; no schema churn expected
+- Panel MVP proves event-sourced core by day 10 (M1 alpha gate)
+
 - 2026-04-19 — Crypto-error UX strings ratified in docs/security/crypto-error-copy-catalog.md v1.0. Diagnostic-bundle spec (§4) defines per-scenario whitelisted fields for main-process export path. Use string keys verbatim; never surface crypto-layer names to UI.
 
 ### 2026-04-19: Cross-agent update from Scribe

@@ -130,3 +130,26 @@ Three decrypt-failed UX copy strings pending your ratification: UX-003 Q9 (per-r
 ### 2026-04-19: Cross-agent update from Scribe
 Frontend uses native `<input type="date">` pair in DateRangePicker v0.1. No crypto touchpoints yet — data is pure mock. When real storage lands, the crypto error-copy catalog strings should be wired into error surfaces here.
 
+## 2026-04-19T16:49:03Z — Team Update: WI-1/2/3 complete, Panel-first Wave 1 shipped
+
+**What shipped:**
+- ✅ **Morpheus (WI-1/WI-2):** Event-sourced core + IPC contract
+  - Zod schemas, entity types, reducers, 5 query functions
+  - IPC contract locked; mock handlers ready
+- ✅ **Trinity (WI-3):** Panel UI wired to IPC
+  - i18n complete (ES + EN), 6 new panel keys
+  - "Ver todos →" pre-filters to current month
+  - CI gates passing
+- ✅ **Pedro approved Q1–Q6** greenlight
+
+**What's coming (needs your review):**
+- **WI-5:** Crypto wiring (Morpheus + Switch) — DEK from keychain, event decrypt
+  - Follow crypto-spec §11 implementation checklist
+  - Coordinate IPC error surfaces with error-copy-catalog.md strings
+- **WI-6:** Wire real core/query into IPC handlers (replace mocks)
+
+**How it unblocks you:**
+- Panel MVP proves the event-sourced read path (no mutations) — lower crypto surface than Movements
+- Core queries are read-only (no DEK writes, no rotation logic) — simpler review surface than WI-5 full cycle
+- Error surfaces for Panel are partial-decrypt only (CE-005) — narrower than full-command error set
+
