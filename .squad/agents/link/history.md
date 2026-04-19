@@ -28,3 +28,6 @@
 - **2026-04-19 — Top 3 risks flagged to Neo/Switch:** OneDrive concurrency/conflicts (🔴), file corruption (🔴), encryption-vs-search trade-off (🔴, Switch final say).
 - **2026-04-19 — 8 open questions to Pedro** gate PRD work: tech stack, storage scope (Personal vs Business), data file format, encryption, OS coverage, language coverage, prototype-as-contract, repo structure approval.
 - **Boundary reminder:** tech stack beyond Electron is Neo's ADR, not mine. UI design is Mouse. UX detail is Niobe. I set the "what/why" and the "not now".
+
+### 2026-04-19: Security sign-off complete — ready for PRD milestone planning
+ADR-001 Accepted. Security Requirements v0.2. Pedro's six open security questions all closed. Ready for PRD milestone planning.

@@ -1,8 +1,23 @@
-# OpenTreasury Desktop — Security Requirements & Threat Model v0.1
+# OpenTreasury Desktop — Security Requirements & Threat Model v0.2
 
-> **Status:** Draft v0.1 · **Owner:** Switch (Security Engineer, final say) · **Last updated:** 2026-04-19
+> **Status:** v0.2 (Accepted) · **Owner:** Switch (Security Engineer, final say) · **Last updated:** 2026-04-19
 > **Scope:** Constraints that any v1 architecture, tech stack, and data format MUST satisfy.
 > **Authority:** Per team decision 2026-04-19, Switch has non-negotiable final say on security. This document sets the rules. Neo picks the tools within these rules.
+> **Companion document:** [`crypto-spec.md`](./crypto-spec.md) — the implementable crypto & key-management spec. This doc sets policy; that doc sets mechanics.
+
+---
+
+## Changes from v0.1 (2026-04-19)
+
+- **All six open questions from §7 resolved by Pedro** (see §7 below — questions retained with RESOLVED annotations).
+- **Escrow model locked:** one escrow entry **per device** (not per user). Stolen-device revocation affects only that one entry.
+- **Admin model locked:** first-setup-wins. Admin-approved enrollment required for new devices (visual-code compare, admin must be online).
+- **Incident response default locked:** rotate-and-continue is the default; burn-down-and-migrate is the documented nuclear option (suspected OneDrive-side compromise).
+- **Encryption scope locked:** encrypt everything PII/financial; AR3 (no OneDrive search on encrypted content) is accepted.
+- **Code-signing deferred:** no EV cert budget initially; SmartScreen warnings accepted as a short-term trade-off (**new AR9**). macOS code signing also deferred (no Apple Developer account) — **new AR10**. Update mechanism still verifies signatures with a pinned public key (self-signed update manifest).
+- **Audit log visibility locked:** all authenticated members can read; export-on-request supported.
+- **New companion doc published:** `docs/security/crypto-spec.md` — details of primitives, key hierarchy, escrow format, and flows.
+- **R4 amended:** one entry per device (was "per user"). Multiple devices per human member supported by design.
 
 ---
 
@@ -135,23 +150,26 @@ All files written to the OneDrive/SharePoint folder containing PII or Financial 
 - **Associated data (AAD):** MUST bind each record to its record type and record ID to prevent ciphertext substitution attacks.
 **Verification:** Unit tests that tampered/swapped ciphertexts fail to decrypt; manual inspection of produced files; chosen-ciphertext test from a peer reviewer.
 
-### R4 — Key management (recommended: per-user keys with escrow file) ⭐
+### R4 — Key management (per-DEVICE keys with escrow file) ⭐ **RESOLVED v0.2**
 **Threats:** T1, T3, T14, T15, T16
+**Full mechanics:** see [`crypto-spec.md`](./crypto-spec.md) §2–§7.
 
-This is the hardest requirement. Here is the recommended approach, with alternatives explicitly rejected or deferred.
+**Approach: "Shared-folder escrow with per-device wrapping"**
 
-**Recommended approach: "Shared-folder escrow with per-user wrapping"**
-
-Concept:
+Concept (locked v0.2):
 1. One **Data Encryption Key (DEK)** per dataset (the NGO's treasury). The DEK encrypts records (R3).
-2. The DEK is stored **wrapped** once per authorized user in a **key-escrow file** in the same OneDrive folder (e.g., `.treasury/keys.json`).
-3. Each user has a **local keypair** (Curve25519/X25519) generated at first launch and stored in the **OS keychain** (DPAPI / macOS Keychain / libsecret). The keypair never leaves the machine in plaintext.
-4. The escrow file contains, per user: `{ user_id (MS account UPN or stable SID), public_key, wrapped_DEK, signature }`.
-5. To read data: user's local private key unwraps their DEK entry → decrypts records.
-6. **Adding a member:** an existing member adds a new entry to the escrow file by wrapping the DEK to the new member's published public key. The new member MUST publish their public key via a small bootstrap file in the folder (`.treasury/pubkeys/{user_id}.pub`).
-7. **Removing a member (revocation):** generate a new DEK, re-encrypt future records with it, write a new escrow file omitting the removed user. **Historical records stay readable with the old DEK** (rotation-aware). The removed member had access to historical data — that is an accepted risk (§7 AR2).
-8. **Escrow file integrity:** every change is signed by the author's private key and logged in the audit trail (R8). Tampering is detectable.
-9. **Admin bootstrap:** the first member designates themselves admin by creating the initial escrow file. The admin role is an **escrow-edit signing privilege**, not an app-level role. It lives in the escrow file itself.
+2. The DEK is stored **wrapped** once per authorized **device** in a **key-escrow file** in the same OneDrive folder (`.treasury/escrow.json`).
+3. Each device has a local **X25519 encryption keypair** AND a separate **Ed25519 signing keypair**, generated at first launch and stored in the **OS keychain** (DPAPI / macOS Keychain / libsecret). Private keys never leave the machine in plaintext.
+4. The escrow file contains one entry per device: `{ device_id, user_identity (MS UPN, display-only), device_pubkey_x25519, device_pubkey_ed25519, device_name, added_at, added_by_device_id, status (active/revoked), wrapped_deks[] }` — full schema in `crypto-spec.md` §3.1.
+5. To read data: device's local X25519 private key unwraps its DEK entry → decrypts records.
+6. **Adding a device (enrollment):** new device publishes a `pending_enrollments` entry with its public keys and a 6-character visual code (derived from its X25519 pubkey). Admin confirms the code out-of-band, approves; admin wraps the DEK to the new device's pubkey. Admin MUST be online for approval. No auto-approval.
+7. **Removing a device (revocation):** mark the device entry `status=revoked`, generate a new DEK, re-wrap for all remaining active devices, increment `dek_version`, emit audit entry. Historical files remain readable with the older DEK versions (still wrapped to active devices). **AR2 applies to revoked devices.**
+8. **Escrow file integrity:** every change is Ed25519-signed by the writing device and logged in the audit trail (R8). Tampering is detectable.
+9. **Admin bootstrap:** **first-setup wins** — the first device to write `escrow.json` into an empty folder becomes admin. Admin role is an escrow-edit/revoke signing privilege recorded in the escrow file itself. One admin at a time. Transferable. (Orphaned admin = burn-down required; see R4.13.)
+10. **Multi-device per user:** SUPPORTED and expected. One escrow entry per device; a single human may have 2+ entries (e.g., laptop + work desktop). Stolen-device revocation affects only that one entry, leaving the user's other devices operational.
+11. **Admin model:** first-setup wins; authenticated enrollment required for all subsequent devices (visual-code compare).
+12. **Audit log visibility:** all authenticated (active-device) members can read; export-on-request produces a decrypted JSON bundle (see R8).
+13. **Admin device loss without transfer:** no recovery path for escrow operations. Remaining active devices retain read/write; new enrollments/revocations require **burn-down-and-migrate** (§6 AR-nuclear playbook in `crypto-spec.md` §9.2).
 
 Key rotation policy:
 - **Mandatory rotation:** on member removal, on suspected key compromise, on explicit user request.
@@ -261,14 +279,23 @@ Every `BrowserWindow` and `webContents` in the app MUST have:
 
 **Verification:** Audit of `preload.ts`; fuzz test each IPC channel with malformed inputs.
 
-### R13 — Signed updates only
+### R13 — Signed updates (v0.2: split installer-signing from update-payload-signing)
 **Threats:** T10
-- Installers signed: Authenticode on Windows (EV cert strongly preferred for SmartScreen trust), notarized on macOS (Apple Developer ID + notary service), detached signature + published public key on Linux.
-- Auto-update mechanism (`electron-updater` or equivalent) MUST verify signatures with a pinned public key embedded in the binary.
-- Update manifest served over HTTPS with certificate pinning or at minimum an additional signature layer.
-- A failed signature verification MUST abort the update with a visible error. Silent fallback is forbidden.
 
-**Verification:** Tampered update binary rejected by auto-updater in a release-candidate test.
+**R13.1 — Update PAYLOAD signing (still mandatory even in v1 without budget):**
+- Auto-update mechanism (`electron-updater` or equivalent) MUST verify update payloads with an **Ed25519 public key pinned in the application binary**.
+- The private signing key is held **only in the CI vault** (GitHub Actions secrets) — never on developer machines.
+- Every published update manifest + binary bundle is signed at CI release time.
+- A failed signature verification MUST abort the update with a visible error. Silent fallback is forbidden.
+- Update manifest served over HTTPS from GitHub Releases (or equivalent).
+- **This is non-negotiable even without a commercial CA cert.** Self-signed via Ed25519 is strictly cheaper and strictly sufficient for update integrity.
+
+**R13.2 — Installer SIGNING with a commercial CA (DEFERRED for v1 — see AR9, AR10):**
+- Windows Authenticode (EV cert strongly preferred for SmartScreen trust): **DEFERRED — AR9.**
+- macOS notarization (Apple Developer ID): **DEFERRED — AR10.** macOS binary distribution out of scope for v1.
+- Linux AppImage/deb: checksum + detached Ed25519 signature published (using the same CI Ed25519 key as R13.1).
+
+**Verification:** Tampered update binary rejected by auto-updater in a release-candidate test. Test MUST run in CI per release.
 
 ### R14 — Secrets never in source
 **Threats:** T11, T16
@@ -373,30 +400,38 @@ These are risks we consciously accept because mitigating them would violate the 
 | AR6 | **No hardware-token support in v1.** | Not realistic for volunteer-run NGOs. | v1.x if demand emerges. |
 | AR7 | **Audit log can be verified but not prevented from deletion by a folder-write-capable attacker.** An insider who deletes the log file entirely is detectable (missing file) but the evidence is gone. | Snapshots (R19) give recovery; detection is the defense. A server would be the only full mitigation. | Permanent given file-based model. |
 | AR8 | **CSV import files the user chooses are their own responsibility.** We don't re-encrypt the source CSV the user downloaded. | Out of scope; guidance in docs. | Documented, not revisited. |
+| AR9 | **Unsigned / SmartScreen-warned Windows installers for v1.** No EV code-signing certificate budget initially. Windows SmartScreen will warn non-technical treasurers on every install ("Windows protected your PC — Unknown publisher"). Users must click "More info → Run anyway" to proceed. **Mitigation:** (a) clear install guide with screenshots showing the warning is expected; (b) SHA-256 checksum + detached Ed25519 signature on every release; (c) auto-update mechanism verifies updates with a pinned Ed25519 public key (R13.1) — self-signing the update payload is orthogonal to installer Authenticode and remains in place. | Business trade-off. Pedro accepted 2026-04-19 explicitly. | **Trigger:** revisit EV cert purchase when EITHER (a) >100 installs, OR (b) ≥3 user reports citing SmartScreen as an adoption blocker, OR (c) a partner NGO offers to fund it. |
+| AR10 | **Unsigned macOS builds / macOS binary distribution DEFERRED in v1.** No Apple Developer Program account ($99/yr). Gatekeeper blocks unsigned macOS apps and the user workaround is fragile across macOS versions. **Ruling:** macOS is **out of scope for v1 binary releases.** Source is published; motivated macOS users may build locally. Linux AppImage/deb may ship unsigned with checksum + Ed25519 detached signature (Linux users expect to verify). | Volunteer-project economics; Gatekeeper UX is worse than SmartScreen and not worth shipping a poor experience. | **Trigger:** when Apple Developer Program enrollment is funded (sponsor, partner NGO, or adoption justifies ~$99/yr). |
 
 ---
 
-## 7. Open Questions for Pedro (block sign-off on this doc)
+## 7. Open Questions — ALL RESOLVED (Pedro, 2026-04-19)
 
-Numbered for easy reply. Switch needs these to finalize v1.
+Numbered as in v0.1 for traceability. Entries retained with RESOLVED annotations.
 
-1. **Admin model in the escrow file (R4) — who bootstraps?** The first member to set up the folder becomes admin. Is that acceptable, or do you want the admin role to be explicit (e.g., a name in the escrow file the founder types in) so it can be rotated? And how many admins are allowed simultaneously — 1, N, or all-members-are-admins-with-logging?
-2. **Audit log visibility — who can read it?** The audit log contains actor names and actions. Is it visible to all members (transparency), visible to admins only (privacy), or exportable on request? This affects encryption scope for A3.
-3. **Encryption scope — are there fields we WANT to leave searchable to OneDrive?** E.g., coarse date buckets, category names without PII. My default is "encrypt everything that touches PII or money"; say now if you want a partial-encryption carve-out (I will push back — AR3 is the price; I'm asking to confirm you accept it).
-4. **Device-trust model — do we support one member using the app on multiple devices?** If yes, the same user has multiple keypairs, each needing an escrow entry. This changes escrow-file size and onboarding UX. My default is yes, one escrow entry per device per user.
-5. **Incident response expectation — if a device is suspected compromised, what's the user's recovery path?** Proposed: "Remove that user from escrow → rotate DEK → re-publish. Old cached data on the compromised device remains readable to the attacker (AR2)." Is that acceptable, or do you want a 'burn it all down' story (new dataset, migration)?
-6. **Update channel — are you willing to pay for an EV code-signing cert on Windows (~$300–500/yr)?** Without EV, Windows SmartScreen will warn NGO users on every install until reputation is built. This is a real UX cliff for non-technical treasurers. If not, we accept the warning and document it, but it will hurt adoption.
-
----
-
-## 8. Review & Sign-off
-
-- [ ] Neo — confirm Stack ADR (ADR-001) satisfies every item in §5 (Constraints).
-- [ ] Link — confirm product vision is compatible with §6 (Accepted Risks), especially AR1–AR3.
-- [ ] Niobe — confirm §7 UX warnings and R20 first-run wizard fit the UX flow.
-- [ ] Pedro — answer §7 (Open Questions) and approve the recommended R4 key-management approach.
-- [ ] Switch — final sign-off once the above land.
+1. **Admin model in the escrow file (R4) — who bootstraps?**
+   **RESOLVED:** **First-setup wins.** The first device to write `escrow.json` becomes admin. Authenticated enrollment required for new devices — device-pairing via a 6-character visual code derived from the new device's X25519 pubkey; admin compares out-of-band and approves in the running app. One admin at a time; transferable. See `crypto-spec.md` §4–§5.
+2. **Audit log visibility — who can read it?**
+   **RESOLVED:** **All authenticated members** (all `active` devices in escrow) can read. **Export-on-request** supported as a decrypted JSON bundle. No admin-only mode in v1. Rationale: transparency is a governance property NGO treasurers need. See `crypto-spec.md` §8.3.
+3. **Encryption scope — any partial-encryption carve-out?**
+   **RESOLVED:** **Encrypt everything PII/financial.** **AR3 accepted** (OneDrive web-UI search of donor data is broken by design). No partial-encryption carve-outs in v1.
+4. **Device-trust model — multi-device per user?**
+   **RESOLVED:** **Yes. One escrow entry PER DEVICE**, not per user. A single human member may have multiple device entries (e.g., laptop + desktop). Stolen-device revocation hits only that one entry.
+5. **Incident response expectation — rotate or burn down?**
+   **RESOLVED:** **Rotate-and-continue is the DEFAULT.** Burn-down-and-migrate is the documented **nuclear option**, reserved for suspected OneDrive-side compromise or admin-device loss without prior transfer. Scenario→response map in `crypto-spec.md` §9.3.
+6. **EV code-signing cert on Windows (~$300–500/yr)?**
+   **RESOLVED:** **No budget initially.** SmartScreen warnings accepted as an explicit short-term trade-off (**new AR9**). Plan for upgrade to EV cert once adoption justifies it (see AR9 trigger). **Mac signing also deferred** (no Apple Developer $99/yr account) — **new AR10**. **Update mechanism MUST still verify signatures** with a pinned public key shipped in the app — we self-sign the update manifest even without a commercial cert on the installer. See R13.1 below.
 
 ---
 
-*End of Security Requirements v0.1 — next: Pedro answers §7, Neo's ADR-001 is reviewed against §5, v0.2 locks in.*
+## 8. Review & Sign-off (v0.2)
+
+- [x] **Pedro** — answered §7 (all 6 questions resolved, 2026-04-19).
+- [x] **Switch** — companion `crypto-spec.md` published; ADR-001 reviewed and signed off (see ADR-001 §9 "Security Review — Switch"); v0.2 accepted.
+- [ ] **Neo** — acknowledge ADR-001 conditions from Switch's security review; file implementation tickets against `crypto-spec.md` §11 checklist.
+- [ ] **Link** — confirm product vision stays compatible with AR9 / AR10 (macOS out of v1 binary distribution; SmartScreen warning documented in install guide).
+- [ ] **Niobe** — incorporate R20 first-run wizard + AR9 install-warning UX + AR10 "Windows first" messaging.
+
+---
+
+*End of Security Requirements v0.2 — accepted 2026-04-19. Next: Morpheus/Trinity implement against `crypto-spec.md` §11 checklist.*

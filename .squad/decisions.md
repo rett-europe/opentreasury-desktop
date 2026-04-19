@@ -136,6 +136,43 @@ Time-to-first-transaction ≤10min, setup success ≥90%, ≥10 real NGO deploym
 
 **Why:** Pedro tasked Switch with setting the security constraints v1 must meet. Encryption at rest is mandatory; identity stays Microsoft; folder ACL is authorization; custom auth is out. Neo's ADR-001 is now constrained by §5 of this document. Switch has final say per team decision 2026-04-19.
 
+### 2026-04-19: Crypto spec published + ADR-001 ACCEPTED (with conditions) + Security Reqs v0.2
+**By:** Switch (Security Engineer, final say), requested by Pedro
+**What:**
+
+**New artifacts:**
+- `docs/security/crypto-spec.md` v1.0 — implementable crypto & key-management spec. Covers: primitives (XChaCha20-Poly1305 via `sodium-native`; X25519 sealed-box DEK wrapping; Ed25519 signatures; BLAKE2b hashing), three-tier key hierarchy (device keys in OS keychain via `@napi-rs/keyring`, DEK in main-proc memory only, per-file AAD-bound AEAD envelope), full `escrow.json` JSON schema, first-setup/enrollment/revocation/rotation flows with Mermaid sequence diagrams, audit log format (hash-chained, Ed25519-signed per entry), incident response playbook (rotate-and-continue default; burn-down-and-migrate nuclear), metadata surface ruling (acceptable), 15-item implementation checklist.
+- `docs/security/security-requirements-v0.1.md` bumped to **v0.2** (filename retained) — all 6 open questions annotated RESOLVED with Pedro's answers, R4 amended to per-device, R13 split into R13.1 (update payload signing, still mandatory) and R13.2 (installer commercial-CA signing, deferred per AR9/AR10).
+
+**Pedro's six resolutions (2026-04-19):**
+1. Admin = first-setup wins; authenticated enrollment (6-char visual-code compare) required for new devices; admin must be online to approve.
+2. Audit log visibility = all authenticated members; export-on-request as decrypted JSON bundle.
+3. Encryption scope = everything PII/financial. AR3 (no OneDrive search) accepted.
+4. Multi-device = one escrow entry **per device** (not per user). Stolen-device revocation = one entry only.
+5. Incident response default = rotate-and-continue. Burn-down-and-migrate documented as nuclear option.
+6. Code-signing = no EV cert budget initially → **AR9** (Windows SmartScreen warning accepted) + **AR10** (macOS binary distribution OUT of v1 scope, source-build only). Update payload signing via Ed25519 + pinned pubkey is **NOT deferred**.
+
+**ADR-001 verdict: APPROVED WITH CONDITIONS → Status: Proposed → Accepted.**
+
+Conditions (C1–C15) added to ADR-001 §9 "Security Review — Switch", binding on Neo/Morpheus/Trinity. Key supersessions of Neo's original Option A language:
+- `age` as on-disk format **rejected** → XChaCha20-Poly1305 via `sodium-native` with the custom envelope in crypto-spec §2.1 (we need DEK versioning + AAD + crypto agility that `age` doesn't give us).
+- Argon2id passphrase flow **rejected for v1** → OS-keychain-only model; no passphrase surface.
+- `keytar` **forbidden** (deprecated) → `@napi-rs/keyring`.
+- Filename scheme `{timestamp}-{uuid}` → **ULID** (no exposed timestamp prefix).
+
+**New accepted risks:**
+- **AR9:** Unsigned Windows installers (SmartScreen warning). Trigger to revisit EV cert: >100 installs OR ≥3 adoption-blocker reports OR partner funding.
+- **AR10:** macOS binary distribution deferred (no Apple Developer account). Source-build only. Trigger: Apple Developer Program funding secured.
+
+**Important clarification documented:** commercial-CA installer signing (Authenticode, Apple notarization) is deferred; **update payload signing remains mandatory** (Ed25519 private key in CI vault, pinned public key in app binary). These are separate concerns — one is cosmetic trust UX, the other is cryptographic update integrity.
+
+**Status for downstream work:**
+- Morpheus / Trinity: **UNBLOCKED** to break down implementation tickets against crypto-spec §11 (15 checklist items). Every ticket must cite C1–C15 condition(s) it satisfies.
+- Neo: should file one ADR addendum or new ADR for the filename scheme + `sodium-native` supersession if desired for cleanliness, but the changes are already locked in crypto-spec + ADR-001 §9.
+- Non-security spike still open (Neo-owned, non-blocking for sign-off): 10k event files in OneDrive-synced folder — stress test before GA.
+
+**Why:** Pedro answered all six open questions, unblocking v0.2 lock-in. Neo's ADR-001 was gated on Switch's security review. Crypto spec is the bar Neo's implementation must meet. Per team governance, Switch has final say on all of the above.
+
 ## Governance
 
 - All meaningful changes require team consensus

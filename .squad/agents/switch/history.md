@@ -72,3 +72,22 @@ Security considerations for Electron desktop treasury app:
 
 ## 2026-04-19 — Cross-agent note (from Scribe)
 - Neo's ADR-001 (Proposed) at `docs/architecture/adr-001-tech-stack.md` — Option A recommendation awaiting your sign-off on crypto choices, OS-keychain approach, and metadata surface.
+
+### 2026-04-19: All 6 open questions RESOLVED by Pedro + crypto spec published + ADR-001 signed off
+- **Q1 admin model:** first-setup wins, authenticated enrollment for new devices (6-char visual-code compare, admin must be online).
+- **Q2 audit log visibility:** all authenticated members can read; export-on-request (decrypted JSON bundle).
+- **Q3 encryption scope:** encrypt everything PII/financial. AR3 accepted.
+- **Q4 multi-device:** one escrow entry **per device** (not per user). Stolen-device revocation hits one entry only.
+- **Q5 incident response:** rotate-and-continue = DEFAULT. Burn-down-and-migrate = nuclear option for suspected OneDrive-side compromise / admin-device loss.
+- **Q6 code-signing:** no EV cert budget → AR9 (SmartScreen warning accepted). macOS OUT of v1 binary dist → AR10. **Update payload signing is still mandatory** (Ed25519 + pinned pubkey + CI vault key) — distinct from commercial-CA installer signing.
+
+- **Published `docs/security/crypto-spec.md` v1.0** — primitives (XChaCha20-Poly1305 via `sodium-native`; X25519 sealed-box DEK wrap; Ed25519 signatures; BLAKE2b hashing), key hierarchy (device keys in OS keychain via `@napi-rs/keyring`, DEK in main-proc memory only, per-file AAD-bound envelope), escrow schema, first-setup/enrollment/revocation/rotation flows with Mermaid, audit log crypto (hash-chain + Ed25519 per entry), incident response playbook, metadata surface ruling (acceptable — UPN leak is already known via OneDrive ACL), 15-item implementation checklist.
+
+- **ADR-001 verdict: Accepted (with conditions).** Status moved Proposed → Accepted. Superseded `age` (Neo's original choice) with libsodium directly — cleaner envelope, we needed libsodium anyway for Ed25519/X25519. Superseded Argon2id passphrase flow (OS-keychain only for v1). Superseded `keytar` (deprecated) with `@napi-rs/keyring`. 15 numbered acceptance conditions (C1–C15) mapped to SR v0.2 + crypto-spec §11 checklist. Morpheus/Trinity unblocked.
+
+- **security-requirements bumped to v0.2**: added "Changes from v0.1" summary, R4 amended to per-device, R13 split into R13.1 (update payload signing — still mandatory) and R13.2 (installer commercial-CA signing — deferred per AR9/AR10), §7 open questions all annotated RESOLVED, AR9 (Windows SmartScreen) and AR10 (macOS deferred) added with explicit triggers for revisit.
+
+### 2026-04-19: Key lessons recorded
+- Splitting "signed installer" from "signed update payload" was the right move. The commercial-CA problem is cosmetic/UX; update integrity is a cryptographic problem and is strictly cheaper to solve (self-signed Ed25519 + pinned pubkey). Never let a business trade-off eat a security requirement — decompose instead.
+- `age` is a fine format in isolation but forces you into its envelope. When you need DEK versioning + AAD binding + crypto agility + signature-based escrow integrity, using libsodium directly is less total complexity. The cost is explicit envelope design (we did it in crypto-spec §2.1); the benefit is we don't fight `age`'s opinions on key form.
+- "All members can read the audit log" turned out to be a governance feature for NGO treasurers, not a security weakness. Transparency beats admin-gated secrecy when the threat model is insider-edit, not insider-read.

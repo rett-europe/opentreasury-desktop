@@ -42,3 +42,6 @@ Wrote `docs/architecture/adr-001-tech-stack.md` (Proposed). Three options evalua
 ## 2026-04-19 — Cross-agent note (from Scribe)
 - Switch's Security Requirements v0.1 is live at `docs/security/security-requirements-v0.1.md`.
 - ADR-001 must satisfy the 15 stack constraints in §5 before moving from Proposed to Accepted.
+
+### 2026-04-19: ADR-001 Accepted — security conditions locked
+Switch signed off ADR-001 with conditions C1–C15. Option A confirmed with spec adjustments: `sodium-native` XChaCha20-Poly1305 envelope supersedes `age`; OS-keychain only (no Argon2id passphrase in v1); `@napi-rs/keyring` instead of deprecated `keytar`; ULID filenames replace timestamp scheme. Crypto spec at `docs/security/crypto-spec.md` is the implementation bar. One non-blocking spike remains on me: 10k event files OneDrive stress test before GA. May file a short ADR addendum for the filename + sodium-native supersession for cleanliness.
