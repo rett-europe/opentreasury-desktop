@@ -24,7 +24,14 @@
 
 .ot-table {
   width: 100%;
-  border-collapse: collapse;
+  /* `separate` (not `collapse`) is REQUIRED for border-radius on table cells.
+   * Per CSS 2.1, border-radius has no effect on cells when borders collapse,
+   * so the pinned thead would render flat-topped even with
+   * `border-top-{left,right}-radius` set on first/last <th>. `border-spacing: 0`
+   * preserves the collapsed look (no gaps between cells). We only paint
+   * `border-bottom` on cells, so there's no double-border side effect. */
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--type-body-size);
   line-height: var(--type-body-line);
 }
