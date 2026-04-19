@@ -4,6 +4,8 @@
 > **Predicates:** [`prototype-analysis-v1.md`](./prototype-analysis-v1.md); vision v0.1; ADR-001; crypto-spec v1.0; security-requirements v0.2.
 > **Coordinates with:** Link (PRDs 001–003 in parallel); Mouse (design tokens); Switch (security-sensitive copy).
 
+> **2026-04-19 — Batch 1 of Wave 1 authored (Niobe):** UX-001, UX-002, UX-006 moved to **Draft v0.1** under [`specs/`](./specs/). **Batch 2** (the three screen specs — UX-003 Movements, UX-007 Panel, UX-008 Saldo, per task spawn wording "UX-003/UX-004/UX-005") remains pending.
+
 ---
 
 ## 1. Purpose
@@ -33,12 +35,12 @@ Columns: **ID** · **Spec** · **Tier** · **Depends on (PRD / ADR / R## / G##)*
 
 | ID | Spec | Tier | Depends on | Coordinates with | Flow? | Status |
 |---|---|---|---|---|---|---|
-| UX-001 | **First-run / folder setup** — pick or create OneDrive folder, detect state, become admin, generate device keys, R20 security-posture acknowledgment | T1 | PRD-001-onboarding (Link), R20, CS §4, G1, UX-R3 | Link, Mouse, Switch (R20 copy) | ✅ [flow-001](./flows/flow-001-first-run-setup.md) | **Skeleton drafted** |
-| UX-002 | **Device enrollment (requestor side + admin approver side)** — pending state, 6-char visual code, out-of-band compare, approve/reject, post-approval unlock | T1 | PRD-001-onboarding, CS §5, R4, G2, G9, UX-R1 | Switch (code semantics), Mouse (admin-only affordance), Link | ✅ [flow-002](./flows/flow-002-device-enrollment.md) | **Skeleton drafted** |
+| UX-001 | **First-run / folder setup** — pick or create OneDrive folder, detect state, become admin, generate device keys, R20 security-posture acknowledgment | T1 | PRD-001-onboarding (Link), R20, CS §4, G1, UX-R3 | Link, Mouse, Switch (R20 copy) | ✅ [flow-001](./flows/flow-001-first-run-setup.md) | **Draft v0.1 (2026-04-19)** → [`specs/ux-001-first-run-setup.md`](./specs/ux-001-first-run-setup.md) |
+| UX-002 | **Device enrollment (requestor side + admin approver side)** — pending state, 6-char visual code, out-of-band compare, approve/reject, post-approval unlock | T1 | PRD-001-onboarding, CS §5, R4, G2, G9, UX-R1 | Switch (code semantics), Mouse (admin-only affordance), Link | ✅ [flow-002](./flows/flow-002-device-enrollment.md) | **Draft v0.1 (2026-04-19)** → [`specs/ux-002-device-enrollment.md`](./specs/ux-002-device-enrollment.md) |
 | UX-003 | **Movements — date-range-gated load** — empty-by-default, presets + custom, summary strip, filters, bulk actions, status badges | T1 | PRD-002-movements (Link), decisions 2026-04-19 (starts empty), G5, UX-R4 | Mouse (range picker), Morpheus (query shape), Link | ✅ [flow-003](./flows/flow-003-movements-date-range.md) | **Skeleton drafted** |
 | UX-004 | **App shell + navigation** — topbar (sync indicator slot, search, settings), sidebar, user strip (desktop-model identity, NOT auth), placeholder screens | T1 | ADR-001 accepted, G1, G3, divergence table row "Authentication" | Mouse, Link | — | Not started |
 | UX-005 | **Sync / last-synced status surface** — states (up-to-date, syncing, offline, sync-lag, error), in-topbar and detail-on-click | T1 | G3, Risk OneDrive-latency | Mouse, Neo (signal availability) | — | Not started |
-| UX-006 | **New transaction entry** — form surface (inline or modal), "Save & New" fast path, ES+EN labels, validation, category/subcategory picker, tags, status default | T1 | PRD-002-movements, vision §5 speed target, G5 | Link, Mouse, Morpheus (event shape) | — | Not started |
+| UX-006 | **App shell & navigation** — topbar (sync-indicator slot, locale switcher, settings), sidebar, global states (offline/syncing/locked/error-banner/normal). *Note: this ID was reassigned from "New transaction entry" → renumbered by batch-1 spawn (2026-04-19). New-transaction-entry spec will be reallocated in batch 2 or a follow-up plan revision.* | T1 | ADR-001 accepted, G1, G3, divergence "Authentication", decisions 2026-04-19 (no pending, day-0 i18n) | Mouse, Link, Switch (error-banner severity) | — | **Draft v0.1 (2026-04-19)** → [`specs/ux-006-app-shell-and-navigation.md`](./specs/ux-006-app-shell-and-navigation.md) |
 | UX-007 | **Panel (Dashboard)** — accounts, KPIs, 12-month chart, recent tx, empty state for new NGO | T2 | PRD-002-movements, G6 | Mouse, Link | — | Not started |
 | UX-008 | **Saldo (Balance / YoY)** — KPI strip, monthly net chart, category comparison, empty state | T2 | PRD-002-movements, G6 | Mouse, Link | — | Not started |
 | UX-009 | **Error states / error copy catalog** — crypto failures (G4): bad AAD, chain break, escrow signature bad, wrong DEK version, wipe-and-restore-from-snapshot flow; plus generic I/O, OneDrive unavailable, update signature failed | T1 | R5, R8, R13.1, CS §2.1, §3, §8, G4, UX principle 3 | Switch (technical accuracy), Mouse (severity visual treatment) | — | Not started |

@@ -99,3 +99,31 @@ Link's PRDs 001–003 drafted as your upstream. 28 UX specs planned. Blocker gap
 - **Every UX string now requires both ES and EN copy at handoff** — no 'translate later'. Pilot is Rett Spain (Spanish-first) but EN is v1.0 ship-blocker.
 - Several of your PRD-aligned open questions are now CLOSED — check PRDs 001/002/003 for RESOLVED markers.
 
+
+### 2026-04-19: Wave-1 UX specs — Batch 1 authored (UX-001, UX-002, UX-006)
+**Status:** Draft v0.1 · folder: `docs/ux/specs/`
+
+**Deliverables:**
+- `docs/ux/specs/ux-001-first-run-setup.md` — first-run / folder setup (Branch A admin / Branch B join / Branch C resume; R20 scroll-to-enable checklist; Personal OneDrive explicit rejection state per decisions 2026-04-19).
+- `docs/ux/specs/ux-002-device-enrollment.md` — requester + admin sides; sequence diagram aligned to crypto-spec §5; pubkey-substitution defense (codes must be derived independently on each side — AC1/AC2 make it testable); Approve and Reject deliberately not tab-adjacent.
+- `docs/ux/specs/ux-006-app-shell-and-navigation.md` — 5-state global model (locked/normal/syncing/offline/error-banner); **NO pending state** anywhere per product reshape; locale switcher in topbar (day-0 i18n); single banner slot with priority order. Plan note: UX-006 was renumbered from "new transaction entry" for this deliverable per task spawn wording.
+
+**UX constraints reinforced in all three:**
+- i18n day-0: every string keyed; ES + EN samples in Copy Guidance section of each spec.
+- No visual design (regions + interactive roles + states only; pixels deferred to Mouse).
+- Spanish copy ~20–30% longer than English — flagged to Mouse for sidebar/banner wrap limits.
+- Crypto errors treated as first-class UX: every occurrence cross-references UX-009 catalog.
+- UX-002 explicitly binds to crypto-spec §5 — any deviation requires Switch sign-off (not a UX change).
+
+**Top blocker-level open questions surfaced (all need owners):**
+- UX-001 Q7 → **Switch**: exact user-facing copy for bad-escrow-signature state (E4). Ratify before Draft → In Review.
+- UX-002 Q1 → **Switch**: code alphabet (Crockford base32 minus `0/O/1/I/L/U`) + grouping (3-3 vs 2-2-2); decision lives partly in crypto-spec §5.
+- UX-002 Q2 → **Switch**: mismatch escalation — higher-severity audit only, or forced DEK rotation on reject?
+- UX-002 Q3 → **Switch**: pending-entry expiry policy (default proposed: indefinite).
+- UX-002 Q4 → **Switch**: self-cancel mechanism for requester (escrow protocol implication).
+- UX-001 Q1 → **Pedro**: allow override of non-OneDrive folder? Recommendation: no.
+- UX-006 Q1 → **Pedro**: ratify `Ctrl+N` universal new-transaction shortcut.
+
+**Scope holds I declined:** did not write the three screen specs (batch 2). Did not respec crypto mechanics (pointed to crypto-spec §-numbers per style rule 8). Did not override numbering in the plan table — just annotated the UX-006 reassignment for follow-up reconciliation.
+
+**Coordination:** every spec's Traceability Matrix maps requirements back to PRDs / ADRs / R-series / C-series / crypto-spec sections for Cypher's future acceptance tests and the paired SPEC-NNN template.

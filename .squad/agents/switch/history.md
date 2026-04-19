@@ -99,3 +99,7 @@ Roadmap sequences crypto-heavy work into M2 (multi-device enrollment + DEK rotat
 - **OneDrive for Business / SharePoint only in v1.** Personal OneDrive deferred to v1.x.
 - Narrows the v1 threat-model surface (no consumer-account ACL handling). Worth noting in the next `security-requirements` revision.
 
+
+### 2026-04-19 — From Scribe: UX specs batch 1 needs your ratification
+- Niobe surfaced crypto-error UX copy questions in UX-001 (`bad-escrow-signature` / `damaged-treasury`) and UX-002 (pubkey mismatch escalation, 6-char code alphabet/grouping).
+- Needs your ratification on user-facing copy before Draft → In Review.

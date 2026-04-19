@@ -35,3 +35,7 @@ Niobe's UX baseline and flows published under docs/ux/. Your visual design work 
 - **No pending-state visual design needed** (product has no pending concept).
 - **Both Spanish and English layouts must be considered from day 0.** Text-expansion factor matters (EN often ~30% longer than ES) — pad components and avoid fixed-width text containers.
 
+
+### 2026-04-19 — From Scribe: UX-001/002/006 Draft v0.1 landed
+- Batch 2 (UX-003/004/005 screens) spawning now.
+- After batch 2 lands you can start design tokens and component primitives anchored to these specs.

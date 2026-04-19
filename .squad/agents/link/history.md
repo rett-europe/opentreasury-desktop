@@ -93,3 +93,8 @@ Five product decisions that cascade through roadmap, PRD plan, and the three M1 
 - All 5 repo-structure decisions locked (npm, no monorepo tool, strict TS, flat `app/`, hybrid tests).
 - **i18n framework selection is a dependency for your M0 plan** — Neo owes a short ADR/spec note on framework choice before M0 scaffolding.
 
+
+### 2026-04-19 — From Scribe: Niobe batch 1 complete
+- UX-001 first-run (with Personal-OneDrive rejection state).
+- UX-002 enrollment (aligned to crypto-spec §5).
+- UX-006 shell (5 global states, locale switcher in topbar). All Draft v0.1.

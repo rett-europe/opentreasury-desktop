@@ -2,6 +2,25 @@
 
 ## Active Decisions
 
+### 2026-04-19: UX specs Batch 1 (Wave 1) authored — Draft v0.1
+**By:** Niobe (Spec / UX Analyst), requested by Pedro
+**Branch:** `docs/ux-specs-m1-wave-1`
+**What:** Three Wave-1 UX specs authored as Draft v0.1:
+- `docs/ux/specs/ux-001-first-run-setup.md` — first-run / folder setup (admin-create + join-existing; R20 posture gate; Personal-OneDrive explicit rejection).
+- `docs/ux/specs/ux-002-device-enrollment.md` — requester + admin enrollment aligned to crypto-spec §5 (6-char code, out-of-band compare, pubkey-substitution defense).
+- `docs/ux/specs/ux-006-app-shell-and-navigation.md` — topbar/sidebar/content shell, 5 global states (`locked`/`normal`/`syncing`/`offline`/`error-banner`), **no `pending` state**, locale switcher in topbar (day-0 i18n).
+
+`docs/ux/ux-spec-plan.md` updated: UX-001/002/006 rows at Draft v0.1.
+
+**Open questions routed:**
+- **Switch (must ratify before Draft → In Review):** bad-escrow-signature copy (UX-001 Q7), 6-char code alphabet/grouping (UX-002 Q1), mismatch escalation policy (Q2), pending-entry expiry (Q3), requester self-cancel (Q4), UPN "not a trust anchor" tooltip (Q6).
+- **Pedro:** non-OneDrive override (Q1), language pre-selection (Q2), backup-admin soft prompt (Q5), Ctrl+N shortcut (UX-006 Q1), locale switcher placement (UX-006 Q5).
+- **Link:** NGO display-name source (Q3), M1 search affordance (UX-006 Q3).
+
+**Why:** Unblocks Wave-1. These three are the shell + onboarding skeleton on which the three screen specs (batch 2) and the error catalog (UX-009) depend.
+
+**Note:** Batch 2 (screens UX-003/007/008) is in flight — spawn prompt referenced "UX-003/004/005" but current plan numbers them UX-003/007/008. Coordinator + Niobe to reconcile numbering at batch-2 kickoff.
+
 ### 2026-04-19: Project scope — OpenTreasury Desktop
 **By:** Pedro (project owner)
 **What:** Build a desktop Electron app that replicates the functionality of rett-europe/opentreasury without requiring complex cloud setup (Azure, Cosmos DB, Entra ID). Tech stack beyond Electron is TBD.

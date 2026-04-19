@@ -38,3 +38,6 @@ ADR-002 repo structure **Proposed** (Neo) — strict main/preload/renderer bound
 - **i18n is M0 (day 0)** — Spanish + English from v1.
 - **ADR-002 ACCEPTED** — npm, no monorepo tool, strict TS (+ `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`), flat `app/`, hybrid tests. `app/` scaffolding is the next PR.
 
+
+### 2026-04-19 — From Scribe: Wave 1 UX specs batch 1 landed
+- Draft v0.1. Batch 2 (screens) arriving shortly.
