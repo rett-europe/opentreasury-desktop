@@ -1,0 +1,135 @@
+/* Add Transaction Modal — WI-13 */
+
+.ot-add-transaction-modal {
+  max-width: 560px;
+  width: 90%;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+}
+
+.ot-add-transaction-modal::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.ot-add-transaction-modal__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.ot-add-transaction-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-6) var(--space-6) 0;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-4);
+}
+
+.ot-add-transaction-modal__title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.ot-add-transaction-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.ot-add-transaction-modal__close:hover {
+  background: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+}
+
+.ot-add-transaction-modal__close:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 2px;
+}
+
+.ot-add-transaction-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: 0 var(--space-6);
+}
+
+.ot-add-transaction-modal__error {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-error-surface);
+  color: var(--color-error-text);
+  font-size: var(--font-size-sm);
+}
+
+.ot-add-transaction-modal__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.ot-add-transaction-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-add-transaction-modal__label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.ot-add-transaction-modal__input {
+  padding: var(--space-2-5) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  background: var(--color-surface-primary);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ot-add-transaction-modal__input:focus {
+  outline: none;
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px var(--color-brand-surface);
+}
+
+.ot-add-transaction-modal__input[aria-invalid='true'] {
+  border-color: var(--color-error-default);
+}
+
+.ot-add-transaction-modal__field-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-error-text);
+  margin-top: var(--space-1);
+}
+
+.ot-add-transaction-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  border-top: 1px solid var(--color-border);
+}

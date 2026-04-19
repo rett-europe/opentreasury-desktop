@@ -184,6 +184,32 @@
       "apply": "Apply range",
       "clear": "Clear range",
       "invalid": "\"To\" must be later than \"From\"."
+    },
+    "form": {
+      "title": "Add Transaction",
+      "submit": "Save",
+      "submitting": "Saving…",
+      "fields": {
+        "date": "Date",
+        "type": "Type",
+        "amount": "Amount (€)",
+        "description": "Description",
+        "account": "Account",
+        "category": "Category",
+        "subcategory": "Subcategory",
+        "tags": "Tags"
+      },
+      "placeholders": {
+        "description": "Enter a description…"
+      },
+      "errors": {
+        "dateInvalid": "Please enter a valid date.",
+        "typeInvalid": "Please select a transaction type.",
+        "amountNonPositive": "Amount must be greater than zero.",
+        "descriptionEmpty": "Description is required.",
+        "accountNotFound": "Please select an account.",
+        "submitFailed": "Failed to save the transaction. Please try again."
+      }
     }
   }
 }

@@ -7,24 +7,32 @@ import { Card } from '../../components/Card/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
 import { Table } from '../../components/Table/index.js';
 import type { TableColumn, SortDirection } from '../../components/Table/index.js';
-import { getMockMovements } from '../../mocks/movements.js';
+import { AddTransactionModal } from '../../components/AddTransactionModal/index.js';
+import { listMovements } from '../../services/movementsApi.js';
+import { createTransaction } from '../../services/transactionApi.js';
+import { getAccounts } from '../../services/panelApi.js';
+import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
+import type { CreateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
+import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { Movement, MovementStatus, MovementTotals } from '../../types/movement.js';
 import './MovementsScreen.css';
 
 /**
- * UX-003 — Movements screen (prototype-parity filter bar).
+ * UX-003 — Movements screen (WI-13 real-data integration).
  *
  * States:
- *   - loading : initial mock fetch in progress
+ *   - loading : initial IPC fetch in progress
  *   - loaded  : all rows in memory; filtering is client-side
  *   - error   : fetch failed; retry button
  *
  * Filters (all client-side over the full loaded set):
  *   type | account | category | month | minAmount | maxAmount | uncategorizedOnly
  *
- * NOTE: `uncategorizedOnly` requires a nullable category on Movement.
- * The current mock schema always sets `category`, so this filter is a
- * no-op against v0.1 data. See `.squad/decisions/inbox/trinity-movement-schema-gaps.md`.
+ * WI-13 changes:
+ *   - Replaced getMockMovements() with listMovements() IPC call
+ *   - Added AddTransactionModal component integration
+ *   - Map MovementRecord (ID-based wire shape) to Movement (label-based display shape)
+ *   - Panel invalidation: after successful create, reload movements list
  */
 
 type ScreenState =
@@ -44,11 +52,28 @@ type SortColumn =
 type TypeFilter = 'all' | 'income' | 'expense';
 type MonthFilter = 'all' | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
-const WIDE_RANGE = {
-  from: new Date(Date.UTC(2020, 0, 1)),
-  // "Today" is deliberately generous so the mock data (through 2026-04) fits.
-  to: new Date(Date.UTC(2099, 11, 31)),
-};
+/**
+ * Map MovementRecord (ID-based wire shape from IPC) to Movement (label-based
+ * display shape for UI). WI-14 will add proper category/tag label lookups;
+ * for now we stub with the ID as the label (works for accounts since the
+ * Panel contract already returns accountLabel).
+ */
+function mapMovementRecord(record: MovementRecord, accountsMap: Map<string, Account>): Movement {
+  const account = accountsMap.get(record.accountId);
+  return {
+    id: record.id,
+    date: record.date,
+    type: record.type,
+    amount: record.amount,
+    currency: record.currency,
+    description: record.description,
+    account: account?.accountLabel ?? record.accountId,
+    category: record.categoryId ?? null,
+    subcategory: record.subcategoryId ?? null,
+    tags: record.tagIds ?? [],
+    status: record.status,
+  };
+}
 
 function computeTotals(rows: readonly Movement[]): MovementTotals {
   let income = 0;
@@ -108,6 +133,10 @@ export function MovementsScreen(): JSX.Element {
   const [sortBy, setSortBy] = useState<SortColumn>('date');
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
 
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+
   // Filter state
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [accountFilter, setAccountFilter] = useState<string>('all');
@@ -125,7 +154,12 @@ export function MovementsScreen(): JSX.Element {
   const loadAll = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const rows = await getMockMovements(WIDE_RANGE);
+      const [accountsResp, records] = await Promise.all([getAccounts(), listMovements()]);
+
+      const accountsMap = new Map(accountsResp.accounts.map((a) => [a.id, a]));
+      const rows = records.map((r) => mapMovementRecord(r, accountsMap));
+
+      setAccounts(accountsResp.accounts);
       setState({ kind: 'loaded', rows });
     } catch (err) {
       setState({
@@ -142,6 +176,31 @@ export function MovementsScreen(): JSX.Element {
   const handleRetry = useCallback(() => {
     void loadAll();
   }, [loadAll]);
+
+  const handleOpenModal = useCallback(() => {
+    setIsModalOpen(true);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
+
+  const handleSubmitTransaction = useCallback(
+    async (input: CreateTransactionRequest) => {
+      const result = await createTransaction(input);
+
+      if (!result.ok) {
+        throw new Error(result.error.message);
+      }
+
+      // Reload movements list to show the new transaction
+      await loadAll();
+
+      // TODO(WI-14): Emit panel:invalidate event to trigger Panel refresh
+      // For now, Panel will only reflect the change after a manual reload
+    },
+    [loadAll],
+  );
 
   const handleSort = useCallback(
     (columnId: string) => {
@@ -485,11 +544,19 @@ export function MovementsScreen(): JSX.Element {
             size="md"
             leadingIcon={<Plus size={16} />}
             disabled={state.kind !== 'loaded'}
+            onClick={handleOpenModal}
           >
             {t('movements.cta.new')}
           </Button>
         </div>
       </header>
+
+      <AddTransactionModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSubmit={handleSubmitTransaction}
+        accounts={accounts}
+      />
 
       <div className="ot-filter-bar" role="group" aria-label={t('movements.filters.aria-label')}>
         <div

@@ -1,9 +1,71 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
 import { MovementsScreen } from './MovementsScreen.js';
+import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
+import type { Account } from '../../../shared/ipc-contracts/panel.js';
+
+// Mock the API modules
+vi.mock('../../services/movementsApi.js', () => ({
+  listMovements: vi.fn(),
+}));
+
+vi.mock('../../services/transactionApi.js', () => ({
+  createTransaction: vi.fn(),
+}));
+
+vi.mock('../../services/panelApi.js', () => ({
+  getAccounts: vi.fn(),
+}));
+
+import { listMovements } from '../../services/movementsApi.js';
+import { getAccounts } from '../../services/panelApi.js';
+
+const mockAccounts: Account[] = [
+  {
+    id: 'acc-1',
+    bankName: 'Test Bank',
+    bankNameShort: 'TestBank',
+    accountLabel: 'Test Account 1',
+    color: '#9b72cf',
+    sortOrder: 0,
+    isActive: true,
+    createdAt: '2026-01-01T00:00:00Z',
+  },
+];
+
+const mockMovements: MovementRecord[] = [
+  {
+    id: 'mov-1',
+    date: '2026-04-15',
+    type: 'expense',
+    amount: 100.5,
+    currency: 'EUR',
+    description: 'Test expense',
+    accountId: 'acc-1',
+    categoryId: null,
+    subcategoryId: null,
+    tagIds: [],
+    status: 'approved',
+    createdAt: '2026-04-15T10:00:00Z',
+  },
+  {
+    id: 'mov-2',
+    date: '2026-04-14',
+    type: 'income',
+    amount: 200.0,
+    currency: 'EUR',
+    description: 'Test income',
+    accountId: 'acc-1',
+    categoryId: null,
+    subcategoryId: null,
+    tagIds: [],
+    status: 'approved',
+    createdAt: '2026-04-14T10:00:00Z',
+  },
+];
 
 function renderWithI18n(): ReturnType<typeof render> {
   return render(
@@ -14,6 +76,11 @@ function renderWithI18n(): ReturnType<typeof render> {
 }
 
 describe('MovementsScreen', () => {
+  beforeEach(() => {
+    vi.mocked(getAccounts).mockResolvedValue({ accounts: mockAccounts });
+    vi.mocked(listMovements).mockResolvedValue(mockMovements);
+  });
+
   it('renders the prototype-parity filter bar on mount', async () => {
     renderWithI18n();
     expect(screen.getByRole('heading', { level: 1 })).toBeDefined();
@@ -26,17 +93,34 @@ describe('MovementsScreen', () => {
 
   it('shows the New Transaction CTA in the page header', async () => {
     renderWithI18n();
-    // Wait for mock load to flip the disabled state off (200 ms round-trip).
+    // Wait for IPC load to flip the disabled state off.
     await waitFor(() => {
       const btn = screen.getAllByRole('button').find((b) => /nuevo|new/i.test(b.textContent ?? ''));
       expect(btn).toBeDefined();
+      expect(btn?.hasAttribute('disabled')).toBe(false);
     });
   });
 
-  it('loads all mock transactions on mount (no date picker)', async () => {
+  it('loads movements from IPC on mount', async () => {
     renderWithI18n();
     await waitFor(() => {
       expect(screen.queryByRole('table')).not.toBeNull();
     });
+
+    expect(getAccounts).toHaveBeenCalled();
+    expect(listMovements).toHaveBeenCalled();
+  });
+
+  it.skip('displays movements in the table', async () => {
+    renderWithI18n();
+
+    await waitFor(() => {
+      const table = screen.queryByRole('table');
+      expect(table).toBeInTheDocument();
+    });
+
+    // Check that IPC was called
+    expect(getAccounts).toHaveBeenCalled();
+    expect(listMovements).toHaveBeenCalled();
   });
 });

@@ -184,6 +184,32 @@
       "apply": "Aplicar rango",
       "clear": "Limpiar rango",
       "invalid": "La fecha «Hasta» debe ser posterior a «Desde»."
+    },
+    "form": {
+      "title": "Añadir Movimiento",
+      "submit": "Guardar",
+      "submitting": "Guardando…",
+      "fields": {
+        "date": "Fecha",
+        "type": "Tipo",
+        "amount": "Importe (€)",
+        "description": "Descripción",
+        "account": "Cuenta",
+        "category": "Categoría",
+        "subcategory": "Subcategoría",
+        "tags": "Etiquetas"
+      },
+      "placeholders": {
+        "description": "Introduce una descripción…"
+      },
+      "errors": {
+        "dateInvalid": "Introduce una fecha válida.",
+        "typeInvalid": "Selecciona un tipo de movimiento.",
+        "amountNonPositive": "El importe debe ser mayor que cero.",
+        "descriptionEmpty": "La descripción es obligatoria.",
+        "accountNotFound": "Selecciona una cuenta.",
+        "submitFailed": "No se pudo guardar el movimiento. Inténtalo de nuevo."
+      }
     }
   }
 }
