@@ -127,6 +127,31 @@
       "last-30-days": "Últimos 30 días",
       "ytd": "Lo que va de año"
     },
+    "filters": {
+      "aria-label": "Filtros de movimientos",
+      "type": {
+        "label": "Tipo",
+        "all": "Todos",
+        "income": "Ingresos",
+        "expense": "Gastos"
+      },
+      "account": {
+        "label": "Cuenta",
+        "all": "Todas las cuentas"
+      },
+      "category": {
+        "label": "Categoría",
+        "all": "Todas las categorías"
+      },
+      "month": {
+        "label": "Mes",
+        "all": "Todos los meses"
+      },
+      "amountMin": "min €",
+      "amountMax": "max €",
+      "uncategorizedOnly": "Solo sin categorizar",
+      "clear": "Limpiar filtros"
+    },
     "range": {
       "from": "Desde",
       "to": "Hasta",

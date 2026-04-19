@@ -127,6 +127,31 @@
       "last-30-days": "Last 30 days",
       "ytd": "Year to date"
     },
+    "filters": {
+      "aria-label": "Transaction filters",
+      "type": {
+        "label": "Type",
+        "all": "All",
+        "income": "Income",
+        "expense": "Expense"
+      },
+      "account": {
+        "label": "Account",
+        "all": "All accounts"
+      },
+      "category": {
+        "label": "Category",
+        "all": "All categories"
+      },
+      "month": {
+        "label": "Month",
+        "all": "All months"
+      },
+      "amountMin": "min €",
+      "amountMax": "max €",
+      "uncategorizedOnly": "Only uncategorized",
+      "clear": "Clear filters"
+    },
     "range": {
       "from": "From",
       "to": "To",

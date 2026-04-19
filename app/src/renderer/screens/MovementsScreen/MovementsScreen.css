@@ -105,3 +105,159 @@
   color: var(--color-text-muted);
 }
 
+/* ──────────────────────────────────────────────────────────────
+ * Filter bar — prototype-parity (prototype/styles.css .filter-bar).
+ * Single horizontal row, purple-tinted borders, wraps on narrow
+ * viewports. No card shell; lives on the page background.
+ * ────────────────────────────────────────────────────────────── */
+.ot-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-7);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+}
+
+/* Segmented chip group (Todos / Ingresos / Gastos). */
+.ot-filter-bar__chips {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--color-brand-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+}
+.ot-filter-bar__chip {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 4px 12px;
+  border-radius: calc(var(--radius-pill) - 2px);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+  line-height: 1.4;
+}
+.ot-filter-bar__chip:hover {
+  background: var(--color-brand-surface-hover);
+  color: var(--color-text-primary);
+}
+.ot-filter-bar__chip:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+.ot-filter-bar__chip--active,
+.ot-filter-bar__chip--active:hover {
+  background: var(--color-brand-primary);
+  color: var(--color-brand-on-primary);
+}
+
+/* Inline filter-input: icon + control in a purple-tinted pill. */
+.ot-filter-bar__input {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  height: 32px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-13);
+  min-width: 0;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+  cursor: pointer;
+}
+.ot-filter-bar__input:focus-within {
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 2px var(--color-focus-ring-offset), 0 0 0 4px var(--color-focus-ring);
+}
+.ot-filter-bar__input > svg {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.ot-filter-bar__input select,
+.ot-filter-bar__input input {
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-13);
+  font-family: inherit;
+  min-width: 0;
+  padding: 0;
+}
+.ot-filter-bar__input select {
+  padding-right: 4px;
+  cursor: pointer;
+}
+.ot-filter-bar__input--amount {
+  max-width: 110px;
+}
+.ot-filter-bar__input--amount input {
+  width: 60px;
+}
+.ot-filter-bar__prefix {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-12);
+  user-select: none;
+}
+
+/* Inline checkbox — "Solo sin categorizar". */
+.ot-filter-bar__checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-13);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.ot-filter-bar__checkbox input[type='checkbox'] {
+  accent-color: var(--color-brand-primary);
+  cursor: pointer;
+}
+
+/* Ghost "Limpiar filtros" — right-aligned. */
+.ot-filter-bar__clear {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.ot-filter-bar__clear:hover {
+  background: var(--color-brand-surface);
+  color: var(--color-text-primary);
+}
+.ot-filter-bar__clear:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.ot-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+

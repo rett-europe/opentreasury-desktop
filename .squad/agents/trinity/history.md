@@ -182,3 +182,14 @@ Typography scale (h1 28 px, KPI 24 px tabular-nums, section label 11 px / 0.08em
 - Split the type indicator out of the amount cell into its own narrow (36px) centered column as 1st column; amount cell now shows only the formatted currency with income/expense color class.
 - Extended Table primitive: TableColumn gained optional 'width' and 'center' align; Table.css adds .ot-table__cell--center.
 - Typecheck, lint and build all pass.
+
+## Movements filter bar (prototype parity) — fix/trinity-prototype-parity
+- Replaced DateRangePicker block on MovementsScreen with a prototype-style .ot-filter-bar: chip group (Todos/Ingresos/Gastos), cuenta/categoria/mes selects, min/max EUR inputs, "solo sin categorizar" checkbox, right-aligned "Limpiar filtros" ghost button.
+- Simplified state machine from 4 states to 3 (loading/loaded/error). On mount we now fetch the full mock set via getMockMovements with a wide 2020-2099 range; filtering is client-side.
+- Promoted "Nuevo Movimiento" CTA into the page-header right side (same pattern as Panel/Saldo); disabled until rows load.
+- Filters implemented against current Movement schema: type, account, category, month (from date.slice(5,7)), minAmount, maxAmount.
+- Filter SKIPPED: uncategorizedOnly is wired up and rendered, but the mock schema always sets a non-empty category, so the predicate is effectively a no-op. TODO comment left in the filter logic. Wrote .squad/decisions/inbox/trinity-movement-schema-gaps.md for Morpheus.
+- Added movements.filters.* i18n keys (EN/ES). Month names are localized via Intl.DateTimeFormat, no hard-coded month strings.
+- Tests updated: old tests asserted on the picker radiogroup / absence of CTA; rewrote to assert chip tablist, header CTA, and that a table renders after the mock round-trip.
+- Did NOT touch the DateRangePicker primitive (still used by tests and available for future work).
+- Verified: typecheck OK, lint (0 warnings) OK, 39/39 tests pass, vite build OK.
