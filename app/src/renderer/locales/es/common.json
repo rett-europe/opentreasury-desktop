@@ -36,7 +36,47 @@
       "title": "Próximamente",
       "body": "Esta sección llegará en una próxima versión."
     },
+    "sections": {
+      "main": "Principal"
+    },
+    "user": {
+      "name": "Pedro Rocha",
+      "role": "Admin",
+      "logout": "Cerrar sesión"
+    },
+    "search": {
+      "placeholder": "Buscar movimientos, categorías, cuentas…"
+    },
     "brand": "OpenTreasury"
+  },
+  "panel": {
+    "title": "Panel",
+    "subtitle": "Vista general del mes",
+    "cta": {
+      "new-movement": "Nuevo Movimiento",
+      "date-range": "Abril 2026"
+    },
+    "sections": {
+      "accounts": "Saldos por cuenta",
+      "summary": "Resumen del mes",
+      "monthly-trend": "Ingresos vs. Gastos · Últimos 12 meses",
+      "recent": "Últimos movimientos"
+    },
+    "skeleton": "Vista previa — datos en una próxima iteración."
+  },
+  "balance": {
+    "title": "Saldo",
+    "subtitle": "Vista comparativa de ingresos y gastos por categoría",
+    "cta": {
+      "export": "Exportar"
+    },
+    "sections": {
+      "summary": "Totales del año",
+      "income": "Ingresos por categoría",
+      "expense": "Gastos por categoría",
+      "monthly-net": "Saldo neto mensual"
+    },
+    "skeleton": "Vista previa — datos en una próxima iteración."
   },
   "movements": {
     "title": "Movimientos",
@@ -63,11 +103,20 @@
       "query": "No pudimos cargar los movimientos. Inténtalo de nuevo."
     },
     "columns": {
+      "select": "Seleccionar",
       "date": "Fecha",
-      "description": "Descripción",
+      "observations": "Observaciones",
       "account": "Cuenta",
       "category": "Categoría",
+      "subcategory": "Subcategoría",
+      "tags": "Etiquetas",
+      "status": "Estado",
       "amount": "Importe"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "approved": "Aprobado",
+      "rejected": "Rechazado"
     },
     "totals": {
       "income": "Ingresos",
@@ -86,6 +135,31 @@
       "this-month": "Este mes",
       "last-30-days": "Últimos 30 días",
       "ytd": "Lo que va de año"
+    },
+    "filters": {
+      "aria-label": "Filtros de movimientos",
+      "type": {
+        "label": "Tipo",
+        "all": "Todos",
+        "income": "Ingresos",
+        "expense": "Gastos"
+      },
+      "account": {
+        "label": "Cuenta",
+        "all": "Todas las cuentas"
+      },
+      "category": {
+        "label": "Categoría",
+        "all": "Todas las categorías"
+      },
+      "month": {
+        "label": "Mes",
+        "all": "Todos los meses"
+      },
+      "amountMin": "min €",
+      "amountMax": "max €",
+      "uncategorizedOnly": "Solo sin categorizar",
+      "clear": "Limpiar filtros"
     },
     "range": {
       "from": "Desde",

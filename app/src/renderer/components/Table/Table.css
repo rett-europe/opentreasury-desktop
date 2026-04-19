@@ -1,31 +1,65 @@
 .ot-table-wrap {
+  position: relative;
+  isolation: isolate;
   background: var(--color-surface-primary);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
-  overflow: auto;
-  max-height: 100%;
+  /* `overflow: clip` (NOT `hidden`) so the sticky thead can escape this wrap
+   * and anchor to the nearest scrolling ancestor (`.ot-shell__main`).
+   * `hidden` would establish a scroll containing block and trap the sticky
+   * thead inside this box. `clip` still visually clips children and preserves
+   * the rounded outer corners without creating a scroll container. */
+  overflow: clip;
 }
 
 .ot-table {
   width: 100%;
-  border-collapse: collapse;
+  /* `separate` (not `collapse`) is REQUIRED for border-radius on table cells.
+   * Per CSS 2.1, border-radius has no effect on cells when borders collapse,
+   * so the pinned thead would render flat-topped even with
+   * `border-top-{left,right}-radius` set on first/last <th>. `border-spacing: 0`
+   * preserves the collapsed look (no gaps between cells). We only paint
+   * `border-bottom` on cells, so there's no double-border side effect. */
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--type-body-size);
   line-height: var(--type-body-line);
 }
 
-.ot-table thead th {
+.ot-table thead {
   position: sticky;
-  top: 0;
+  top: var(--sticky-top-offset, 0);
   z-index: var(--z-sticky);
+  background: var(--color-surface-primary);
+}
+
+.ot-table thead tr {
+  position: relative;
+  z-index: var(--z-sticky);
+  background: var(--color-surface-primary);
+}
+
+.ot-table thead th {
   text-align: left;
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-surface-secondary);
-  color: var(--color-text-secondary);
+  padding: var(--space-6) var(--space-6);
+  background: var(--color-surface-primary);
+  background-clip: padding-box;
+  color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
-  font-size: var(--type-small-size);
+  font-size: var(--font-size-11);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   border-bottom: 1px solid var(--color-border-default);
+  box-shadow: 0 calc(var(--sticky-top-offset, 0) * -1) 0 0 var(--color-surface-app);
   white-space: nowrap;
 }
+.ot-table thead th:first-child {
+  border-top-left-radius: var(--radius-lg);
+}
+.ot-table thead th:last-child {
+  border-top-right-radius: var(--radius-lg);
+}
+
 
 .ot-table thead th[aria-sort] {
   cursor: pointer;
@@ -35,12 +69,18 @@
 .ot-table__sort-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   background: transparent;
   border: none;
   padding: 0;
   font: inherit;
   color: inherit;
+  /* `font: inherit` does NOT cover text-transform or letter-spacing, and the
+   * <button> UA default resets both. Without these inherits the sortable
+   * column headers would render in mixed case while non-sortable ones stay
+   * uppercase (per `.ot-table thead th`). */
+  text-transform: inherit;
+  letter-spacing: inherit;
   cursor: pointer;
 }
 .ot-table__sort-btn:focus-visible {
@@ -55,17 +95,24 @@
 }
 
 .ot-table tbody td {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--color-border-subtle);
+  padding: var(--space-6) var(--space-6);
+  border-bottom: 1px solid var(--color-divider);
   color: var(--color-text-primary);
   vertical-align: middle;
 }
 
-.ot-table tbody tr:nth-child(even) {
-  background: var(--color-surface-secondary);
+.ot-table tbody tr {
+  transition: background var(--motion-duration-fast) var(--motion-easing-standard);
 }
 .ot-table tbody tr:hover {
-  background: var(--color-accent-subtle);
+  background: var(--color-row-hover);
+}
+/* Selected-row highlight (Movements multi-select). Uses :has() so the Table
+ * primitive itself stays stateless — the renderer toggles a native checkbox
+ * with class `.ot-row-checkbox` and the row background reacts. */
+.ot-table tbody tr:has(input.ot-row-checkbox:checked),
+.ot-table tbody tr:has(input.ot-row-checkbox:checked):hover {
+  background: var(--color-brand-surface);
 }
 
 .ot-table tbody tr:last-child td {
@@ -74,6 +121,9 @@
 
 .ot-table__cell--right {
   text-align: right;
+}
+.ot-table__cell--center {
+  text-align: center;
 }
 .ot-table__cell--tnum {
   font-variant-numeric: tabular-nums;
@@ -87,6 +137,6 @@
   border-top: 1px solid var(--color-border-default);
 }
 .ot-table__foot td {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-6) var(--space-6);
   font-weight: var(--font-weight-semibold);
 }

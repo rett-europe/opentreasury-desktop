@@ -36,7 +36,47 @@
       "title": "Coming soon",
       "body": "This section will arrive in a future release."
     },
+    "sections": {
+      "main": "Main"
+    },
+    "user": {
+      "name": "Pedro Rocha",
+      "role": "Admin",
+      "logout": "Sign out"
+    },
+    "search": {
+      "placeholder": "Search transactions, categories, accounts…"
+    },
     "brand": "OpenTreasury"
+  },
+  "panel": {
+    "title": "Dashboard",
+    "subtitle": "Month overview",
+    "cta": {
+      "new-movement": "New Transaction",
+      "date-range": "April 2026"
+    },
+    "sections": {
+      "accounts": "Balances by account",
+      "summary": "Month summary",
+      "monthly-trend": "Income vs. Expense · Last 12 months",
+      "recent": "Recent transactions"
+    },
+    "skeleton": "Preview — data in a future iteration."
+  },
+  "balance": {
+    "title": "Balance",
+    "subtitle": "Year-over-year income and expense comparison",
+    "cta": {
+      "export": "Export"
+    },
+    "sections": {
+      "summary": "Yearly totals",
+      "income": "Income by category",
+      "expense": "Expense by category",
+      "monthly-net": "Monthly net balance"
+    },
+    "skeleton": "Preview — data in a future iteration."
   },
   "movements": {
     "title": "Transactions",
@@ -63,11 +103,20 @@
       "query": "We couldn't load your transactions. Please try again."
     },
     "columns": {
+      "select": "Select",
       "date": "Date",
-      "description": "Description",
+      "observations": "Observations",
       "account": "Account",
       "category": "Category",
+      "subcategory": "Subcategory",
+      "tags": "Tags",
+      "status": "Status",
       "amount": "Amount"
+    },
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
     },
     "totals": {
       "income": "Income",
@@ -86,6 +135,31 @@
       "this-month": "This month",
       "last-30-days": "Last 30 days",
       "ytd": "Year to date"
+    },
+    "filters": {
+      "aria-label": "Transaction filters",
+      "type": {
+        "label": "Type",
+        "all": "All",
+        "income": "Income",
+        "expense": "Expense"
+      },
+      "account": {
+        "label": "Account",
+        "all": "All accounts"
+      },
+      "category": {
+        "label": "Category",
+        "all": "All categories"
+      },
+      "month": {
+        "label": "Month",
+        "all": "All months"
+      },
+      "amountMin": "min €",
+      "amountMax": "max €",
+      "uncategorizedOnly": "Only uncategorized",
+      "clear": "Clear filters"
     },
     "range": {
       "from": "From",

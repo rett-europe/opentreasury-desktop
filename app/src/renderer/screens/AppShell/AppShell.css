@@ -1,11 +1,20 @@
+/*
+ * AppShell — grid chrome matching prototype/styles.css .app/.topbar/.sidebar.
+ * Sidebar 240px, topbar 60px. Collapses on compact viewport.
+ */
+
 .ot-shell {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  grid-template-rows: 56px 1fr;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: var(--topbar-height) 1fr;
   grid-template-areas:
     'topbar topbar'
     'sidebar main';
+  /* Scroll isolation: the shell locks to the viewport so only `.ot-shell__main`
+   * scrolls. Topbar stays fixed at the top, sidebar + user-strip fixed at the
+   * left. See .squad/decisions/inbox/trinity-appshell-scroll-isolation.md. */
   height: 100vh;
+  overflow: hidden;
   background: var(--color-surface-app);
   color: var(--color-text-primary);
 }
@@ -14,7 +23,13 @@
   .ot-shell {
     grid-template-columns: 64px 1fr;
   }
-  .ot-shell__nav-label {
+  .ot-shell__nav-label,
+  .ot-shell__nav-section-label,
+  .ot-shell__user-meta,
+  .ot-shell__user-logout,
+  .ot-shell__search,
+  .ot-shell__tenant,
+  .ot-shell__divider-v {
     display: none;
   }
 }
@@ -24,63 +39,138 @@
   grid-area: topbar;
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  padding: 0 var(--space-5);
+  gap: var(--space-6);
+  padding: 0 var(--space-7) 0 var(--space-8);
   background: var(--color-surface-primary);
   border-bottom: 1px solid var(--color-border-default);
+  /* Fixed by the grid row; sticky kept as a belt-and-braces guard. */
+  position: sticky;
+  top: 0;
   z-index: var(--z-topbar);
+  overflow: hidden;
+  min-width: 0;
 }
 
 .ot-shell__brand {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-4);
   font-weight: var(--font-weight-semibold);
-  font-size: var(--type-h3-size);
+  font-size: var(--font-size-16);
   color: var(--color-text-primary);
 }
 .ot-shell__brand-mark {
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-sm);
-  background: var(--color-accent-default);
-  color: var(--color-text-inverse);
+  width: 22px;
+  height: 22px;
+  color: var(--color-brand-primary);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.ot-shell__divider-v {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border-default);
+  margin-left: var(--space-4);
+  margin-right: var(--space-2);
+}
+
+.ot-shell__tenant {
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
 }
 
 .ot-shell__topbar-spacer {
   flex: 1;
 }
 
-.ot-shell__topbar-controls {
-  display: flex;
+/* Topbar search input — prototype .topbar-search */
+.ot-shell__search {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-4);
+  min-width: 320px;
+  padding: var(--space-3) var(--space-6);
+  background: var(--color-surface-app);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  transition:
+    border-color var(--motion-duration-fast) var(--motion-easing-standard),
+    background var(--motion-duration-fast) var(--motion-easing-standard);
+}
+.ot-shell__search:focus-within {
+  border-color: var(--color-brand-primary-light);
+  background: var(--color-surface-primary);
+}
+.ot-shell__search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-14);
+  min-width: 0;
+}
+.ot-shell__search input::placeholder {
+  color: var(--color-text-muted);
+}
+.ot-shell__search kbd {
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
 }
 
+/* Icon button — prototype .icon-btn */
+.ot-shell__icon-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  display: inline-grid;
+  place-items: center;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--motion-duration-fast) var(--motion-easing-standard);
+}
+.ot-shell__icon-btn:hover {
+  background: var(--color-row-hover);
+  color: var(--color-text-primary);
+}
+.ot-shell__icon-btn:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Control groups (segmented) ─────────────────────────── */
 .ot-shell__control-group {
   display: inline-flex;
-  gap: var(--space-1);
   padding: 2px;
-  background: var(--color-surface-secondary);
+  gap: 2px;
+  background: var(--color-surface-app);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
 }
 .ot-shell__control-btn {
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-5);
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: calc(var(--radius-md) - 2px);
   font: inherit;
-  font-size: var(--type-small-size);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  transition: background var(--motion-duration-fast) var(--motion-easing-standard);
 }
 .ot-shell__control-btn:hover {
   color: var(--color-text-primary);
@@ -98,41 +188,67 @@
 /* ── Sidebar ───────────────────────────────────────────── */
 .ot-shell__sidebar {
   grid-area: sidebar;
-  background: var(--color-surface-secondary);
-  border-right: 1px solid var(--color-border-default);
-  padding: var(--space-3) 0;
-  overflow-y: auto;
-  z-index: var(--z-sidebar);
-}
-.ot-shell__nav {
+  background: var(--color-surface-primary);
+  padding: var(--space-7) var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: 0 var(--space-2);
+  gap: var(--space-2);
+  /* Sidebar fills the viewport height; nav scrolls if it ever overflows,
+   * user-strip stays pinned to the bottom via the flex spacer. */
+  overflow: hidden;
+  min-height: 0;
+  z-index: var(--z-sidebar);
 }
+
+.ot-shell__nav-section-label {
+  font-size: var(--font-size-11);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  padding: var(--space-6) var(--space-6) var(--space-2);
+}
+
+.ot-shell__nav {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* If nav ever exceeds sidebar height, scroll it — user-strip stays pinned. */
+  overflow-y: auto;
+  min-height: 0;
+}
+
 .ot-shell__nav-item {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  background: transparent;
-  color: var(--color-text-primary);
+  gap: var(--space-6);
+  padding: 9px var(--space-6);
   border: none;
+  background: transparent;
   border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
   font: inherit;
-  font-size: var(--type-body-size);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-14);
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
   text-align: left;
-  width: 100%;
+  transition:
+    background var(--motion-duration-fast) var(--motion-easing-standard),
+    color var(--motion-duration-fast) var(--motion-easing-standard);
 }
 .ot-shell__nav-item:hover {
-  background: var(--color-accent-subtle);
+  background: var(--color-row-hover);
+  color: var(--color-text-primary);
 }
 .ot-shell__nav-item[aria-current='page'] {
-  background: var(--color-accent-subtle);
-  color: var(--color-accent-default);
-  font-weight: var(--font-weight-semibold);
+  background: var(--color-brand-surface);
+  color: var(--color-brand-primary);
+  font-weight: var(--font-weight-medium);
 }
 .ot-shell__nav-item:focus-visible {
   outline: 2px solid var(--color-focus-ring);
@@ -140,17 +256,93 @@
 }
 .ot-shell__nav-icon {
   display: inline-flex;
-  color: var(--color-text-muted);
-  flex: 0 0 20px;
+  flex-shrink: 0;
 }
 .ot-shell__nav-item[aria-current='page'] .ot-shell__nav-icon {
-  color: var(--color-accent-default);
+  color: var(--color-brand-primary);
+}
+
+.ot-shell__sidebar-spacer {
+  flex: 1;
+}
+
+/* User strip (sidebar bottom) — pinned via the flex spacer above. */
+.ot-shell__user-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-5) var(--space-6);
+  border-top: 1px solid var(--color-divider);
+  margin-top: var(--space-4);
+  flex-shrink: 0;
+}
+.ot-shell__user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-brand-primary);
+  color: var(--color-brand-on-primary);
+  display: grid;
+  place-items: center;
+  font-weight: var(--font-weight-semibold);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.ot-shell__user-meta {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.ot-shell__user-name {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+.ot-shell__user-role {
+  font-size: var(--font-size-11);
+  color: var(--color-text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ot-shell__user-logout {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  display: inline-grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.ot-shell__user-logout:hover {
+  background: var(--color-row-hover);
+  color: var(--color-text-primary);
+}
+.ot-shell__user-logout:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 /* ── Main ──────────────────────────────────────────────── */
 .ot-shell__main {
   grid-area: main;
-  overflow: auto;
-  padding: var(--space-7);
+  /* The ONLY scrolling region in the app shell. Sticky elements inside page
+   * content (e.g. `.ot-table thead th`) anchor to this container. */
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* NO top padding. A sticky child anchored at `top: 0` anchors to the
+   * scrollport top, but the container's `padding-top` area is still part of
+   * the scrollport — rows scrolling up are rendered through that band,
+   * visually passing ABOVE the sticky header strip. Keep top padding at 0
+   * here and let the first page element (`.ot-page-header`) carry the top
+   * gutter via its own `padding-top`. Horizontal + bottom padding stay. */
+  padding: 0 var(--space-10) var(--space-9);
   min-width: 0;
+  min-height: 0;
+  position: relative;
+  /* Sticky table headers pin flush to the top of the main scrollport so
+   * scrolling rows never render above them. */
+  --sticky-top-offset: 0px;
 }

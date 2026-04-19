@@ -32,6 +32,98 @@ An M1 implementation review revealed ~49 tracked deltas between `app/src/rendere
 
 **Not a scope reopener:** M1 PRD scope (what features ship when) is unchanged. What changes is **how** they look and behave — they must match the prototype within the 3 allowed deviation gates.
 
+### 2026-04-19: Panel-First Unlock for M1 → M1.25 Saldo (Link + Neo joint decision)
+**By:** Link (Product Manager) + Neo (Lead/Architect), jointly — requested by Pedro
+**Branch:** Reference artifacts in `.squad/decisions/inbox/`
+**Status:** **Awaiting Pedro go/no-go**
+
+**Summary:**
+Shift M1 priority from Movements-centric completion to "Panel first, then Movements" sequence. Saldo defers to M1.25.
+
+**Decision:** Sequence M1 as Panel → Movements, not Movements → Panel.
+
+**Why this sequence:**
+- **Movements** is 70% UI done but conceptually complex (date range, account/category CRUD, state mgmt). Takes 2–3 sprints to wire fully.
+- **Panel** is conceptually simple (no gate, no sort, no filter — just recent-tx table + sparklines + balance totals). Takes 1 sprint to wire.
+- **Panel is the treasurer's UX entry point.** Prototype shows dashboard-first; validate that early.
+- **Panel has no empty-state complexity.** Auto-loads; no date-range gate; no sort persistence. Simplest path to prove the event-sourced core.
+- **Saldo can ship M1.25.** It's a power-user screen (year-over-year drill-down), not the core loop.
+
+**Implications (all agents):**
+
+*For Neo (Architecture / Core):*
+- Event-sourced core validation happens on Panel first (fewer state mutations; simpler read model for balance totals).
+- Movements core wiring follows, exposing account/category mutation edge cases if any.
+- M1 alpha unblocked 3–5 days sooner.
+
+*For Trinity (UI / Implementation):*
+- Panel sprint starts immediately (Niobe's Panel UX spec + prototype reference).
+- Movements full form wiring (account picker, category picker, tag picker) starts in parallel after Panel is wired.
+- Saldo implementation defers — don't allocate to M1 final sprint.
+
+*For Niobe (UX):*
+- Panel UX spec must include prototype reference block.
+- Movements UX spec remains as drafted; timeline shifts right.
+
+*For Morpheus (Core):*
+- Phase 1: finalize `core/query/` interface (Panel-only, read-only). Gate: Vitest 100%.
+- Phase 1b: wire IPC contract for Panel. Gate: IPC round-trip vitest.
+- Phase 2 (parallel or M1+1): command-side Movements wiring.
+
+*For Pedro (Product Lead):*
+- Internal alpha gate now means "Panel + one Movements tx end-to-end" instead of "all three screens complete".
+- Saldo still ships before public release, just not in M1 final.
+- No scope loss; sequence change only.
+
+**Work packages:**
+
+**Phase 1: Panel MVP (1 sprint, unblocks Trinity → Morpheus → Trinity)**
+- 1a. Core query surface (Morpheus, 2–3 days) — `queryRecentMovements(limit, offset)` → sorted DESC by created_at
+- 1b. IPC contract for Panel (Morpheus + Trinity, 1 day) — `app/src/main/ipc/handlers.ts`, Zod schema
+- 1c. Panel UI wiring (Trinity, 3–4 days) — recent-txs table + totals strip, read-only surface
+- 1d. Crypto wiring for Panel reads (Morpheus + Switch, 3–4 days) — DEK load, event decrypt
+
+**Phase 2: Movements full wiring (parallel to Phase 1 end, M1+8–12 days)**
+- 2a. Command-side Movements (Morpheus, ~5 days)
+- 2b. Movements form wiring (Trinity, ~5 days)
+- 2c. IPC + crypto for Movements (Morpheus + Switch, ~3 days)
+
+**Phase 3: Saldo (M1.25, after Panel proves the stack)**
+- Same data layer, different query surface and layout.
+
+**M1 exit criterion redefined:**
+- Account → Tx → **Panel visibility** (not Saldo visibility; Saldo slides to M1.25).
+- Movements structure UI complete; command-side (forms, filters, date selection) lands M1+1.
+
+**Unblocked by this decision:**
+- Niobe can finish Panel UX spec in parallel.
+- Mouse can finalize Panel tokens.
+- Trinity can start Panel UI from prototype immediately.
+- Morpheus can design the `core/query` surface without waiting for command-side complexity.
+
+**Risks & mitigations:**
+| Risk | Mitigation |
+|------|-----------|
+| "Event sourcing doesn't scale to 10k events" | Panel proves it on day 1 with real data. If broken, pivot before Movements wiring lands. |
+| "OneDrive conflict resolution missing" | Intentional. Single-device alpha doesn't need it. M2 adds it. |
+| "Users expect full Movements CRUD on M1" | Scope redefinition documented. Panel + Movements read enough for internal alpha. |
+| "Crypto keychain blocks Panel" | Risk low. Switch reviews crypto; `@napi-rs/keyring` pre-approved. Implement in parallel with UI. |
+
+**Merge sequence:**
+1. `fix/trinity-prototype-parity` → `main` (now) — Sticky-thead polish, low risk.
+2. Create `feat/panel-first-spike` branch (from main) — Morpheus + Trinity collaborative sprint.
+3. Panel lives in main by M1+5 days. Movements full wiring M1+10–12 days (parallel).
+4. Saldo lands M1+14 days (M1.25 gate).
+
+**ADR updates required:**
+- ADR-002 §11 "Electron wiring" — Add checkpoint: "Phase 1 (Panel IPC) gates the main-process impl; Phase 2 (Movements) expands the handler surface. Concurrency & offline-first lands in M2 addendum."
+
+**Why:** De-risk the event-sourced core on the simplest code path (read-only Panel). Unblock internal alpha non-empty. Preserve M1 scope discipline. Let the team prove single-device core before M2 multi-device concurrency.
+
+**Cross-reference:** `.squad/decisions/inbox/link-next-milestone.md` (product rationale) and `.squad/decisions/inbox/neo-next-implementation.md` (architecture + work packages).
+
+**Status update:** Awaiting Pedro go/no-go before spawning Phase 1 sprints (Morpheus + Trinity).
+
 ### 2026-04-19: Trinity — Frontend Wave 1 implementation choices
 **By:** Trinity (Frontend Dev), requested by Pedro
 **Branch:** `feat/trinity-wave-1-impl`
@@ -668,6 +760,133 @@ Conditions (C1–C15) added to ADR-001 §9 "Security Review — Switch", binding
 2. **Alpha dogfooder = Pedro.** Post-M1. Success = ≥1 week real NGO-like data, zero data-loss, sharp edges logged as bugs. Roadmap §1 Internal Alpha + §8 Q2 resolved.
 
 3. **No pending / draft / provisional / future-dated transaction concept.** Product models transactions as **confirmed/settled only**. Transactions come from bank or PayPal statement import (CSV, PRD-006) or manual entry — both paths produce immediately-confirmed records. No status field, no include/exclude-pending toggle, no filter chip, no `tx.approved` event. Applies everywhere: Movements, Saldo, Panel, totals, exports.
+
+### 2026-04-19: Movements table header casing — reversal back to UPPERCASE
+**Author:** Trinity (Frontend)
+**Date:** 2026-04-19
+**Branch:** fix/trinity-prototype-parity
+**Status:** Ratified (Pedro) — supersedes the earlier natural-case experiment
+
+## What happened
+
+An earlier pass on this branch stripped `text-transform: uppercase` +
+`letter-spacing: 0.08em` from `.ot-table thead th` based on a coordinator read
+that the prototype used natural-case headers. That read was wrong. The
+prototype CSS (`prototype/styles.css`, `.tx-table th`, lines 430–441)
+unambiguously specifies:
+
+```
+.tx-table th {
+  font-size: var(--font-xs);            /* 11px */
+  letter-spacing: var(--ls-section);    /* 0.08em */
+  text-transform: uppercase;
+  font-weight: var(--fw-semibold);
+  color: var(--clr-text-muted);
+  background: var(--clr-surface);
+  position: sticky; top: 0; z-index: 1;
+}
+```
+
+Pedro visually confirmed the live prototype renders "FECHA", "CUENTA",
+"OBSERVACIONES" in uppercase. Prototype CSS wins.
+
+## Fix (shipped in this commit)
+
+`app/src/renderer/components/Table/Table.css` — `.ot-table thead th` restored
+to uppercase:
+
+- `font-size: var(--font-size-11)` (11px, matches `--font-xs`)
+- `text-transform: uppercase`
+- `letter-spacing: 0.08em` (matches `--ls-section`)
+- `font-weight: var(--font-weight-semibold)`
+- `color: var(--color-text-muted)`
+- `background: var(--color-surface-primary)` (opaque, so sticky thead never
+  bleeds rows through)
+
+## Lesson
+
+When an agent's decision note flags a prototype discrepancy, trust the
+prototype until the coordinator produces screenshot or CSS evidence to the
+contrary. The prior deviation note on this same file was correct to flag the
+divergence — we should have held on it rather than shipping the change.
+
+## Related
+
+- Sticky thead anchoring pattern now documented in AppShell scroll-isolation decision (below).
+
+### 2026-04-19: AppShell scroll-isolation contract
+**Author:** Trinity (Frontend)
+**Date:** 2026-04-19
+**Branch:** fix/trinity-prototype-parity
+**Status:** Proposed — fundamental layout rule for every screen
+
+## Problem
+
+With a tall Movements table, the whole window was scrolling — topbar and sidebar
+(including the user strip with the admin name) disappeared on scroll. This
+breaks prototype parity and IA expectations: brand, tenant, language/theme
+switch, search, and the logout control must always be on-screen.
+
+## Decision
+
+Only `.ot-shell__main` scrolls. The shell viewport is locked.
+
+```
+body              overflow: hidden;      height: 100%;
+.ot-shell         height: 100vh; overflow: hidden;
+                  display: grid;
+                  grid-template-columns: var(--sidebar-width) 1fr;
+                  grid-template-rows:    var(--topbar-height) 1fr;
+.ot-shell__topbar grid-area: topbar; overflow: hidden;  // spans both columns
+.ot-shell__sidebar grid-area: sidebar; overflow: hidden; min-height: 0;
+                   display: flex; flex-direction: column;
+  .ot-shell__nav          overflow-y: auto; min-height: 0;  // scroll if ever overflows
+  .ot-shell__sidebar-spacer flex: 1;                        // pushes user-strip to bottom
+  .ot-shell__user-strip   flex-shrink: 0;                   // pinned
+.ot-shell__main   grid-area: main; overflow-y: auto; min-width: 0; min-height: 0;
+```
+
+Mirrors the prototype `.shell / .topbar / .sidebar / .main` pattern in
+`prototype/styles.css` (`height: 100vh`, grid rows `60px 1fr`, grid columns
+`240px 1fr`, `.main { overflow: auto; }`).
+
+## Implications for future screens
+
+1. **Never add `overflow: auto` / `overflow: scroll` to a full-page container
+   inside `.ot-shell__main` unless you specifically want a nested scroll
+   region.** Nested scrolls are almost always a bug — the user cannot tell
+   which scroll-wheel target is under the cursor.
+2. **Sticky elements anchor to `.ot-shell__main`.** The Movements table `thead`
+   (`.ot-table thead th`) uses `position: sticky; top: 0` and the column
+   headers stay visible while the user scrolls the transaction list. This also
+   applies to future sticky filter bars, section headers, and table footers
+   (`.ot-table__foot`).
+3. **If a page needs a fixed-height region with its own scroll** (e.g. a split
+   pane, a chat transcript, an audit log drawer), set `min-height: 0` on every
+   ancestor flex/grid item down to that region so the flex algorithm doesn't
+   balloon the outer layout. Preferred pattern: grid with explicit row sizes.
+4. **Modals / drawers must still dim the full viewport.** Because `body` has
+   `overflow: hidden`, overlays should be `position: fixed` with `inset: 0`
+   and a high `z-index` (> `--z-topbar`).
+
+## Related
+
+- `.squad/agents/trinity/history.md` (AppShell grid entries).
+- Sticky table header revert documented above.
+- `prototype/styles.css` lines ~150–290 and line 283 (`.main { overflow: auto; }`)
+  and lines 678–680 (`.main::-webkit-scrollbar`).
+
+### 2026-04-19: Movements — bulk operations is a MUST-HAVE (scope addition)
+**By:** Pedro (via Copilot)
+**What:** Now that row selection works on the Movements table, bulk operations must be treated as a first-class feature. Not present in prototype, but a hard requirement for the product. Expected operations at minimum: bulk categorize, bulk assign subcategory/tags, bulk approve/reject status, bulk delete, bulk export. UI pattern: when ≥1 row is selected, reveal a contextual action bar (floating or pinned) showing count + available bulk actions.
+**Why:** User-driven scope decision — treasury workflows involve reconciling many rows at once; individual-row edits don't scale for NGO/bookkeeping use cases.
+**Status:** Scope accepted. Not implemented in current parity pass. Niobe + Trinity to spec the action bar UX next.
+
+### 2026-04-19: Movements — add a tags/labels filter to the filter bar
+**By:** Pedro (via Copilot)
+**What:** The Movements filter bar must include a filter by tag (Etiquetas). Multi-select — show rows whose `tags` contain any of the selected tags (OR semantics). Not present in prototype; treated as a gap in the prototype, not an app gap. Should slot in alongside type chips / account / category / min-max / uncategorized.
+**Why:** User-driven scope decision — once tags are used in practice (sprint tags, campaign tags, etc.) the filter becomes essential for day-to-day triage.
+**Status:** Scope accepted. Not implemented in current parity pass. Trinity to add after the sticky-header + scroll-isolation fixes land.
    - Pedro's words: *"all transactions are real and confirmed, coming from bank or paypal statements.. not sure what pending means"*.
    - PRD-001 PR9/S5 rewritten (statement-import replaces approval); Q4 closed. PRD-002 PR13 rewritten; Q1 closed. PRD-003 PR11 rewritten; Q2 closed. Roadmap M1 scope + exit criterion + M3 "status workflow polish" + feature-map row all rewritten. PRD-plan §0.1 Assumptions codifies for future PRDs.
    - If co-treasurer dual-signoff is ever wanted, it's a v1.x+ conversation requiring its own PRD.
@@ -723,3 +942,344 @@ Conditions (C1–C15) added to ADR-001 §9 "Security Review — Switch", binding
 **Traceability:** ADR-001 (React+TS stack, C1–C15 cited throughout scaffold comments), ADR-002 (repo structure, §4.1 module boundaries enforced by ESLint rules), ADR-003 (this i18n framework choice), crypto-spec v1.0 (stub crypto module README lists audit rules), roadmap M0 (i18n foundations day-0).
 
 **What the scaffold does NOT include** (intentional): real crypto implementation, OneDrive storage impl, any business logic, read-model / SQLite cache module (added with first feature needing it), and `npm install` was not run.
+
+### 2026-04-19: Morpheus — Movement schema v0.2 (subcategory/tags/status + nullable category)
+**By:** Morpheus (Backend / Data Model), requested by Pedro
+**Branch:** `fix/trinity-prototype-parity`
+**Status:** Decided (applied, commit 56db75f)
+
+**Scope:** Extended renderer contract (`interface Movement`) to match prototype Movements table column set. Supersedes Trinity's earlier gap note (merged into this decision).
+
+**Schema Changes**
+
+The `Movement` type now carries:
+
+```ts
+export type MovementStatus = 'pending' | 'approved' | 'rejected';
+
+export interface Movement {
+  readonly id: string;
+  readonly date: string;
+  readonly type: 'income' | 'expense';
+  readonly amount: number;
+  readonly currency: 'EUR';
+  readonly description: string;
+  readonly account: string;
+  readonly category: string | null;    // null = uncategorised
+  readonly subcategory: string | null;
+  readonly tags: readonly string[];     // multi-label
+  readonly status: MovementStatus;      // review workflow flag
+}
+```
+
+**Rationale per field:**
+- **`category: string | null`** — `null` is canonical "uncategorised" signal; empty strings also treated defensively.
+- **`subcategory: string | null`** — already nullable, confirmed.
+- **`tags: readonly string[]`** — multi-label transactions, matches prototype column. Always an array so renderers avoid null checks.
+- **`status: 'pending' | 'approved' | 'rejected'`** — application-level review workflow (not accounting state). Ledger rows always confirmed at import; `status` is a reviewer flag rendered as colored badge via Mouse's `--color-status-*` tokens.
+
+**Mock Data (v0.2)**
+
+48 rows (Oct 2025 → Apr 2026) with deterministic seeding:
+- `tags` — 0–3 picks from `['urgente','beca-2025','proyecto-a','auditable','recurrente']`, hashed on index.
+- `status` — every 17th row `rejected`, every 7th `pending`, rest `approved` (~80/15/5).
+- `category` — rows at `{4, 12, 27, 41}` forced to `null` for uncategorised filter coverage.
+
+**Null-Safety Guards Added**
+
+Three places in MovementsScreen.tsx (no behavior change):
+1. Sort comparator: `(a.category ?? '')`.
+2. `categoryOptions` dropdown skips `null` rows.
+3. Category cell renders `—` when `category == null` (Trinity's columns pass will split into dedicated columns).
+
+**Backend Implications**
+
+When Movimientos graduates off mocks (PRD-001 PR15, ADR-001 C13), persistence layer mapping:
+
+| Movement field | Journal event | SQLite projection |
+|---|---|---|
+| `category` | `tx.categorised { categoryId \| null }` | `tx.category_id INTEGER NULL` + join to `categories(name)` |
+| `subcategory` | same event, `subcategoryId` | `tx.subcategory_id INTEGER NULL` |
+| `tags` | `tx.tagged { add: string[], remove: string[] }` | `tx_tags(tx_id, tag_id)` M:N + `tags(id, label UNIQUE)` |
+| `status` | `tx.reviewed { status }` | `tx.review_status TEXT NOT NULL DEFAULT 'approved'` |
+
+**Open backend items for next pass:**
+- Tags are a reference_data entity; need unique labels + referential integrity.
+- `status` defaults to `'approved'` for CSV imports; manual entry UX may default to `'pending'` (Niobe/Trinity decision).
+- Soft delete (cloud parity) orthogonal — lives on journal, not Movement type.
+- Audit log (7-year TTL) applies to categorise/tagged/reviewed events like amount/date edits.
+- ULID not UUID for `id` (per crypto-spec §11); mocks still use UUID; swap at IPC seam.
+- Month filter follow-up: parse ISO strings OK for v0.2; when read model lands, expose `month` bucket (`YYYY-MM`) on projection to avoid string slicing.
+
+**Why:** Trinity's columns pass (Trinity-movements-columns-pass, separate decision below) required expanded Movement type to render prototype columns. Backend mapping documented so Neo/storage tier can begin PRD-001 implementation against event-sourced journal.
+
+### 2026-04-19: Trinity — Movements table columns + headers parity pass (ratification needed)
+**By:** Trinity (Frontend Dev), requested by Pedro
+**Branch:** `fix/trinity-prototype-parity`
+**Status:** Delivered + test suite green; two points need team ratification
+
+**Three-Part Pass**
+
+Most mechanical prototype port. All gates green: typecheck, lint (0 warnings), 39 tests, build.
+
+**Part 1: Prototype Columns Implementation**
+- New columns: checkbox (selection-ready), account-pill, subcategory (split from category), tags chips, status badge
+- Removed `max-width: 1440px` from `.ot-movements` — page flexes to container width
+- New globals recipes: `.ot-tag-chip`, `.ot-tag-chip-row`, `.ot-badge--rejected`, `.ot-text-muted`
+- Table primitive header type: `string` → `ReactNode` for render flexibility
+- EN/ES status i18n keys: `common.movement.status.{pending,approved,rejected}`
+
+**Part 2: Table Header Styling — ⚠️ DEVIATION FLAGGED FOR RATIFICATION**
+
+**Applied implementation:** Natural case headers ("Fecha", "Descripción"), no `text-transform: uppercase`, no `letter-spacing`.
+
+**Prototype contract conflict:** `prototype/styles.css:430` still sets `text-transform: uppercase` + `letter-spacing: var(--ls-section)` on `.tx-table th`. Prototype JSX writes natural case but CSS uppercases at render — rendered prototype output is UPPERCASE.
+
+**Per north-star rule** (prototype is visual + interaction contract), this task *deviates* for the table-header recipe:
+- **Ask:** Niobe / Link pick one and update either `prototype/styles.css` or `Table.css` so the two agree
+  - Option A: drop uppercase from `.tx-table th` in prototype (3 lines) → app + prototype aligned
+  - Option B: restore uppercase in `app/src/renderer/components/Table/Table.css` (font-size 11, letter-spacing 0.08em, text-transform uppercase)
+- **Impact:** no other screen uses `.ot-table` today; change is contained. KPI strips, sidebar labels carry own uppercase rules and are unaffected.
+
+**Part 3: Rejected Status Badge — Proxy Token Decision for Mouse**
+
+No `--color-status-rejected-*` tokens exist in Mouse v0.2 (prototype doesn't render rejected rows either). Added `.ot-badge--rejected` in globals using `--color-expense-default` + `--color-expense-bg` as proxy, mirroring pending/approved shape.
+
+**Ask:** Mouse — do you want dedicated `--color-status-rejected` / `--color-status-rejected-bg` tokens in v0.3, or is the expense-palette proxy acceptable? Rejected rows are rare by definition; current shortcut is probably OK, but flagging for clarity.
+
+**Part 4: Page-Level Width**
+
+Removed `max-width: 1440px` cap. Prototype `.main` has no cap; page now flexes to full container width. At very wide viewports (>1920px) the filter bar stretches but chip group / selects stay natural sizes — only the right-side "Limpiar filtros" ghost button floats further right. Acceptable per prototype.
+
+No per-breakpoint cap needed. If 4K+ becomes an issue later, Mouse can add shell-level `max-width` in tokens/globals — not a per-screen one.
+
+**Files Modified**
+
+- MovementsScreen.tsx / .css (header + amount render, density)
+- Table.tsx / .css (headers + new column types)
+- globals.css (prototype recipes, spacing migration)
+- locales/{en,es}/common.json (status i18n keys)
+
+No primitive APIs changed; no token file edits; no prototype edits.
+
+**Build Status**
+
+| Gate | Result |
+|------|--------|
+| typecheck | ✅ |
+| lint | ✅ 0 warnings |
+| test | ✅ 39/39 |
+| build | ✅ (34.92 kB CSS, 245.85 kB JS) |
+
+**Why:** Movements table is the final UI screen needing prototype parity before M1 entry. Flagging two ratification points explicitly so design + product can resolve the header-casing and token-scope questions before this ships.
+
+### 2026-04-19: Pending-tone ratification + Inter font self-hosted (via Copilot)
+**By:** Pedro (perocha) — decisions captured by Scribe on behalf of Trinity font fix + Copilot directive
+**Branch:** `fix/trinity-prototype-parity`
+**Status:** Decided (applied)
+
+**1. Pending-tone ratification into tokens v0.2**
+
+Pending tone from the prototype (`#e65100` on `#fff3e0`) is ratified into tokens v0.2. The prior v0.1 design-system policy of "no pending tone anywhere" is formally reversed. Per the new north-star rule (prototype wins over design system), the prototype's pending badge is authoritative. No separate Link sign-off required — Pedro is the sole product reviewer for solo-dev phase.
+
+**Impact:** Unblocks tokens-v0.2 merge path + any Movements row status work (status badge now has color design).
+
+**2. Inter font self-hosted via @fontsource/inter**
+
+**Problem:** Arrow glyphs (↑/↓) rendering too light. Root cause: Google Fonts CDN @import failing in Electron, falling back to system fonts with thinner strokes.
+
+**Solution applied:** Bundled Inter via `@fontsource/inter`, per-weight imports in main.tsx (400, 500, 600, 700), CDN @import removed from tokens.css.
+
+**Outcome:** Pedro confirmed visually — arrows much bolder, font rendering consistent across system.
+
+**Why:** Electron doesn't load external CDN reliably; self-hosting resolves the issue. Font is now bundled as Vite asset and loads offline consistently.
+
+### 2026-04-19: Table header capitalization + sticky-header clipping fix (CSS polish)
+**By:** Trinity (Frontend Dev)
+**Branch:** `fix/trinity-prototype-parity`
+**Commit:** 2508ba0
+**Status:** Delivered ✅
+
+**Problem 1: Inconsistent header capitalization**
+
+After Movements table columns parity pass, table headers were inconsistent:
+- `tags` column (non-sortable): rendered UPPERCASE via `.ot-table th { text-transform: uppercase; }`
+- Other columns (sortable): rendered natural case because `.ot-table__sort-btn` (button element) had UA default `text-transform: none`, overriding the inherited rule
+
+**Fix:** `.ot-table__sort-btn` now inherits both `text-transform` and `letter-spacing` from parent `th`:
+```css
+.ot-table__sort-btn {
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+```
+
+**Problem 2: Sticky table header clipped off-screen on scroll**
+
+Pedro reported table headers disappeared when scrolling past the Movimientos table height.
+
+**Root cause:** `.ot-table-wrap { overflow: hidden }` establishes a **scroll containing block**, which traps `position: sticky` descendants inside its boundary. When the wrap scrolls off-screen in `.ot-shell__main`, the sticky thead goes with it.
+
+**Fix:** Changed `.ot-table-wrap` from `overflow: hidden` to `overflow: clip`:
+- `overflow: clip` still visually clips children → rounded corners preserved
+- `overflow: clip` does **NOT** create a scroll container → `position: sticky` escapes to the nearest scrolling ancestor (`.ot-shell__main`), so headers stay pinned as intended
+- Electron/Chromium fully supports `overflow: clip`
+
+**Durable Rule:**
+
+When a wrapper element needs rounded-corner clipping **AND** contains a `position: sticky` descendant that must anchor to an outer scroll container, use `overflow: clip` (not `overflow: hidden`). Document in CSS so future devs don't "optimize" it back.
+
+**Scope:** `app/src/renderer/components/Table/Table.css` only (2 edits)
+
+**Impact:** Table now renders with consistent header capitalization and sticky headers remain visible during scroll.
+
+**Test Status:** ✅ 39/39 tests pass, lint 0 warnings, build green
+
+### 2026-04-19: .ot-shell__main carries NO top padding — sticky scroll isolation
+**By:** Trinity (Frontend Dev)
+**Date:** 2026-04-19
+**Branch:** ix/trinity-prototype-parity
+**Commit:** 662de83
+**Status:** Delivered ✅
+
+**Problem:** Rows rendering above the sticky <thead> when scrolling the Movimientos table. User (Pedro) reported transactions "pass behind the header to the top of the screen."
+
+**Root cause:** .ot-shell__main had padding: var(--space-9) var(--space-10). The padding-top area (~48 px) is part of the scrollport. Sticky 	op: 0 anchors to the scrollport top — but scrolled content can be painted through the padding band, so rows pass over and above the pinned thead strip.
+
+**Decision:**
+
+1. .ot-shell__main keeps its **horizontal** and **bottom** gutter but **its padding-top is 0**:
+   `css
+   padding: 0 var(--space-10) var(--space-9);
+   `
+
+2. The top gutter moves onto .ot-page-header (the first in-flow child on every screen — Panel, Movimientos, Saldo):
+   `css
+   .ot-page-header { padding-top: var(--space-9); }
+   `
+
+**Contract:** Every future screen MUST start with a first-child element that owns the top gutter. If a new screen uses a different top element, it must carry padding-top: var(--space-9) or equivalent, otherwise it renders flush against the topbar. Sticky strips inside .ot-shell__main may rely on the scrollport top being unpadded — do not reintroduce padding-top on .ot-shell__main.
+
+**Files changed:**
+- pp/src/renderer/screens/AppShell/AppShell.css — .ot-shell__main padding
+- pp/src/renderer/styles/globals.css — .ot-page-header padding-top
+
+**Verification:** ✅ typecheck · ✅ lint (0 warnings) · ✅ 39/39 tests · ✅ vite build.
+
+**Related:** .squad/skills/css-sticky-patterns/SKILL.md gotcha #3 (padded scroll container leaves gap above sticky).
+
+
+### 2026-04-19: Sticky mask bands must cover the wrapper's side borders (mask-band polish)
+**By:** Trinity (Frontend)
+**Branch:** `fix/trinity-prototype-parity`
+**Commits:** `1de5dc7` (mask band introduced), `1350d95` (side-border polish)
+**Status:** Delivered ✅
+**Related:** `.squad/skills/css-sticky-patterns/SKILL.md` §4; session log `.squad/log/20260419T145000Z-trinity-mask-band-side-borders.md`; prior inbox notes `trinity-table-sticky-clip.md` and `trinity-sticky-padding-gap.md`.
+
+**Problem**
+The 28 px `--sticky-top-offset` mask band (`.ot-table thead th::before`) introduced in 1de5dc7 showed 1 px vertical hairlines on each side while scrolled. Band color correct; edges not seamless.
+
+**Root cause**
+The mask pseudo is anchored to the `<th>` (`left: 0; right: 0`), so horizontally it spans only the th's interior — inside `.ot-table-wrap`'s padding edge. `.ot-table-wrap` has `border: 1px solid` + `overflow: clip`. Once the wrap's top has scrolled out of view, its left/right borders keep rendering full-height across the 0..28 px pin band, flanking the mask. Pseudo-elements do **not** inherit `border` from the host, so the hairlines weren't from the pseudo — they were the wrap's own card-frame borders showing through the sides of the mask's horizontal extent.
+
+**Decision (hybrid fix)**
+When a sticky mask band lives inside a bordered wrapper:
+
+1. **Extend the mask horizontally past the wrapper's side borders.** Use first/last-child negative offsets on the pseudo (`left: -1px` / `right: -1px` matching the wrap's border width).
+2. **Pair with `overflow-clip-margin` on the wrap** equal to the border width, so `overflow: clip` permits the mask to paint that 1 px outside the padding edge. Without this, the negative offsets are clipped away.
+3. **Declare `border: 0` on the mask pseudo** as a defensive no-op. Pseudos default to no border, but declaring it documents intent and guards against future cascade leaks (e.g. a utility that globally sets `border` on `::before`).
+4. **Verify the mask is visually absent at scroll=0.** The pseudo sits above the wrap's padding box at rest; `overflow: clip` (within the clip-margin tolerance) hides it until the sticky element actually pins. Do not rely on visibility toggles or JS — structural clipping is the correct mechanism.
+
+**Implementation reference** — `app/src/renderer/components/Table/Table.css`:
+
+```css
+.ot-table-wrap {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  overflow: clip;
+  overflow-clip-margin: 1px;
+}
+
+.ot-table thead th::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--sticky-top-offset, 0);
+  background: var(--color-surface-app);
+  border: 0;
+  pointer-events: none;
+}
+.ot-table thead th:first-child::before { left: -1px; }
+.ot-table thead th:last-child::before  { right: -1px; }
+```
+
+**Scope**
+Applies anywhere a sticky mask band pattern is used inside a bordered card/wrapper. Today: only `.ot-table thead th::before`. If future screens repeat the pattern (e.g. sticky section headers inside bordered panels), apply the same three rules. Documented as gotcha §4 in `.squad/skills/css-sticky-patterns/SKILL.md`.
+
+**Files changed**
+- `app/src/renderer/components/Table/Table.css`
+- `.squad/skills/css-sticky-patterns/SKILL.md` (§4)
+- `.squad/agents/trinity/history.md`
+
+**Gates:** ✅ typecheck · ✅ lint (0 warnings) · ✅ 39/39 tests · ✅ vite build.
+
+**Open questions:** none. `overflow-clip-margin` ships in Chromium 90 (2021); current Electron is well past that baseline.
+
+---
+
+## 2026-04-19: Sticky-thead top border + rounded corners (Commit 38038a9)
+
+**By:** Trinity (Component Agent) + Scribe (Session Lead)  
+**Branch:** ix/trinity-prototype-parity  
+**Scope:** pp/src/renderer/components/Table/Table.css  
+**Status:** ✅ Merged (gates all green)
+
+After shipping the mask-band side-border fix (1350d95, gotcha #4), two CSS polish items remained on the Movements table card:
+
+1. **At rest:** the wrap's 1px top border erased by mask pseudo bleed on block axis
+2. **When stuck:** rounded top corners lost (overflow:clip doesn't trap sticky)
+
+### Decision 1: Use overflow-clip-margin-inline: 1px
+
+Constrains clip bleed to horizontal axis only. Keeps side-border bleed fix while restoring zero bleed on block axis. The mask pseudo's bottom 1px no longer paints over the wrap's top border.
+
+`css
+.ot-table-wrap {
+  overflow: clip;
+  overflow-clip-margin-inline: 1px; /* NOT overflow-clip-margin: 1px */
+}
+`
+
+**Rationale:** Per-axis longhands supported in Chromium 122+; Electron 41 is on ~Chromium 134.
+
+### Decision 2: Unconditional inner-radius on first/last th cells
+
+The thead's first and last cells inherit the wrap's inner radius (calc(var(--radius-lg) - 1px)). At rest this is a no-op (th geometry already matches wrap's inner curve). When thead sticks and wrap scrolls, those corners become the visible pinned top edge, preserving card silhouette.
+
+`css
+.ot-table thead th:first-child {
+  border-top-left-radius: calc(var(--radius-lg) - 1px);
+}
+.ot-table thead th:last-child {
+  border-top-right-radius: calc(var(--radius-lg) - 1px);
+}
+`
+
+**Rejected:** scroll-driven .is-stuck class (adds runtime state), radius on <thead> (browser inconsistency), radius on mask ::before (sits above th, can't provide corners).
+
+### Skill Updates
+
+Added to .squad/skills/css-sticky-patterns/SKILL.md:
+
+- **Gotcha #5:** overflow-clip-margin bleed is axis-scoped for a reason — watch for masks anchored at ottom: 100% of sticky elements inside bordered wraps
+- **Gotcha #6:** Sticky elements inside overflow: clip wraps escape the radius — match the wrap's inner radius on sticky element corners (no-op at rest, preserves silhouette when stuck)
+
+### Quality Gates
+✅ Typecheck · Lint (0-warn) · Test (39/39) · Build
+
+### Commit Info
+- Author: perocha <pedrojrocha@outlook.com>
+- Date: 2026-04-19T16:46:21+0200
+- Files: Table.css (+28, -5), SKILL.md (+127, -0)

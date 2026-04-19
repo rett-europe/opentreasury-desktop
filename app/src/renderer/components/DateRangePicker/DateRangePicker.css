@@ -1,17 +1,17 @@
 .ot-daterange {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-7);
 }
 
 .ot-daterange__presets {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-4);
 }
 
 .ot-daterange__preset {
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-4) var(--space-7);
   background: var(--color-surface-primary);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-default);
@@ -43,7 +43,7 @@
 .ot-daterange__custom {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: var(--space-7);
   align-items: flex-end;
 }
 .ot-daterange__custom > * {
@@ -55,7 +55,7 @@
 
 .ot-daterange__native {
   height: 36px;
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-6);
   font-family: inherit;
   font-size: var(--type-body-size);
   color: var(--color-text-primary);
@@ -73,7 +73,7 @@
 .ot-daterange__field-label {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 .ot-daterange__field-label > span {
   font-size: var(--type-small-size);
@@ -90,8 +90,8 @@
 .ot-daterange__pill {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-6);
   background: var(--color-accent-subtle);
   color: var(--color-text-primary);
   border: 1px solid transparent;
@@ -103,7 +103,7 @@
   background: transparent;
   border: none;
   padding: 0;
-  margin-left: var(--space-1);
+  margin-left: var(--space-2);
   color: inherit;
   display: inline-flex;
   align-items: center;

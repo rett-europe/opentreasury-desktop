@@ -157,3 +157,129 @@ Co-authored `docs/product/prototype-fidelity-audit.md` with Link after Pedro cal
 
 **Rule of thumb:** If a spawn prompt for frontend work does not cite a `prototype/*` file, the prompt is incomplete.
 
+## 2026-04-19: Trinity sticky-thead polish done. What's next on architecture?
+
+**Branch status:** `fix/trinity-prototype-parity` (ddf8d46) is **ready to merge to main**.
+- 11 commits on top of `main` (4bba603 mouse tokens v0.2 + prior design/crypto work).
+- All gates green: typecheck ✓, lint ✓, format ✓, vitest 39/39 ✓.
+- No uncommitted changes (except Link's history update — that lands in the next Scribe coordination).
+- PR template compliance: has before/after screenshots vs prototype, documents the sticky-thead implementation (CSS structural, not JS), prototype-parity checkbox checked.
+- Scope is **tight and clean**: Table `.ot-table__head { position: sticky; top: <calculated>; }` + shell `.ot-shell__main-gutter` spacing fix. Zero scope creep, zero payload bloat.
+
+**Merge recommendation:** YES. Land `fix/trinity-prototype-parity` → `main` immediately (sequence after Link's decision doc on Panel-first unlock, but do not gate on it). This is Polish, not new feature — fast track it. It unblocks the renderer for next-phase work and teaches the team the sticky scroll patterns for future screens.
+
+---
+
+## Next architectural milestone — choosing the implementation path
+
+**Current state snapshot:**
+- **Renderer (Wave 1):** Movements UI ~70% complete (table structure ✓, sort ✓, empty-state logic ✓, mock data ✓, i18n ✓). Shell + theme + Panel/Saldo skeletons ✓.
+- **Core/Crypto/Storage:** Scaffolded, type-complete, zero impl yet. All layer boundaries enforced by TS + ESLint. ADR-001, ADR-002, ADR-003 conditions lock the architecture.
+- **Main process:** Scaffolded, CSP + window hardening (C7) in place, IPC schema validation ready (C13), Zod for contracts ready.
+- **Data**: 100% mock. No OneDrive. No crypto. No real event sourcing. Movements mock returns 48 sample txs on a 200ms delay.
+
+**The fork (Link raised the question; I'll answer the architecture side):**
+
+**Option A: Complete Movements (core M1 path)**
+- Ship full Movements UI wiring: date-range selection → mock/real data, account/category CRUD, tag picker, two-way binding to `core/commands`.
+- Risk: Highest complexity jump (IPC + event sourcing + read-model query surface all come online at once). If the core/IPC contract leaks, we find it in the hardest screen.
+- Payoff: Treasurer can record a full transaction end-to-end. That's the M1 deliverable. **Confirms the event-sourcing contract before we do multi-device merge in M2.**
+- Timeline: ~2–3 sprint cycles (Morpheus core wiring + Trinity full UI binding + Morpheus IPC handlers).
+- **Blocker tension:** Movements has no empty-state escape hatch — if the core/IPC call fails, the user sees ERROR. That's honest but harsh for an internal alpha.
+
+**Option B: "Panel-first" unlock (user-perceived value accelerator)**
+- Finish **Panel first** (simple: no filters, no sort, no empty-state gate, just recent-txs + sparklines + totals).
+- Skip Saldo temporarily (it's lower-touch once Panel is done; pure M1.25 lift).
+- **Why Panel first:** Prototype Panel is cleaner code (fewer columns), Panel has **no empty-state gate** (renders even with 0 txs), and Panel *signals* "this works" faster to non-technical treasurers than Movements (which requires date selection ritual).
+- Payoff: Internal alpha unblocks earlier. Event-sourcing proof-of-concept on the simpler screen = lower friction for the team to dogfood. Movements gets full wiring while Panel is live, de-risking both.
+- Timeline: ~1 sprint (Panel UI structure ~3 days, event-core wiring ~2 days, parallel Movements full binding).
+- **Blocker tension:** None — Panel can stay "read-only" (no transaction entry CTA) until Movements is wired. That's intentional scope splitting.
+
+**Option C: Both in parallel (high-touch, lower velocity)**
+- Trinity splits time between Movements + Panel structure work. Morpheus spins up both command-side codegen. Collision risk on event-core IPC design.
+- **Not recommended:** Trinity is the bottleneck for UI structure. Movements + Panel can each own a sprint if split sequentially; parallel = context thrash.
+
+---
+
+## My recommendation: **Option B — Panel-first unlock into M1.25 for Saldo**
+
+**Reasoning (architectural):**
+
+1. **Validates the data layer on the simplest screen first.**
+   - Panel has no interactivity → no user input validation → no Zod validation surprises.
+   - Recent-txs table + totals summation = minimal read-model demand (exercise `core/query` without the complexity of `core/commands`).
+   - Once Panel renders from *real* encrypted events, we know: (a) `storage/onedrive-folder.ts` can read; (b) `crypto/envelope.ts` decrypt works; (c) `core/query` projects correctly; (d) IPC payload contract is sound. **All in one sweep on the simplest code path.**
+
+2. **Unblocks the internal alpha on a non-empty screen.**
+   - Movements requires the user to pick a date range or see emptiness — that's a ritual burden.
+   - Panel renders a "welcome to your treasury" summary even on day 1. Volunteers can open the app, see their balance, see the last 10 txs, and think "this actually works."
+   - Earlier dogfood = earlier friction signals about the event core before we lock M2 multi-device design.
+
+3. **Protects scope on M1 exit criteria.**
+   - Core loop redefined (shorter, tighter): Create Account → Enter Tx → **See on Panel** → *See details on Movements (M1+1).*
+   - Saldo is explicitly M1.25 — it ships within days of Panel but does not block alpha.
+   - The critical path is "account + tx + visibility", not "account + tx + three views."
+
+4. **Technical readiness check:**
+   - All crypto/storage/core modules are scaffolded and TS-clean.
+   - Trinity can hand off "recent 10 txs in DESC order" to Morpheus and focus on Panel layout (sparklines, totals rendering, responsive structure).
+   - No new module category or IPC handler class emerges — same contract as Movements, just simpler query surface.
+
+5. **Preserves velocity for M2 multi-device work.**
+   - We ship internal alpha at M1+5 days (Panel lives, Movements full wiring in parallel).
+   - M2 multi-device concurrency story (conflict resolution, OneDrive folder state watching, device enrollment retry + audit escrow signing) lands in a fresher context because the team has already proven the single-device core on Panel.
+   - Rushing both Movements + Saldo into M1 = exhausted team entering M2 concurrency work. Bad timing.
+
+---
+
+## Specific architectural work packages (if Panel-first is chosen):
+
+### 1. **Core query surface for Panel** (~Morpheus 1 sprint, unblocks Trinity)
+   - Finalize `core/query/` interface: `queryRecentMovements(limit, offset)` → paginated sorted list.
+   - Implement `core/reducers/read-model.ts`: fold event stream into a "recent txs by created_at DESC".
+   - **No command-side work yet** — Panel is read-only. That's intentional.
+   - Gate: TS typecheck, vitest 100% (no integration yet; fixtures are in-memory).
+
+### 2. **IPC contract for Panel data fetch** (~Morpheus + Trinity, coordinated)
+   - Wire `app/src/main/ipc/handlers.ts`: `queryMovements(range)` handler calls `core/query`.
+   - Preload bridge: `window.api.queryMovements(opts)` exposes the handler.
+   - Zod schema for request + response in `app/src/shared/ipc-schemas.ts`.
+   - Gate: Vitest IPC round-trip test + ESLint import boundaries.
+
+### 3. **Panel UI wiring** (~Trinity 3–4 days)
+   - Replace `<ComingSoonScreen />` with real Panel.tsx (prototype screenshot is the north star).
+   - Dispatch `queryMovements()` on mount → setState(loading=true).
+   - Render recent-txs table from result. Sparklines can stay as visual placeholders (CSS gradients) until `core/reducers` produces the monthly summary.
+   - **No input handling, no forms** — read-only surface.
+   - Gate: Vitest snapshot + responsive layout; before/after screenshot vs prototype.
+
+### 4. **Crypto wiring for Panel** (~Switch 1 day review, Morpheus 2–3 days impl)
+   - Integrate `crypto/envelope.ts` into the `storage/` read path.
+   - Main process loads encrypted event files, calls `crypto.decrypt(buffer, dek, record_type, record_id)` per C1.
+   - Implement the `dek` load-from-keychain path (C4 — `@napi-rs/keyring` adapter in `crypto/keychain.ts`).
+   - Add `core/reducers/` test fixtures with real envelope round-trips.
+   - Gate: Switch reviews the envelope integration; vitest envelope + keychain mocks.
+
+### 5. **Movements full core wiring** (parallel to Panel, lands after Panel is live)
+   - Command dispatch for `tx.created`, account form validation, category picker wiring, two-way binding.
+   - **Timeline:** This lands M1+8–12 days (Panel already live, team de-risked on the data layer).
+
+---
+
+## Loose ends to tighten before Panel sprint:
+
+1. **Finish uncommitted history updates** (Link's panel-first recommendation in `.squad/agents/link/history.md`). This PR must include that context.
+2. **Finalize `core/commands/` signatures for Movements** (Morpheus → Neo). Don't wait for full impl, but the TS shapes must be locked so Trinity knows the IPC surface.
+3. **Update ADR-002 §11 ("Electron wiring")** with a timeline checkpoint. Main process currently scaffolded; Panel IPC path will force the first real main-process impl. Document that in the ADR.
+4. **Add a `docs/specs/PANEL-SPIKE.md`** (Neo) — not a full UX spec, just the query surface + read-model shape (25 lines, codifies what Morpheus needs to deliver).
+
+---
+
+## Merge sequence:
+1. **`fix/trinity-prototype-parity` → `main` (now)** — Polish, low risk, high confidence.
+2. **`fix/mouse-tokens-v0.2` → `main` (coordinated with Link's panel-first decision)** — Already on `main`, confirms tokens are prototype-parity locked.
+3. **Create `feat/panel-first-spike` branch** (from `main` after 1–2 land) — Core + IPC + Panel + crypto wiring, ~1.5 sprints.
+4. **Movements full wiring follows in parallel or after Panel lives.**
+
+This path ships internal alpha at M1+5 days, proves the event core on the simplest surface, and keeps M2 multi-device work fresh.
+

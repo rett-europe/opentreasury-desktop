@@ -56,3 +56,36 @@ Wave 1 UX COMPLETE - all 6 specs Draft v0.1. Implementation specs/tickets can an
 ### 2026-04-19: Cross-agent update from Scribe
 Trinity defined `Movement` type at `app/src/renderer/types/movement.ts`. When implementing the real storage layer, align the read-side projection to this shape or deliberately evolve it and coordinate with Trinity.
 
+
+### 2026-04-19: Movement schema v0.2 (subcategory already existed; added tags/status + nullable category)
+Task from Pedro on `fix/trinity-prototype-parity`: expand Trinity's `Movement` contract so the prototype's Movements table can render Subcategoría / Etiquetas / Estado and the "solo sin categorizar" filter actually filters.
+
+## 2026-04-19 — Data gap flagged (Scribe note)
+**Account-color rendering gap identified (fix/trinity-prototype-parity):**
+All accounts currently render in the same color. The prototype and the Movements table need per-account color tokens or a `color` field in the Movement schema (or Accounts schema) so treasurers can visually distinguish transactions by account. Propose adding to the real backend schema design phase (M1 follow-up). Related to Mouse's outstanding "Account colour palette" token follow-up.
+
+**New shape** (`app/src/renderer/types/movement.ts`):
+- `category: string` → `category: string | null` (`null` = uncategorised).
+- `tags: readonly string[]` — always an array, possibly empty.
+- `status: 'pending' | 'approved' | 'rejected'` + exported `MovementStatus` type. Explicitly documented as an **application-level review flag**, NOT ledger state — the team decision of 2026-04-19 (no pending transactions at the data layer) still holds.
+- `subcategory` unchanged (already `string | null`).
+
+**Mock seed** (`app/src/renderer/mocks/movements.ts`):
+- Kept the 48 hand-written SEED rows (Oct-2025 → Apr-2026) intact.
+- Derived the v0.2 fields deterministically by row index to keep snapshots stable:
+  - `tags`: 0-3 picks from `['urgente','beca-2025','proyecto-a','auditable','recurrente']`.
+  - `status`: every 17th row `rejected`, every 7th `pending`, rest `approved` (~80/15/5).
+  - `category`: indices `{4, 12, 27, 41}` forced to `null` (4 uncategorised rows for the filter).
+- `Seed` type now excludes `tags` / `status` (projected in) but still accepts nullable `category`.
+
+**Guards added in `MovementsScreen.tsx`** (minimal, strict-TS only — NO UI behaviour change; Trinity owns the prototype-parity columns pass):
+- Sort comparator: `(a.category ?? '').localeCompare(b.category ?? '')`.
+- `categoryOptions` skips `null` when building the dropdown Set.
+- Category cell renders `—` when `category == null`.
+- Removed the old `TODO` at the `uncategorizedOnly` filter — it now works against real data.
+
+**Verification:** `npm run typecheck` ✓ · `npm run lint` ✓ (max-warnings 0) · `npm test` ✓ (39/39) · `npm run build` ✓.
+
+**Decision doc:** `.squad/decisions/inbox/morpheus-movement-v0.2-schema.md` — includes the real-backend mapping (events → SQLite projection columns, `tx_tags` M:N, review_status default, ULID vs UUID, audit log surface, `month` bucket follow-up). Trinity's superseded gap note removed.
+
+**Commit:** `feat(movements): expand Movement schema with subcategory/tags/status/nullable category (Morpheus)` on `fix/trinity-prototype-parity`.

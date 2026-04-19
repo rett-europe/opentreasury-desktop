@@ -5,13 +5,13 @@
   box-shadow: var(--shadow-card);
 }
 .ot-card--pad-sm {
-  padding: var(--space-3);
+  padding: var(--space-6);
 }
 .ot-card--pad-md {
-  padding: var(--space-5);
+  padding: var(--space-8);
 }
 .ot-card--pad-lg {
-  padding: var(--space-6);
+  padding: var(--space-9);
 }
 .ot-card--flat {
   box-shadow: var(--shadow-none);
