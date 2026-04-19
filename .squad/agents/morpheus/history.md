@@ -276,3 +276,60 @@ All accounts currently render in the same color. The prototype and the Movements
 - Single npm command (`dev:electron`) can orchestrate renderer + main + preload builds + Electron launch
 - Preload console.log is valuable for debugging — confirms bridge actually loads
 - ADR-001 C7 (Electron hardening) still enforced: contextIsolation, no nodeIntegration, sandbox enabled
+
+## 2026-04-19 — WI-11: createTransaction command + TransactionCreated event + reducer wiring
+
+**Scope (strict):** Pure-domain slice only. No IPC (WI-12), no UI (WI-13), no storage/event-log (WI-4' — running in parallel).
+
+**Schema locked (cloud-mirror, per docs/schemas/cloud-reference-notes.md):**
+- mount: number is ALWAYS **positive**.
+- Sign is carried by 	ype: 'income' | 'expense' (enum).
+- Mirrors cloud 	ransactions.amount (Decimal > 0) + 	ransaction_type.
+- NOT a signed amount, NOT credit/debit split. Don't re-open this.
+- Event payload fields (id, date, 	ype, mount, currency, description, ccountId, categoryId, subcategoryId, 	agIds, status, createdAt) match 	ransactionCreatedPayloadSchema in `app/src/core/events/schemas.ts` verbatim — WI-1 had already locked it.
+- Task brief's counterparty? and simple category? string: **NOT added**. Schema uses categoryId ULID (cloud-aligned); counterparty deferred to a future WI (cloud has `counterparty_name`/`counterparty_reference` — not in M1.5 scope).
+
+**Files added:**
+- `app/src/core/commands/createTransaction.ts` — pure command function, returns `Result<TransactionCreatedEvent, ValidationError>`.
+- `app/src/core/commands/index.ts` — module barrel.
+- `app/src/core/commands/createTransaction.test.ts` — 12 tests (happy path, all validation codes, determinism).
+- `app/src/core/query/reducers.test.ts` — 2 multi-event reducer tests (3 tx projection, out-of-order createdAt).
+
+**Files modified:**
+- `app/src/core/index.ts` — re-exports commands.
+
+**Files NOT touched (other WIs own them):**
+- `app/src/core/eventLog/` (WI-4')
+- `app/src/core/events/schemas.ts` (WI-1, already has `tx.created` event)
+- `app/src/core/query/reducers.ts` (already handles `tx.created` — the existing projection satisfies WI-11's requirements)
+- `app/src/main/ipc/handlers.ts` (WI-12)
+- All renderer (WI-13)
+
+**Validation rules (enum `ValidationErrorCode`):**
+- `TYPE_INVALID` — type must be `'income'` or `'expense'`
+- `AMOUNT_NON_POSITIVE` — amount must be finite and > 0 (0, negatives, NaN, Infinity all rejected)
+- `CURRENCY_EMPTY` — currency must be non-empty string after trim
+- `DESCRIPTION_EMPTY` — description must be non-empty after trim
+- `DATE_INVALID` — must match `YYYY-MM-DD` AND be a real calendar date (Feb 31 rejected via round-trip parse)
+- `ACCOUNT_NOT_FOUND` — `accountId` must exist in the injected `readModel.accounts`
+
+**Command signature:**
+`createTransaction(input: CreateTransactionInput, deps: { now, newId, readModel, datasetId, actorDeviceId, dekVersion? }): Result<TransactionCreatedEvent, ValidationError>`
+
+`newId` is called twice per invocation — once for the event envelope `id`, once for `payload.id` (transactionId). Both are ULIDs. Caller injects deterministic `now` + `newId` in tests.
+
+**Reducer note:** `applyEvent` in `app/src/core/query/reducers.ts` already handled `tx.created` from WI-1. The existing read model does NOT materialize `recentMovements`, `monthKPIs`, or `accounts[id].balance` as stored fields — they're computed by `queryRecentTransactions`, `getMonthKPIs`, and `getAccountBalances` on demand against `model.transactions`. Per the task's `check — if not, skip` clause, I added NO new reducer fields and instead wrote an integration-style reducer test that produces events via the real command, applies them through the reducer, and asserts the three query surfaces return the right projection (sort order, month bucketing, account aggregation).
+
+**Verification:**
+- `npx vitest run app/src/core/commands app/src/core/query` — 15/15 green (12 + 2 + 1).
+- `npm test` — 66/66 green (no regressions).
+- `npx tsc -p app/src/core/tsconfig.json` — clean for WI-11 files. Pre-existing errors in `app/src/core/eventLog/JsonFileEventLog.ts` (4, from WI-4') are the parallel-instance's scope; not touched.
+
+**Commit:** feat(core): WI-11 createTransaction command + TransactionCreated event + reducers
+
+**Key learnings for future commands:**
+- `exactOptionalPropertyTypes` + `verbatimModuleSyntax` mean: use `import type` for types; `?? null` only when the schema infers `| null` (not when it's truly optional). Nullables propagate.
+- `z.array(z.string())` infers `string[]` (mutable), but `readonly string[]` inputs need `[...input.tagIds]` when writing into the event payload — zod-inferred types aren't `readonly`.
+- Test files MUST be `*.test.ts` (vitest config `include`), NOT `*.spec.ts` — task brief used `.spec.ts` but the repo convention wins. Documenting so no one else trips.
+- Validation ordering matters: type → amount → currency → description → date format → account existence. Cheapest checks first; account lookup last (it's O(n) in accounts).
+- Calendar-date validation via regex + round-trip ISO parse: `new Date('2026-02-31T00:00:00Z').toISOString().slice(0,10)` yields `'2026-03-03'` ≠ original, so we reject. The regex alone is insufficient.
