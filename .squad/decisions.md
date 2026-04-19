@@ -2,6 +2,67 @@
 
 ## Active Decisions
 
+### 2026-04-19: Switch — Crypto Error Copy Catalog v1.0 ratified; Wave 1 UX unblocked
+**By:** Switch (Security Engineer, final say), requested by Pedro
+**Branch:** `feat/crypto-error-copy-ratification`
+
+**New artifact:**
+- `docs/security/crypto-error-copy-catalog.md` v1.0 — authoritative catalog of user-facing strings (ES + EN) for every crypto-, trust-, and integrity-related failure in v1. 9 scenarios:
+  - **CE-001** — Treasury can't be verified (escrow missing / bad signature / unknown admin / structural invalid) — BLOCKING, surfaces at UX-001 E4
+  - **CE-002** — Device enrollment pending — not an error (calm-informational), surfaces at UX-002 `requester.pending` / `stuck-no-admin`
+  - **CE-002b** — Enrollment rejected — requester-side neutral, admin-side elevated audit entry (+ soft rotation prompt on 2nd rejection in session), surfaces at UX-002 `requester.rejected`
+  - **CE-003** — Single-row decrypt failure on Movements — row-level footnote + totals-strip aggregate (UX-003 E5/Q9)
+  - **CE-004** — Saldo partial-decrypt banner (UX-004 E9/Q10)
+  - **CE-005** — Panel partial-decrypt banner (UX-005 E6/Q8)
+  - **CE-006** — Audit log chain break — BLOCKING, app-level lockout
+  - **CE-007** — Audit entry bad signature — BLOCKING, merged with CE-006 in UI (distinct in diagnostic bundle) per P1
+  - **CE-008** — Device revoked mid-session — treasury-level banner, writes disabled, reads continue (AR2)
+  - **CE-009** — Update payload signature invalid — in-app dialog, update aborted, session unaffected (R13.1 enforcement)
+
+**Five normative principles locked in §0:**
+1. Actionable to volunteers, opaque to attackers — never reveal which crypto layer failed.
+2. No filenames/IDs/fingerprints/algorithm-names in UI; those go to the user-exportable diagnostic bundle only.
+3. Partial failure gets partial messaging (row < view < app-wide).
+4. Integrity-class errors are BLOCKING — no "continue anyway" on CE-001, CE-006, CE-007, CE-009.
+5. Treasurer-first tone; Spanish primary (Rett Spain pilot) + English equivalent register.
+
+**UX-001 Q7 (CE-001 copy) — RATIFIED with ADJUSTMENT.** Niobe's proposed copy *"La firma de esta tesorería no coincide con un administrador conocido…"* was adjusted because it leaked both the failing layer (signature) AND the identity concept (known admin). Ratified copy is opaque about mechanism: *"No podemos verificar esta tesorería. Esta carpeta contiene una tesorería, pero no podemos confirmar que esté intacta. Puede haberse dañado al copiarse, o haberse alterado. No continúes. Contacta a quien administra esta tesorería."*
+
+**UX-002 Q1 (enrollment code alphabet + grouping) — RATIFIED with correction.**
+- Alphabet: Crockford base32 (already excludes I/L/O/U) minus `0` and `1` → **30 characters** (`ABCDEFGHJKMNPQRSTVWXYZ23456789`). Niobe said "26" — math correction; intent preserved.
+- Grouping: **`XXX-XXX` (3-3)** ratified. Rationale: 2 chunks of 3 matches phone-number-like readback cadence; 2-2-2 has choppier readback and more separator overhead.
+- Readback: NATO phonetic for letters + locale number-names for digits.
+- Entropy: ~29.4 bits, acceptable for realistic NGO concurrent-enrollment scale.
+
+**UX-002 Q2 (mismatch-on-reject escalation) — RATIFIED.** Option (a) elevated audit entry is the default. Option (b) forced DEK rotation REJECTED — creates a DoS vector where an attacker who can plant pending entries triggers rotation cascades. Option (c) soft admin-prompt-to-rotate ADOPTED as secondary layer, but only on a **second** rejection in the same admin session. Rationale: first mismatch is most likely innocent (user error, bad OOB readback); a pattern is the suspicious signal worth responding to. Audit entry format defined (action `device.enrollment.rejected`, severity `elevated`, `reason_class` enum: `code_mismatch | unrecognised_requester | other` — no free-text PII).
+
+**UX-003 Q9 (row decrypt-failed copy) — RATIFIED as proposed.** Niobe's copy *"1 movimiento no pudo leerse. Ver detalles."* approved unchanged. Catalog adds ICU-plural canonical key for the aggregated footnote.
+
+**UX-004 Q10 (Saldo decrypt-partial banner) — RATIFIED with minor enhancement.** Added *"en este periodo"* scope anchor (avoids confusion on period switches). Normalised to ICU plural form. Existing key retained as alias.
+
+**UX-005 Q8 (Panel decrypt-partial banner) — RATIFIED with ADJUSTMENT.** Niobe's *"…balances y KPIs pueden ser incompletos…"* adjusted to *"…balances y resúmenes…"* (ES) / *"…balances and summaries…"* (EN). "KPIs" violates P5 (jargon) — volunteer treasurers are not data analysts.
+
+**Diagnostic bundle spec added (§4 of catalog).** User-initiated export only, never auto-sent, never uploaded. Filename `opentreasury-diagnostic-{CE-XXX}-{ISO-UTC}.json`. Contains public keys only (never private), no PII (redacted per R15), no decrypted record content. Scenario-specific fields whitelisted per CE-XXX. Only way internal details (failure subclass, affected record IDs, library exceptions, fingerprints) leave the main process.
+
+**UX specs updated (all on `feat/crypto-error-copy-ratification`):**
+- `docs/ux/specs/ux-001-first-run-setup.md` — Q7 appended with RATIFIED annotation pointing to CE-001
+- `docs/ux/specs/ux-002-device-enrollment.md` — Q1 + Q2 appended with RATIFIED annotations
+- `docs/ux/specs/ux-003-movements-screen.md` — Q9 appended
+- `docs/ux/specs/ux-004-saldo-screen.md` — Q10 appended
+- `docs/ux/specs/ux-005-panel-screen.md` — Q8 appended
+- No other parts of these specs were modified.
+
+**Traceability (§6 of catalog):** every CE-XXX maps to its UX spec state(s), crypto-spec section, security-requirements R-number(s), and STRIDE threat ID(s). Morpheus / Trinity implement against crypto-spec §11 + this catalog's diagnostic-bundle spec. Niobe / Mouse / Trinity author i18n tables against the `ux.errors.crypto.*` namespace.
+
+**Unblocked:**
+- **Niobe** — Wave 1 UX specs (UX-001, UX-002, UX-003, UX-004, UX-005, UX-006) can now move **Draft → In Review**. All crypto-sensitive copy questions are closed.
+- **Mouse** — visual design of the CE-001, CE-006, CE-008, CE-009 blocking/banner surfaces can proceed against locked copy.
+- **Trinity** — i18n tables for `ux.errors.crypto.*` can be seeded from this catalog.
+- **Morpheus / Neo** — diagnostic bundle main-process implementation unblocked; scenario-specific field whitelists are pinned.
+
+**Why:** Niobe surfaced 5 security-sensitive UX copy questions in Wave-1 specs that required Switch's final say. Catalog consolidates them + 4 additional scenarios Switch identified as gaps (CE-002b admin rejection copy, CE-006/007 audit integrity blocking surfaces, CE-008 mid-session revocation, CE-009 update-signature failure). Wave-1 UX and Mouse's design-system-wave-1 both depended on these being ratified.
+
+
 ### 2026-04-19: Scaffold typecheck fixes — skipLibCheck deviation from ADR-002
 **By:** Neo (Lead / Architect), requested by Pedro
 **Branch:** feat/app-scaffold-and-i18n-adr
