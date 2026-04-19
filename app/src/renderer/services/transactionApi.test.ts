@@ -3,12 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createTransaction } from './transactionApi.js';
 import type {
-  CreateTransactionInput,
-  CreateTransactionResult,
-  TransactionCreatedEvent,
-} from '../types/transaction.js';
+  CreateTransactionRequest,
+  CreateTransactionResponse,
+  TransactionCreatedEventWire,
+} from '../../shared/ipc-contracts/transaction.js';
 
-function stubCreate(result: CreateTransactionResult): ReturnType<typeof vi.fn> {
+function stubCreate(result: CreateTransactionResponse): ReturnType<typeof vi.fn> {
   const fn = vi.fn().mockResolvedValue(result);
   (window as unknown as { opentreasury: unknown }).opentreasury = {
     transaction: { create: fn },
@@ -16,7 +16,7 @@ function stubCreate(result: CreateTransactionResult): ReturnType<typeof vi.fn> {
   return fn;
 }
 
-const BASE_INPUT: CreateTransactionInput = {
+const BASE_INPUT: CreateTransactionRequest = {
   accountId: '01JABCDEF0123456789ABCDEFG',
   date: '2026-04-19',
   type: 'expense',
@@ -32,7 +32,7 @@ describe('transactionApi.createTransaction', () => {
   });
 
   it('passes input through to window.opentreasury.transaction.create and returns the success result unchanged', async () => {
-    const event: TransactionCreatedEvent = {
+    const event: TransactionCreatedEventWire = {
       id: '01JABCDEF0123456789ABCDEFG',
       type: 'tx.created',
       datasetId: '01JABCDEF0123456789ABCDEFG',
@@ -65,11 +65,12 @@ describe('transactionApi.createTransaction', () => {
   });
 
   it('passes validation failures through unchanged (no throw)', async () => {
-    const failure: CreateTransactionResult = {
+    const failure: CreateTransactionResponse = {
       ok: false,
       error: {
         code: 'AMOUNT_NON_POSITIVE',
         message: 'amount must be a positive finite number (sign carried by type)',
+        field: 'amount',
       },
     };
     stubCreate(failure);

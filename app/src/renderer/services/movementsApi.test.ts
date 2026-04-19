@@ -2,10 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { listMovements } from './movementsApi.js';
-import type {
-  MovementRecord,
-  MovementsFilter,
-} from '../types/movementsFilter.js';
+import type { MovementRecord, MovementsListRequest } from '../../shared/ipc-contracts/movements.js';
 
 function stubList(result: MovementRecord[]): ReturnType<typeof vi.fn> {
   const fn = vi.fn().mockResolvedValue(result);
@@ -38,7 +35,7 @@ describe('movementsApi.listMovements', () => {
 
   it('forwards the filter and returns the records unchanged', async () => {
     const fn = stubList([SAMPLE]);
-    const filter: MovementsFilter = {
+    const filter: MovementsListRequest = {
       accountId: '01JABCDEF0123456789ABCDEFG',
       dateFrom: '2026-04-01',
       dateTo: '2026-04-30',

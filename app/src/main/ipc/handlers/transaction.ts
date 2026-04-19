@@ -38,9 +38,7 @@ export function createTransactionCreateHandler(
 ): (raw: unknown) => Promise<CreateTransactionResponse> {
   const apply = deps.applyEvent ?? applyEvent;
 
-  return async function handleTransactionCreate(
-    raw: unknown,
-  ): Promise<CreateTransactionResponse> {
+  return async function handleTransactionCreate(raw: unknown): Promise<CreateTransactionResponse> {
     try {
       const parsed = createTransactionRequestSchema.safeParse(raw);
       if (!parsed.success) {

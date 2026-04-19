@@ -55,6 +55,10 @@ export const movementRecordSchema = z.object({
 
 export type MovementRecord = z.infer<typeof movementRecordSchema>;
 
+// Alias — Trinity's renderer code uses `Movement` in some call sites; both
+// names refer to the same wire shape. Keep until the renderer unifies on one.
+export type Movement = MovementRecord;
+
 export const movementsListResponseSchema = z.array(movementRecordSchema);
 
 export type MovementsListResponse = z.infer<typeof movementsListResponseSchema>;

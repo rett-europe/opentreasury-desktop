@@ -91,7 +91,7 @@ function seed(): void {
         subcategoryId: SUB_ID,
         tagIds: [TAG_ID],
         status: 'approved',
-      createdAt: '2026-04-10T12:00:00.000Z',
+        createdAt: '2026-04-10T12:00:00.000Z',
       },
     },
     {
