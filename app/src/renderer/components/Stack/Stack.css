@@ -1,0 +1,40 @@
+.ot-stack {
+  display: flex;
+  min-width: 0;
+}
+.ot-stack--column {
+  flex-direction: column;
+}
+.ot-stack--row {
+  flex-direction: row;
+}
+
+.ot-stack--align-start {
+  align-items: flex-start;
+}
+.ot-stack--align-center {
+  align-items: center;
+}
+.ot-stack--align-end {
+  align-items: flex-end;
+}
+.ot-stack--align-stretch {
+  align-items: stretch;
+}
+
+.ot-stack--justify-start {
+  justify-content: flex-start;
+}
+.ot-stack--justify-center {
+  justify-content: center;
+}
+.ot-stack--justify-end {
+  justify-content: flex-end;
+}
+.ot-stack--justify-between {
+  justify-content: space-between;
+}
+
+.ot-stack--wrap {
+  flex-wrap: wrap;
+}

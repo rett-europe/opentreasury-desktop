@@ -1,0 +1,92 @@
+.ot-table-wrap {
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  overflow: auto;
+  max-height: 100%;
+}
+
+.ot-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.ot-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--type-small-size);
+  border-bottom: 1px solid var(--color-border-default);
+  white-space: nowrap;
+}
+
+.ot-table thead th[aria-sort] {
+  cursor: pointer;
+  user-select: none;
+}
+
+.ot-table__sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.ot-table__sort-btn:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.ot-table__sort-indicator {
+  font-size: 0.75em;
+  color: var(--color-text-muted);
+}
+
+.ot-table tbody td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  color: var(--color-text-primary);
+  vertical-align: middle;
+}
+
+.ot-table tbody tr:nth-child(even) {
+  background: var(--color-surface-secondary);
+}
+.ot-table tbody tr:hover {
+  background: var(--color-accent-subtle);
+}
+
+.ot-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ot-table__cell--right {
+  text-align: right;
+}
+.ot-table__cell--tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+.ot-table__foot {
+  position: sticky;
+  bottom: 0;
+  background: var(--color-surface-secondary);
+  border-top: 1px solid var(--color-border-default);
+}
+.ot-table__foot td {
+  padding: var(--space-3) var(--space-4);
+  font-weight: var(--font-weight-semibold);
+}

@@ -5,5 +5,94 @@
   },
   "action": {
     "toggle-language": "Cambiar idioma"
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "apply": "Aplicar",
+    "close": "Cerrar",
+    "loading": "Cargando…",
+    "retry": "Reintentar",
+    "clear": "Limpiar"
+  },
+  "shell": {
+    "nav": {
+      "panel": "Panel",
+      "movements": "Movimientos",
+      "balance": "Saldo"
+    },
+    "theme": {
+      "label": "Tema",
+      "system": "Sistema",
+      "light": "Claro",
+      "dark": "Oscuro",
+      "toggle": "Cambiar tema"
+    },
+    "language": {
+      "label": "Idioma",
+      "spanish": "Español",
+      "english": "English"
+    },
+    "coming-soon": {
+      "title": "Próximamente",
+      "body": "Esta sección llegará en una próxima versión."
+    },
+    "brand": "OpenTreasury"
+  },
+  "movements": {
+    "title": "Movimientos",
+    "subtitle": "Filtra por rango para ver tus movimientos.",
+    "empty": {
+      "pick-range": {
+        "title": "Elige un rango de fechas",
+        "body": "Selecciona un preajuste o un rango personalizado para ver tus movimientos."
+      },
+      "in-range": {
+        "title": "No hay movimientos en este periodo",
+        "body": "Amplía el rango o registra un movimiento en este periodo."
+      },
+      "filters": {
+        "title": "No hay resultados con los filtros actuales"
+      },
+      "db": {
+        "title": "Aún no has registrado ningún movimiento",
+        "body": "Registra tu primer movimiento o importa desde un extracto."
+      }
+    },
+    "loading": "Cargando movimientos para {{range}}…",
+    "error": {
+      "query": "No pudimos cargar los movimientos. Inténtalo de nuevo."
+    },
+    "columns": {
+      "date": "Fecha",
+      "description": "Descripción",
+      "account": "Cuenta",
+      "category": "Categoría",
+      "amount": "Importe"
+    },
+    "totals": {
+      "income": "Ingresos",
+      "expense": "Gastos",
+      "net": "Neto",
+      "count_one": "{{count}} movimiento",
+      "count_other": "{{count}} movimientos"
+    },
+    "cta": {
+      "new": "Nuevo Movimiento",
+      "clear-filters": "Limpiar filtros",
+      "widen-range": "Ampliar rango",
+      "first-tx": "Registrar primer movimiento"
+    },
+    "presets": {
+      "this-month": "Este mes",
+      "last-30-days": "Últimos 30 días",
+      "ytd": "Lo que va de año"
+    },
+    "range": {
+      "from": "Desde",
+      "to": "Hasta",
+      "apply": "Aplicar rango",
+      "clear": "Limpiar rango",
+      "invalid": "La fecha «Hasta» debe ser posterior a «Desde»."
+    }
   }
 }

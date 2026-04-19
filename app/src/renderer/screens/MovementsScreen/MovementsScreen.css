@@ -1,0 +1,108 @@
+.ot-movements {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 1440px;
+}
+
+.ot-movements__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-movements__subtitle {
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}
+
+.ot-movements__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+}
+
+.ot-movements__range-active {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.ot-movements__totals {
+  display: flex;
+  gap: var(--space-7);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+.ot-movements__totals > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ot-movements__totals-label {
+  font-size: var(--type-caption-size);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--font-weight-semibold);
+}
+.ot-movements__totals-value {
+  font-size: var(--type-h3-size);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+.ot-movements__totals-value--income {
+  color: var(--color-success-default);
+}
+.ot-movements__totals-value--expense {
+  color: var(--color-danger-default);
+}
+.ot-movements__totals-value--net-pos {
+  color: var(--color-success-default);
+}
+.ot-movements__totals-value--net-neg {
+  color: var(--color-danger-default);
+}
+
+.ot-movements__amount--income {
+  color: var(--color-success-default);
+}
+.ot-movements__amount--expense {
+  color: var(--color-danger-default);
+}
+
+.ot-movements__type-icon {
+  display: inline-flex;
+  margin-right: var(--space-1);
+}
+
+.ot-movements__table-empty {
+  padding: var(--space-5);
+}
+
+.ot-movements__error {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-danger-subtle);
+  color: var(--color-danger-default);
+  border: 1px solid var(--color-danger-default);
+  border-radius: var(--radius-md);
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ot-movements__loading {
+  padding: var(--space-7);
+  text-align: center;
+  color: var(--color-text-muted);
+}

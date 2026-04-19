@@ -52,3 +52,46 @@ Wave 1 UX COMPLETE - all 6 specs Draft v0.1. Implementation specs/tickets can an
 
 - 2026-04-19 — Crypto-error UX strings ratified in docs/security/crypto-error-copy-catalog.md v1.0. Use the ux.errors.crypto.* i18n keys verbatim when implementing error surfaces (ES primary + EN). 9 CE scenarios.
 - 2026-04-19 — Design system v0.1 shipped under docs/design/ (tokens.md, components-v1.md, screen-visuals-v1.md, design-principles.md, icons-and-illustrations.md). Start with tokens.md -> CSS custom properties (light + dark) + theme-switching hook. Then work down components-v1.md (16 primitives incl. DateRangePicker + CodeDisplay). Benchmark chart library (visx vs custom SVG vs Recharts) against UX-005 PR12 <=500ms / 1k events before committing. Dark mode mandatory. OS system font stack — no runtime web fonts.
+
+
+## 2026-04-19 — Wave 1 implementation shipped (branch: feat/trinity-wave-1-impl)
+
+Built the first runnable vertical slice. All 4 CI gates green: typecheck · lint · format · test (38/38).
+
+**File tree delivered (app/src/renderer/):**
+- `styles/tokens.css` + `styles/globals.css` — Mouse v0.1 tokens as CSS custom properties; light/dark/system themes; prefers-reduced-motion collapses motion tokens to 0.
+- `types/movement.ts` + `mocks/movements.ts` — 48-entry mock dataset, Oct 2025 → Apr 2026, realistic NGO mix. `getMockMovements(range)` with 200ms delay.
+- `hooks/useTheme.ts` — light/dark/system tri-state, localStorage persistence (v0.1 stand-in; ADR-003 §7.3 main-process prefs bridge deferred).
+- 8 primitives (each with .tsx, .css, index.ts, .test.tsx): `Button` `Text` `Stack` `Card` `Input` `DateRangePicker` `Table` `EmptyState`.
+- `screens/AppShell/` — 240px sidebar (Panel · Movements · Saldo with Lucide icons) + 56px topbar (brand · ES/EN radiogroup · theme tri-state). Mobile collapse at 960px.
+- `screens/MovementsScreen/` — full state machine (range-not-selected → loading → loaded/empty/error), 3 preset chips, sortable Table, totals strip (Income/Expense/Net/count), Intl formatters for EUR + dates.
+- `screens/ComingSoonScreen/` — EmptyState shim for Panel/Saldo.
+- `locales/{es,en}/common.json` — extended with full `common.*` · `shell.*` · `movements.*` namespaces; ICU plural for movement count.
+- `test-setup.ts` — registers `afterEach(cleanup)` (see Gotcha #2 below).
+
+**Decisions written to inbox:** `.squad/decisions/inbox/trinity-frontend-wave-1-choices.md` (8 decisions, 4 deferrals).
+
+### Gotchas that cost time (log these so future-Trinity doesn't re-learn):
+
+1. **`verbatimModuleSyntax: true` + `noEmit: false` means every type-only import MUST use `import type`, and every relative import of a `.ts`/`.tsx` file MUST include a `.js` extension.** Catch-early: run `npm run typecheck` after any new file. Example: `import { Foo } from './Foo.js'` (NOT `./Foo`), and `import type { FooProps } from './Foo.js'` if only types are consumed.
+
+2. **Vitest `globals: false` disables @testing-library/react's auto-cleanup.** Without a setup file doing `afterEach(cleanup)`, co-located `it()` blocks leak DOM across cases and `getByRole` / `getByText` throw "multiple elements" on the SECOND render in a file. Fix: `app/src/renderer/test-setup.ts` + `setupFiles: ['app/src/renderer/test-setup.ts']` in `vitest.config.ts`. Also `css: true` so CSS imports don't crash collection.
+
+3. **React component tests need `// @vitest-environment jsdom` at the top of the file.** Our default env is `node` for speed. Pure-logic tests (e.g., `core/events.test.ts`) inherit node; component tests opt-in.
+
+4. **`@testing-library/react@16` has a peerDep on `@testing-library/dom@^10` that is NOT auto-installed.** First `npm test` after installing `@testing-library/react` fails with "Cannot find module '@testing-library/dom'". Explicit install required: `npm install --save-dev --legacy-peer-deps "@testing-library/dom@^10.0.0"`.
+
+5. **`native <input type="date">` does NOT expose role="textbox" in jsdom** — there's no role at all. Query via `getByLabelText('From')` / `getByLabelText('To')`. Don't try `getAllByRole('textbox')`.
+
+6. **Vite `root: app/src/renderer`** means `index.html` MUST live in that folder and its script tag points to `./main.tsx` (relative to the renderer root, NOT the repo root). Already set up correctly in the scaffold — don't "fix" it.
+
+7. **Install flag is permanent for this repo: `npm install --legacy-peer-deps`** (ESLint v8 / @typescript-eslint v7 peer conflict, documented in team decisions). README's "Getting started" now shows this explicitly.
+
+### What Pedro can see when running `npm run dev`:
+- Opens http://localhost:5173
+- Lands on Movements (ES by default). Select a preset chip or a custom date range → 200ms loading spinner → ~48 mock rows render in a sortable table with running totals.
+- Click language chip (ES ↔ EN) to switch language instantly — all strings flip.
+- Click theme icon (Monitor/Sun/Moon) to cycle system → light → dark. Persists across reload.
+- Click Panel or Saldo in the sidebar → "Coming soon" EmptyState with i18n copy.
+
+Did NOT commit — Scribe owns commits.

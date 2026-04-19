@@ -15,12 +15,35 @@ ADR-002 repo structure, ADR-003 i18n framework).
 ```bash
 git clone https://github.com/<org>/opentreasury-desktop.git
 cd opentreasury-desktop
-npm install
+npm install --legacy-peer-deps   # required: ESLint v8 / @typescript-eslint v7 peer conflict
 npm run typecheck   # TS compiles across the main / preload / renderer / core / crypto / storage split
 npm run lint        # ESLint — module boundaries enforced (ADR-002 §4.1)
 npm run test        # Vitest — unit tests co-located with source
 npm run dev         # Vite renderer dev server (Electron wiring lands in a follow-up PR)
 ```
+
+## Running the app (dev)
+
+Wave 1 ships a browser-only renderer preview. Electron main-process wiring (window creation,
+preload bridge, packaging) lands in a follow-up PR per ADR-002 §11.
+
+```bash
+npm run dev
+# → open http://localhost:5173
+```
+
+What you can click in the current build:
+
+- **Movements screen** (primary) — select a date range (preset chips: _This month_, _Last 30 days_,
+  _YTD_ — or a custom from/to). Mock data loads with a 200ms delay and renders a sortable table
+  (Date · Description · Account · Category · Amount) plus a totals strip (Income · Expense · Net · count).
+- **Panel** and **Saldo** — placeholder "Coming soon" screens; nav shell is real.
+- **Top-bar language switcher** — Español ↔ English (ES is primary per ADR-003).
+- **Top-bar theme toggle** — System → Light → Dark, persisted to `localStorage` as a v0.1 stand-in
+  for the main-process user-prefs bridge.
+
+Data is 100% mock at this point — no OneDrive, no crypto, no storage. The crypto and storage layers
+(`app/src/crypto`, `app/src/storage`) are scaffolded but not yet wired into the renderer.
 
 ## Documentation
 

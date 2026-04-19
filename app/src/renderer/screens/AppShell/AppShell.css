@@ -1,0 +1,156 @@
+.ot-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-areas:
+    'topbar topbar'
+    'sidebar main';
+  height: 100vh;
+  background: var(--color-surface-app);
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 960px) {
+  .ot-shell {
+    grid-template-columns: 64px 1fr;
+  }
+  .ot-shell__nav-label {
+    display: none;
+  }
+}
+
+/* ── Topbar ─────────────────────────────────────────────── */
+.ot-shell__topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-5);
+  background: var(--color-surface-primary);
+  border-bottom: 1px solid var(--color-border-default);
+  z-index: var(--z-topbar);
+}
+
+.ot-shell__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--type-h3-size);
+  color: var(--color-text-primary);
+}
+.ot-shell__brand-mark {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-default);
+  color: var(--color-text-inverse);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ot-shell__topbar-spacer {
+  flex: 1;
+}
+
+.ot-shell__topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ot-shell__control-group {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: 2px;
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+.ot-shell__control-btn {
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: none;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--type-small-size);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.ot-shell__control-btn:hover {
+  color: var(--color-text-primary);
+}
+.ot-shell__control-btn[aria-pressed='true'] {
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-card);
+}
+.ot-shell__control-btn:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── Sidebar ───────────────────────────────────────────── */
+.ot-shell__sidebar {
+  grid-area: sidebar;
+  background: var(--color-surface-secondary);
+  border-right: 1px solid var(--color-border-default);
+  padding: var(--space-3) 0;
+  overflow-y: auto;
+  z-index: var(--z-sidebar);
+}
+.ot-shell__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+}
+.ot-shell__nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  color: var(--color-text-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--type-body-size);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.ot-shell__nav-item:hover {
+  background: var(--color-accent-subtle);
+}
+.ot-shell__nav-item[aria-current='page'] {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-default);
+  font-weight: var(--font-weight-semibold);
+}
+.ot-shell__nav-item:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+.ot-shell__nav-icon {
+  display: inline-flex;
+  color: var(--color-text-muted);
+  flex: 0 0 20px;
+}
+.ot-shell__nav-item[aria-current='page'] .ot-shell__nav-icon {
+  color: var(--color-accent-default);
+}
+
+/* ── Main ──────────────────────────────────────────────── */
+.ot-shell__main {
+  grid-area: main;
+  overflow: auto;
+  padding: var(--space-7);
+  min-width: 0;
+}
