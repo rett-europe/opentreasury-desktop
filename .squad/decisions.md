@@ -723,3 +723,154 @@ Conditions (C1–C15) added to ADR-001 §9 "Security Review — Switch", binding
 **Traceability:** ADR-001 (React+TS stack, C1–C15 cited throughout scaffold comments), ADR-002 (repo structure, §4.1 module boundaries enforced by ESLint rules), ADR-003 (this i18n framework choice), crypto-spec v1.0 (stub crypto module README lists audit rules), roadmap M0 (i18n foundations day-0).
 
 **What the scaffold does NOT include** (intentional): real crypto implementation, OneDrive storage impl, any business logic, read-model / SQLite cache module (added with first feature needing it), and `npm install` was not run.
+
+### 2026-04-19: Morpheus — Movement schema v0.2 (subcategory/tags/status + nullable category)
+**By:** Morpheus (Backend / Data Model), requested by Pedro
+**Branch:** `fix/trinity-prototype-parity`
+**Status:** Decided (applied, commit 56db75f)
+
+**Scope:** Extended renderer contract (`interface Movement`) to match prototype Movements table column set. Supersedes Trinity's earlier gap note (merged into this decision).
+
+**Schema Changes**
+
+The `Movement` type now carries:
+
+```ts
+export type MovementStatus = 'pending' | 'approved' | 'rejected';
+
+export interface Movement {
+  readonly id: string;
+  readonly date: string;
+  readonly type: 'income' | 'expense';
+  readonly amount: number;
+  readonly currency: 'EUR';
+  readonly description: string;
+  readonly account: string;
+  readonly category: string | null;    // null = uncategorised
+  readonly subcategory: string | null;
+  readonly tags: readonly string[];     // multi-label
+  readonly status: MovementStatus;      // review workflow flag
+}
+```
+
+**Rationale per field:**
+- **`category: string | null`** — `null` is canonical "uncategorised" signal; empty strings also treated defensively.
+- **`subcategory: string | null`** — already nullable, confirmed.
+- **`tags: readonly string[]`** — multi-label transactions, matches prototype column. Always an array so renderers avoid null checks.
+- **`status: 'pending' | 'approved' | 'rejected'`** — application-level review workflow (not accounting state). Ledger rows always confirmed at import; `status` is a reviewer flag rendered as colored badge via Mouse's `--color-status-*` tokens.
+
+**Mock Data (v0.2)**
+
+48 rows (Oct 2025 → Apr 2026) with deterministic seeding:
+- `tags` — 0–3 picks from `['urgente','beca-2025','proyecto-a','auditable','recurrente']`, hashed on index.
+- `status` — every 17th row `rejected`, every 7th `pending`, rest `approved` (~80/15/5).
+- `category` — rows at `{4, 12, 27, 41}` forced to `null` for uncategorised filter coverage.
+
+**Null-Safety Guards Added**
+
+Three places in MovementsScreen.tsx (no behavior change):
+1. Sort comparator: `(a.category ?? '')`.
+2. `categoryOptions` dropdown skips `null` rows.
+3. Category cell renders `—` when `category == null` (Trinity's columns pass will split into dedicated columns).
+
+**Backend Implications**
+
+When Movimientos graduates off mocks (PRD-001 PR15, ADR-001 C13), persistence layer mapping:
+
+| Movement field | Journal event | SQLite projection |
+|---|---|---|
+| `category` | `tx.categorised { categoryId \| null }` | `tx.category_id INTEGER NULL` + join to `categories(name)` |
+| `subcategory` | same event, `subcategoryId` | `tx.subcategory_id INTEGER NULL` |
+| `tags` | `tx.tagged { add: string[], remove: string[] }` | `tx_tags(tx_id, tag_id)` M:N + `tags(id, label UNIQUE)` |
+| `status` | `tx.reviewed { status }` | `tx.review_status TEXT NOT NULL DEFAULT 'approved'` |
+
+**Open backend items for next pass:**
+- Tags are a reference_data entity; need unique labels + referential integrity.
+- `status` defaults to `'approved'` for CSV imports; manual entry UX may default to `'pending'` (Niobe/Trinity decision).
+- Soft delete (cloud parity) orthogonal — lives on journal, not Movement type.
+- Audit log (7-year TTL) applies to categorise/tagged/reviewed events like amount/date edits.
+- ULID not UUID for `id` (per crypto-spec §11); mocks still use UUID; swap at IPC seam.
+- Month filter follow-up: parse ISO strings OK for v0.2; when read model lands, expose `month` bucket (`YYYY-MM`) on projection to avoid string slicing.
+
+**Why:** Trinity's columns pass (Trinity-movements-columns-pass, separate decision below) required expanded Movement type to render prototype columns. Backend mapping documented so Neo/storage tier can begin PRD-001 implementation against event-sourced journal.
+
+### 2026-04-19: Trinity — Movements table columns + headers parity pass (ratification needed)
+**By:** Trinity (Frontend Dev), requested by Pedro
+**Branch:** `fix/trinity-prototype-parity`
+**Status:** Delivered + test suite green; two points need team ratification
+
+**Three-Part Pass**
+
+Most mechanical prototype port. All gates green: typecheck, lint (0 warnings), 39 tests, build.
+
+**Part 1: Prototype Columns Implementation**
+- New columns: checkbox (selection-ready), account-pill, subcategory (split from category), tags chips, status badge
+- Removed `max-width: 1440px` from `.ot-movements` — page flexes to container width
+- New globals recipes: `.ot-tag-chip`, `.ot-tag-chip-row`, `.ot-badge--rejected`, `.ot-text-muted`
+- Table primitive header type: `string` → `ReactNode` for render flexibility
+- EN/ES status i18n keys: `common.movement.status.{pending,approved,rejected}`
+
+**Part 2: Table Header Styling — ⚠️ DEVIATION FLAGGED FOR RATIFICATION**
+
+**Applied implementation:** Natural case headers ("Fecha", "Descripción"), no `text-transform: uppercase`, no `letter-spacing`.
+
+**Prototype contract conflict:** `prototype/styles.css:430` still sets `text-transform: uppercase` + `letter-spacing: var(--ls-section)` on `.tx-table th`. Prototype JSX writes natural case but CSS uppercases at render — rendered prototype output is UPPERCASE.
+
+**Per north-star rule** (prototype is visual + interaction contract), this task *deviates* for the table-header recipe:
+- **Ask:** Niobe / Link pick one and update either `prototype/styles.css` or `Table.css` so the two agree
+  - Option A: drop uppercase from `.tx-table th` in prototype (3 lines) → app + prototype aligned
+  - Option B: restore uppercase in `app/src/renderer/components/Table/Table.css` (font-size 11, letter-spacing 0.08em, text-transform uppercase)
+- **Impact:** no other screen uses `.ot-table` today; change is contained. KPI strips, sidebar labels carry own uppercase rules and are unaffected.
+
+**Part 3: Rejected Status Badge — Proxy Token Decision for Mouse**
+
+No `--color-status-rejected-*` tokens exist in Mouse v0.2 (prototype doesn't render rejected rows either). Added `.ot-badge--rejected` in globals using `--color-expense-default` + `--color-expense-bg` as proxy, mirroring pending/approved shape.
+
+**Ask:** Mouse — do you want dedicated `--color-status-rejected` / `--color-status-rejected-bg` tokens in v0.3, or is the expense-palette proxy acceptable? Rejected rows are rare by definition; current shortcut is probably OK, but flagging for clarity.
+
+**Part 4: Page-Level Width**
+
+Removed `max-width: 1440px` cap. Prototype `.main` has no cap; page now flexes to full container width. At very wide viewports (>1920px) the filter bar stretches but chip group / selects stay natural sizes — only the right-side "Limpiar filtros" ghost button floats further right. Acceptable per prototype.
+
+No per-breakpoint cap needed. If 4K+ becomes an issue later, Mouse can add shell-level `max-width` in tokens/globals — not a per-screen one.
+
+**Files Modified**
+
+- MovementsScreen.tsx / .css (header + amount render, density)
+- Table.tsx / .css (headers + new column types)
+- globals.css (prototype recipes, spacing migration)
+- locales/{en,es}/common.json (status i18n keys)
+
+No primitive APIs changed; no token file edits; no prototype edits.
+
+**Build Status**
+
+| Gate | Result |
+|------|--------|
+| typecheck | ✅ |
+| lint | ✅ 0 warnings |
+| test | ✅ 39/39 |
+| build | ✅ (34.92 kB CSS, 245.85 kB JS) |
+
+**Why:** Movements table is the final UI screen needing prototype parity before M1 entry. Flagging two ratification points explicitly so design + product can resolve the header-casing and token-scope questions before this ships.
+
+### 2026-04-19: Pending-tone ratification + Inter font self-hosted (via Copilot)
+**By:** Pedro (perocha) — decisions captured by Scribe on behalf of Trinity font fix + Copilot directive
+**Branch:** `fix/trinity-prototype-parity`
+**Status:** Decided (applied)
+
+**1. Pending-tone ratification into tokens v0.2**
+
+Pending tone from the prototype (`#e65100` on `#fff3e0`) is ratified into tokens v0.2. The prior v0.1 design-system policy of "no pending tone anywhere" is formally reversed. Per the new north-star rule (prototype wins over design system), the prototype's pending badge is authoritative. No separate Link sign-off required — Pedro is the sole product reviewer for solo-dev phase.
+
+**Impact:** Unblocks tokens-v0.2 merge path + any Movements row status work (status badge now has color design).
+
+**2. Inter font self-hosted via @fontsource/inter**
+
+**Problem:** Arrow glyphs (↑/↓) rendering too light. Root cause: Google Fonts CDN @import failing in Electron, falling back to system fonts with thinner strokes.
+
+**Solution applied:** Bundled Inter via `@fontsource/inter`, per-weight imports in main.tsx (400, 500, 600, 700), CDN @import removed from tokens.css.
+
+**Outcome:** Pedro confirmed visually — arrows much bolder, font rendering consistent across system.
+
+**Why:** Electron doesn't load external CDN reliably; self-hosting resolves the issue. Font is now bundled as Vite asset and loads offline consistently.

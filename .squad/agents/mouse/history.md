@@ -126,3 +126,22 @@ No tokens removed — legacy names preserved for Trinity's existing component re
 5. **Primary button hover:** Behavior inverted — now lightens instead of darkens
 6. **Borders:** Light mode borders are now purple-tinted alpha — may affect perceived contrast on tinted surfaces
 7. **New semantic colors:** Transfer (blue), pending/approved status, uncategorized — available for Movements table rebuild
+
+## 2026-04-19T13:54Z — Cross-agent flagging (Scribe)
+
+### ⚠️ Rejected badge token proxy (v0.3 scope decision needed)
+Trinity's Movements columns pass is complete but flagged one token gap: `--color-status-rejected-*` tokens do not exist in v0.2. Trinity implemented `.ot-badge--rejected` using `--color-expense-default` + `--color-expense-bg` as a proxy. Status badge colors needed for M1:
+- `--color-status-pending-*` ✅ exists
+- `--color-status-approved-*` ✅ exists
+- `--color-status-rejected-*` ⚠️ **proxy in use**
+
+**Decision:** Does v0.3 need dedicated `--color-status-rejected` tokens, or is the expense-palette proxy acceptable? Rejected rows are rare (data-validation rare path), so the shortcut is probably fine, but flagging for clarity. See `.squad/decisions.md` 2026-04-19: Trinity — Movements table columns + headers parity pass (Part 3).
+
+### 🔄 Prototype vs app header-casing question (Niobe/Link ratification)
+Table header styling mismatch discovered during prototype parity pass:
+- **App implementation:** natural case ("Fecha", "Descripción") — per Pedro's instruction, no uppercase, no letter-spacing
+- **Prototype CSS:** still sets `text-transform: uppercase` + `letter-spacing` on `.tx-table th` — rendered output IS uppercase
+
+Per north-star rule, Trinity flagged for resolution: **Niobe/Link must pick one** (keep app natural case OR update prototype CSS to match). The proto CSS rule lives at `prototype/styles.css:430`. Change is small (remove 2 lines); app change would be restore 3 lines in `Table.css`.
+
+See `.squad/decisions.md` 2026-04-19: Trinity — Movements table columns + headers parity pass (Part 2 ratification section).
