@@ -299,3 +299,27 @@ Net result: with many rows, only `.ot-shell__main` scrolls; topbar + sidebar + u
 
 ### Build status
 typecheck OK · lint OK (0 warnings) · 39/39 tests pass · vite build OK (43.08 kB CSS / 249.22 kB JS).
+
+
+## 2026-04-19 — Sticky thead visual leak: .ot-shell__main padding-top -> 0 (fix/trinity-prototype-parity)
+
+### Bug
+Pedro: transactions visibly pass above the pinned sticky thead, reaching the top of the screen as rows scroll up.
+
+### Root cause
+.ot-shell__main had `padding: var(--space-9) var(--space-10)` (~48 px top).
+For sticky `top: 0` anchored to this container, the `padding-top` band is inside the scrollport and is paintable scroll-through space. Rows scrolled into that band rendered ABOVE the pinned thead strip (thead background only covers its own box).
+
+### Fix (Option 2 from coordinator brief — structural, not a band-aid)
+- `.ot-shell__main`: `padding: 0 var(--space-10) var(--space-9);` (top gutter removed, horizontal + bottom kept).
+- `.ot-page-header` (globals.css): added `padding-top: var(--space-9);` so every screen's top-gutter still lands at the same visual position. All three live screens (Panel / Movimientos / Saldo) start with `.ot-page-header`, so no per-screen edits needed.
+- Documented the contract in a decision note: every future screen MUST start with a first-child that owns the top gutter, or it will render flush against the topbar. Decision note: `.squad/decisions/inbox/trinity-sticky-padding-gap.md`.
+
+### Why not Option 1/3 (::before cover, box-shadow upward)
+Those paint over the gap but only work cleanly when the sticky is actually stuck — not while still in flow. They'd either cover the filter bar/totals above the table (bad) or need JS state. Removing the padding is a one-line structural fix with no edge cases.
+
+### Lesson learned (added to skills/css-sticky-patterns, confidence low -> medium)
+**If an outer scroll container hosts a `position: sticky; top: 0` header, its `padding-top` must be 0.** Push the top gutter onto the first in-flow page element. This is now gotcha #3 in `.squad/skills/css-sticky-patterns/SKILL.md` with a checklist.
+
+### Build status
+typecheck OK · lint OK (0 warnings) · 39/39 tests pass · vite build OK (43.15 kB CSS / 249.22 kB JS).

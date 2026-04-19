@@ -128,6 +128,11 @@ a:hover {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
+  /* Carries the top gutter that used to live on `.ot-shell__main`. Moving it
+   * here lets the sticky table thead anchor flush against the scrollport's
+   * top edge (no padding band for rows to leak through). See
+   * `.ot-shell__main` in AppShell.css. */
+  padding-top: var(--space-9);
   margin-bottom: var(--space-9);
   gap: var(--space-7);
   flex-wrap: wrap;
