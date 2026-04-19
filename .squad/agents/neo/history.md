@@ -106,3 +106,5 @@ Published docs/architecture/adr-003-i18n-framework.md (Accepted — Pedro delega
 **Security-relevant scaffold decisions I made (Switch can audit if desired, none of them are load-bearing yet):** main-process `BrowserWindow` uses `contextIsolation: true` + `nodeIntegration: false` + `sandbox: true` + `webSecurity: true` (C7); strict CSP injected at the response layer AND via `<meta>` (belt and suspenders); IPC handler registry is schema-validated via Zod with no dynamic dispatch (C13); ULID filename comment left in core events.ts (C11); crypto module README spells out the allowlisted imports (C15).
 
 **Lesson carried forward:** scaffolding is a permanent-decision vehicle masquerading as throwaway code. Every config file ships with ADR/condition references in comments so the next contributor knows why a rule exists before they try to relax it. Saved me from re-litigating `no-restricted-imports` the second time it fails a legitimate-looking PR.
+
+### 2026-04-19: ADR-003 Accepted. app/ scaffold landed on feat/app-scaffold-and-i18n-adr. Next: Pedro runs npm install; lockfile commit; then feature work can begin.
