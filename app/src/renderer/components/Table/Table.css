@@ -11,6 +11,11 @@
    * scroll container, preserving sticky escape. Do not "optimize" back to
    * hidden. Supported by Electron/Chromium. */
   overflow: clip;
+  /* Allow the sticky-thead mask pseudo (see `.ot-table thead th::before`)
+   * to paint 1px outside the wrap's padding edge so it covers the wrap's
+   * 1px left/right borders in the pin-offset band. Without this, those
+   * side borders show as hairlines flanking the mask strip when scrolled. */
+  overflow-clip-margin: 1px;
 }
 
 .ot-table {
@@ -48,7 +53,14 @@
  * it travels with it; clipped by `.ot-table-wrap { overflow: clip }` at rest
  * (the pseudo sits above the wrap's top edge when the thead is at its
  * natural position, so `clip` hides it until the thead actually sticks).
- * Pointer-events off so it never steals input. */
+ * Pointer-events off so it never steals input.
+ *
+ * Borders: explicitly zero. The pseudo must not paint any edge chrome — the
+ * mask is meant to be a seamless continuation of the page background in the
+ * pin-offset band. First/last-child variants below extend -1px horizontally
+ * to cover `.ot-table-wrap`'s 1px side borders (which would otherwise show
+ * as hairlines on each side of the mask strip when the thead is pinned).
+ * That bleed is only possible because the wrap sets `overflow-clip-margin: 1px`. */
 .ot-table thead th::before {
   content: '';
   position: absolute;
@@ -57,7 +69,14 @@
   bottom: 100%;
   height: var(--sticky-top-offset, 0);
   background: var(--color-surface-app);
+  border: 0;
   pointer-events: none;
+}
+.ot-table thead th:first-child::before {
+  left: -1px;
+}
+.ot-table thead th:last-child::before {
+  right: -1px;
 }
 
 .ot-table thead th[aria-sort] {

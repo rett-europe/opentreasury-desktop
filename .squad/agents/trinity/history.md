@@ -323,3 +323,12 @@ Those paint over the gap but only work cleanly when the sticky is actually stuck
 
 ### Build status
 typecheck OK · lint OK (0 warnings) · 39/39 tests pass · vite build OK (43.15 kB CSS / 249.22 kB JS).
+
+### 2026-04-19: Sticky mask band — side-border hairlines fix
+- Follow-up polish on the prior sticky-thead alignment fix (28px --sticky-top-offset + .ot-table thead th::before mask band).
+- Pedro reported 1px hairlines on each side of the 28px mask strip when scrolled.
+- **Root cause:** the mask pseudo was ::before on the <th>, so it spanned only the th's width — INSIDE the wrap's padding edge. .ot-table-wrap has order: 1px solid on each side which, when the wrap's top has scrolled out of view, still renders those 1px left/right edges within the 0..28px pin band, flanking the mask.
+- Pseudos don't inherit borders from their host element, so the bleed wasn't from the pseudo itself — it was the wrap's card-frame border showing past the mask's horizontal extent.
+- **Fix:** extend the first/last-child th pseudos 1px outward (left: -1px / ight: -1px) and set overflow-clip-margin: 1px on .ot-table-wrap so overflow: clip allows that 1px bleed over the side borders. Also added an explicit order: 0 on the pseudo as a defensive no-op (documents intent + guards against future cascade leaks).
+- At scroll=0 the pseudo still sits above the wrap's padding box and is fully clipped; visual is clean in both states.
+- Gates: typecheck / lint (0 warnings) / 39 tests / build — all green.

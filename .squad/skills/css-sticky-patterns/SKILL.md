@@ -91,14 +91,6 @@ Add a CSS comment explaining this so it doesn't get "optimized" back.
 
 ---
 
-## See also
-
-- Decision note: `.squad/decisions/inbox/trinity-table-sticky-clip.md`
-- Decision note: `.squad/decisions/inbox/trinity-sticky-padding-gap.md`
-- Affected file: `app/src/renderer/components/Table/Table.css`
-
----
-
 ## 3. `padding-top` on the scroll container leaves a visible gap above sticky
 
 ### Symptom
@@ -160,3 +152,71 @@ When introducing `position: sticky; top: 0` inside a scroll container:
 - [ ] First in-flow child carries the top gutter (padding-top / margin-top)
 - [ ] Sticky element has an opaque background
 - [ ] No intermediate wrapper has `overflow: hidden` (see gotcha #2)
+
+---
+
+## 4. Sticky mask bands leak their wrapper's side borders
+
+### Symptom
+
+A sticky `<thead>` pins at an offset (`top: 28px`) rather than `top: 0` so it
+aligns with sibling chrome (e.g. a sidebar section label). A pseudo-element
+mask (`::before` on the sticky cell) paints the 0..offset band with the page
+background so rows don't bleed through. When scrolled, the mask strip is
+the right color, but a 1px vertical hairline shows on each side of the band.
+
+### Why
+
+The mask pseudo is anchored to the sticky `<th>`, so its `left: 0; right: 0`
+spans only the th's own box — which sits **inside** the outer table/card
+wrapper (`.ot-table-wrap`). That wrapper has `border: 1px solid` and
+`overflow: clip`. When the wrap's top scrolls out of view, its left/right
+borders still render across the full pin-offset band, flanking the mask
+horizontally. The pseudo never covered them. (Pseudo-elements do **not**
+inherit borders from their host, so the hairlines aren't from the pseudo
+itself — they're the wrapper's card frame showing past the mask.)
+
+### Fix
+
+Extend only the first- and last-child pseudos 1px outward, and loosen
+`overflow: clip` just enough to let that bleed paint:
+
+```css
+.ot-table-wrap {
+  overflow: clip;
+  overflow-clip-margin: 1px; /* allow mask pseudo to cover 1px side borders */
+}
+
+.ot-table thead th::before {
+  /* …mask geometry… */
+  border: 0; /* explicit — defensive; pseudos don't inherit borders but this
+              * documents intent and guards against future cascade leaks */
+}
+.ot-table thead th:first-child::before { left: -1px; }
+.ot-table thead th:last-child::before  { right: -1px; }
+```
+
+### Rule
+
+**When a sticky mask band lives inside a bordered wrapper, the mask must
+cover the wrapper's side borders across the band — not just the interior
+width.** Achieve this with first/last-child negative offsets + matching
+`overflow-clip-margin` on the wrap. Keep `border: 0` on the pseudo as an
+explicit no-op so the mask itself never paints chrome of its own.
+
+### Checklist
+
+- [ ] Mask pseudo has explicit `border: 0`
+- [ ] First-of-type cell pseudo extends `left: -Npx` to cover wrap's left border
+- [ ] Last-of-type cell pseudo extends `right: -Npx` to cover wrap's right border
+- [ ] Wrap's `overflow: clip` is paired with `overflow-clip-margin: Npx`
+- [ ] At rest (scroll=0) the mask is still clipped out — verify both states
+
+---
+
+## See also
+
+- Decision note: `.squad/decisions/inbox/trinity-table-sticky-clip.md`
+- Decision note: `.squad/decisions/inbox/trinity-sticky-padding-gap.md`
+- Decision note: `.squad/decisions/inbox/trinity-mask-band-borders.md`
+- Affected file: `app/src/renderer/components/Table/Table.css`
