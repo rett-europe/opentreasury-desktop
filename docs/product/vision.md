@@ -267,18 +267,27 @@ Numbered for easy reply. These block the next step (PRDs + tech stack ADR).
 2. ~~**Storage scope**~~ — do we support *both* OneDrive Personal AND SharePoint/OneDrive Business in v1, or pick one (e.g., OneDrive Business since NGOs are on M365) and defer the other? This materially affects complexity.
 3. ~~**Data file format**~~ — **DEFERRED (2026-04-19):** decision deferred until the encryption approach (Q4) is settled; format choice depends on what the crypto envelope allows. Neo will revisit after Switch's security requirements land.
 4. ~~**Encryption at rest**~~ — **RESOLVED (2026-04-19):** **YES, required.** Data contains PII (donor names, phone numbers, emails). Switch has final say on the HOW; see [security requirements v0.1](../security/security-requirements-v0.1.md) (in progress).
-5. **Target OS coverage for v1** — Windows only (where most NGO treasurers live), or Windows + macOS + Linux from day one? Installers, signing certs, and CI cost scale with this.
-6. **Language coverage** — prototype is Spanish. Is v1 **Spanish + English**, or Spanish-only with i18n scaffolding for later?
-7. **Prototype as v1 UI baseline** — should Mouse/Niobe treat the existing `prototype/` as the v1 UX contract (refine, don't reinvent), or is it a sketch we can depart from? *Recommended: treat as contract, deviations require UX spec.*
-8. **Repo structure approval** — does the proposed layout in section 12 work, or do you want adjustments before we scaffold it?
+5. ~~**Target OS coverage for v1**~~ — **RESOLVED (2026-04-19, via ADR-001 security review):** v1 is **Windows-first** for binary distribution. macOS binary distribution is **out of v1 scope** (AR10 — no Apple Developer account). Linux ships as AppImage/deb with Ed25519 detached signature. See [`security-requirements-v0.1.md`](../security/security-requirements-v0.1.md) v0.2 AR9/AR10 and [`roadmap-v1.md`](./roadmap-v1.md#5-out-of-v1-deferred--explicit-triggers).
+6. **Language coverage** — prototype is Spanish. Is v1 **Spanish + English**, or Spanish-only with i18n scaffolding for later? *Current plan per [`roadmap-v1.md`](./roadmap-v1.md): ES + EN complete by M3 (v1.0 Public); i18n scaffolding from M1. Still needs Pedro confirmation.*
+7. ~~**Prototype as v1 UI baseline**~~ — **RESOLVED (2026-04-19):** **Yes, prototype is the v1 UX contract.** The three screens in `prototype/` (Panel / Movimientos / Saldo) are the baseline composition for M1. Niobe refines; deviations require a UX-spec rationale. Encoded in [PRD-001](./prds/prd-001-movements.md), [PRD-002](./prds/prd-002-saldo.md), [PRD-003](./prds/prd-003-panel.md). Niobe's prototype-review work runs in parallel with this PM work.
+8. **Repo structure approval** — does the proposed layout in section 12 work, or do you want adjustments before we scaffold it? *Note: [ADR-002](../architecture/adr-002-repo-structure.md) (Proposed) now carries the detailed layout; this section's intent is captured there.*
 
 ### Decisions recorded (2026-04-19)
 
-- **Q1 — Tech stack:** Neo to propose 2–3 options with trade-offs; Pedro picks. Follow-on artifact: [`docs/architecture/adr-001-tech-stack.md`](../architecture/adr-001-tech-stack.md) (being drafted in parallel).
-- **Q3 — Encryption at rest:** required. Rationale: data contains PII (names, phone numbers, emails). Switch owns the HOW. Follow-on artifact: [`docs/security/security-requirements-v0.1.md`](../security/security-requirements-v0.1.md) (being drafted in parallel).
-- **Q2 — Data file format:** deferred until Q3's encryption approach is finalized; format choice depends on the crypto envelope.
+- **Q1 — Tech stack:** Neo to propose 2–3 options with trade-offs; Pedro picks. Follow-on artifact: [`docs/architecture/adr-001-tech-stack.md`](../architecture/adr-001-tech-stack.md) **Accepted with conditions** (Switch security review).
+- **Q3 — Encryption at rest:** required. Rationale: data contains PII (names, phone numbers, emails). Switch owns the HOW. Follow-on artifacts: [`docs/security/security-requirements-v0.1.md`](../security/security-requirements-v0.1.md) **v0.2 Accepted** + [`docs/security/crypto-spec.md`](../security/crypto-spec.md) **v1.0 Accepted**.
+- **Q2 (data file format) — RESOLVED** by ADR-001 Option A + crypto-spec §2.1: append-only encrypted JSON events (ULID filenames) + derived SQLite read model.
+- **Q5 — Target OS:** Windows-first binaries; macOS source-build only (AR10); Linux AppImage/deb with Ed25519 detached signature. Per ADR-001 §9 / SR v0.2.
+- **Q7 — Prototype as UX contract:** **yes.** M1 ships the three prototype screens via PRD-001/002/003. Niobe owns prototype↔spec reconciliation.
 
-Still open: Q2 (storage scope — Personal vs Business), Q5 (OS coverage), Q6 (language coverage), Q7 (prototype as UX contract), Q8 (repo layout approval).
+Forward links (authored 2026-04-19 after security sign-off):
+- [`docs/product/roadmap-v1.md`](./roadmap-v1.md) — 5 milestones (M0 Foundations → M1 Single-user → M2 Multi-device → M3 v1 parity → M4 v1.x), 3 gates (Internal Alpha, NGO Pilot, v1.0 Public).
+- [`docs/product/prd-plan.md`](./prd-plan.md) — PRD index (22 reservations; 3 drafted).
+- [`docs/product/prds/prd-001-movements.md`](./prds/prd-001-movements.md) — Movements (M1).
+- [`docs/product/prds/prd-002-saldo.md`](./prds/prd-002-saldo.md) — Saldo (M1).
+- [`docs/product/prds/prd-003-panel.md`](./prds/prd-003-panel.md) — Panel (M1).
+
+Still open: Q2 (OneDrive storage scope — Personal vs Business), Q6 (language coverage confirmation), Q8 (repo layout — now covered by ADR-002 Proposed).
 
 ---
 

@@ -45,3 +45,31 @@ Wrote `docs/architecture/adr-001-tech-stack.md` (Proposed). Three options evalua
 
 ### 2026-04-19: ADR-001 Accepted — security conditions locked
 Switch signed off ADR-001 with conditions C1–C15. Option A confirmed with spec adjustments: `sodium-native` XChaCha20-Poly1305 envelope supersedes `age`; OS-keychain only (no Argon2id passphrase in v1); `@napi-rs/keyring` instead of deprecated `keytar`; ULID filenames replace timestamp scheme. Crypto spec at `docs/security/crypto-spec.md` is the implementation bar. One non-blocking spike remains on me: 10k event files OneDrive stress test before GA. May file a short ADR addendum for the filename + sodium-native supersession for cleanliness.
+
+
+### 2026-04-19: ADR-002 Proposed — repo structure
+Published `docs/architecture/adr-002-repo-structure.md` (Status: Proposed) and scaffolded the folders: `docs/ux/`, `docs/design/`, `docs/specs/` (with README + _template.md), `scripts/`, `.github/workflows/` + `.github/ISSUE_TEMPLATE/` + `pull_request_template.md`.
+
+**Chosen layout (high level):**
+- Single `app/` package (flat, no monorepo tool for now). Structure *described* in ADR, *not scaffolded on disk* — premature until Pedro answers the package-manager + monorepo-tool questions.
+- Inside `app/src/`: `main/` + `preload/` + `renderer/` as physical filesystem boundaries; `shared/` for IPC + event Zod schemas (pure TS, no Electron); `core/` event-sourced domain (Electron-free, fs-free, testable under plain Node); `crypto/` pure-function module with only `sodium-native` + `@napi-rs/keyring` imports allowed; `storage/` adapter interface + OneDrive-folder node:fs impl + in-memory impl for tests; `read-model/` SQLite cache with its own keychain key distinct from the DEK (C14).
+- Module boundaries enforced by ESLint `import/no-restricted-paths` + TS project references + CI grep (belt and suspenders).
+- Mermaid dependency diagram in ADR §4.2 documents allowed vs forbidden edges.
+
+**SDD layout locked:** `docs/` split into `product/` (Link), `architecture/` (me — ADRs), `security/` (Switch), `ux/` (Niobe), `design/` (Mouse), `specs/` (feature technical specs with mandatory `## Traceability` section tying each spec back to PRDs + ADRs + C1–C15 + R1–R20 + crypto-spec §-numbers).
+
+**PR template enforces:** branch discipline (trunk-based), spec ref with status (Accepted required for implementation PRs), ADR-001 conditions cited, full security checklist, tests, status-history update.
+
+**Deliberately deferred:** `app/` source tree, CI workflows (their own ADR), CODE_OF_CONDUCT / CONTRIBUTING, `docs/guides/`.
+
+**Open questions awaiting Pedro (block Proposed → Accepted):**
+1. Package manager — npm (recommended) / pnpm / yarn
+2. Monorepo tool — none (recommended) / Nx / Turborepo
+3. TS strictness — strict + noUncheckedIndexedAccess + exactOptionalPropertyTypes (recommended)
+4. `app/` vs `apps/opentreasury-desktop/` — flat `app/` recommended
+5. Tests — hybrid (co-located unit, separate integration+e2e) recommended
+
+**Lesson carried forward:** structure decisions are cheap to write and expensive to retrofit. Putting module boundaries in the filesystem (not just convention) means renderer-leaks and crypto-imports get caught by `tsc` before code review instead of in a post-mortem.
+
+## 2026-04-19 — Team update (via Scribe)
+Link's roadmap v1 + PRDs 001–003 and Niobe's UX plan both depend on ADR-002 being Accepted. Your 5 open questions to Pedro (package manager, monorepo tool, TS strictness, app/ layout, tests layout) block acceptance.

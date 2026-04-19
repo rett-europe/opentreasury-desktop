@@ -27,3 +27,6 @@ Design context:
 
 ### 2026-04-19: ADR-001 Accepted — UX constraints locked
 ADR-001 is Accepted. Implementation constraints locked: no passphrase UI in v1 (OS keychain handles it silently); device enrollment needs a QR-code / 6-char visual-code pairing UX flow. Consider UX implications in upcoming specs.
+
+## 2026-04-19 — Team update (via Scribe)
+Niobe's UX baseline and flows published under docs/ux/. Your visual design work follows her flows, NOT the prototype's pixels. Three flow skeletons (first-run, device-enrollment, movements-date-range) are your anchor points. Niobe also flagged design needs: visual tokens extraction, sync indicator, error severity, admin-only affordances, date-range picker, focus states.

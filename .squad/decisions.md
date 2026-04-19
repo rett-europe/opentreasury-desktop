@@ -173,6 +173,98 @@ Conditions (C1–C15) added to ADR-001 §9 "Security Review — Switch", binding
 
 **Why:** Pedro answered all six open questions, unblocking v0.2 lock-in. Neo's ADR-001 was gated on Switch's security review. Crypto spec is the bar Neo's implementation must meet. Per team governance, Switch has final say on all of the above.
 
+### 2026-04-19: ADR-002 Proposed — repo structure
+**By:** Neo (Lead/Architect), requested by Pedro
+**What:** `docs/architecture/adr-002-repo-structure.md` published — **Status: Proposed.**
+
+**One-line summary:** Single `app/` package (flat, no monorepo tool), strict Electron process boundaries enforced at the filesystem level (`src/main/`, `src/preload/`, `src/renderer/`, shared `src/shared/` contracts), Electron-free `src/core/` + `src/crypto/` + `src/storage/` for unit-testing and a single-pass Switch audit; SDD layout under `docs/` (product/, architecture/, security/, ux/, design/, specs/, guides/) mirroring the cloud repo where useful, diverging cleanly on `api/infra/deploy`.
+
+**Scaffolded in the same work item (empty/README-only — no source code):**
+- `docs/ux/README.md`, `docs/design/README.md`
+- `docs/specs/README.md` (SDD lifecycle + review process)
+- `docs/specs/_template.md` (canonical feature-spec template with mandatory `## Traceability` to PRD + ADRs + C-series + R-series + crypto-spec §-numbers)
+- `scripts/README.md`
+- `.github/workflows/README.md` ("CI to be added")
+- `.github/ISSUE_TEMPLATE/README.md`
+- `.github/pull_request_template.md` (branch discipline + spec ref + ADR conditions + security checklist + tests + traceability)
+
+**Deferred deliberately:** `app/` source tree (waits on open questions + first implementation PR); CI workflows (separate ADR); `CODE_OF_CONDUCT.md`, `CONTRIBUTING.md`, `docs/guides/` (mirror cloud at v1).
+
+**Open questions for Pedro (block Proposed → Accepted):**
+1. Package manager — `npm` (recommended, parity with cloud repo) vs `pnpm` vs `yarn`.
+2. Monorepo tool — recommend **none** (single `app/` package, plain `tsc -b` with project references).
+3. TypeScript strictness — recommend `strict: true` + `noUncheckedIndexedAccess: true` + `exactOptionalPropertyTypes: true`.
+4. `app/` vs `apps/opentreasury-desktop/` — recommend flat `app/` for now.
+5. Tests layout — recommend hybrid (co-located `*.test.ts` for unit, separate `tests/integration/` and `tests/e2e/`).
+
+**Why:** Structure needs to be locked before the first implementation PR so module boundaries, spec locations, and PR discipline are established rather than retrofitted.
+
+### 2026-04-19: Roadmap v1, PRD plan, and first three PRDs drafted (Link)
+**By:** Link (PM), requested by Pedro
+**What:** Three new artifact sets on branch `docs/roadmap-v1-and-first-prds`:
+
+1. **Roadmap** — `docs/product/roadmap-v1.md` (Draft v0.1).
+   - **5 milestones:** M0 Foundations (S) → M1 Single-user happy path (L) → M2 Multi-device shared folder (L) → M3 v1 feature parity (M) → M4 v1.x polish (M).
+   - **3 release gates:** Internal Alpha (after M1), NGO Pilot (after M2), v1.0 Public (after M3). Each with testable entry criteria.
+   - Dependency graph (Mermaid) linking milestones to ADR-001, ADR-002, crypto-spec, security-requirements.
+   - Feature → milestone mapping for every row in vision §9 (each feature now has a PRD ID reserved).
+   - Deferred list with explicit triggers (incl. AR9 EV cert, AR10 macOS, telemetry never-in-v1).
+
+2. **PRD plan** — `docs/product/prd-plan.md` (Draft v0.1). 22 PRD reservations, 3 drafted. PRD authoring template documented. **Switch's sign-off is required (non-negotiable) for any security-touching PRD; Pedro cannot approve security-touching PRDs without prior Switch sign-off.**
+
+3. **Three M1 PRDs** (Status: **Draft**, target milestone **M1**):
+   - `prd-001-movements.md` — empty-on-open (PR1) is a hard requirement; selection UI ships M1; bulk *actions* deferred to M4 (PRD-019); every mutation writes event + audit entry from M1.
+   - `prd-002-saldo.md` — aggregation views auto-load (empty-on-open is Movements-specific); pending included in totals M1 (consistency with Movements), toggle deferred; linear pro-rata projection only.
+   - `prd-003-panel.md` — strict **read-only overview contract (PR7)**; no inline edits; no filters on Panel (by design); sparklines become real monthly-net data.
+
+**Vision update (`docs/product/vision.md`):** Q5 closed (Windows-first binaries; macOS source-only AR10; Linux AppImage/deb with Ed25519 detached sig). Q7 closed (prototype as v1 UX contract — yes; Niobe runs prototype-review in parallel). Q2 (data format) marked resolved by ADR-001 + crypto-spec §2.1. Still open: Q2 OneDrive scope, Q6 language coverage, Q8 repo layout (now ADR-002 Proposed).
+
+**Key open questions for Pedro:**
+1. Pilot NGO identity for M2 gate.
+2. Alpha dogfooder — which squad member commits 1 week on real data.
+3. Pending-transaction handling in Saldo/Panel totals (default "include"; confirm).
+4. Default date-range preset on Movements first open (PRD-001 Q1).
+5. i18n EN timing — PRD-009 targets M3; moves earlier if pilot NGO is English-speaking.
+6. OneDrive storage scope (vision Q2) — Personal + Business both, or pick one for v1?
+
+**Process note:** feature branch `docs/roadmap-v1-and-first-prds` was created **before** writing artifacts (honours 2026-04-14 rule).
+
+**Why:** v1 sequence and first PRDs unblock Niobe (UX specs), Neo/Morpheus/Trinity (tech specs under `docs/specs/`), and M0 scaffolding.
+
+### 2026-04-19: UX baseline — prototype analysis, spec plan, three flow skeletons (Niobe)
+**By:** Niobe (Spec / UX Analyst), requested by Pedro
+**What:** New artifacts under `docs/ux/`:
+- `prototype-analysis-v1.md` — full inventory, canonical screens confirmation, strengths, 12 numbered gaps, divergence-from-cloud table, 8 UX principles, 5 UX risks.
+- `ux-spec-plan.md` — 28 specs in 4 waves (T1 blockers → T4 deferred), with ownership, traceability, and coordination with Link's PRDs 001–003.
+- `flows/flow-001-first-run-setup.md`, `flows/flow-002-device-enrollment.md` (Mermaid sequence), `flows/flow-003-movements-date-range.md` (state diagram enforcing "starts empty").
+
+**Canonical screens (confirmed):** Panel, Movements, Saldo are the v1 UX contract. Prototype's visual language preserved; loading contract on Movements corrected (starts empty, not auto-load).
+
+**Top blocker-level gaps:**
+- **G1** — First-run / folder setup (blocks install-to-first-tx ≤10min metric).
+- **G2** — Device enrollment UX (blocks all multi-device / collaboration).
+- **G4** — Crypto error states (decryption failure, audit chain break, bad escrow signature, update signature failure).
+- **G5** — Movements date-range gate (prototype auto-loads; contradicts locked decision).
+- **G6** — Empty database state (every screen needs first-use empty-state).
+
+**UX principles (tie-breakers):** treasurer-first; nothing loads until you ask; errors are actionable, never cryptic; sync is transparent; security decisions user-visible and irreversible-by-default; empty states teach; prototype is contract for core screens only; offline is a state, not a failure.
+
+**UX risks:** UX-R1 enrollment confusion; UX-R2 folder-ACL ↔ escrow drift education gap; UX-R3 SmartScreen (AR9) kills first-run; UX-R4 date-range feels slow; UX-R5 audit log too chatty.
+
+**Open questions:**
+- Vision Q6 blocks UX-022 scope.
+- Panel's "recent transactions" — respect Movements range or always latest-8? (recommend: always latest-8)
+- Remember last-opened folder across launches? (recommend: yes)
+- Universal `Ctrl/Cmd+N` for new transaction? (recommend: yes)
+- Admin transfer first-class in v1, or hidden in Settings → Advanced?
+- Default preset on Movements arrival — auto-select or require click? (recommend: require click)
+
+**Hand-offs:** Link (G1/G2/G6/G8 need PRD items; PRD-002 date-range presets; Categories/Tags/Accounts scope); Mouse (visual tokens, sync indicator, error severity, admin-only affordances, date-range picker, focus states); Neo/Morpheus/Trinity (sync-signal availability G3; event-log-based "new activity" G7); Switch (crypto error copy G4/UX-009; enrollment language UX-002/flow-002 step 4).
+
+**Wave 1 sequence (T1 blockers for install-to-first-tx):** UX-004 app shell → UX-001 first-run → UX-009 error catalog → UX-003 Movements date-range → UX-006 new transaction. **Wave 2 (multi-device):** UX-002 enrollment → UX-012 admin actions → UX-005 sync indicator.
+
+**Why:** UX baseline runs in parallel with Link's PRDs, Mouse's design tokens, and Morpheus/Trinity's ticket breakdown against ADR-001 C1–C15.
+
 ## Governance
 
 - All meaningful changes require team consensus

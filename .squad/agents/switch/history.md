@@ -91,3 +91,6 @@ Security considerations for Electron desktop treasury app:
 - Splitting "signed installer" from "signed update payload" was the right move. The commercial-CA problem is cosmetic/UX; update integrity is a cryptographic problem and is strictly cheaper to solve (self-signed Ed25519 + pinned pubkey). Never let a business trade-off eat a security requirement — decompose instead.
 - `age` is a fine format in isolation but forces you into its envelope. When you need DEK versioning + AAD binding + crypto agility + signature-based escrow integrity, using libsodium directly is less total complexity. The cost is explicit envelope design (we did it in crypto-spec §2.1); the benefit is we don't fight `age`'s opinions on key form.
 - "All members can read the audit log" turned out to be a governance feature for NGO treasurers, not a security weakness. Transparency beats admin-gated secrecy when the threat model is insider-edit, not insider-read.
+
+## 2026-04-19 — Team update (via Scribe)
+Roadmap sequences crypto-heavy work into M2 (multi-device enrollment + DEK rotation). Niobe flagged crypto error states (decryption failure, audit chain break, bad escrow signature, update signature failure) as blocker UX gap G4 — user-facing messages need your input on what's safe to say. Enrollment language (UX-002 / flow-002 step 4 approval modal) must harden against impersonation.

@@ -25,3 +25,6 @@ Documentation needs:
 
 ### 2026-04-19: Crypto spec v1.0 + ADR-001 Accepted
 Crypto spec v1.0 at `docs/security/crypto-spec.md`. Security Requirements bumped to v0.2. ADR-001 Accepted with conditions C1–C15. Every implementation ticket must cite the C1–C15 condition(s) it satisfies.
+
+## 2026-04-19 — Team update (via Scribe)
+Roadmap v1 published at docs/product/roadmap-v1.md. PRD plan at docs/product/prd-plan.md. Three PRDs drafted (001 movements, 002 saldo, 003 panel). User-facing docs (onboarding, admin guide, audit log export) should be scoped per milestone.
