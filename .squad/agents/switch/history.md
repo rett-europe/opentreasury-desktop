@@ -103,3 +103,7 @@ Roadmap sequences crypto-heavy work into M2 (multi-device enrollment + DEK rotat
 ### 2026-04-19 — From Scribe: UX specs batch 1 needs your ratification
 - Niobe surfaced crypto-error UX copy questions in UX-001 (`bad-escrow-signature` / `damaged-treasury`) and UX-002 (pubkey mismatch escalation, 6-char code alphabet/grouping).
 - Needs your ratification on user-facing copy before Draft → In Review.
+
+
+## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
+Three decrypt-failed UX copy strings pending your ratification: UX-003 Q9 (per-row footnote), UX-004 Q10 (Saldo banner), UX-005 Q8 (Panel banner). Wave 1 specs cannot move Draft -> In Review until you sign off.

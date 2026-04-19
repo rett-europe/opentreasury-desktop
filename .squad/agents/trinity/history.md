@@ -40,3 +40,7 @@ ADR-002 repo structure **Proposed** (Neo) — strict main/preload/renderer bound
 
 ### 2026-04-19 — From Scribe: Wave 1 UX specs batch 1 landed
 - Draft v0.1. Batch 2 (screens) arriving shortly.
+
+
+## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
+Wave 1 UX COMPLETE - all 6 specs Draft v0.1. Implementation specs/tickets can anchor to these. Every spec has a Traceability Matrix mapping to PRDs/ADRs/R-series/C-series/crypto sections.

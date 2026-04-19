@@ -36,3 +36,7 @@ Roadmap v1 + 3 PRDs drafted (Link). Tests layout is one of Neo's 5 open question
 - **i18n testing (ES + EN) required from M1** — both locales populated as each feature ships; CI `missing key` lint from M1.
 - Hybrid tests layout confirmed (ADR-002): unit co-located as `*.test.ts`; `app/tests/integration/` and `app/tests/e2e/` as separate trees.
 
+
+
+## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
+Wave 1 UX COMPLETE. Acceptance criteria sections in each spec give you testable statements for E2E test derivation.
