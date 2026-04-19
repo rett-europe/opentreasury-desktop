@@ -1075,3 +1075,62 @@ When a wrapper element needs rounded-corner clipping **AND** contains a `positio
 **Verification:** ✅ typecheck · ✅ lint (0 warnings) · ✅ 39/39 tests · ✅ vite build.
 
 **Related:** .squad/skills/css-sticky-patterns/SKILL.md gotcha #3 (padded scroll container leaves gap above sticky).
+
+
+### 2026-04-19: Sticky mask bands must cover the wrapper's side borders (mask-band polish)
+**By:** Trinity (Frontend)
+**Branch:** `fix/trinity-prototype-parity`
+**Commits:** `1de5dc7` (mask band introduced), `1350d95` (side-border polish)
+**Status:** Delivered ✅
+**Related:** `.squad/skills/css-sticky-patterns/SKILL.md` §4; session log `.squad/log/20260419T145000Z-trinity-mask-band-side-borders.md`; prior inbox notes `trinity-table-sticky-clip.md` and `trinity-sticky-padding-gap.md`.
+
+**Problem**
+The 28 px `--sticky-top-offset` mask band (`.ot-table thead th::before`) introduced in 1de5dc7 showed 1 px vertical hairlines on each side while scrolled. Band color correct; edges not seamless.
+
+**Root cause**
+The mask pseudo is anchored to the `<th>` (`left: 0; right: 0`), so horizontally it spans only the th's interior — inside `.ot-table-wrap`'s padding edge. `.ot-table-wrap` has `border: 1px solid` + `overflow: clip`. Once the wrap's top has scrolled out of view, its left/right borders keep rendering full-height across the 0..28 px pin band, flanking the mask. Pseudo-elements do **not** inherit `border` from the host, so the hairlines weren't from the pseudo — they were the wrap's own card-frame borders showing through the sides of the mask's horizontal extent.
+
+**Decision (hybrid fix)**
+When a sticky mask band lives inside a bordered wrapper:
+
+1. **Extend the mask horizontally past the wrapper's side borders.** Use first/last-child negative offsets on the pseudo (`left: -1px` / `right: -1px` matching the wrap's border width).
+2. **Pair with `overflow-clip-margin` on the wrap** equal to the border width, so `overflow: clip` permits the mask to paint that 1 px outside the padding edge. Without this, the negative offsets are clipped away.
+3. **Declare `border: 0` on the mask pseudo** as a defensive no-op. Pseudos default to no border, but declaring it documents intent and guards against future cascade leaks (e.g. a utility that globally sets `border` on `::before`).
+4. **Verify the mask is visually absent at scroll=0.** The pseudo sits above the wrap's padding box at rest; `overflow: clip` (within the clip-margin tolerance) hides it until the sticky element actually pins. Do not rely on visibility toggles or JS — structural clipping is the correct mechanism.
+
+**Implementation reference** — `app/src/renderer/components/Table/Table.css`:
+
+```css
+.ot-table-wrap {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  overflow: clip;
+  overflow-clip-margin: 1px;
+}
+
+.ot-table thead th::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: var(--sticky-top-offset, 0);
+  background: var(--color-surface-app);
+  border: 0;
+  pointer-events: none;
+}
+.ot-table thead th:first-child::before { left: -1px; }
+.ot-table thead th:last-child::before  { right: -1px; }
+```
+
+**Scope**
+Applies anywhere a sticky mask band pattern is used inside a bordered card/wrapper. Today: only `.ot-table thead th::before`. If future screens repeat the pattern (e.g. sticky section headers inside bordered panels), apply the same three rules. Documented as gotcha §4 in `.squad/skills/css-sticky-patterns/SKILL.md`.
+
+**Files changed**
+- `app/src/renderer/components/Table/Table.css`
+- `.squad/skills/css-sticky-patterns/SKILL.md` (§4)
+- `.squad/agents/trinity/history.md`
+
+**Gates:** ✅ typecheck · ✅ lint (0 warnings) · ✅ 39/39 tests · ✅ vite build.
+
+**Open questions:** none. `overflow-clip-margin` ships in Chromium 90 (2021); current Electron is well past that baseline.
