@@ -24,6 +24,7 @@ describe('AccountCard', () => {
     );
     const balanceEl = container.querySelector('.ot-account-card__balance');
     expect(balanceEl?.className).not.toContain('--negative');
+    expect(balanceEl?.className).toContain('--positive');
   });
 
   it('renders negative balance in red with negative class', () => {

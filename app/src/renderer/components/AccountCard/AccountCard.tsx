@@ -38,7 +38,7 @@ export function AccountCard({
         </div>
       </div>
       <div
-        className={`ot-account-card__balance ${isNegative ? 'ot-account-card__balance--negative' : ''}`}
+        className={`ot-account-card__balance ${isNegative ? 'ot-account-card__balance--negative' : 'ot-account-card__balance--positive'}`}
       >
         {new Intl.NumberFormat(navigator.language, {
           style: 'currency',

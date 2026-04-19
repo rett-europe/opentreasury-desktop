@@ -17,8 +17,12 @@
   border-radius: var(--radius-md);
 }
 
-/* Positive balances inherit the default (text-primary) from globals. The
- * negative modifier paints the amount with the expense token. */
+/* Balance tone — mirrors the prototype's amount-income/amount-expense pattern
+ * (panel.jsx applies `amountClass = negative ? 'amount-expense' : 'amount-income'`
+ * to .ac-balance). Positive = green, negative = red. */
+.ot-account-card__balance--positive {
+  color: var(--color-income-default);
+}
 .ot-account-card__balance--negative {
   color: var(--color-expense-default);
 }
