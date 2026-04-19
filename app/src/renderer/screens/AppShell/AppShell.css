@@ -342,12 +342,47 @@
   padding: 0 var(--space-10) var(--space-9);
   min-width: 0;
   min-height: 0;
+  /* Needed so the `::before` sticky mask below positions against this
+   * scrollport. */
+  position: relative;
   /* Vertical offset at which in-page sticky chrome (table thead) should pin,
    * chosen so its top edge lines up visually with the sidebar's first
    * section label ("PRINCIPAL"). Value = sidebar padding-top (--space-7 =
    * 16px) + nav-section-label padding-top (--space-6 = 12px) = 28px.
-   * Any paintable band between 0..offset must be masked opaque so rows
-   * don't bleed above the pinned header — see `.ot-table thead th::before`
-   * in Table.css. Keep this token in sync if sidebar chrome changes. */
+   * The `::before` mask below fills the 0..offset band with the shell's
+   * solid surface color so rows scrolling up are hidden before they reach
+   * the sidebar section-label baseline. Keep this token in sync if sidebar
+   * chrome changes. */
   --sticky-top-offset: 28px;
+}
+
+/* Opaque mask covering the 0..`--sticky-top-offset` band of the scrollport.
+ * Implemented as a sticky pseudo on `.ot-shell__main` (not on the table's
+ * <th>) so it spans the FULL scrollport width — no visible left/right edges
+ * against the surrounding shell chrome. The pinned thead anchors at
+ * `top: var(--sticky-top-offset)` and sits just below this mask.
+ *
+ * Layout: `height` + negative `margin-bottom` together take zero effective
+ * layout space so the mask doesn't push content down. `position: sticky`
+ * pins it at `top: 0` of the scrollport; at rest the element is already at
+ * that position so it's always visibly covering the top 28px of content.
+ *
+ * z-index: above rows, above the sticky thead, so anything scrolling up in
+ * the 0..offset band is hidden. pointer-events off so it never steals
+ * clicks. Background matches the shell (`--color-surface-app`). */
+.ot-shell__main::before {
+  content: '';
+  position: sticky;
+  top: 0;
+  display: block;
+  height: var(--sticky-top-offset, 0);
+  /* Extend 1px past the scrollport's horizontal padding so there's no
+   * hairline gap at the mask's sides against the shell background. Using
+   * negative inline margins keeps the mask flush edge-to-edge. */
+  margin-left: calc(var(--space-10) * -1);
+  margin-right: calc(var(--space-10) * -1);
+  margin-bottom: calc(var(--sticky-top-offset, 0) * -1);
+  background: var(--color-surface-app);
+  z-index: calc(var(--z-sticky, 10) + 1);
+  pointer-events: none;
 }
