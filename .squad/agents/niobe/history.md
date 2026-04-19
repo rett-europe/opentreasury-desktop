@@ -37,6 +37,31 @@ A prototype exists in `/prototype/` with React-based JSX components.
 - Coordinate with Link (PRDs 001–003), Switch (copy ratification), Pedro (scope decisions), Mouse (design system v0.1 shipped + follow-up density/toast/menus)
 - 28 UX specs planned across 4 waves; Wave 2 queued after Wave 1 → In Review
 
+## 2026-04-19T16:14:07Z — TEAM DECISION: Panel-first unlock for M1 → M1.25 Saldo (from Scribe)
+
+**Link + Neo agreed:** Shift M1 implementation sequence to Panel → Movements (not Movements → Panel).
+
+**Why this changes your sprint:**
+- **Your next task:** Panel UX spec (lightweight). Mostly prototype reference (no forms, no filters, read-only). Recent-txs table + totals strip + sparklines (placeholder for M1.1).
+- **Movements scope:** Spec already drafted; timeline shifts but not blocked. Full form wiring (account picker, category picker, tag picker) lands M1+1 *after* Panel ships.
+- **Saldo:** defers to M1.25. Product decision: Panel is the entry point UX; Saldo is polish.
+
+**Rationale:** Panel is conceptually simple (no gate, no sort, no filter). Validates the treasurer's UX preference early (dashboard-first). Unblocks internal alpha non-empty. Movements remains the *full* feature, just sequenced after Panel proves the core.
+
+**Your M1 exit gate (redefined):** Account creation → Tx entry → Panel visibility (not "three full-featured views"). Movements visible in M1; full wiring in M1+1.
+
+**Spec work (this sprint):**
+- Panel UX spec: reference prototype + mock data. Include prototype-reference block (file path, component, visual contract, "open alongside" instruction). 2–3 days.
+- Movements: keep as drafted; timeline shifts but scope unchanged.
+- Saldo: defer entirely. Don't allocate time to M1 final sprint.
+
+**Coordinate with:**
+- Trinity: Panel UI sprint is immediate after UX spec lands. Reference your spec's prototype link directly.
+- Mouse: Panel tokens are fewer edge cases than Movements. Finalize Panel tokens first.
+- Link: Confirm scope alignment (Panel → Movements sequence for M1 demo).
+
+See `.squad/decisions.md` § "Panel-First Unlock" for full rationale + work packages.
+
 ## Recent Updates
 
 ### 2026-04-19: Scope additions (Scribe note)

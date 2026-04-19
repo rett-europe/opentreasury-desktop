@@ -22,6 +22,33 @@ The desktop version needs equivalent functionality with local persistence (no cl
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-19T16:14:07Z — TEAM DECISION: Panel-first unlock for M1 → M1.25 Saldo (from Scribe)
+
+**Link + Neo agreed:** Shift M1 implementation sequence to Panel → Movements (not Movements → Panel).
+
+**Why this changes your sprint:**
+- **Your next task:** Core query surface design + IPC contract for Panel (1–3 days). Read-only queries only — `queryRecentMovements(limit, offset)` sorted DESC by created_at.
+- **Panel scope:** recent-txs table + totals strip. Zero forms, zero command-side wiring. Pure read-model.
+- **After Panel:** Command-side Movements wiring (accounts, categories, mutations) in M1+1 *after* Panel ships and proves the event-sourced core.
+- **Saldo:** defers to M1.25. Same data layer, different query surface.
+
+**Rationale:** Panel is read-only (no user-input validation), has no empty-state gate (renders even with 0 txs), and validates the entire data layer on the simplest code surface. Once Panel renders from real encrypted events, the team knows: OneDrive read works, crypto decrypt works, event-sourced read-model works, IPC contract is sound. All proved before Movements' complex command-side wiring.
+
+**Your M1 exit gate (redefined):** Account creation → Tx entry → Panel visibility (not "three full-featured views"). Movements structure complete; command wiring in M1+1.
+
+**Work breakdown (1 sprint):**
+- Phase 1a (2–3 days): finalize `core/query/` interface. Gate: Vitest 100%, fixtures in-memory.
+- Phase 1b (1 day, coordinated with Trinity): IPC contract. Zod schema in `app/src/shared/ipc-schemas.ts`. Gate: IPC round-trip vitest.
+- Phase 1d (3–4 days, coordinated with Switch): Crypto wiring for reads. Load DEK from keychain via `@napi-rs/keyring`. Decrypt events on main-process read path. Gate: Switch reviews; vitest envelope round-trip + keychain mocks.
+- Phase 2 (parallel / M1+8–12 days): Command-side Movements. `core/commands/` for `tx.created`, `account.created`. Implement `core/reducers/` for command-side projections.
+
+**Unblocked for you:**
+- No waiting on complex Movements form state.
+- Panel IPC can land in main by M1+5 days.
+- Movements command-side design can happen in parallel once Panel proves the read-model.
+
+See `.squad/decisions.md` § "Panel-First Unlock" for full rationale + work packages + Phase 1 details.
+
 ## 2026-04-19 — Team Context Update (from Scribe)
 - ADR-001 (Proposed) at `docs/architecture/adr-001-tech-stack.md` — Neo recommends Option A (React+TS, append-only event-sourced JSON, `age` encryption).
 - Security Requirements v0.1 at `docs/security/security-requirements-v0.1.md` — Switch: 20 requirements, 15 stack constraints, 8 accepted risks, 6 open questions for Pedro.

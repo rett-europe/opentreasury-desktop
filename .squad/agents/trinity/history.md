@@ -21,6 +21,31 @@ The cloud version has an Angular 19 frontend with:
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-19T16:14:07Z — TEAM DECISION: Panel-first unlock for M1 → M1.25 Saldo (from Scribe)
+
+**Link + Neo agreed:** Shift M1 implementation sequence to Panel → Movements (not Movements → Panel).
+
+**Why this changes your sprint:**
+- **Your next task:** Panel UI implementation (3–4 days). Prototype reference + mock data → recent-txs table + totals strip + sparklines placeholder. Read-only surface, no forms.
+- **After Panel:** Movements structure UI is already mostly done; now focus shifts to command-side wiring (account/category pickers, date-range binding, form submission) *after* Panel ships.
+- **Saldo:** defers to M1.25. Don't allocate to M1 final sprint.
+
+**Rationale:** Panel is simpler (no empty-state gate, no date-range complexity, no form validation), unblocks internal alpha faster, validates the full event-sourced data layer on the gentlest code surface before we hit Movements' complexity.
+
+**Your M1 exit gate (redefined):** Account creation → Tx entry → Panel visibility (not "three full-featured views"). Movements visible but forms wired in M1+1.
+
+**Work breakdown (1 sprint total):**
+- Morpheus/Switch: `core/query`, IPC contract, crypto wiring for reads (3–4 days each, parallel).
+- You: Panel UI from prototype → mock data integration → vitest snapshot.
+- Gates: typecheck · lint · test · before/after screenshot vs prototype.
+
+**Unblocked for you:**
+- Niobe's Panel UX spec (lightweight — mostly prototype reference).
+- Mouse's finalized tokens for Panel (fewer edge cases than Movements).
+- No date-range complexity, no account/category picker yet.
+
+See `.squad/decisions.md` § "Panel-First Unlock" for full rationale + work packages.
+
 ### 2026-04-19: CSS sticky patterns — two subtle gotchas
 - **Sortable header `<button>` resets text-transform and letter-spacing.** `font: inherit` on the child button does NOT cover `text-transform` or `letter-spacing`; the `<button>` UA default overrides both. When a `th` uses `text-transform: uppercase` + `letter-spacing: 0.08em`, any inner `<button class="ot-table__sort-btn">` must explicitly `text-transform: inherit; letter-spacing: inherit;` or sortable columns render in mixed case while non-sortable ones stay uppercase.
 - **`overflow: clip` vs `overflow: hidden` for sticky escape.** `hidden` establishes a scroll containing block and traps `position: sticky` inside the clipped box (thead vanishes as soon as user scrolls past the table's own height). `overflow: clip` still visually clips children (rounded corners OK) but does NOT create a scroll container — sticky can escape to the nearest real scrolling ancestor (`.ot-shell__main`). Use `clip` on wrappers that want rounded corners AND contain a sticky header.
