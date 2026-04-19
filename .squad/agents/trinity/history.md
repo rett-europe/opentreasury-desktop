@@ -95,3 +95,5 @@ Built the first runnable vertical slice. All 4 CI gates green: typecheck · lint
 - Click Panel or Saldo in the sidebar → "Coming soon" EmptyState with i18n copy.
 
 Did NOT commit — Scribe owns commits.
+### 2026-04-19: Wave 1 impl drifted from prototype — rebuild side-by-side after tokens v0.2
+Wave 1 implementation drifted from the prototype. After Mouse's tokens-v0.2 lands, rebuild screens side-by-side with the prototype open (literally two windows). Match pixel-for-pixel within reason. Every frontend PR now requires before/after screenshots comparing to the prototype. See `docs/product/prototype-fidelity-audit.md` and the 2026-04-19 decision `prototype/ is the visual and interaction contract for v1`.

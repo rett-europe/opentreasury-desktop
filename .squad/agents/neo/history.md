@@ -139,3 +139,21 @@ typecheck/lint/test all pass. skipLibCheck:true deviation documented in ADR-002 
 ### 2026-04-19: Cross-agent update from Scribe
 Trinity wired Vite dev server successfully. `npm run dev` now serves the renderer at http://localhost:5173. Electron integration still TODO per ADR-002 §11. Vitest config gained `css: true` and `setupFiles` — noted for future test infra work.
 
+### 2026-04-19: Prototype fidelity audit — prototype/ is the visual contract
+Co-authored `docs/product/prototype-fidelity-audit.md` with Link after Pedro called out visual drift from the hi-fi prototype. ~49 tracked deltas: 20 blockers, 20 important, 9 polish. The prototype was under-referenced during design-system and implementation spawns — tokens were invented rather than extracted, and frontend work routed against `docs/design/` instead of `prototype/`. Logged the governance rule to `.squad/decisions/inbox/neo-link-prototype-is-north-star.md`: prototype wins over design system; deviations need Link+Pedro sign-off or a Neo technical-impossibility note.
+
+**My process-failure ownership:** I treated Niobe's prototype-analysis-v1.md as the closing of the prototype-review loop. I should have kept `prototype/` as a live input on every frontend spawn and called it out explicitly. I did not. Every frontend spawn prompt must now name `prototype/*.jsx` + `prototype/styles.css` as required input artifacts alongside charter/history/decisions.
+
+**Concrete gotchas to carry forward:**
+- Prototype uses **Inter** (Google Fonts) — Mouse chose OS system fonts. Inter ships offline-bundled in v0.2 tokens.
+- Prototype's pill radius is **16px** (a rounded rectangle); design system shipped `pill: 9999` (full-round). Wrong paradigm — account-pills and badges looked wrong.
+- Every radius step in the design system is **2px smaller** than the prototype. Compounds across cards/buttons.
+- Primary-button hover in prototype **lightens** to `#9c7cb5`; our design system **darkens** to `#5a3d75`. Hover direction inverted — changes brand feel.
+- Prototype borders are **purple-tinted alpha** (`rgba(109,77,140,0.14)`), not flat gray hex. Ambient brand wash is lost without this paradigm.
+- Design system explicitly removed the "pending" tone — but the prototype ships a Pendiente/Aprobado `estado` column. The right fix per the new rule is: prototype wins unless Link+Pedro sign off.
+- Two entire screens (Panel, Saldo) are `<ComingSoonScreen />` placeholders in M1 — the prototype has them fully designed. Not a scope issue; a *rendering* issue. Roadmap M1 already includes them.
+
+**PR-template change committed to:** mandatory before/after screenshots vs prototype, plus deviation-logged-in-decisions.md checkbox. Blocks merge on miss.
+
+**Rule of thumb:** If a spawn prompt for frontend work does not cite a `prototype/*` file, the prompt is incomplete.
+

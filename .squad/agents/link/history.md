@@ -110,3 +110,26 @@ UX-003 Q1 (statement-import scope -> UX-016/PRD-006) and UX-005 Q2 (Panel read-o
 ### 2026-04-19: Cross-agent update from Scribe
 PRD-001 (Movements) has a walking skeleton: empty-state-until-date-range, preset chips, sortable table, totals row, mock data (~48 entries Oct 2025 → Apr 2026). Ready for Pedro to click through.
 
+### 2026-04-19: Prototype fidelity audit — PRD-side ownership of the drift
+Co-authored `docs/product/prototype-fidelity-audit.md` with Neo after Pedro flagged visual drift in the M1 walking skeleton. ~49 tracked deltas vs the prototype (20 🔴 / 20 🟡 / 9 🟢). Two entire canonical screens (Panel, Saldo) are still `<ComingSoonScreen />` placeholders — they were counted as "scaffold in" but that did not translate to "visually matches prototype". That's on me.
+
+**My product-side ownership of the miss:**
+1. **PRDs didn't anchor acceptance criteria to prototype surfaces.** PRD-001/002/003 reference the prototype as "the baseline" in prose but do not cite `prototype/{file}` + `line-range` on each PR-N criterion. When criteria are abstract, implementers fill gaps from the nearest authoritative source — which became the design system, and the design system had already diverged from the prototype.
+2. **I didn't enforce a "Prototype Reference" block on UX specs.** Niobe's prototype-analysis treated the prototype as "visual language, not pixel-perfect contract". That framing opened the door. The new governance rule (prototype wins) + a mandatory `## Prototype Reference` header block on every UX spec closes it.
+
+**Committed:**
+- Every Wave-1 UX spec (UX-001 through UX-006) gets a Prototype Reference block backfilled this week — file path, component/section, styles.css selectors, and "open alongside HTML" instruction.
+- No new PRD ships without a prototype citation on every user-visible PR-N.
+- Resolve the six prototype-vs-design-system conflicts this week (§5.1 item 5 of the audit): estado column, pending/approved tone, Exportar header button, category/subcategory column split, ES/EN toggle location, theme toggle location. Each gets an explicit decisions.md entry — either "prototype wins" or "product deviation signed off by Link + Pedro".
+- Re-scope PRDs to cover features visible in the prototype but missing from PRDs: "Demo NGO" org-identity label on topbar, global search with ⌘K, sidebar user-strip (reframed to match desktop/no-RBAC model — it's a device identity affordance, not an admin role).
+
+**Gotchas worth carrying:**
+- Prototype ships **Pendiente / Aprobado** badges on Movements (`estado` column). Pedro's earlier Q8 decision removed the pending/draft CONCEPT at the data level ("all tx are real and confirmed"), but the design system then removed the **tone** too, which lost the `estado` affordance entirely. The pending/approved column may still exist as a **statement-import reconciliation state** (matched vs unmatched) — need to reconcile with Pedro. Don't assume design-system decisions obsolete prototype UI without a logged decision.
+- Prototype's sidebar has **8 nav items** across **3 sections** (Principal/Configuración/Datos). Our shell ships 3. M1 PRD scope covers 3 screens — but the **nav chrome** needs all 8 (disabled for M2+ routes) to match the prototype.
+- Prototype uses **Inter** via Google Fonts; design system chose OS system fonts for offline-first. Needs resolution — locally bundle Inter vs keep OS stack. I'm leaning "bundle Inter" because fidelity > trivial binary-size win.
+- Prototype has no first-run, no enrollment, no crypto-error states — those screens **must** be authored from scratch against the prototype's *visual language* (our job: apply the same tokens/components, not draw new ones).
+
+**Not reopening M1 scope.** What changes is **how** features look + behave, not which features ship. Sequencing preserved: tokens-v0.2 lands first (Mouse), then Trinity re-shells + builds Panel + Saldo. Items 1–5 of §5 this week; items 6–11 next week.
+
+**Rule of thumb for future PRDs:** If a PR-N bullet does not cite a specific `prototype/{file}:section` or a logged deviation decision, the PRD is incomplete.
+

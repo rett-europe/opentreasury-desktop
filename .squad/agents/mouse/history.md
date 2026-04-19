@@ -79,3 +79,5 @@ Wave 1 UX COMPLETE - all 6 specs Draft v0.1. UNBLOCKED for ALL Wave-1 screens: d
 ### 2026-04-19: Cross-agent update from Scribe
 Trinity implemented tokens.md v0.1 + 8 primitives. Design system translated to CSS custom properties under `app/src/renderer/styles/tokens.css`. Check her decisions inbox entry (now merged into decisions.md 2026-04-19: Trinity — Frontend Wave 1 implementation choices) for any token deltas or gaps she flagged.
 
+### 2026-04-19: CRITICAL — tokens v0.1 drifted from prototype; re-extract as v0.2
+Tokens v0.1 drifted from the prototype. Remediation ticket assigned: re-extract tokens v0.2 directly from `prototype/styles.css` + `OpenTreasury Prototype.html` inline styles. Each token must cite a `Source:` note with the prototype selector it came from. This BLOCKS all subsequent frontend remediation. See `docs/product/prototype-fidelity-audit.md` and the 2026-04-19 decision `prototype/ is the visual and interaction contract for v1`.

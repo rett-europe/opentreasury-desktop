@@ -191,3 +191,5 @@ Wave 1 COMPLETE. Wave 2 (non-M1 specs per ux-spec-plan.md) is next, after Wave 1
 ### 2026-04-19: Cross-agent update from Scribe
 UX-003 Movements screen + UX-006 AppShell now have a working implementation under `app/src/renderer/screens/`. Ready for UX review once merged to `main`.
 
+### 2026-04-19: Every UX spec must open with a Prototype Reference block
+Every UX spec going forward must open with a `Prototype reference` block citing the exact prototype file + section. Retro-apply this to UX-001..006. See `docs/product/prototype-fidelity-audit.md` and the 2026-04-19 decision `prototype/ is the visual and interaction contract for v1`.
