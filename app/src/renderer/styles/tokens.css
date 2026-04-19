@@ -1,6 +1,7 @@
 /*
- * Design tokens — v0.1
- * Source of truth: docs/design/tokens.md (Mouse, 2026-04-19)
+ * Design tokens — v0.2
+ * Extracted from prototype/styles.css per docs/product/prototype-fidelity-audit.md
+ * Prototype is the v1 north star (see .squad/decisions.md)
  *
  * Rule: NO raw hex / raw pixel values outside this file. Components reference
  * tokens via `var(--…)` only. Light is default on :root; dark overrides via
@@ -10,143 +11,232 @@
  * <html> falls through the `@media (prefers-color-scheme: dark)` block.
  */
 
+/* ══════════════════════════════════════════════════════════════
+   Inter font import — source: prototype/styles.css line 140
+   ══════════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 :root,
 :root[data-theme='light'] {
-  /* ── Colour: surfaces ─────────────────────────────────── */
-  --color-surface-app: #faf7fc;
+  /* ── Brand colors ──────────────────────────────────────────
+   * Source: prototype/styles.css :root lines 7–14 */
+  --color-brand-primary: #6d4d8c;
+  --color-brand-primary-light: #9c7cb5; /* v0.2: was #5a3d75 (hover darkened), now #9c7cb5 (hover lightens - prototype match) */
+  --color-brand-primary-muted: #b8a5cc; /* v0.2: new token from prototype */
+  --color-brand-surface: #f3edf8; /* v0.2: was #ede4f2, now #f3edf8 (prototype match) */
+  --color-brand-surface-hover: #ebe3f1; /* v0.2: new token from prototype */
+  --color-brand-on-primary: #ffffff;
+
+  /* ── Surfaces ──────────────────────────────────────────────
+   * Source: prototype/styles.css :root lines 26–32 */
+  --color-surface-app: #faf8fc; /* v0.2: was #faf7fc, now #faf8fc (prototype match) */
   --color-surface-primary: #ffffff;
-  --color-surface-secondary: #f4eef8;
+  --color-surface-secondary: #f8f4fb; /* v0.2: was #f4eef8, now #f8f4fb (prototype match - panel tint) */
   --color-surface-raised: #ffffff;
-  --color-surface-sunken: #efe8f4;
+  --color-surface-sunken: #f8f4fb; /* v0.2: was #efe8f4, now matches surface-secondary */
   --color-surface-overlay: rgba(32, 22, 40, 0.48);
 
-  /* ── Colour: text ─────────────────────────────────────── */
-  --color-text-primary: #1a1420;
-  --color-text-secondary: #433a4e;
-  --color-text-muted: #645872;
-  --color-text-disabled: #9a90a5;
-  --color-text-inverse: #ffffff;
-  --color-text-link: #5a3c82;
+  /* ── Text ──────────────────────────────────────────────────
+   * Source: prototype/styles.css :root lines 35–41 */
+  --color-text-primary: #231f27; /* v0.2: was #1a1420, now #231f27 (prototype match) */
+  --color-text-secondary: #4a4453; /* v0.2: was #433a4e, now #4a4453 (prototype match) */
+  --color-text-muted: #6b6178; /* v0.2: was #645872, now #6b6178 (prototype match) */
+  --color-text-disabled: #a59bae; /* v0.2: was #9a90a5, now #a59bae (prototype match) */
+  --color-text-inverse: #f4eef7; /* v0.2: was #ffffff, now #f4eef7 (prototype match) */
+  --color-text-link: #5e35b1; /* v0.2: was #5a3c82, now #5e35b1 (prototype match) */
 
-  /* ── Colour: borders ──────────────────────────────────── */
-  --color-border-default: #e1d6ea;
+  /* ── Borders & dividers (purple-tinted alpha) ──────────────
+   * Source: prototype/styles.css :root lines 30–32 */
+  --color-border-default: rgba(109, 77, 140, 0.14); /* v0.2: was flat #e1d6ea, now purple-tinted alpha (prototype paradigm) */
   --color-border-strong: #b8a6ca;
   --color-border-subtle: #ede4f2;
+  --color-divider: rgba(109, 77, 140, 0.10); /* v0.2: new token from prototype */
+  --color-row-hover: rgba(109, 77, 140, 0.04); /* v0.2: new token from prototype */
 
-  /* ── Colour: accent (brand) ───────────────────────────── */
-  --color-accent-default: #6d4d8c;
-  --color-accent-hover: #5a3d75;
-  --color-accent-active: #49315f;
-  --color-accent-disabled: #c8b9d6;
-  --color-accent-subtle: #ede4f2;
+  /* ── Semantic: Income ──────────────────────────────────────
+   * Source: prototype/styles.css :root lines 16–17 */
+  --color-income-default: #2e7d32; /* v0.2: was #1e7a2c, now #2e7d32 (prototype match) */
+  --color-income-bg: #e8f5e9; /* v0.2: was #e4f4e7, now #e8f5e9 (prototype match) */
 
-  /* ── Colour: success (income) ─────────────────────────── */
-  --color-success-default: #1e7a2c;
+  /* ── Semantic: Expense ─────────────────────────────────────
+   * Source: prototype/styles.css :root lines 18–19 */
+  --color-expense-default: #c62828; /* v0.2: was #b81f1f, now #c62828 (prototype match) */
+  --color-expense-bg: #ffebee; /* v0.2: was #fbe4e4, now #ffebee (prototype match) */
+
+  /* ── Semantic: Transfer ────────────────────────────────────
+   * Source: prototype/styles.css :root lines 20–21 */
+  --color-transfer-default: #1565c0; /* v0.2: new token from prototype */
+  --color-transfer-bg: #e3f2fd; /* v0.2: new token from prototype */
+
+  /* ── Semantic: Warning ─────────────────────────────────────
+   * Source: prototype/styles.css :root lines 22–23 */
+  --color-warning-default: #e65100; /* v0.2: was #9c4a00, now #e65100 (prototype match) */
+  --color-warning-bg: #fff3e0; /* v0.2: was #fdf0db, now #fff3e0 (prototype match) */
+
+  /* ── Status: Pending (orange tone) ─────────────────────────
+   * Source: prototype/styles.css :root lines 43–44
+   * NOTE: v0.1 design system explicitly removed pending tone.
+   * Prototype ships pending badges. Per north-star rule, prototype wins.
+   * Link must ratify or file deviation. */
+  --color-status-pending: #e65100;
+  --color-status-pending-bg: #fff3e0;
+
+  /* ── Status: Approved (green tone) ─────────────────────────
+   * Source: prototype/styles.css :root lines 45–46 */
+  --color-status-approved: #2e7d32;
+  --color-status-approved-bg: #e8f5e9;
+
+  /* ── Uncategorized ─────────────────────────────────────────
+   * Source: prototype/styles.css :root lines 47–48 */
+  --color-uncategorized: #9e9e9e;
+  --color-uncategorized-bg: #f5f5f5;
+
+  /* ── Legacy aliases (danger/success/info map to semantic) ─ */
+  --color-success-default: var(--color-income-default);
   --color-success-hover: #155c21;
-  --color-success-subtle: #e4f4e7;
-
-  /* ── Colour: warning ──────────────────────────────────── */
-  --color-warning-default: #9c4a00;
-  --color-warning-subtle: #fdf0db;
-
-  /* ── Colour: danger (expense, destructive) ────────────── */
-  --color-danger-default: #b81f1f;
+  --color-success-subtle: var(--color-income-bg);
+  --color-danger-default: var(--color-expense-default);
   --color-danger-hover: #8f1616;
   --color-danger-active: #6e1010;
-  --color-danger-subtle: #fbe4e4;
-
-  /* ── Colour: info ─────────────────────────────────────── */
+  --color-danger-subtle: var(--color-expense-bg);
   --color-info-default: #1558a8;
   --color-info-subtle: #e1edfa;
 
-  /* ── Focus ─────────────────────────────────────────────── */
+  /* ── Accent (maps to brand primary for component compat) ── */
+  --color-accent-default: var(--color-brand-primary);
+  --color-accent-hover: var(--color-brand-primary-light);
+  --color-accent-active: #49315f;
+  --color-accent-disabled: #c8b9d6;
+  --color-accent-subtle: var(--color-brand-surface);
+
+  /* ── Focus ─────────────────────────────────────────────────── */
   --color-focus-ring: #6d4d8c;
   --color-focus-ring-offset: #ffffff;
 
-  /* ── Typography: font stacks ──────────────────────────── */
-  --font-family-sans:
-    'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui,
-    Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  /* ── Typography: font stacks ───────────────────────────────
+   * Source: prototype/styles.css body line 140–145 */
+  --font-family-sans: 'Inter', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-family-mono:
     'Cascadia Code', Consolas, ui-monospace, 'SF Mono', Menlo, Monaco, 'Liberation Mono',
     'Courier New', monospace;
+  --font-feature-settings: 'cv11', 'ss01'; /* v0.2: Inter stylistic sets from prototype */
 
-  /* ── Typography: type scale ──────────────────────────── */
-  --type-display-size: 28px;
+  /* ── Typography: type scale ────────────────────────────────
+   * Source: prototype/styles.css :root lines 68–71
+   * v0.2: Added missing 20/24/34 steps, kept body 14 */
+  --font-size-11: 11px; /* xs */
+  --font-size-12: 12px; /* sm */
+  --font-size-13: 13px; /* small (legacy, not in prototype) */
+  --font-size-14: 14px; /* body */
+  --font-size-16: 16px; /* md */
+  --font-size-20: 20px; /* lg — v0.2: new from prototype */
+  --font-size-24: 24px; /* xl — v0.2: new from prototype */
+  --font-size-28: 28px; /* 2xl */
+  --font-size-34: 34px; /* 3xl — v0.2: new from prototype */
+
+  /* ── Typography: semantic sizes ──────────────────────────── */
+  --type-display-size: var(--font-size-28);
   --type-display-line: 1.2;
   --type-display-weight: 600;
 
-  --type-h1-size: 22px;
-  --type-h1-line: 1.25;
+  --type-h1-size: var(--font-size-28); /* v0.2: was 22px, now 28px (prototype match) */
+  --type-h1-line: 1.2; /* v0.2: was 1.25, now 1.2 (prototype --lh-tight) */
   --type-h1-weight: 600;
+  --type-h1-letter-spacing: -0.01em; /* v0.2: new from prototype */
 
   --type-h2-size: 18px;
   --type-h2-line: 1.3;
   --type-h2-weight: 600;
 
-  --type-h3-size: 16px;
+  --type-h3-size: var(--font-size-16);
   --type-h3-line: 1.35;
   --type-h3-weight: 600;
 
-  --type-body-size: 14px;
+  --type-body-size: var(--font-size-14);
   --type-body-line: 1.5;
   --type-body-weight: 400;
-
   --type-body-strong-weight: 600;
 
-  --type-small-size: 13px;
+  --type-small-size: var(--font-size-13);
   --type-small-line: 1.45;
 
-  --type-caption-size: 12px;
+  --type-caption-size: var(--font-size-12);
   --type-caption-line: 1.4;
 
-  --type-micro-size: 11px;
+  --type-micro-size: var(--font-size-11);
   --type-micro-line: 1.35;
   --type-micro-weight: 500;
 
+  /* ── Section label recipe ──────────────────────────────────
+   * Source: prototype/styles.css .section-label lines 304–309
+   * Used for group headings across Panel, Saldo, Movements */
+  --section-label-size: var(--font-size-11);
+  --section-label-letter-spacing: 0.08em; /* v0.2: from prototype --ls-section */
+  --section-label-weight: 600;
+  --section-label-transform: uppercase;
+  --section-label-color: var(--color-text-muted);
+
+  /* ── Font weights ────────────────────────────────────────── */
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
-  /* ── Spacing (4 px base, 8 px rhythm) ─────────────────── */
+  /* ── Spacing (prototype grid: 2/4/6/8/10/12/16/20/24/32/40/48/64) ──
+   * Source: prototype/styles.css :root lines 64–66
+   * v0.2: Added missing 2, 6, 10 steps */
   --space-0: 0;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-7: 32px;
-  --space-8: 40px;
-  --space-9: 48px;
-  --space-10: 64px;
+  --space-1: 2px; /* v0.2: was 4px, now 2px (prototype match --spc-2) */
+  --space-2: 4px; /* v0.2: was 8px, now 4px */
+  --space-3: 6px; /* v0.2: was 12px, now 6px (new step from prototype) */
+  --space-4: 8px; /* v0.2: was 16px, now 8px */
+  --space-5: 10px; /* v0.2: was 20px, now 10px (new step from prototype) */
+  --space-6: 12px; /* v0.2: was 24px, now 12px */
+  --space-7: 16px; /* v0.2: was 32px, now 16px */
+  --space-8: 20px; /* v0.2: was 40px, now 20px */
+  --space-9: 24px; /* v0.2: was 48px, now 24px */
+  --space-10: 32px; /* v0.2: was 64px, now 32px */
+  --space-11: 40px; /* v0.2: new slot */
+  --space-12: 48px; /* v0.2: new slot */
+  --space-13: 64px; /* v0.2: was --space-10, now --space-13 */
 
-  /* ── Radius ────────────────────────────────────────────── */
-  --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-pill: 9999px;
+  /* ── Radius ────────────────────────────────────────────────
+   * Source: prototype/styles.css :root line 61
+   * v0.2: Every step +2px from v0.1, pill is 16px not 9999px */
+  --radius-xs: 4px; /* v0.2: was 2px, now 4px (prototype match --rad-xs) */
+  --radius-sm: 6px; /* v0.2: was 4px, now 6px (prototype match --rad-sm) */
+  --radius-md: 8px; /* v0.2: was 6px, now 8px (prototype match --rad-md) */
+  --radius-lg: 12px; /* v0.2: was 10px, now 12px (prototype match --rad-lg) */
+  --radius-pill: 16px; /* v0.2: was 9999px, now 16px (prototype match --rad-pill for badges/account-pills) */
 
-  /* ── Elevation (light) ────────────────────────────────── */
+  /* ── Elevation (purple-tinted shadows) ─────────────────────
+   * Source: prototype/styles.css :root lines 51–58
+   * v0.2: Switched from neutral rgba(26,20,32,…) to brand-tinted rgba(109,77,140,…) */
   --shadow-none: none;
-  --shadow-card: 0 1px 2px rgba(26, 20, 32, 0.06), 0 1px 3px rgba(26, 20, 32, 0.04);
+  --shadow-card: 0 1px 3px rgba(109, 77, 140, 0.08), 0 1px 2px rgba(109, 77, 140, 0.06); /* v0.2: purple tint */
+  --shadow-card-hover: 0 4px 12px rgba(109, 77, 140, 0.12), 0 2px 4px rgba(109, 77, 140, 0.08); /* v0.2: new from prototype */
   --shadow-raised: 0 2px 6px rgba(26, 20, 32, 0.08), 0 1px 2px rgba(26, 20, 32, 0.04);
-  --shadow-dropdown: 0 6px 18px rgba(26, 20, 32, 0.1), 0 2px 6px rgba(26, 20, 32, 0.06);
-  --shadow-dialog: 0 16px 48px rgba(26, 20, 32, 0.18), 0 4px 12px rgba(26, 20, 32, 0.1);
+  --shadow-dropdown: 0 8px 24px rgba(109, 77, 140, 0.16), 0 2px 8px rgba(109, 77, 140, 0.08); /* v0.2: purple tint */
+  --shadow-dialog: 0 12px 40px rgba(109, 77, 140, 0.24), 0 4px 12px rgba(109, 77, 140, 0.12); /* v0.2: purple tint */
   --shadow-focus: 0 0 0 2px var(--color-focus-ring-offset), 0 0 0 4px var(--color-focus-ring);
 
-  /* ── Motion ───────────────────────────────────────────── */
+  /* ── Motion ────────────────────────────────────────────────
+   * Source: prototype/styles.css :root lines 76–77
+   * v0.2: Adjusted to prototype timings (120ms fast, 200ms normal) */
   --motion-duration-instant: 80ms;
-  --motion-duration-fast: 140ms;
-  --motion-duration-base: 220ms;
+  --motion-duration-fast: 120ms; /* v0.2: was 140ms, now 120ms (prototype match) */
+  --motion-duration-base: 200ms; /* v0.2: was 220ms, now 200ms (prototype match) */
   --motion-duration-slow: 340ms;
-  --motion-easing-standard: cubic-bezier(0.2, 0, 0.2, 1);
+  --motion-easing-standard: ease-out; /* v0.2: prototype uses ease-out */
   --motion-easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
   --motion-easing-accelerate: cubic-bezier(0.4, 0, 1, 1);
 
-  /* ── Z-index scale ────────────────────────────────────── */
+  /* ── Chrome dimensions ─────────────────────────────────────
+   * Source: prototype/styles.css :root lines 79–80 */
+  --sidebar-width: 240px;
+  --topbar-height: 60px; /* v0.2: was 56px in v0.1, now 60px (prototype match) */
+
+  /* ── Z-index scale ────────────────────────────────────────── */
   --z-base: 0;
   --z-sticky: 10;
   --z-sidebar: 20;
@@ -159,60 +249,101 @@
   --z-toast: 80;
   --z-debug: 9000;
 
-  /* ── Breakpoints (used in @media; also exposed for JS) ─ */
+  /* ── Breakpoints (used in @media; also exposed for JS) ───── */
   --breakpoint-compact: 960px;
   --breakpoint-standard: 1280px;
   --breakpoint-wide: 1600px;
 }
 
-/* ── Dark theme ──────────────────────────────────────────
- * Manual override: <html data-theme="dark">
- * System (follows OS): <html data-theme="system"> + media query below
- */
+/* ══════════════════════════════════════════════════════════════
+   Dark theme
+   Source: prototype/styles.css body.theme-dark lines 83–122
+   Manual override: <html data-theme="dark">
+   System (follows OS): <html data-theme="system"> + media query below
+   ══════════════════════════════════════════════════════════════ */
 :root[data-theme='dark'] {
-  --color-surface-app: #120e17;
-  --color-surface-primary: #1c1624;
-  --color-surface-secondary: #17121e;
-  --color-surface-raised: #251e31;
+  /* ── Brand ───────────────────────────────────────────────── */
+  --color-brand-primary: #d2bcff; /* v0.2: was #c9abe8, now #d2bcff (prototype match) */
+  --color-brand-primary-light: #b094d9; /* v0.2: new from prototype dark mode */
+  --color-brand-primary-muted: #3d2e52; /* v0.2: new from prototype dark mode */
+  --color-brand-surface: #251e2e; /* v0.2: was #2e2438, now #251e2e (prototype match) */
+  --color-brand-surface-hover: #2e2639; /* v0.2: new from prototype dark mode */
+  --color-brand-on-primary: #1b1225; /* v0.2: new from prototype dark mode */
+
+  /* ── Surfaces ────────────────────────────────────────────── */
+  --color-surface-app: #100d14; /* v0.2: was #120e17, now #100d14 (prototype match) */
+  --color-surface-primary: #1d1723; /* v0.2: was #1c1624, now #1d1723 (prototype match) */
+  --color-surface-secondary: #1d1723; /* v0.2: was #17121e, now matches primary */
+  --color-surface-raised: #251e2e; /* v0.2: was #251e31, now #251e2e (prototype match) */
   --color-surface-sunken: #181320;
   --color-surface-overlay: rgba(0, 0, 0, 0.64);
 
-  --color-text-primary: #f3edf8;
-  --color-text-secondary: #c9bfd4;
-  --color-text-muted: #958aa3;
-  --color-text-disabled: #5f566c;
+  /* ── Text ────────────────────────────────────────────────── */
+  --color-text-primary: #f4eef7; /* v0.2: was #f3edf8, now #f4eef7 (prototype match) */
+  --color-text-secondary: #c4b8d0; /* v0.2: was #c9bfd4, now #c4b8d0 (prototype match) */
+  --color-text-muted: #9e90ab; /* v0.2: was #958aa3, now #9e90ab (prototype match) */
+  --color-text-disabled: #6b5f77; /* v0.2: was #5f566c, now #6b5f77 (prototype match) */
   --color-text-inverse: #1a1420;
   --color-text-link: #c1a8df;
 
-  --color-border-default: #2f2738;
+  /* ── Borders & dividers ──────────────────────────────────── */
+  --color-border-default: rgba(210, 188, 255, 0.12); /* v0.2: was #2f2738, now purple-tinted alpha (prototype dark) */
   --color-border-strong: #5f4b78;
   --color-border-subtle: #221b2b;
+  --color-divider: rgba(210, 188, 255, 0.08); /* v0.2: purple-tinted alpha (prototype dark) */
+  --color-row-hover: rgba(210, 188, 255, 0.06); /* v0.2: purple-tinted alpha (prototype dark) */
 
-  --color-accent-default: #c9abe8;
-  --color-accent-hover: #d8bff0;
-  --color-accent-active: #b795d7;
-  --color-accent-disabled: #4a3b5f;
-  --color-accent-subtle: #2e2438;
+  /* ── Semantic: Income ────────────────────────────────────── */
+  --color-income-default: #81c784; /* v0.2: was #6fcf7c, now #81c784 (prototype match) */
+  --color-income-bg: #1b3a1e; /* v0.2: was #1a2f1d, now #1b3a1e (prototype match) */
 
-  --color-success-default: #6fcf7c;
+  /* ── Semantic: Expense ───────────────────────────────────── */
+  --color-expense-default: #ef9a9a; /* v0.2: was #f07070, now #ef9a9a (prototype match) */
+  --color-expense-bg: #3e1a1a; /* v0.2: was #3a1818, now #3e1a1a (prototype match) */
+
+  /* ── Semantic: Transfer ──────────────────────────────────── */
+  --color-transfer-default: #90caf9; /* v0.2: new from prototype dark */
+  --color-transfer-bg: #162a3e; /* v0.2: new from prototype dark */
+
+  /* ── Semantic: Warning ───────────────────────────────────── */
+  --color-warning-default: #ffb74d; /* v0.2: was #f0a94a, now #ffb74d (prototype match) */
+  --color-warning-bg: #3e2a12; /* v0.2: was #3a2811, now #3e2a12 (prototype match) */
+
+  /* ── Status ──────────────────────────────────────────────── */
+  --color-status-pending: #ffb74d;
+  --color-status-pending-bg: #3e2a12;
+  --color-status-approved: #81c784;
+  --color-status-approved-bg: #1b3a1e;
+
+  /* ── Uncategorized ───────────────────────────────────────── */
+  --color-uncategorized: #757575;
+  --color-uncategorized-bg: #2a2a2a;
+
+  /* ── Legacy aliases ──────────────────────────────────────── */
+  --color-success-default: var(--color-income-default);
   --color-success-hover: #8bdb96;
-  --color-success-subtle: #1a2f1d;
-
-  --color-warning-default: #f0a94a;
-  --color-warning-subtle: #3a2811;
-
-  --color-danger-default: #f07070;
+  --color-success-subtle: var(--color-income-bg);
+  --color-danger-default: var(--color-expense-default);
   --color-danger-hover: #f58a8a;
   --color-danger-active: #d85050;
-  --color-danger-subtle: #3a1818;
-
+  --color-danger-subtle: var(--color-expense-bg);
   --color-info-default: #7fb0e8;
   --color-info-subtle: #142338;
 
+  /* ── Accent ──────────────────────────────────────────────── */
+  --color-accent-default: var(--color-brand-primary);
+  --color-accent-hover: #d8bff0; /* v0.2: was same as light, now dark-specific */
+  --color-accent-active: #b795d7;
+  --color-accent-disabled: #4a3b5f;
+  --color-accent-subtle: var(--color-brand-surface);
+
+  /* ── Focus ───────────────────────────────────────────────── */
   --color-focus-ring: #c9abe8;
   --color-focus-ring-offset: #1c1624;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+  /* ── Elevation (dark) ────────────────────────────────────── */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.30); /* v0.2: was 0.4, now 0.30 (prototype match) */
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.40); /* v0.2: new from prototype dark */
   --shadow-raised: 0 2px 6px rgba(0, 0, 0, 0.45);
   --shadow-dropdown: 0 6px 18px rgba(0, 0, 0, 0.55);
   --shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(243, 237, 248, 0.06);
@@ -221,56 +352,109 @@
 /* System mode: fall through to dark tokens when OS requests dark. */
 @media (prefers-color-scheme: dark) {
   :root[data-theme='system'] {
-    --color-surface-app: #120e17;
-    --color-surface-primary: #1c1624;
-    --color-surface-secondary: #17121e;
-    --color-surface-raised: #251e31;
+    --color-brand-primary: #d2bcff;
+    --color-brand-primary-light: #b094d9;
+    --color-brand-primary-muted: #3d2e52;
+    --color-brand-surface: #251e2e;
+    --color-brand-surface-hover: #2e2639;
+    --color-brand-on-primary: #1b1225;
+
+    --color-surface-app: #100d14;
+    --color-surface-primary: #1d1723;
+    --color-surface-secondary: #1d1723;
+    --color-surface-raised: #251e2e;
     --color-surface-sunken: #181320;
     --color-surface-overlay: rgba(0, 0, 0, 0.64);
 
-    --color-text-primary: #f3edf8;
-    --color-text-secondary: #c9bfd4;
-    --color-text-muted: #958aa3;
-    --color-text-disabled: #5f566c;
+    --color-text-primary: #f4eef7;
+    --color-text-secondary: #c4b8d0;
+    --color-text-muted: #9e90ab;
+    --color-text-disabled: #6b5f77;
     --color-text-inverse: #1a1420;
     --color-text-link: #c1a8df;
 
-    --color-border-default: #2f2738;
+    --color-border-default: rgba(210, 188, 255, 0.12);
     --color-border-strong: #5f4b78;
     --color-border-subtle: #221b2b;
+    --color-divider: rgba(210, 188, 255, 0.08);
+    --color-row-hover: rgba(210, 188, 255, 0.06);
 
-    --color-accent-default: #c9abe8;
+    --color-income-default: #81c784;
+    --color-income-bg: #1b3a1e;
+    --color-expense-default: #ef9a9a;
+    --color-expense-bg: #3e1a1a;
+    --color-transfer-default: #90caf9;
+    --color-transfer-bg: #162a3e;
+    --color-warning-default: #ffb74d;
+    --color-warning-bg: #3e2a12;
+
+    --color-status-pending: #ffb74d;
+    --color-status-pending-bg: #3e2a12;
+    --color-status-approved: #81c784;
+    --color-status-approved-bg: #1b3a1e;
+
+    --color-uncategorized: #757575;
+    --color-uncategorized-bg: #2a2a2a;
+
+    --color-success-default: var(--color-income-default);
+    --color-success-hover: #8bdb96;
+    --color-success-subtle: var(--color-income-bg);
+    --color-danger-default: var(--color-expense-default);
+    --color-danger-hover: #f58a8a;
+    --color-danger-active: #d85050;
+    --color-danger-subtle: var(--color-expense-bg);
+    --color-info-default: #7fb0e8;
+    --color-info-subtle: #142338;
+
+    --color-accent-default: var(--color-brand-primary);
     --color-accent-hover: #d8bff0;
     --color-accent-active: #b795d7;
     --color-accent-disabled: #4a3b5f;
-    --color-accent-subtle: #2e2438;
-
-    --color-success-default: #6fcf7c;
-    --color-success-hover: #8bdb96;
-    --color-success-subtle: #1a2f1d;
-
-    --color-warning-default: #f0a94a;
-    --color-warning-subtle: #3a2811;
-
-    --color-danger-default: #f07070;
-    --color-danger-hover: #f58a8a;
-    --color-danger-active: #d85050;
-    --color-danger-subtle: #3a1818;
-
-    --color-info-default: #7fb0e8;
-    --color-info-subtle: #142338;
+    --color-accent-subtle: var(--color-brand-surface);
 
     --color-focus-ring: #c9abe8;
     --color-focus-ring-offset: #1c1624;
 
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.30);
+    --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.40);
     --shadow-raised: 0 2px 6px rgba(0, 0, 0, 0.45);
     --shadow-dropdown: 0 6px 18px rgba(0, 0, 0, 0.55);
     --shadow-dialog: 0 16px 48px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(243, 237, 248, 0.06);
   }
 }
 
-/* Reduced motion: collapse duration tokens globally (tokens.md §6.3). */
+/* Dark mode: radial + linear gradient body background
+ * Source: prototype/styles.css body.theme-dark lines 124–128 */
+:root[data-theme='dark']::before,
+:root[data-theme='system']::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at top left, rgba(166, 132, 193, 0.18), transparent 28%),
+    linear-gradient(180deg, #18131d 0%, var(--color-surface-app) 100%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme='system']::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at top left, rgba(166, 132, 193, 0.18), transparent 28%),
+      linear-gradient(180deg, #18131d 0%, var(--color-surface-app) 100%);
+    pointer-events: none;
+    z-index: -1;
+  }
+}
+
+/* Reduced motion: collapse duration tokens globally. */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-duration-instant: 0ms;

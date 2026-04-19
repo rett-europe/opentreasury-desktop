@@ -81,3 +81,48 @@ Trinity implemented tokens.md v0.1 + 8 primitives. Design system translated to C
 
 ### 2026-04-19: CRITICAL — tokens v0.1 drifted from prototype; re-extract as v0.2
 Tokens v0.1 drifted from the prototype. Remediation ticket assigned: re-extract tokens v0.2 directly from `prototype/styles.css` + `OpenTreasury Prototype.html` inline styles. Each token must cite a `Source:` note with the prototype selector it came from. This BLOCKS all subsequent frontend remediation. See `docs/product/prototype-fidelity-audit.md` and the 2026-04-19 decision `prototype/ is the visual and interaction contract for v1`.
+
+### 2026-04-19: tokens v0.2 extraction complete (branch: fix/mouse-tokens-v0.2)
+**Complete re-extraction from `prototype/styles.css` — landed as `app/src/renderer/styles/tokens.css` v0.2.**
+
+#### Token naming reconciliation
+Preserved existing naming convention (`--color-*`, `--font-*`, `--space-*`, `--radius-*`, `--shadow-*`, etc.) for Trinity's component compatibility. Added new tokens with clear names where prototype introduced new values.
+
+#### Added tokens (new in v0.2)
+- **Color:** `--color-brand-primary-light`, `--color-brand-primary-muted`, `--color-brand-surface-hover`, `--color-divider`, `--color-row-hover`, `--color-transfer-default/bg`, `--color-status-pending/bg`, `--color-status-approved/bg`, `--color-uncategorized/bg`
+- **Typography:** `--font-size-20/24/34` (lg/xl/3xl from prototype scale), `--font-feature-settings`, `--section-label-*` recipe tokens (size/letter-spacing/weight/transform/color)
+- **Spacing:** Rescaled entire grid to match prototype 2/4/6/8/10/12/16/20/24/32/40/48/64 (was missing 2, 6, 10)
+- **Elevation:** `--shadow-card-hover` (purple-tinted)
+- **Chrome:** `--topbar-height: 60px` (was 56px)
+
+#### Changed values (corrections to match prototype)
+- **Font face:** Added Inter via Google Fonts import (was OS system stack)
+- **Brand hover direction:** `--color-brand-primary-light` now **lightens** to #9c7cb5 (was darkening to #5a3d75) — matches prototype hover feel
+- **Border paradigm shift:** Light mode borders use purple-tinted alpha `rgba(109,77,140,0.14)` instead of flat hex — prototype's signature brand-tinted materiality
+- **Radius:** Every step +2px (xs 4, sm 6, md 8, lg 12), pill is 16px not 9999px (prototype uses fixed-radius rounded rectangles for badges/pills)
+- **Spacing:** Complete rescale — every step index shifted (e.g., `--space-1` was 4px, now 2px; `--space-7` was 32px, now 16px)
+- **Typography scale:** h1 size 28px (was 22px), added 20/24/34 steps, removed invented 18/22 (kept 13 as legacy alias)
+- **Shadows:** Card/dropdown/dialog shadows use purple tint `rgba(109,77,140,…)` instead of neutral gray — perceptibly warmer materiality
+- **Motion:** fast 120ms (was 140ms), base 200ms (was 220ms), easing `ease-out` (was cubic-bezier)
+- **Dark mode:** Added radial + linear gradient body background recipe (prototype's signature brand-lit corner)
+- **Text colors:** All text/surface/border values refined to exact prototype hex (see inline `/* v0.2: was X, now Y */` comments)
+
+#### Removed/deprecated
+No tokens removed — legacy names preserved for Trinity's existing component references. Where values changed, added inline migration comments.
+
+#### Pending-tone reconciliation (⚠️ FLAGGED for Link/Pedro)
+**v0.1 design system explicitly removed pending tone ("no pending tone anywhere").** Prototype ships pending badges (#e65100 on #fff3e0). Per north-star rule, v0.2 **adopts prototype values** (`--color-status-pending/bg` added). Link must ratify or file a deviation.
+
+#### Trinity migration notes
+1. **Spacing token references:** All `--space-N` indexes shifted. Search/replace needed:
+   - `--space-1`: was 4px → now 2px
+   - `--space-2`: was 8px → now 4px
+   - `--space-3`: was 12px → now 6px
+   - `--space-4`: was 16px → now 8px
+   - ... (see tokens.css inline comments for full map)
+2. **Radius:** Every reference +2px effective value (card corners will be slightly more rounded)
+3. **Font family:** Inter now loads from Google Fonts; add `font-feature-settings: var(--font-feature-settings)` to body
+4. **Section labels:** Use new `--section-label-*` recipe tokens for uppercase group headings (Panel/Saldo/Movements)
+5. **Primary button hover:** Behavior inverted — now lightens instead of darkens
+6. **Borders:** Light mode borders are now purple-tinted alpha — may affect perceived contrast on tinted surfaces
+7. **New semantic colors:** Transfer (blue), pending/approved status, uncategorized — available for Movements table rebuild
