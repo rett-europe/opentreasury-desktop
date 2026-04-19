@@ -1042,3 +1042,36 @@ When a wrapper element needs rounded-corner clipping **AND** contains a `positio
 **Impact:** Table now renders with consistent header capitalization and sticky headers remain visible during scroll.
 
 **Test Status:** ✅ 39/39 tests pass, lint 0 warnings, build green
+
+### 2026-04-19: .ot-shell__main carries NO top padding — sticky scroll isolation
+**By:** Trinity (Frontend Dev)
+**Date:** 2026-04-19
+**Branch:** ix/trinity-prototype-parity
+**Commit:** 662de83
+**Status:** Delivered ✅
+
+**Problem:** Rows rendering above the sticky <thead> when scrolling the Movimientos table. User (Pedro) reported transactions "pass behind the header to the top of the screen."
+
+**Root cause:** .ot-shell__main had padding: var(--space-9) var(--space-10). The padding-top area (~48 px) is part of the scrollport. Sticky 	op: 0 anchors to the scrollport top — but scrolled content can be painted through the padding band, so rows pass over and above the pinned thead strip.
+
+**Decision:**
+
+1. .ot-shell__main keeps its **horizontal** and **bottom** gutter but **its padding-top is 0**:
+   `css
+   padding: 0 var(--space-10) var(--space-9);
+   `
+
+2. The top gutter moves onto .ot-page-header (the first in-flow child on every screen — Panel, Movimientos, Saldo):
+   `css
+   .ot-page-header { padding-top: var(--space-9); }
+   `
+
+**Contract:** Every future screen MUST start with a first-child element that owns the top gutter. If a new screen uses a different top element, it must carry padding-top: var(--space-9) or equivalent, otherwise it renders flush against the topbar. Sticky strips inside .ot-shell__main may rely on the scrollport top being unpadded — do not reintroduce padding-top on .ot-shell__main.
+
+**Files changed:**
+- pp/src/renderer/screens/AppShell/AppShell.css — .ot-shell__main padding
+- pp/src/renderer/styles/globals.css — .ot-page-header padding-top
+
+**Verification:** ✅ typecheck · ✅ lint (0 warnings) · ✅ 39/39 tests · ✅ vite build.
+
+**Related:** .squad/skills/css-sticky-patterns/SKILL.md gotcha #3 (padded scroll container leaves gap above sticky).

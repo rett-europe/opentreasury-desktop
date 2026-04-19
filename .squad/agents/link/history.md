@@ -150,3 +150,6 @@ Co-authored `docs/product/prototype-fidelity-audit.md` with Neo after Pedro flag
 
 **Rule of thumb for future PRDs:** If a PR-N bullet does not cite a specific `prototype/{file}:section` or a logged deviation decision, the PRD is incomplete.
 
+### 2026-04-19 — From Scribe: Trinity CSS sticky-scroll fix deployed
+Trinity fixed the visual regression on Movimientos (rows rendering above sticky header during scroll). Root cause: padded scroll container. Fix: structural (moved top gutter from scroll container to page-header). All gates green; skills doc updated. Contract recorded: every future screen must start with a top-gutter element, or it renders flush against the topbar. Visual behavior unchanged for end user; this is a maintenance win for future sticky work.
+
