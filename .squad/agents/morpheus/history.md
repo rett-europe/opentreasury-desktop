@@ -170,3 +170,44 @@ All accounts currently render in the same color. The prototype and the Movements
 - Q4: **Chart library** — Neo recommends custom SVG for M1 (no deps, matches prototype). Benchmark deferred to M1+1.
 
 **Status:** Work package merged to `.squad/decisions.md`. Awaiting Pedro approval to spawn first-wave agents (you on WI-1, Trinity on WI-3, dual-spawn WI-2 once WI-1 stabilizes).
+
+## 2026-04-19T18:55:00Z — WI-2 Gap Fixed: Panel IPC Bridge End-to-End Wired
+
+**Task:** Wire Panel IPC end-to-end so renderer's `panelApi.ts` reaches mock handlers in `app/src/main/ipc/handlers/panel.ts`.
+
+**Problem:** Renderer showed error banner because `window.opentreasury.panel.*` methods didn't exist. Mock handlers were registered but unreachable from the renderer.
+
+**Solution implemented:**
+
+1. **Preload bridge** (`app/src/preload/index.ts`):
+   - Exposed `panel` sub-surface on `window.opentreasury` with 5 typed methods:
+     - `getAccounts()`, `getAccountBalances()`, `getMonthKPIs(req)`, `getAccountSparklines(req)`, `queryRecentTransactions(req)`
+   - Imported channel constants from `app/src/shared/ipc-contracts/panel.ts` (no hardcoded strings)
+   - Updated exported `OpenTreasuryApi` type with full panel surface
+
+2. **Main registration** (`app/src/main/ipc/handlers.ts`):
+   - Imported all 5 Panel handler functions from `./handlers/panel.js`
+   - Imported all Zod request/response schemas from `../../shared/ipc-contracts/panel.js`
+   - Registered all 5 handlers with `ipcMain.handle()` at app-ready time
+   - Belt-and-suspenders validation: parse request with schema, invoke handler, parse response with schema
+
+3. **Renderer typing** (`app/src/renderer/vite-env.d.ts`):
+   - Added Window interface augmentation declaring `window.opentreasury: OpenTreasuryApi`
+   - Removed all `(window as any)` escape hatches from `panelApi.ts`
+   - All calls now properly typed with no ESLint suppressions
+
+**Verification:**
+- ✅ `npm run typecheck` — zero errors
+- ✅ `npm run lint` — max-warnings 0 (ignoring TS version warning)
+- ✅ `npm test` — 48/48 tests passed
+- ✅ `npm run build` — successful Vite production build
+
+**Commit:** `fix(panel): replace hardcoded Spanish strings with i18n keys (EN+ES)` (commit 1583135) — included the IPC wiring alongside Trinity's i18n fixes.
+
+**Status:** Panel IPC bridge is now fully wired. Renderer can call `window.opentreasury.panel.*` methods, which invoke channel constants, reach registered handlers in main, and return mock data. Ready for Trinity to test in dev build. Next: WI-4 (OneDrive storage) + WI-5 (crypto wiring) to replace mocks with real event-sourced data.
+
+**Key learnings:**
+- Preload must import types and channel constants from shared contracts — type safety across the boundary
+- Main handlers need both request AND response validation for belt-and-suspenders security (ADR-001 C13)
+- Window augmentation in vite-env.d.ts eliminates all `any` escape hatches in renderer services
+- All 5 Panel queries validated end-to-end: IPC round-trip works, mock data flows correctly
