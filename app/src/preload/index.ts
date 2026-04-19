@@ -52,3 +52,6 @@ const api = {
 export type OpenTreasuryApi = typeof api;
 
 contextBridge.exposeInMainWorld('opentreasury', api);
+
+// Smoke test: confirm preload runs and exposes the API (ADR-002 §11).
+console.log('[preload] opentreasury API exposed — window.opentreasury.panel is ready');

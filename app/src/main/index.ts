@@ -9,15 +9,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // ADR-001 C7 — strict CSP. No 'unsafe-inline', no 'unsafe-eval', no CDN.
-// TODO(C7): tighten once renderer dev server URL is finalized. For production file:// loading
-//   this baseline is adequate; dev mode may need `connect-src 'self' ws://localhost:5173` added.
+// Dev mode allows ws:// and http://localhost:5173 for Vite HMR.
+const isDev = !!process.env['VITE_DEV_SERVER_URL'];
 const CSP =
   "default-src 'self'; " +
   "script-src 'self'; " +
   "style-src 'self' 'unsafe-inline'; " + // TODO(C7): remove 'unsafe-inline' once CSS-in-JS strategy picked
   "img-src 'self' data:; " +
   "font-src 'self'; " +
-  "connect-src 'self'; " +
+  (isDev
+    ? "connect-src 'self' ws://localhost:5173 http://localhost:5173; "
+    : "connect-src 'self'; ") +
   "object-src 'none'; " +
   "base-uri 'self'; " +
   "form-action 'none'; " +
@@ -39,18 +41,23 @@ function createMainWindow(): BrowserWindow {
     },
   });
 
-  // TODO(C7): load the built renderer in production; wire Vite dev server URL in development.
-  // For now, a placeholder data URL keeps the shell bootable until real wiring lands.
-  void win.loadURL(
-    'data:text/html,<!doctype html><meta charset="utf-8"><title>OpenTreasury</title>' +
-      '<body style="font-family:system-ui;padding:2rem">Renderer not wired yet — scaffold.</body>',
-  );
+  // Load from Vite dev server in dev, built files in production (ADR-002 §11).
+  // vite-plugin-electron injects VITE_DEV_SERVER_URL during dev.
+  const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
+  if (VITE_DEV_SERVER_URL) {
+    void win.loadURL(VITE_DEV_SERVER_URL);
+  } else {
+    // Production: load from file://
+    void win.loadFile(join(__dirname, '../renderer/index.html'));
+  }
 
   win.once('ready-to-show', () => win.show());
 
-  // ADR-001 C7 — block all new-window / navigation that is not file://.
+  // ADR-001 C7 — block all new-window / navigation that is not file:// or dev server.
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event, url) => {
+    const devServerUrl = process.env['VITE_DEV_SERVER_URL'];
+    if (devServerUrl && url.startsWith(devServerUrl)) return; // Allow dev server navigation
     if (!url.startsWith('file://')) event.preventDefault();
   });
 
