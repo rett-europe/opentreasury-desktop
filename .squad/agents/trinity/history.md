@@ -193,3 +193,67 @@ Typography scale (h1 28 px, KPI 24 px tabular-nums, section label 11 px / 0.08em
 - Tests updated: old tests asserted on the picker radiogroup / absence of CTA; rewrote to assert chip tablist, header CTA, and that a table renders after the mock round-trip.
 - Did NOT touch the DateRangePicker primitive (still used by tests and available for future work).
 - Verified: typecheck OK, lint (0 warnings) OK, 39/39 tests pass, vite build OK.
+
+## 2026-04-19 — Inter font self-hosted (fix/trinity-prototype-parity)
+
+Fix: Google Fonts CDN `@import` in Electron is unreliable (CSP / offline / cold cache). Bold Inter glyphs (↑/↓ arrows in Movements) were falling back to system fonts — visibly thinner than prototype.
+
+### Changes
+- Installed `@fontsource/inter` (v5.2.8) in root `package.json` (flat workspace per ADR-002).
+- Imports added in `app/src/renderer/main.tsx` (lines 6–9):
+  - `@fontsource/inter/400.css` (regular)
+  - `@fontsource/inter/500.css` (medium)
+  - `@fontsource/inter/600.css` (semibold)
+  - `@fontsource/inter/700.css` (bold)
+- Removed Google Fonts `@import` from `app/src/renderer/styles/tokens.css` (was line 17). Replaced with a comment pointing to `main.tsx` as the new font source.
+- `--font-family-sans` unchanged (still `'Inter', Roboto, …`).
+
+### Learnings
+- **CDN `@import` is unreliable in Electron** — always self-host fonts via `@fontsource/*` for deterministic weight/glyph rendering across offline/CSP/cold-cache scenarios.
+- Vite bundles all @fontsource woff2 subsets automatically as build-time assets (Latin, Latin-ext, Cyrillic, Greek, Vietnamese) — CSS ~42 kB, + ~17 woff/woff2 chunks. Acceptable for Electron.
+- Per-weight side-effect imports (`@fontsource/inter/400.css`) work out of the box with our Vite config — no barrel fallback needed.
+
+### Build status
+`npm run typecheck` ✅ · `npm run lint` ✅ (0 warnings) · `npm test` ✅ (39/39) · `npm run build` ✅.
+
+## 2026-04-19 — Movements columns parity + width cap + natural-case headers (fix/trinity-prototype-parity)
+
+Three-part parity pass landed in one commit.
+
+### Part A — Page width cap removed
+- Deleted `max-width: 1440px` from `.ot-movements`. Page now flexes to the full `.main` inner area (sidebar + gutter + scrollbar), matching the prototype. Filter bar and table stretch naturally at wide + narrow viewports (filter bar already wraps via flex-wrap).
+
+### Part B — Natural-case table headers (primitive fix)
+- `.ot-table thead th`: removed `text-transform: uppercase` + `letter-spacing`; size 11 -> 13. Kept semibold + muted color.
+- Deviation note: prototype `.tx-table th` still applies uppercase + 0.08em letter-spacing. Per Pedros instruction this task, the app diverges from the prototype here. Logged in `.squad/decisions/inbox/trinity-movements-columns-parity.md` so Niobe/Link can ratify.
+- Only MovementsScreen consumes `.ot-table`. Panel/Saldo KPI strips and sidebar section labels have their own uppercase rules in globals — untouched. Zero regression outside Movements.
+
+### Part C — Movements columns (prototype parity)
+Columns in order: select, type-arrow, date, account, observations, category, subcategory, tags, status, amount.
+
+- Select column (36px, centered) with native checkboxes. Header tri-state uses a callback ref + useEffect to set `.indeterminate` (React does not expose it as a prop).
+- Selection state: ReadonlySet<string> of movement IDs. Persists across filter changes. Header checkbox operates only on visible rows (filteredRows). allVisibleSelected / someVisibleSelected derived from intersection of selected with visibleIds.
+- Selected-row background: pure CSS via `:has(input.ot-row-checkbox:checked)` in Table.css — keeps Table primitive stateless. Uses --color-brand-surface.
+- Subcategory split into dedicated column (null -> em-dash muted). Category cell shows plain value or `.ot-badge--uncategorized` chip when null.
+- Tags column: new `.ot-tag-chip` + `.ot-tag-chip-row` recipes in globals. Prototype color-mix recipe — per-chip color injected via `--ot-tag-color` inline custom property. Deterministic string-hash over a 6-entry palette (mock tags carry no color; real impl will resolve from reference_data).
+- Status column: `.ot-badge--pending`/`--approved` already in globals. Added `.ot-badge--rejected` using `--color-expense-default` + `--color-expense-bg` (no dedicated rejected tokens in Mouse v0.2). Flagged in decision note for Mouse.
+- Account column now renders `.ot-account-pill` with colored dot (globals recipe unchanged).
+- Table primitive tweak: `TableColumn.header` widened from string to ReactNode so the select column can embed a live input. Non-breaking.
+- i18n: added movements.columns.{select,observations,subcategory,tags,status} + movements.status.{pending,approved,rejected} in EN + ES. Renamed columns.description -> columns.observations; only caller was MovementsScreen.
+- uncategorizedOnly filter now actually filters (4 mock rows carry category: null as seeded by Morpheus in 56db75f).
+
+### New globals recipes
+- `.ot-text-muted` — em-dash helper.
+- `.ot-tag-chip` + `.ot-tag-chip-row` — prototype tag chip with `--ot-tag-color` hook.
+- `.ot-badge--rejected` — rejected status badge using expense palette.
+
+### Selection vs filter interaction
+- Selection survives filter changes by design.
+- Header checkbox tri-state computed from the visible filtered subset, not the entire loaded set.
+- Toggling header when all-visible-selected removes the visible subset from the selection — keeps off-screen selections intact.
+
+### Account-pill location
+- Lives in `app/src/renderer/styles/globals.css` as `.ot-account-pill` + `.ot-account-pill__dot` (predates this pass). First real consumer is now the Movements account column; Panel/Saldo can reuse.
+
+### Build status
+typecheck OK, lint OK (0 warnings), 39/39 tests pass, vite build OK (1790 modules, 42.93 kB CSS / 249.22 kB JS).

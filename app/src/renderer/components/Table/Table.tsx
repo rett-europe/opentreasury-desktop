@@ -6,7 +6,7 @@ export type SortDirection = 'asc' | 'desc' | null;
 
 export interface TableColumn<T> {
   readonly id: string;
-  readonly header: string;
+  readonly header: ReactNode;
   readonly sortable?: boolean;
   readonly align?: 'left' | 'center' | 'right';
   readonly tabular?: boolean;

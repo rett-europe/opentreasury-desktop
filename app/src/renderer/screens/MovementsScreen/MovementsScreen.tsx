@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar, FolderOpen, Landmark, Plus, X } from 'lucide-react';
 
@@ -8,7 +8,7 @@ import { EmptyState } from '../../components/EmptyState/index.js';
 import { Table } from '../../components/Table/index.js';
 import type { TableColumn, SortDirection } from '../../components/Table/index.js';
 import { getMockMovements } from '../../mocks/movements.js';
-import type { Movement, MovementTotals } from '../../types/movement.js';
+import type { Movement, MovementStatus, MovementTotals } from '../../types/movement.js';
 import './MovementsScreen.css';
 
 /**
@@ -32,7 +32,7 @@ type ScreenState =
   | { kind: 'loaded'; rows: readonly Movement[] }
   | { kind: 'error'; message: string };
 
-type SortColumn = 'date' | 'description' | 'account' | 'category' | 'amount';
+type SortColumn = 'date' | 'account' | 'description' | 'category' | 'subcategory' | 'status' | 'amount';
 
 type TypeFilter = 'all' | 'income' | 'expense';
 type MonthFilter = 'all' | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
@@ -75,6 +75,12 @@ function sortRows(
       case 'category':
         cmp = (a.category ?? '').localeCompare(b.category ?? '');
         break;
+      case 'subcategory':
+        cmp = (a.subcategory ?? '').localeCompare(b.subcategory ?? '');
+        break;
+      case 'status':
+        cmp = a.status.localeCompare(b.status);
+        break;
       case 'amount': {
         const aSigned = a.type === 'expense' ? -a.amount : a.amount;
         const bSigned = b.type === 'expense' ? -b.amount : b.amount;
@@ -103,6 +109,11 @@ export function MovementsScreen(): JSX.Element {
   const [minAmount, setMinAmount] = useState<string>('');
   const [maxAmount, setMaxAmount] = useState<string>('');
   const [uncategorizedOnly, setUncategorizedOnly] = useState(false);
+
+  // Row-selection state (Movements multi-select per prototype). IDs persist
+  // across filter changes; the header "select-all" only toggles the rows that
+  // are currently visible (matched by the active filters).
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
 
   const loadAll = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -235,8 +246,119 @@ export function MovementsScreen(): JSX.Element {
   );
   const dateFmt = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }), [locale]);
 
+  // ── Selection helpers ──────────────────────────────────────────────────
+  // Derived set of IDs currently visible through the filter pipeline.
+  const visibleIds = useMemo(
+    () => new Set(filteredRows.map((m) => m.id)),
+    [filteredRows],
+  );
+
+  // Count of visible rows that are currently in `selected`. Used for the
+  // header checkbox tri-state (none / indeterminate / all).
+  const selectedVisibleCount = useMemo(() => {
+    let n = 0;
+    for (const id of visibleIds) if (selected.has(id)) n += 1;
+    return n;
+  }, [selected, visibleIds]);
+
+  const allVisibleSelected = visibleIds.size > 0 && selectedVisibleCount === visibleIds.size;
+  const someVisibleSelected = selectedVisibleCount > 0 && !allVisibleSelected;
+
+  const toggleRow = useCallback((id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleAllVisible = useCallback(() => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const id of visibleIds) next.delete(id);
+      } else {
+        for (const id of visibleIds) next.add(id);
+      }
+      return next;
+    });
+  }, [allVisibleSelected, visibleIds]);
+
+  // Native checkboxes don't accept an `indeterminate` prop; we have to set it
+  // imperatively. Callback ref avoids stale state from reused DOM nodes.
+  const headerCbRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (headerCbRef.current) {
+      headerCbRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected]);
+
+  // ── Tag chip palette ───────────────────────────────────────────────────
+  // Deterministic hash → palette index so a given tag always renders the
+  // same hue. The mock Movement.tags are opaque strings; the real domain
+  // will resolve tag colors from reference data. Values chosen in oklch-
+  // friendly hex to mix cleanly with the prototype's color-mix() recipe.
+  const TAG_COLORS = useMemo(
+    () =>
+      [
+        '#9b72cf', // brand
+        '#4e8bd6', // blue
+        '#e06b6b', // coral
+        '#6ca974', // green
+        '#d6a94e', // amber
+        '#b06bd6', // violet
+      ] as const,
+    [],
+  );
+  const tagColor = useCallback(
+    (tag: string): string => {
+      let h = 0;
+      for (let i = 0; i < tag.length; i += 1) {
+        h = (h * 31 + tag.charCodeAt(i)) >>> 0;
+      }
+      return TAG_COLORS[h % TAG_COLORS.length] as string;
+    },
+    [TAG_COLORS],
+  );
+
+  const statusLabel = useCallback(
+    (s: MovementStatus) => t(`movements.status.${s}`),
+    [t],
+  );
+  const statusClass = (s: MovementStatus): string => {
+    if (s === 'pending') return 'ot-badge ot-badge--pending';
+    if (s === 'rejected') return 'ot-badge ot-badge--rejected';
+    return 'ot-badge ot-badge--approved';
+  };
+
   const columns: readonly TableColumn<Movement>[] = useMemo(
     () => [
+      {
+        id: 'select',
+        header: (
+          <input
+            ref={headerCbRef}
+            type="checkbox"
+            className="ot-header-checkbox"
+            checked={allVisibleSelected}
+            onChange={toggleAllVisible}
+            aria-label={t('movements.columns.select')}
+          />
+        ),
+        sortable: false,
+        align: 'center',
+        width: 36,
+        render: (m) => (
+          <input
+            type="checkbox"
+            className="ot-row-checkbox"
+            checked={selected.has(m.id)}
+            onChange={() => toggleRow(m.id)}
+            aria-label={t('movements.columns.select')}
+          />
+        ),
+      },
       {
         id: 'type',
         header: '',
@@ -263,28 +385,72 @@ export function MovementsScreen(): JSX.Element {
         render: (m) => dateFmt.format(new Date(`${m.date}T00:00:00Z`)),
       },
       {
-        id: 'description',
-        header: t('movements.columns.description'),
-        sortable: true,
-        render: (m) => m.description,
-      },
-      {
         id: 'account',
         header: t('movements.columns.account'),
         sortable: true,
-        render: (m) => m.account,
+        render: (m) => (
+          <span className="ot-account-pill">
+            <span className="ot-account-pill__dot" aria-hidden="true" />
+            {m.account}
+          </span>
+        ),
+      },
+      {
+        id: 'description',
+        header: t('movements.columns.observations'),
+        sortable: true,
+        render: (m) => m.description,
       },
       {
         id: 'category',
         header: t('movements.columns.category'),
         sortable: true,
+        render: (m) =>
+          m.category != null ? (
+            m.category
+          ) : (
+            <span className="ot-badge ot-badge--uncategorized">
+              {t('movements.filters.uncategorizedOnly')}
+            </span>
+          ),
+      },
+      {
+        id: 'subcategory',
+        header: t('movements.columns.subcategory'),
+        sortable: true,
+        render: (m) =>
+          m.subcategory != null ? (
+            m.subcategory
+          ) : (
+            <span className="ot-text-muted">—</span>
+          ),
+      },
+      {
+        id: 'tags',
+        header: t('movements.columns.tags'),
+        sortable: false,
         render: (m) => {
-          // Minimal guard for nullable category; Trinity will revamp this
-          // cell in the v0.2 column-parity pass (adds Subcategoría / Tags /
-          // Estado as dedicated columns).
-          const cat = m.category ?? '—';
-          return m.subcategory != null ? `${cat} › ${m.subcategory}` : cat;
+          if (m.tags.length === 0) return <span className="ot-text-muted">—</span>;
+          return (
+            <span className="ot-tag-chip-row">
+              {m.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="ot-tag-chip"
+                  style={{ ['--ot-tag-color' as string]: tagColor(tag) }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </span>
+          );
         },
+      },
+      {
+        id: 'status',
+        header: t('movements.columns.status'),
+        sortable: true,
+        render: (m) => <span className={statusClass(m.status)}>{statusLabel(m.status)}</span>,
       },
       {
         id: 'amount',
@@ -299,7 +465,7 @@ export function MovementsScreen(): JSX.Element {
         },
       },
     ],
-    [t, currencyFmt, dateFmt],
+    [t, currencyFmt, dateFmt, selected, toggleRow, tagColor, statusLabel, allVisibleSelected, toggleAllVisible],
   );
 
   return (

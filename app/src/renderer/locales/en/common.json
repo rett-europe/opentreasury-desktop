@@ -103,11 +103,20 @@
       "query": "We couldn't load your transactions. Please try again."
     },
     "columns": {
+      "select": "Select",
       "date": "Date",
-      "description": "Description",
+      "observations": "Observations",
       "account": "Account",
       "category": "Category",
+      "subcategory": "Subcategory",
+      "tags": "Tags",
+      "status": "Status",
       "amount": "Amount"
+    },
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
     },
     "totals": {
       "income": "Income",

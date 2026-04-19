@@ -103,11 +103,20 @@
       "query": "No pudimos cargar los movimientos. Inténtalo de nuevo."
     },
     "columns": {
+      "select": "Seleccionar",
       "date": "Fecha",
-      "description": "Descripción",
+      "observations": "Observaciones",
       "account": "Cuenta",
       "category": "Categoría",
+      "subcategory": "Subcategoría",
+      "tags": "Etiquetas",
+      "status": "Estado",
       "amount": "Importe"
+    },
+    "status": {
+      "pending": "Pendiente",
+      "approved": "Aprobado",
+      "rejected": "Rechazado"
     },
     "totals": {
       "income": "Ingresos",

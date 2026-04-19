@@ -1,8 +1,10 @@
+/* No max-width cap: prototype's `.main` owns the page inner gutter; the
+ * Movements page itself flexes to the container's full width so the filter
+ * bar + table can breathe on wide monitors. */
 .ot-movements {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-  max-width: 1440px;
 }
 
 .ot-movements__header {

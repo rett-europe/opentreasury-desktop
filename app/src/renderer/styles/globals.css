@@ -97,6 +97,11 @@ a:hover {
   font-feature-settings: 'tnum';
 }
 
+/* Muted-text utility used in table cells for em-dash fallbacks. */
+.ot-text-muted {
+  color: var(--color-text-muted);
+}
+
 /* Screen-reader only helper. */
 .ot-sr-only {
   position: absolute;
@@ -332,6 +337,33 @@ a:hover {
   color: var(--color-text-muted);
   background: var(--color-uncategorized-bg);
   font-style: italic;
+}
+/* Rejected status — mirrors pending/approved pattern using the expense
+ * palette (no dedicated rejected tokens yet in Mouse v0.2). */
+.ot-badge--rejected {
+  color: var(--color-expense-default);
+  background: var(--color-expense-bg);
+}
+
+/* Tag chip (Movements "Etiquetas" column). Port of prototype .tag-chip:
+ * background is a transparent tint of a per-tag color, passed via the
+ * custom property `--ot-tag-color` on the element. Falls back to the
+ * brand surface when no color is provided. */
+.ot-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  background: color-mix(in oklch, var(--ot-tag-color, var(--color-brand-primary)) 35%, transparent);
+  white-space: nowrap;
+}
+.ot-tag-chip-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 /* Account pill (column display) */
