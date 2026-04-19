@@ -73,7 +73,12 @@
         "income": "Ingreso",
         "expense": "Gasto"
       },
-      "uncategorized": "Sin categorizar"
+      "uncategorized": "Sin categorizar",
+      "unknownAccount": "Desconocida"
+    },
+    "error": {
+      "loadFailed": "No se pudo cargar el Panel. Inténtalo de nuevo.",
+      "retry": "Reintentar"
     }
   },
   "balance": {

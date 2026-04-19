@@ -1,8 +1,5 @@
 // Panel API client — thin wrapper over window.opentreasury IPC bridge.
 // Calls the 5 Panel queries and parses responses with Zod.
-//
-// NOTE: When Morpheus ships the real preload bridge methods, update the
-// window.opentreasury interface to match.
 
 import {
   getAccountsResponseSchema,
@@ -21,9 +18,7 @@ import {
  * Get all accounts for Panel account cards.
  */
 export async function getAccounts(): Promise<GetAccountsResponse> {
-  // TODO: replace with real IPC call when Morpheus ships preload bridge
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = await (window as any).opentreasury?.panel?.getAccounts?.();
+  const raw = await window.opentreasury.panel.getAccounts();
   return getAccountsResponseSchema.parse(raw);
 }
 
@@ -31,8 +26,7 @@ export async function getAccounts(): Promise<GetAccountsResponse> {
  * Get aggregate balance (income/expense/net) for each account.
  */
 export async function getAccountBalances(): Promise<GetAccountBalancesResponse> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = await (window as any).opentreasury?.panel?.getAccountBalances?.();
+  const raw = await window.opentreasury.panel.getAccountBalances();
   return getAccountBalancesResponseSchema.parse(raw);
 }
 
@@ -41,8 +35,7 @@ export async function getAccountBalances(): Promise<GetAccountBalancesResponse> 
  * @param yearMonth - YYYY-MM format, e.g., "2026-04"
  */
 export async function getMonthKPIs(yearMonth: string): Promise<GetMonthKPIsResponse> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = await (window as any).opentreasury?.panel?.getMonthKPIs?.({ yearMonth });
+  const raw = await window.opentreasury.panel.getMonthKPIs({ yearMonth });
   return getMonthKPIsResponseSchema.parse(raw);
 }
 
@@ -53,8 +46,7 @@ export async function getMonthKPIs(yearMonth: string): Promise<GetMonthKPIsRespo
 export async function getAccountSparklines(
   accountId: string
 ): Promise<GetAccountSparklinesResponse> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = await (window as any).opentreasury?.panel?.getAccountSparklines?.({ accountId });
+  const raw = await window.opentreasury.panel.getAccountSparklines({ accountId });
   return getAccountSparklinesResponseSchema.parse(raw);
 }
 
@@ -65,7 +57,6 @@ export async function getAccountSparklines(
 export async function queryRecentTransactions(
   limit: number = 10
 ): Promise<QueryRecentTransactionsResponse> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = await (window as any).opentreasury?.panel?.queryRecentTransactions?.({ limit });
+  const raw = await window.opentreasury.panel.queryRecentTransactions({ limit });
   return queryRecentTransactionsResponseSchema.parse(raw);
 }

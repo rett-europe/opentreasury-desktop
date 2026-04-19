@@ -147,9 +147,9 @@ export function PanelScreen(): JSX.Element {
           }}
         >
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 16 }}>
-            No se pudo cargar el Panel. Inténtalo de nuevo.
+            {t('panel.error.loadFailed')}
           </p>
-          <Button onClick={() => window.location.reload()}>{t('common.retry')}</Button>
+          <Button onClick={() => window.location.reload()}>{t('panel.error.retry')}</Button>
         </div>
       </div>
     );
@@ -215,7 +215,7 @@ export function PanelScreen(): JSX.Element {
       render: (row) => {
         // Lookup account label from accountId
         const account = accounts.find((a) => a.id === row.accountId);
-        return <span className="ot-account-pill">{account?.accountLabel ?? 'Unknown'}</span>;
+        return <span className="ot-account-pill">{account?.accountLabel ?? t('panel.recent.unknownAccount')}</span>;
       },
     },
     {

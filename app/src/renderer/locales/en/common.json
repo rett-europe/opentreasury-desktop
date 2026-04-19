@@ -73,7 +73,12 @@
         "income": "Income",
         "expense": "Expense"
       },
-      "uncategorized": "Uncategorized"
+      "uncategorized": "Uncategorized",
+      "unknownAccount": "Unknown"
+    },
+    "error": {
+      "loadFailed": "Couldn't load the Panel. Please try again.",
+      "retry": "Try Again"
     }
   },
   "balance": {
