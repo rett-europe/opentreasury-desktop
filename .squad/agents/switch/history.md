@@ -101,3 +101,7 @@ Roadmap sequences crypto-heavy work into M2 (multi-device enrollment + DEK rotat
 
 
 ### 2026-04-19: app/src/crypto/ is an Electron-free module per your audit requirement. It's an empty stub now -- real implementation per crypto-spec v1.0 is upcoming.
+
+
+### 2026-04-19: Scaffold GREEN -- eslint boundaries verified
+eslint boundary rules are working correctly: main/preload allowlisted for electron imports via targeted override; renderer/crypto/storage/core boundaries remain enforced. No leakage of electron into UI or crypto.

@@ -39,3 +39,7 @@ ADR-002 repo structure **Proposed** (Neo) — strict main/preload/renderer bound
 
 
 ### 2026-04-19: ADR-003 accepted -- react-i18next. app/ scaffolded on branch feat/app-scaffold-and-i18n-adr. Flat layout, strict TS. After Pedro runs npm install and lockfile lands on main, first real feature work targets PRD-001 Movements against crypto-spec section 11.
+
+
+### 2026-04-19: Scaffold GREEN (team note from Scribe)
+You can clone, `npm install --legacy-peer-deps`, and run: `npm run typecheck`, `npm run lint`, `npm test`. First real feature work can begin against feat/app-scaffold-and-i18n-adr once merged to main.

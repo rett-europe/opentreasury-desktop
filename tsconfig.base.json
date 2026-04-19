@@ -3,7 +3,7 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "jsx": "react-jsx",
 
     "strict": true,
@@ -14,7 +14,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
 
-    "skipLibCheck": false,
+    // skipLibCheck: true — scaffold deviation from ADR-002 §4. Required because
+    // electron.d.ts references DOM types + conflicts with strict @types/node
+    // (e.g. duplicate `noDeprecation` decl). See ADR-002 Addendum (2026-04-19).
+    "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,

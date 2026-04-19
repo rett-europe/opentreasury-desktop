@@ -2,6 +2,38 @@
 
 ## Active Decisions
 
+### 2026-04-19: Scaffold typecheck fixes — skipLibCheck deviation from ADR-002
+**By:** Neo (Lead / Architect), requested by Pedro
+**Branch:** feat/app-scaffold-and-i18n-adr
+**What:** Fixed 22 `npm run typecheck` errors on the fresh scaffold. Changes:
+- `tsconfig.base.json`: `skipLibCheck: false → true`; `lib: ["ES2022"] → ["ES2022", "DOM"]`
+- `app/src/main/tsconfig.json`: `lib: ["ES2022"] → ["ES2022", "DOM"]`
+- `app/src/renderer/vite-env.d.ts`: new file, `/// <reference types="vite/client" />`
+- `app/src/renderer/i18n/index.ts`: `missingKeyHandler` rewritten as conditional object-spread with explicit param types (`readonly string[]`, `string`, `string`) for `exactOptionalPropertyTypes`
+- `docs/architecture/adr-002-repo-structure.md`: Addendum documenting the `skipLibCheck` deviation
+
+**Why:** ADR-002 §4 implied `skipLibCheck: false`. Changed to `true` because:
+1. `electron.d.ts` conflicts with strict `@types/node` (duplicate `noDeprecation` decl — TS2687/TS2717). Upstream issue, not fixable by us.
+2. `electron.d.ts` references DOM types (`MessagePort`, `HTMLElement`, etc.) even in main-process contexts, forcing `DOM` into the shared base lib.
+3. Pinning `@types/node` to electron's bundled types is brittle; every serious Electron+TS project ships `skipLibCheck: true`.
+4. Source code is still fully type-checked under `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` — only third-party `.d.ts` files are skipped.
+
+Revisit if upstream resolves the conflict.
+
+### 2026-04-19: Scaffold lint configuration — TypeScript import resolver
+**By:** Neo (Lead/Architect), requested by Pedro
+**What:** Resolved 62 lint errors + 15 warnings from the fresh scaffold by fixing the `eslint-plugin-import` TypeScript resolver wiring.
+**Changes:**
+- `package.json`: added `eslint-import-resolver-typescript@^3.6.0` to devDependencies (install requires `--legacy-peer-deps` — peerOptional conflict with `@typescript-eslint/utils` v8 vs our v7 via ESLint 8).
+- `.eslintrc.cjs`: expanded `settings` with `import/parsers` (`.ts/.tsx/.cts/.mts` → TS parser) and `import/resolver.typescript` with `alwaysTryTypes: true` + full `project` array covering all 7 module tsconfigs (`root`, `main`, `preload`, `renderer`, `core`, `crypto`, `storage`, `shared`), plus `node: true` fallback.
+- `.eslintrc.cjs`: added `@typescript-eslint/no-unused-vars` with `^_` ignore patterns for args/vars/caught errors (scaffold convention).
+- `.eslintrc.cjs`: override for `app/src/main` and `app/src/preload` disabling top-level `no-restricted-imports` (prior rule blocked electron imports everywhere, including where they are allowed).
+- `app/src/renderer/i18n/index.ts`: narrow `eslint-disable` for i18next default-export false-positive warnings.
+
+**Why:** Root cause was `"Resolve error: typescript with invalid interface loaded as resolver"` — the resolver package was missing. The `import './App.js'` pattern in `main.tsx` is intentional for ESM-compatible TS output and was left unchanged. Renderer/crypto/storage/core boundary rules remain enforced — Switch-relevant.
+
+**Result:** `npm run lint` — 0 errors, 0 warnings. Revisit `--legacy-peer-deps` when upgrading to ESLint 9 / `@typescript-eslint` v8.
+
 ### 2026-04-19: Project scope — OpenTreasury Desktop
 **By:** Pedro (project owner)
 **What:** Build a desktop Electron app that replicates the functionality of rett-europe/opentreasury without requiring complex cloud setup (Azure, Cosmos DB, Entra ID). Tech stack beyond Electron is TBD.

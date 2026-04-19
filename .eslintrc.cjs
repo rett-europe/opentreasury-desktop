@@ -21,8 +21,24 @@ module.exports = {
   ],
   settings: {
     react: { version: 'detect' },
+    'import/parsers': {
+      '@typescript-eslint/parser': ['.ts', '.tsx', '.cts', '.mts'],
+    },
     'import/resolver': {
-      typescript: { project: ['./tsconfig.json'] },
+      typescript: {
+        alwaysTryTypes: true,
+        project: [
+          './tsconfig.json',
+          './app/src/main/tsconfig.json',
+          './app/src/preload/tsconfig.json',
+          './app/src/renderer/tsconfig.json',
+          './app/src/core/tsconfig.json',
+          './app/src/crypto/tsconfig.json',
+          './app/src/storage/tsconfig.json',
+          './app/src/shared/tsconfig.json',
+        ],
+      },
+      node: true,
     },
   },
   rules: {
@@ -109,6 +125,14 @@ module.exports = {
 
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/consistent-type-imports': 'error',
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      },
+    ],
 
     'react/react-in-jsx-scope': 'off',
   },
@@ -148,6 +172,14 @@ module.exports = {
             ],
           },
         ],
+      },
+    },
+    // Main + preload are the ONLY places electron imports are allowed. Relax the
+    // top-level electron ban here (ADR-002 §4.1).
+    {
+      files: ['app/src/main/**/*.{ts,tsx}', 'app/src/preload/**/*.{ts,tsx}'],
+      rules: {
+        'no-restricted-imports': 'off',
       },
     },
   ],

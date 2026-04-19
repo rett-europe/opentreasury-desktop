@@ -108,3 +108,27 @@ Published docs/architecture/adr-003-i18n-framework.md (Accepted — Pedro delega
 **Lesson carried forward:** scaffolding is a permanent-decision vehicle masquerading as throwaway code. Every config file ships with ADR/condition references in comments so the next contributor knows why a rule exists before they try to relax it. Saved me from re-litigating `no-restricted-imports` the second time it fails a legitimate-looking PR.
 
 ### 2026-04-19: ADR-003 Accepted. app/ scaffold landed on feat/app-scaffold-and-i18n-adr. Next: Pedro runs npm install; lockfile commit; then feature work can begin.
+
+### 2026-04-19: Scaffold typecheck fixes (22 errors → 0)
+First `npm run typecheck` after `npm install` surfaced 22 errors across the scaffold. Root causes and fixes:
+
+- **electron.d.ts × strict @types/node conflict** (TS2687/TS2717, duplicate `noDeprecation`): unresolvable upstream. Set `skipLibCheck: true` in `tsconfig.base.json`. **Deviation from ADR-002 §4** — documented in an Addendum at the bottom of ADR-002. Our source is still fully checked under `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`; only third-party `.d.ts` files are skipped.
+- **Missing DOM lib** (TS2749/TS2304 on `MessagePort`, `HTMLElement`, etc.): electron.d.ts references DOM types even in main-process code. Added `DOM` to `lib` in `tsconfig.base.json` and `app/src/main/tsconfig.json`. Preload/renderer already had it.
+- **Vite client types missing** (TS2339 on `import.meta.env`): added `app/src/renderer/vite-env.d.ts` with a `vite/client` triple-slash reference (Vite's standard convention — keeps `main.tsx` clean).
+- **i18next missingKeyHandler × exactOptionalPropertyTypes** (TS2769 + TS7006): ternary-with-`undefined` fails strict optional check. Rewrote as conditional object spread `...(isDev ? { missingKeyHandler: ... } : {})` with explicit parameter types (`readonly string[]`, `string`, `string`).
+
+**Lesson:** `exactOptionalPropertyTypes: true` forbids explicitly-`undefined` values on optional props — the fix is always conditional object spread, never `x ? fn : undefined`. Worth remembering for every other optional-config touchpoint in the codebase.
+
+**Lesson:** `skipLibCheck: false` is aspirational in any project that ships Electron + strict `@types/node`. Capitulate early, document it, move on.
+
+## Learnings
+
+- 2026-04-19: Scaffold produced 62 lint errors + 15 warnings, all from a single root cause: eslint-plugin-import was configured to use the 'typescript' resolver but eslint-import-resolver-typescript was not in devDependencies and the settings block was minimal. Fix: (1) added eslint-import-resolver-typescript ^3.6.0 to devDependencies; (2) expanded .eslintrc.cjs settings to include import/parsers mapping and import/resolver.typescript with alwaysTryTypes + full project array covering all 7 module tsconfigs + node: true fallback.
+- The 'import ./App.js' in main.tsx is CORRECT for ESM-compatible TS output — do not change it. Resolver config is the fix.
+- Added argsIgnorePattern/varsIgnorePattern '^_' to @typescript-eslint/no-unused-vars as a precaution for scaffold placeholders — standard convention, cheap insurance.
+- No console rule tightening needed: only 1 console.warn exists (i18n missingKeyHandler) and no-console is not configured as error.
+
+
+
+### 2026-04-19: Scaffold is GREEN
+typecheck/lint/test all pass. skipLibCheck:true deviation documented in ADR-002 Addendum. Install requires `--legacy-peer-deps` (peerOptional conflict with eslint-import-resolver-typescript; revisit if we upgrade to ESLint 9 / @typescript-eslint v8).

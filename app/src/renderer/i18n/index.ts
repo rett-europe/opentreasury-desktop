@@ -1,6 +1,11 @@
 // i18n initialization — see ADR-003.
 // Namespaces load statically from locales/{lang}/{namespace}.json.
 // Missing-key behavior: fail loud in dev, fallback to EN in prod (ADR-003 §5.3).
+
+/* eslint-disable import/no-named-as-default, import/no-named-as-default-member --
+   i18next's default export is the i18n instance; calling .use() on it is the
+   canonical pattern. These rules produce false positives for this idiom. */
+
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
@@ -32,12 +37,18 @@ void i18n
     debug: isDev,
     // TODO(ADR-003 §9.2): wire CI missing-key check in PRD-009 implementation.
     saveMissing: false,
-    missingKeyHandler: isDev
-      ? (lngs, ns, key): void => {
-          // eslint-disable-next-line no-console
-          console.warn(`[i18n] MISSING KEY ${ns}:${key} for ${lngs.join(',')}`);
+    ...(isDev
+      ? {
+          missingKeyHandler: (
+            lngs: readonly string[],
+            ns: string,
+            key: string,
+          ): void => {
+            // eslint-disable-next-line no-console
+            console.warn(`[i18n] MISSING KEY ${ns}:${key} for ${lngs.join(',')}`);
+          },
         }
-      : undefined,
+      : {}),
     detection: {
       order: ['localStorage', 'navigator'],
       lookupLocalStorage: 'opentreasury.locale',

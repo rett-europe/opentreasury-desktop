@@ -38,3 +38,7 @@ Roadmap v1 + 3 PRDs drafted (Link). Tests layout is one of Neo's 5 open question
 
 
 ### 2026-04-19: Vitest (unit, co-located) + Playwright (E2E in tests/e2e/) configured. tests/integration/ ready for integration tests. Smoke test stub in tests/e2e/smoke.spec.ts.
+
+
+### 2026-04-19: Scaffold GREEN (team note from Scribe)
+You can clone, `npm install --legacy-peer-deps`, and run: `npm run typecheck`, `npm run lint`, `npm test`. First real feature work can begin against feat/app-scaffold-and-i18n-adr once merged to main.
