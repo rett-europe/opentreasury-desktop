@@ -1,0 +1,10 @@
+node_modules/
+dist/
+out/
+coverage/
+.squad/
+docs/
+prototype/
+package-lock.json
+*.min.js
+*.min.css

@@ -1,19 +1,21 @@
 ---
-name: "economy-mode"
-description: "Shifts Layer 3 model selection to cost-optimized alternatives when economy mode is active."
-domain: "model-selection"
-confidence: "low"
-source: "manual"
+name: 'economy-mode'
+description: 'Shifts Layer 3 model selection to cost-optimized alternatives when economy mode is active.'
+domain: 'model-selection'
+confidence: 'low'
+source: 'manual'
 ---
 
 ## SCOPE
 
 ✅ THIS SKILL PRODUCES:
+
 - A modified Layer 3 model selection table applied when economy mode is active
 - `economyMode: true` written to `.squad/config.json` when activated persistently
 - Spawn acknowledgments with `💰` indicator when economy mode is active
 
 ❌ THIS SKILL DOES NOT PRODUCE:
+
 - Code, tests, or documentation
 - Cost reports or billing artifacts
 - Changes to Layer 0, Layer 1, or Layer 2 resolution (user intent always wins)
@@ -26,11 +28,11 @@ Use this skill when the user wants to reduce costs across an entire session or p
 
 ## Activation Methods
 
-| Method | How |
-|--------|-----|
-| Session phrase | "use economy mode", "save costs", "go cheap", "reduce costs" |
-| Persistent config | `"economyMode": true` in `.squad/config.json` |
-| CLI flag | `squad --economy` |
+| Method            | How                                                          |
+| ----------------- | ------------------------------------------------------------ |
+| Session phrase    | "use economy mode", "save costs", "go cheap", "reduce costs" |
+| Persistent config | `"economyMode": true` in `.squad/config.json`                |
+| CLI flag          | `squad --economy`                                            |
 
 **Deactivation:** "turn off economy mode", "disable economy mode", or remove `economyMode` from `config.json`.
 
@@ -38,13 +40,13 @@ Use this skill when the user wants to reduce costs across an entire session or p
 
 When economy mode is **active**, Layer 3 auto-selection uses this table instead of the normal defaults:
 
-| Task Output | Normal Mode | Economy Mode |
-|-------------|-------------|--------------|
+| Task Output                                           | Normal Mode         | Economy Mode              |
+| ----------------------------------------------------- | ------------------- | ------------------------- |
 | Writing code (implementation, refactoring, bug fixes) | `claude-sonnet-4.5` | `gpt-4.1` or `gpt-5-mini` |
-| Writing prompts or agent designs | `claude-sonnet-4.5` | `gpt-4.1` or `gpt-5-mini` |
-| Docs, planning, triage, changelogs, mechanical ops | `claude-haiku-4.5` | `gpt-4.1` or `gpt-5-mini` |
-| Architecture, code review, security audits | `claude-opus-4.5` | `claude-sonnet-4.5` |
-| Scribe / logger / mechanical file ops | `claude-haiku-4.5` | `gpt-4.1` |
+| Writing prompts or agent designs                      | `claude-sonnet-4.5` | `gpt-4.1` or `gpt-5-mini` |
+| Docs, planning, triage, changelogs, mechanical ops    | `claude-haiku-4.5`  | `gpt-4.1` or `gpt-5-mini` |
+| Architecture, code review, security audits            | `claude-opus-4.5`   | `claude-sonnet-4.5`       |
+| Scribe / logger / mechanical file ops                 | `claude-haiku-4.5`  | `gpt-4.1`                 |
 
 **Prefer `gpt-4.1` over `gpt-5-mini`** when the task involves structured output or agentic tool use. Prefer `gpt-5-mini` for pure text generation tasks where latency matters.
 
@@ -87,6 +89,7 @@ When economy mode is **active**, Layer 3 auto-selection uses this table instead 
 ### STOP
 
 After updating economy mode state and including the `💰` indicator in spawn acknowledgments, this skill is done. Do NOT:
+
 - Change Layer 0, Layer 1, or Layer 2 model choices
 - Override charter-specified models
 - Generate cost reports or comparisons

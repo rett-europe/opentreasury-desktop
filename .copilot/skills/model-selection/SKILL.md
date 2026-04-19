@@ -5,11 +5,13 @@
 ## SCOPE
 
 ✅ THIS SKILL PRODUCES:
+
 - A resolved `model` parameter for every `task` tool call
 - Persistent model preferences in `.squad/config.json`
 - Spawn acknowledgments that include the resolved model
 
 ❌ THIS SKILL DOES NOT PRODUCE:
+
 - Code, tests, or documentation
 - Model performance benchmarks
 - Cost reports or billing artifacts
@@ -22,14 +24,14 @@ Squad supports 18+ models across three tiers (premium, standard, fast). The coor
 
 Resolution is **first-match-wins** — the highest layer with a value wins.
 
-| Layer | Name | Source | Persistence |
-|-------|------|--------|-------------|
-| **0a** | Per-Agent Config | `.squad/config.json` → `agentModelOverrides.{name}` | Persistent (survives sessions) |
-| **0b** | Global Config | `.squad/config.json` → `defaultModel` | Persistent (survives sessions) |
-| **1** | Session Directive | User said "use X" in current session | Session-only |
-| **2** | Charter Preference | Agent's `charter.md` → `## Model` section | Persistent (in charter) |
-| **3** | Task-Aware Auto | Code → sonnet, docs → haiku, visual → opus | Computed per-spawn |
-| **4** | Default | `claude-haiku-4.5` | Hardcoded fallback |
+| Layer  | Name               | Source                                              | Persistence                    |
+| ------ | ------------------ | --------------------------------------------------- | ------------------------------ |
+| **0a** | Per-Agent Config   | `.squad/config.json` → `agentModelOverrides.{name}` | Persistent (survives sessions) |
+| **0b** | Global Config      | `.squad/config.json` → `defaultModel`               | Persistent (survives sessions) |
+| **1**  | Session Directive  | User said "use X" in current session                | Session-only                   |
+| **2**  | Charter Preference | Agent's `charter.md` → `## Model` section           | Persistent (in charter)        |
+| **3**  | Task-Aware Auto    | Code → sonnet, docs → haiku, visual → opus          | Computed per-spawn             |
+| **4**  | Default            | `claude-haiku-4.5`                                  | Hardcoded fallback             |
 
 **Key principle:** Layer 0 (persistent config) beats everything. If the user said "always use opus" and it was saved to config.json, every agent gets opus regardless of role or task type. This is intentional — the user explicitly chose quality over cost.
 
@@ -80,6 +82,7 @@ Resolution is **first-match-wins** — the highest layer with a value wins.
 ### STOP
 
 After resolving the model and including it in the spawn template, this skill is done. Do NOT:
+
 - Generate model comparison reports
 - Run benchmarks or speed tests
 - Create new config files (only modify existing `.squad/config.json`)

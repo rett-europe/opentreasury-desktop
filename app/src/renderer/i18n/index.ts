@@ -39,11 +39,7 @@ void i18n
     saveMissing: false,
     ...(isDev
       ? {
-          missingKeyHandler: (
-            lngs: readonly string[],
-            ns: string,
-            key: string,
-          ): void => {
+          missingKeyHandler: (lngs: readonly string[], ns: string, key: string): void => {
             // eslint-disable-next-line no-console
             console.warn(`[i18n] MISSING KEY ${ns}:${key} for ${lngs.join(',')}`);
           },

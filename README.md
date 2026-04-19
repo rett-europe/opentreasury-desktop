@@ -24,14 +24,14 @@ npm run dev         # Vite renderer dev server (Electron wiring lands in a follo
 
 ## Documentation
 
-| Area | Where |
-|---|---|
-| Product vision, PRDs, roadmap | [`docs/product/`](./docs/product/) |
-| Architecture decisions (ADRs) | [`docs/architecture/`](./docs/architecture/) |
-| Security requirements + crypto spec | [`docs/security/`](./docs/security/) |
-| User flows, wireframes | [`docs/ux/`](./docs/ux/) |
-| Visual design, tokens | [`docs/design/`](./docs/design/) |
-| Feature technical specs | [`docs/specs/`](./docs/specs/) |
+| Area                                | Where                                        |
+| ----------------------------------- | -------------------------------------------- |
+| Product vision, PRDs, roadmap       | [`docs/product/`](./docs/product/)           |
+| Architecture decisions (ADRs)       | [`docs/architecture/`](./docs/architecture/) |
+| Security requirements + crypto spec | [`docs/security/`](./docs/security/)         |
+| User flows, wireframes              | [`docs/ux/`](./docs/ux/)                     |
+| Visual design, tokens               | [`docs/design/`](./docs/design/)             |
+| Feature technical specs             | [`docs/specs/`](./docs/specs/)               |
 
 ## Contributing
 

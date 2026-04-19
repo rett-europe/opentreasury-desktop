@@ -51,12 +51,14 @@ module.exports = {
           {
             target: './app/src/renderer',
             from: './app/src/main',
-            message: 'renderer → main is FORBIDDEN. Use contextBridge IPC via preload (ADR-001 C6).',
+            message:
+              'renderer → main is FORBIDDEN. Use contextBridge IPC via preload (ADR-001 C6).',
           },
           {
             target: './app/src/renderer',
             from: './app/src/crypto',
-            message: 'renderer → crypto is FORBIDDEN. Crypto is main-process only (ADR-001 C5, C6).',
+            message:
+              'renderer → crypto is FORBIDDEN. Crypto is main-process only (ADR-001 C5, C6).',
           },
           {
             target: './app/src/renderer',
@@ -72,7 +74,8 @@ module.exports = {
           {
             target: './app/src/preload',
             from: './app/src/main',
-            message: 'preload → main is FORBIDDEN. Preload is a thin contextBridge only (ADR-001 C6).',
+            message:
+              'preload → main is FORBIDDEN. Preload is a thin contextBridge only (ADR-001 C6).',
           },
           {
             target: './app/src/preload',

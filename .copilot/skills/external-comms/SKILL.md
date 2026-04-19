@@ -1,22 +1,22 @@
 ---
-name: "external-comms"
-description: "PAO workflow for scanning, drafting, and presenting community responses with human review gate"
-domain: "community, communication, workflow"
-confidence: "low"
-source: "manual (RFC #426 — PAO External Communications)"
+name: 'external-comms'
+description: 'PAO workflow for scanning, drafting, and presenting community responses with human review gate'
+domain: 'community, communication, workflow'
+confidence: 'low'
+source: 'manual (RFC #426 — PAO External Communications)'
 tools:
-  - name: "github-mcp-server-list_issues"
-    description: "List open issues for scan candidates and lightweight triage"
-    when: "Use for recent open issue scans before thread-level review"
-  - name: "github-mcp-server-issue_read"
-    description: "Read the full issue, comments, and labels before drafting"
-    when: "Use after selecting a candidate so PAO has complete thread context"
-  - name: "github-mcp-server-search_issues"
-    description: "Search for candidate issues or prior squad responses"
-    when: "Use when filtering by keywords, labels, or duplicate response checks"
-  - name: "gh CLI"
-    description: "Fallback for GitHub issue comments and discussions workflows"
-    when: "Use gh issue list/comment and gh api or gh api graphql when MCP coverage is incomplete"
+  - name: 'github-mcp-server-list_issues'
+    description: 'List open issues for scan candidates and lightweight triage'
+    when: 'Use for recent open issue scans before thread-level review'
+  - name: 'github-mcp-server-issue_read'
+    description: 'Read the full issue, comments, and labels before drafting'
+    when: 'Use after selecting a candidate so PAO has complete thread context'
+  - name: 'github-mcp-server-search_issues'
+    description: 'Search for candidate issues or prior squad responses'
+    when: 'Use when filtering by keywords, labels, or duplicate response checks'
+  - name: 'gh CLI'
+    description: 'Fallback for GitHub issue comments and discussions workflows'
+    when: 'Use gh issue list/comment and gh api or gh api graphql when MCP coverage is incomplete'
 ---
 
 ## Context
@@ -66,29 +66,30 @@ Determine the response type before drafting.
 
 ### Template Selection Guide
 
-| Signal in Issue/Discussion | → Response Type | Template |
-|---------------------------|-----------------|----------|
-| New contributor (0 prior issues) | Welcome | T1 |
-| Error message, stack trace, "doesn't work" | Troubleshooting | T2 |
-| "How do I...?", "Can Squad...?", "Is there a way to...?" | Feature Guidance | T3 |
-| Wrong repo, out of scope for Squad | Redirect | T4 |
-| Confirmed bug, no fix available yet | Acknowledgment | T5 |
-| Fix shipped, PR merged that resolves issue | Closing | T6 |
-| Unclear cause, needs investigation | Technical Uncertainty | T7 |
-| Author disagrees with a decision or design | Empathetic Disagreement | T8 |
-| Need more reproduction info or context | Information Request | T9 |
+| Signal in Issue/Discussion                               | → Response Type         | Template |
+| -------------------------------------------------------- | ----------------------- | -------- |
+| New contributor (0 prior issues)                         | Welcome                 | T1       |
+| Error message, stack trace, "doesn't work"               | Troubleshooting         | T2       |
+| "How do I...?", "Can Squad...?", "Is there a way to...?" | Feature Guidance        | T3       |
+| Wrong repo, out of scope for Squad                       | Redirect                | T4       |
+| Confirmed bug, no fix available yet                      | Acknowledgment          | T5       |
+| Fix shipped, PR merged that resolves issue               | Closing                 | T6       |
+| Unclear cause, needs investigation                       | Technical Uncertainty   | T7       |
+| Author disagrees with a decision or design               | Empathetic Disagreement | T8       |
+| Need more reproduction info or context                   | Information Request     | T9       |
 
 Use exactly one template as the base draft. Replace placeholders with issue-specific details, then apply the humanizer patterns. If the thread spans multiple signals, choose the highest-risk template and capture the nuance in the thread summary.
 
 ### Confidence Classification
 
-| Confidence | Criteria | Example |
-|-----------|----------|---------|
-| 🟢 High | Answer exists in Squad docs or FAQ, similar question answered before, no technical ambiguity | "How do I install Squad?" |
-| 🟡 Medium | Technical answer is sound but involves judgment calls, OR docs exist but don't perfectly match the question, OR tone is tricky | "Can Squad work with Azure DevOps?" (yes, but setup is nuanced) |
-| 🔴 Needs Review | Technical uncertainty, policy/roadmap question, potential reputational risk, author is frustrated/angry, question about unreleased features | "When will Squad support Claude?" |
+| Confidence      | Criteria                                                                                                                                    | Example                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 🟢 High         | Answer exists in Squad docs or FAQ, similar question answered before, no technical ambiguity                                                | "How do I install Squad?"                                       |
+| 🟡 Medium       | Technical answer is sound but involves judgment calls, OR docs exist but don't perfectly match the question, OR tone is tricky              | "Can Squad work with Azure DevOps?" (yes, but setup is nuanced) |
+| 🔴 Needs Review | Technical uncertainty, policy/roadmap question, potential reputational risk, author is frustrated/angry, question about unreleased features | "When will Squad support Claude?"                               |
 
 **Auto-escalation rules:**
+
 - Any mention of competitors → 🔴
 - Any mention of pricing/licensing → 🔴
 - Author has >3 follow-up comments without resolution → 🔴
@@ -156,6 +157,7 @@ If a posted response turns out to be wrong, inappropriate, or needs correction:
 4. **Postmortem:** If the error reveals a pattern gap, update humanizer anti-patterns or add a new test case
 
 **Safe word — `banana`:**
+
 - Immediately freezes all pending drafts in the review queue
 - No new scans or drafts until `pao resume` is issued
 - Audit entry logged with halter identity and reason
@@ -208,20 +210,22 @@ Full drafts below ▼
 
 ```markdown
 ---
-timestamp: "2026-03-16T21:30:00Z"
-action: "post"
+timestamp: '2026-03-16T21:30:00Z'
+action: 'post'
 item_number: 426
 draft_id: 1
-reviewer: "@bradygaster"
+reviewer: '@bradygaster'
 ---
 
 ## Context (draft, approve, edit, skip, post, delete actions)
+
 - Thread depth: 3
 - Response type: welcome
 - Confidence: 🟢
 - Long thread flag: false
 
 ## Draft Content (draft, edit, post actions)
+
 Thread: 3 comments, last activity 2026-03-16, reporter hit a preview-build regression after install.
 
 Hey @newdev! Welcome to Squad 👋 Thanks for opening this.
@@ -229,6 +233,7 @@ We reproduced the issue in preview builds and we're checking the regression poin
 Let us know if you can share the command you ran right before the failure.
 
 ## Post Result (post, delete actions)
+
 https://github.com/bradygaster/squad/issues/426#issuecomment-123456
 ```
 
