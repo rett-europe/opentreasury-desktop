@@ -180,3 +180,52 @@ All CI checks pass (typecheck, lint, test, build). Commit 1583135 on main.
 **Storage layer status:** WI-4′ also shipped. Events are now persisted to NDJSON on disk, hydrated at startup. No more mock data — when WI-6 lands, Panel will render from real encrypted events.
 
 **Your WI-6 blocker:** Both Morpheus deliverables (WI-4′ + WI-11) are complete. IPC wiring (WI-12) is next. You're unblocked for WI-13 form design anytime after WI-12 lands.
+
+
+## 2026-04-21 — WI-12 renderer client (transaction.create + movements.list)
+
+**Shipped:** `app/src/renderer/services/transactionApi.ts` (`createTransaction`) and
+`app/src/renderer/services/movementsApi.ts` (`listMovements`) — thin typed
+pass-throughs over `window.opentreasury.transaction.create` / `movements.list`.
+Commit `4495e51` (combined with Morpheus's main+preload work into a single
+`feat(ipc): WI-12 ...` omnibus after the contracts landed mid-session).
+
+**Client-wrapper pattern (mirror of panelApi.ts):**
+- One exported `async function` per IPC method, named by verb not channel
+  (`createTransaction`, `listMovements`).
+- Types imported straight from `app/src/shared/ipc-contracts/<channel>.ts`
+  (`CreateTransactionRequest` / `CreateTransactionResponse` /
+  `MovementRecord` / `MovementsListRequest`). No renderer-local mirror.
+- No try/catch, no validation, no mapping — validation lives in the core
+  command and IPC Zod schema; mapping (IDs→labels) is the *calling screen's*
+  responsibility (WI-14 will add the mapper for `MovementsScreen`).
+- Tests mock `window.opentreasury` directly with `vi.fn()` and verify the
+  wrapper forwards input 1:1 and returns the stubbed result unchanged. Four
+  tests total (2 per service — success + failure for `createTransaction`;
+  filter + no-filter for `listMovements`). Over-testing pass-through is noise.
+
+**Coordination note (contract-file race):**
+When I started the task, `shared/ipc-contracts/transaction.ts` and
+`movements.ts` did NOT yet exist — I initially declared the types inline in
+`renderer/types/transaction.ts` + `renderer/types/movementsFilter.ts` with
+`TODO(WI-12 follow-up)` pointers. Mid-task Morpheus landed the contract files
+with slightly different names (`CreateTransactionResponse` vs. the task-spec
+`CreateTransactionResult`; `MovementRecord` vs. inline `Movement`), so I
+deleted the inline mirrors and re-pointed the services at the shared contracts.
+Lesson: when a sibling agent is authoring a contract file in parallel, keep the
+inline-type fallback *tiny* and swap it out the moment their commit lands.
+Saves a round-trip of test updates later.
+
+**Wire shape vs. display shape:**
+Morpheus settled on `MovementRecord` (wire level — `accountId`,
+`categoryId`, `tagIds`) for the IPC response, matching
+`recentTransactionSchema` in `panel.ts`. The renderer's display-layer
+`Movement` in `types/movement.ts` (labels) stays untouched. WI-14 needs a
+mapper (account/category/tag label lookups) before feeding `MovementsScreen`.
+Documented this as a comment inside `movementsApi.ts` so WI-14 does not
+accidentally drop it into the pass-through layer.
+
+**Verification:**
+- `npx vitest run app/src/renderer/services` → 4/4 green.
+- `npm test` → 81/81 green (was 66 pre-WI-11/WI-12).
+- `npm run typecheck` / `npm run lint` / `npm run format:check` → clean.
