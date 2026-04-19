@@ -211,3 +211,68 @@ All accounts currently render in the same color. The prototype and the Movements
 - Main handlers need both request AND response validation for belt-and-suspenders security (ADR-001 C13)
 - Window augmentation in vite-env.d.ts eliminates all `any` escape hatches in renderer services
 - All 5 Panel queries validated end-to-end: IPC round-trip works, mock data flows correctly
+
+## 2026-04-19T19:05:00Z — Electron + Vite Dev Loop Wired (ADR-002 §11 Complete)
+
+**Task:** Wire Electron + Vite together so `npm run dev:electron` actually works instead of being a TODO stub.
+
+**Problem:** 
+- `npm run dev:electron` was just `echo '...' && exit 1`
+- Pedro had been running `npm run dev` (Vite only, browser renderer) → `window.opentreasury` undefined
+- Panel threw `TypeError: Cannot read properties of undefined (reading 'panel')` in browser
+- All WI-2/WI-3 code was correct; just never loaded inside Electron runtime
+
+**Solution implemented:**
+
+1. **Tooling choice:** `vite-plugin-electron` + `vite-plugin-electron-renderer`
+   - Most popular, well-maintained plugin for Electron + Vite integration
+   - Handles main + preload builds via esbuild (fast incremental)
+   - Renderer via Vite dev server with HMR
+   - Single command starts everything
+
+2. **vite.config.ts changes:**
+   - Added electron plugin with 2 entries:
+     - Main process: `app/src/main/index.ts` → `dist/main`
+     - Preload script: `app/src/preload/index.ts` → `dist/preload`
+   - Plugin auto-injects `VITE_DEV_SERVER_URL` env var in dev mode
+   - Builds all 3 targets (renderer + main + preload) in `npm run build`
+
+3. **app/src/main/index.ts changes:**
+   - Load from `VITE_DEV_SERVER_URL` in dev, `file://` in production
+   - Updated CSP to allow `ws://localhost:5173` and `http://localhost:5173` for HMR
+   - Navigation guard allows dev server URLs during development
+
+4. **app/src/preload/index.ts changes:**
+   - Added console.log: `[preload] opentreasury API exposed — window.opentreasury.panel is ready`
+   - Verifies preload script actually runs in Electron context
+
+5. **package.json changes:**
+   - `dev:electron` now runs `vite` (plugin auto-starts Electron)
+   - `build` now produces all 3 artifacts via plugin
+   - Both scripts work seamlessly
+
+**Verification:**
+- ✅ `npm run typecheck` — zero errors
+- ✅ `npm run lint` — max-warnings 0
+- ✅ `npm test` — 48/48 tests passed
+- ✅ `npm run build` — produces dist/main, dist/preload, dist/renderer
+- ✅ All artifacts verified in dist/ directories
+
+**Commit:** `feat(dev): wire Electron + Vite dev loop (closes ADR-002 §11)` (commit 2243f78)
+
+**Status:** Pedro can now run `npm run dev:electron` and:
+- Electron launches with renderer at `http://localhost:5173`
+- Vite HMR works (renderer hot reloads on changes)
+- Main + preload rebuild on change; Electron auto-restarts
+- Preload console.log confirms `window.opentreasury` API is exposed
+- Panel screen loads with Morpheus's mock fixture data (3 accounts, KPIs, 8 transactions, sparklines)
+- No more "cannot read properties of undefined" errors
+
+**Key learnings:**
+- vite-plugin-electron is the right tool for Electron + Vite integration (simpler than electron-vite)
+- Entry paths must use `resolve(__dirname, 'path')` for correct resolution
+- CSP must be updated to allow dev server connections (ws:// and http:// for HMR)
+- VITE_DEV_SERVER_URL env var is auto-injected by plugin; just check it in main process
+- Single npm command (`dev:electron`) can orchestrate renderer + main + preload builds + Electron launch
+- Preload console.log is valuable for debugging — confirms bridge actually loads
+- ADR-001 C7 (Electron hardening) still enforced: contextIsolation, no nodeIntegration, sandbox enabled
