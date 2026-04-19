@@ -93,3 +93,42 @@ Updated `docs/architecture/adr-002-repo-structure.md`: Status Proposed → Accep
 - Storage scope narrowed: **OneDrive for Business / SharePoint only** in v1; Personal deferred to v1.x.
 - ADR-002 repo structure ACCEPTED (my own decision, captured in decisions.md).
 
+
+### 2026-04-19: ADR-003 i18n Accepted + app/ scaffold landed (branch feat/app-scaffold-and-i18n-adr)
+Published docs/architecture/adr-003-i18n-framework.md (Accepted — Pedro delegated day-0 i18n framework choice). Chose **`react-i18next`** over `react-intl` and `@lingui/react`. Rationale: lowest-friction DX for a small volunteer team (`t('key')` + JSON edits is the shortest add-a-string path), best TS integration via module augmentation (strict-TS posture from ADR-002 gets compile-time key checking), bundle cost (~40KB) is a rounding error in an Electron app. ICU is available via plugin if v2 locales need it. Revisit trigger: third locale with complex plural/gender rules (Arabic, Russian, Polish) + excessive `_zero`/`_few`/`_many` maintenance burden.
+
+**Key ADR-003 decisions:** per-locale-per-namespace JSON layout (`locales/{lang}/{namespace}.json`, not a single flat file); dev fails loud on missing keys, prod falls back to EN; default locale ES for the Rett Spain pilot; Intl.NumberFormat / DateTimeFormat used directly (no i18next built-in formatters); pseudo-locale via `VITE_I18N_PSEUDO=1` for QA; CI missing-key lint deferred to PRD-009 implementation.
+
+**app/ source tree scaffolded per ADR-002 on branch `feat/app-scaffold-and-i18n-adr`.** Deliberately minimal — enough to `tsc -b` clean across the main/preload/renderer/core/crypto/storage/shared split and confirm i18n is wired. Key scaffold choices (captured in ADR-003 §12 "Scaffold Decisions Notebook" for revisability): **Vite** for renderer build (SD1), **Vitest** for unit tests (SD2), **Playwright** for E2E (SD3), **electron-builder** for packaging (SD4), **Zod** for IPC validation (SD6), ES default locale (SD9). All lint/TS strictness locks enforced: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`, ESLint `import/no-restricted-paths` wiring the ADR-002 §4.1 module boundaries.
+
+**What is intentionally NOT in the scaffold:** no `npm install` run (Pedro does that); no real crypto implementation (Switch audits that when it lands); no OneDrive storage adapter impl (only the module shell + README); no business logic anywhere; no read-model / SQLite cache (that folder comes with first feature PR that needs it); electron-updater wiring + pinned Ed25519 pubkey (C12) left as TODO — tracked in scaffold comments. E2E smoke test skipped until first `npm install` + build run succeeds.
+
+**Security-relevant scaffold decisions I made (Switch can audit if desired, none of them are load-bearing yet):** main-process `BrowserWindow` uses `contextIsolation: true` + `nodeIntegration: false` + `sandbox: true` + `webSecurity: true` (C7); strict CSP injected at the response layer AND via `<meta>` (belt and suspenders); IPC handler registry is schema-validated via Zod with no dynamic dispatch (C13); ULID filename comment left in core events.ts (C11); crypto module README spells out the allowlisted imports (C15).
+
+**Lesson carried forward:** scaffolding is a permanent-decision vehicle masquerading as throwaway code. Every config file ships with ADR/condition references in comments so the next contributor knows why a rule exists before they try to relax it. Saved me from re-litigating `no-restricted-imports` the second time it fails a legitimate-looking PR.
+
+### 2026-04-19: ADR-003 Accepted. app/ scaffold landed on feat/app-scaffold-and-i18n-adr. Next: Pedro runs npm install; lockfile commit; then feature work can begin.
+
+### 2026-04-19: Scaffold typecheck fixes (22 errors → 0)
+First `npm run typecheck` after `npm install` surfaced 22 errors across the scaffold. Root causes and fixes:
+
+- **electron.d.ts × strict @types/node conflict** (TS2687/TS2717, duplicate `noDeprecation`): unresolvable upstream. Set `skipLibCheck: true` in `tsconfig.base.json`. **Deviation from ADR-002 §4** — documented in an Addendum at the bottom of ADR-002. Our source is still fully checked under `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`; only third-party `.d.ts` files are skipped.
+- **Missing DOM lib** (TS2749/TS2304 on `MessagePort`, `HTMLElement`, etc.): electron.d.ts references DOM types even in main-process code. Added `DOM` to `lib` in `tsconfig.base.json` and `app/src/main/tsconfig.json`. Preload/renderer already had it.
+- **Vite client types missing** (TS2339 on `import.meta.env`): added `app/src/renderer/vite-env.d.ts` with a `vite/client` triple-slash reference (Vite's standard convention — keeps `main.tsx` clean).
+- **i18next missingKeyHandler × exactOptionalPropertyTypes** (TS2769 + TS7006): ternary-with-`undefined` fails strict optional check. Rewrote as conditional object spread `...(isDev ? { missingKeyHandler: ... } : {})` with explicit parameter types (`readonly string[]`, `string`, `string`).
+
+**Lesson:** `exactOptionalPropertyTypes: true` forbids explicitly-`undefined` values on optional props — the fix is always conditional object spread, never `x ? fn : undefined`. Worth remembering for every other optional-config touchpoint in the codebase.
+
+**Lesson:** `skipLibCheck: false` is aspirational in any project that ships Electron + strict `@types/node`. Capitulate early, document it, move on.
+
+## Learnings
+
+- 2026-04-19: Scaffold produced 62 lint errors + 15 warnings, all from a single root cause: eslint-plugin-import was configured to use the 'typescript' resolver but eslint-import-resolver-typescript was not in devDependencies and the settings block was minimal. Fix: (1) added eslint-import-resolver-typescript ^3.6.0 to devDependencies; (2) expanded .eslintrc.cjs settings to include import/parsers mapping and import/resolver.typescript with alwaysTryTypes + full project array covering all 7 module tsconfigs + node: true fallback.
+- The 'import ./App.js' in main.tsx is CORRECT for ESM-compatible TS output — do not change it. Resolver config is the fix.
+- Added argsIgnorePattern/varsIgnorePattern '^_' to @typescript-eslint/no-unused-vars as a precaution for scaffold placeholders — standard convention, cheap insurance.
+- No console rule tightening needed: only 1 console.warn exists (i18n missingKeyHandler) and no-console is not configured as error.
+
+
+
+### 2026-04-19: Scaffold is GREEN
+typecheck/lint/test all pass. skipLibCheck:true deviation documented in ADR-002 Addendum. Install requires `--legacy-peer-deps` (peerOptional conflict with eslint-import-resolver-typescript; revisit if we upgrade to ESLint 9 / @typescript-eslint v8).

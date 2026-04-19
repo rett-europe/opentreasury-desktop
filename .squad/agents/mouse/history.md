@@ -35,3 +35,5 @@ Niobe's UX baseline and flows published under docs/ux/. Your visual design work 
 - **No pending-state visual design needed** (product has no pending concept).
 - **Both Spanish and English layouts must be considered from day 0.** Text-expansion factor matters (EN often ~30% longer than ES) — pad components and avoid fixed-width text containers.
 
+
+### 2026-04-19: app/src/renderer/ is minimal React shell with ES/EN wired via react-i18next. Design tokens and components pending your work.

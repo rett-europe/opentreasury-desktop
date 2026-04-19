@@ -93,3 +93,5 @@ Five product decisions that cascade through roadmap, PRD plan, and the three M1 
 - All 5 repo-structure decisions locked (npm, no monorepo tool, strict TS, flat `app/`, hybrid tests).
 - **i18n framework selection is a dependency for your M0 plan** — Neo owes a short ADR/spec note on framework choice before M0 scaffolding.
 
+
+### 2026-04-19: react-i18next is the chosen i18n framework. Strings at app/src/renderer/locales/{lang}/common.json. PRD-009 i18n Foundations is now technically underpinned.

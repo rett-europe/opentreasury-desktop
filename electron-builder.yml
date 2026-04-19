@@ -1,0 +1,40 @@
+# electron-builder config (ADR-002 SD4).
+#
+# Windows NSIS unsigned for now — AR9 (SmartScreen warning accepted).
+# macOS DMG config present but NOT primary — AR10 (binary distribution deferred to v1.x).
+# Linux AppImage publishes unsigned with Ed25519 detached sig produced in CI (ADR-001 C12).
+#
+# TODO: wire electron-updater with pinned Ed25519 pubkey for update payload verification (C12).
+appId: org.opentreasury.desktop
+productName: OpenTreasury
+copyright: Copyright © OpenTreasury contributors
+directories:
+  output: out
+  buildResources: build
+files:
+  - dist/**
+  - package.json
+  - '!node_modules/**/{README,LICENSE,CHANGELOG}*'
+asar: true
+
+win:
+  target:
+    - nsis
+  # No `sign` block — unsigned per AR9. Revisit when EV cert budget is secured.
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+mac:
+  # Deferred per AR10 — configuration present so source-builds succeed, but binary release not shipped in v1.
+  target:
+    - dmg
+  category: public.app-category.finance
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Finance

@@ -1,0 +1,13 @@
+{
+  "//": "Root solution file — lists TS project references. Run `tsc -b` to build all.",
+  "files": [],
+  "references": [
+    { "path": "./app/src/shared" },
+    { "path": "./app/src/core" },
+    { "path": "./app/src/crypto" },
+    { "path": "./app/src/storage" },
+    { "path": "./app/src/main" },
+    { "path": "./app/src/preload" },
+    { "path": "./app/src/renderer" }
+  ]
+}

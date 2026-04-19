@@ -1,0 +1,9 @@
+{
+  "app": {
+    "title": "OpenTreasury",
+    "tagline": "Zero-infrastructure treasury for small NGOs."
+  },
+  "action": {
+    "toggle-language": "Switch language"
+  }
+}

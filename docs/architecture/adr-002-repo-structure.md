@@ -465,4 +465,12 @@ With this ADR Accepted, the following work is now unblocked. Each item is a **se
 
 ---
 
+---
+
+## Addendum — Scaffold deviations (2026-04-19)
+
+During initial scaffold (`feat/app-scaffold-and-i18n-adr`), one deviation from §4:
+
+- **`skipLibCheck: true`** (§4 implied `false` via "strict from day one"). Required because `electron.d.ts` and strict `@types/node` produce unresolvable duplicate-declaration conflicts (e.g. `noDeprecation`) under `skipLibCheck: false`. `electron.d.ts` also references DOM types, forcing `"lib": ["ES2022", "DOM"]` in the base config. Our own source is still fully type-checked; only third-party `.d.ts` files are skipped. Revisit if upstream resolves the conflict.
+
 *End of ADR-002 — Proposed 2026-04-19. Accepted pending Pedro's answers to §9 open questions.*

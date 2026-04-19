@@ -99,3 +99,9 @@ Roadmap sequences crypto-heavy work into M2 (multi-device enrollment + DEK rotat
 - **OneDrive for Business / SharePoint only in v1.** Personal OneDrive deferred to v1.x.
 - Narrows the v1 threat-model surface (no consumer-account ACL handling). Worth noting in the next `security-requirements` revision.
 
+
+### 2026-04-19: app/src/crypto/ is an Electron-free module per your audit requirement. It's an empty stub now -- real implementation per crypto-spec v1.0 is upcoming.
+
+
+### 2026-04-19: Scaffold GREEN -- eslint boundaries verified
+eslint boundary rules are working correctly: main/preload allowlisted for electron imports via targeted override; renderer/crypto/storage/core boundaries remain enforced. No leakage of electron into UI or crypto.

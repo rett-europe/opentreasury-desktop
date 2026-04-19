@@ -99,3 +99,5 @@ Link's PRDs 001–003 drafted as your upstream. 28 UX specs planned. Blocker gap
 - **Every UX string now requires both ES and EN copy at handoff** — no 'translate later'. Pilot is Rett Spain (Spanish-first) but EN is v1.0 ship-blocker.
 - Several of your PRD-aligned open questions are now CLOSED — check PRDs 001/002/003 for RESOLVED markers.
 
+
+### 2026-04-19: Your Wave 1 UX specs spawn hit the response length limit at 6 specs in one go. Coordinator will re-spawn with reduced scope (3 specs per batch). No artifacts lost -- you hadn't written any yet.
