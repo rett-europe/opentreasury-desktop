@@ -16,8 +16,6 @@ body,
 }
 
 html {
-  /* Stable scrollbar gutter prevents content shift when banners appear. */
-  scrollbar-gutter: stable;
 }
 
 body {

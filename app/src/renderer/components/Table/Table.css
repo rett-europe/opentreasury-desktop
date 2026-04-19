@@ -1,12 +1,14 @@
 .ot-table-wrap {
+  position: relative;
+  isolation: isolate;
   background: var(--color-surface-primary);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
   /* `overflow: clip` (NOT `hidden`) so the sticky thead can escape this wrap
    * and anchor to the nearest scrolling ancestor (`.ot-shell__main`).
    * `hidden` would establish a scroll containing block and trap the sticky
-   * thead inside this box. `clip` still visually clips children (rounded
-   * corners work) but does NOT create a scroll container. */
+   * thead inside this box. `clip` still visually clips children and preserves
+   * the rounded outer corners without creating a scroll container. */
   overflow: clip;
 }
 
@@ -24,45 +26,40 @@
   line-height: var(--type-body-line);
 }
 
-.ot-table thead th {
-  /* Sticky anchors to the nearest scrolling ancestor — `.ot-shell__main`.
-   * Pin offset = `--sticky-top-offset` (28px) so the thead's top edge lines
-   * up visually with the sidebar's "PRINCIPAL" section label rather than
-   * the absolute scrollport top. Rows scrolling up in the 0..offset band
-   * pass behind the pinned thead naturally — no separate opaque mask band
-   * (prior implementations tried a `::before` pseudo, but painting a solid
-   * `--color-surface-app` rectangle over a scrollport whose backdrop is a
-   * radial+linear gradient in dark mode produced a visible "banded" strip).
-   * Background must be opaque so rows don't bleed through while sticking. */
+.ot-table thead {
   position: sticky;
   top: var(--sticky-top-offset, 0);
   z-index: var(--z-sticky);
+  background: var(--color-surface-primary);
+}
+
+.ot-table thead tr {
+  position: relative;
+  z-index: var(--z-sticky);
+  background: var(--color-surface-primary);
+}
+
+.ot-table thead th {
   text-align: left;
   padding: var(--space-6) var(--space-6);
   background: var(--color-surface-primary);
+  background-clip: padding-box;
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-11);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  /* Top border appears seamless at rest (sits flush against the wrap's 1px
-   * top border, same color), and provides the pinned thead a visible top
-   * edge when the wrap itself has scrolled out of view. */
-  border-top: 1px solid var(--color-border-default);
   border-bottom: 1px solid var(--color-border-default);
+  box-shadow: 0 calc(var(--sticky-top-offset, 0) * -1) 0 0 var(--color-surface-app);
   white-space: nowrap;
 }
 .ot-table thead th:first-child {
-  border-left: 1px solid var(--color-border-default);
-  /* Match the wrap's *inner* radius (outer radius minus border width) so at
-   * rest the th corner aligns exactly with the wrap's inner curve (no-op);
-   * when stuck this is the visible top-left of the pinned card edge. */
-  border-top-left-radius: calc(var(--radius-lg) - 1px);
+  border-top-left-radius: var(--radius-lg);
 }
 .ot-table thead th:last-child {
-  border-right: 1px solid var(--color-border-default);
-  border-top-right-radius: calc(var(--radius-lg) - 1px);
+  border-top-right-radius: var(--radius-lg);
 }
+
 
 .ot-table thead th[aria-sort] {
   cursor: pointer;
