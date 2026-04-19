@@ -150,6 +150,11 @@ UX-001 (first-run), UX-002 (enrollment), UX-003 (movements), UX-004 (saldo), UX-
 - First-run → Panel by default (UX-001 step 8 "Go to dashboard"); Panel MUST handle empty-DB gracefully (specified).
 - Panel → Movements hand-off via "Ver todos" recommended to land Movements in `range-loaded` on `This month` (click = range-selection intent); pending Pedro ratify (flow-003 Q7, UX-003 Q7, UX-005 Q4).
 
+## 2026-04-19 — Scope additions (Scribe note)
+**New scope from Pedro (fix/trinity-prototype-parity):**
+- **Movements bulk operations** — first-class feature; when ≥1 row is selected, reveal contextual action bar with count + available bulk operations (categorize, assign tags, approve/reject, delete, export). Not in prototype. Niobe + Trinity to spec the action bar UX next.
+- **Movements tag filter** — multi-select filter in filter bar alongside type/account/category/min-max; show rows whose tags contain ANY of the selected tags (OR semantics). Not in prototype. Trinity to add after sticky-header + scroll-isolation fixes land.
+
 **Top blocker-level open questions surfaced (new from batch 2):**
 - **UX-003 Q1 → Link**: confirm statement-import (bank/PayPal) wizard lives entirely under UX-016/PRD-006; UX-003 surface is banner-only. Recommendation: yes, banner only.
 - **UX-003 Q2 → Link**: "Exportar" header button in M1 — hide vs disabled-with-tooltip? Recommendation: hide entirely.

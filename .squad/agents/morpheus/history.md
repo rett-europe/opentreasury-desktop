@@ -60,6 +60,10 @@ Trinity defined `Movement` type at `app/src/renderer/types/movement.ts`. When im
 ### 2026-04-19: Movement schema v0.2 (subcategory already existed; added tags/status + nullable category)
 Task from Pedro on `fix/trinity-prototype-parity`: expand Trinity's `Movement` contract so the prototype's Movements table can render Subcategoría / Etiquetas / Estado and the "solo sin categorizar" filter actually filters.
 
+## 2026-04-19 — Data gap flagged (Scribe note)
+**Account-color rendering gap identified (fix/trinity-prototype-parity):**
+All accounts currently render in the same color. The prototype and the Movements table need per-account color tokens or a `color` field in the Movement schema (or Accounts schema) so treasurers can visually distinguish transactions by account. Propose adding to the real backend schema design phase (M1 follow-up). Related to Mouse's outstanding "Account colour palette" token follow-up.
+
 **New shape** (`app/src/renderer/types/movement.ts`):
 - `category: string` → `category: string | null` (`null` = uncategorised).
 - `tags: readonly string[]` — always an array, possibly empty.

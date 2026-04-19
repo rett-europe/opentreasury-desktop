@@ -668,6 +668,133 @@ Conditions (C1–C15) added to ADR-001 §9 "Security Review — Switch", binding
 2. **Alpha dogfooder = Pedro.** Post-M1. Success = ≥1 week real NGO-like data, zero data-loss, sharp edges logged as bugs. Roadmap §1 Internal Alpha + §8 Q2 resolved.
 
 3. **No pending / draft / provisional / future-dated transaction concept.** Product models transactions as **confirmed/settled only**. Transactions come from bank or PayPal statement import (CSV, PRD-006) or manual entry — both paths produce immediately-confirmed records. No status field, no include/exclude-pending toggle, no filter chip, no `tx.approved` event. Applies everywhere: Movements, Saldo, Panel, totals, exports.
+
+### 2026-04-19: Movements table header casing — reversal back to UPPERCASE
+**Author:** Trinity (Frontend)
+**Date:** 2026-04-19
+**Branch:** fix/trinity-prototype-parity
+**Status:** Ratified (Pedro) — supersedes the earlier natural-case experiment
+
+## What happened
+
+An earlier pass on this branch stripped `text-transform: uppercase` +
+`letter-spacing: 0.08em` from `.ot-table thead th` based on a coordinator read
+that the prototype used natural-case headers. That read was wrong. The
+prototype CSS (`prototype/styles.css`, `.tx-table th`, lines 430–441)
+unambiguously specifies:
+
+```
+.tx-table th {
+  font-size: var(--font-xs);            /* 11px */
+  letter-spacing: var(--ls-section);    /* 0.08em */
+  text-transform: uppercase;
+  font-weight: var(--fw-semibold);
+  color: var(--clr-text-muted);
+  background: var(--clr-surface);
+  position: sticky; top: 0; z-index: 1;
+}
+```
+
+Pedro visually confirmed the live prototype renders "FECHA", "CUENTA",
+"OBSERVACIONES" in uppercase. Prototype CSS wins.
+
+## Fix (shipped in this commit)
+
+`app/src/renderer/components/Table/Table.css` — `.ot-table thead th` restored
+to uppercase:
+
+- `font-size: var(--font-size-11)` (11px, matches `--font-xs`)
+- `text-transform: uppercase`
+- `letter-spacing: 0.08em` (matches `--ls-section`)
+- `font-weight: var(--font-weight-semibold)`
+- `color: var(--color-text-muted)`
+- `background: var(--color-surface-primary)` (opaque, so sticky thead never
+  bleeds rows through)
+
+## Lesson
+
+When an agent's decision note flags a prototype discrepancy, trust the
+prototype until the coordinator produces screenshot or CSS evidence to the
+contrary. The prior deviation note on this same file was correct to flag the
+divergence — we should have held on it rather than shipping the change.
+
+## Related
+
+- Sticky thead anchoring pattern now documented in AppShell scroll-isolation decision (below).
+
+### 2026-04-19: AppShell scroll-isolation contract
+**Author:** Trinity (Frontend)
+**Date:** 2026-04-19
+**Branch:** fix/trinity-prototype-parity
+**Status:** Proposed — fundamental layout rule for every screen
+
+## Problem
+
+With a tall Movements table, the whole window was scrolling — topbar and sidebar
+(including the user strip with the admin name) disappeared on scroll. This
+breaks prototype parity and IA expectations: brand, tenant, language/theme
+switch, search, and the logout control must always be on-screen.
+
+## Decision
+
+Only `.ot-shell__main` scrolls. The shell viewport is locked.
+
+```
+body              overflow: hidden;      height: 100%;
+.ot-shell         height: 100vh; overflow: hidden;
+                  display: grid;
+                  grid-template-columns: var(--sidebar-width) 1fr;
+                  grid-template-rows:    var(--topbar-height) 1fr;
+.ot-shell__topbar grid-area: topbar; overflow: hidden;  // spans both columns
+.ot-shell__sidebar grid-area: sidebar; overflow: hidden; min-height: 0;
+                   display: flex; flex-direction: column;
+  .ot-shell__nav          overflow-y: auto; min-height: 0;  // scroll if ever overflows
+  .ot-shell__sidebar-spacer flex: 1;                        // pushes user-strip to bottom
+  .ot-shell__user-strip   flex-shrink: 0;                   // pinned
+.ot-shell__main   grid-area: main; overflow-y: auto; min-width: 0; min-height: 0;
+```
+
+Mirrors the prototype `.shell / .topbar / .sidebar / .main` pattern in
+`prototype/styles.css` (`height: 100vh`, grid rows `60px 1fr`, grid columns
+`240px 1fr`, `.main { overflow: auto; }`).
+
+## Implications for future screens
+
+1. **Never add `overflow: auto` / `overflow: scroll` to a full-page container
+   inside `.ot-shell__main` unless you specifically want a nested scroll
+   region.** Nested scrolls are almost always a bug — the user cannot tell
+   which scroll-wheel target is under the cursor.
+2. **Sticky elements anchor to `.ot-shell__main`.** The Movements table `thead`
+   (`.ot-table thead th`) uses `position: sticky; top: 0` and the column
+   headers stay visible while the user scrolls the transaction list. This also
+   applies to future sticky filter bars, section headers, and table footers
+   (`.ot-table__foot`).
+3. **If a page needs a fixed-height region with its own scroll** (e.g. a split
+   pane, a chat transcript, an audit log drawer), set `min-height: 0` on every
+   ancestor flex/grid item down to that region so the flex algorithm doesn't
+   balloon the outer layout. Preferred pattern: grid with explicit row sizes.
+4. **Modals / drawers must still dim the full viewport.** Because `body` has
+   `overflow: hidden`, overlays should be `position: fixed` with `inset: 0`
+   and a high `z-index` (> `--z-topbar`).
+
+## Related
+
+- `.squad/agents/trinity/history.md` (AppShell grid entries).
+- Sticky table header revert documented above.
+- `prototype/styles.css` lines ~150–290 and line 283 (`.main { overflow: auto; }`)
+  and lines 678–680 (`.main::-webkit-scrollbar`).
+
+### 2026-04-19: Movements — bulk operations is a MUST-HAVE (scope addition)
+**By:** Pedro (via Copilot)
+**What:** Now that row selection works on the Movements table, bulk operations must be treated as a first-class feature. Not present in prototype, but a hard requirement for the product. Expected operations at minimum: bulk categorize, bulk assign subcategory/tags, bulk approve/reject status, bulk delete, bulk export. UI pattern: when ≥1 row is selected, reveal a contextual action bar (floating or pinned) showing count + available bulk actions.
+**Why:** User-driven scope decision — treasury workflows involve reconciling many rows at once; individual-row edits don't scale for NGO/bookkeeping use cases.
+**Status:** Scope accepted. Not implemented in current parity pass. Niobe + Trinity to spec the action bar UX next.
+
+### 2026-04-19: Movements — add a tags/labels filter to the filter bar
+**By:** Pedro (via Copilot)
+**What:** The Movements filter bar must include a filter by tag (Etiquetas). Multi-select — show rows whose `tags` contain any of the selected tags (OR semantics). Not present in prototype; treated as a gap in the prototype, not an app gap. Should slot in alongside type chips / account / category / min-max / uncategorized.
+**Why:** User-driven scope decision — once tags are used in practice (sprint tags, campaign tags, etc.) the filter becomes essential for day-to-day triage.
+**Status:** Scope accepted. Not implemented in current parity pass. Trinity to add after the sticky-header + scroll-isolation fixes land.
    - Pedro's words: *"all transactions are real and confirmed, coming from bank or paypal statements.. not sure what pending means"*.
    - PRD-001 PR9/S5 rewritten (statement-import replaces approval); Q4 closed. PRD-002 PR13 rewritten; Q1 closed. PRD-003 PR11 rewritten; Q2 closed. Roadmap M1 scope + exit criterion + M3 "status workflow polish" + feature-map row all rewritten. PRD-plan §0.1 Assumptions codifies for future PRDs.
    - If co-treasurer dual-signoff is ever wanted, it's a v1.x+ conversation requiring its own PRD.
