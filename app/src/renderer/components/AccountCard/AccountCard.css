@@ -1,59 +1,34 @@
-.ot-account-card {
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  min-width: 200px;
-}
+/*
+ * AccountCard — Panel account tile.
+ * Layout (grid, padding, border, shadow) lives in `globals.css` under the
+ * `.ot-account-card` and `.ot-account-cards` recipes so it stays in lock-step
+ * with the prototype (`prototype/styles.css` .account-card + .account-cards).
+ * This file only carries the few component-local helpers that aren't part of
+ * the prototype-parity recipe — avoiding duplicate declarations (and the
+ * override bugs that come with them, e.g. the old `min-width: 200px` that
+ * broke the 5-column grid around 1200–1400px viewports).
+ */
 
-.ot-account-card__head {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-}
-
+/* Icon — rounded square (prototype --rad-md = 8px) with white glyph. The
+ * background colour is set inline from the per-account brand colour so each
+ * card's icon matches the account's palette and the sparkline tint. */
 .ot-account-card__icon {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-full);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-surface-primary);
-  flex-shrink: 0;
+  color: #ffffff;
+  border-radius: var(--radius-md);
 }
 
-.ot-account-card__name {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  line-height: var(--line-height-tight);
-}
-
-.ot-account-card__count {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
-  line-height: var(--line-height-tight);
-  margin-top: 2px;
-}
-
-.ot-account-card__balance {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-income-default);
-  font-variant-numeric: tabular-nums;
-}
-
+/* Positive balances inherit the default (text-primary) from globals. The
+ * negative modifier paints the amount with the expense token. */
 .ot-account-card__balance--negative {
   color: var(--color-expense-default);
 }
 
+/* Optional sparkline placeholder. Kept minimal — the real sparkline is
+ * tracked under WI-7 (coordination with Mouse). */
 .ot-account-card__sparkline-placeholder {
-  height: 40px;
-  background: var(--color-surface-tertiary);
-  border-radius: var(--radius-md);
+  height: 28px;
+  margin-top: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-secondary);
   opacity: 0.5;
 }

@@ -1,0 +1,58 @@
+/*
+ * Panel screen-local styles.
+ * Generic recipes (account cards grid, KPI strip, type-arrow chip, account
+ * pill, badges) live in `styles/globals.css` so they stay aligned with the
+ * prototype. This file only covers Panel-specific compositions.
+ */
+
+/* Recent-transactions card — mirrors prototype's RecentTxTable wrapper:
+ * the whole "card" (table + footer with the "view all" link) shares a
+ * single border + shadow, the link sits at the bottom-right above a
+ * divider. */
+.ot-panel-recent {
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+/* Drop the Table's own outer chrome when embedded — we want a single card
+ * surface, not nested borders. */
+.ot-panel-recent .ot-table-wrap {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.ot-panel-recent__desc {
+  display: block;
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ot-panel-recent__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 16px;
+  border-top: 1px solid var(--color-divider);
+}
+
+.ot-panel-recent__link {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  transition: background var(--motion-duration-base) var(--motion-easing-standard);
+}
+.ot-panel-recent__link:hover {
+  background: var(--color-row-hover);
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+.ot-panel-recent__link:focus-visible {
+  outline-offset: 2px;
+}

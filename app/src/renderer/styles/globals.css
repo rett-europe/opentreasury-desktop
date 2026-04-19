@@ -127,6 +127,9 @@ a:hover {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: var(--space-5);
   margin-bottom: var(--space-9);
+  /* Actual responsive columns are defined further down in the
+   * "Prototype-parity recipes" block. This rule only seeds a sensible
+   * fallback for older browsers without the later override. */
 }
 
 .ot-page-header {
@@ -239,18 +242,28 @@ a:hover {
   margin-top: 2px;
 }
 
-/* Account cards grid */
 .ot-account-cards {
   display: grid;
+  /* Prototype ships a fixed 5-col grid. We keep the prototype shape but
+   * introduce an extra 4-col step between "wide desktop" and "narrow
+   * desktop". The desktop shell burns 240px on the sidebar, so the
+   * prototype's viewport breakpoints under-weight the content width —
+   * without the 4-col step the grid jumps straight from 5-to-3 and
+   * account tiles pile on top of each other around 1200–1400px. */
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-6);
 }
-@media (max-width: 1200px) {
+@media (max-width: 1439px) {
+  .ot-account-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1199px) {
   .ot-account-cards {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
-@media (max-width: 800px) {
+@media (max-width: 899px) {
   .ot-account-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -262,6 +275,14 @@ a:hover {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   min-height: 108px;
+  position: relative;
+  overflow: hidden;
+  transition:
+    box-shadow var(--motion-duration-base) var(--motion-easing-standard),
+    transform var(--motion-duration-base) var(--motion-easing-standard);
+}
+.ot-account-card:hover {
+  box-shadow: var(--shadow-card-hover);
 }
 .ot-account-card__head {
   display: flex;

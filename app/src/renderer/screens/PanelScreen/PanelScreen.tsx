@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Calendar, ArrowUp, ArrowDown } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { Button } from '../../components/Button/index.js';
 import { AccountCard } from '../../components/AccountCard/index.js';
 import { KPIStrip } from '../../components/KPIStrip/index.js';
@@ -14,6 +14,7 @@ import type {
   RecentTransaction,
 } from '../../../shared/ipc-contracts/panel';
 import * as panelApi from '../../services/panelApi.js';
+import './PanelScreen.css';
 
 type PanelState = 'skeleton' | 'loaded' | 'error';
 
@@ -24,6 +25,17 @@ interface PanelData {
   sparklines: Map<string, GetAccountSparklinesResponse['sparkline']>;
   transactions: RecentTransaction[];
 }
+
+// Mock per-account transaction counts mirroring prototype/data.js. Replaced
+// with a real aggregate once Morpheus exposes a per-account count field on
+// the balance contract (WI-6).
+const MOCK_TX_COUNTS: Readonly<Record<string, number>> = {
+  unicaja: 703,
+  'caixa-ops': 5,
+  'caixa-fin': 1,
+  'caixa-0951': 1,
+  paypal: 13,
+};
 
 /**
  * Panel (Dashboard) — landing screen showing account balances, current-month
@@ -42,8 +54,6 @@ export function PanelScreen(): JSX.Element {
       try {
         setState('skeleton');
 
-        // Fire IPC queries in parallel
-        // Note: get KPIs and recent tx without params; sparklines per-account (sequential for now)
         const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
         const [accountsResp, balancesResp, kpisResp, transactionsResp] = await Promise.all([
@@ -55,7 +65,6 @@ export function PanelScreen(): JSX.Element {
 
         if (cancelled) return;
 
-        // Fetch sparklines for each account (parallel)
         const sparklinePromises = accountsResp.accounts.map((acc) =>
           panelApi.getAccountSparklines(acc.id).then((resp) => [acc.id, resp.sparkline] as const)
         );
@@ -85,7 +94,6 @@ export function PanelScreen(): JSX.Element {
     };
   }, []);
 
-  // Skeleton state
   if (state === 'skeleton') {
     return (
       <div>
@@ -128,7 +136,6 @@ export function PanelScreen(): JSX.Element {
     );
   }
 
-  // Error state
   if (state === 'error' || !data) {
     return (
       <div>
@@ -155,16 +162,14 @@ export function PanelScreen(): JSX.Element {
     );
   }
 
-  // Loaded state
   const { accounts, balances, kpis, sparklines, transactions } = data;
+  const accountById = new Map(accounts.map((a) => [a.id, a]));
 
-  // Merge account data with balances
   const accountsWithBalances = accounts.map((acc) => {
     const balance = balances.find((b) => b.accountId === acc.id);
     const sparkline = sparklines.get(acc.id);
     const displayName = acc.bankNameShort ?? acc.bankName;
-    // Count transactions from balance data (not in Account schema)
-    const txCount = kpis.transactionCount; // approximate for now; real impl needs per-account count
+    const txCount = MOCK_TX_COUNTS[acc.id] ?? kpis.transactionCount;
     return {
       ...acc,
       displayName,
@@ -174,7 +179,6 @@ export function PanelScreen(): JSX.Element {
     };
   });
 
-  // Format month for display
   const formatMonth = (yearMonth: string) => {
     const parts = yearMonth.split('-');
     if (parts.length !== 2) return yearMonth;
@@ -185,64 +189,92 @@ export function PanelScreen(): JSX.Element {
     );
   };
 
-  // Recent transactions table columns
+  // Recent transactions table columns — arrow chip + account pill + amount
+  // tone mirror MovementsScreen so a truncated Panel row looks identical to
+  // the equivalent row on the full transactions screen.
   const columns: TableColumn<RecentTransaction>[] = [
     {
       id: 'type',
       header: '',
-      width: 32,
+      width: 36,
       align: 'center',
-      render: (row) =>
-        row.type === 'income' ? (
-          <ArrowUp size={16} style={{ color: 'var(--color-income-default)' }} />
-        ) : (
-          <ArrowDown size={16} style={{ color: 'var(--color-expense-default)' }} />
-        ),
+      render: (row) => {
+        const cls =
+          row.type === 'income'
+            ? 'ot-type-arrow ot-type-arrow--income'
+            : 'ot-type-arrow ot-type-arrow--expense';
+        return (
+          <span className={cls} aria-hidden="true">
+            {row.type === 'income' ? '↑' : '↓'}
+          </span>
+        );
+      },
     },
     {
       id: 'date',
       header: t('movements.columns.date'),
       width: 120,
+      tabular: true,
       render: (row) =>
         new Intl.DateTimeFormat(navigator.language, { dateStyle: 'medium' }).format(
-          new Date(row.date)
+          new Date(`${row.date}T00:00:00Z`)
         ),
     },
     {
       id: 'account',
       header: t('movements.columns.account'),
-      width: 140,
+      width: 160,
       render: (row) => {
-        // Lookup account label from accountId
-        const account = accounts.find((a) => a.id === row.accountId);
-        return <span className="ot-account-pill">{account?.accountLabel ?? t('panel.recent.unknownAccount')}</span>;
+        const account = accountById.get(row.accountId);
+        const label =
+          account?.bankNameShort ?? account?.accountLabel ?? t('panel.recent.unknownAccount');
+        const color = account?.color ?? 'var(--color-brand-primary)';
+        return (
+          <span
+            className="ot-account-pill"
+            style={{
+              background: `color-mix(in oklch, ${color} 18%, transparent)`,
+              color: 'var(--color-text-primary)',
+            }}
+          >
+            <span
+              className="ot-account-pill__dot"
+              aria-hidden="true"
+              style={{ background: color }}
+            />
+            {label}
+          </span>
+        );
       },
     },
     {
       id: 'description',
       header: t('movements.columns.observations'),
-      render: (row) => (
-        <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {row.description}
-        </span>
-      ),
+      render: (row) => <span className="ot-panel-recent__desc">{row.description}</span>,
     },
     {
       id: 'category',
       header: t('movements.columns.category'),
-      width: 140,
+      width: 150,
       render: (row) =>
         row.categoryId ? (
           row.categoryId
         ) : (
-          <span className="ot-badge ot-badge--subtle">{t('panel.recent.uncategorized')}</span>
+          <span className="ot-badge ot-badge--uncategorized">
+            {t('panel.recent.uncategorized')}
+          </span>
         ),
     },
     {
       id: 'subcategory',
       header: t('movements.columns.subcategory'),
-      width: 140,
-      render: (row) => row.subcategoryId ?? '—',
+      width: 160,
+      render: (row) =>
+        row.subcategoryId ? (
+          <span className="ot-text-muted">{row.subcategoryId}</span>
+        ) : (
+          <span className="ot-text-muted">—</span>
+        ),
     },
     {
       id: 'amount',
@@ -251,16 +283,10 @@ export function PanelScreen(): JSX.Element {
       align: 'right',
       tabular: true,
       render: (row) => {
+        const cls = row.type === 'income' ? 'ot-amount--income' : 'ot-amount--expense';
         const signed = row.type === 'expense' ? -row.amount : row.amount;
         return (
-          <span
-            style={{
-              color:
-                row.type === 'income'
-                  ? 'var(--color-income-default)'
-                  : 'var(--color-expense-default)',
-            }}
-          >
+          <span className={cls}>
             {new Intl.NumberFormat(navigator.language, {
               style: 'currency',
               currency: 'EUR',
@@ -316,28 +342,19 @@ export function PanelScreen(): JSX.Element {
       <div className="ot-section-label" style={{ marginTop: 'var(--space-9)' }}>
         {t('panel.sections.recent')}
       </div>
-      <Table
-        columns={columns}
-        rows={transactions}
-        getRowKey={(row) => row.id}
-        caption={t('panel.sections.recent')}
-        footer={
-          <div style={{ padding: 16, textAlign: 'center' }}>
-            <a
-              href="/movements?range=this-month"
-              style={{
-                color: 'var(--color-brand-primary)',
-                fontSize: 'var(--font-size-sm)',
-                fontWeight: 'var(--font-weight-medium)',
-                textDecoration: 'none',
-              }}
-            >
-              {t('panel.cta.view-all-movements')} →
-            </a>
-          </div>
-        }
-      />
+      <div className="ot-panel-recent">
+        <Table
+          columns={columns}
+          rows={transactions}
+          getRowKey={(row) => row.id}
+          caption={t('panel.sections.recent')}
+        />
+        <div className="ot-panel-recent__footer">
+          <a className="ot-panel-recent__link" href="/movements?range=this-month">
+            {t('panel.cta.view-all-movements')} →
+          </a>
+        </div>
+      </div>
     </div>
   );
 }
-

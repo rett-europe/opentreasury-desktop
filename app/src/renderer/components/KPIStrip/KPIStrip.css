@@ -1,50 +1,12 @@
-.ot-kpi-strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-5);
-  margin-bottom: var(--space-7);
-}
-
-.ot-kpi {
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  display: flex;
-  gap: var(--space-4);
-  align-items: flex-start;
-}
-
-.ot-kpi__icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.ot-kpi__label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  line-height: var(--line-height-tight);
-}
-
-.ot-kpi__value {
-  font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
-  line-height: var(--line-height-tight);
-  margin-top: var(--space-2);
-  font-variant-numeric: tabular-nums;
-}
-
-.ot-kpi__delta {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  margin-top: var(--space-2);
-  line-height: var(--line-height-tight);
-}
+/*
+ * KPIStrip — 3-tile income/expense/net row on Panel.
+ * Layout, background, border, padding and font sizing live in `globals.css`
+ * under the `.ot-kpi-strip` / `.ot-kpi` recipes so they stay aligned with
+ * the prototype (`prototype/styles.css` .kpi-strip + .kpi). Duplicating
+ * them here previously caused the desktop tiles to use a bigger/tertiary
+ * palette and an `auto-fit` grid that didn't match the prototype's fixed
+ * 3-column layout.
+ *
+ * Intentionally empty — keep the file so the component import still
+ * resolves and future component-local tweaks have a home.
+ */
