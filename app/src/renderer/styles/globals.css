@@ -319,11 +319,11 @@ a:hover {
   width: 36px;
   height: 36px;
   border-radius: var(--radius-md);
-  background: var(--color-brand-surface);
-  color: var(--color-brand-primary);
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  /* background is set inline from the per-account brand color (panel.jsx style).
+   * glyph color (white) lives in AccountCard.css to mirror prototype's Icon color="#fff". */
 }
 .ot-account-card__name {
   font-weight: var(--font-weight-semibold);

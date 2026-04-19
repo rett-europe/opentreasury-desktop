@@ -1,7 +1,8 @@
 // Movements IPC contract — WI-12.
 // Channel + Zod schemas for `movements:list`. Response shape matches the
-// renderer's `types/movement.ts` so the existing MovementsScreen consumes
-// main-side projections without a second mapping layer.
+// renderer's `types/movementsFilter.ts` `MovementRecord` (wire level,
+// ID-based). The display-layer mapping to `types/movement.ts` (labels,
+// localised status) is the renderer's responsibility (WI-14).
 
 import { z } from 'zod';
 
@@ -30,28 +31,30 @@ export const movementsListRequestSchema = z.object({
 export type MovementsListRequest = z.infer<typeof movementsListRequestSchema>;
 
 // ============================================================================
-// Response — Movement[] matching renderer/types/movement.ts
+// Response — MovementRecord[] matching renderer/types/movementsFilter.ts
+// (ID-based wire shape; same columns as recentTransactionSchema in panel.ts).
 // ============================================================================
 
 export const movementTypeSchema = z.enum(['income', 'expense']);
-export const movementStatusSchema = z.enum(['pending', 'approved', 'rejected']);
+export const movementStatusSchema = z.enum(['pending', 'approved']);
 
-export const movementSchema = z.object({
+export const movementRecordSchema = z.object({
   id: z.string(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   type: movementTypeSchema,
   amount: z.number().positive(),
   currency: z.literal('EUR'),
   description: z.string(),
-  account: z.string(),
-  category: z.string().nullable(),
-  subcategory: z.string().nullable(),
-  tags: z.array(z.string()),
+  accountId: z.string(),
+  categoryId: z.string().nullable(),
+  subcategoryId: z.string().nullable(),
+  tagIds: z.array(z.string()),
   status: movementStatusSchema,
+  createdAt: z.string(),
 });
 
-export type Movement = z.infer<typeof movementSchema>;
+export type MovementRecord = z.infer<typeof movementRecordSchema>;
 
-export const movementsListResponseSchema = z.array(movementSchema);
+export const movementsListResponseSchema = z.array(movementRecordSchema);
 
 export type MovementsListResponse = z.infer<typeof movementsListResponseSchema>;

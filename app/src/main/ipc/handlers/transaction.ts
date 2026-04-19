@@ -53,7 +53,18 @@ export function createTransactionCreateHandler(
         };
       }
 
-      const input: CreateTransactionInput = parsed.data;
+      const input: CreateTransactionInput = {
+        accountId: parsed.data.accountId,
+        date: parsed.data.date,
+        type: parsed.data.type,
+        amount: parsed.data.amount,
+        currency: parsed.data.currency,
+        description: parsed.data.description,
+        categoryId: parsed.data.categoryId ?? null,
+        subcategoryId: parsed.data.subcategoryId ?? null,
+        tagIds: parsed.data.tagIds ?? [],
+        status: parsed.data.status ?? 'approved',
+      };
       const result = createTransaction(input, {
         now: deps.now,
         newId: deps.newId,

@@ -19,6 +19,16 @@ import {
   type QueryRecentTransactionsRequest,
   type QueryRecentTransactionsResponse,
 } from '../shared/ipc-contracts/panel.js';
+import {
+  IPC_TRANSACTION_CREATE,
+  type CreateTransactionRequest,
+  type CreateTransactionResponse,
+} from '../shared/ipc-contracts/transaction.js';
+import {
+  IPC_MOVEMENTS_LIST,
+  type MovementRecord,
+  type MovementsListRequest,
+} from '../shared/ipc-contracts/movements.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -45,6 +55,16 @@ const api = {
       req: QueryRecentTransactionsRequest,
     ): Promise<QueryRecentTransactionsResponse> => {
       return ipcRenderer.invoke(IPC_PANEL_QUERY_RECENT_TRANSACTIONS, req);
+    },
+  },
+  transaction: {
+    create: (req: CreateTransactionRequest): Promise<CreateTransactionResponse> => {
+      return ipcRenderer.invoke(IPC_TRANSACTION_CREATE, req);
+    },
+  },
+  movements: {
+    list: (req?: MovementsListRequest): Promise<MovementRecord[]> => {
+      return ipcRenderer.invoke(IPC_MOVEMENTS_LIST, req ?? {});
     },
   },
 } as const;

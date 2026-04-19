@@ -1,14 +1,15 @@
 // movements:list IPC handler factory — WI-12.
 //
-// Projects the core read model into the renderer's Movement shape
-// (resolving account / category / subcategory / tag labels) and applies
-// optional filters. Sorted DESC by date then createdAt, so the most recent
-// movement appears first.
+// Projects the core read model into the renderer's `MovementRecord` wire
+// shape (ID-based; same columns as queryRecentTransactions). Applies optional
+// filters and sorts DESC by date then createdAt, so the most recent movement
+// appears first. Label resolution (accountId → accountLabel, etc.) is the
+// renderer's concern per WI-14 — this handler stays pure wire-level.
 
 import type { ReadModel, Transaction } from '../../../core/query/types.js';
 import {
   movementsListRequestSchema,
-  type Movement,
+  type MovementRecord,
   type MovementsListRequest,
 } from '../../../shared/ipc-contracts/movements.js';
 
@@ -18,20 +19,10 @@ export interface MovementsListHandlerDeps {
 
 export function createMovementsListHandler(
   deps: MovementsListHandlerDeps,
-): (raw: unknown) => Promise<Movement[]> {
-  return async function handleMovementsList(raw: unknown): Promise<Movement[]> {
+): (raw: unknown) => Promise<MovementRecord[]> {
+  return async function handleMovementsList(raw: unknown): Promise<MovementRecord[]> {
     const parsed: MovementsListRequest = movementsListRequestSchema.parse(raw ?? {});
     const model = deps.getReadModel();
-
-    const accountLabels = new Map(model.accounts.map((a) => [a.id, a.accountLabel]));
-    const categoryNames = new Map(model.categories.map((c) => [c.id, c.name]));
-    const subcategoryNames = new Map<string, string>();
-    for (const cat of model.categories) {
-      for (const sub of cat.subcategories) {
-        subcategoryNames.set(sub.id, sub.name);
-      }
-    }
-    const tagNames = new Map(model.tags.map((t) => [t.id, t.name]));
 
     const filtered: Transaction[] = model.transactions.filter((tx) => {
       if (parsed.accountId !== undefined && tx.accountId !== parsed.accountId) return false;
@@ -56,12 +47,12 @@ export function createMovementsListHandler(
       amount: tx.amount,
       currency: tx.currency,
       description: tx.description,
-      account: accountLabels.get(tx.accountId) ?? tx.accountId,
-      category: tx.categoryId === null ? null : (categoryNames.get(tx.categoryId) ?? null),
-      subcategory:
-        tx.subcategoryId === null ? null : (subcategoryNames.get(tx.subcategoryId) ?? null),
-      tags: tx.tagIds.map((id) => tagNames.get(id) ?? id),
+      accountId: tx.accountId,
+      categoryId: tx.categoryId,
+      subcategoryId: tx.subcategoryId,
+      tagIds: [...tx.tagIds],
       status: tx.status,
+      createdAt: tx.createdAt,
     }));
   };
 }

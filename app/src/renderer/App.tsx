@@ -15,7 +15,7 @@ import { SaldoScreen } from './screens/SaldoScreen/index.js';
  * deep-linking / history becomes a requirement.
  */
 export function App(): JSX.Element {
-  const [route, setRoute] = useState<Route>('movements');
+  const [route, setRoute] = useState<Route>('panel');
 
   return (
     <AppShell currentRoute={route} onNavigate={setRoute}>

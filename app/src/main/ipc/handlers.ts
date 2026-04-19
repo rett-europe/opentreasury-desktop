@@ -23,12 +23,25 @@ import {
   queryRecentTransactionsResponseSchema,
 } from '../../shared/ipc-contracts/panel.js';
 import {
+  IPC_TRANSACTION_CREATE,
+  createTransactionResponseSchema,
+} from '../../shared/ipc-contracts/transaction.js';
+import {
+  IPC_MOVEMENTS_LIST,
+  movementsListResponseSchema,
+} from '../../shared/ipc-contracts/movements.js';
+import {
   handleGetAccounts,
   handleGetAccountBalances,
   handleGetMonthKPIs,
   handleGetAccountSparklines,
   handleQueryRecentTransactions,
 } from './handlers/panel.js';
+import { createTransactionCreateHandler } from './handlers/transaction.js';
+import { createMovementsListHandler } from './handlers/movements.js';
+import { getEventLog } from '../bootstrap.js';
+import { getReadModel } from '../../core/query/reducers.js';
+import { ACTOR_DEVICE_ID, DATASET_ID, newUlid } from '../ids.js';
 
 export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('app:ping', (_event, raw: unknown) => {
@@ -72,5 +85,29 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     return queryRecentTransactionsResponseSchema.parse(response);
   });
 
-  // TODO: wire real handlers from src/core/commands/ as features ship.
+  // WI-12 — transaction.create + movements.list
+  const handleTransactionCreate = createTransactionCreateHandler({
+    eventLog: getEventLog(),
+    getReadModel,
+    now: () => new Date(),
+    newId: newUlid,
+    datasetId: DATASET_ID,
+    actorDeviceId: ACTOR_DEVICE_ID,
+    dekVersion: 0,
+  });
+
+  ipcMain.handle(IPC_TRANSACTION_CREATE, async (_event, raw: unknown) => {
+    const response = await handleTransactionCreate(raw);
+    // Response validation is belt-and-suspenders (ADR-001 C13); any error-
+    // producing path inside the handler already returned a structured union,
+    // so this parse should never throw in practice.
+    return createTransactionResponseSchema.parse(response);
+  });
+
+  const handleMovementsList = createMovementsListHandler({ getReadModel });
+
+  ipcMain.handle(IPC_MOVEMENTS_LIST, async (_event, raw: unknown) => {
+    const response = await handleMovementsList(raw);
+    return movementsListResponseSchema.parse(response);
+  });
 }
