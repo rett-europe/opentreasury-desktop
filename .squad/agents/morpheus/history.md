@@ -50,3 +50,5 @@ You can clone, `npm install --legacy-peer-deps`, and run: `npm run typecheck`, `
 
 ## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
 Wave 1 UX COMPLETE - all 6 specs Draft v0.1. Implementation specs/tickets can anchor to these. Every spec has a Traceability Matrix mapping to PRDs/ADRs/R-series/C-series/crypto sections.
+
+- 2026-04-19 — Crypto-error UX strings ratified in docs/security/crypto-error-copy-catalog.md v1.0. Diagnostic-bundle spec (§4) defines per-scenario whitelisted fields for main-process export path. Use string keys verbatim; never surface crypto-layer names to UI.

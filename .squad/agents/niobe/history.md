@@ -184,3 +184,5 @@ UX-001 (first-run), UX-002 (enrollment), UX-003 (movements), UX-004 (saldo), UX-
 
 ## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
 Wave 1 COMPLETE. Wave 2 (non-M1 specs per ux-spec-plan.md) is next, after Wave 1 moves to In Review.
+
+- 2026-04-19 — Wave 1 UX questions RATIFIED by Switch: UX-001 Q7 (adjusted — opaque about mechanism), UX-002 Q1 (adjusted — 30-char alphabet ABCDEFGHJKMNPQRSTVWXYZ23456789, XXX-XXX grouping), UX-002 Q2 (options (a) elevated audit + (c) soft rotation prompt on 2nd rejection — NOT forced DEK rotation; (b) rejected as DoS vector), UX-003 Q9, UX-004 Q10 (+ 'en este periodo' scope), UX-005 Q8 (KPIs -> resúmenes). See docs/security/crypto-error-copy-catalog.md v1.0. Wave 1 (UX-001..006) can move Draft -> In Review.

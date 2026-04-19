@@ -180,7 +180,7 @@ Three cards:
 7. **Account filter scope** — PR10 says top-right. Prototype puts date pill first. Recommendation: `Período selector | Período pill | Account filter | Export`. → **Mouse**.
 8. **Partial-period annotation copy** — prototype shows "(ene–abr)". Recommendation: keep for ES; English render "(Jan–Apr)". Format via `Intl.DateTimeFormat`-derived helper. → **Link / Mouse**.
 9. **Projection disable per-category opt-in** — PRD-002 Q3 defers to v1.x. Confirmed deferred. → Closed.
-10. **Decrypt-partial banner exact copy** (§6 E9) — security-sensitive. → **Switch** (UX-009 catalog).
+10. **Decrypt-partial banner exact copy** (§6 E9) — security-sensitive. → **Switch** (UX-009 catalog). **RATIFIED 2026-04-19 by Switch — see [crypto-error-copy-catalog.md CE-004](../../security/crypto-error-copy-catalog.md#ce-004--saldo-view-some-events-in-range-failed-to-decrypt).** Niobe's proposed copy approved with a minor enhancement: added *"en este periodo"* anchoring, and normalised to ICU plural form. Existing key `ux.saldo.decrypt-partial` retained as alias. Additional rule: when `loaded-partial-period` AND `partial-decrypt-failed` are simultaneous, projection tooltip MUST be suppressed for affected categories (a projection computed on incomplete actuals is misleading).
 
 ## 12. Acceptance criteria
 

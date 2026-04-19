@@ -173,7 +173,7 @@ Crypto-error copy (E5 route) is owned by **UX-009 + Switch**.
 6. **Month filter dropdown** (within loaded range) — flow-003 Q4 proposed removing it since the range pill owns temporal scope. Recommendation: **remove** — it duplicates the range pill and confuses users who expect "month" to reload. → **Link** (confirm PRD removal) / **Mouse**.
 7. **Panel → Movements "Ver todos"** hand-off — flow-003 Q7. Recommendation: Panel's click counts as the user's range selection (`This month`); Movements lands in `range-loaded` directly. → **Pedro** ratify.
 8. **New-activity banner granularity** — per-tx or debounced? Recommendation: debounce 3s, show once per batch. → **Mouse** + **Neo** (sync signal).
-9. **Row decrypt-failed copy exact string** (E5) — must be honest, non-technical, action-linked. Proposed ES: *"1 movimiento no pudo leerse. Ver detalles."* → **Switch** to ratify (security-sensitive).
+9. **Row decrypt-failed copy exact string** (E5) — must be honest, non-technical, action-linked. Proposed ES: *"1 movimiento no pudo leerse. Ver detalles."* → **Switch** to ratify (security-sensitive). **RATIFIED 2026-04-19 by Switch — approved as proposed. See [crypto-error-copy-catalog.md CE-003](../../security/crypto-error-copy-catalog.md#ce-003--single-transaction-row-failed-to-decrypt).** Niobe's singular copy survives at `ux.movements.row.decrypt-failed`. The catalog adds an ICU-plural canonical key `ux.errors.crypto.ce-003.footnote` for the aggregated totals-strip footnote — use the catalog key when count may vary.
 10. **"Solo sin categorizar" sticky-top alternative** — PRD-001 Q5 already declined; document here only if pilot feedback returns. → Closed for now.
 
 ## 12. Acceptance criteria
