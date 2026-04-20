@@ -1,14 +1,14 @@
 // Session file registry for import — opaque file-ID tokens (WI-17 security).
 //
-// Maintains an in-memory allowlist of staged files with ULID-based opaque IDs.
+// Maintains an in-memory allowlist of staged files with opaque UUID-based IDs.
 // Prevents renderer from reading arbitrary files by manipulating filePath.
 //
 // Flow:
-// 1. stage-file: validates path → generates fileId (ULID) → stores mapping
+// 1. stage-file: validates path → generates fileId (UUIDv4) → stores mapping
 // 2. dry-run/commit: resolves fileId → real path from registry
 // 3. After commit or TTL (30 min): evict entry
 
-import { ulid } from 'ulid';
+import { randomUUID } from 'node:crypto';
 
 interface StagedFile {
   path: string;
@@ -24,10 +24,10 @@ const STAGE_TTL_MS = 30 * 60 * 1000;
  * Stage a file path and return an opaque file ID.
  *
  * @param filePath - Validated file path (already normalized)
- * @returns Opaque file ID (ULID)
+ * @returns Opaque file ID (UUIDv4)
  */
 export function stageFile(filePath: string): string {
-  const fileId = ulid();
+  const fileId = randomUUID();
   stagedFiles.set(fileId, {
     path: filePath,
     stagedAt: Date.now(),

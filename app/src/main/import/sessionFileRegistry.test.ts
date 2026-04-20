@@ -18,10 +18,10 @@ describe('sessionFileRegistry', () => {
     vi.restoreAllMocks();
   });
 
-  it('stages a file and returns a ULID fileId', () => {
+  it('stages a file and returns an opaque fileId', () => {
     const fileId = stageFile('C:\\test\\file.csv');
     expect(fileId).toBeTruthy();
-    expect(fileId.length).toBe(26); // ULID length
+    expect(fileId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 
   it('resolves a staged fileId to its path', () => {

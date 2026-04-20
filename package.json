@@ -35,7 +35,6 @@
     "react-dom": "^18.3.1",
     "react-i18next": "^14.1.0",
     "sodium-native": "^4.1.0",
-    "ulid": "^2.3.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
