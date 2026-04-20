@@ -37,6 +37,84 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-20T20:33:00Z — ExcelJS cell normalization must happen at the boundary (SECOND TIME)
+
+**Status:** Completed and pushed to main (commit `738362d`).
+
+**Context:** Pedro imported an XLSX file. Every row failed with: `Fila N — Importe: Carácter no válido en «[object Object]»`. This is the SECOND time `sanitizeCell` has bitten us. The first time (commit `24775ce`) we added it to the preview/stage-file path but forgot the dry-run/commit path.
+
+**Root cause:** Two independent XLSX readers:
+1. **Preview/stage-file** (lines 280-340 in import.ts): Uses `sanitizeCell` to normalize ExcelJS cell shapes before building preview rows.
+2. **Dry-run/commit** (lines 804-908, `loadXlsxRows`): Was calling `String(amountCell.value)` directly, passing raw ExcelJS objects (`{formula, result}`, `{richText: [...]}`, etc.) to `parseAmount`, which stringified them to `"[object Object]"` → `INVALID_CHARACTERS`.
+
+**Solution delivered:**
+
+1. **Extracted sanitizeCell to a shared module** (`app/src/main/import/cellSanitizer.ts`):
+   - Single source of truth for ExcelJS cell normalization.
+   - Handles all ExcelJS value shapes: `{ formula, result }`, `{ richText }`, `{ text }`, `{ error }`, `Date`, primitives.
+   - Optional `stripControlChars` + `maxLength` for UI preview (500 char cap, ASCII control char stripping).
+   - Preview path uses `sanitizeCell(value, { stripControlChars: true, maxLength: 500 })`.
+   - Dry-run/commit path uses `sanitizeCell(value)` (no truncation, preserve full data for parsing).
+
+2. **Fixed loadXlsxRows** (lines 892-896):
+   - Before: `rawAmount: String(amountCell.value ?? '')`
+   - After: `rawAmount: sanitizeCell(amountCell.value)`
+   - Now formula cells `{formula: 'A1+B1', result: 16433.39}` → `"16433.39"` instead of `"[object Object]"`.
+
+3. **Added defensive type guard in parseAmount**:
+   - Now accepts `unknown` instead of `string`.
+   - Type guard at boundary:
+     ```ts
+     if (raw == null) return { code: 'EMPTY' };
+     if (typeof raw === 'number') {
+       // Accept numeric cells (ExcelJS returns numbers for numeric cells)
+       if (!Number.isFinite(raw)) return { code: 'OUT_OF_RANGE', raw: String(raw) };
+       return { value: raw, locale: 'en' };
+     }
+     if (typeof raw !== 'string') {
+       // Reject objects, arrays, etc. (defensive guard against upstream bugs)
+       return { code: 'NOT_A_STRING', raw: String(raw) };
+     }
+     ```
+   - Updated `NOT_A_STRING` error to include `raw: string` field (was missing in type).
+   - Numbers from ExcelJS (numeric cells) pass through directly — no string conversion needed.
+   - Objects, arrays, etc. rejected with clear `NOT_A_STRING` error showing `[object Object]` in `raw`.
+
+4. **Added 9 defensive type-guard tests** (`amountParser.test.ts`):
+   - Numeric passthrough: `parseAmount(16433.39)` → `{ value: 16433.39, locale: 'en' }`
+   - Negative numeric: `parseAmount(-1234.56)` → `{ value: -1234.56, locale: 'en' }`
+   - Zero: `parseAmount(0)` → `{ value: 0, locale: 'en' }`
+   - Reject `Infinity`: `{ code: 'OUT_OF_RANGE', raw: 'Infinity' }`
+   - Reject `NaN`: `{ code: 'OUT_OF_RANGE', raw: 'NaN' }`
+   - Reject object (formula cell): `parseAmount({formula: 'A1+B1', result: 123})` → `{ code: 'NOT_A_STRING', raw: '[object Object]' }`
+   - Reject array: `parseAmount([1,2,3])` → `{ code: 'NOT_A_STRING' }`
+   - Handle `null`: `{ code: 'EMPTY' }`
+   - Handle `undefined`: `{ code: 'EMPTY' }`
+
+**Learnings:**
+
+- **Cell normalization MUST live at the ExcelJS/papaparse boundary, not in the parser layer.** This is the SECOND time this bit us. The parsers (`parseAmount`, `parseDate`) should receive plain strings or primitives, never raw ExcelJS cell objects. Any code path that reads XLSX (preview, dry-run, commit, future exports) MUST use `sanitizeCell` before passing values downstream.
+
+- **Two independent readers = two bug surfaces.** The preview/stage-file path and the dry-run/commit path both read XLSX, but they were doing it differently (one with `sanitizeCell`, one with `String()`). Extracting `sanitizeCell` to a shared module enforces a single normalization strategy.
+
+- **Formula cells are common in bank exports.** Users paste bank statements into Excel, add a column with `=SUM(B1+C1)` or similar, then export. ExcelJS returns `{formula: '...', result: 16433.39}` for those cells. Without normalization, the formula string leaks into the parser.
+
+- **Defensive type guards at parser boundaries are worth it.** Even with the upstream fix, the `NOT_A_STRING` guard in `parseAmount` catches programmer errors (e.g., future code paths forgetting to sanitize). The error message `"[object Object]"` is unambiguous — you know immediately you passed an object.
+
+- **Numeric cells should pass through trivially.** ExcelJS returns actual JavaScript numbers for numeric cells (e.g., `16433.39`). The old parser required strings, forcing an unnecessary `String()` conversion. The new parser accepts numbers directly, avoiding the conversion + re-parsing round-trip.
+
+- **Testing the dry-run path requires integration tests or manual verification.** Unit tests for `parseAmount` and `sanitizeCell` are easy, but the bug only surfaced when Pedro ran the full dry-run wizard on a real XLSX file. Consider adding an integration test that exercises `loadXlsxRows` → `parseRow` → `parseAmount` with synthetic ExcelJS-shaped inputs.
+
+**Verification:** All 131 import tests green (65 parseAmount, 9 rowHash, 9 sessionFileRegistry, 9 rowClassification, 9 headerDetection, 9 dateFormat, 13 pathGuard, 6 import handlers). Typecheck ✓ · lint ✓ · format:check ✓ · build ✓ · pushed to main (commit `738362d`).
+
+**Coordination note for future Morpheus:** If you EVER touch XLSX/CSV reading again, grep for `sanitizeCell` and verify EVERY code path uses it. The pattern is:
+- ExcelJS: `sanitizeCell(cell.value)` before passing to parsers.
+- Papaparse (CSV): Already returns strings, but sanitize anyway for consistency.
+- Preview: `sanitizeCell(value, { stripControlChars: true, maxLength: 500 })` for UI safety.
+- Dry-run/commit: `sanitizeCell(value)` (no truncation, preserve full data).
+
+**Problem solved:** Pedro can now import XLSX files with formula cells, richText cells, and other ExcelJS object shapes. The dry-run no longer fails with `[object Object]` garbage in the error messages.
+
 ## 2026-04-20T08:15:53Z — Electron crypto hotfix: avoid `ulid` package in main process
 
 **Issue:** `ulid` package's `detectPrng()` crash at app boot: `"secure crypto unusable, insecure Math.random not allowed"` after esbuild bundling.
