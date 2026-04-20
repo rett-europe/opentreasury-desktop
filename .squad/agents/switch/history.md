@@ -29,6 +29,17 @@ Implications currently in flight: ADR-001 accepted (event-sourced JSON + age/AEA
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-20: Error shape standardization for import validation (coordination note)
+
+Dry-run errors from import pipeline now use structured shape `{ code, raw, offending? }` instead of human-readable strings. This enables:
+- i18n via code lookup (eliminates hardcoded English errors in multilingual UI)
+- cross-agent consistency (if date parser or duplicate detector add error codes later, rendering layer doesn't change)
+- future extensibility (e.g., user-facing suggestions for Unicode whitespace issues, format ambiguity toggles)
+
+Morpheus refactored amount parser with Unicode whitespace stripping (NBSP U+00A0, narrow NBSP U+202F, zero-width U+200B, em space U+2003, etc.) to eliminate false-positive INVALID_CHARACTERS on real bank exports. Trinity localized all error codes to ES+EN with interpolation support for `{{raw}}` and `{{offending}}` values.
+
+**Implication for future validation:** Keep error shapes consistent across all dry-run work. If adding new validators (date format ambiguity detection, duplicate-list enrichment, etc.), emit structured errors with codes instead of strings.
+
 ### 2026-04-19: Security Requirements & Threat Model v0.1 authored
 - Doc: `docs/security/security-requirements-v0.1.md` — 20 numbered requirements (R1–R20), STRIDE threat model (T1–T16), 15 stack constraints (C1–C15), 8 accepted risks (AR1–AR8), 6 open questions for Pedro.
 - **Confirmed data scope:** donor/member PII = names, phones, emails. Financial = amounts, accounts. Both classified 🔴 High.

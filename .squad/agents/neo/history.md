@@ -51,6 +51,8 @@ The web app's bank statement import (XLSX/CSV → transactions) has **three comp
 
 **Desktop implication:** Replicate all three mechanisms in `app/src/main/services/import-parser.ts`. Use same alias lookup (port Python constants to TS). Use same hash logic for `source_reference`. Support category type overrides in import wizard Step 2. Accept partial success (warnings array).
 
+**2026-04-20 — ERROR SHAPE STANDARDIZATION (Morpheus/Trinity coordination note):** Import error shape is now structured as `{ code, raw, offending? }` for all dry-run errors. This enables i18n, cross-agent error handling, and future extensibility (date-format ambiguity UX, advanced suggestions). If your future dry-run work (date parser, etc.) adds error codes, follow the same pattern. See decisions.md §"2026-04-20: Import Error Row Semantics" for full spec.
+
 **Reusable pattern — "mirroring a web reference repo into desktop twin":**
 1. API endpoints → command surface (each POST/PUT/DELETE = one command that appends event).
 2. Service layer → business logic (port validation rules: IBAN format, soft-delete protection, txn count checks).

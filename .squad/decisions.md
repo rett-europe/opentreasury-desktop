@@ -149,6 +149,132 @@ Shift M1 priority from Movements-centric completion to "Panel first, then Moveme
 
 ---
 
+### 2026-04-20: Import Error Row Semantics — Error Codes + Unicode Whitespace (Morpheus)
+**By:** Morpheus (Backend/Parser) — requested by Pedro  
+**Related:** WI-17 import pipeline feedback (post-WI-18); Trinity (i18n rendering)
+
+**Context:** Pedro reported 5x "Contains invalid characters" (hardcoded English) in Spanish UI with no indication of:
+1. What value was rejected (no raw data shown)
+2. What row it refers to (absolute 1-based? data row? preview row?)
+3. What language errors should be in (localization issue)
+
+**Decision:**
+
+#### 1. Error Code Structure
+
+Backend parsers (date, amount, description) now return **structured error codes** instead of human-readable strings:
+
+```ts
+type DryRunError = {
+  row: number;           // Absolute 1-based row in source file
+  field?: string;        // 'date' | 'amount' | 'description'
+  code: string;          // Error code enum
+  raw?: string;          // Raw input value
+  offending?: string;    // Offending character(s) if applicable
+};
+```
+
+**Amount Parser Error Codes:**
+- `EMPTY` — String is empty or whitespace-only
+- `NOT_A_STRING` — Input is not a string
+- `NO_DIGITS` — After stripping currency, no digits remain
+- `INVALID_CHARACTERS` — Contains non-numeric characters (includes `raw` + `offending`)
+- `PARSE_FAILED` — Could not parse as a valid number
+- `AMBIGUOUS_FORMAT` — (reserved, not currently emitted)
+- `OUT_OF_RANGE` — (reserved, not currently emitted)
+
+#### 2. Row Number Semantic
+
+**Chosen:** Absolute 1-based row number in the source file (not data-row offset).
+
+**Rationale:**
+- Pedro can open the file in Excel, jump to row N, see the exact raw data.
+- Most debuggable for end users.
+- Unambiguous: no offset math needed.
+
+**Example:**
+```csv
+Banco Preamble Junk          ← row 1 (source file)
+Fecha,Concepto,Importe       ← row 2 (header, user chose this)
+15/01/2026,Donation,150.00   ← row 3 (first data row)
+16/01/2026,BadAmount,X123    ← row 4 (error here)
+```
+
+If row 4 has a bad amount, the dry-run error will be:
+```json
+{
+  "row": 4,
+  "field": "amount",
+  "code": "INVALID_CHARACTERS",
+  "raw": "X123",
+  "offending": "X"
+}
+```
+
+Trinity will render (via i18n): **"Fila 4 — Importe: Caracter no válido 'X' en 'X123'"**.
+
+#### 3. IPC Contract Changes
+
+**Before:**
+```ts
+{
+  rowIndex: number;
+  field: 'date' | 'amount' | 'description';
+  reason: string;  // ❌ Human-readable English string
+  value?: string;
+}
+```
+
+**After:**
+```ts
+{
+  row: number;          // ✅ Absolute source-file row
+  field?: string;       // Optional (may be omitted for row-level errors)
+  code: string;         // ✅ Error code for i18n lookup
+  raw?: string;         // ✅ Raw input value
+  offending?: string;   // ✅ Offending character(s) if applicable
+}
+```
+
+#### 4. Unicode Whitespace Handling
+
+The amount parser now strips **all Unicode whitespace variants** before character classification:
+- Regular space (U+0020)
+- NBSP (U+00A0)
+- Narrow NBSP (U+202F)
+- Zero-width space (U+200B)
+- Em space (U+2003)
+- And others in range U+1680, U+2000–U+200B, U+205F, U+3000, U+FEFF
+
+**Example:** `1 234,56 €` (with NBSP) is now accepted as `1234.56` instead of false-positive `INVALID_CHARACTERS`.
+
+If after stripping known noise (currency symbols + whitespace) there are still non-`[0-9.,]` characters, the parser returns `INVALID_CHARACTERS` with the offending character.
+
+**Files Modified:**
+- `app/src/main/import/amountParser.ts` — refactored parsing logic, error codes, Unicode handling
+- `app/src/main/import/amountParser.test.ts` — 122 tests covering NBSP, zero-width, em space cases
+- `app/src/shared/ipc-contracts/import.ts` — error shape updated
+
+**Test Results:**
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npm run format:check` ✅
+- `npx vitest run app/src/main/import` ✅ (122 tests)
+- `npm run build` ✅
+
+**Trinity Coordination:**
+Trinity will:
+1. Create i18n keys for each error code: `importWizard.dryRun.errorCodes.{EMPTY, INVALID_CHARACTERS, NO_DIGITS, etc.}` (ES + EN)
+2. Implement error display pattern: `Fila {{row}} — {{fieldLabel}}: {{localizedErrorMessage}}`
+3. Display raw values inline with tooltips for strings >30 chars
+
+**Why this error shape for future work:**
+The structured `{ code, raw, offending? }` shape enables localization, advanced error recovery (e.g., user-level "suggest fix" for common Unicode issues), and cross-agent error standardization (e.g., if date parser adds error codes later, the rendering layer stays unchanged).
+
+**Status:** Morpheus shipped (main commit pending); Trinity localized rendering in commit 1dde11f.
+
+---
+
 ### 2026-04-19: Preload Built with esbuild Inline Plugin, Not vite-plugin-electron
 **By:** Coordinator (lightweight direct action) — requested by Pedro  
 **Branch:** main (commit 3c376fd)

@@ -543,3 +543,45 @@ Display-count-only is a dark pattern. Users need actionable detail: which row, w
 
 **Files:** ImportWizard.css (layout + error-list styles), ImportWizard.tsx (error rendering), en/common.json + es/common.json (i18n keys). All gates passed. Commit: fix(import): improve wizard UX - pin footer and show error details (7e1cb50).
 
+
+## 2026-04-20 — Import Error Localization + Raw Value Display
+
+**Task:** Fix dry-run error list rendering after Pedro's feedback — errors were showing English text ("Contains invalid characters") in a Spanish UI, row numbers were ambiguous, and raw values weren't displayed.
+
+**Backend changes by Morpheus (parallel):**
+Morpheus refactored the dry-run error structure from { row, field, reason: string } to { row, field, code: string, raw?: string, offending?: string }. This enabled structured error codes instead of free-form English error strings.
+
+**Frontend changes:**
+
+1. **i18n error codes:** Added importWizard.dryRun.errorCodes.* namespace in both EN and ES locales:
+   - **Amount codes:** EMPTY, NOT_A_STRING, NO_DIGITS, INVALID_CHARACTERS, AMBIGUOUS_FORMAT, OUT_OF_RANGE, PARSE_FAILED
+   - **Date codes:** DATE_REQUIRED, DATE_INVALID_SERIAL, DATE_OUT_OF_RANGE, DATE_INVALID_FORMAT
+   - **Description:** EMPTY (description variant)
+   - Spanish translations use angle quotes (« ») per Spanish typography conventions
+
+2. **Raw value rendering:** Updated ImportWizard error rendering to show the raw cell value inline:
+   - Error message now displays: "Fila 7 — Importe: Carácter no válido en «1.234X,56»" (ES) / "Row 7 — Amount: Invalid character in \"1.234X,56\"" (EN)
+   - Uses i18n parameter {{raw}} to inject the rejected value
+   - Truncates long error messages at 80 chars with ellipsis, full text in title tooltip
+
+3. **Row number clarification:** Added info text below error summary: "Los números de fila corresponden al archivo original" (ES) / "Row numbers match the source file" (EN). Styled in italic tertiary text color.
+
+4. **CSS:** Added .ot-import-wizard__info-text style for the row-number helper text.
+
+**i18n pattern learned:**  
+When backend provides error codes instead of free-form strings, always create a complete i18n mapping for **all** possible codes (not just the ones you've seen in testing). Use defaultValue in t() calls to gracefully handle unknown codes.
+
+**Integration note:**  
+Since Morpheus changed the error schema field from eason to code + aw, the rendering logic simplified — no need for string-matching helper functions. Direct 	(\rrorCodes.\, { raw: err.raw }) pattern.
+
+**Validation:**
+- ✅ Typecheck passes
+- ✅ Lint passes
+- ✅ Format check passes
+- ✅ ImportWizard tests pass (7/7)
+- ✅ Build succeeds
+
+**Files modified:** 4 (ImportWizard.tsx, ImportWizard.css, en/common.json, es/common.json)
+
+**Commit:** feat(import): localize dry-run validation errors + show raw values (1dde11f)
+
