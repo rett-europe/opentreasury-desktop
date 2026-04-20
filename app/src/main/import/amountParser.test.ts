@@ -292,10 +292,10 @@ describe('inferColumnLocale', () => {
   it('returns "mixed" when no clear majority (50/50)', () => {
     const samples = [
       '16.433,39', // ES
-      '1,234.56',  // EN
-      '999,00',    // ES
+      '1,234.56', // EN
+      '999,00', // ES
       '12,345.67', // EN
-      '100,50',    // ES
+      '100,50', // ES
     ];
     expect(inferColumnLocale(samples)).toBe('mixed');
   });
@@ -303,12 +303,12 @@ describe('inferColumnLocale', () => {
   it('returns "mixed" when <80% agreement (70% ES)', () => {
     const samples = [
       '16.433,39', // ES
-      '1.234,56',  // ES
-      '999,00',    // ES
+      '1.234,56', // ES
+      '999,00', // ES
       '12,345.67', // EN
-      '100.50',    // EN (2 digits → EN)
-      '5.000,00',  // ES
-      '1.234,99',  // ES
+      '100.50', // EN (2 digits → EN)
+      '5.000,00', // ES
+      '1.234,99', // ES
     ];
     const result = inferColumnLocale(samples);
     // 5 ES, 2 EN → 5/7 = 71% ES → below 80% → mixed

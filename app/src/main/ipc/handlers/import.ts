@@ -167,9 +167,7 @@ function sanitizeCell(value: unknown): string {
   } else if (typeof value === 'object' && value !== null) {
     const v = value as Record<string, unknown>;
     if ('richText' in v && Array.isArray(v.richText)) {
-      s = (v.richText as Array<{ text?: unknown }>)
-        .map((r) => String(r?.text ?? ''))
-        .join('');
+      s = (v.richText as Array<{ text?: unknown }>).map((r) => String(r?.text ?? '')).join('');
     } else if ('text' in v && v.text !== null && v.text !== undefined) {
       s = String(v.text);
     } else if ('result' in v && v.result !== null && v.result !== undefined) {
@@ -908,8 +906,11 @@ function parseRow(
   dateFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD',
   getReadModel: () => ReadModel,
 ): ParsedRow {
-  const errors: Array<{ field: 'date' | 'amount' | 'description'; reason: string; value?: string }> =
-    [];
+  const errors: Array<{
+    field: 'date' | 'amount' | 'description';
+    reason: string;
+    value?: string;
+  }> = [];
 
   // Parse date
   const dateResult = parseDate(row.rawDate, dateFormat);

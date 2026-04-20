@@ -615,3 +615,38 @@ Shipped as commit 2d9ac7c (pushed). **Next on my docket:** WI-17 (CSV/XLSX impor
 - **Empty rows in CSV are skipped at parse time (`skipEmptyLines: true`), so the "header row" index is relative to non-empty rows.** This matches how the user sees the preview, so it's the right choice.
 
 **Deviations from spec:** None. Spec summary in the task brief was implemented verbatim (Neo's formal spec file never materialized in the inbox).
+
+## 2026-04-20T16:32:09Z — Locale-aware amount parsing (Spanish/US decimal formats)
+
+**Status:** Completed and pushed to main (commit `4f78721`).
+
+**Delivered:**
+- New module: `app/src/main/import/amountParser.ts` with pure locale-aware parsing logic
+- Auto-detection algorithm: counts separators (dot vs comma), applies heuristics based on position, frequency, and digit count after separator
+- Spanish format: dot=thousands, comma=decimal (e.g., `16.433,39` → 16433.39)
+- US/UK format: comma=thousands, dot=decimal (e.g., `16,433.39` → 16433.39)
+- Handles currency symbols (€, $, £, ¥, EUR, USD, GBP, etc.), NBSP/NNBSP whitespace, accounting parentheses `(1.234,56)` → -1234.56
+- Column-level locale inference helper: `inferColumnLocale(samples: string[]): 'es' | 'en' | 'mixed'` locks format when ≥80% samples agree
+- Extended IPC contract: `parseErrorSchema` now includes optional `value?: string` field for the raw cell value that failed
+- Updated import handler: populates `value` field in parse error objects
+- Integrated into existing `parser.ts`: preserves legacy CR/DB suffix logic while delegating to new locale-aware parser
+- 50 comprehensive tests: all Spanish/US formats, ambiguous cases, negatives, currency symbols, edge cases, explicit locale override, column inference
+
+**Learnings:**
+- **Auto-detection heuristics are delimiter-count-based, not regex:** counting dots and commas + examining the rightmost separator position is more robust than trying to regex-match known patterns. The edge cases (single separator `1.234` or `1,234`) require digit-count disambiguation (3 digits after → thousands, ≤2 digits → decimal).
+- **The rightmost separator is always the decimal:** when both dot and comma are present (`16.433,39` or `16,433.39`), the separator that appears last (rightmost) is the decimal separator. This simple rule handles 99% of mixed-format cases.
+- **NBSP (U+00A0) and NNBSP (U+202F) are common in European bank exports:** French and Spanish banks often use NBSP as thousands separators. Normalizing these to regular spaces before stripping them prevents false "invalid characters" errors.
+- **Column-level inference prevents single-ambiguous-value misreadings:** when a column has 9 clearly Spanish amounts (`16.433,39`, `1.234,56`, ...) and one ambiguous integer (`1234`), locking the column to ES format prevents the parser from misinterpreting the integer row-by-row. The ≥80% threshold is low enough to handle mixed edge cases but high enough to avoid false locks.
+- **Explicit locale override for edge cases:** the parser accepts an optional `{ locale: 'es' | 'en' | 'auto' }` parameter. When the user knows their bank format is consistently ES or US, they can force it. This is useful for imports where all amounts are integers or have ambiguous single separators.
+- **Error messages must be user-facing, not technical:** the error strings (`"Amount is required"`, `"No numeric value found"`, `"Contains invalid characters"`) are designed to surface directly in the wizard UI. No crypto layer jargon, no parser internals.
+- **Accounting parentheses `(1.234,56)` are surprisingly common:** older bank exports use this convention for negatives. The parser handles them before stripping currency symbols, so `(€1.234,56)` correctly becomes -1234.56.
+- **The parser is pure and stateless:** `parseAmount(raw: string, options?)` has no side effects, no global state, no dependencies on the file or column context. This makes it trivial to unit-test (50 cases) and reusable in any context (dry-run, commit, manual entry, future bulk-edit).
+
+**Problem solved:** Resolved Pedro's "Errores de validación: 222" mystery. Spanish NGO bank exports (the primary use case) use `16.433,39` format, which naïve `parseFloat` treats as invalid (comma = NaN). The old parser attempted heuristics but was not robust enough for real-world Spanish data. The new parser handles Spanish as the primary format, auto-detects US when present, and provides specific error reasons so the dry-run wizard can surface actionable feedback ("Contains invalid characters in row 42: 'abc€123'") instead of generic "invalid amount" noise.
+
+**Coordination note for Trinity:** The IPC contract now includes `value?: string` in parse errors. Trinity can surface this in the wizard UI to show users exactly which cell value failed and why. Recommendation: group errors by type ("200 amount parsing, 18 date parsing, 4 missing descriptions") and highlight the pattern to help users spot column-mapping mistakes.
+
+**Deviations from spec:** None. Task brief fully implemented.
+
+**Verification:** 110 import tests green · typecheck ✓ · lint ✓ (max-warnings 0) · build ✓ · pushed to main.
+
