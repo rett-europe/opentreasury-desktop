@@ -146,7 +146,8 @@ describe('response schemas — discriminated-union shape', () => {
       ok: true,
       event: {
         type: 'tx.note.added',
-        id: NOTE_ID,
+        id: '01HZEVT0000000000000000000',
+        noteId: NOTE_ID,
         txId: TX_ID,
         text: 'Hi',
         createdAt: '2026-04-20T10:32:00.000Z',
@@ -191,7 +192,8 @@ describe('response schemas — discriminated-union shape', () => {
       ok: true,
       event: {
         type: 'tx.note.deleted',
-        id: NOTE_ID,
+        id: '01HZEVT0000000000000000000',
+        noteId: NOTE_ID,
         txId: TX_ID,
         deletedAt: '2026-04-22T09:00:00.000Z',
       },

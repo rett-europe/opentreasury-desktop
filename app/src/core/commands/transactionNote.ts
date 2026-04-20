@@ -79,10 +79,7 @@ function validateText(raw: unknown): Result<string, NoteError> {
   return { ok: true, value: trimmed };
 }
 
-function findNote(
-  readModel: ReadModel,
-  noteId: string,
-): { txId: string } | null {
+function findNote(readModel: ReadModel, noteId: string): { txId: string } | null {
   for (const [txId, notes] of readModel.notes) {
     const found = notes.find((n) => n.id === noteId);
     if (found) return { txId };

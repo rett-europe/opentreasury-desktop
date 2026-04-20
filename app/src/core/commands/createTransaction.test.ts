@@ -93,6 +93,9 @@ describe('createTransaction — happy path', () => {
       tagIds: [],
       status: 'approved',
       createdAt: '2026-04-20T10:15:00.000Z',
+      // WI-19 — command defaults absent reference/details to null.
+      reference: null,
+      details: null,
     });
   });
 

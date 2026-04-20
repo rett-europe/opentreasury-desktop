@@ -43,7 +43,8 @@ describe('notesApi', () => {
       ok: true,
       event: {
         type: 'tx.note.added',
-        id: NOTE_ID,
+        id: EVT_ID,
+        noteId: NOTE_ID,
         txId: TX_ID,
         text: 'Called donor.',
         createdAt: '2026-04-20T10:32:00Z',
@@ -79,7 +80,8 @@ describe('notesApi', () => {
       ok: true,
       event: {
         type: 'tx.note.deleted',
-        id: NOTE_ID,
+        id: EVT_ID,
+        noteId: NOTE_ID,
         txId: TX_ID,
         deletedAt: '2026-04-22T09:00:00Z',
       },

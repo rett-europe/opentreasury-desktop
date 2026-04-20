@@ -823,3 +823,37 @@ All 122 import tests green · typecheck ✓ · lint ✓ · format:check ✓ · b
 
 **Problem solved:** Pedro's "5 consecutive identical errors" mystery. Backend was rejecting legitimate bank amounts with NBSP or other Unicode whitespace as "invalid characters" and showing no context. Now the parser accepts all Unicode whitespace variants, returns structured error codes with the raw value and offending character, and Trinity can display localized, actionable error messages.
 
+
+## 2026-04-20T21:40:00Z — WI-19 backend shipped: reference/details + notes thread
+
+**Status:** All gates green (typecheck · lint · format:check · 345 vitest tests · build). Ready to push.
+
+**Delivered:**
+
+- **Transaction extensions:** `reference` (max 120) and `details` (max 1000) on the Transaction entity, tx.created payload, movement.imported event, ReadModel projection, and `createTransactionRequestSchema`. Boundary-level normalization: trim, empty→null, max-length enforced AFTER trim. Command layer re-normalizes defensively.
+- **Reference index:** `ReadModel.transactionsByReference: Map<string, Transaction[]>` — the literal "DB index" is N/A (persistence is an NDJSON log), so the ask translated to an in-memory projection for future dedup/search.
+- **Notes aggregate:** `TransactionNote` + full lifecycle events (`tx.note.added` / `tx.note.edited` / `tx.note.deleted`) + core commands + IPC contracts + main handlers + preload bridge exposure + renderer service layer rewire.
+- **Import commit path:** accepts optional `reference` / `details` column mappings per row; reads from CSV/XLSX, normalizes, persists on `movement.imported`.
+- **Tests:** 4 new test files — `schemas.test.ts` (backward-compat + reducer backfill), `transaction.test.ts` (request-schema trim/normalize/overlength/non-string), `notes.test.ts` in shared (all request/response schemas), `handlers/notes.test.ts` (add/list/edit/delete happy paths + every error code + INTERNAL + idempotency).
+
+**Learnings:**
+
+- **Event-log idempotency vs "id = aggregate key":** Neo's literal wording had `tx.note.*` events using `id` as the note id. But `EventLog.append()` dedupes by `event.id`. If `id = noteId`, the second edit (or re-issued edit) of the same note would hit the seen-set and silently no-op — the reducer would never see the update. Fix: split `id` (event, always unique per event) and `noteId` (stable note primary key). This keeps the invariant that `event.id` is *the log's* idempotency key, matching how every other flat event (`movement.imported`, `import.mapping.updated`) already works. Documented in `.squad/decisions/inbox/morpheus-wi-19-contract-deltas.md`.
+
+- **Backward-compat for payload extensions is `.nullable().optional()` on the wire, `| null` in the read model:** Events written pre-WI-19 on disk simply omit the new fields. The Zod schema has `reference: z.string().max(120).nullable().optional()` so those old lines still validate on replay. The reducer projects `event.payload.reference ?? null` — so the read-model type can stay strict (`string | null` — not optional), which keeps every consumer honest (exhaustive switches, deterministic JSON in tests, no `undefined` landmines). New events always emit an explicit `string` or `null` for unambiguity.
+
+- **Trimming MUST happen before max-length check:** For WI-19 free-text fields, I pipe through `z.preprocess → trim → empty→null → pipe(z.string().max(N).nullable())`. A payload with 119 chars + 10 trailing spaces must succeed (trimmed length 119), not fail on the 129-char raw form. One test locks this invariant in.
+
+- **Encryption pattern for notes = same DEK-wrapped event-log transport as transactions:** Notes are not a separate stream or store. `tx.note.added/edited/deleted` rides the same append-only NDJSON log as `tx.created`. Whatever M2 crypto does for one, it does for all — the note handler never bypasses the log transport. This keeps the future OneDrive + DEK migration a single-surface change, not a per-aggregate migration.
+
+- **`NOTE_TEXT_MAX` is 2000 per Pedro's approval; the IPC schema uses `trim → min(1) → max(2000)` which means a whitespace-only text hits `SCHEMA_INVALID` at the boundary before ever reaching the command layer's own `TEXT_EMPTY` check.** Tests accept either code as a valid reject because the user-facing message is the same either way. Trinity's modal will show one i18n string regardless.
+
+- **`transaction:note:list` is permissive on unknown txId — returns `[]`, not `TX_NOT_FOUND`.** Matches how other list handlers behave; the modal will render an empty notes list for a transaction the user just deleted (race condition) rather than popping an error. Worth revisiting if the UX proves confusing.
+
+- **Pre-existing Trinity scaffold contradicted Pedro's spec in three places** (error code names, `{ ok, note }` vs `{ ok, event }` response, `id` vs `noteId` on delete). Shipped Pedro's spec; updated Trinity's `notesApi.ts`/`notesApi.test.ts` to match in the same commit so the build stays green. Contract-deltas drop file lists every rename so Trinity can rewire any UI code without spelunking.
+
+**Deviations from Neo's scope:**
+1. `noteId` added alongside `id` on every `tx.note.*` event (idempotency — see above).
+2. "Add DB index on `reference`" translated to `transactionsByReference` in-memory projection (no SQLite in M1.5).
+
+**Coordination note for Trinity:** See `.squad/decisions/inbox/morpheus-wi-19-contract-deltas.md` for full renames. Key rewires she needs in her renderer code: `event.id` → `event.noteId` when capturing a created note's primary key; error code strings (`TRANSACTION_NOT_FOUND` → `TX_NOT_FOUND`, `NOTE_TEXT_TOO_LONG` → `TEXT_TOO_LONG`, etc.); delete request field `id` → `noteId`. The existing `notesApi.ts` + test file are already updated; any NotesThread component that still destructures `response.note` needs to switch to `response.event`.
