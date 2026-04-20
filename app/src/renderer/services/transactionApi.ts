@@ -8,6 +8,10 @@
 import type {
   CreateTransactionRequest,
   CreateTransactionResponse,
+  UpdateTransactionRequest,
+  UpdateTransactionResponse,
+  DeleteTransactionRequest,
+  DeleteTransactionResponse,
 } from '../../shared/ipc-contracts/transaction.js';
 
 /**
@@ -23,4 +27,28 @@ export async function createTransaction(
   input: CreateTransactionRequest,
 ): Promise<CreateTransactionResponse> {
   return window.opentreasury.transaction.create(input);
+}
+
+/**
+ * Update an existing transaction (WI-20). Full-replacement payload.
+ * Resolves with discriminated-union result:
+ *  - `{ ok: true, event }` on success (the persisted `tx.updated` envelope).
+ *  - `{ ok: false, error }` on validation failure (TX_NOT_FOUND, etc.).
+ */
+export async function updateTransaction(
+  input: UpdateTransactionRequest,
+): Promise<UpdateTransactionResponse> {
+  return window.opentreasury.transaction.update(input);
+}
+
+/**
+ * Delete a transaction (WI-20). Soft-delete via append-only event.
+ * Resolves with discriminated-union result:
+ *  - `{ ok: true, event }` on success (the persisted `tx.deleted` envelope).
+ *  - `{ ok: false, error }` on validation failure (TX_NOT_FOUND, etc.).
+ */
+export async function deleteTransaction(
+  input: DeleteTransactionRequest,
+): Promise<DeleteTransactionResponse> {
+  return window.opentreasury.transaction.delete(input);
 }

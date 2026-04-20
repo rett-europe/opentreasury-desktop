@@ -24,7 +24,11 @@ import {
 } from '../../shared/ipc-contracts/panel.js';
 import {
   IPC_TRANSACTION_CREATE,
+  IPC_TRANSACTION_UPDATE,
+  IPC_TRANSACTION_DELETE,
   createTransactionResponseSchema,
+  updateTransactionResponseSchema,
+  deleteTransactionResponseSchema,
 } from '../../shared/ipc-contracts/transaction.js';
 import {
   IPC_MOVEMENTS_LIST,
@@ -75,7 +79,11 @@ import {
   handleGetAccountSparklines,
   handleQueryRecentTransactions,
 } from './handlers/panel.js';
-import { createTransactionCreateHandler } from './handlers/transaction.js';
+import {
+  createTransactionCreateHandler,
+  createTransactionUpdateHandler,
+  createTransactionDeleteHandler,
+} from './handlers/transaction.js';
 import { createMovementsListHandler } from './handlers/movements.js';
 import { createAccountsCreateHandler, createAccountsListHandler } from './handlers/accounts.js';
 import {
@@ -142,7 +150,8 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   });
 
   // WI-12 — transaction.create + movements.list
-  const handleTransactionCreate = createTransactionCreateHandler({
+  // WI-20 — transaction.update + transaction.delete
+  const transactionDeps = {
     eventLog: getEventLog(),
     getReadModel,
     now: () => new Date(),
@@ -150,7 +159,11 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     datasetId: DATASET_ID,
     actorDeviceId: ACTOR_DEVICE_ID,
     dekVersion: 0,
-  });
+  };
+
+  const handleTransactionCreate = createTransactionCreateHandler(transactionDeps);
+  const handleTransactionUpdate = createTransactionUpdateHandler(transactionDeps);
+  const handleTransactionDelete = createTransactionDeleteHandler(transactionDeps);
 
   ipcMain.handle(IPC_TRANSACTION_CREATE, async (_event, raw: unknown) => {
     const response = await handleTransactionCreate(raw);
@@ -158,6 +171,16 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     // producing path inside the handler already returned a structured union,
     // so this parse should never throw in practice.
     return createTransactionResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_TRANSACTION_UPDATE, async (_event, raw: unknown) => {
+    const response = await handleTransactionUpdate(raw);
+    return updateTransactionResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_TRANSACTION_DELETE, async (_event, raw: unknown) => {
+    const response = await handleTransactionDelete(raw);
+    return deleteTransactionResponseSchema.parse(response);
   });
 
   const handleMovementsList = createMovementsListHandler({ getReadModel });

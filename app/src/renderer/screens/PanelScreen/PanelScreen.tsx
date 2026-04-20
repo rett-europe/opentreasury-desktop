@@ -14,7 +14,9 @@ import type {
   GetAccountSparklinesResponse,
   RecentTransaction,
 } from '../../../shared/ipc-contracts/panel';
+import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import * as panelApi from '../../services/panelApi.js';
+import { updateTransaction, deleteTransaction } from '../../services/transactionApi.js';
 import './PanelScreen.css';
 
 type PanelState = 'skeleton' | 'loaded' | 'error';
@@ -49,51 +51,40 @@ export function PanelScreen(): JSX.Element {
   const [data, setData] = useState<PanelData | null>(null);
   const [selectedTx, setSelectedTx] = useState<RecentTransaction | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadPanel = async () => {
+    try {
+      setState('skeleton');
 
-    async function loadPanel() {
-      try {
-        setState('skeleton');
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const [accountsResp, balancesResp, kpisResp, transactionsResp] = await Promise.all([
+        panelApi.getAccounts(),
+        panelApi.getAccountBalances(),
+        panelApi.getMonthKPIs(currentMonth),
+        panelApi.queryRecentTransactions(8),
+      ]);
 
-        const [accountsResp, balancesResp, kpisResp, transactionsResp] = await Promise.all([
-          panelApi.getAccounts(),
-          panelApi.getAccountBalances(),
-          panelApi.getMonthKPIs(currentMonth),
-          panelApi.queryRecentTransactions(8),
-        ]);
+      const sparklinePromises = accountsResp.accounts.map((acc) =>
+        panelApi.getAccountSparklines(acc.id).then((resp) => [acc.id, resp.sparkline] as const),
+      );
+      const sparklineEntries = await Promise.all(sparklinePromises);
 
-        if (cancelled) return;
-
-        const sparklinePromises = accountsResp.accounts.map((acc) =>
-          panelApi.getAccountSparklines(acc.id).then((resp) => [acc.id, resp.sparkline] as const),
-        );
-        const sparklineEntries = await Promise.all(sparklinePromises);
-
-        if (cancelled) return;
-
-        setData({
-          accounts: accountsResp.accounts,
-          balances: balancesResp.balances,
-          kpis: kpisResp.kpis,
-          sparklines: new Map(sparklineEntries),
-          transactions: transactionsResp.transactions,
-        });
-        setState('loaded');
-      } catch (err) {
-        if (cancelled) return;
-        console.error('Panel query failed:', err);
-        setState('error');
-      }
+      setData({
+        accounts: accountsResp.accounts,
+        balances: balancesResp.balances,
+        kpis: kpisResp.kpis,
+        sparklines: new Map(sparklineEntries),
+        transactions: transactionsResp.transactions,
+      });
+      setState('loaded');
+    } catch (err) {
+      console.error('Panel query failed:', err);
+      setState('error');
     }
+  };
 
+  useEffect(() => {
     loadPanel();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   if (state === 'skeleton') {
@@ -364,6 +355,23 @@ export function PanelScreen(): JSX.Element {
         onClose={() => setSelectedTx(null)}
         transaction={selectedTx}
         accounts={accounts}
+        onUpdate={async (input: UpdateTransactionRequest) => {
+          const result = await updateTransaction(input);
+          if (!result.ok) {
+            throw new Error(result.error.message);
+          }
+          // Reload Panel data to reflect changes
+          await loadPanel();
+        }}
+        onDelete={async (id: string) => {
+          const result = await deleteTransaction({ id });
+          if (!result.ok) {
+            throw new Error(result.error.message);
+          }
+          // Reload Panel data to reflect changes
+          await loadPanel();
+          setSelectedTx(null);
+        }}
       />
     </div>
   );

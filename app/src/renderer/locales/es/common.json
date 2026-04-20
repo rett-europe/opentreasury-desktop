@@ -192,6 +192,7 @@
     },
     "form": {
       "title": "Añadir Movimiento",
+      "editTitle": "Editar Movimiento",
       "submit": "Guardar",
       "submitting": "Guardando…",
       "fields": {
@@ -202,10 +203,15 @@
         "account": "Cuenta",
         "category": "Categoría",
         "subcategory": "Subcategoría",
-        "tags": "Etiquetas"
+        "tags": "Etiquetas",
+        "status": "Estado",
+        "reference": "Referencia",
+        "details": "Detalles"
       },
       "placeholders": {
-        "description": "Introduce una descripción…"
+        "description": "Introduce una descripción…",
+        "reference": "p. ej. Factura #1234",
+        "details": "Notas o contexto adicional…"
       },
       "errors": {
         "dateInvalid": "Introduce una fecha válida.",
@@ -213,6 +219,9 @@
         "amountNonPositive": "El importe debe ser mayor que cero.",
         "descriptionEmpty": "La descripción es obligatoria.",
         "accountNotFound": "Selecciona una cuenta.",
+        "referenceTooLong": "La referencia debe tener 120 caracteres o menos.",
+        "detailsTooLong": "Los detalles deben tener 1000 caracteres o menos.",
+        "txNotFound": "Movimiento no encontrado.",
         "submitFailed": "No se pudo guardar el movimiento. Inténtalo de nuevo."
       }
     }
@@ -232,7 +241,10 @@
       "reference": "Referencia",
       "details": "Detalles",
       "none": "—"
-    }
+    },
+    "editButton": "Editar",
+    "deleteButton": "Eliminar",
+    "deleteConfirm": "¿Seguro que quieres eliminar este movimiento? Esta acción no se puede deshacer."
   },
   "notes": {
     "heading": "Notas",

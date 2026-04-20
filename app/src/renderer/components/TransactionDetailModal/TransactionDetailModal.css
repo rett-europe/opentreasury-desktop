@@ -37,6 +37,45 @@
   border-bottom: 1px solid var(--color-border-default, var(--color-border));
 }
 
+.ot-transaction-detail-modal__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.ot-transaction-detail-modal__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-error-text);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.ot-transaction-detail-modal__action-btn:hover:not(:disabled) {
+  background: var(--color-error-surface);
+  color: var(--color-error-default);
+}
+
+.ot-transaction-detail-modal__action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ot-transaction-detail-modal__action-btn:focus-visible {
+  outline: 2px solid var(--color-error-default);
+  outline-offset: 1px;
+}
+
 .ot-transaction-detail-modal__heading {
   display: flex;
   flex-direction: column;
@@ -174,7 +213,13 @@
 
 .ot-transaction-detail-modal__footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-border-default, var(--color-border));
+}
+
+.ot-transaction-detail-modal__footer-actions {
+  display: flex;
+  gap: var(--space-2);
 }

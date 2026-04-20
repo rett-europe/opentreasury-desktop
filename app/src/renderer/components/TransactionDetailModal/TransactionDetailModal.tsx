@@ -1,9 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
+import { X, Edit, Trash2 } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { NotesThread } from '../NotesThread/index.js';
+import { TransactionFormModal, type TransactionFormData } from '../TransactionFormModal/index.js';
 import type { Account, RecentTransaction } from '../../../shared/ipc-contracts/panel.js';
+import type { CategoryRecord, TagRecord } from '../../types/config.js';
+import type {
+  CreateTransactionRequest,
+  UpdateTransactionRequest,
+} from '../../../shared/ipc-contracts/transaction.js';
 import './TransactionDetailModal.css';
 
 export interface TransactionDetailModalProps {
@@ -11,9 +17,13 @@ export interface TransactionDetailModalProps {
   readonly onClose: () => void;
   readonly transaction: RecentTransaction | null;
   readonly accounts?: readonly Account[];
+  readonly categories?: readonly CategoryRecord[];
+  readonly tags?: readonly TagRecord[];
   readonly categoryLabel?: string | null;
   readonly subcategoryLabel?: string | null;
   readonly tagLabels?: readonly string[];
+  readonly onUpdate: (input: UpdateTransactionRequest) => Promise<void>;
+  readonly onDelete: (id: string) => Promise<void>;
 }
 
 function formatDate(iso: string): string {
@@ -28,32 +38,39 @@ function formatDate(iso: string): string {
 }
 
 /**
- * Transaction Detail modal — WI-19.
+ * Transaction Detail modal — WI-19 + WI-20 (edit/delete).
  *
- * Read-only view triggered from a Panel row click. All fields (including
- * reference/details) render as plain labelled text; inline editing is deferred
- * to WI-20 per Pedro's decision on Neo's open questions.
+ * Read-only view triggered from a Panel row click. WI-20 adds:
+ * - Edit button → swaps modal body to TransactionFormModal in edit mode
+ * - Delete button (trash icon in header) → confirmation dialog
+ * - In-place swap pattern: same modal, body/footer change
  *
- * Layout follows the ImportWizard "locked-width" pattern to avoid jitter when
- * notes stream in.
+ * Layout follows the ImportWizard "locked-width" pattern (640px) to avoid jitter.
  */
 export function TransactionDetailModal({
   isOpen,
   onClose,
   transaction,
   accounts = [],
+  categories = [],
+  tags = [],
   categoryLabel,
   subcategoryLabel,
   tagLabels,
+  onUpdate,
+  onDelete,
 }: TransactionDetailModalProps): JSX.Element {
   const { t } = useTranslation('common');
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [mode, setMode] = useState<'view' | 'edit'>('view');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (isOpen && !dialog.open) {
       dialog.showModal();
+      setMode('view'); // Reset to view mode on open
     } else if (!isOpen && dialog.open) {
       dialog.close();
     }
@@ -64,10 +81,22 @@ export function TransactionDetailModal({
     if (!dialog) return;
     const handleCancel = (e: Event): void => {
       e.preventDefault();
-      onClose();
+      if (mode === 'edit') {
+        // In edit mode, cancel → revert to view
+        setMode('view');
+      } else {
+        // In view mode, cancel → close modal
+        onClose();
+      }
     };
     const handleClick = (e: MouseEvent): void => {
-      if (e.target === dialog) onClose();
+      if (e.target === dialog) {
+        if (mode === 'edit') {
+          setMode('view');
+        } else {
+          onClose();
+        }
+      }
     };
     dialog.addEventListener('cancel', handleCancel);
     dialog.addEventListener('click', handleClick);
@@ -75,7 +104,42 @@ export function TransactionDetailModal({
       dialog.removeEventListener('cancel', handleCancel);
       dialog.removeEventListener('click', handleClick);
     };
-  }, [onClose]);
+  }, [onClose, mode]);
+
+  const handleEdit = (): void => {
+    setMode('edit');
+  };
+
+  const handleCancelEdit = (): void => {
+    setMode('view');
+  };
+
+  const handleSaveEdit = async (
+    input: CreateTransactionRequest | UpdateTransactionRequest,
+  ): Promise<void> => {
+    // In edit mode, we know input is UpdateTransactionRequest
+    await onUpdate(input as UpdateTransactionRequest);
+    setMode('view');
+    // Parent will refresh and pass updated transaction
+  };
+
+  const handleDelete = async (): Promise<void> => {
+    if (!transaction) return;
+
+    const confirmed = window.confirm(t('transactionDetail.deleteConfirm'));
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      await onDelete(transaction.id);
+      onClose();
+    } catch (err) {
+      // Error handling — parent will show error
+      console.error('Delete failed:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (!transaction) {
     return (
@@ -89,6 +153,48 @@ export function TransactionDetailModal({
     );
   }
 
+  // In edit mode, render TransactionFormModal inline
+  if (mode === 'edit') {
+    const initialData: TransactionFormData = {
+      id: transaction.id,
+      accountId: transaction.accountId,
+      date: transaction.date,
+      type: transaction.type,
+      amount: transaction.amount,
+      description: transaction.description,
+      categoryId: transaction.categoryId,
+      subcategoryId: transaction.subcategoryId,
+      tagIds: transaction.tagIds,
+      status: transaction.status,
+      reference: transaction.reference ?? null,
+      details: transaction.details ?? null,
+    };
+
+    return (
+      <dialog
+        ref={dialogRef}
+        className="ot-transaction-detail-modal"
+        aria-labelledby="ot-transaction-detail-title"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="ot-transaction-detail-modal__content">
+          <TransactionFormModal
+            mode="edit"
+            isOpen={true}
+            onClose={handleCancelEdit}
+            onSubmit={handleSaveEdit}
+            accounts={accounts}
+            categories={categories}
+            tags={tags}
+            initialData={initialData}
+          />
+        </div>
+      </dialog>
+    );
+  }
+
+  // View mode (read-only)
   const account = accounts.find((a) => a.id === transaction.accountId);
   const accountLabel = account?.accountLabel ?? transaction.accountId;
 
@@ -123,14 +229,26 @@ export function TransactionDetailModal({
               {formattedAmount}
             </span>
           </div>
-          <button
-            type="button"
-            className="ot-transaction-detail-modal__close"
-            onClick={onClose}
-            aria-label={t('common.close')}
-          >
-            <X size={20} aria-hidden="true" />
-          </button>
+          <div className="ot-transaction-detail-modal__header-actions">
+            <button
+              type="button"
+              className="ot-transaction-detail-modal__action-btn"
+              onClick={handleDelete}
+              disabled={isDeleting}
+              aria-label={t('transactionDetail.deleteButton')}
+              title={t('transactionDetail.deleteButton')}
+            >
+              <Trash2 size={18} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="ot-transaction-detail-modal__close"
+              onClick={onClose}
+              aria-label={t('common.close')}
+            >
+              <X size={20} aria-hidden="true" />
+            </button>
+          </div>
         </header>
 
         <section
@@ -204,6 +322,12 @@ export function TransactionDetailModal({
         <NotesThread txId={transaction.id} />
 
         <footer className="ot-transaction-detail-modal__footer">
+          <div className="ot-transaction-detail-modal__footer-actions">
+            <Button type="button" variant="ghost" onClick={handleEdit}>
+              <Edit size={16} />
+              {t('transactionDetail.editButton')}
+            </Button>
+          </div>
           <Button type="button" variant="ghost" onClick={onClose}>
             {t('common.close')}
           </Button>

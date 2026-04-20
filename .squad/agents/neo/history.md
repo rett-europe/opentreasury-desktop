@@ -156,6 +156,34 @@ The web app's bank-specific alias tables (`import_constants.py`) work for 90% of
 
 **Null normalization simplifies queries.** Storing empty strings vs NULL creates two representations of "absent". Normalizing to NULL (trim + empty→null) keeps queries simple (`WHERE field IS NOT NULL`). Applied to both `reference` and `details` fields.
 
+## 2026-04-21 — WI-20 scope: Transaction Manual Add + Edit
+
+**Status:** Scope doc delivered at `.squad/decisions/inbox/neo-wi-20-scope.md`. Awaiting Pedro sign-off.
+
+### Summary
+
+Pedro asked to "close the loop" on manual transaction entry. WI-20 adds:
+- **Edit flow:** TransactionDetailModal (WI-19) gains an Edit button → opens form pre-filled → submits `transaction:update` IPC → `tx.updated` event → reducer updates projection.
+- **Manual add polish:** Existing `AddTransactionModal` needs status picker (currently hardcoded) + reference/details fields (WI-19 fields, not wired yet).
+- **(Pending Pedro)** Delete: `tx.deleted` event + confirmation UI.
+
+### Key architectural decision
+
+Event-sourcing edit pattern: **Full payload snapshot (`tx.updated`)** — not field-level patch. Rationale: single-user desktop app, storage is cheap, replay is trivial, no patch versioning needed.
+
+### Immutability constraints
+
+`accountId` stays immutable after creation (no account reassignment in WI-20). Rationale: reassignment affects balance projections across accounts — complexity not worth it for M1.5. Users can delete + re-create if truly needed.
+
+### Four decisions for Pedro
+
+1. Include delete in WI-20? (Rec: Yes)
+2. Account immutability OK? (Rec: Yes)
+3. Add "New transaction" to MovementsScreen header? (Rec: Yes)
+4. Edit UX in-place swap OK? (Rec: Yes)
+
+**Artifact:** `.squad/decisions/inbox/neo-wi-20-scope.md`
+
 ## Team Updates
 
 - **WI-19 shipped:** Neo scoped, Pedro approved, Morpheus + Trinity delivered. All gates green (345/345 tests). TransactionDetailModal + NotesThread + import wizard mapping live on main. Contract deviations (noteId + id split, transactionsByReference projection) documented in decisions.md.
