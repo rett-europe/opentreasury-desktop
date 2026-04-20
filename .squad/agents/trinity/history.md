@@ -633,3 +633,35 @@ After add/delete the thread refetches the list (no optimistic update) — simple
 ## Team Updates
 
 - **WI-19 shipped:** Neo scoped, Pedro approved, Morpheus + Trinity delivered. All gates green (345/345 tests). TransactionDetailModal + NotesThread + import wizard mapping live on main. Contract deviations (noteId + id split, transactionsByReference projection) documented in decisions.md.
+
+## 2026-04-21 — WI-20 Manual Transaction Edit + Delete
+
+**Context:** WI-20 closes the transaction CRUD loop by adding edit and delete capabilities. Morpheus delivered the backend (tx.updated + tx.deleted events, IPC handlers, reducers). Trinity delivered the UI integration.
+
+**Pattern: Modal composition for edit flow:**
+Initially considered in-place body swap (read-only view ↔ edit form within same dialog), but this creates complexity with nested dialog state management. Cleaner pattern: clicking "Edit" in TransactionDetailModal opens a separate TransactionFormModal on top. On save/cancel, the edit modal closes and the detail modal reflects fresh data (via parent refresh callback). This keeps modal lifecycles independent and avoids dialog-within-dialog nesting issues.
+
+**TransactionFormModal was created by Morpheus:**
+Morpheus refactored AddTransactionModal → TransactionFormModal with `mode: 'add' | 'edit'` prop during the backend work. The component handles both creation and update, with Account dropdown disabled in edit mode (immutable accountId per Pedro's decision). Status picker exposed (was hardcoded to 'approved'), Reference + Details fields wired.
+
+**TransactionDetailModal edit/delete integration:**
+- Edit button in footer opens TransactionFormModal in edit mode with pre-filled `initialData`
+- Delete button (trash icon) in modal header triggers window.confirm dialog, then calls onDelete handler
+- Both actions refresh parent screen data (Panel or Movements) via callbacks
+- PanelScreen loadPanel refactored to be callable (was useEffect-scoped) so update/delete handlers can trigger refresh
+
+**i18n already added by Morpheus:**
+All WI-20 strings (editTitle, editButton, deleteButton, deleteConfirm, error codes, field labels for reference/details/status) were added to en/common.json + es/common.json by Morpheus during backend work. No additional i18n changes needed.
+
+**Coordination with Morpheus:**
+WI-20 was a parallel backend+frontend task. Morpheus landed contracts (transaction.ts with update/delete schemas), preload bridge (transaction.update + transaction.delete), and service wrappers (updateTransaction, deleteTransaction) before Trinity started UI work. This unblocked frontend implementation with zero contract drift.
+
+**Gates:** typecheck clean, lint clean, prettier clean, build succeeds. No new component tests added (existing TransactionDetailModal + AddTransactionModal tests cover rendering; integration tests deferred to e2e layer per WI-13/17/19 pattern).
+
+**Files modified (Trinity's commit):**
+- TransactionDetailModal.tsx: Edit + Delete buttons, modal open/close orchestration, onUpdate/onDelete props
+- PanelScreen.tsx: loadPanel refactor + update/delete handlers
+- TransactionDetailModal.css: header-actions layout, action-btn destructive styling, footer layout
+
+**Key learning — Separate modals vs in-place swap:**
+When a modal needs to transition between significantly different states (read-only detail view vs editable form), opening a second modal on top is simpler than swapping the first modal's internals. Keeps dialog lifecycles independent, avoids nested-dialog complexity, and leverages existing modal components without modification. The "single pane" mental model is preserved by closing the edit modal and returning to the detail modal with fresh data.
