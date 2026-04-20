@@ -2,6 +2,46 @@
 
 ## Active Decisions
 
+### 2026-04-20: WI-19 — Transaction extras (reference / details / notes) — shipped
+
+**By:** Neo (scope), Pedro (approval), Morpheus (backend), Trinity (frontend)  
+**Status:** ✅ COMPLETE — shipped to main (commits `695d559`, `b6188b3`), all gates green (345/345 tests)
+
+**Summary:**
+Delivered transaction field extensions (`reference`, `details`) + notes entity + first transaction detail view (modal) in app. All three agents green; import wizard extended with optional reference/details columns; notes CRUD via IPC.
+
+**Scope:**
+- **Transaction model:** Added `reference` (string, max 120 chars) + `details` (string, max 1000 chars) as optional nullable fields at create
+- **Notes entity:** ULID-keyed notes with max 2000 chars; CRUD via IPC (`transaction:note:add/list/edit/delete`)
+- **Events:** New `tx.note.added`, `tx.note.edited`, `tx.note.deleted` events; extended `tx.created` and `movement.imported` with reference/details (backward-compatible)
+- **IPC:** Response shape `{ ok, event }` (matches `transaction:create` convention); error codes standardized (`TX_NOT_FOUND`, `NOTE_NOT_FOUND`, `TEXT_EMPTY`, `TEXT_TOO_LONG`, `SCHEMA_INVALID`, `INTERNAL`)
+- **Read model:** `notesReducer` projects note events; `transactionsByReference` in-memory projection for O(1) reference lookup (fulfills "DB index" for NDJSON architecture)
+- **UI:** TransactionDetailModal (640px width, modal pattern), NotesThread component inside, import wizard mapping extended
+- **Import handler:** Accepts reference/details columns, normalizes + validates per-row, emits on `movement.imported`
+
+**Pedro's Approved Calls:**
+1. Edit reference/details after creation — **Not in WI-19.** Deferred to WI-20.
+2. Note max 2000 chars — **Approved.**
+3. Index reference in DB — **Approved.** Implemented as `transactionsByReference` projection (in-memory equivalent for NDJSON).
+4. Transaction detail modal vs inline expand — **Modal approved.**
+
+**Contract Deviations (vs Neo's literal scope):**
+- **`noteId` + `id` split (structural):** Event log dedupes by `event.id`; note events carry both `id` (unique per event) and `noteId` (stable note PK) to preserve append-log idempotency. Documented in `.squad/decisions/inbox/morpheus-wi-19-contract-deltas.md`.
+- **`transactionsByReference` projection:** In-memory index (not a literal DB index, since persistence is append-only NDJSON).
+
+**Test Coverage:**
+- 345/345 passing (was 0 at start)
+- Schema tests: backward-compat on `tx.created` / `movement.imported`
+- IPC handler lifecycle tests: note CRUD + error cases
+- Import mapping tests: reference/details column acceptance + normalization
+
+**Orchestration Logs:**
+- `.squad/orchestration-log/2026-04-20T19-47-12Z-neo.md` — scope document + open questions
+- `.squad/orchestration-log/2026-04-20T19-47-12Z-morpheus.md` — backend implementation + contract deviations
+- `.squad/orchestration-log/2026-04-20T19-47-12Z-trinity.md` — UI (modal + notes thread + import wizard) + integration notes
+
+---
+
 ### 2026-04-19: prototype/ is the visual and interaction contract for v1
 **By:** Neo (Lead/Architect) + Link (Product Manager), jointly — requested by Pedro
 **Branch:** `fix/prototype-fidelity-audit`

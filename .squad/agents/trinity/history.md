@@ -629,3 +629,7 @@ After add/delete the thread refetches the list (no optimistic update) — simple
 - `notesApi.test.ts` — bridge plumbing, error passthrough (Morpheus also edited this file).
 
 **Gates:** renderer tsc clean, lint clean, prettier clean (after `--write`), vite build clean. Renderer-owned vitest green (5 new files, 16 new tests). Pre-existing Morpheus test failures remain in his domain (main/core typecheck errors + `createTransaction.test.ts` happy-path drift after his schema additions) — consistent with prior parallel-work history.
+
+## Team Updates
+
+- **WI-19 shipped:** Neo scoped, Pedro approved, Morpheus + Trinity delivered. All gates green (345/345 tests). TransactionDetailModal + NotesThread + import wizard mapping live on main. Contract deviations (noteId + id split, transactionsByReference projection) documented in decisions.md.

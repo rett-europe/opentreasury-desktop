@@ -857,3 +857,7 @@ All 122 import tests green · typecheck ✓ · lint ✓ · format:check ✓ · b
 2. "Add DB index on `reference`" translated to `transactionsByReference` in-memory projection (no SQLite in M1.5).
 
 **Coordination note for Trinity:** See `.squad/decisions/inbox/morpheus-wi-19-contract-deltas.md` for full renames. Key rewires she needs in her renderer code: `event.id` → `event.noteId` when capturing a created note's primary key; error code strings (`TRANSACTION_NOT_FOUND` → `TX_NOT_FOUND`, `NOTE_TEXT_TOO_LONG` → `TEXT_TOO_LONG`, etc.); delete request field `id` → `noteId`. The existing `notesApi.ts` + test file are already updated; any NotesThread component that still destructures `response.note` needs to switch to `response.event`.
+
+## Team Updates
+
+- **WI-19 shipped:** Neo scoped, Pedro approved, Morpheus + Trinity delivered. All gates green (345/345 tests). TransactionDetailModal + NotesThread + import wizard mapping live on main. Contract deviations (noteId + id split, transactionsByReference projection) documented in decisions.md.
