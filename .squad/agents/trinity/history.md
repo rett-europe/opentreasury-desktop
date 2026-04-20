@@ -396,6 +396,20 @@ Commit `4495e51` (combined with Morpheus's main+preload work into a single
 
 **Coordination note (contract-file race):**
 When I started the task, `shared/ipc-contracts/transaction.ts` and
+
+---
+
+## 2026-04-20 — Cross-Agent Coordination: Morpheus Amount Parser Error Shape
+
+**Note for Trinity (from Morpheus):**
+
+Morpheus has implemented a locale-aware amount parser that auto-detects Spanish (16.433,39) vs US (16,433.39) decimal formats. The parse error contract now includes a `value?: string` field that contains the raw cell value that failed to parse. This allows per-row error surfacing in the wizard UI:
+
+- Error shape in dry-run: `{ rowIndex, field: "amount", reason: "...", value: "abc€123" }`
+- Example reasons: "Amount is required", "No numeric value found", "Contains invalid characters"
+- Use the `value` field to show users exactly which cell value failed and why
+
+Update: Trinity's sticky footer polish (7e1cb50 + 58c18c2) integrates this directly; per-row error display now surfaces the `value` field alongside `reason` in the ImportWizard error summary.
 `movements.ts` did NOT yet exist — I initially declared the types inline in
 `renderer/types/transaction.ts` + `renderer/types/movementsFilter.ts` with
 `TODO(WI-12 follow-up)` pointers. Mid-task Morpheus landed the contract files
