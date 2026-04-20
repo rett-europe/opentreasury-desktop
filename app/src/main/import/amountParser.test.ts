@@ -166,49 +166,55 @@ describe('parseAmount', () => {
   describe('Edge cases and errors', () => {
     it('rejects empty string', () => {
       const result = parseAmount('');
-      expect(result).toHaveProperty('error');
-      if ('error' in result) {
-        expect(result.error).toContain('required');
+      expect(result).toHaveProperty('code');
+      if ('code' in result) {
+        expect(result.code).toBe('EMPTY');
       }
     });
 
     it('rejects whitespace-only string', () => {
       const result = parseAmount('   ');
-      expect(result).toHaveProperty('error');
-      if ('error' in result) {
-        expect(result.error).toContain('required');
+      expect(result).toHaveProperty('code');
+      if ('code' in result) {
+        expect(result.code).toBe('EMPTY');
       }
     });
 
     it('rejects alphabetic characters', () => {
       const result = parseAmount('abc');
-      expect(result).toHaveProperty('error');
-      if ('error' in result) {
-        expect(result.error).toContain('invalid characters');
+      expect(result).toHaveProperty('code');
+      if ('code' in result) {
+        expect(result.code).toBe('INVALID_CHARACTERS');
+        expect(result.raw).toBe('abc');
+        expect(result.offending).toBe('abc');
       }
     });
 
     it('rejects mixed alphanumeric', () => {
       const result = parseAmount('12a34');
-      expect(result).toHaveProperty('error');
-      if ('error' in result) {
-        expect(result.error).toContain('invalid characters');
+      expect(result).toHaveProperty('code');
+      if ('code' in result) {
+        expect(result.code).toBe('INVALID_CHARACTERS');
+        expect(result.raw).toBe('12a34');
+        expect(result.offending).toBe('a');
       }
     });
 
     it('rejects currency symbol only', () => {
       const result = parseAmount('€');
-      expect(result).toHaveProperty('error');
-      if ('error' in result) {
-        expect(result.error).toContain('No numeric value');
+      expect(result).toHaveProperty('code');
+      if ('code' in result) {
+        expect(result.code).toBe('NO_DIGITS');
+        expect(result.raw).toBe('€');
       }
     });
 
     it('rejects currency code only', () => {
       const result = parseAmount('USD');
-      expect(result).toHaveProperty('error');
-      if ('error' in result) {
-        expect(result.error).toContain('No numeric value');
+      expect(result).toHaveProperty('code');
+      if ('code' in result) {
+        expect(result.code).toBe('NO_DIGITS');
+        expect(result.raw).toBe('USD');
       }
     });
 
@@ -228,6 +234,37 @@ describe('parseAmount', () => {
     it('handles zero with decimal 0,00', () => {
       const result = parseAmount('0,00');
       expect(result).toEqual({ value: 0, locale: 'es' });
+    });
+
+    // Unicode whitespace handling
+    it('strips NBSP (U+00A0) between digits and currency', () => {
+      const result = parseAmount('1\u00A0234,56\u00A0€');
+      expect(result).toEqual({ value: 1234.56, locale: 'es' });
+    });
+
+    it('strips narrow NBSP (U+202F) as thousands separator', () => {
+      const result = parseAmount('1\u202F234,56');
+      expect(result).toEqual({ value: 1234.56, locale: 'es' });
+    });
+
+    it('strips leading/trailing whitespace', () => {
+      const result = parseAmount('  1.234,56  ');
+      expect(result).toEqual({ value: 1234.56, locale: 'es' });
+    });
+
+    it('strips mixed whitespace (space + NBSP)', () => {
+      const result = parseAmount(' 1\u00A0234,56 ');
+      expect(result).toEqual({ value: 1234.56, locale: 'es' });
+    });
+
+    it('strips zero-width space (U+200B)', () => {
+      const result = parseAmount('1\u200B234.56');
+      expect(result).toEqual({ value: 1234.56, locale: 'en' });
+    });
+
+    it('strips em space (U+2003)', () => {
+      const result = parseAmount('1\u2003234.56');
+      expect(result).toEqual({ value: 1234.56, locale: 'en' });
     });
   });
 

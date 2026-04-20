@@ -15,9 +15,14 @@ export interface ParseAmountSuccess {
   locale: 'es' | 'en';
 }
 
-export interface ParseAmountError {
-  error: string;
-}
+export type ParseAmountError =
+  | { code: 'EMPTY' }
+  | { code: 'NOT_A_STRING' }
+  | { code: 'NO_DIGITS'; raw: string }
+  | { code: 'INVALID_CHARACTERS'; raw: string; offending?: string }
+  | { code: 'AMBIGUOUS_FORMAT'; raw: string }
+  | { code: 'OUT_OF_RANGE'; raw: string }
+  | { code: 'PARSE_FAILED'; raw: string };
 
 export type ParseAmountResult = ParseAmountSuccess | ParseAmountError;
 
@@ -30,7 +35,14 @@ export interface ParseAmountOptions {
  *
  * @param raw - Raw amount string (e.g., "16.433,39", "16,433.39", "€1.234,56")
  * @param options - Locale preference ('es' | 'en' | 'auto'). Defaults to 'auto'.
- * @returns Success with { value, locale } or error with { error: reason }
+ * @returns Success with { value, locale } or error with { code, raw?, offending? }
+ *
+ * Error codes:
+ * - EMPTY: String is empty or whitespace-only
+ * - NOT_A_STRING: Input is not a string
+ * - NO_DIGITS: After stripping currency, no digits remain
+ * - INVALID_CHARACTERS: Contains non-numeric characters (raw + offending provided)
+ * - PARSE_FAILED: Could not parse as a valid number
  *
  * @example
  * parseAmount("16.433,39")              → { value: 16433.39, locale: 'es' }
@@ -38,20 +50,23 @@ export interface ParseAmountOptions {
  * parseAmount("(1.234,56)")             → { value: -1234.56, locale: 'es' }
  * parseAmount("€ 16.433,39")            → { value: 16433.39, locale: 'es' }
  * parseAmount("1,234.56 USD")           → { value: 1234.56, locale: 'en' }
- * parseAmount("16.433,39", { locale: 'en' }) → { error: '...' }
- * parseAmount("abc")                    → { error: 'Contains invalid characters' }
+ * parseAmount("abc")                    → { code: 'INVALID_CHARACTERS', raw: 'abc', offending: 'abc' }
  */
 export function parseAmount(raw: string, options?: ParseAmountOptions): ParseAmountResult {
   const locale = options?.locale ?? 'auto';
 
   // Early validation
-  if (!raw || typeof raw !== 'string') {
-    return { error: 'Amount is required' };
+  if (!raw) {
+    return { code: 'EMPTY' };
+  }
+
+  if (typeof raw !== 'string') {
+    return { code: 'NOT_A_STRING' };
   }
 
   const trimmed = raw.trim();
   if (!trimmed) {
-    return { error: 'Amount is required' };
+    return { code: 'EMPTY' };
   }
 
   // Detect and extract sign from accounting parentheses or explicit +/-
@@ -75,21 +90,24 @@ export function parseAmount(raw: string, options?: ParseAmountOptions): ParseAmo
   // Strip currency symbols and non-numeric chars except digits, dot, comma, space
   // Common currencies: € $ £ ¥ ₹ ₽ ₩
   // Common currency codes: EUR USD GBP JPY INR RUB KRW (with optional whitespace)
-  // Also strip NBSP (U+00A0), NNBSP (U+202F), and regular spaces
+  // Also strip all Unicode whitespace variants (NBSP U+00A0, NNBSP U+202F, zero-width spaces, etc.)
   working = working
-    .replace(/[\u00A0\u202F]/g, ' ') // Normalize NBSP to regular space
+    .replace(/[\u00A0\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, ' ') // Normalize all Unicode whitespace to regular space
     .replace(/[€$£¥₹₽₩]/g, '')
     .replace(/\b(?:EUR|USD|GBP|JPY|INR|RUB|KRW)\b/gi, '')
     .trim();
 
   // After stripping currency, check if anything remains
   if (!working) {
-    return { error: 'No numeric value found' };
+    return { code: 'NO_DIGITS', raw: trimmed };
   }
 
-  // Check for invalid characters (anything other than digits, dot, comma, space)
-  if (/[^\d.,\s]/.test(working)) {
-    return { error: 'Contains invalid characters' };
+  // Check for invalid characters BEFORE stripping whitespace
+  // This allows us to capture the offending character(s)
+  const invalidCharsMatch = working.match(/[^\d.,\s]/g);
+  if (invalidCharsMatch) {
+    const offending = [...new Set(invalidCharsMatch)].join('');
+    return { code: 'INVALID_CHARACTERS', raw: trimmed, offending };
   }
 
   // Strip whitespace (some locales use space as thousands separator)
@@ -182,7 +200,7 @@ export function parseAmount(raw: string, options?: ParseAmountOptions): ParseAmo
   // Parse the cleaned string
   const parsed = parseFloat(cleaned);
   if (!Number.isFinite(parsed)) {
-    return { error: 'Could not parse as a valid number' };
+    return { code: 'PARSE_FAILED', raw: trimmed };
   }
 
   const value = isNegative ? -Math.abs(parsed) : Math.abs(parsed);
@@ -208,7 +226,7 @@ function parseWithLocale(
 
   const parsed = parseFloat(cleaned);
   if (!Number.isFinite(parsed)) {
-    return { error: `Could not parse as ${locale === 'es' ? 'Spanish' : 'US'} format` };
+    return { code: 'PARSE_FAILED', raw: working };
   }
 
   const value = isNegative ? -Math.abs(parsed) : Math.abs(parsed);

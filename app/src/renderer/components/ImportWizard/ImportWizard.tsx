@@ -484,17 +484,41 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                     <AlertCircle size={16} />
                     {t('importWizard.dryRun.summary.errors', { count: summary.errorCount })}
                   </div>
+                  <div className="ot-import-wizard__info-text">
+                    {t('importWizard.dryRun.rowNumberInfo')}
+                  </div>
                   {errors.length > 0 ? (
                     <div className="ot-import-wizard__error-list">
-                      {errors.slice(0, MAX_ERRORS_DISPLAY).map((err, idx) => (
-                        <div key={idx} className="ot-import-wizard__error-row">
-                          {t('importWizard.dryRun.errorRow', {
-                            rowIndex: err.rowIndex,
-                            field: t(`importWizard.mapColumns.fields.${err.field}`),
-                            reason: err.reason,
-                          })}
-                        </div>
-                      ))}
+                      {errors.slice(0, MAX_ERRORS_DISPLAY).map((err, idx) => {
+                        // Build localized error message with raw value if available
+                        const errorKey = `importWizard.dryRun.errorCodes.${err.code}`;
+                        const translatedReason = t(errorKey, {
+                          raw: err.raw || '',
+                          offending: err.offending || '',
+                          defaultValue: err.code,
+                        });
+
+                        const truncatedReason =
+                          translatedReason.length > 80
+                            ? translatedReason.substring(0, 77) + '...'
+                            : translatedReason;
+
+                        return (
+                          <div
+                            key={idx}
+                            className="ot-import-wizard__error-row"
+                            title={translatedReason.length > 80 ? translatedReason : undefined}
+                          >
+                            {t('importWizard.dryRun.errorRow', {
+                              row: err.row,
+                              field: err.field
+                                ? t(`importWizard.mapColumns.fields.${err.field}`)
+                                : '',
+                              reason: truncatedReason,
+                            })}
+                          </div>
+                        );
+                      })}
                       {errors.length > MAX_ERRORS_DISPLAY ? (
                         <div className="ot-import-wizard__error-more">
                           {t('importWizard.dryRun.errorMore', {

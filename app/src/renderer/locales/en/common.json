@@ -383,11 +383,27 @@
       "duplicatesHeading": "{{count}} rows match already-imported transactions:",
       "importDuplicates": "Import duplicates",
       "errorsHeading": "{{count}} rows can't be imported:",
+      "rowNumberInfo": "Row numbers match the source file.",
       "noValidRows": "No valid transactions to import.",
       "import": "Import {{count}} transactions",
       "back": "Back",
-      "errorRow": "Row {{rowIndex}} — {{field}}: {{reason}}",
-      "errorMore": "… and {{count}} more"
+      "errorRow": "Row {{row}} — {{field}}: {{reason}}",
+      "errorMore": "… and {{count}} more",
+      "errorCodes": {
+        "EMPTY": "Empty value",
+        "NOT_A_STRING": "Invalid value type",
+        "NO_DIGITS": "No digits in \"{{raw}}\"",
+        "INVALID_CHARACTERS": "Invalid character in \"{{raw}}\"",
+        "AMBIGUOUS_FORMAT": "Ambiguous format: \"{{raw}}\"",
+        "OUT_OF_RANGE": "Out of range: \"{{raw}}\"",
+        "PARSE_FAILED": "Could not parse \"{{raw}}\"",
+        "INVALID_AMOUNT": "Invalid amount",
+        "DATE_INVALID": "Invalid date",
+        "DATE_REQUIRED": "Date is required",
+        "DATE_INVALID_SERIAL": "Invalid Excel date",
+        "DATE_OUT_OF_RANGE": "Date out of range",
+        "DATE_INVALID_FORMAT": "Invalid date format"
+      }
     },
     "confirm": {
       "importing": "Importing...",

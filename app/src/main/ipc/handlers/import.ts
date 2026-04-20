@@ -63,7 +63,12 @@ interface ParsedRow {
   description: string | undefined;
   rowHash: string | undefined;
   isDuplicate: boolean | undefined;
-  errors: Array<{ field: 'date' | 'amount' | 'description'; reason: string; value?: string }>;
+  errors: Array<{
+    field: 'date' | 'amount' | 'description';
+    code: string;
+    raw?: string;
+    offending?: string;
+  }>;
 }
 
 // ============================================================================
@@ -459,9 +464,11 @@ export function createDryRunHandler(
 
       const errorList = errors.flatMap((r) =>
         r.errors.map((e) => ({
-          rowIndex: r.rowIndex,
+          row: r.rowIndex,
           field: e.field,
-          reason: e.reason,
+          code: e.code,
+          raw: e.raw,
+          offending: e.offending,
         })),
       );
 
@@ -620,9 +627,10 @@ export function createCommitHandler(
 
       const warnings = errors.flatMap((r) =>
         r.errors.map((e) => ({
-          rowIndex: r.rowIndex,
+          row: r.rowIndex,
           field: e.field,
-          reason: e.reason,
+          code: e.code,
+          raw: e.raw,
         })),
       );
 
@@ -908,8 +916,9 @@ function parseRow(
 ): ParsedRow {
   const errors: Array<{
     field: 'date' | 'amount' | 'description';
-    reason: string;
-    value?: string;
+    code: string;
+    raw?: string;
+    offending?: string;
   }> = [];
 
   // Parse date
@@ -917,19 +926,30 @@ function parseRow(
   if (!dateResult.success) {
     errors.push({
       field: 'date',
-      reason: dateResult.error!,
-      value: String(row.rawDate ?? ''),
+      code: dateResult.error || 'INVALID_DATE',
+      raw: String(row.rawDate ?? ''),
     });
   }
 
   // Parse amount
   const amountResult = parseAmount(row.rawAmount);
   if (!amountResult.success) {
-    errors.push({
+    const error: {
+      field: 'date' | 'amount' | 'description';
+      code: string;
+      raw?: string;
+      offending?: string;
+    } = {
       field: 'amount',
-      reason: amountResult.error!,
-      value: String(row.rawAmount ?? ''),
-    });
+      code: amountResult.errorCode || 'INVALID_AMOUNT',
+    };
+    if (amountResult.errorRaw !== undefined) {
+      error.raw = amountResult.errorRaw;
+    }
+    if (amountResult.errorOffending !== undefined) {
+      error.offending = amountResult.errorOffending;
+    }
+    errors.push(error);
   }
 
   // Parse description
@@ -937,8 +957,8 @@ function parseRow(
   if (!description) {
     errors.push({
       field: 'description',
-      reason: 'Description is required',
-      value: String(row.rawDescription ?? ''),
+      code: 'EMPTY',
+      raw: String(row.rawDescription ?? ''),
     });
   }
 

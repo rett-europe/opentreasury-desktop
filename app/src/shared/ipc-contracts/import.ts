@@ -114,10 +114,11 @@ const duplicateRowSchema = z.object({
 });
 
 const parseErrorSchema = z.object({
-  rowIndex: z.number().int().positive(),
-  field: z.enum(['date', 'amount', 'description']),
-  reason: z.string(),
-  value: z.string().optional(), // Raw cell value that failed to parse
+  row: z.number().int().positive(),
+  field: z.enum(['date', 'amount', 'description']).optional(),
+  code: z.string(),
+  raw: z.string().optional(),
+  offending: z.string().optional(),
 });
 
 export const dryRunSuccessResponseSchema = z.object({
@@ -167,9 +168,10 @@ export const commitImportRequestSchema = z.object({
 export type CommitImportRequest = z.infer<typeof commitImportRequestSchema>;
 
 const commitWarningSchema = z.object({
-  rowIndex: z.number().int().positive(),
-  field: z.enum(['date', 'amount', 'description']),
-  reason: z.string(),
+  row: z.number().int().positive(),
+  field: z.enum(['date', 'amount', 'description']).optional(),
+  code: z.string(),
+  raw: z.string().optional(),
 });
 
 export const commitImportSuccessResponseSchema = z.object({

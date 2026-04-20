@@ -15,7 +15,9 @@ export interface ParseAmountResult {
   success: boolean;
   amount?: number;
   type?: 'income' | 'expense';
-  error?: string;
+  errorCode?: string;
+  errorRaw?: string | undefined;
+  errorOffending?: string | undefined;
 }
 
 /**
@@ -129,13 +131,13 @@ export function parseDate(
  */
 export function parseAmount(value: unknown): ParseAmountResult {
   if (value === null || value === undefined || value === '') {
-    return { success: false, error: 'Amount is required and must be non-zero' };
+    return { success: false, errorCode: 'EMPTY' };
   }
 
   // Handle numeric values directly (Excel might provide numbers)
   if (typeof value === 'number') {
     if (!Number.isFinite(value) || value === 0) {
-      return { success: false, error: 'Amount is required and must be non-zero' };
+      return { success: false, errorCode: 'EMPTY' };
     }
     const type = value < 0 ? 'expense' : 'income';
     return { success: true, amount: Math.abs(value), type };
@@ -144,7 +146,7 @@ export function parseAmount(value: unknown): ParseAmountResult {
   // Convert to string and handle CR/DB suffixes (legacy bank export format)
   let str = String(value).trim();
   if (!str) {
-    return { success: false, error: 'Amount is required and must be non-zero' };
+    return { success: false, errorCode: 'EMPTY' };
   }
 
   let isCredit = false;
@@ -160,8 +162,13 @@ export function parseAmount(value: unknown): ParseAmountResult {
   // Delegate to locale-aware parser
   const localeResult: LocaleParseResult = parseAmountLocaleAware(str);
 
-  if ('error' in localeResult) {
-    return { success: false, error: localeResult.error };
+  if ('code' in localeResult) {
+    return {
+      success: false,
+      errorCode: localeResult.code,
+      errorRaw: 'raw' in localeResult ? localeResult.raw : undefined,
+      errorOffending: 'offending' in localeResult ? localeResult.offending : undefined,
+    };
   }
 
   // Apply CR/DB sign overrides if present (CR=credit=positive, DB=debit=negative)

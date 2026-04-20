@@ -217,6 +217,13 @@
   color: var(--color-expense-default);
 }
 
+.ot-import-wizard__info-text {
+  font-size: var(--font-size-13);
+  color: var(--color-text-tertiary);
+  margin-top: var(--space-2);
+  font-style: italic;
+}
+
 .ot-import-wizard__error-list {
   max-height: 200px;
   overflow-y: auto;

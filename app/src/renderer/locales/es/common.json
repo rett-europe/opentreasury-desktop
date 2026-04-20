@@ -383,11 +383,27 @@
       "duplicatesHeading": "{{count}} filas coinciden con movimientos ya importados:",
       "importDuplicates": "Importar duplicados",
       "errorsHeading": "{{count}} filas no se pueden importar:",
+      "rowNumberInfo": "Los números de fila corresponden al archivo original.",
       "noValidRows": "No hay movimientos válidos para importar.",
       "import": "Importar {{count}} movimientos",
       "back": "Atrás",
-      "errorRow": "Fila {{rowIndex}} — {{field}}: {{reason}}",
-      "errorMore": "… y {{count}} más"
+      "errorRow": "Fila {{row}} — {{field}}: {{reason}}",
+      "errorMore": "… y {{count}} más",
+      "errorCodes": {
+        "EMPTY": "Valor vacío",
+        "NOT_A_STRING": "Tipo de valor no válido",
+        "NO_DIGITS": "No hay dígitos en «{{raw}}»",
+        "INVALID_CHARACTERS": "Carácter no válido en «{{raw}}»",
+        "AMBIGUOUS_FORMAT": "Formato ambiguo: «{{raw}}»",
+        "OUT_OF_RANGE": "Fuera de rango: «{{raw}}»",
+        "PARSE_FAILED": "No se pudo analizar «{{raw}}»",
+        "INVALID_AMOUNT": "Importe no válido",
+        "DATE_INVALID": "Fecha no válida",
+        "DATE_REQUIRED": "La fecha es obligatoria",
+        "DATE_INVALID_SERIAL": "Fecha de Excel no válida",
+        "DATE_OUT_OF_RANGE": "Fecha fuera de rango",
+        "DATE_INVALID_FORMAT": "Formato de fecha no válido"
+      }
     },
     "confirm": {
       "importing": "Importando...",
