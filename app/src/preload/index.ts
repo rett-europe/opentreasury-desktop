@@ -3,7 +3,7 @@
 //
 // Scaffold: exposes a stub `window.opentreasury` surface so the renderer can compile
 // against it. Real handlers land with feature work.
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import {
   IPC_PANEL_GET_ACCOUNTS,
   IPC_PANEL_GET_ACCOUNT_BALANCES,
@@ -127,6 +127,13 @@ const api = {
     },
   },
   import: {
+    // Electron 32+ removed File.path. Renderers must obtain the absolute
+    // filesystem path via webUtils.getPathForFile(file) from the preload.
+    // Safe to expose: only resolves for File objects the user already granted
+    // access to via <input type="file"> or drag-drop.
+    getPathForFile: (file: File): string => {
+      return webUtils.getPathForFile(file);
+    },
     stageFile: (req: StageFileRequest): Promise<StageFileResponse> => {
       return ipcRenderer.invoke(IPC_IMPORT_STAGE_FILE, req);
     },

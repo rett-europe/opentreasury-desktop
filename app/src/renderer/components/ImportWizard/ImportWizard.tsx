@@ -138,7 +138,12 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
     }
     setLoading(true);
     try {
-      const resp = await importApi.stageFile({ filePath: file.name });
+      const filePath = importApi.getPathForFile(file);
+      if (!filePath) {
+        setState((s) => ({ ...s, error: t('importWizard.errors.PATH_INVALID') }));
+        return;
+      }
+      const resp = await importApi.stageFile({ filePath });
       if (!resp.ok) {
         setState((s) => ({ ...s, error: t(`importWizard.errors.${resp.error.code}`) }));
         return;

@@ -17,6 +17,15 @@ export async function stageFile(input: StageFileRequest): Promise<StageFileRespo
   return window.opentreasury.import.stageFile(input);
 }
 
+/**
+ * Resolve a File (from <input type="file"> or drag-drop) to its absolute
+ * filesystem path. Electron 32+ removed the non-standard `File.path`, so we
+ * proxy through the preload bridge to `webUtils.getPathForFile`.
+ */
+export function getPathForFile(file: File): string {
+  return window.opentreasury.import.getPathForFile(file);
+}
+
 /** Run dry-run preview with column mapping. */
 export async function dryRun(input: DryRunRequest): Promise<DryRunResponse> {
   return window.opentreasury.import.dryRun(input);
