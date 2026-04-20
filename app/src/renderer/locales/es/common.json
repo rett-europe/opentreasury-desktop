@@ -21,6 +21,7 @@
       "panel": "Panel",
       "movements": "Movimientos",
       "balance": "Saldo",
+      "datos": "Datos",
       "configuracion": "Configuración"
     },
     "theme": {
@@ -224,8 +225,7 @@
       "label": "Secciones de configuración",
       "cuentas": "Cuentas",
       "categorias": "Categorías",
-      "etiquetas": "Etiquetas",
-      "datos": "Datos"
+      "etiquetas": "Etiquetas"
     },
     "cuentas": {
       "heading": "Cuentas",
@@ -279,14 +279,16 @@
       "colorInvalid": "Ese color no es válido.",
       "schemaInvalid": "Algunos datos no son válidos.",
       "submitFailed": "No se pudo guardar. Inténtalo de nuevo."
-    },
-    "datos": {
-      "heading": "Importación y Exportación de Datos",
-      "importCta": "Importar Movimientos",
-      "empty": {
-        "title": "Importa datos desde extractos bancarios",
-        "body": "Sube un archivo Excel o CSV y mapea las columnas para importar movimientos."
-      }
+    }
+  },
+  "datos": {
+    "title": "Datos",
+    "subtitle": "Importa extractos bancarios en tus cuentas.",
+    "heading": "Importación y Exportación de Datos",
+    "importCta": "Importar Movimientos",
+    "empty": {
+      "title": "Importa datos desde extractos bancarios",
+      "body": "Sube un archivo Excel o CSV y mapea las columnas para importar movimientos."
     }
   },
   "importWizard": {
@@ -303,6 +305,11 @@
       "heading": "Selecciona cuenta destino",
       "subtitle": "Un archivo = una cuenta. Si necesitas importar a múltiples cuentas, haz múltiples importaciones.",
       "next": "Siguiente"
+    },
+    "noAccounts": {
+      "title": "Aún no hay cuentas",
+      "body": "Crea al menos una cuenta antes de importar movimientos.",
+      "cta": "Ir a Configuración"
     },
     "uploadFile": {
       "heading": "Carga tu archivo (Excel o CSV)",

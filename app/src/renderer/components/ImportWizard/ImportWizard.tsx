@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, ArrowLeft, Upload, FileSpreadsheet, Check, AlertCircle } from 'lucide-react';
+import { X, ArrowLeft, Upload, FileSpreadsheet, Check, AlertCircle, Wallet } from 'lucide-react';
 import { Button } from '../Button/index.js';
+import { EmptyState } from '../EmptyState/index.js';
 import { listAccounts } from '../../services/accountsApi.js';
 import * as importApi from '../../services/importApi.js';
 import type { AccountRecord } from '../../types/config.js';
@@ -242,6 +243,22 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
   const renderStep = (): ReactNode => {
     switch (state.step) {
       case 'selectAccount':
+        if (accounts.length === 0) {
+          return (
+            <div className="ot-import-wizard__step">
+              <EmptyState
+                icon={<Wallet size={32} aria-hidden="true" />}
+                title={t('importWizard.noAccounts.title')}
+                body={t('importWizard.noAccounts.body')}
+                actions={
+                  <Button variant="primary" onClick={onClose}>
+                    {t('importWizard.noAccounts.cta')}
+                  </Button>
+                }
+              />
+            </div>
+          );
+        }
         return (
           <div className="ot-import-wizard__step">
             <h2>{t('importWizard.selectAccount.heading')}</h2>

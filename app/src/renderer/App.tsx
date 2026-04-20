@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { AppShell } from './screens/AppShell/index.js';
 import type { Route } from './screens/AppShell/index.js';
 import { ConfiguracionScreen } from './screens/ConfiguracionScreen/index.js';
+import { DatosScreen } from './screens/DatosScreen/index.js';
 import { MovementsScreen } from './screens/MovementsScreen/index.js';
 import { PanelScreen } from './screens/PanelScreen/index.js';
 import { SaldoScreen } from './screens/SaldoScreen/index.js';
@@ -35,6 +36,8 @@ export function App(): JSX.Element {
         <PanelScreen />
       ) : route === 'configuracion' ? (
         <ConfiguracionScreen onConfigChanged={bumpConfigRevision} />
+      ) : route === 'datos' ? (
+        <DatosScreen onImportComplete={bumpConfigRevision} />
       ) : (
         <SaldoScreen />
       )}

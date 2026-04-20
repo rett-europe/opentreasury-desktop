@@ -21,6 +21,7 @@
       "panel": "Dashboard",
       "movements": "Transactions",
       "balance": "Balance",
+      "datos": "Data",
       "configuracion": "Settings"
     },
     "theme": {
@@ -224,8 +225,7 @@
       "label": "Settings sections",
       "cuentas": "Accounts",
       "categorias": "Categories",
-      "etiquetas": "Tags",
-      "datos": "Data"
+      "etiquetas": "Tags"
     },
     "cuentas": {
       "heading": "Accounts",
@@ -279,14 +279,16 @@
       "colorInvalid": "That color isn't valid.",
       "schemaInvalid": "Some of the data is invalid.",
       "submitFailed": "Couldn't save. Please try again."
-    },
-    "datos": {
-      "heading": "Data Import & Export",
-      "importCta": "Import Transactions",
-      "empty": {
-        "title": "Import data from bank statements",
-        "body": "Upload an Excel or CSV file and map columns to import transactions."
-      }
+    }
+  },
+  "datos": {
+    "title": "Data",
+    "subtitle": "Import bank statements into your accounts.",
+    "heading": "Data Import & Export",
+    "importCta": "Import Transactions",
+    "empty": {
+      "title": "Import data from bank statements",
+      "body": "Upload an Excel or CSV file and map columns to import transactions."
     }
   },
   "importWizard": {
@@ -303,6 +305,11 @@
       "heading": "Select destination account",
       "subtitle": "One import = one account. To import to multiple accounts, run separate imports.",
       "next": "Next"
+    },
+    "noAccounts": {
+      "title": "No accounts yet",
+      "body": "Create at least one account before importing transactions.",
+      "cta": "Go to Configuración"
     },
     "uploadFile": {
       "heading": "Upload your file (Excel or CSV)",

@@ -12,11 +12,12 @@ import {
   Settings,
   SlidersHorizontal,
   Sun,
+  Upload,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme.js';
 import './AppShell.css';
 
-export type Route = 'panel' | 'movements' | 'balance' | 'configuracion';
+export type Route = 'panel' | 'movements' | 'balance' | 'datos' | 'configuracion';
 
 export interface AppShellProps {
   readonly currentRoute: Route;
@@ -42,6 +43,7 @@ const NAV_SECTIONS: readonly NavSection[] = [
       { id: 'panel', labelKey: 'shell.nav.panel', icon: <LayoutDashboard size={18} /> },
       { id: 'movements', labelKey: 'shell.nav.movements', icon: <ArrowLeftRight size={18} /> },
       { id: 'balance', labelKey: 'shell.nav.balance', icon: <Scale size={18} /> },
+      { id: 'datos', labelKey: 'shell.nav.datos', icon: <Upload size={18} /> },
     ],
   },
   {

@@ -430,3 +430,67 @@ Shared contract shape now locked with Morpheus: flat events `{ type, id, …fiel
 Deliberate omissions: no subcategory in Add-Transaction (WI-15-lite has none), no archive/edit/delete, no toast primitive (modals close + parent silently re-fetches; wire toasts in WI-16). Cleanup: removed stray `.d.ts` / `.js` / `.js.map` emits under `app/src/shared/ipc-contracts/` — `shared/tsconfig.json`'s `outDir` is `dist/shared`, so in-tree emits are a build-invocation bug to watch.
 
 Coordinator's `electron` devDep move unblocked `npm run package` — `out/OpenTreasury Setup 0.0.0.exe` produced end-to-end for the first time. Shipped as commit 2d9ac7c (pushed). **Next:** WI-17 (import UI on top of Morpheus's bank-specific parsers) is scoped but not started.
+
+
+## 2026-04-20T12:18:58Z ΓÇö WI-17 follow-up: DATOS top-level + empty-account wizard state
+
+**Two UX bugs Pedro caught after WI-17 shipped:**
+
+1. **DATOS belongs at the top level of the sidebar**, not nested under
+   Configuración. The prototype always had it as a top-level route; I
+   misread the spec on first pass. Restructured:
+   - Route union now includes 'datos'. New nav item in the **main**
+     section (between alance and the config section), Upload icon
+     from lucide.
+   - New screen screens/DatosScreen/ (DatosScreen.tsx + .css + index.ts)
+     ΓÇö same wrapper pattern as ConfiguracionScreen (ot-page-header +
+     content). Reuses ImportWizard + EmptyState exactly like the old
+     DatosTab. App.tsx wires the new branch with
+     onImportComplete={bumpConfigRevision} so MovementsScreen still
+     re-hydrates after an import.
+   - ConfiguracionScreen is back to **3 tabs** (Cuentas / Categor├¡as
+     / Etiquetas). Removed 'datos' from the TabId union, the TABS
+     array, and the render switch. Deleted DatosTab.tsx.
+   - **i18n namespace move:** configuracion.datos.* ΓåÆ top-level
+     datos.* (with new datos.title + datos.subtitle for the page
+     header). Also added shell.nav.datos. Removed unused
+     configuracion.tabs.datos. Same shape in EN + ES.
+
+2. **Empty-account state in the import wizard.** Previously, opening the
+   wizard with zero accounts left the selectAccount step rendering an
+   empty card list with no path forward. Now ImportWizard checks
+   ccounts.length === 0 after loadAccounts() and renders an
+   EmptyState (Wallet icon, title "No accounts yet" / body explaining
+   they need to create one, primary action "Go to Configuraci├│n" that
+   just calls onClose()). The footer for selectAccount already
+   renders a placeholder <div /> (no Continue button), so the empty
+   case naturally hides nav controls. New i18n keys under
+   importWizard.noAccounts.* (title/body/cta), EN + ES.
+
+**Pattern: top-level route vs. settings tab.**
+Things the user touches **per workflow** (import, export, reports) want
+top-level routes. Things they configure **once** and forget (account
+master data, taxonomies) belong inside Configuraci├│n. DATOS being
+import-driven puts it firmly in the first bucket. Future analogous
+features (Exportar, Conciliaci├│n) likely go top-level too.
+
+**Pattern: empty-state inside a wizard step.**
+Reuse the same EmptyState component used at screen level ΓÇö no need
+for a wizard-specific variant. Render it inside the step's normal
+container (ot-import-wizard__step); the wizard chrome (header, close
+button, footer placeholder) keeps working unchanged. The dead-end CTA
+("Go to Configuraci├│n") just closes the modal because the wizard has
+no programmatic navigation hook to AppShell ΓÇö the user already knows
+where they came from.
+
+**Verification:** 
+pm run typecheck clean, 
+pm run lint 0/0,
+
+pm test --run app/src/renderer 70 pass / 9 skipped (skips are the
+pre-existing renderer-harness ones, not anything I broke; the
+ConfiguracionScreen test file was already describe.skip from
+WI-15-lite). 
+pm run build produced fresh dist/main/index.js
+(1.59 MB) and dist/renderer/index.html. Did **not** commit ΓÇö
+coordinator owns commit.
