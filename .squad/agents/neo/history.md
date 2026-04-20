@@ -98,3 +98,33 @@ Morpheus + Trinity completed WI-12 (transaction:create + movements:list IPC brid
 
 **Archive:** 
 eo-history-archive.md (ADR-001/002/003, prototype authority, tech stack rationale).
+
+## 2026-04-20 — WI-17 pivot: bank-specific parsers → generic column mapper
+
+**Context:** Pedro rejected the bank-specific parser approach (Unicaja/CaixaBank hardcoded aliases). WI-17 is now a **generic column-mapping importer** with dry-run preview.
+
+**Key architectural decisions:**
+
+1. **Account-first binding** — user selects destination account BEFORE upload (1 file = 1 account rule). Eliminates need for account-column mapping; simplifies UI.
+
+2. **Dual-format support from day 1** — .csv AND .xlsx via `papaparse` (44KB) + SheetJS `xlsx` (~400KB). Not a future enhancement; core requirement. SheetJS chosen over exceljs for size (half the weight) and read performance.
+
+3. **Row-hash deduplication** — SHA-256 of `accountId|date|amount|description` (normalized: lowercase, trimmed, 2-decimal amount). Truncated to 16-char hex. Stored in `movement.imported` event payload for idempotent re-imports. Hash index lives in read model (in-memory `Set<string>`), not on-demand log scan.
+
+4. **Dry-run is non-negotiable** — Step 5 shows first 5 sample rows, total count, duplicates detected, validation errors. User MUST inspect before commit. This is the critical safety gate missing from the web app's auto-parser (which fails silently or creates garbage data on format mismatch).
+
+5. **Mapping memory per account** — last-used column mapping stored as event-sourced `import.mapping.updated` event keyed by accountId. Next import pre-fills mapping (but remains editable). Handles the variance problem: Santander CSV ≠ CaixaBank CSV; different accounts likely = different banks.
+
+6. **Partial success model preserved** — commit imports valid rows, skips invalid rows, returns warnings array. Matches web app UX (which Pedro confirmed works well). Duplicates skipped by default (opt-in to re-import via checkbox).
+
+7. **Flat event shape** — `movement.imported` is a flat event (like WI-15-lite `AccountCreated`), not enveloped (like `tx.created`). Both coexist in NDJSON log. Envelope unification deferred to M2 crypto work.
+
+8. **Amount type derivation heuristic** — added a sign-convention toggle in Step 4: "Positive amounts are [Income/Expense]". Default: Income. Banks vary (credit vs debit perspective); user corrects via UI rather than us guessing wrong.
+
+**Reusable pattern — "user-driven mapping beats hardcoded heuristics":**
+The web app's bank-specific alias tables (`import_constants.py`) work for 90% of RETT's imports but become technical debt when banks change formats (requires code deploy to fix). A generic mapper shifts format variance to the UI layer, which users can self-correct without waiting for a release. Trade-off: more clicks per import, but zero code changes for new bank formats. For a desktop app (no continuous deployment), this is the right trade.
+
+**Import flow complexity budget:**
+6 steps is the threshold before users perceive friction. We're at exactly 6 (account → upload → sheet-picker → mapping → dry-run → commit). Mapping memory (pre-fill on subsequent imports) keeps recurring imports at 4 steps (skip mapping + dry-run becomes a quick glance). Target: <30 seconds for a 50-row top-up, <2 minutes for a 500-row bulk load.
+
+**Artifact:** `.squad/decisions/inbox/neo-wi17-v2-spec.md` (frozen data contracts, row-hash algorithm, 6 work items, 7 open questions for Pedro).

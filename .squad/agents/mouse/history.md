@@ -62,6 +62,15 @@ Wave 1 UX COMPLETE - all 6 specs Draft v0.1. UNBLOCKED for ALL Wave-1 screens: d
 ## Learnings
 - **Brand anchor preserved.** Carried `#6d4d8c` from prototype/cloud — Rett Spain sees continuity. All surrounding values rebalanced for AA+.
 - **Dark theme is not a variant; it's mandatory at v0.1.** Treasurer at 10 PM matters. Verified AA on every shipped fg/bg pair in both themes.
+
+### 2026-04-20: Panel polish punch-list (post WI-15-lite)
+- **Panel grid responsive design is correct.** Breakpoints at 5-col (root) → 4-col (1439px) → 3-col (1199px) → 2-col (899px) already in place in globals.css. If cards still overflow at 1200–1399px, investigate parent container width constraints (likely not a breakpoint issue).
+- **Balance tone colors already implemented.** AccountCard.tsx uses conditional class logic (`--positive` / `--negative`) that maps to `--color-income-default` (green) and `--color-expense-default` (red). Positive/negative coloring is spec-compliant; verify in installed app.
+- **Icon color rule exists but may have specificity issue.** AccountCard.css line 16 already sets `color: #ffffff;` on `.ot-account-card__icon`. If Landmark glyph appears gray in the app, this is likely a lucide-react rendering issue or CSS override — not a missing rule. Check browser dev tools for applied styles.
+- **Arrow icons are text glyphs, not Lucide components.** Both Panel and Movements use `'↑'` / `'↓'` (Unicode U+2191/U+2193) as per prototype. Never swap these for `TrendingUp` / `TrendingDown` (those are chart icons for KPI tiles, not row-level type indicators).
+- **"View all transactions" position matches prototype.** Link already positioned at bottom-right of recent-tx card with divider separator. No change needed.
+- **KPI graph preview deferred.** Pedro approved deferral; track as enhancement for M1.2+. When implemented, will need small SVG sparkline or micro-chart component (~20–30px height).
+- **Seed data cosmetic issue is a data layer concern, not design.** Mock account name "Santander Cuenta Principal" is out of place; recommend Link update seed fixtures once Morpheus integration lands. Not a UI/CSS issue.
 - **4 px base grid (not 8 px).** Prototype used 8 px but I needed half-steps for compact density without sub-pixel rendering. Spacing scale remains 8 px-rhythmed by default.
 - **Tabular numerics on every amount cell** — `font-variant-numeric: tabular-nums` + `font-feature-settings: 'tnum'` fallback. System fonts all support it; no download needed.
 - **System font stack, no web fonts** — `Segoe UI Variable` → `Segoe UI` → `-apple-system` → `system-ui` → Roboto. Offline-first per vision P5, honours OS accessibility.

@@ -166,3 +166,29 @@ Every UX spec going forward must open with a `Prototype reference` block citing 
 - Panel MVP now has testable UX contract (prototype reference locked in decision doc)
 - Core query shapes documented (Panel needs 5 parallel queries; IPC shapes finalized)
 - Trinity's render path proves the event-sourced core before Movements complexity lands
+
+### 2026-04-20: UX-017 — Generic Import Wizard (WI-17) Flow Spec Completed
+
+**Context:** Pedro pivoted WI-17 from bank-specific parsers to a **generic column-mapper** wizard (see `copilot-directive-wi17-pivot.md`). Niobe authored the complete 6-step UX flow spec at `.squad/decisions/inbox/niobe-wi17-ux-flow.md` (v0.1 Draft).
+
+**Spec coverage (400 lines, concrete > exhaustive):**
+- **Entry point rationale:** Via Configuración → DATOS tab (single, clear entry point mirrors web app navigation).
+- **6 steps:** SELECT_ACCOUNT → UPLOAD_FILE → PICK_SHEET? → MAP_COLUMNS → DRY_RUN → CONFIRM + full UX per step (primary action, validation, error recovery, keyboard shortcuts).
+- **State diagram:** Textual flow with error transitions.
+- **Dry-run (critical screen):** Summary strip (counts) + tabbed content (preview 5 rows / duplicates / errors) + duplicate opt-in checkbox + import CTA. Information hierarchy locked for non-tech treasurers.
+- **Wizard controls:** Back (preserves state) / Cancel (confirms if progress) / Next (disabled rules per step).
+- **Memory (last-mapping):** Pre-fills mapping if same account re-used in session; warns if file columns don't match; user can reset.
+- **WCAG 2.1 AA:** Keyboard nav (arrow/Tab/Enter/Esc) + screen-reader table markup + color contrast + labels.
+- **Copy (EN + ES):** All user-facing strings provided (error catalog with recovery paths; dry-run summary labels; step headings).
+- **7 flagged risks/open questions:** Date format ambiguity (HIGH), duplicate detection UX (MEDIUM), category/tag optional mapping (LOW), file encoding (LOW), sheet selection >1 (MEDIUM), memory scope (session vs persist), very large imports (notification). All with mitigation options — **QUESTION FOR PEDRO** on each.
+
+**Design decisions locked:** Account-first (1 file = 1 account), generic mapper (not bank-specific), non-optional dry-run, duplicates opt-in, concise copy.
+
+**Learnings:**
+1. **Import wizard is the highest-friction step for NGO treasurers.** Dry-run is non-negotiable (shows first 5 rows + counts + duplicates + errors). Without it, treasurers lose confidence in bulk import and revert to manual entry.
+2. **Last-mapping memory (pre-fill) is a 5-click time-saver for daily/weekly imports.** Date-format ambiguity is the biggest risk; toggle in STEP 4 with dry-run validation fallback is acceptable friction.
+3. **Duplicate handling by checkbox (not auto-skip) empowers treasurer.** Shows exact matches, lets them decide. Risky if design doesn't communicate the duplicate reason (e.g., "Exact match on 2026-01-15, €150, 'Donation'").
+4. **Column mapping dropdowns (STEP 4) scale to any file structure** (CSV from bank X, Excel export from accounting software Y, etc.). Generic + flexible at cost of explicit user action per import. Acceptable trade-off for MVP.
+5. **i18n copy strategy (entity name + action verb):** `import.step{N}.{field}` keeps keys discoverable and avoids duplication across specs.
+
+**Next:** Await Pedro's answers on 7 open questions (especially date format + duplicate UX + memory scope). Once locked, Trinity to validate visual design + interaction against this spec. UX-017 ready for implementation handoff post-ratification.

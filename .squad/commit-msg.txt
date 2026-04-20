@@ -1,0 +1,10 @@
+docs(squad): WI-17 v2 spec wave — generic column-mapping importer
+
+- Neo: frozen IPC contracts, SHA-256 row hash, SheetJS, 6-step flow
+- Niobe: UX flow + state diagram + EN/ES copy + WCAG a11y
+- Mouse: Panel polish punch-list (most items verified-only)
+- Coordinator: WI-17 scope pivot (bank-parsers → generic mapper) + date-format auto-detect ruling
+
+Orchestration logs written. Session log created. Merged 5 inbox files into decisions.md.
+Updated morpheus, trinity, switch, cypher history with WI-17 orientation notes.
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

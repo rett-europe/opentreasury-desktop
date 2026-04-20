@@ -19,6 +19,8 @@ The cloud version has an Angular 19 frontend with:
 
 ## Core Context
 
+**WI-17 Orientation (2026-04-20):** Import wizard UI spec frozen in `.squad/decisions.md` under "WI-17 v2 — Generic Column-Mapping Importer". Niobe's 6-step UX flow (account selector → upload → sheet picker → mapping dropdowns → dry-run preview → progress) is the authoritative spec; Neo's technical spec defines the IPC contract boundaries. Your task: build the wizard modal (Entry point: Configuración → DATOS tab), mapping UI with pre-fill from `importApi.lastMapping()`, dry-run preview table showing 5 sample rows + duplicates/errors tabs, and commit flow with success/failure states. All i18n keys pre-populated (EN/ES parity required). See decisions.md §"WI-17 v2" for full spec + work decomposition WI-17.3.
+
 Renderer architecture: single-useState router in `App.tsx` (no React Router), AppShell sidebar with two sections — **Principal** (Panel, Movimientos, Saldo) and **Configuración** (Configuración). Icon set: `lucide-react`. i18n via `locales/{en,es}/common.json`; ES + EN parity mandatory.
 
 IPC consumption: renderer imports types from `app/src/shared/ipc-contracts/*` — never from `main/` or `core/`. Service layer lives in `renderer/services/*Api.ts`. Modals are native `<dialog>` via `showModal()` — Escape + backdrop click both invoke `onClose`; `role="dialog"` + `aria-modal="true"` + labelled header. All colors via design tokens (no inline hex in component CSS). Prototype (`prototype/`) is the visual/interaction contract per the prototype-fidelity ruling; design system is a translation layer.

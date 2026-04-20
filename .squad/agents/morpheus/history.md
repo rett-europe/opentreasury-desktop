@@ -20,6 +20,8 @@ The desktop version needs equivalent functionality with local persistence (no cl
 
 ## Core Context
 
+**WI-17 Orientation (2026-04-20):** Generic column-mapping importer spec frozen in `.squad/decisions.md` under "WI-17 v2 — Generic Column-Mapping Importer". Neo's spec (IPC contracts, SHA-256 row-hash dedup, 6-step flow), Niobe's UX flow (EN/ES/WCAG), and Mouse's panel-polish audit all merged to decisions. Key handoff: You'll implement `import/stage-file`, `import/preview`, `import/commit` IPC handlers + file parsing (XLSX via SheetJS, CSV via papaparse), row-hash dedup logic, and `movement.imported` event + `import.mapping.updated` event. See decisions.md §"WI-17 v2" for full frozen spec (work decomposition WI-17.1 through WI-17.4).
+
 Event-sourced core on NDJSON log + `JsonFileEventLog`. Two event shapes coexist in the same log:
 - **Enveloped** (WI-11/WI-12 transactions, legacy Panel dev-seed): `{ id, type, datasetId, actorDeviceId, createdAt, dekVersion, version, payload }`.
 - **Flat** (WI-15-lite config — `AccountCreated`/`CategoryCreated`/`TagCreated`): `{ type, id, …fields, createdAt }`.

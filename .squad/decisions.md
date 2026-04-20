@@ -95,9 +95,50 @@ Shift M1 priority from Movements-centric completion to "Panel first, then Moveme
 - Account → Tx → **Panel visibility** (not Saldo visibility; Saldo slides to M1.25).
 - Movements structure UI complete; command-side (forms, filters, date selection) lands M1+1.
 
+### 2026-04-20: Scope Pivot — Bank-Specific Parsers → Generic Column Mapper (Pedro ruling via Copilot)
+**By:** Pedro (via Copilot), captured by Coordinator  
+**Related:** Copilot directives in `.squad/decisions/inbox/`
+
+**What:** Reject the bank-specific parser approach (Unicaja/CaixaBank hardcoded). WI-17 is a **generic column-mapping importer** with these UX steps:
+  1. User uploads Excel (xlsx) or CSV.
+  2. If workbook has >1 sheet → show sheet picker.
+  3. Show detected columns from the selected sheet.
+  4. User maps source columns → Transaction model fields (date, amount, description, account, category/tag as applicable).
+  5. **Dry-run preview** (critical): show first ~5 parsed rows + total estimated row count + duplicates detected + validation errors. Strict input validation.
+  6. User confirms import. Duplicate handling per earlier ruling: list dups, user ticks a checkbox to opt-in for importing them.
+
+**Error cases:**
+- Sheet doesn't have enough columns to cover the minimum Transaction data model → reject at step 3 with clear error.
+- Rows fail validation in dry-run → shown in the preview report; user sees exactly what will/won't import.
+
+**Supersedes:** earlier Q3 answer ("bank-specific parsers for Unicaja/CaixaBank first"). Bank-specific parsers are NOT being built.
+
+**Target scenarios:**
+  1. Daily/weekly top-ups (<100 txns)
+  2. Bulk historical import (several weeks/months, >100 txns)
+
+**Why:** Every bank CSV is bespoke (column order, date/decimal format, encoding, header rows, amount-sign convention). A generic mapper lets users handle bank variance themselves via the UI and scales to any source without code changes. The dry-run is the safety net against bad input data.
+
+---
+
+### 2026-04-20: Date Format Auto-Detection Algorithm (Pedro ruling via Copilot)
+**By:** Pedro (via Copilot), captured by Coordinator  
+**Related:** WI-17 v2 scope pivot
+
+**What:** When importing, date format is auto-detected from sampled cells:
+  - Scan the first N (≥10) date cells in the mapped date column.
+  - If ANY cell has a component >12 in the month position for DD/MM → infer DD/MM/YYYY.
+  - If ANY cell has a component >12 in the month position for MM/DD → infer MM/DD/YYYY.
+  - If ambiguous after the sample (all components ≤12), default to DD/MM (Spanish convention) BUT surface the inferred format in the dry-run header prominently, with a one-click "Switch to MM/DD" link. User confirms by proceeding.
+  - ISO `YYYY-MM-DD` detected unambiguously by regex, no confirmation needed.
+**Error path:** If mixed formats detected in the same column, mark the problematic rows as parse errors in dry-run (do NOT reject the whole import).
+**Why:** Zero friction for the 99% case while keeping an escape hatch when the sample is ambiguous. Spanish default avoids the worst-case silent misinterpretation.
+
+---
+
 ### 2026-04-19: Preload Built with esbuild Inline Plugin, Not vite-plugin-electron
 **By:** Coordinator (lightweight direct action) — requested by Pedro  
-**Branch:** main (commit 3c376fd)  
+**Branch:** main (commit 3c376fd)
 **Artifact:** vite.config.ts (lines 1–100, inline "opentreasury-preload-esbuild" plugin)  
 
 **Decision:** Bypass `vite-plugin-electron` for preload build. Implement inline Vite plugin that calls esbuild directly with:
@@ -2445,3 +2486,1770 @@ Builds on Morpheus's frozen contracts. Gates green: `tsc -b`, `vitest --run` (12
 **Verification:** `npm run package` now produces `out/OpenTreasury Setup 0.0.0.exe` cleanly. End-to-end packaging pipeline verified for the first time.
 
 **Convention going forward:** `electron` stays a dev-only dependency; only Electron **runtime** modules (native addons like `@napi-rs/keyring`, preload deps) belong in `dependencies`. This matches standard electron-builder practice and is worth encoding in PR review checklists.
+
+---
+
+## WI-17 v2 — Generic Column-Mapping Importer
+
+### 2026-04-20: WI-17 v2 Specification — 6-Step Generic Import Flow, IPC Contracts, SHA-256 Dedup
+**By:** Neo (Architect/Lead)  
+**Related:** Copilot directives (pivot + date-format ruling)  
+**Artifact:** .squad/decisions/inbox/neo-wi17-v2-spec.md (frozen spec, 684 lines)
+
+**By:** Neo  
+**Supersedes:** WI-17 original bank-specific parser scope
+
+## Goal
+
+Ship a generic Excel/CSV importer that handles arbitrary bank statement formats via user-driven column mapping, with a mandatory dry-run preview to prevent bad imports, row-level deduplication, and mapping memory per account to streamline recurring imports. Targets both daily top-ups (<100 txns) and bulk historical loads (>100 txns).
+
+## User flow (6 steps)
+
+### Step 1: Select destination account
+User selects an existing account from a dropdown. One import session = one account (1:1 rule). This pre-binds the `accountId` for all imported rows, eliminating account-column mapping.
+
+### Step 2: Upload file
+User clicks "Upload" button, triggering a file-open dialog filtered to `.xlsx` and `.csv`. File size limit: 10 MB. After selection, main process reads the file into memory.
+
+**Edge case:** File unreadable (corrupted, wrong encoding, malformed) → reject immediately with `FILE_UNREADABLE` error + detail string (e.g., "Unsupported encoding" / "Invalid XLSX structure").
+
+### Step 3: Sheet picker (if multi-sheet)
+If the file is an Excel workbook with >1 sheet, UI shows a sheet picker (sheet name list). User selects one. CSV files skip this step (always 1 sheet).
+
+**Edge case:** User selects a sheet with <3 columns → reject at mapping step (next).
+
+### Step 4: Column mapping
+UI shows detected column headers from the selected sheet (or auto-generated headers like `Column A`, `Column B` if no header row detected). User maps source columns to three **required** fields:
+
+- **Date** (required)
+- **Amount** (required)
+- **Description** (required)
+
+**Optional fields deferred:** category, subcategory, tags (manual post-import for v1).
+
+**Column auto-detection rule (first-run only):** None. User maps manually. Heuristics deferred.
+
+**Mapping persistence:** After a successful import, the system stores the mapping (source column → field) keyed by `accountId`. Next time the user imports to the same account, the UI **pre-fills** the mapping (but remains editable — user can change it before dry-run).
+
+**Edge case:** Sheet has <3 columns total → show error `INSUFFICIENT_COLUMNS` ("This sheet doesn't have enough columns to import. We need at least Date, Amount, and Description.") and block progression.
+
+**Edge case:** User leaves any of the three required fields unmapped → block dry-run button, show inline error.
+
+### Step 5: Dry-run preview
+User clicks "Preview Import". Main process parses the sheet with the provided mapping and returns:
+
+- **Row samples:** first 5 parsed rows (date, amount, description, accountId) as they'd appear post-import.
+- **Total estimated row count:** number of data rows found (excluding header).
+- **Duplicates detected:** list of rows matching an existing movement's `rowHash` (see algorithm below). Each duplicate shows: `{rowIndex, date, amount, description, isDuplicate: true}`.
+- **Validation errors:** rows that fail parsing or schema validation. Each error shows: `{rowIndex, field, reason}` (e.g., `{rowIndex: 12, field: 'date', reason: 'Invalid date format'}`).
+
+**Dry-run UI:**
+- Shows a summary card: "**142 rows ready** | 3 duplicates | 2 errors"
+- Shows sample rows in a read-only table.
+- Lists duplicates + errors below.
+- Checkbox: "**Import duplicates**" (default: unchecked). If unchecked, duplicates are skipped on commit. If checked, all duplicates are re-imported (new events with new IDs, same content).
+
+**Edge case:** All rows are duplicates or invalid → show warning, but allow commit if user ticks "Import duplicates" or fixes source file.
+
+### Step 6: Commit import
+User clicks "Commit Import". Main process appends `movement.imported` events for all valid, non-skipped rows. Each event includes:
+
+- Full movement payload (id, date, type, amount, description, accountId, etc.)
+- `rowHash` (for future dedup)
+- `sourceFileName` (original filename)
+- `importBatchId` (ULID generated at commit time — groups all rows from this import)
+
+**Partial success model:** If 100 rows are submitted and 80 parse + 20 fail validation → append 80 events, return warnings array with 20 errors. User can fix the source file and re-import; the 80 already-imported rows will be detected as duplicates and skipped (unless "Import duplicates" is ticked).
+
+**On success:** Modal closes, main UI invalidates movement list, toast shows "**142 movements imported**".
+
+**On partial success:** Modal closes, toast shows "**80 movements imported, 20 skipped (see errors)**", errors shown in a dismissible notification panel.
+
+## Data contracts (frozen for this WI)
+
+### IPC channel: `import/stage-file`
+Reads file from disk, detects sheets/columns, returns metadata for Step 3 + Step 4.
+
+**Request:**
+```ts
+interface StageFileRequest {
+  filePath: string;        // Absolute path from file-open dialog
+  accountId: string;       // ULID of destination account (selected in Step 1)
+}
+```
+
+**Response (success):**
+```ts
+interface StageFileResponse {
+  ok: true;
+  fileId: string;          // Opaque session token; used in subsequent calls
+  fileName: string;        // Original basename (for display)
+  sheets: string[];        // Sheet names (empty for CSV, 1+ for XLSX)
+  // If single-sheet, next field is populated immediately:
+  columns?: string[];      // Column headers (or auto-generated Column A, B, C...)
+}
+```
+
+**Response (error):**
+```ts
+interface StageFileError {
+  ok: false;
+  error: {
+    code: 'FILE_UNREADABLE' | 'INTERNAL';
+    detail: string;
+  };
+}
+```
+
+---
+
+### IPC channel: `import/select-sheet`
+Called after Step 3 (sheet picker) to retrieve column headers for the selected sheet.
+
+**Request:**
+```ts
+interface SelectSheetRequest {
+  fileId: string;          // From stage-file response
+  sheetName: string;       // User-selected sheet
+}
+```
+
+**Response (success):**
+```ts
+interface SelectSheetResponse {
+  ok: true;
+  columns: string[];       // Column headers
+}
+```
+
+**Response (error):**
+```ts
+interface SelectSheetError {
+  ok: false;
+  error: {
+    code: 'SHEET_NOT_FOUND' | 'INSUFFICIENT_COLUMNS' | 'INTERNAL';
+    detail: string;
+  };
+}
+```
+
+---
+
+### IPC channel: `import/last-mapping`
+Retrieves the last-used column mapping for the given account (for pre-fill).
+
+**Request:**
+```ts
+interface LastMappingRequest {
+  accountId: string;
+}
+```
+
+**Response:**
+```ts
+interface LastMappingResponse {
+  ok: true;
+  mapping: {
+    dateColumn: string | null;
+    amountColumn: string | null;
+    descriptionColumn: string | null;
+  } | null;  // null if no prior import for this account
+}
+```
+
+---
+
+### IPC channel: `import/dry-run`
+Parses the file with the provided mapping, validates, detects duplicates, returns preview.
+
+**Request:**
+```ts
+interface DryRunRequest {
+  fileId: string;
+  accountId: string;
+  mapping: {
+    dateColumn: string;
+    amountColumn: string;
+    descriptionColumn: string;
+  };
+}
+```
+
+**Response (success):**
+```ts
+interface DryRunResponse {
+  ok: true;
+  summary: {
+    totalRows: number;
+    validRows: number;
+    duplicateCount: number;
+    errorCount: number;
+  };
+  samples: Array<{           // First 5 rows
+    rowIndex: number;        // 1-based (row 1 = first data row after header)
+    date: string;            // ISO 8601 YYYY-MM-DD
+    amount: number;
+    description: string;
+    isDuplicate: boolean;
+  }>;
+  duplicates: Array<{
+    rowIndex: number;
+    date: string;
+    amount: number;
+    description: string;
+    rowHash: string;         // 16-char hex
+  }>;
+  errors: Array<{
+    rowIndex: number;
+    field: 'date' | 'amount' | 'description';
+    reason: string;          // Human-readable (e.g., "Invalid date format: '32/13/2024'")
+  }>;
+}
+```
+
+**Response (error):**
+```ts
+interface DryRunError {
+  ok: false;
+  error: {
+    code: 'MAPPING_INVALID' | 'PARSE_ERROR' | 'INTERNAL';
+    detail: string;
+  };
+}
+```
+
+---
+
+### IPC channel: `import/commit`
+Writes events for all valid, non-skipped rows.
+
+**Request:**
+```ts
+interface CommitImportRequest {
+  fileId: string;
+  accountId: string;
+  mapping: {
+    dateColumn: string;
+    amountColumn: string;
+    descriptionColumn: string;
+  };
+  importDuplicates: boolean;  // From Step 5 checkbox
+}
+```
+
+**Response (success):**
+```ts
+interface CommitImportResponse {
+  ok: true;
+  imported: number;           // Count of events appended
+  skipped: number;            // Duplicates (if importDuplicates=false)
+  warnings: Array<{           // Validation errors (rows that couldn't parse)
+    rowIndex: number;
+    field: 'date' | 'amount' | 'description';
+    reason: string;
+  }>;
+  importBatchId: string;      // ULID grouping this batch
+}
+```
+
+**Response (error):**
+```ts
+interface CommitImportError {
+  ok: false;
+  error: {
+    code: 'PARSE_ERROR' | 'INTERNAL';
+    detail: string;
+  };
+}
+```
+
+---
+
+### New event type: `movement.imported`
+Each imported row appends one event. Payload extends the standard `tx.created` shape with import metadata.
+
+**Event schema:**
+```ts
+interface MovementImportedEvent {
+  type: 'movement.imported';
+  id: string;                 // ULID (unique per row)
+  payload: {
+    // Core movement fields (same as tx.created):
+    id: string;               // ULID (same as event.id)
+    date: string;             // ISO 8601 YYYY-MM-DD
+    type: 'income' | 'expense';  // Derived from amount sign (see below)
+    amount: number;           // Always positive; type carries direction
+    currency: 'EUR';
+    description: string;
+    accountId: string;        // ULID
+    categoryId: null;         // Always null in v1 (manual categorization post-import)
+    subcategoryId: null;
+    tagIds: [];
+    status: 'pending';        // Always pending on import
+    createdAt: string;        // ISO 8601 UTC
+    
+    // Import-specific metadata:
+    rowHash: string;          // 16-char hex (for dedup)
+    sourceFileName: string;   // Original file name (e.g., "statement-2024-03.xlsx")
+    importBatchId: string;    // ULID grouping all rows from this commit
+    rowIndex: number;         // 1-based row number in source sheet
+  };
+}
+```
+
+**Envelope compatibility:** This is a **flat event** (like `AccountCreated` / `CategoryCreated` / `TagCreated` from WI-15-lite), not an enveloped event (like `tx.created`). Both shapes coexist in the NDJSON log; `JsonFileEventLog` requires only a string `id` field, and reducers switch on `type`.
+
+**Reducer impact:** Add a case to `applyEvent` in `reducers.ts`:
+```ts
+case 'movement.imported':
+  readModel = {
+    ...readModel,
+    transactions: [
+      ...readModel.transactions,
+      {
+        id: event.payload.id,
+        date: event.payload.date,
+        type: event.payload.type,
+        amount: event.payload.amount,
+        currency: event.payload.currency,
+        description: event.payload.description,
+        accountId: event.payload.accountId,
+        categoryId: event.payload.categoryId,
+        subcategoryId: event.payload.subcategoryId,
+        tagIds: event.payload.tagIds,
+        status: event.payload.status,
+        createdAt: event.payload.createdAt,
+      },
+    ],
+  };
+  break;
+```
+
+The read model does **not** store `rowHash` / `sourceFileName` / `importBatchId` (those are write-only event metadata). For dedup, the main process maintains a separate in-memory hash index (or queries the event log on demand).
+
+---
+
+### Error codes (exhaustive)
+All IPC responses use these codes:
+
+| Code                  | Meaning                                                                 | Which channel(s)      |
+|-----------------------|-------------------------------------------------------------------------|-----------------------|
+| `FILE_UNREADABLE`     | File corrupted, wrong encoding, or malformed structure                  | `stage-file`          |
+| `SHEET_NOT_FOUND`     | Requested sheet name doesn't exist in workbook                          | `select-sheet`        |
+| `INSUFFICIENT_COLUMNS`| Sheet has <3 columns (can't satisfy date/amount/description requirement)| `select-sheet`        |
+| `MAPPING_INVALID`     | Mapping incomplete (missing required field) or column names don't exist | `dry-run`             |
+| `PARSE_ERROR`         | File read failed mid-parse or cell values unparseable                   | `dry-run`, `commit`   |
+| `DUPLICATE_DETECTED`  | *(Not an error; reported in `duplicates` array, not as error code)*    | —                     |
+| `SCHEMA_INVALID`      | Request payload failed Zod validation                                   | (All channels)        |
+| `INTERNAL`            | Uncaught exception (should never happen; logs to main console)          | (All channels)        |
+
+---
+
+## Row hash algorithm
+
+**Purpose:** Idempotent imports. If the same file (or semantically identical rows from different files) is imported twice, detect and skip duplicates.
+
+**Inputs (before hashing):**
+1. `accountId` (ULID string)
+2. `date` (ISO 8601 YYYY-MM-DD string)
+3. `amount` (number, normalized to 2 decimal places)
+4. `description` (string)
+
+**Normalization rules:**
+1. **accountId:** No normalization (already a canonical ULID).
+2. **date:** Convert to YYYY-MM-DD (already normalized by date parser).
+3. **amount:** 
+   - Convert to absolute value (ignore sign; type is derived separately).
+   - Round to 2 decimal places.
+   - Serialize as string with fixed 2-decimal notation (e.g., `123.40`, not `123.4`).
+4. **description:**
+   - Trim leading/trailing whitespace.
+   - Convert to lowercase.
+   - Collapse multiple consecutive spaces to single space.
+   - Normalize line breaks (CRLF → LF).
+
+**Concatenation:**
+```ts
+const input = `${accountId}|${date}|${amountNormalized}|${descriptionNormalized}`;
+```
+
+**Hash function:** SHA-256, truncated to first 16 hex characters.
+
+```ts
+import crypto from 'crypto';
+
+function computeRowHash(
+  accountId: string,
+  date: string,
+  amount: number,
+  description: string
+): string {
+  const amountNormalized = Math.abs(amount).toFixed(2);
+  const descriptionNormalized = description
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/\r\n/g, '\n');
+  
+  const input = `${accountId}|${date}|${amountNormalized}|${descriptionNormalized}`;
+  
+  return crypto.createHash('sha256').update(input, 'utf8').digest('hex').substring(0, 16);
+}
+```
+
+**Dedup lookup:** Before appending a `movement.imported` event, check if any event in the log (of type `movement.imported` or `tx.created`) has `payload.rowHash === computedHash` (for imported movements) or compute the hash on-the-fly for manual transactions. **MVP simplification:** Only check `movement.imported` events (manual txns don't carry `rowHash`, so they won't dedup against imports). Full cross-dedup is a future enhancement.
+
+**Storage:** `rowHash` is stored in `movement.imported` event payload but **not** in the read model projection. For dedup checks, the importer either:
+- (Option A) maintains an in-memory `Set<string>` of all hashes (rebuilt on log replay).
+- (Option B) scans the event log on each dry-run/commit (slower but zero memory overhead).
+
+**Recommendation:** Option A. Add `rowHashes: Set<string>` to the read model, updated in the `movement.imported` reducer case.
+
+---
+
+## Dry-run validation rules
+
+### Date parsing
+**Accepted formats:**
+- ISO 8601: `YYYY-MM-DD`, `YYYY/MM/DD`
+- European: `DD/MM/YYYY`, `DD-MM-YYYY`, `DD.MM.YYYY`
+- US: `MM/DD/YYYY`, `MM-DD-YYYY` (disambiguated by heuristic: if day > 12, assume European)
+
+**Implementation:** Use a date-parsing library like `date-fns` with format auto-detection. Try formats in order (ISO first, then European, then US). If all fail → validation error.
+
+**Fallback behavior:** If cell is a number (Excel serial date), convert via `(serialDate - 25569) * 86400000` → JS Date → YYYY-MM-DD. If cell is empty → validation error ("Date is required").
+
+**Validation errors:**
+- Unparseable string (e.g., `"not a date"`) → `{field: 'date', reason: 'Invalid date format'}`
+- Out-of-range date (e.g., `32/13/2024`) → `{field: 'date', reason: 'Date out of range'}`
+- Future date > today + 30 days → warning (not error; allow but log): `{field: 'date', reason: 'Future date (check if correct)'}`
+
+---
+
+### Amount parsing
+**Accepted formats:**
+- Decimal separator: comma (`,`) or dot (`.`)
+- Thousands separator (optional): `.` (European) or `,` (US/UK), or space, or none
+- Sign: leading `-` or `+`, or trailing `CR`/`DB` (credit/debit)
+- Parentheses for negatives: `(123.45)` → `-123.45`
+
+**Implementation:**
+1. Strip thousands separators (detect heuristically: if both `,` and `.` present, the one appearing earlier/more frequently is thousands).
+2. Replace European comma decimal separator with dot: `1.234,56` → `1234.56`.
+3. Parse parentheses: if wrapped in `()` → negate.
+4. Parse sign suffix: `123.45 CR` → `+123.45`, `123.45 DB` → `-123.45`.
+5. Use `parseFloat()` on cleaned string.
+
+**Edge case:** Cell is a string like `"$1,234.56"` or `"€ 123,45"` → strip currency symbols first (regex: `[^0-9.,\-+() ]`).
+
+**Validation errors:**
+- Unparseable string (e.g., `"abc"`) → `{field: 'amount', reason: 'Invalid amount'}`
+- Zero or empty → `{field: 'amount', reason: 'Amount is required and must be non-zero'}`
+- Negative zero after parsing (e.g., `-0.00`) → coerce to `0.00`, treat as error if business rule requires non-zero.
+
+**Type derivation (income vs expense):**
+- If amount < 0 → type = `'expense'`, store `Math.abs(amount)`
+- If amount > 0 → **heuristic required** (bank statements vary: some use positive for income, some for expense).
+  - **MVP rule:** Assume positive = income, negative = expense. Add a **sign-convention toggle** in the UI (Step 4): "Positive amounts are [Income / Expense]". Default: Income.
+  - Store the toggle choice as part of the mapping persistence.
+
+---
+
+### Description
+**Validation:**
+- Required: non-empty after trim.
+- Max length: 500 characters (matches `tx.created` schema).
+
+**Normalization:**
+- Trim leading/trailing whitespace.
+- Collapse internal newlines/tabs to single space.
+
+**Validation errors:**
+- Empty or whitespace-only → `{field: 'description', reason: 'Description is required'}`
+- Exceeds 500 chars → truncate (don't error; log warning in dry-run report).
+
+---
+
+### What counts as a "validation error" vs "duplicate"
+- **Validation error:** Row fails date/amount/description parsing or schema rules → appears in `errors[]` array, **not imported** (skipped).
+- **Duplicate:** Row parses successfully, but `rowHash` matches an existing event → appears in `duplicates[]` array, **conditionally imported** (only if user ticks "Import duplicates").
+
+If a row is both invalid and duplicate → treat as validation error (errors take precedence).
+
+---
+
+## Mapping persistence
+
+**Projection name:** `importMappings` (new read model slice).
+
+**Shape:**
+```ts
+interface ImportMapping {
+  accountId: string;
+  dateColumn: string;
+  amountColumn: string;
+  descriptionColumn: string;
+  amountSignConvention: 'positive-is-income' | 'positive-is-expense';  // From Step 4 toggle
+  updatedAt: string;         // ISO 8601 UTC
+}
+```
+
+**Storage mechanism:** Event-sourced via a new event type `import.mapping.updated`.
+
+**Event schema:**
+```ts
+interface ImportMappingUpdatedEvent {
+  type: 'import.mapping.updated';
+  id: string;                // ULID
+  accountId: string;
+  mapping: {
+    dateColumn: string;
+    amountColumn: string;
+    descriptionColumn: string;
+    amountSignConvention: 'positive-is-income' | 'positive-is-expense';
+  };
+  updatedAt: string;         // ISO 8601 UTC
+}
+```
+
+**Reducer case:**
+```ts
+case 'import.mapping.updated':
+  const existing = readModel.importMappings.find(m => m.accountId === event.accountId);
+  if (existing) {
+    // Update existing mapping
+    readModel = {
+      ...readModel,
+      importMappings: readModel.importMappings.map(m =>
+        m.accountId === event.accountId
+          ? { ...m, ...event.mapping, updatedAt: event.updatedAt }
+          : m
+      ),
+    };
+  } else {
+    // Add new mapping
+    readModel = {
+      ...readModel,
+      importMappings: [
+        ...readModel.importMappings,
+        {
+          accountId: event.accountId,
+          ...event.mapping,
+          updatedAt: event.updatedAt,
+        },
+      ],
+    };
+  }
+  break;
+```
+
+**When to append:** After a successful `import/commit`, append one `import.mapping.updated` event (not per-row; one per import session).
+
+**Read model addition:**
+```ts
+// In types.ts
+export interface ReadModel {
+  // ... existing fields
+  importMappings: ImportMapping[];
+}
+
+// In reducers.ts emptyReadModel()
+importMappings: [],
+```
+
+**Retrieval:** `import/last-mapping` handler queries `readModel.importMappings.find(m => m.accountId === requestedAccountId)`.
+
+---
+
+## File format support
+
+### CSV
+**Encoding detection:**
+- Try UTF-8 first.
+- If invalid UTF-8 sequences detected, fall back to Windows-1252 (common in Spanish bank exports).
+- If both fail → `FILE_UNREADABLE`.
+
+**Implementation:** Use Node.js `Buffer` + `iconv-lite` for encoding detection.
+
+**Delimiter detection:**
+- Check first 10 lines for frequency of `,` vs `;` vs `\t`.
+- Most frequent wins.
+- If ambiguous (e.g., all appear equally) → default to `,`.
+
+**Quote handling:**
+- Support standard CSV quoting (fields wrapped in `"`).
+- Escaped quotes inside quoted fields (`""` → `"`).
+
+**Library choice:** **`papaparse`** (5.4.1, 44 KB gzipped).
+- Battle-tested, handles edge cases (quoted newlines, mixed delimiters, encoding).
+- Auto-detects delimiter and quotes.
+- Streams large files (supports row-by-row parsing to avoid loading full 10 MB file into memory).
+
+**Why not Node.js `csv-parse`?** Papaparse is renderer-friendly (isomorphic) and has better auto-detection. Both are fine; Papaparse chosen for broader adoption and simpler API.
+
+---
+
+### XLSX
+**Library choice:** **SheetJS Community Edition (`xlsx`)** version 0.18.5 (~400 KB minified).
+
+**Why SheetJS over `exceljs`?**
+| Feature               | SheetJS `xlsx`      | `exceljs`           |
+|-----------------------|---------------------|---------------------|
+| Size                  | ~400 KB             | ~800 KB             |
+| Read performance      | Faster (SAX parser) | Slower (DOM parser) |
+| Write performance     | Good                | Better              |
+| Formula evaluation    | Values only         | Values only (v1)    |
+| Licensing             | Apache 2.0          | MIT                 |
+| Maintenance           | Active (SheetJS LLC)| Active (community)  |
+
+**Decision:** SheetJS. Half the size, faster reads, adequate for v1 (we only read values, not formulas or styles). Export (WI-18) may revisit if we need styled XLSX output.
+
+**Edge cases:**
+- **Merged cells:** Read the top-left cell value; ignore the rest.
+- **Empty rows:** Skip (don't count toward `totalRows`).
+- **Header detection:** If first row contains mostly strings and subsequent rows contain numbers → treat row 1 as header. If first row is all numbers → generate headers (`Column A`, `Column B`, ...).
+- **Formulas:** Read computed value (cell.v), not formula (cell.f).
+
+**Implementation notes:**
+- Use `XLSX.read(buffer, {type: 'buffer', cellDates: true})` to get JS Date objects for date cells (avoids manual serial-date conversion).
+- Use `XLSX.utils.sheet_to_json(sheet, {header: 1, defval: ''})` to get array-of-arrays (easier to work with than row-object format for mapping).
+
+---
+
+## Scope decomposition (work items)
+
+### WI-17.1: Main-process file staging + sheet picker (Morpheus, 2 days)
+**Deliverable:**
+- `app/src/main/services/importStager.ts` — reads file from disk, detects sheets/columns, returns metadata.
+- IPC handlers: `import/stage-file`, `import/select-sheet`.
+- Zod schemas in `app/src/shared/ipc-contracts/import.ts`.
+- Install `xlsx` + `papaparse` + `iconv-lite`.
+- 8 Vitest unit tests (CSV + XLSX edge cases).
+
+**Acceptance:**
+- `stage-file` handles `.xlsx` with 3 sheets → returns `sheets: ['Sheet1', 'Sheet2', 'Sheet3']`.
+- `stage-file` handles `.csv` → returns `sheets: []`, `columns: [...]` immediately.
+- `select-sheet` with invalid sheet name → `SHEET_NOT_FOUND` error.
+- `select-sheet` with <3 columns → `INSUFFICIENT_COLUMNS` error.
+
+---
+
+### WI-17.2: Main-process dry-run + commit logic (Morpheus, 3 days)
+**Deliverable:**
+- `app/src/main/services/importParser.ts` — parses rows, validates, computes hashes, detects duplicates.
+- `app/src/main/services/importDeduplicator.ts` — hash index + lookup.
+- IPC handlers: `import/dry-run`, `import/commit`, `import/last-mapping`.
+- Event schema: `movement.imported`, `import.mapping.updated`.
+- Reducer cases for both events.
+- 15 Vitest unit tests (date parsing edge cases, amount parsing, dedup, partial success).
+
+**Acceptance:**
+- Dry-run with 100 rows (10 duplicates, 5 invalid dates) → returns `{validRows: 85, duplicateCount: 10, errorCount: 5}`.
+- Commit with `importDuplicates: false` → appends 85 events, skips 10 duplicates.
+- Commit with `importDuplicates: true` → appends 95 events (85 new + 10 duplicates).
+- Mapping persistence: commit appends `import.mapping.updated` event → `last-mapping` retrieves it.
+
+---
+
+### WI-17.3: Renderer UI — import wizard (Trinity, 3 days)
+**Deliverable:**
+- `app/src/renderer/screens/MovementsScreen/ImportModal.tsx` — 6-step wizard (account picker, upload, sheet picker, mapping, dry-run, commit).
+- `app/src/renderer/services/importApi.ts` — IPC client wrapper.
+- CSS for mapping UI (dropdown pickers, sample rows table, dry-run summary card, duplicate/error lists).
+- i18n keys under `movements.import.*` (ES + EN).
+
+**Acceptance:**
+- Step 1: account dropdown pre-populated from `accountsApi.list()`.
+- Step 2: file upload triggers `importApi.stageFile()`, shows sheet picker if multi-sheet.
+- Step 4: mapping dropdowns pre-filled from `importApi.lastMapping()` if prior import exists.
+- Step 5: dry-run shows summary + 5 sample rows + duplicates/errors.
+- Step 6: commit closes modal, invalidates movement list, shows toast.
+
+---
+
+### WI-17.4: Integration tests + UX smoke tests (Cypher, 1 day)
+**Deliverable:**
+- 3 Playwright e2e tests:
+  1. Import 50-row CSV → verify 50 movements appear in list.
+  2. Re-import same CSV → dry-run shows 50 duplicates, commit skips all.
+  3. Import with 5 invalid dates → dry-run shows 5 errors, commit imports 45.
+- CSV + XLSX fixtures under `test/fixtures/`.
+
+**Acceptance:**
+- All e2e tests pass on Windows + macOS.
+
+---
+
+### WI-17.5: Security review of file handling (Switch, 0.5 days)
+**Deliverable:**
+- Audit `importStager.ts` for:
+  - File size limit enforcement (10 MB).
+  - Path traversal prevention (validate `filePath` is absolute, no `..`).
+  - No shell execution or external process spawning.
+  - Malformed file → caught exception, never crashes main process.
+- Sign-off in `.squad/decisions.md`.
+
+---
+
+### WI-17.6: Documentation + UX polish (Niobe, 0.5 days)
+**Deliverable:**
+- Update `docs/product/features.md` with import flow screenshots (6-step annotated).
+- Error message copy review (ensure all `detail` strings are user-friendly, not dev jargon).
+
+---
+
+**Total estimate:** 10 days (Morpheus: 5d, Trinity: 3d, Cypher: 1d, Switch: 0.5d, Niobe: 0.5d). Parallelizable: WI-17.1 + WI-17.2 (Morpheus) can run sequentially; Trinity waits on frozen IPC contract (after WI-17.1); Cypher waits on both; Switch + Niobe run anytime after WI-17.2 lands.
+
+**Critical path:** WI-17.1 → WI-17.2 → WI-17.3 → WI-17.4 (8 days).
+
+---
+
+## Out of scope (explicit deferrals)
+
+### Column auto-detection / heuristics
+The UI shows detected column headers, but **user maps manually**. No magic like "if column name contains 'fecha' → assume date field". Heuristics are brittle across languages/banks. Deferred to WI-17b (post-MVP).
+
+### Multi-account import in one file
+One import session = one account (Step 1 rule). If a user has a multi-account statement (rare), they must split the file or import twice. Deferred.
+
+### Rollback of committed imports
+Once `import/commit` succeeds, events are appended. No "undo import" button in v1. User can manually delete movements one-by-one (future WI). Deferred.
+
+### Transformation rules
+No support for splitting description into `concept` + `reference`, or regex-based category auto-assignment. User categorizes post-import. Deferred to WI-19 (category suggestion engine).
+
+### Excel formulas
+We read computed **values** only (cell.v). If a cell contains `=SUM(A1:A10)`, we import the result (e.g., `1234.56`), not the formula. Formula parsing deferred (likely never needed).
+
+### Import from cloud sources
+v1 supports local file upload only. No direct bank API integration, no Plaid, no scraping. Deferred.
+
+### Custom field mappings
+v1 hardcodes 3 required fields (date, amount, description). No support for importing category/subcategory/tags from columns. Deferred to WI-17c (advanced mapping).
+
+### Scheduled/recurring imports
+No "auto-import this file every Monday" feature. Manual upload only. Deferred.
+
+---
+
+## Security notes (for Switch review)
+
+### File size limit
+**Rule:** Reject files >10 MB at `stage-file` step.
+
+**Rationale:** A 10 MB CSV can hold ~100,000 rows (avg 100 bytes/row). Sufficient for bulk historical imports (typical bank statement exports are <2 MB). Prevents DoS via massive file upload.
+
+**Implementation:**
+```ts
+const stats = fs.statSync(filePath);
+if (stats.size > 10 * 1024 * 1024) {
+  return { ok: false, error: { code: 'FILE_UNREADABLE', detail: 'File exceeds 10 MB limit' } };
+}
+```
+
+---
+
+### Malformed file handling
+**Rule:** All parsing errors must be caught and converted to `FILE_UNREADABLE` or `PARSE_ERROR`. Never throw uncaught exceptions that crash the main process.
+
+**Implementation:**
+```ts
+try {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  // ...
+} catch (err) {
+  console.error('XLSX parse error:', err);
+  return { ok: false, error: { code: 'FILE_UNREADABLE', detail: 'Invalid XLSX file' } };
+}
+```
+
+**Edge cases to test:**
+- Truncated file (incomplete XLSX zip structure).
+- CSV with mismatched quote pairs.
+- Binary garbage (e.g., user uploads a `.exe` renamed to `.csv`).
+
+---
+
+### Path traversal prevention
+**Rule:** Validate that `filePath` from the file-open dialog is an absolute path and does not contain `..` (directory traversal).
+
+**Implementation:**
+```ts
+import path from 'path';
+
+function validateFilePath(filePath: string): boolean {
+  const normalized = path.normalize(filePath);
+  if (!path.isAbsolute(normalized)) return false;
+  if (normalized.includes('..')) return false;
+  return true;
+}
+```
+
+**Rationale:** Electron's file-open dialog returns absolute paths, but defense-in-depth.
+
+---
+
+### No shell execution, no external process spawning
+**Rule:** The importer must not invoke `child_process.exec()`, `spawn()`, or any shell commands. All parsing is done in-process via libraries.
+
+**Compliance:** `papaparse` and `xlsx` are pure JS libraries (no native bindings, no subprocesses). ✅
+
+---
+
+### Memory safety
+**Rule:** For large files (e.g., 10 MB CSV = 100k rows), avoid loading the entire file into a single array. Use streaming where possible.
+
+**Implementation:**
+- **CSV:** Papaparse supports streaming (`Papa.parse(file, {step: callback})`). Use for files >5 MB.
+- **XLSX:** SheetJS loads the full workbook into memory. Acceptable for 10 MB limit (workbooks decompress to ~3–5x size, so 10 MB file → ~30 MB RAM, within budget).
+
+**Future optimization (deferred):** For XLSX >5 MB, use `XLSX.stream.to_json()` (requires SheetJS Pro license). Not needed for v1.
+
+---
+
+## Open questions
+
+### Q1: Date ambiguity (DD/MM vs MM/DD)
+When a date like `01/02/2024` appears, is it Jan 2 (US) or Feb 1 (European)?
+
+**Neo's recommendation:** Assume European (DD/MM/YYYY) by default since target users are Spanish NGOs. Add a **date format toggle** in Step 4 mapping UI: "Date format: [DD/MM/YYYY (European) / MM/DD/YYYY (US)]". Store this choice as part of the mapping persistence.
+
+**Ask Pedro:** Confirm this is acceptable, or hardcode European-only for v1.
+
+---
+
+### Q2: Currency symbol stripping
+Should we strip currency symbols (€, $, £) from amount strings during parsing, or error if present?
+
+**Neo's recommendation:** Strip (more forgiving). Spanish bank CSVs often include `€` in amount cells.
+
+**Ask Pedro:** Confirm.
+
+---
+
+### Q3: Empty rows handling
+If a sheet has gaps (e.g., row 10 is blank, row 11 has data), skip blank rows or error?
+
+**Neo's recommendation:** Skip silently (don't count blank rows in `totalRows`). Common in Excel exports.
+
+**Ask Pedro:** Confirm.
+
+---
+
+### Q4: Movement type derivation heuristic
+For positive amounts, should we default to **income** or **expense**?
+
+**Context:** Some banks export positive=income, negative=expense (credit perspective). Others use positive=expense, negative=income (debit perspective).
+
+**Neo's recommendation:** Add a toggle in Step 4: "Positive amounts are: [Income / Expense]". Default: **Income** (matches credit perspective, more intuitive for NGO treasurers — donations are positive).
+
+**Ask Pedro:** Confirm the default.
+
+---
+
+### Q5: Duplicate import opt-in vs opt-out
+Currently specced as **opt-in** (checkbox unchecked by default → duplicates skipped). Alternative: **opt-out** (checkbox checked by default → duplicates imported unless user unchecks).
+
+**Neo's recommendation:** Opt-in (safer default). Most re-imports are accidental; prevent double-counting.
+
+**Ask Pedro:** Confirm.
+
+---
+
+### Q6: Mapping memory scope
+Should mapping persist **per account** (current spec) or **globally** (one mapping for all accounts)?
+
+**Neo's recommendation:** Per-account. Different banks = different CSV formats. Santander and CaixaBank may have different column orders.
+
+**Ask Pedro:** Confirm.
+
+---
+
+### Q7: Max row count
+Should we impose a hard limit (e.g., 10,000 rows per import) or allow up to file size limit?
+
+**Neo's recommendation:** No row limit (file size limit is sufficient). A 10 MB CSV can hold 100k rows; if parsing is slow, show a progress spinner. Don't artificially cap.
+
+**Ask Pedro:** Confirm, or impose a limit (e.g., 50k rows).
+
+---
+
+**END OF SPEC**
+
+
+---
+
+### 2026-04-20: UX-017 — Generic Import Wizard Flow Specification (Bilingual EN/ES, WCAG AA)
+**By:** Niobe (UX/Spec Analyst)  
+**Related:** Neo's WI-17 v2 technical spec, Copilot scope pivot  
+**Artifact:** .squad/decisions/inbox/niobe-wi17-ux-flow.md (449 lines)  
+**Risks Flagged:** 7 items documented (ambiguous date format UX, duplicate handling clarity, sheet picker edge cases, mapping grid column limit, performance with 10k+ rows, error message overflow, ESC key on partial save)
+
+# UX-017 — Generic Import Wizard (WI-17) — Flow Specification
+
+**Version:** 0.1 (Draft)  
+**Author:** Niobe (Spec/UX Analyst)  
+**Date:** 2026-04-20  
+**Related:** `copilot-directive-wi17-pivot.md` (Pedro's pivot to generic column mapper), WI-15 Configuración (reference data), WI-13 Add-Transaction modal (target data model)
+
+---
+
+## Prototype Reference
+
+_No prototype exists yet for the import wizard. This spec is the authoritative contract. Trinity must validate visual design + interaction once built against this spec._
+
+---
+
+## Entry Points: Recommendation
+
+**Chosen:** Via Configuración → DATOS tab (stubbed in WI-15).
+
+**Why:** 
+- Treasurer expects import to live in data-management section (not scattered across multiple entry points).
+- Mirrors web app's navigation model (cloud version groups import/export under "Data").
+- Single clear entry point reduces confusion for non-tech users.
+- Configuración already establishes the visual container (card grid + primary CTA pattern from WI-15).
+
+**Alternative rejected:** Panel "Import movements" button would fragment entry points; context menu on account card is too hidden.
+
+---
+
+## Step-by-Step UX
+
+### STEP 1: SELECT ACCOUNT
+
+**Primary action:** Treasurer picks the destination account for all rows in this import.
+
+**Screen layout:**
+- Heading: `"Selecciona cuenta destino"` (ES) / `"Select destination account"` (EN)
+- Subtitle: `"Un archivo = una cuenta. Si necesitas importar a múltiples cuentas, haz múltiples importaciones."` (ES)
+- Card grid (same pattern as WI-15 Configuración accounts): account name + balance + color stripe + CTA `Seleccionar`
+- Back button (if called from DATOS tab, returns to DATOS).
+- Cancel (confirms if wizard has progress → see Wizard Controls).
+
+**Inputs visible:**
+- Account list (live, read from accounts:list IPC).
+- Selection state: highlight chosen card + show checkmark overlay.
+
+**Validation feedback:**
+- Required field: Next button disabled until account selected.
+- No error state — all accounts are valid choices.
+
+**Error recovery:**
+- N/A (no error case).
+
+**Keyboard shortcuts:**
+- Arrow keys: navigate card grid.
+- Enter: select focused card.
+- Escape: cancel wizard (with confirmation if progress exists).
+
+---
+
+### STEP 2: UPLOAD FILE
+
+**Primary action:** Treasurer selects an .xlsx or .csv file from disk.
+
+**Screen layout:**
+- Heading: `"Carga tu archivo (Excel o CSV)"` (ES) / `"Upload your file (Excel or CSV)"` (EN)
+- Subheading: `"Destino: {AccountName}"` — remind user which account they chose.
+- Drag-drop zone: large, clearly outlined box with file icon + `"Arrastra aquí o haz clic para seleccionar"` (ES).
+- File picker fallback: hidden file input, triggered by click.
+- Back button (returns to SELECT_ACCOUNT, clears selected file).
+
+**Inputs visible:**
+- File name (once dropped/selected) + file size + preview icon (xlsx/csv).
+- No file preview yet — that's STEP 4.
+
+**Validation feedback:**
+- File too large (>50MB): `"Archivo muy grande. Máximo 50 MB."` (ES)
+- Wrong file type: `"Solo Excel (.xlsx) o CSV (.csv)."` (ES)
+- File unreadable: `"No se puede leer el archivo. Verifica que no esté dañado."` (ES)
+- Appears immediately on file selection, above the drop zone.
+
+**Error recovery:**
+- User can drop/click another file to replace. Previous upload state cleared.
+- If error persists, Back → try different file.
+
+**Keyboard shortcuts:**
+- Tab to file input, Space to open picker (standard browser).
+- Escape: cancel wizard.
+
+---
+
+### STEP 3: PICK SHEET (conditional)
+
+**Condition:** Only shown if workbook has >1 sheet.
+
+**Primary action:** User selects which sheet contains the transaction data.
+
+**Screen layout:**
+- Heading: `"¿Cuál es la hoja con tus movimientos?"` (ES) / `"Which sheet has your transactions?"` (EN)
+- List of sheet tabs (detected from workbook):
+  - Sheet name + row preview (e.g., "Sheet1 (45 rows)" or "Datos (3 rows)").
+  - Radio button selector (single choice).
+- Back button (returns to UPLOAD_FILE, file preserved).
+
+**Inputs visible:**
+- Sheet names (auto-detected from file).
+- Row count per sheet (detected during parse).
+
+**Validation feedback:**
+- Empty sheet: `"Esta hoja no tiene datos. Selecciona otra."` (ES)
+- Insufficient columns (detected here, not after mapping): skip to error recovery below.
+
+**Error recovery:**
+- If chosen sheet has <3 columns (not enough for date+amount+description): show error `"Esta hoja no tiene suficientes columnas. Mínimo 3 requeridas (fecha, importe, descripción)."` (ES). Allow user to pick a different sheet.
+
+**Keyboard shortcuts:**
+- Arrow keys: navigate sheet list.
+- Enter: select focused sheet.
+
+---
+
+### STEP 4: MAP COLUMNS
+
+**Primary action:** User drags/drops or selects from dropdowns to map source columns → Transaction model fields.
+
+**Mandatory mappings:**
+- `date` (date column)
+- `amount` (number, interpreted as debit if negative, credit if positive)
+- `description` (text)
+- `account` (already set in STEP 1 — not editable here, but shown as read-only badge)
+
+**Optional mappings:**
+- `category` (pick from categories:list)
+- `tags` (multi-select from tags:list)
+
+**Screen layout:**
+- Heading: `"Mapea tus columnas"` (ES) / `"Map your columns"` (EN)
+- Left column: source columns detected from the file (e.g., "Column A", "Column B", "Fecha", "Cantidad").
+- Right column: dropdown for each source column to pick a target field (Date, Amount, Description, Category, Tags, Ignore).
+- Subheading reminder: `"Cuenta destino: {AccountName}"` (read-only).
+- Sample row preview (first row from sheet) shown inline or in a side panel to help user verify mapping.
+- Back button (returns to PICK_SHEET or UPLOAD_FILE, mapping cleared).
+- Next button (disabled until mandatory fields mapped).
+
+**Inputs visible:**
+- Source column names (auto-detected).
+- Target field dropdowns (populated with a fixed list: Date, Amount, Description, Category, Tags, Ignore).
+- Sample row display (optional, helps non-tech users see what they're mapping).
+
+**Validation feedback:**
+- Missing mandatory field: `"Debes mapear una columna a Fecha, Importe y Descripción."` (ES). Next button disabled.
+- Date column format ambiguity (e.g., 01/02/2026 — is it DD/MM or MM/DD?): `"¿Formato de fecha: DD/MM o MM/DD?"` Picker toggle appears next to the date dropdown.
+- Amount column has non-numeric values: defer to DRY_RUN (not a blocker here).
+- Category not found in system: show warning `"No existe esta categoría en Configuración. Puedes crearla en Configuración > Categorías antes de importar."` (ES). Allow user to proceed (categories are optional).
+
+**Error recovery:**
+- User corrects mappings and re-checks sample row. Next remains disabled until mandatory fields mapped.
+- If date format is ambiguous, user must pick one (toggle choice). If wrong, dry-run preview shows parsing errors for all date cells.
+
+**Keyboard shortcuts:**
+- Tab: navigate dropdowns.
+- Arrow keys (within dropdown): select field type.
+- Escape: cancel wizard (with confirmation).
+
+**Memory (last-mapping pre-fill):**
+- If this is the second import for the same account in this session:
+  - Memo: store `{accountId, mapping: {sourceColName → targetField}, dateFormat, timestamp}` in React state.
+  - On STEP 4 entry: pre-fill dropdowns with last mapping.
+  - Show subtle banner above mapping table: `"Usando asignación anterior de hace 5 minutos. Haz clic aquí para empezar de cero."` (ES) — link clears memo.
+  - If uploaded sheet's columns don't match last mapping (e.g., file has "Date" but last mapping was "Data"):
+    - Warn: `"Las columnas del archivo no coinciden con la asignación anterior. Revisa el mapeo."` (ES).
+    - Pre-fill is cancelled; user maps manually.
+
+---
+
+### STEP 5: DRY-RUN PREVIEW
+
+**Primary action:** User reviews what will be imported before committing.
+
+**Screen layout (information hierarchy — CRITICAL):**
+
+#### Top section: SUMMARY STRIP
+```
+┌─────────────────────────────────────────────┐
+│ ✓ Se importarán: 42 movimientos              │
+│ ⚠ Duplicados detectados: 3 (no se importan)  │
+│ ✗ Errores de validación: 2                   │
+└─────────────────────────────────────────────┘
+```
+- Numbers are in muted color until user opts in to duplicates (see duplicate opt-in checkbox below).
+- Click any number to jump to relevant tab (e.g., click "2" → jump to Errors tab).
+
+#### Middle section: TABBED CONTENT AREA
+
+**Tab 1: "PREVIEW" (default)**
+- Heading: `"Primeras 5 filas:"` (ES)
+- Table: 5 rows × (date | amount | description | category | tags).
+- Columns match the mappings user chose in STEP 4.
+- Gray header row showing column names + source column hints (e.g., "Fecha (Column A)").
+- No editing within preview — this is read-only.
+- If all 5 rows are error rows, show: `"Las primeras 5 filas tienen errores. Revisa la pestaña 'Errores'."` (ES)
+
+**Tab 2: "DUPLICATES" (if any detected)**
+- Heading: `"{N} filas coinciden con movimientos ya importados:"` (ES)
+- Table: duplicate rows + match reason (e.g., "Mismo importe, descripción y fecha en {date}").
+- User can see which rows are dupes before deciding to import them.
+- Checkbox below table: `"☐ Importar duplicados"` (ES) / `"☐ Import duplicates"` (EN)
+  - Unchecked by default (duplicates are NOT imported).
+  - When checked: duplicate count in top strip shows as enabled (not grayed).
+  - Affects final import count: updates the "42 movimientos" number dynamically.
+
+**Tab 3: "ERRORS" (if any validation errors)**
+- Heading: `"{N} filas no se pueden importar:"` (ES)
+- Table: error rows + reason per row (e.g., "Fecha inválida: '32/13/2026'", "Importe vacío").
+- Rows with errors are NOT imported (non-negotiable).
+- User must go back to STEP 4 or upload a corrected file if errors are critical.
+
+#### Bottom section: ACTIONS
+- Primary CTA: `"Importar {N} movimientos"` (ES) — count updates based on duplicate opt-in.
+- Secondary: Back button (returns to STEP 4, preserves mapping but clears preview).
+- Cancel button (confirmation dialog if user made mapping progress).
+
+**Inputs visible:**
+- Tabs (Preview, Duplicates, Errors).
+- Duplicate opt-in checkbox.
+- Copy of mapping used (shown as a collapsible "Mapping used:" row at top of preview, optional but helpful).
+
+**Validation feedback:**
+- All rows parsed successfully: top strip shows green checkmark + count only (no warnings).
+- Duplicates present but no errors: orange warning icon + counts.
+- Errors present: red error icon + "See Errors tab" link in strip.
+- No valid rows at all: error banner, primary CTA disabled: `"No hay movimientos válidos para importar."` (ES).
+
+**Error recovery:**
+- User clicks Back → returns to STEP 4 → re-maps columns or uploads different file.
+- User ignores errors and proceeds → only valid rows imported; errors row count shown in final toast.
+
+**Keyboard shortcuts:**
+- Tab: navigate between tabs.
+- Shift+Tab: previous tab.
+- Enter: trigger primary CTA (Import) if focused.
+- Arrow keys: scroll table within tabs.
+- Escape: cancel wizard (with confirmation).
+
+---
+
+### STEP 6: CONFIRM & IMPORT
+
+**Primary action:** Wizard commits the import. No user input on this screen — progress indicator only.
+
+**Screen layout:**
+- Heading: `"Importando..."` (ES) / `"Importing..."` (EN)
+- Progress indicator: linear or spinner, depending on estimated duration.
+- Subtext: `"Se están creando {N} movimientos en {AccountName}. Esto puede tardar unos segundos."` (ES)
+- Cancel button (grayed out; user cannot cancel mid-import).
+
+**Inputs visible:**
+- Progress bar (estimated % of rows processed, if available from backend).
+
+**Validation feedback:**
+- N/A during import (no user action required).
+
+**On success:**
+- Screen auto-advances to SUCCESS screen (not a separate step — part of STEP 6 completion).
+- Heading: `"✓ Importación completada"` (ES)
+- Summary: `"Se importaron 42 movimientos a {AccountName}. Duplicados omitidos: 3. Errores: 0."` (ES)
+- CTA: `"Ver movimientos"` (links to Movements screen, pre-filtered to this import via import_batch_id).
+- Secondary CTA: `"Importar otro archivo"` (resets wizard to STEP 1).
+- Checkbox at bottom (optional): `"☐ Recordar esta configuración para futuras importaciones"` (ES) — if checked, stores mapping + dateFormat in browser localStorage scoped to accountId.
+
+**On partial failure** (some rows failed):
+- Heading: `"⚠ Importación parcial"` (ES)
+- Summary: `"Se importaron 40 de 42 movimientos a {AccountName}. Errores: 2 filas rechazadas. Revisa los errores abajo."` (ES)
+- List of rejected rows (copy from dry-run errors tab).
+- Same CTAs as success (View movements, Import another file).
+
+**On full failure:**
+- Heading: `"✗ Importación fallida"` (ES)
+- Error: `"No se pudieron importar los movimientos. Errores: {error reason}."` (ES)
+- CTA: `"Intentar de nuevo"` (returns to STEP 2 or STEP 4, depending on error type).
+
+**Writes events:**
+- Backend calls `POST /api/imports/workbook` (as per A4 spec in decisions.md).
+- Events: `import.batch-started`, `import.batch-completed` or `import.batch-failed`.
+- Each transaction written with `movement.imported` event (or inline JSON if import is atomic).
+- `import_batch_id` (ULID) + `import_source` (filename) stored on each movement for traceability.
+
+**Keyboard shortcuts:**
+- Escape: during import, do nothing (cancel is disabled).
+- Escape: on success/failure, closes wizard (returns to Movements or DATOS).
+
+---
+
+## State Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│ [START] → SELECT_ACCOUNT → UPLOAD_FILE → PICK_SHEET? → MAP_COLUMNS
+│                 ↓              ↓             ↓ (single     ↓
+│            (cancel)       (cancel)       sheet, skip)   (back or
+│            confirm        confirm                       cancel+confirm)
+│              ↓              ↓                          ↓
+│           [EXIT]         [EXIT]                    DRY_RUN
+│                                                        ↓
+│                                        (back) ← ← ← (error rows)
+│                                        ↓                ↓
+│                                     MAP_COLUMNS     CONFIRM
+│                                                    (progress)
+│                                                        ↓
+│                                                  SUCCESS/FAILURE
+│                                                        ↓
+│                                                    [EXIT or RESTART]
+│
+│ ERROR transitions (every state):
+│ Any step can fail with ERROR (file unreadable, network timeout, etc.)
+│ ERROR → modal: reason + recovery CTA (Back, Retry, Cancel)
+│
+```
+
+---
+
+## Wizard Controls
+
+### Back Button
+- **Behavior:** Returns to previous step, preserving all user inputs (file, mapping, sheet selection).
+- **Exception:** STEP 1 (no previous step) — Back → cancel wizard confirmation.
+- **Preservation:** Mapping state persists until wizard completes or user explicitly cancels.
+
+### Cancel Button
+- **Behavior:** Always visible (top-right or footer).
+- **Confirmation dialog:** If user has made progress (selected account, uploaded file, or started mapping):
+  - Title: `"¿Descartar importación?"` (ES) / `"Discard import?"` (EN)
+  - Message: `"Se perderán todos los cambios. ¿Continuar?"` (ES)
+  - Actions: Cancel dialog (stay in wizard) / Confirm (exit wizard to DATOS tab).
+- **No confirmation:** STEP 1, SELECT_ACCOUNT, only (no progress made yet).
+
+### Next/Continue Button
+- **Behavior:** Advances to next step only when step is complete.
+- **Disabled state rules per step:**
+  - STEP 1 (SELECT_ACCOUNT): Disabled until account selected.
+  - STEP 2 (UPLOAD_FILE): Disabled until valid file selected.
+  - STEP 3 (PICK_SHEET): Disabled until sheet selected.
+  - STEP 4 (MAP_COLUMNS): Disabled until all mandatory fields (date, amount, description) are mapped.
+  - STEP 5 (DRY_RUN): No Next button; primary CTA is "Import {N} movimientos".
+  - STEP 6 (CONFIRM): No Next button; auto-advances on import completion.
+- **Tooltip on hover (when disabled):** Explains why button is disabled (e.g., "Select an account to continue.").
+
+---
+
+## Memory: Last-Mapping Pre-Fill
+
+**Implementation:**
+- Store in React state (session-scoped, not persisted between app restarts):
+  ```
+  lastMapping = {
+    accountId: string,
+    mapping: { sourceColName: string → targetField: string },
+    dateFormat: 'DD/MM' | 'MM/DD',
+    timestamp: ISO8601,
+  }
+  ```
+
+**On re-entry to STEP 4 (same session, same account):**
+1. Check if `lastMapping.accountId === selectedAccountId` and age < 1 hour.
+2. If yes:
+   - Pre-fill all dropdown values from `lastMapping.mapping`.
+   - Show banner above mapping table:
+     ```
+     "ℹ Usando asignación de {timeAgo}. [Empezar de cero]"
+     ```
+   - Link clears memory + resets dropdowns to `"Selecciona un campo"` (ES).
+
+**On column mismatch (file's columns don't match remembered source columns):**
+1. Detect: Compare file's detected column names vs `lastMapping.mapping` keys.
+2. If mismatch found:
+   - Show warning banner:
+     ```
+     "⚠ Las columnas del archivo no coinciden con la importación anterior.
+      Verifica el mapeo."
+     ```
+   - Pre-fill is cancelled; user must map manually.
+   - Do NOT auto-apply mismatched mappings (risk of silent data corruption).
+
+**Clearing memory:**
+- Manual: User clicks "Empezar de cero" link.
+- Automatic: On successful import, reset `lastMapping` (fresh start for next file).
+- Automatic: On wizard exit (cancel or success).
+
+---
+
+## Accessibility (WCAG 2.1 AA)
+
+### Keyboard Navigation
+- **Tab order:** Follows visual flow (left-to-right, top-to-bottom).
+- **Focus management:** On step transition, focus moves to the primary input of the new step (e.g., file input on STEP 2).
+- **Modals/dialogs:** Trap focus within dialog (e.g., cancel confirmation); ESC closes.
+- **Dropdowns (STEP 4):** Arrow keys navigate options; Enter selects; Tab moves to next dropdown.
+
+### Screen Reader Announcements
+- **Step transitions:** Announce step number + title (e.g., "Step 2 of 6: Upload file").
+- **Validation errors:** Announce immediately after user action (e.g., "File too large: maximum 50 MB").
+- **Tab content switches:** Announce active tab + count (e.g., "Errors tab, 2 errors found").
+- **Progress bar:** Announce current progress (e.g., "Importing: 50% complete").
+
+### Dry-Run Table (Critical for Assistive Tech)
+- **Table structure:**
+  - `<table role="grid">` with proper `<thead>` and `<tbody>`.
+  - Column headers: `<th scope="col">` with field name (e.g., "Fecha", "Importe").
+  - Row headers: `<th scope="row">` with row index or source-row number (e.g., "Row 1 of preview").
+- **Cell content:** Plain text or semantic HTML (no image-based text).
+- **Duplicate rows:** Mark as `<tr role="alert">` + aria-label describing reason (e.g., "Duplicate row: Matches existing movement on 2026-01-15").
+- **Error rows:** Mark as `<tr role="alert">` + aria-label with error reason.
+
+### Color Contrast
+- All text ≥ 4.5:1 contrast ratio (WCAG AA) or 7:1 (AAA preferred for numbers).
+- Status indicators (green ✓, orange ⚠, red ✗) must also use text labels (not color alone).
+- Dry-run tabs: underline active tab (not just color).
+
+### Labels & Descriptions
+- All inputs have `<label>` or `aria-label`.
+- Dropdowns in mapping table: `<label for="mapping-{sourceCol}">` + aria-describedby linking to hint text.
+- Disabled buttons: `aria-disabled="true"` + aria-label explaining why (e.g., "Continue button: disabled until account selected").
+
+---
+
+## Copy (EN + ES)
+
+### Wizard Navigation
+| English | Spanish | Context |
+|---------|---------|---------|
+| Select destination account | Selecciona cuenta destino | STEP 1 heading |
+| One file = one account. To import to multiple accounts, run multiple imports. | Un archivo = una cuenta. Si necesitas importar a múltiples cuentas, haz múltiples importaciones. | STEP 1 subtitle |
+| Upload your file (Excel or CSV) | Carga tu archivo (Excel o CSV) | STEP 2 heading |
+| Destination: {AccountName} | Destino: {AccountName} | STEP 2 subheading |
+| Drag here or click to select | Arrastra aquí o haz clic para seleccionar | STEP 2 drop zone |
+| Which sheet has your transactions? | ¿Cuál es la hoja con tus movimientos? | STEP 3 heading (if >1 sheet) |
+| Map your columns | Mapea tus columnas | STEP 4 heading |
+| Destination account: {AccountName} | Cuenta destino: {AccountName} | STEP 4 reminder (read-only) |
+| You must map a column to Date, Amount, and Description. | Debes mapear una columna a Fecha, Importe y Descripción. | STEP 4 validation |
+| First 5 rows: | Primeras 5 filas: | STEP 5 preview tab |
+| {N} rows match existing movements: | {N} filas coinciden con movimientos ya importados: | STEP 5 duplicates tab |
+| Import duplicates | Importar duplicados | STEP 5 checkbox |
+| {N} rows cannot be imported: | {N} filas no se pueden importar: | STEP 5 errors tab |
+| Import {N} movements | Importar {N} movimientos | STEP 5 primary CTA (count updates with duplicate opt-in) |
+| Importing... | Importando... | STEP 6 progress screen |
+| Import completed | ✓ Importación completada | STEP 6 success |
+| {N} movements imported to {AccountName}. Duplicates skipped: {N}. Errors: {N}. | Se importaron {N} movimientos a {AccountName}. Duplicados omitidos: {N}. Errores: {N}. | STEP 6 success summary |
+| View movements | Ver movimientos | STEP 6 success CTA |
+| Import another file | Importar otro archivo | STEP 6 secondary CTA |
+
+### Error Messages
+
+| Error Code | English | Spanish | Recovery |
+|------------|---------|---------|----------|
+| FILE_TOO_LARGE | File too large. Maximum 50 MB. | Archivo muy grande. Máximo 50 MB. | User drops/clicks another file. |
+| FILE_UNSUPPORTED | Only Excel (.xlsx) or CSV (.csv). | Solo Excel (.xlsx) o CSV (.csv). | User drops/clicks another file. |
+| FILE_UNREADABLE | Cannot read file. Check that it is not corrupted. | No se puede leer el archivo. Verifica que no esté dañado. | User tries different file or Back. |
+| SHEET_EMPTY | This sheet is empty. Select another. | Esta hoja está vacía. Selecciona otra. | User picks different sheet. |
+| INSUFFICIENT_COLUMNS | This sheet does not have enough columns. Minimum 3 required (date, amount, description). | Esta hoja no tiene suficientes columnas. Mínimo 3 requeridas (fecha, importe, descripción). | User picks different sheet or uploads different file. |
+| MISSING_MANDATORY_FIELD | You must map a column to Date, Amount, and Description. | Debes mapear una columna a Fecha, Importe y Descripción. | User maps missing field. |
+| DATE_FORMAT_AMBIGUOUS | Date format: DD/MM or MM/DD? | ¿Formato de fecha: DD/MM o MM/DD? | User picks format from toggle. |
+| PARSE_ERROR_DATE | Invalid date: '{value}'. Check format. | Fecha inválida: '{value}'. Verifica el formato. | Shown in dry-run errors tab. User goes back to re-map or upload corrected file. |
+| PARSE_ERROR_AMOUNT | Amount missing or invalid. | Importe vacío o inválido. | Shown in dry-run errors tab. |
+| PARSE_ERROR_DESCRIPTION | Description missing. | Descripción vacía. | Shown in dry-run errors tab. |
+| DUPLICATE_DETECTED | This row matches an existing movement on {date}. | Esta fila coincide con un movimiento existente el {date}. | User reviews in dry-run Duplicates tab; can opt-in to import. |
+| CATEGORY_NOT_FOUND | This category does not exist in Configuration. Create it in Configuration > Categories before importing. | No existe esta categoría en Configuración. Puedes crearla en Configuración > Categorías antes de importar. | User creates category in Configuración, then re-import. Or ignore (category field is optional). |
+| IMPORT_FAILED | Could not import movements. Error: {reason}. | No se pudieron importar los movimientos. Error: {reason}. | User clicks "Retry" or goes back to STEP 2. |
+| PARTIAL_IMPORT | {N} of {M} movements imported. {K} errors. See Errors tab. | Se importaron {N} de {M} movimientos. {K} errores. Revisa la pestaña 'Errores'. | Shown in dry-run; user can still proceed (valid rows imported, error rows skipped). |
+| NO_VALID_ROWS | No valid movements to import. All rows have errors. | No hay movimientos válidos para importar. Todos tienen errores. | User goes back to STEP 2 and uploads corrected file. |
+
+### Dry-Run Summary Labels
+
+| English | Spanish |
+|---------|---------|
+| ✓ Will import: {N} movements | ✓ Se importarán: {N} movimientos |
+| ⚠ Duplicates detected: {N} (not imported) | ⚠ Duplicados detectados: {N} (no se importan) |
+| ✗ Validation errors: {N} | ✗ Errores de validación: {N} |
+| Using last mapping from {time}. [Reset] | Usando asignación de {time}. [Empezar de cero] |
+| File columns do not match previous mapping. Review mapping. | Las columnas del archivo no coinciden con la importación anterior. Verifica el mapeo. |
+
+---
+
+## Out of Scope (UX-wise)
+
+- **Undo/rollback after commit:** Separate WI (will live in a data-recovery or audit trail feature).
+- **Column auto-detection:** v1 requires explicit user mapping for every column (MVP; auto-detection in v1.1 if needed).
+- **Edit-and-retry within wizard:** If user makes mapping errors → must go Back → re-upload. This is acceptable friction for MVP.
+- **Incremental file import (resume on failure):** If network times out mid-import, user must restart. No resume token.
+- **Import history / audit log UI:** Movements will carry `import_batch_id` for traceability, but no dedicated "Import History" screen in scope.
+- **Bulk categorization post-import:** User can categorize imported movements in Movements screen after import completes. Not part of wizard.
+- **Scheduled/recurring imports:** One-off imports only in v1.
+
+---
+
+## Risks & Open UX Questions
+
+### 1. **Date Format Ambiguity (HIGH RISK)**
+- **Scenario:** Treasurer uploads CSV with dates like `01/02/2026`. Is this DD/MM (Spanish) or MM/DD (US)?
+- **Current mitigation:** STEP 4 shows a format picker toggle (DD/MM vs MM/DD). If wrong, dry-run preview shows parsing errors for all date cells.
+- **Risk:** User might not notice the toggle and import with wrong dates.
+- **Mitigation options:**
+  - *Option A (current):* Show toggle prominently + add date format hint in mapping table (e.g., "formato esperado: DD/MM").
+  - *Option B:* Parse a sample (first date cell), attempt to infer format (heuristic: if month > 12, it's DD/MM), and ask user to confirm.
+  - *Option C:* Delay format decision to dry-run; if ambiguous, show a format-picker right on the dry-run preview, not in STEP 4.
+  - **QUESTION FOR PEDRO:** Which risk is acceptable — user mistakes with current toggle, or deferring format decision to dry-run (adds complexity)?
+
+### 2. **Duplicate Detection Strategy (MEDIUM RISK)**
+- **Current rule:** Duplicate is by row-hash (date + amount + description must all match an existing movement in the same account).
+- **Issue:** What if user re-exports movements from OpenTreasury, adds a row, and re-imports? The existing rows will be flagged as duplicates.
+- **Current behavior:** Duplicates are shown in STEP 5, user can opt-in to import them (checkbox). This is safe but might confuse treasurers.
+- **QUESTION FOR PEDRO:** Should we show a more granular duplicate reason (e.g., "Exact match on 2026-01-15, €150.00, 'Donation'")?
+
+### 3. **Category/Tag Optional Mapping (LOW RISK)**
+- **Scenario:** Treasurer doesn't map a "category" column; all imported movements land uncategorized.
+- **Current mitigation:** Categories/tags are optional. Movements can exist without them. This is by design (WI-15 UX-007 ruling).
+- **Risk:** Treasurer might not realize they've left movements uncategorized. Dashboard/Movements will show "Uncategorized" bulk, which is hard to scan.
+- **QUESTION FOR PEDRO:** Should STEP 5 warn if large number of rows will be imported without category? (e.g., "⚠ 35 of 42 movements have no category. Consider adding a category mapping.")
+
+### 4. **File Encoding Guess (LOW RISK)**
+- **Scenario:** Treasurer exports from Spanish bank (encoding: ISO-8859-1 or CP1252) and uploads. Frontend tries to read as UTF-8.
+- **Current mitigation:** File parser should attempt UTF-8, then fall back to ISO-8859-1 or show error "Cannot read file: unsupported encoding."
+- **QUESTION FOR PEDRO:** Should we detect encoding automatically (try multi charset detection library) or show user an error + ask them to re-save as UTF-8 in Excel?
+
+### 5. **Sheet Selection When >1 Sheet (MEDIUM RISK)**
+- **Scenario:** Workbook has 5 sheets; user picks wrong one by mistake. They don't realize until DRY_RUN. Confusing.
+- **Current mitigation:** Show sheet row count in STEP 3 picker (e.g., "Datos (45 rows)") to help user pick right one. Back button on STEP 4 returns to STEP 3.
+- **QUESTION FOR PEDRO:** Should STEP 3 also show a tiny preview of the first row of each sheet (header row only) to help user identify?
+
+### 6. **Memory (Last Mapping) Scope (LOW RISK)**
+- **Current design:** Last mapping is session-scoped (React state), per account, age < 1 hour.
+- **Risk:** If user closes app and re-opens, mapping is lost. User might expect it to persist.
+- **Alternative:** Store in browser localStorage, persist across app restarts.
+- **QUESTION FOR PEDRO:** Is session-only acceptable, or should we persist last mapping to disk (localStorage)?
+
+### 7. **Very Large Imports (>50K Rows)**
+- **Scenario:** Treasurer imports 5 years of bank statements (50k+ rows). Progress bar takes 5+ minutes.
+- **Current mitigation:** STEP 5 dry-run shows total row count; user is aware before committing. STEP 6 shows progress indicator.
+- **Risk:** User might alt-tab away and miss completion. No notification.
+- **QUESTION FOR PEDRO:** Should we send a desktop notification when import completes (outside the app window)? Or is progress bar + toast sufficient?
+
+---
+
+## Design Decisions Locked
+
+1. **Account selection first (STEP 1):** By design (1 file = 1 account rule). Non-negotiable per Pedro's pivot.
+2. **Generic column mapper (not bank-specific parsers):** Per pivot directive.
+3. **Dry-run is non-optional:** All imports must show preview before commit (safety net).
+4. **Duplicates opt-in checkbox:** Not auto-skipped; user is in control.
+5. **Copy: concise, action-oriented, Spanish-first:** "Importar {N} movimientos" not "Procesar y confirmar importación de datos de transacciones financieras".
+
+---
+
+## Summary for Implementation Teams
+
+- **Trinity (UI):** Reference this spec for layout + interaction. Prototype against STEP 5 (dry-run) first — it's the most complex screen.
+- **Morpheus (Backend):** Wire `POST /api/imports/preview` (upload → dry-run data) and `POST /api/imports/workbook` (commit) endpoints. See A4 spec in decisions.md.
+- **Switch (Copy/Localization):** All copy in this doc is authoritative EN + ES. No additional translation needed.
+- **Mouse (Design Tokens):** Use existing WI-15 card patterns for STEP 1. New tokens needed for: mapping dropdowns (STEP 4), dry-run table (STEP 5), progress bar (STEP 6).
+
+---
+
+**END OF SPEC**
+
+---
+
+## Editor's Notes for Niobe (Post-Submission)
+
+- **Prototype reference placeholder:** Once Trinity builds the import wizard UI, link the exact prototype file/component path at the top of this spec (e.g., `prototype/ImportWizard.jsx`).
+- **Test coverage:** Include test scenarios in a follow-up doc (one per target scenario: quick daily import vs. bulk historical import).
+- **Localization:** All copy keys follow `import.{step}.{field}` structure (e.g., `import.step1.heading`, `import.step5.duplicates.checkbox`). Trinity/Switch to wire i18n keys into UI components.
+
+
+---
+
+### 2026-04-20: Panel Polish Punch-List — 7 Items Audited (Most Already Verified Correct in Code)
+**By:** Mouse (Design)  
+**Related:** WI-15-lite Panel MVP, prototype fidelity audit  
+**Artifact:** .squad/decisions/inbox/mouse-panel-polish-punchlist.md (280 lines)  
+**Key Findings:** 
+- Items #1–5: Mostly verification-only or minor tweaks; CSS already correct in codebase
+- Item #6 (KPI sparkline graph): Deferred to M1.2 (separate WI-20)
+- Item #7 (mock account data): Escalated to Link/Pedro for functional data cleanup
+
+# 2026-04-20: Panel polish punch-list (post WI-15-lite)
+**By:** Mouse
+
+Concrete design specs for Pedro's 7 panel polish items, ordered by user impact × implementation cost. Trinity: copy-paste selectors and values directly.
+
+---
+
+## Design token references
+
+**Colors (from tokens.css):**
+- `--color-income-default`: #2e7d32 (green, positive balance)
+- `--color-expense-default`: #c62828 (red, negative balance)
+- `--color-text-primary`: #231f27 (primary text)
+- `--color-brand-on-primary`: #ffffff (white icon on brand background)
+- `--color-income-bg`: #e8f5e9 (light green chip background)
+- `--color-expense-bg`: #ffebee (light red chip background)
+
+**Spacing:**
+- `--space-5`: 8px
+- `--space-6`: 12px
+- `--space-7`: 16px
+
+**Breakpoints (from globals.css):**
+- 1439px: 5-column grid
+- 1199px: 3-column grid (← overflow happens between 1200–1399px)
+- 899px: 2-column grid
+
+**Tokens used:**
+- All color and spacing references already exist in tokens.css v0.2. No new tokens needed.
+
+---
+
+## Priority-ordered issues (high-impact × low-cost first)
+
+### 1. AccountCard building icon color (HIGHEST IMPACT)
+**Issue:** Bank/building icon in AccountCard not white; should be white (matches KPI icons).
+
+**Current state:**
+- `app/src/renderer/components/AccountCard/AccountCard.tsx` line 31: `<Landmark size={18} />`
+- `app/src/renderer/components/AccountCard/AccountCard.css` line 16: `color: #ffffff;` ✓ Already correct
+- BUT: The parent `.ot-account-card__icon` has `border-radius: var(--radius-md);` and inline `style={{ background: color }}` (card's per-account color), yet the Landmark glyph appears gray, not white.
+
+**Root cause:** 
+The CSS rule is there but possibly being overridden by lucide-react's default stroke color or a missing explicit color inheritance. The glyph is SVG-based, and lucide defaults to inheriting `currentColor`. The fix is to verify `color: #ffffff;` is being applied.
+
+**Target state:**
+White building icon (matches KPI icons' white color on colored backgrounds).
+
+**Change spec:**
+- **File:** `app/src/renderer/components/AccountCard/AccountCard.css`
+- **Selector:** `.ot-account-card__icon`
+- **Ensure rule exists:** `color: #ffffff;` (line 16 already has it; verify it's not being blocked by specificity)
+- **Alternative if inheritance fails:** Add `color: #ffffff !important;` (only if needed after testing)
+- **Verification:** AccountCard icon should match KPI icon appearance (white on colored background).
+
+**Risk:** Low. CSS is already written; this is likely a specificity or rendering bug in the current code.
+
+---
+
+### 2. Account card positive/negative balance coloring (HIGH IMPACT)
+**Issue:** Account card balance should be green for positive, red for negative (standard accounting). Currently unclear if styling is applied.
+
+**Current state:**
+- `app/src/renderer/components/AccountCard/AccountCard.tsx` lines 40–42: Balance uses conditional class: `ot-account-card__balance--positive` or `ot-account-card__balance--negative`
+- `app/src/renderer/components/AccountCard/AccountCard.css` lines 23–28:
+  ```css
+  .ot-account-card__balance--positive {
+    color: var(--color-income-default);
+  }
+  .ot-account-card__balance--negative {
+    color: var(--color-expense-default);
+  }
+  ```
+- **Status:** Rule exists but needs verification that balance rendering works correctly.
+
+**Target state:**
+- Positive balance (e.g., €1,234.56): green (`--color-income-default` = #2e7d32)
+- Negative balance (e.g., −€234.56): red (`--color-expense-default` = #c62828)
+
+**Change spec:**
+- **File:** `app/src/renderer/components/AccountCard/AccountCard.css`
+- **No changes needed** — rules are correctly implemented (lines 23–28)
+- **Verification task:** Test with mock positive and negative balances in panel to confirm both classes render with correct colors.
+
+**Risk:** Low. CSS is correct; this is a verification-only item (likely already working).
+
+---
+
+### 3. Account cards grid overflow at ≥1200px (HIGH IMPACT × MEDIUM COST)
+**Issue:** "Account blocks pile on top of each other from 1200px" — grid collapse/wrap issue.
+
+**Current state:**
+- `app/src/renderer/styles/globals.css` lines 270–295: `.ot-account-cards` uses responsive grid:
+  ```css
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  ```
+  At `@media (max-width: 1199px)`: `repeat(3, minmax(0, 1fr));`
+
+**Problem identified:**
+At 1200–1439px (just above the `1199px` breakpoint), the grid is STILL 5 columns. The Panel layout (with sidebar ~240px) means: available width ≈ 1200 - 240 = 960px. Five columns of `minmax(0, 1fr)` in 960px = ~192px per column (too narrow). Cards compress and wrap text/layout.
+
+**Target state:**
+- 1200–1439px viewport → 4-column grid (not 5)
+- Cards at this breakpoint: ~233px wide (960 ÷ 4), no text wrap/compression
+
+**Change spec:**
+- **File:** `app/src/renderer/styles/globals.css`
+- **Action:** Add new breakpoint rule between the 5-col (root) and 3-col (1199px) rules
+- **New rule:** Insert after line 284 (after the `1439px` breakpoint):
+  ```css
+  @media (max-width: 1199px) {
+    .ot-account-cards {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  ```
+  **Then adjust the existing 1199px rule** (line 286–289) to become:
+  ```css
+  @media (max-width: 1199px) {
+    .ot-account-cards {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  ```
+
+**Actually, review reveals the breakpoint cascade is:**
+- root: 5-col
+- max-width 1439px: 4-col ✓ (already exists)
+- max-width 1199px: 3-col ✓ (already exists)
+
+**Status:** The 4-col breakpoint already exists. If cards still overflow, the issue is likely **container width**, not the grid itself.
+
+**Revised diagnosis:**
+The `.ot-account-cards` is constrained by its parent `.ot-shell__main` or `PanelScreen` wrapper. If the wrapper has `max-width` or insufficient padding, cards can't use the available space.
+
+**Revised Change spec:**
+- **File:** `app/src/renderer/screens/PanelScreen/PanelScreen.tsx` or check parent container
+- **Investigation:** Confirm the `.ot-account-cards` container has `width: 100%` and is not nested in a `max-width` constraint
+- **Likely fix:** Ensure `.ot-account-cards` parent (the `<div>` at line 316) has no max-width override
+- **Fallback:** If no CSS fix, may need to add `max-width: none; width: 100%;` to `.ot-account-cards` itself
+
+**Risk:** Medium. Requires testing across the 1200–1439px range to verify grid behavior with real sidebar.
+
+---
+
+### 4. Arrow icon inconsistency (Panel vs Movements) (MEDIUM IMPACT)
+**Issue:** Panel uses different up/down arrows than MovementsScreen. Need consistency.
+
+**Current state:**
+- **Panel (PanelScreen.tsx lines 207–209):** Uses text arrows `'↑'` and `'↓'` (Unicode text glyphs)
+  ```tsx
+  {row.type === 'income' ? '↑' : '↓'}
+  ```
+- **Movements (prototype/movimientos.jsx):** Also uses text arrows `'↑'` and `'↓'`
+- **Prototype (shell.jsx lines ~20–22):** Ships `arrowUp` and `arrowDown` as SVG polylines (in the shell code, not used in table rows)
+
+**Prototype reference (prototype/movimientos.jsx line ~200, panel.jsx line ~300):**
+Both use `{t.type === 'income' ? '↑' : '↓'}` — text arrows are the **prototype standard**.
+
+**Target state:**
+Both Panel and Movements use the same arrows. Per prototype, that's Unicode text arrows `↑` (U+2191) and `↓` (U+2193).
+
+**Change spec:**
+- **Current implementation is already correct** — no changes needed
+- **Verification:** Confirm MovementsScreen also uses `'↑'` / `'↓'` (not Lucide icon substitutes like `TrendingUp`/`TrendingDown`)
+
+**Why TrendingUp/TrendingDown are wrong:**
+- `TrendingUp`/`TrendingDown` are **line-chart icons** (slanted slope), not arrows
+- The prototype never uses them for type chips; KPI tiles use them for the big summary cards (KPIStrip component), not for row-level income/expense indicators
+- KPI icons are allowed to differ (they're large, emphasized); row-level type indicators must stay uniform as text arrows
+
+**Risk:** Low. Text arrows already in use; no code change needed (unless Movements was incorrectly changed).
+
+---
+
+### 5. "View all transactions" link position (MEDIUM IMPACT)
+**Issue:** "View all transactions" position differs between prototype and current Panel implementation.
+
+**Current state:**
+- **Panel (PanelScreen.tsx lines 352–356):** "View all" link inside a `.ot-panel-recent__footer` div (floated right)
+  ```tsx
+  <div className="ot-panel-recent__footer">
+    <a className="ot-panel-recent__link" href="/movements?range=this-month">
+      {t('panel.cta.view-all-movements')} →
+    </a>
+  </div>
+  ```
+- **CSS (PanelScreen.css lines 36–41):** Footer has `display: flex; justify-content: flex-end; padding: 10px 16px; border-top: 1px solid var(--color-divider);`
+- **Position:** Bottom-right of the recent transactions card, above a divider
+
+**Prototype reference (prototype/panel.jsx):**
+RecentTxTable footer shows the link in the same bottom-right position. This matches current implementation.
+
+**Target state:**
+No change — current position matches prototype.
+
+**Change spec:**
+- **Verification only:** Confirm the link appears at bottom-right of the recent-tx card, with the border separator
+- **No CSS/DOM changes needed**
+
+**Risk:** None. Already correct per prototype.
+
+---
+
+### 6. KPI preview graph in KPI boxes (DEFERRED)
+**Issue:** Prototype shows small chart/sparkline in each KPI tile; not currently implemented.
+
+**Current state:**
+- KPIStrip (KPIStrip.tsx lines 26–58) renders 3 KPI tiles with: icon + label + value + delta (month text only, no chart)
+- No sparkline or mini-chart visible in the tiles
+
+**Prototype reference:**
+The prototype shows a small line graph or area chart in each KPI tile (Income, Expense, Net), showing monthly trend or distribution.
+
+**Target state:**
+Pedro said "we can leave this for later" — **DEFER to M1.2 or later**.
+
+**Change spec:**
+- **No action now.** Flag as WI-20 (separate workitem).
+- **When implemented:** Will likely use a small SVG sparkline (20–30px height) or recharts micro-chart in each `.ot-kpi` tile
+- **Token prep:** May need a "chart" component primitive; coordinate with Trinity on chart library choice (visx vs Recharts)
+
+**Risk:** None (deferred).
+
+---
+
+### 7. "Santander Cuenta Principal" mock data cosmetic issue (LOW IMPACT)
+**Issue:** Placeholder account name looks out of place; cosmetic data issue.
+
+**Current state:**
+- **Mock account names** in Panel data show realistic Spanish account names (e.g., "Santander Cuenta Principal")
+- These are seed data, not UI logic — the app correctly renders them
+
+**Target state:**
+Update seed data to use more generic/less branded names, or replace with actual integration data once Morpheus wires account labels.
+
+**Change spec:**
+- **Not a design/CSS issue** — flag this for **Link/Pedro (functional data cleanup)**
+- **Not in scope for Mouse** — this is a seed data / mock data task, not a UI design spec
+- **Note:** Once real account data flows from Morpheus, this resolves automatically
+
+**Risk:** None (cosmetic; functional data will replace mock data soon).
+
+---
+
+## Summary of changes by file
+
+| File | Change | Priority |
+|------|--------|----------|
+| `AccountCard.css` | Verify white icon color rule exists (line 16); ensure no specificity override | 1 |
+| `globals.css` | Confirm 4-col breakpoint exists at 1439px; verify no overflow in 1200–1399px range | 2 |
+| `PanelScreen.tsx` | Verify arrow chips use `'↑'` / `'↓'` (text arrows) | 3 |
+| `PanelScreen.tsx` | Verify "View all" link position at bottom-right of card | 4 |
+| `KPIStrip.tsx` | **DEFER** — mini-chart feature for M1.2+ | Deferred |
+| Seed data | **Escalate to Link/Pedro** — replace mock account names with real data | Deferred |
+
+---
+
+## Items deferred
+
+- **KPI graph preview** — Pedro approved deferral ("leave for later"). Track as enhancement for M1.2.
+- **Seed data cleanup** — Mock "Santander Cuenta Principal" data is a functional / data layer issue, not a design issue. Recommend Link update the seed-data fixtures once real Morpheus integration lands.
+
+---
+
+## Implementation notes for Trinity
+
+1. **Do NOT invent new colors.** All balance, icon, and chip colors use existing tokens. If a needed tone doesn't exist, flag it here — don't add inline hex.
+
+2. **Grid overflow at 1200px:** Test the panel at 1200, 1300, and 1400px viewport widths with the sidebar visible. If cards still pile/wrap, the breakpoint cascade needs review. The 4-col rule should kick in; if not, check the `.ot-account-cards` parent container for width constraints.
+
+3. **Arrow consistency:** Confirm MovementsScreen uses text arrows (`'↑'` / `'↓'`), not Lucide icon components. The prototype never swaps these for styled glyphs in table rows.
+
+4. **White icon on colored card:** The `.ot-account-card__icon` rule at `AccountCard.css:16` already sets `color: #ffffff;`. If the Landmark glyph appears gray in the installed app, this is likely a rendering/specificity bug. Verify `color: white` is not being overridden by a parent selector or lucide-react's default styling.
+
+5. **Test all 7 items** in the installed app on a real 1200+ px desktop viewport with the sidebar visible before marking done.
+
+---
+
+## Learnings appended to `.squad/agents/mouse/history.md`
+
+See end of this document for history entry.
+
+
