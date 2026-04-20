@@ -660,3 +660,88 @@ Shipped as commit 2d9ac7c (pushed). **Next on my docket:** WI-17 (CSV/XLSX impor
 
 **Verification:** 110 import tests green · typecheck ✓ · lint ✓ (max-warnings 0) · build ✓ · pushed to main.
 
+## 2026-04-20T18:54:00Z — Refactored import errors to structured error codes + Unicode whitespace handling
+
+**Status:** Completed and pushed to main (commit `1dde11f`).
+
+**Context:** Pedro tested the amount parser (commit `4f78721`) and found 5 consecutive rows failing with hardcoded English error "Importe: Contains invalid characters" in a Spanish app, with no indication of what value was rejected or what "Fila 1" means (absolute row? data row?).
+
+**Problems identified:**
+1. **Hardcoded English strings in error responses** — backend was returning `{ error: "Contains invalid characters" }` which Trinity had to either display raw (wrong language) or parse and map to i18n keys (brittle).
+2. **No raw value in errors** — users couldn't see what input was rejected, making debugging impossible.
+3. **Parser too strict on Unicode whitespace** — legitimate bank exports with NBSP (U+00A0), narrow NBSP (U+202F), zero-width spaces, etc. were rejected as "invalid characters".
+4. **Ambiguous row number semantic** — unclear whether "Fila 1" meant absolute source row, data row, or preview row.
+
+**Solution delivered:**
+
+1. **Structured error codes** (`amountParser.ts`):
+   - Replaced `{ error: string }` with discriminated union:
+     ```ts
+     type ParseAmountError =
+       | { code: 'EMPTY' }
+       | { code: 'NOT_A_STRING' }
+       | { code: 'NO_DIGITS'; raw: string }
+       | { code: 'INVALID_CHARACTERS'; raw: string; offending?: string }
+       | { code: 'PARSE_FAILED'; raw: string }
+     ```
+   - All errors now include the `raw` input string (except EMPTY).
+   - `INVALID_CHARACTERS` includes the `offending` character(s) so UI can display: `"Carácter no válido 'X' en '1.234X,56'"`.
+
+2. **Extended Unicode whitespace stripping**:
+   - Parser now normalizes **all Unicode whitespace** before character validation:
+     - NBSP (U+00A0), narrow NBSP (U+202F)
+     - Zero-width space (U+200B)
+     - Em space (U+2003), en space (U+2002)
+     - And others in ranges U+1680, U+2000–U+200B, U+205F, U+3000, U+FEFF
+   - Example: `"1 234,56 €"` (with NBSP) now parses as `1234.56` instead of rejecting.
+   - Only after stripping currency + whitespace does the parser check for invalid characters.
+
+3. **Propagated through the pipeline**:
+   - `parser.ts`: Updated wrapper to propagate `{ errorCode, errorRaw, errorOffending }`.
+   - `import.ts` handler: Updated `parseRow` to build error objects with code/raw/offending.
+   - IPC contract: Changed `parseErrorSchema` from `{ rowIndex, field, reason, value? }` to `{ row, field?, code, raw?, offending? }`.
+
+4. **Row number semantic decision**:
+   - **Absolute 1-based row number in source file** (most debuggable).
+   - Rationale: Pedro can open the file in Excel, jump to row N, see the exact raw data.
+   - Documented in `.squad/decisions/inbox/morpheus-error-row-semantics.md`.
+
+5. **Renderer compatibility** (`ImportWizard.tsx`):
+   - Updated error display to use `err.row` instead of `err.rowIndex`.
+   - Removed `mapErrorReasonToCode` function (no longer needed with structured codes).
+   - Error rendering now looks up `importWizard.dryRun.errorCodes.${code}` with `raw` and `offending` interpolation.
+
+**Learnings:**
+
+- **Backend should return codes, not prose:** Error messages are UI concerns. The backend's job is to identify the error type (code) and provide debugging context (raw value, offending character). The UI layer (Trinity) translates codes to localized messages.
+
+- **Unicode whitespace is everywhere in bank exports:** European banks use NBSP as thousands separators, Excel sometimes exports narrow NBSP, copy-paste from PDFs introduces zero-width spaces. A robust parser must normalize ALL Unicode whitespace variants to regular spaces before classification.
+
+- **Offending character helps immensely:** When showing `"Invalid characters in '1.234X,56'"`, users guess what's wrong. When showing `"Invalid character 'X' in '1.234X,56'"`, users instantly see the typo. The extra work to extract and return the offending character(s) is worth it.
+
+- **Row numbers must be absolute for debugging:** Preview tables show data rows 1-5, but if row 3 has an error, users need to know if that's source-file row 3 (bank preamble junk) or row 5 (header on row 2, data starts row 3). Absolute source-file row is unambiguous and matches what Excel displays.
+
+- **TypeScript `exactOptionalPropertyTypes: true` quirk:** When setting an optional property conditionally, you must NOT declare it as `T | undefined` in the interface, only as `T?`. If you do `raw?: string | undefined` and then conditionally set `obj.raw = value !== undefined ? value : undefined`, TS sees setting to `undefined` as different from omitting. Solution: use `raw?: string` and only set the property when the value is not undefined.
+
+**Tests added:**
+- NBSP (U+00A0) between digits and currency: `"1 234,56 €"` → 1234.56
+- Narrow NBSP (U+202F) as thousands: `"1 234,56"` → 1234.56
+- Zero-width space (U+200B): `"1 234.56"` → 1234.56
+- Em space (U+2003): `"1 234.56"` → 1234.56
+- Mixed whitespace: `" 1 234,56 "` → 1234.56
+- Error codes for all failure modes (empty, no digits, invalid chars, parse failed)
+
+All 122 import tests green · typecheck ✓ · lint ✓ · format:check ✓ · build ✓ · pushed to main (commit `1dde11f`).
+
+**Coordination note for Trinity:** Trinity now needs to:
+1. Create i18n keys in `app/src/renderer/locales/{es,en}/common.json` for each error code:
+   - `importWizard.dryRun.errorCodes.EMPTY`
+   - `importWizard.dryRun.errorCodes.INVALID_CHARACTERS` (with `{{offending}}` and `{{raw}}` interpolation)
+   - `importWizard.dryRun.errorCodes.NO_DIGITS`
+   - `importWizard.dryRun.errorCodes.PARSE_FAILED`
+   - etc.
+2. Already updated in commit `1dde11f`: error rendering now uses `err.row` and looks up `code` via i18n.
+3. Row number clarification text added: "Los números de fila corresponden al archivo original" / "Row numbers match the source file".
+
+**Problem solved:** Pedro's "5 consecutive identical errors" mystery. Backend was rejecting legitimate bank amounts with NBSP or other Unicode whitespace as "invalid characters" and showing no context. Now the parser accepts all Unicode whitespace variants, returns structured error codes with the raw value and offending character, and Trinity can display localized, actionable error messages.
+
