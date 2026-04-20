@@ -385,7 +385,9 @@
       "errorsHeading": "{{count}} filas no se pueden importar:",
       "noValidRows": "No hay movimientos válidos para importar.",
       "import": "Importar {{count}} movimientos",
-      "back": "Atrás"
+      "back": "Atrás",
+      "errorRow": "Fila {{rowIndex}} — {{field}}: {{reason}}",
+      "errorMore": "… y {{count}} más"
     },
     "confirm": {
       "importing": "Importando...",

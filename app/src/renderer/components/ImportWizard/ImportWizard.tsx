@@ -457,10 +457,11 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
         );
       case 'dryRun': {
         if (!state.dryRunResult || !state.dryRunResult.ok) return null;
-        const { summary, samples, duplicates } = state.dryRunResult;
+        const { summary, samples, duplicates, errors } = state.dryRunResult;
         const validCount = state.importDuplicates
           ? summary.validRows
           : summary.validRows - summary.duplicateCount;
+        const MAX_ERRORS_DISPLAY = 50;
         return (
           <div className="ot-import-wizard__step">
             <h2>{t('importWizard.dryRun.heading')}</h2>
@@ -478,10 +479,32 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                 </div>
               ) : null}
               {summary.errorCount > 0 ? (
-                <div className="ot-import-wizard__summary-item ot-import-wizard__summary-item--error">
-                  <AlertCircle size={16} />
-                  {t('importWizard.dryRun.summary.errors', { count: summary.errorCount })}
-                </div>
+                <>
+                  <div className="ot-import-wizard__summary-item ot-import-wizard__summary-item--error">
+                    <AlertCircle size={16} />
+                    {t('importWizard.dryRun.summary.errors', { count: summary.errorCount })}
+                  </div>
+                  {errors.length > 0 ? (
+                    <div className="ot-import-wizard__error-list">
+                      {errors.slice(0, MAX_ERRORS_DISPLAY).map((err, idx) => (
+                        <div key={idx} className="ot-import-wizard__error-row">
+                          {t('importWizard.dryRun.errorRow', {
+                            rowIndex: err.rowIndex,
+                            field: t(`importWizard.mapColumns.fields.${err.field}`),
+                            reason: err.reason,
+                          })}
+                        </div>
+                      ))}
+                      {errors.length > MAX_ERRORS_DISPLAY ? (
+                        <div className="ot-import-wizard__error-more">
+                          {t('importWizard.dryRun.errorMore', {
+                            count: errors.length - MAX_ERRORS_DISPLAY,
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
               ) : null}
             </div>
             {samples.length > 0 ? (

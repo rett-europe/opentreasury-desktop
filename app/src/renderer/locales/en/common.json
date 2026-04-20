@@ -385,7 +385,9 @@
       "errorsHeading": "{{count}} rows can't be imported:",
       "noValidRows": "No valid transactions to import.",
       "import": "Import {{count}} transactions",
-      "back": "Back"
+      "back": "Back",
+      "errorRow": "Row {{rowIndex}} — {{field}}: {{reason}}",
+      "errorMore": "… and {{count}} more"
     },
     "confirm": {
       "importing": "Importing...",
