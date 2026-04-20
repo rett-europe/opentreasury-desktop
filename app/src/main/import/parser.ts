@@ -1,5 +1,10 @@
 // Parser utilities for import — date and amount parsing with validation.
 
+import {
+  parseAmount as parseAmountLocaleAware,
+  type ParseAmountResult as LocaleParseResult,
+} from './amountParser.js';
+
 export interface ParseDateResult {
   success: boolean;
   date?: string; // ISO 8601 YYYY-MM-DD
@@ -108,22 +113,26 @@ export function parseDate(
 }
 
 /**
- * Parse an amount string with flexible formatting.
+ * Parse an amount string with locale-aware formatting (Spanish vs US).
  *
- * Supports:
- * - Decimal separators: comma (,) or dot (.)
- * - Thousands separators: dot, comma, space, apostrophe, or none
- * - Sign: leading -/+, trailing CR/DB, or parentheses
- * - Currency symbols (stripped)
+ * Delegates to the new locale-aware parser (amountParser.ts) which handles:
+ * - Spanish format: 16.433,39 (dot=thousands, comma=decimal)
+ * - US/UK format: 16,433.39 (comma=thousands, dot=decimal)
+ * - Auto-detection based on separator patterns
+ * - Currency symbols (€, $, £, USD, EUR, etc.)
+ * - Accounting negatives: (1.234,56)
+ * - Leading/trailing signs: -1.234,56
+ * - CR/DB suffixes (legacy, still supported)
  *
  * @param value - Raw cell value
- * @returns Parse result with amount, type, or error
+ * @returns Parse result with amount, type, or detailed error reason
  */
 export function parseAmount(value: unknown): ParseAmountResult {
   if (value === null || value === undefined || value === '') {
     return { success: false, error: 'Amount is required and must be non-zero' };
   }
 
+  // Handle numeric values directly (Excel might provide numbers)
   if (typeof value === 'number') {
     if (!Number.isFinite(value) || value === 0) {
       return { success: false, error: 'Amount is required and must be non-zero' };
@@ -132,12 +141,12 @@ export function parseAmount(value: unknown): ParseAmountResult {
     return { success: true, amount: Math.abs(value), type };
   }
 
+  // Convert to string and handle CR/DB suffixes (legacy bank export format)
   let str = String(value).trim();
   if (!str) {
     return { success: false, error: 'Amount is required and must be non-zero' };
   }
 
-  // Detect credit/debit suffix
   let isCredit = false;
   let isDebit = false;
   if (/\bCR\b/i.test(str)) {
@@ -148,60 +157,24 @@ export function parseAmount(value: unknown): ParseAmountResult {
     str = str.replace(/\bDB\b/i, '').trim();
   }
 
-  // Detect parentheses (negative)
-  const isNegativeParens = str.startsWith('(') && str.endsWith(')');
-  if (isNegativeParens) {
-    str = str.slice(1, -1).trim();
+  // Delegate to locale-aware parser
+  const localeResult: LocaleParseResult = parseAmountLocaleAware(str);
+
+  if ('error' in localeResult) {
+    return { success: false, error: localeResult.error };
   }
 
-  // Strip currency symbols and other non-numeric characters except .,- and whitespace
-  str = str.replace(/[^\d.,-\s]/g, '');
-
-  // Detect thousands separator vs decimal separator
-  // If both . and , present, the one appearing later is the decimal separator
-  const dotIndex = str.lastIndexOf('.');
-  const commaIndex = str.lastIndexOf(',');
-
-  let cleaned = str;
-  if (dotIndex > -1 && commaIndex > -1) {
-    // Both present: later one is decimal
-    if (dotIndex > commaIndex) {
-      // Dot is decimal: remove commas (thousands)
-      cleaned = str.replace(/,/g, '');
-    } else {
-      // Comma is decimal: remove dots (thousands), replace comma with dot
-      cleaned = str.replace(/\./g, '').replace(',', '.');
-    }
-  } else if (commaIndex > -1) {
-    // Only comma: could be thousands or decimal
-    // Heuristic: if 3 digits after comma, it's thousands; otherwise decimal
-    const afterComma = str.substring(commaIndex + 1);
-    if (afterComma.length === 3 && !afterComma.includes('.')) {
-      // Likely thousands separator
-      cleaned = str.replace(',', '');
-    } else {
-      // Likely decimal separator
-      cleaned = str.replace(',', '.');
-    }
+  // Apply CR/DB sign overrides if present (CR=credit=positive, DB=debit=negative)
+  let finalValue = localeResult.value;
+  if (isDebit && finalValue > 0) {
+    finalValue = -finalValue;
+  } else if (isCredit && finalValue < 0) {
+    finalValue = -finalValue; // flip to positive
   }
 
-  // Remove spaces
-  cleaned = cleaned.replace(/\s/g, '');
-
-  const parsed = parseFloat(cleaned);
-  if (!Number.isFinite(parsed) || parsed === 0) {
-    return { success: false, error: 'Invalid amount' };
-  }
-
-  // Determine sign
-  let finalValue = parsed;
-  if (isNegativeParens || isDebit) {
-    finalValue = -Math.abs(parsed);
-  } else if (isCredit) {
-    finalValue = Math.abs(parsed);
-  }
-
+  // Determine income vs expense
   const type = finalValue < 0 ? 'expense' : 'income';
+
   return { success: true, amount: Math.abs(finalValue), type };
 }
 

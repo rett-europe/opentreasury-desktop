@@ -63,7 +63,7 @@ interface ParsedRow {
   description: string | undefined;
   rowHash: string | undefined;
   isDuplicate: boolean | undefined;
-  errors: Array<{ field: 'date' | 'amount' | 'description'; reason: string }>;
+  errors: Array<{ field: 'date' | 'amount' | 'description'; reason: string; value?: string }>;
 }
 
 // ============================================================================
@@ -908,24 +908,37 @@ function parseRow(
   dateFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD',
   getReadModel: () => ReadModel,
 ): ParsedRow {
-  const errors: Array<{ field: 'date' | 'amount' | 'description'; reason: string }> = [];
+  const errors: Array<{ field: 'date' | 'amount' | 'description'; reason: string; value?: string }> =
+    [];
 
   // Parse date
   const dateResult = parseDate(row.rawDate, dateFormat);
   if (!dateResult.success) {
-    errors.push({ field: 'date', reason: dateResult.error! });
+    errors.push({
+      field: 'date',
+      reason: dateResult.error!,
+      value: String(row.rawDate ?? ''),
+    });
   }
 
   // Parse amount
   const amountResult = parseAmount(row.rawAmount);
   if (!amountResult.success) {
-    errors.push({ field: 'amount', reason: amountResult.error! });
+    errors.push({
+      field: 'amount',
+      reason: amountResult.error!,
+      value: String(row.rawAmount ?? ''),
+    });
   }
 
   // Parse description
   const description = row.rawDescription.trim();
   if (!description) {
-    errors.push({ field: 'description', reason: 'Description is required' });
+    errors.push({
+      field: 'description',
+      reason: 'Description is required',
+      value: String(row.rawDescription ?? ''),
+    });
   }
 
   // If any field failed, return early

@@ -117,6 +117,7 @@ const parseErrorSchema = z.object({
   rowIndex: z.number().int().positive(),
   field: z.enum(['date', 'amount', 'description']),
   reason: z.string(),
+  value: z.string().optional(), // Raw cell value that failed to parse
 });
 
 export const dryRunSuccessResponseSchema = z.object({
