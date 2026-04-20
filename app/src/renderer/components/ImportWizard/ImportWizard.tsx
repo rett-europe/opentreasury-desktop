@@ -135,10 +135,10 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
   const handleBack = () => {
     setState((s) => {
       if (s.step === 'uploadFile') return { ...s, step: 'selectAccount' };
-      if (s.step === 'confirmHeaderRow') return { ...s, step: 'uploadFile' };
-      if (s.step === 'pickSheet') return { ...s, step: 'confirmHeaderRow' };
-      if (s.step === 'mapColumns')
-        return { ...s, step: s.sheets.length > 1 ? 'pickSheet' : 'confirmHeaderRow' };
+      if (s.step === 'confirmHeaderRow')
+        return { ...s, step: s.sheets.length > 1 ? 'pickSheet' : 'uploadFile' };
+      if (s.step === 'pickSheet') return { ...s, step: 'uploadFile' };
+      if (s.step === 'mapColumns') return { ...s, step: 'confirmHeaderRow' };
       if (s.step === 'dryRun') return { ...s, step: 'mapColumns' };
       return s;
     });
@@ -220,7 +220,7 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
   const handleConfirmHeaderRow = () => {
     setState((s) => ({
       ...s,
-      step: s.sheets.length > 1 ? 'pickSheet' : 'mapColumns',
+      step: 'mapColumns',
     }));
   };
 
@@ -233,7 +233,8 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
       columnHeaders: sheet.columnHeaders,
       previewRows: sheet.previewRows ?? s.previewRows,
       detectedHeaderRow: sheet.detectedHeaderRow ?? s.detectedHeaderRow,
-      step: 'mapColumns',
+      headerRow: sheet.detectedHeaderRow ?? s.headerRow,
+      step: 'confirmHeaderRow',
     }));
   };
 
