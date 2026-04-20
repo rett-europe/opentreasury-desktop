@@ -184,6 +184,30 @@ Event-sourcing edit pattern: **Full payload snapshot (`tx.updated`)** — not fi
 
 **Artifact:** `.squad/decisions/inbox/neo-wi-20-scope.md`
 
+## 2026-04-21 — WI-20 shipped
+
+**Status:** All gates green (360/360 tests). Morpheus + Trinity delivered in parallel.
+
+**What shipped:**
+- Backend: `tx.updated` + `tx.deleted` events, IPC contracts, reducers, 16 tests (Morpheus: commits d3ad1ce + 7c48518)
+- Frontend: TransactionDetailModal edit/delete, TransactionFormModal (add+edit modes), status picker, reference/details fields, i18n, 16 tests (Trinity: merged via Morpheus)
+- Entry points: "New transaction" button in PanelScreen + MovementsScreen headers
+- Confirmation dialogs: delete confirmation in detail modal
+
+**Key decisions locked:**
+- Immutable `accountId` (ignore incoming value, use stored) — prevents balance-projection drift
+- Full payload snapshot (`tx.updated`) — simpler than field patches for single-user app
+- Separate edit modal (Option B) — leverages TransactionFormModal reusability despite earlier Option A suggestion
+
+**Cross-coordination:**
+- Morpheus created TransactionFormModal as shared UI surface; Trinity wired it to both add (WI-13) and edit (WI-20) flows
+- Trinity reports: modal composition was actually Option B (separate dialog) rather than Option A (in-place swap), but mental model preserved — user sees seamless edit-in-place workflow
+
+**Follow-up:** Account deletion rule (Pedro directive: "only if no transactions") flagged for future Accounts work item; NOT in WI-20 scope.
+
+**Artifact:** `.squad/orchestration-log/2026-04-21T20-44-08Z-{morpheus,trinity}.md`
+
 ## Team Updates
 
 - **WI-19 shipped:** Neo scoped, Pedro approved, Morpheus + Trinity delivered. All gates green (345/345 tests). TransactionDetailModal + NotesThread + import wizard mapping live on main. Contract deviations (noteId + id split, transactionsByReference projection) documented in decisions.md.
+- **WI-20 shipped:** Neo scoped, Pedro approved 4 decisions, Morpheus + Trinity delivered. All gates green (360/360 tests). Edit + delete + form refactor live on main. Decisions merged to decisions.md; inbox cleared.

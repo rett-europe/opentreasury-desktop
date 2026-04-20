@@ -1,5 +1,31 @@
 # Decisions Archive
 
+---
+
+## DIRECTIVE: User Rule — Account Deletion Constraint
+
+**Author:** Pedro (via Copilot)  
+**Date:** 2026-04-21  
+**Status:** Active  
+**Scope:** Not part of WI-20; flag for future Accounts work item
+
+### Rule
+
+An Account can only be deleted if it has no transactions. Accounts with transactions MUST NOT be deletable.
+
+- **UI:** Disable/hide the delete action for accounts with transactions.
+- **Backend:** Reject the delete command with an appropriate error (`ACCOUNT_HAS_TRANSACTIONS` or similar).
+
+### Rationale
+
+Data integrity guardrail. Deleting an account with transactions would orphan events in the append-only log and corrupt projections.
+
+### Implementation Timeline
+
+This rule should be audited against any existing account-delete path in Configuración. If not yet implemented, flag for a dedicated Accounts management work item (post-WI-20).
+
+---
+
 ## Decision: WI-18 — Header row detection + trailing-junk handling
 
 **Author:** Neo (Lead)  
@@ -329,3 +355,125 @@ The preview only ever contains 20 rows; allowing `headerRow > 20` would let a us
 ### 8. Staging's row-count cap is now measured on total rows (including preamble)
 
 Previously CSV staging measured row count via papaparse `step` with `header: true`, effectively "data rows after the header". Now, because we parse as arrays, the cap checks **all** rows including the preamble. For a 100k-row file this adds up to ~20 rows of headroom at most (the preview cap). Kept as-is — the cap is a zip-bomb mitigation, not a precise accounting knob.
+
+---
+
+## Decision: WI-20 Approvals (Pedro — 2026-04-21)
+
+**Author:** Pedro (via Copilot)  
+**Status:** Approved  
+**Context:** Responses to Neo's WI-20 scope document open questions.
+
+### Decisions
+
+1. **Include delete (`tx.deleted`) in WI-20 scope:** ✅ YES. Soft-delete via append-only `tx.deleted` event; reducer removes from projection; UI confirmation dialog.
+2. **`accountId` immutable after creation:** ✅ YES. Cannot reassign a transaction to a different account via edit. Users must delete + re-create if they genuinely need to move a tx between accounts. (Prevents balance-projection drift.)
+3. **"New transaction" button in MovementsScreen header:** ✅ YES. Mirrors the existing button in PanelScreen header.
+4. **Edit UX — in-place swap inside TransactionDetailModal:** ✅ YES (Option A). Clicking "Edit" swaps the read-only view for an editable form inside the same modal. Footer buttons change to "Cancel / Save". On submit → return to read-only view with fresh data. No stacked second modal.
+
+**Scope locked.** Morpheus owns backend (events, IPC, reducers, tests). Trinity owns UI (TransactionFormModal refactor, Detail modal edit/delete, MovementsScreen entry point, i18n, tests).
+
+---
+
+## Decision: WI-20 Backend — Immutable accountId Enforcement
+
+**Author:** Morpheus  
+**Date:** 2026-04-21  
+**Status:** Implemented (commit `d3ad1ce`)
+
+### Context
+
+WI-20 requires manual transaction edit functionality. Pedro approved that `accountId` should be **immutable after creation** — moving a transaction between accounts is too complex for WI-20 (affects balance projections across accounts, introduces edge cases).
+
+### Decision
+
+The `updateTransaction` command **ignores any incoming `accountId`** from the IPC request and uses the stored value from the existing transaction.
+
+**Why:** The UI form will have `accountId` as a read-only/disabled field (Trinity's WI-20 scope). The form state may still include it when submitting. Approach allows the UI to send the full transaction object without special-casing the update path. The backend enforces immutability by using `existing.accountId` instead of `input.accountId` when building the `tx.updated` event payload.
+
+### Implementation
+
+In `app/src/core/commands/updateTransaction.ts`:
+
+```typescript
+const payload: TransactionUpdatedPayload = {
+  id: input.id,
+  date: input.date,
+  type: input.type,
+  amount: input.amount,
+  currency: 'EUR',
+  description: input.description,
+  accountId: existing.accountId, // Immutable — use stored value
+  categoryId: input.categoryId ?? null,
+  subcategoryId: input.subcategoryId ?? null,
+  tagIds: input.tagIds ? [...input.tagIds] : [],
+  status: input.status ?? existing.status,
+  createdAt: existing.createdAt, // Preserve original timestamp
+  updatedAt,
+  reference,
+  details,
+};
+```
+
+The `UpdateTransactionInput` interface does NOT include `accountId`. The IPC `UpdateTransactionRequest` schema also omits `accountId` — Trinity's UI should not send it, but if it does (due to form state reuse), it will be stripped by the Zod schema.
+
+---
+
+## Decision: WI-20 Backend — Result Type Naming Strategy
+
+**Author:** Morpheus  
+**Date:** 2026-04-21  
+**Status:** Implemented (commit `d3ad1ce`)
+
+### Context
+
+The codebase uses a generic `Result<T, E>` discriminated union for command return values. When multiple commands export this same type, TypeScript raises "Cannot redeclare block-scoped variable" errors.
+
+### Decision
+
+Use **command-specific type aliases**:
+
+- `createTransaction` → `Result<T, E>` (unchanged)
+- `updateTransaction` → `UpdateResult<T, E>`
+- `deleteTransaction` → `DeleteResult<T, E>`
+
+### Rationale
+
+Minimal change. Each command's Result type is scoped to that command's module. Tests and handlers import specific types without conflicts. We can consolidate to a shared `Result<T, E>` later if the pattern becomes pervasive (e.g., WI-30+ adds 5 more commands).
+
+### Future Work
+
+If the command count grows, extract `Result<T, E>` to `core/types.ts` and alias it in each command module for backward compat.
+
+---
+
+## Decision: WI-20 Frontend — Separate Edit Modal vs In-Place Swap
+
+**Author:** Trinity  
+**Date:** 2026-04-21  
+**Status:** Implemented
+
+### Context
+
+TransactionDetailModal (WI-19) is read-only. WI-20 adds edit capability. Two approaches were considered:
+
+**Option A: In-Place Swap** — same modal swaps body between read-only and form.  
+**Option B: Separate Edit Modal** — edit form opens as separate dialog on top.
+
+### Decision
+
+**Chosen: Option B — Separate Edit Modal**
+
+While Pedro's scope suggested Option A, implementation reality made Option B significantly simpler. TransactionFormModal already exists as a self-contained dialog component with its own lifecycle. Rather than re-architecting it, we leverage it as-is.
+
+### Implementation
+
+1. TransactionDetailModal adds `isEditModalOpen` state
+2. Clicking "Edit" → `setIsEditModalOpen(true)` → TransactionFormModal renders with `isOpen={isEditModalOpen}`
+3. TransactionFormModal handles close (via onClose callback) → `setIsEditModalOpen(false)`
+4. TransactionFormModal handles submit (via onSubmit callback) → calls parent's `onUpdate` → parent refreshes
+5. Detail modal remains open behind edit modal; when edit modal closes, user returns to detail view with fresh data
+
+### Mental Model
+
+The "single pane" mental model is maintained: user sees detail modal → clicks Edit → form appears → saves → returns to detail view. The fact this is implemented via two dialogs vs one with swapped body is an implementation detail not visible to the user.
