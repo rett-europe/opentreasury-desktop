@@ -38,6 +38,7 @@ export type ImportErrorCode = z.infer<typeof importErrorCodeSchema>;
 
 export const stageFileRequestSchema = z.object({
   filePath: z.string().min(1),
+  headerRow: z.number().int().min(1).max(20).optional(),
 });
 
 export type StageFileRequest = z.infer<typeof stageFileRequestSchema>;
@@ -46,6 +47,8 @@ const sheetInfoSchema = z.object({
   name: z.string(),
   columnHeaders: z.array(z.string()),
   rowCount: z.number().int().nonnegative(),
+  detectedHeaderRow: z.number().int().min(1).max(20),
+  previewRows: z.array(z.array(z.string())),
 });
 
 export const stageFileSuccessResponseSchema = z.object({
@@ -89,6 +92,7 @@ export const dryRunRequestSchema = z.object({
   accountId: z.string().min(1),
   columnMapping: columnMappingSchema,
   importDuplicates: z.boolean().default(false),
+  headerRow: z.number().int().min(1).max(20),
 });
 
 export type DryRunRequest = z.infer<typeof dryRunRequestSchema>;
@@ -156,6 +160,7 @@ export const commitImportRequestSchema = z.object({
   columnMapping: columnMappingSchema,
   importDuplicates: z.boolean().default(false),
   confirmed: z.literal(true),
+  headerRow: z.number().int().min(1).max(20),
 });
 
 export type CommitImportRequest = z.infer<typeof commitImportRequestSchema>;

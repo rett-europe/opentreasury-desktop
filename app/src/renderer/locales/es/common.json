@@ -296,6 +296,7 @@
     "steps": {
       "selectAccount": "Seleccionar Cuenta",
       "uploadFile": "Cargar Archivo",
+      "confirmHeaderRow": "Confirmar Fila de Cabecera",
       "pickSheet": "Elegir Hoja",
       "mapColumns": "Mapear Columnas",
       "dryRun": "Revisar",
@@ -319,6 +320,18 @@
       "wrongType": "Solo Excel (.xlsx) o CSV (.csv).",
       "unreadable": "No se puede leer el archivo. Verifica que no esté dañado.",
       "next": "Siguiente"
+    },
+    "confirmHeaderRow": {
+      "title": "Confirmar fila de cabecera",
+      "detected": "Detectamos las cabeceras en la fila {{row}}.",
+      "notRight": "¿No es correcto? Cámbialo abajo.",
+      "label": "Fila de cabecera",
+      "preview": "Vista previa",
+      "empty": "(vacío)",
+      "skipped": "Omitida",
+      "header": "Cabecera",
+      "data": "Datos",
+      "continue": "Continuar"
     },
     "pickSheet": {
       "heading": "¿Cuál es la hoja con tus movimientos?",

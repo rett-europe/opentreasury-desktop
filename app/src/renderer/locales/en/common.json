@@ -296,6 +296,7 @@
     "steps": {
       "selectAccount": "Select Account",
       "uploadFile": "Upload File",
+      "confirmHeaderRow": "Confirm Header Row",
       "pickSheet": "Pick Sheet",
       "mapColumns": "Map Columns",
       "dryRun": "Review",
@@ -319,6 +320,18 @@
       "wrongType": "Only Excel (.xlsx) or CSV (.csv).",
       "unreadable": "Can't read file. Verify it's not corrupted.",
       "next": "Next"
+    },
+    "confirmHeaderRow": {
+      "title": "Confirm header row",
+      "detected": "We detected headers on row {{row}}.",
+      "notRight": "Not right? Change it below.",
+      "label": "Header row",
+      "preview": "Preview",
+      "empty": "(empty)",
+      "skipped": "Skipped",
+      "header": "Header",
+      "data": "Data",
+      "continue": "Continue"
     },
     "pickSheet": {
       "heading": "Which sheet has your transactions?",

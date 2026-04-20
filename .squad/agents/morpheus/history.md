@@ -594,3 +594,24 @@ Shipped as commit 2d9ac7c (pushed). **Next on my docket:** WI-17 (CSV/XLSX impor
 
 **Implementation report:** .squad/decisions/inbox/morpheus-wi17-sec-harden.md
 
+
+## 2026-04-20T10:57:25Z — WI-18 shipped: header-row detection + 2-of-3 junk rule
+
+**Status:** Backend complete.
+
+**Delivered:**
+- `app/src/main/import/headerDetection.ts` — pure `detectHeaderRow(previewRows: string[][]): number` (1-indexed). Scoring: +2 header-ish row, +3 next-row-is-data, +1 no-digits-in-row, -2 single-cell; ties → earliest; max score < 3 → fallback to row 1; only scans rows 1..20.
+- `app/src/main/import/rowClassification.ts` — `classifyRow(row, mapping, dateFormat) → "skip" | "error" | "import"` using `parseDate` + `parseAmount` + non-empty-description. Golden rule wired in: 0/1 parseable → silent skip, 2 → surface as error, 3 → import.
+- IPC contract (`app/src/shared/ipc-contracts/import.ts`): `stageFileRequest.headerRow?` (1..20 optional), `sheetInfo.{detectedHeaderRow, previewRows}` added, `dryRunRequest.headerRow` + `commitImportRequest.headerRow` required.
+- Handler (`app/src/main/ipc/handlers/import.ts`): stageFile now reads up to 20 raw rows (CSV via papaparse `header: false`, XLSX via `worksheet.getRow`), detects header, respects override, returns previewRows + detectedHeaderRow; dryRun + commit accept headerRow, slice from `headerRow + 1`, classify rows, drop "skip" silently, surface "error", commit "import".
+- 24 new unit tests (headerDetection: 9, rowClassification: 9, handler: 6). Total 102 import-area tests green.
+
+**Learnings:**
+- **Header-detection scoring is a hybrid of shape + context:** shape alone (row has 3+ short text cells, no digits) isn't enough — many bank exports have tall section-title rows that look like headers. The +3 bonus for "next row looks like data" is what actually disambiguates in practice.
+- **2-of-3 junk rule — golden rule:** never silently drop rows with 2 parseable fields. Those are almost always a real transaction with one typo (broken date, missing amount, etc). Only 0/1-parseable rows are truly junk (trailing summaries, separators, blank rows surviving `skipEmptyLines`).
+- **CSV parsing had to switch from `header: true` to `header: false` arrays:** once the header row can be at position N ≠ 1, papaparse's built-in header mode no longer fits. Parse as arrays, slice manually, derive the header record from row N.
+- **`detectedHeaderRow` is always returned, even when caller provides an override:** the UI needs to show "auto-detected row X" next to the override input, so the auto-detector must run unconditionally.
+- **`totalRows` in dry-run now counts retained rows only (post-junk-filter):** this is the number the user should trust. If they see "50 rows" but junk was silently dropped, they get confused; the summary must match reality.
+- **Empty rows in CSV are skipped at parse time (`skipEmptyLines: true`), so the "header row" index is relative to non-empty rows.** This matches how the user sees the preview, so it's the right choice.
+
+**Deviations from spec:** None. Spec summary in the task brief was implemented verbatim (Neo's formal spec file never materialized in the inbox).

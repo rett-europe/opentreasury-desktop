@@ -36,6 +36,8 @@ import { computeRowHash } from '../../import/rowHash.js';
 import { detectDateFormat } from '../../import/dateFormat.js';
 import { parseDate, parseAmount } from '../../import/parser.js';
 import { validateFilePath } from '../../import/pathGuard.js';
+import { detectHeaderRow } from '../../import/headerDetection.js';
+import { classifyRow } from '../../import/rowClassification.js';
 import {
   stageFile as registerFileId,
   resolveFileId,
@@ -84,7 +86,7 @@ export function createStageFileHandler(
         };
       }
 
-      const { filePath } = parsed.data;
+      const { filePath, headerRow: headerRowOverride } = parsed.data;
 
       // Validate path (Windows-aware: UNC, device names, symlinks, traversal)
       const validation = validateFilePath(filePath);
@@ -122,9 +124,9 @@ export function createStageFileHandler(
 
       let result: StageFileResponse;
       if (ext === '.csv') {
-        result = await handleCsvStaging(normalizedPath);
+        result = await handleCsvStaging(normalizedPath, headerRowOverride);
       } else if (ext === '.xlsx' || ext === '.xls') {
-        result = await handleXlsxStaging(normalizedPath);
+        result = await handleXlsxStaging(normalizedPath, headerRowOverride);
       } else {
         return {
           ok: false,
@@ -153,59 +155,65 @@ export function createStageFileHandler(
   };
 }
 
-async function handleCsvStaging(filePath: string): Promise<StageFileResponse> {
+const PREVIEW_ROWS = 20;
+
+// Sanitize a single cell for display in previewRows and header derivation:
+// strip control chars and cap length at 500.
+function sanitizeCell(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  let s: string;
+  if (value instanceof Date) {
+    s = value.toISOString().substring(0, 10);
+  } else if (typeof value === 'object' && value !== null && 'text' in value) {
+    s = String((value as { text: unknown }).text);
+  } else {
+    s = String(value);
+  }
+  return (
+    s
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x1F\x7F]/g, '')
+      .substring(0, 500)
+  );
+}
+
+function deriveColumnHeaders(headerRowCells: string[], totalCols: number): string[] {
+  const headers: string[] = [];
+  const width = Math.max(headerRowCells.length, totalCols);
+  for (let i = 0; i < width; i++) {
+    const raw = (headerRowCells[i] ?? '').trim();
+    headers.push(raw || `Column ${i + 1}`);
+  }
+  return headers;
+}
+
+async function handleCsvStaging(
+  filePath: string,
+  headerRowOverride: number | undefined,
+): Promise<StageFileResponse> {
   try {
     const content = fs.readFileSync(filePath, 'utf8');
 
-    // Parser safety: dynamicTyping: false (CVE mitigation), skipEmptyLines: true
-    const result = Papa.parse(content, {
+    // Parser safety: dynamicTyping: false (CVE mitigation), skipEmptyLines: true.
+    // Parse all rows as arrays (no header mode) so we can detect the header row.
+    const allRows: string[][] = [];
+    let aborted = false;
+
+    Papa.parse<string[]>(content, {
       header: false,
       dynamicTyping: false,
       skipEmptyLines: true,
-      preview: 1, // Just get headers
-    });
-
-    if (result.errors.length > 0 && result.errors[0]) {
-      return {
-        ok: false,
-        error: { code: 'FILE_UNREADABLE', detail: `CSV parse error: ${result.errors[0].message}` },
-      };
-    }
-
-    const headers = result.data[0] as string[];
-    if (!Array.isArray(headers) || headers.length < 3) {
-      return {
-        ok: false,
-        error: { code: 'INSUFFICIENT_COLUMNS', detail: 'CSV must have at least 3 columns' },
-      };
-    }
-
-    // Sanitize headers: strip control chars, cap length 500
-    const sanitizedHeaders = headers.map((h, i) =>
-      h
-        ? String(h)
-            // eslint-disable-next-line no-control-regex
-            .replace(/[\x00-\x1F\x7F]/g, '')
-            .trim()
-            .substring(0, 500) || `Column ${i + 1}`
-        : `Column ${i + 1}`,
-    );
-
-    // Get row count (with row-count cap for zip-bomb mitigation)
-    let rowCount = 0;
-    const fullResult = Papa.parse(content, {
-      header: true,
-      dynamicTyping: false,
-      skipEmptyLines: true,
-      step: () => {
-        rowCount++;
-        if (rowCount > MAX_ROW_COUNT) {
-          return false; // abort
+      step: (result) => {
+        if (allRows.length >= MAX_ROW_COUNT) {
+          aborted = true;
+          return;
         }
+        const row = Array.isArray(result.data) ? (result.data as unknown[]) : [];
+        allRows.push(row.map((c) => sanitizeCell(c)));
       },
     });
 
-    if (rowCount > MAX_ROW_COUNT) {
+    if (aborted) {
       return {
         ok: false,
         error: {
@@ -215,14 +223,43 @@ async function handleCsvStaging(filePath: string): Promise<StageFileResponse> {
       };
     }
 
+    if (allRows.length === 0) {
+      return {
+        ok: false,
+        error: { code: 'FILE_UNREADABLE', detail: 'CSV is empty' },
+      };
+    }
+
+    const previewRows = allRows.slice(0, PREVIEW_ROWS);
+    const detectedHeaderRow = detectHeaderRow(previewRows);
+    const effectiveHeaderRow =
+      headerRowOverride && headerRowOverride <= previewRows.length
+        ? headerRowOverride
+        : detectedHeaderRow;
+
+    const headerCells = previewRows[effectiveHeaderRow - 1] ?? [];
+    const totalCols = allRows.reduce((max, r) => Math.max(max, r.length), 0);
+    const columnHeaders = deriveColumnHeaders(headerCells, totalCols);
+
+    if (columnHeaders.length < 3) {
+      return {
+        ok: false,
+        error: { code: 'INSUFFICIENT_COLUMNS', detail: 'CSV must have at least 3 columns' },
+      };
+    }
+
+    const dataRowCount = Math.max(0, allRows.length - effectiveHeaderRow);
+
     return {
       ok: true,
       fileId: '', // Will be set by caller
       sheets: [
         {
           name: 'Sheet1',
-          columnHeaders: sanitizedHeaders,
-          rowCount: fullResult.data.length,
+          columnHeaders,
+          rowCount: dataRowCount,
+          detectedHeaderRow,
+          previewRows,
         },
       ],
     };
@@ -235,7 +272,10 @@ async function handleCsvStaging(filePath: string): Promise<StageFileResponse> {
   }
 }
 
-async function handleXlsxStaging(filePath: string): Promise<StageFileResponse> {
+async function handleXlsxStaging(
+  filePath: string,
+  headerRowOverride: number | undefined,
+): Promise<StageFileResponse> {
   try {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(filePath);
@@ -253,46 +293,44 @@ async function handleXlsxStaging(filePath: string): Promise<StageFileResponse> {
           name: sheetName,
           columnHeaders: [],
           rowCount: 0,
+          detectedHeaderRow: 1,
+          previewRows: [] as string[][],
         };
       }
 
-      // Get first row as headers
-      const firstRow = worksheet.getRow(1);
-      const columnHeaders: string[] = [];
+      // Collect the first PREVIEW_ROWS rows as raw string[] arrays.
+      const previewRows: string[][] = [];
+      const limit = Math.min(worksheet.rowCount, PREVIEW_ROWS);
+      let maxCols = 0;
+      for (let r = 1; r <= limit; r++) {
+        const row = worksheet.getRow(r);
+        const cells: string[] = [];
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cells.push(sanitizeCell(cell.value));
+        });
+        maxCols = Math.max(maxCols, cells.length);
+        previewRows.push(cells);
+      }
 
-      firstRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-        const value = cell.value;
-        let header = '';
+      const detectedHeaderRow = detectHeaderRow(previewRows);
+      const effectiveHeaderRow =
+        headerRowOverride && headerRowOverride <= previewRows.length
+          ? headerRowOverride
+          : detectedHeaderRow;
 
-        if (value !== null && value !== undefined) {
-          // Handle various cell value types
-          if (typeof value === 'string') {
-            header = value;
-          } else if (typeof value === 'number') {
-            header = String(value);
-          } else if (typeof value === 'object' && 'text' in value) {
-            header = String(value.text);
-          } else {
-            header = String(value);
-          }
-        }
+      const headerCells = previewRows[effectiveHeaderRow - 1] ?? [];
+      // For totalCols, also consider actual sheet column count.
+      const totalCols = Math.max(maxCols, worksheet.columnCount || 0);
+      const columnHeaders = deriveColumnHeaders(headerCells, totalCols);
 
-        // Sanitize: strip control chars, cap length 500
-        header = header
-          // eslint-disable-next-line no-control-regex
-          .replace(/[\x00-\x1F\x7F]/g, '')
-          .trim()
-          .substring(0, 500);
-
-        columnHeaders.push(
-          header || `Column ${String.fromCharCode(64 + colNumber)}`, // A, B, C, ...
-        );
-      });
+      const dataRowCount = Math.max(0, worksheet.rowCount - effectiveHeaderRow);
 
       return {
         name: sheetName,
         columnHeaders,
-        rowCount: worksheet.rowCount - 1, // Exclude header row
+        rowCount: dataRowCount,
+        detectedHeaderRow,
+        previewRows,
       };
     });
 
@@ -339,7 +377,7 @@ export function createDryRunHandler(
         };
       }
 
-      const { fileId, sheetName, accountId, columnMapping } = parsed.data;
+      const { fileId, sheetName, accountId, columnMapping, headerRow } = parsed.data;
 
       // Resolve fileId to real path
       const filePath = resolveFileId(fileId);
@@ -351,7 +389,7 @@ export function createDryRunHandler(
       }
 
       // Load and parse file
-      const rows = await loadFileRows(filePath, sheetName, columnMapping);
+      const rows = await loadFileRows(filePath, sheetName, columnMapping, headerRow);
       if (!rows.ok) {
         return { ok: false, error: rows.error };
       }
@@ -363,8 +401,25 @@ export function createDryRunHandler(
         .filter(Boolean);
       const dateFormatResult = detectDateFormat(dateSamples);
 
-      // Parse all rows
-      const parsedRows = rows.data.map((row) =>
+      // 2-of-3 junk rule: classify each row first. Silently drop "skip"
+      // rows (trailing summaries, blanks); keep "error" + "import" rows.
+      const classified = rows.data.map((row) => ({
+        row,
+        classification: classifyRow(
+          {
+            [columnMapping.date]: row.rawDate,
+            [columnMapping.amount]: row.rawAmount,
+            [columnMapping.description]: row.rawDescription,
+          },
+          columnMapping,
+          dateFormatResult.format,
+        ),
+      }));
+
+      const retained = classified.filter((r) => r.classification !== 'skip');
+
+      // Parse all retained rows
+      const parsedRows = retained.map(({ row }) =>
         parseRow(row, accountId, columnMapping, dateFormatResult.format, deps.getReadModel),
       );
 
@@ -400,7 +455,7 @@ export function createDryRunHandler(
       return {
         ok: true,
         summary: {
-          totalRows: rows.data.length,
+          totalRows: retained.length,
           validRows: validRows.length,
           duplicateCount: duplicates.length,
           errorCount: errors.length,
@@ -440,7 +495,8 @@ export function createCommitHandler(
         };
       }
 
-      const { fileId, sheetName, accountId, columnMapping, importDuplicates } = parsed.data;
+      const { fileId, sheetName, accountId, columnMapping, importDuplicates, headerRow } =
+        parsed.data;
 
       // Resolve fileId to real path
       const filePath = resolveFileId(fileId);
@@ -452,7 +508,7 @@ export function createCommitHandler(
       }
 
       // Load and parse (same as dry-run)
-      const rows = await loadFileRows(filePath, sheetName, columnMapping);
+      const rows = await loadFileRows(filePath, sheetName, columnMapping, headerRow);
       if (!rows.ok) {
         return { ok: false, error: rows.error };
       }
@@ -463,7 +519,25 @@ export function createCommitHandler(
         .filter(Boolean);
       const dateFormatResult = detectDateFormat(dateSamples);
 
-      const parsedRows = rows.data.map((row) =>
+      // 2-of-3 junk rule: commit only rows that dry-run classified as
+      // "import". "skip" rows vanish silently; "error" rows are not
+      // committed (parseRow will flag them and they'd go to errors list).
+      const classified = rows.data.map((row) => ({
+        row,
+        classification: classifyRow(
+          {
+            [columnMapping.date]: row.rawDate,
+            [columnMapping.amount]: row.rawAmount,
+            [columnMapping.description]: row.rawDescription,
+          },
+          columnMapping,
+          dateFormatResult.format,
+        ),
+      }));
+
+      const retained = classified.filter((r) => r.classification !== 'skip');
+
+      const parsedRows = retained.map(({ row }) =>
         parseRow(row, accountId, columnMapping, dateFormatResult.format, deps.getReadModel),
       );
 
@@ -613,13 +687,14 @@ async function loadFileRows(
   filePath: string,
   sheetName: string | undefined,
   mapping: ColumnMapping,
+  headerRow: number,
 ): Promise<LoadRowsResult | LoadRowsError> {
   const ext = path.extname(filePath).toLowerCase();
 
   if (ext === '.csv') {
-    return loadCsvRows(filePath, mapping);
+    return loadCsvRows(filePath, mapping, headerRow);
   } else if (ext === '.xlsx' || ext === '.xls') {
-    return loadXlsxRows(filePath, sheetName ?? 'Sheet1', mapping);
+    return loadXlsxRows(filePath, sheetName ?? 'Sheet1', mapping, headerRow);
   }
 
   return {
@@ -628,37 +703,31 @@ async function loadFileRows(
   };
 }
 
-function loadCsvRows(filePath: string, mapping: ColumnMapping): LoadRowsResult | LoadRowsError {
+function loadCsvRows(
+  filePath: string,
+  mapping: ColumnMapping,
+  headerRow: number,
+): LoadRowsResult | LoadRowsError {
   try {
     const content = fs.readFileSync(filePath, 'utf8');
 
-    // Parser safety: dynamicTyping: false, skipEmptyLines: true
-    // Row-count cap with abort
-    let rowCount = 0;
+    // Parse as arrays (header: false) so we can honor an arbitrary header
+    // row position chosen by the user (or the auto-detector).
+    const allRows: string[][] = [];
     let aborted = false;
-    const rows: RawRow[] = [];
 
-    Papa.parse(content, {
-      header: true,
+    Papa.parse<string[]>(content, {
+      header: false,
       dynamicTyping: false,
       skipEmptyLines: true,
       step: (result) => {
-        rowCount++;
-        if (rowCount > MAX_ROW_COUNT) {
+        if (allRows.length >= MAX_ROW_COUNT) {
           aborted = true;
           return;
         }
-
-        const row = result.data as Record<string, unknown>;
-        rows.push({
-          rowIndex: rowCount,
-          rawDate: String(row[mapping.date] ?? ''),
-          rawAmount: String(row[mapping.amount] ?? ''),
-          rawDescription: String(row[mapping.description] ?? ''),
-        });
+        const row = Array.isArray(result.data) ? (result.data as unknown[]) : [];
+        allRows.push(row.map((c) => (c === null || c === undefined ? '' : String(c))));
       },
-      complete: () => {},
-      error: () => {},
     });
 
     if (aborted) {
@@ -669,6 +738,36 @@ function loadCsvRows(filePath: string, mapping: ColumnMapping): LoadRowsResult |
           detail: `File exceeds maximum row limit (${MAX_ROW_COUNT} rows)`,
         },
       };
+    }
+
+    if (headerRow < 1 || headerRow > allRows.length) {
+      return {
+        ok: false,
+        error: { code: 'PARSE_ERROR', detail: `Header row ${headerRow} out of range` },
+      };
+    }
+
+    const headers = (allRows[headerRow - 1] ?? []).map((h) => h.trim());
+    const dateIdx = headers.indexOf(mapping.date);
+    const amountIdx = headers.indexOf(mapping.amount);
+    const descriptionIdx = headers.indexOf(mapping.description);
+
+    if (dateIdx < 0 || amountIdx < 0 || descriptionIdx < 0) {
+      return {
+        ok: false,
+        error: { code: 'PARSE_ERROR', detail: 'Column mapping not found in sheet headers' },
+      };
+    }
+
+    const rows: RawRow[] = [];
+    for (let i = headerRow; i < allRows.length; i++) {
+      const r = allRows[i] ?? [];
+      rows.push({
+        rowIndex: i - headerRow + 1,
+        rawDate: r[dateIdx] ?? '',
+        rawAmount: r[amountIdx] ?? '',
+        rawDescription: r[descriptionIdx] ?? '',
+      });
     }
 
     return { ok: true, data: rows };
@@ -685,6 +784,7 @@ async function loadXlsxRows(
   filePath: string,
   sheetName: string,
   mapping: ColumnMapping,
+  headerRow: number,
 ): Promise<LoadRowsResult | LoadRowsError> {
   try {
     const workbook = new ExcelJS.Workbook();
@@ -709,14 +809,14 @@ async function loadXlsxRows(
       };
     }
 
-    if (worksheet.rowCount < 2) {
+    if (worksheet.rowCount < headerRow + 1) {
       return { ok: true, data: [] };
     }
 
     // Get header row to find column indices
-    const headerRow = worksheet.getRow(1);
+    const headerCells = worksheet.getRow(headerRow);
     const headers: string[] = [];
-    headerRow.eachCell({ includeEmpty: true }, (cell) => {
+    headerCells.eachCell({ includeEmpty: true }, (cell) => {
       const value = cell.value;
       let header = '';
 
@@ -750,7 +850,7 @@ async function loadXlsxRows(
     let rowIndex = 0;
 
     worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-      if (rowNumber === 1) return; // Skip header
+      if (rowNumber <= headerRow) return; // Skip preamble + header
 
       rowIndex++;
 

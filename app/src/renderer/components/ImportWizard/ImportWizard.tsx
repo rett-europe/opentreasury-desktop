@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { X, ArrowLeft, Upload, FileSpreadsheet, Check, AlertCircle, Wallet } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { EmptyState } from '../EmptyState/index.js';
+import { ConfirmHeaderRow } from './ConfirmHeaderRow.js';
 import { listAccounts } from '../../services/accountsApi.js';
 import * as importApi from '../../services/importApi.js';
 import type { AccountRecord } from '../../types/config.js';
@@ -13,20 +14,33 @@ type SheetMetadata = {
   name: string;
   columnHeaders: string[];
   rowCount: number;
+  detectedHeaderRow?: number;
+  previewRows?: string[][];
 };
 import './ImportWizard.css';
 
-type Step = 'selectAccount' | 'uploadFile' | 'pickSheet' | 'mapColumns' | 'dryRun' | 'done';
+type Step =
+  | 'selectAccount'
+  | 'uploadFile'
+  | 'confirmHeaderRow'
+  | 'pickSheet'
+  | 'mapColumns'
+  | 'dryRun'
+  | 'done';
 
 interface WizardState {
   step: Step;
   accountId: string | null;
   accountName: string | null;
   fileId: string | null;
+  filePath: string | null;
   fileName: string | null;
   sheets: SheetMetadata[];
   selectedSheet: string | null;
   columnHeaders: string[];
+  headerRow: number | null;
+  detectedHeaderRow: number | null;
+  previewRows: string[][];
   columnMapping: Partial<ColumnMapping>;
   lastMapping: ColumnMapping | null;
   dryRunResult: DryRunResponse | null;
@@ -41,10 +55,14 @@ const INITIAL_STATE: WizardState = {
   accountId: null,
   accountName: null,
   fileId: null,
+  filePath: null,
   fileName: null,
   sheets: [],
   selectedSheet: null,
   columnHeaders: [],
+  headerRow: null,
+  detectedHeaderRow: null,
+  previewRows: [],
   columnMapping: {},
   lastMapping: null,
   dryRunResult: null,
@@ -117,9 +135,10 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
   const handleBack = () => {
     setState((s) => {
       if (s.step === 'uploadFile') return { ...s, step: 'selectAccount' };
-      if (s.step === 'pickSheet') return { ...s, step: 'uploadFile' };
+      if (s.step === 'confirmHeaderRow') return { ...s, step: 'uploadFile' };
+      if (s.step === 'pickSheet') return { ...s, step: 'confirmHeaderRow' };
       if (s.step === 'mapColumns')
-        return { ...s, step: s.sheets.length > 1 ? 'pickSheet' : 'uploadFile' };
+        return { ...s, step: s.sheets.length > 1 ? 'pickSheet' : 'confirmHeaderRow' };
       if (s.step === 'dryRun') return { ...s, step: 'mapColumns' };
       return s;
     });
@@ -148,15 +167,20 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
         setState((s) => ({ ...s, error: t(`importWizard.errors.${resp.error.code}`) }));
         return;
       }
-      const firstSheet = resp.sheets.length === 1 ? resp.sheets[0] : undefined;
+      const firstSheet = resp.sheets[0];
+      const detected = firstSheet?.detectedHeaderRow ?? 1;
       setState((s) => ({
         ...s,
         fileId: resp.fileId,
+        filePath,
         fileName: file.name,
         sheets: resp.sheets,
-        step: resp.sheets.length === 1 ? 'mapColumns' : 'pickSheet',
+        step: 'confirmHeaderRow',
         selectedSheet: firstSheet?.name ?? null,
         columnHeaders: firstSheet?.columnHeaders ?? [],
+        detectedHeaderRow: detected,
+        headerRow: detected,
+        previewRows: firstSheet?.previewRows ?? [],
         error: null,
       }));
     } catch (err) {
@@ -166,6 +190,40 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
     }
   };
 
+  const handleHeaderRowChange = async (nextRow: number) => {
+    if (!state.filePath) return;
+    setState((s) => ({ ...s, headerRow: nextRow }));
+    setLoading(true);
+    try {
+      const resp = await importApi.stageFile({ filePath: state.filePath, headerRow: nextRow });
+      if (!resp.ok) {
+        setState((s) => ({ ...s, error: t(`importWizard.errors.${resp.error.code}`) }));
+        return;
+      }
+      const sheet = resp.sheets.find((sh) => sh.name === state.selectedSheet) ?? resp.sheets[0];
+      setState((s) => ({
+        ...s,
+        fileId: resp.fileId,
+        sheets: resp.sheets,
+        selectedSheet: sheet?.name ?? s.selectedSheet,
+        columnHeaders: sheet?.columnHeaders ?? [],
+        previewRows: sheet?.previewRows ?? s.previewRows,
+        error: null,
+      }));
+    } catch (err) {
+      setState((s) => ({ ...s, error: String(err) }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmHeaderRow = () => {
+    setState((s) => ({
+      ...s,
+      step: s.sheets.length > 1 ? 'pickSheet' : 'mapColumns',
+    }));
+  };
+
   const handleSelectSheet = (sheetName: string) => {
     const sheet = state.sheets.find((s: SheetMetadata) => s.name === sheetName);
     if (!sheet) return;
@@ -173,6 +231,8 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
       ...s,
       selectedSheet: sheetName,
       columnHeaders: sheet.columnHeaders,
+      previewRows: sheet.previewRows ?? s.previewRows,
+      detectedHeaderRow: sheet.detectedHeaderRow ?? s.detectedHeaderRow,
       step: 'mapColumns',
     }));
   };
@@ -193,7 +253,8 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
   };
 
   const handleDryRun = async () => {
-    if (!state.fileId || !state.accountId || !isMappingComplete()) return;
+    if (!state.fileId || !state.accountId || !isMappingComplete() || state.headerRow === null)
+      return;
     setLoading(true);
     try {
       const resp = await importApi.dryRun({
@@ -202,6 +263,7 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
         accountId: state.accountId,
         columnMapping: state.columnMapping as ColumnMapping,
         importDuplicates: state.importDuplicates,
+        headerRow: state.headerRow,
       });
       if (!resp.ok) {
         setState((s) => ({ ...s, error: t(`importWizard.errors.${resp.error.code}`) }));
@@ -216,7 +278,8 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
   };
 
   const handleCommit = async () => {
-    if (!state.fileId || !state.accountId || !isMappingComplete()) return;
+    if (!state.fileId || !state.accountId || !isMappingComplete() || state.headerRow === null)
+      return;
     setLoading(true);
     try {
       const resp = await importApi.commit({
@@ -226,6 +289,7 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
         columnMapping: state.columnMapping as ColumnMapping,
         importDuplicates: state.importDuplicates,
         confirmed: true,
+        headerRow: state.headerRow,
       });
       if (!resp.ok) {
         setState((s) => ({ ...s, error: t(`importWizard.errors.${resp.error.code}`) }));
@@ -305,6 +369,16 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
               <p className="ot-import-wizard__file-name">{state.fileName}</p>
             ) : null}
           </div>
+        );
+      case 'confirmHeaderRow':
+        return (
+          <ConfirmHeaderRow
+            detectedHeaderRow={state.detectedHeaderRow ?? 1}
+            headerRow={state.headerRow ?? state.detectedHeaderRow ?? 1}
+            previewRows={state.previewRows}
+            onHeaderRowChange={handleHeaderRowChange}
+            disabled={loading}
+          />
         );
       case 'pickSheet':
         return (
@@ -529,6 +603,15 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                 disabled={!isMappingComplete() || loading}
               >
                 {loading ? t('common.loading') : t('importWizard.mapColumns.preview')}
+              </Button>
+            ) : state.step === 'confirmHeaderRow' ? (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleConfirmHeaderRow}
+                disabled={loading || state.headerRow === null}
+              >
+                {loading ? t('common.loading') : t('importWizard.confirmHeaderRow.continue')}
               </Button>
             ) : state.step === 'dryRun' ? (
               <Button type="button" variant="primary" onClick={handleCommit} disabled={loading}>

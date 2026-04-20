@@ -240,3 +240,90 @@
   gap: var(--space-4);
   margin-top: var(--space-4);
 }
+
+/* Confirm header row step (WI-18) */
+.ot-confirm-header-row__control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.ot-confirm-header-row__label {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.ot-confirm-header-row__input {
+  width: 5rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-14);
+}
+
+.ot-confirm-header-row__input:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 1px;
+}
+
+.ot-confirm-header-row__preview-heading {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.ot-confirm-header-row__table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+
+.ot-confirm-header-row__table {
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+.ot-confirm-header-row__row-num {
+  width: 4rem;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ot-confirm-header-row__marker {
+  display: inline-flex;
+  align-items: center;
+  margin-right: var(--space-2);
+  vertical-align: middle;
+}
+
+.ot-confirm-header-row__row--header {
+  background: var(--color-brand-surface);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ot-confirm-header-row__row--header td,
+.ot-confirm-header-row__row--header th {
+  border-bottom-color: var(--color-brand-primary);
+}
+
+.ot-confirm-header-row__row--skipped {
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  background: var(--color-surface-secondary);
+  opacity: 0.75;
+}
+
+.ot-confirm-header-row__row--data {
+  color: var(--color-text-primary);
+}
+
+.ot-confirm-header-row__empty {
+  font-style: italic;
+  color: var(--color-text-secondary);
+}

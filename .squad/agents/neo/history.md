@@ -128,3 +128,16 @@ The web app's bank-specific alias tables (`import_constants.py`) work for 90% of
 6 steps is the threshold before users perceive friction. We're at exactly 6 (account → upload → sheet-picker → mapping → dry-run → commit). Mapping memory (pre-fill on subsequent imports) keeps recurring imports at 4 steps (skip mapping + dry-run becomes a quick glance). Target: <30 seconds for a 50-row top-up, <2 minutes for a 500-row bulk load.
 
 **Artifact:** `.squad/decisions/inbox/neo-wi17-v2-spec.md` (frozen data contracts, row-hash algorithm, 6 work items, 7 open questions for Pedro).
+
+
+## 2026-04-20T10:47:33Z — WI-18 scope locked (header detection + 2-of-3 junk rule)
+
+**Status:** Decision file dropped at .squad/decisions/inbox/neo-wi18-header-row-detection.md. Morpheus + Trinity spawning in parallel against it.
+
+### Learnings
+
+**Header-detection heuristic (generalizable pattern).** Bank statement preambles are unbounded in format but bounded in structure: 2–8 "metadata" rows then a real header then data. Scoring heuristic (score each row on "looks like headers" + "row below looks like data") beats every alternative we considered (fixed-offset, regex-per-bank, ML). Four rules, integer scores, tie-break on earliest row, low-confidence fallback to row 1. Key insight: the **most predictive signal is the row *below*** (does it look like data?), not the candidate row itself — +3 weight vs +2 for the header-ish signal. Applies to any tabular-ingest problem with variable preamble (invoice imports, CSV exports from legacy systems, etc.).
+
+**2-of-3 junk rule (golden invariant: never silently lose a legitimate row).** When classifying bottom-of-file rows, "number of parseable required fields" is the right axis — not regex on cell content, not row-position-from-EOF. 0 or 1 parseable = junk (silent skip, count in skippedJunkRows info counter). 2 = surface as row-level error (could be real data with a broken field). 3 = import. The asymmetry is deliberate: silent skip is cheap when wrong in the junk direction (user re-imports), catastrophic when wrong in the data direction (user loses a transaction and may never notice). Always bias toward surfacing. Any future "smarter" rule (e.g. auto-skip /^Total/) requires a new decision — this invariant is locked.
+
+**IPC contract evolution pattern — additive optional fields.** Every WI-18 contract change is (a) new optional request fields with sensible defaults, or (b) new response fields that existing renderers ignore. Zero breaking changes to WI-17. This is now the house pattern for evolving ipc-contracts/*.ts: request additions are .optional(), response additions are fields existing clients won't read. Reserve breaking changes for a numbered contract version bump, which we have not yet needed. Lets Morpheus + Trinity ship in parallel without a flag day.
