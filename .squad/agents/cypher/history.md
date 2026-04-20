@@ -5,6 +5,15 @@
 - **Stack:** Electron (frontend), rest TBD. Reference app: Angular 19 + Python FastAPI + Cosmos DB + Entra ID on Azure.
 - **Created:** 2026-04-19
 
+## Core Context
+
+**WI-17 Implementation & Security Hardening SHIPPED (2026-04-20, commit a97d21e)**
+- Main-side import: 4 IPC handlers, 2 events, utilities (24 tests green)
+- Renderer: 6-step import wizard, service layer (6 tests green)
+- Security: All 6 Switch conditions applied (pathGuard, sessionFileRegistry, exceljs swap, fileId tokens, row-cap, parser safety)
+- Total: 175 tests passing, typecheck+lint+format clean
+- **Your next task (WI-17.4):** E2E tests (50-row CSV import, duplicate detection re-import, error handling with invalid dates). See `.squad/decisions.md` §"WI-17 Implementation & Security Hardening" for full acceptance criteria.
+
 ## Key Reference
 
 Testing considerations for a financial desktop app:

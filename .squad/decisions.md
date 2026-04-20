@@ -3204,6 +3204,143 @@ importMappings: [],
 
 ---
 
+### WI-17 Implementation & Security Hardening
+
+**Status:** ✅ **COMPLETE** — All 6 agents delivered; commit a97d21e pushed to main.
+
+**Timeline:** 2026-04-20, ~1 day of coordinated work (Morpheus + Trinity + Switch in security review cycle).
+
+#### Morpheus: WI-17.1 + WI-17.2 Main-Side Implementation
+
+**Date:** 2026-04-20T09:13:00Z  
+**Deliverables:** 4 IPC handlers + 2 events + utilities + 24 unit tests.
+
+**Files Added:**
+- `app/src/shared/ipc-contracts/import.ts` (6.4 KB) — 4 channel schemas, 9 error codes, Zod validation
+- `app/src/core/events/schemas.ts` (extended) — `movement.imported` (26 fields), `import.mapping.updated` (6 fields)
+- `app/src/core/query/types.ts` + `reducers.ts` (extended) — `ImportMapping` interface, reducer folds for both event types
+- `app/src/main/projections/importMappings.ts` + test (808 B + 3.6 KB, 4 tests)
+- `app/src/main/import/rowHash.ts` + test (1.3 KB + 3.2 KB, 11 tests) — SHA-256 dedup, normalization
+- `app/src/main/import/dateFormat.ts` + test (2.4 KB + 2.6 KB, 9 tests) — DD/MM/MM/DD/ISO auto-detection
+- `app/src/main/import/parser.ts` (7.0 KB) — `parseDate`, `parseAmount` with error envelopes
+- `app/src/main/ipc/handlers/import.ts` (19.8 KB) — 4 handlers frozen per spec
+- `app/src/preload/index.ts` (extended) — `window.opentreasury.import.*` surface
+- Dependency additions: `xlsx` (0.18.5), `papaparse` (5.4.1), `@types/papaparse`
+
+**Test Coverage:** 24 tests (all green). Not tested: file I/O, full dry-run→commit flow, e2e duplicate detection (deferred to WI-17.4).
+
+**Dependencies Added:**
+- `xlsx` (0.18.5, 400 KB) — XLSX parsing
+- `papaparse` (5.4.1, 44 KB) — CSV parsing + auto-delimiter detect
+
+**Build Status:** Main-side typecheck ✅ clean. Renderer has 8 errors (WI-17.3 scope).
+
+**Report:** `.squad/decisions/inbox/morpheus-wi17-impl.md`
+
+#### Trinity: WI-17.3 Renderer UI + Job B Panel Polish
+
+**Date:** 2026-04-20  
+**Job A Deliverables:** Import wizard service layer + component + i18n (6 service tests, all green).
+
+**Files Added:**
+- `app/src/renderer/services/importApi.ts` + test (IPC wrappers, 6 tests)
+- `app/src/renderer/components/ImportWizard/ImportWizard.tsx` + CSS + index (6-step wizard)
+- i18n: EN + ES translations for `importWizard.*` + `configuracion.datos.*`
+
+**Job B Panel Polish Findings:**
+- ✅ All 7 items verified as "already correct" in code per Mouse's audit
+- 0 CSS changes required
+- Mock data cleanup flagged out-of-scope for Trinity
+
+**Build Status:** Renderer code ✅ typecheck clean, 6 service tests + 148 total tests green.
+
+**Report:** `.squad/decisions/inbox/trinity-wi17-renderer.md`
+
+#### Switch: WI-17.5 Security Review
+
+**Date:** 2026-04-20T07:44:13Z  
+**Decision:** ✅ **APPROVED-WITH-CONDITIONS**
+
+**6 Mandatory Conditions:**
+1. Swap `xlsx` → `exceljs` (CVE-2023-30533, CVE-2024-22363 in xlsx)
+2. Windows-aware path hardening (UNC, device, reserved names, symlinks, traversal)
+3. Session file-path allowlist + in-memory registry with TTL
+4. Opaque ULID `fileId` tokens (renderer never sends raw paths after stage-file)
+5. Row-count cap: reject >100k rows (zip-bomb mitigation)
+6. Symlink rejection via `fs.lstat()`
+7. Parser safety flags (exceljs: no formulas, header sanitize; papaparse: `dynamicTyping: false`)
+
+**Remediation:** Applied by Morpheus in follow-up pass (same day).
+
+**Report:** `.squad/decisions/inbox/switch-wi17-security-review.md`
+
+**Remediation Plan:** `.squad/decisions/inbox/copilot-wi17-sec-remediation-plan.md`
+
+#### Morpheus: WI-17 Security Hardening Implementation
+
+**Date:** 2026-04-20  
+**Task:** Apply Switch's 6+1 conditions to main-side import.
+
+**Files Changed/Created:**
+- `package.json` — removed `xlsx`, added `exceljs` (4.4.0) + `ulid` (2.3.0)
+- `app/src/shared/ipc-contracts/import.ts` — added `fileId` to responses/requests; added `PATH_INVALID` + `ROW_COUNT_EXCEEDED` error codes
+- `app/src/main/ipc/handlers/import.ts` — exceljs rewrite, integrated pathGuard + sessionFileRegistry, row-count caps, parser safety flags
+- `app/src/main/import/pathGuard.ts` + test (2.8 KB + 4.5 KB, 13 tests) — Windows-aware path validation
+- `app/src/main/import/sessionFileRegistry.ts` + test (2.2 KB + 3.6 KB, 9 tests) — opaque fileId registry with TTL 30min
+
+**Test Coverage:** 197 total tests green (175 existing + 22 new security tests).
+
+**Build Status:** Main-side typecheck ✅ 0 errors. npm audit ✅ 0 vulnerabilities (was 1 HIGH before).
+
+**Breaking Change:** IPC contract now uses opaque `fileId` instead of `filePath`. Trinity fix-up addresses this.
+
+**Report:** `.squad/decisions/inbox/morpheus-wi17-sec-harden.md`
+
+#### Trinity: WI-17 TypeScript Fixup + FileId Refactor
+
+**Date:** 2026-04-20  
+**Task:** Fix 6 TS strict-mode errors + align renderer to security contract.
+
+**Part 1: TS Fixes**
+1. `ImportWizard.tsx:24` — discriminated union type extraction (explicit `SheetMetadata`)
+2. `ImportWizard.tsx:149-150` — array access safety (safe narrowing)
+3. `ImportWizard.tsx:161,289` — implicit any on callbacks (explicit types)
+4. `ConfiguracionScreen.tsx:77` — `exactOptionalPropertyTypes` alignment
+
+**Part 2: FileId Refactor**
+- `WizardState`: `filePath: string | null` → `fileId: string | null`
+- After `stageFile()`, wizard stores opaque `fileId` (not `filePath`)
+- `dry-run` + `commit` use `fileId` (not raw path)
+- i18n: Added `PATH_INVALID` + `ROW_COUNT_EXCEEDED` translations (EN + ES)
+
+**Build Status:** Renderer ✅ typecheck clean, all 8 importApi tests green.
+
+**Security Impact:** Renderer no longer sends raw paths to main after stage-file; main validates against session allowlist.
+
+**Report:** `.squad/decisions/inbox/trinity-wi17-fixup.md`
+
+#### Final State
+
+- **175 tests passing** (33 files, 9 pre-existing skipped)
+- **Typecheck + Lint + Format:** All clean
+- **Commit:** a97d21e — "feat(import): WI-17 — generic column-mapping importer (hardened)"
+- **Pushed to:** main
+
+#### Key Decisions Locked
+
+1. **Library Swap:** xlsx → exceljs for security. Trade-off: +400KB, ~20% slower, but zero HIGH CVEs.
+2. **FileId Tokens:** Opaque ULID session tokens mitigate path-traversal in compromised renderer.
+3. **TS Strict Mode Learning:** `exactOptionalPropertyTypes` requires explicit `| undefined` in optional prop types.
+
+#### Next Steps (Cypher)
+
+1. E2E tests: 50-row CSV import → verify 50 movements in list
+2. Duplicate detection: re-import same CSV → dry-run shows 50 duplicates, commit skips all
+3. Error handling: import with 5 invalid dates → dry-run shows 5 errors, commit imports 45
+4. Test fixtures: CSVs + XLSX samples under `test/fixtures/`
+
+---
+
 ## Out of scope (explicit deferrals)
 
 ### Column auto-detection / heuristics
