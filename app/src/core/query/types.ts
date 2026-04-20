@@ -13,6 +13,19 @@ export interface Transaction {
   readonly tagIds: readonly string[]; // Array of ULIDs
   readonly status: 'pending' | 'approved';
   readonly createdAt: string; // ISO 8601 UTC
+  // WI-19 — optional user-facing metadata. Always projected to string|null
+  // in the read model (events predating WI-19 are backfilled as null).
+  readonly reference: string | null;
+  readonly details: string | null;
+}
+
+// WI-19 — User annotation attached to a Transaction. Hard-delete semantics
+// (no soft-delete, no edit-versioning). Ordered by createdAt ASC in reads.
+export interface TransactionNote {
+  readonly id: string; // ULID
+  readonly txId: string; // ULID FK → Transaction.id
+  readonly text: string; // Up to 2000 chars
+  readonly createdAt: string; // ISO 8601 UTC — creation timestamp, stable across edits
 }
 
 export interface Account {
@@ -92,4 +105,10 @@ export interface ReadModel {
   readonly configTags: readonly ConfigTag[];
   readonly importMappings: readonly ImportMapping[];
   readonly rowHashes: ReadonlySet<string>;
+  // WI-19 — notes grouped by parent transaction id. Ordered by createdAt ASC.
+  readonly notes: ReadonlyMap<string, readonly TransactionNote[]>;
+  // WI-19 — in-memory "index on reference" (Pedro's approved ask — literal
+  // DB index is N/A because persistence is an NDJSON event log). Normalized
+  // reference (exact match, case-sensitive) → list of transactions sharing it.
+  readonly transactionsByReference: ReadonlyMap<string, readonly Transaction[]>;
 }

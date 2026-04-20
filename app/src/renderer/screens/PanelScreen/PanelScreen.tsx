@@ -6,6 +6,7 @@ import { AccountCard } from '../../components/AccountCard/index.js';
 import { KPIStrip } from '../../components/KPIStrip/index.js';
 import { Table } from '../../components/Table/index.js';
 import type { TableColumn } from '../../components/Table/Table.js';
+import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
 import type {
   Account,
   AccountBalance,
@@ -46,6 +47,7 @@ export function PanelScreen(): JSX.Element {
   const { t } = useTranslation('common');
   const [state, setState] = useState<PanelState>('skeleton');
   const [data, setData] = useState<PanelData | null>(null);
+  const [selectedTx, setSelectedTx] = useState<RecentTransaction | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -348,6 +350,7 @@ export function PanelScreen(): JSX.Element {
           rows={transactions}
           getRowKey={(row) => row.id}
           caption={t('panel.sections.recent')}
+          onRowClick={(row) => setSelectedTx(row)}
         />
         <div className="ot-panel-recent__footer">
           <a className="ot-panel-recent__link" href="/movements?range=this-month">
@@ -355,6 +358,13 @@ export function PanelScreen(): JSX.Element {
           </a>
         </div>
       </div>
+
+      <TransactionDetailModal
+        isOpen={selectedTx !== null}
+        onClose={() => setSelectedTx(null)}
+        transaction={selectedTx}
+        accounts={accounts}
+      />
     </div>
   );
 }

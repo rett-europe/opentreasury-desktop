@@ -82,7 +82,15 @@ export const columnMappingSchema = z.object({
   description: z.string().min(1),
   category: z.string().optional(),
   tag: z.string().optional(),
+  reference: z.string().optional(),
+  details: z.string().optional(),
 });
+
+// Field-length limits for WI-19 `reference` / `details` columns. Kept here so
+// the wizard client-side counter and the main-process validator agree on one
+// source of truth.
+export const REFERENCE_MAX_LENGTH = 120 as const;
+export const DETAILS_MAX_LENGTH = 1000 as const;
 
 export type ColumnMapping = z.infer<typeof columnMappingSchema>;
 

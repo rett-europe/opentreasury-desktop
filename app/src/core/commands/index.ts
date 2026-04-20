@@ -2,3 +2,4 @@
 // Commands take input + deps and return a Result<Event, ValidationError>.
 // They never perform I/O; the caller wires them to the event log.
 export * from './createTransaction';
+export * from './transactionNote';

@@ -153,6 +153,9 @@ export const recentTransactionSchema = z.object({
   tagIds: z.array(z.string()),
   status: z.enum(['pending', 'approved']),
   createdAt: z.string(),
+  // WI-19 — optional transaction extras surfaced by the detail modal.
+  reference: z.string().max(120).nullable().optional(),
+  details: z.string().max(1000).nullable().optional(),
 });
 
 export type RecentTransaction = z.infer<typeof recentTransactionSchema>;

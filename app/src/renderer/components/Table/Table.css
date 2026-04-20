@@ -139,3 +139,16 @@
   padding: var(--space-6) var(--space-6);
   font-weight: var(--font-weight-semibold);
 }
+
+/* WI-19 — row-level click affordance for the Panel recent transactions list
+   (opens the Transaction Detail modal). Keeps keyboard focus visible. */
+.ot-table__row--clickable {
+  cursor: pointer;
+}
+.ot-table__row--clickable:hover td {
+  background: var(--color-surface-secondary);
+}
+.ot-table__row--clickable:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: -2px;
+}

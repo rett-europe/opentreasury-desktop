@@ -51,6 +51,10 @@ export const movementRecordSchema = z.object({
   tagIds: z.array(z.string()),
   status: movementStatusSchema,
   createdAt: z.string(),
+  // WI-19 — optional transaction extras (read-only in this WI). Shown in the
+  // detail modal; not rendered in the Movements table.
+  reference: z.string().max(120).nullable().optional(),
+  details: z.string().max(1000).nullable().optional(),
 });
 
 export type MovementRecord = z.infer<typeof movementRecordSchema>;

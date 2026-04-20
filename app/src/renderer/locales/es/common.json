@@ -217,6 +217,41 @@
       }
     }
   },
+  "transactionDetail": {
+    "title": "Detalle del movimiento",
+    "metadata": {
+      "heading": "Metadatos del movimiento"
+    },
+    "fields": {
+      "account": "Cuenta",
+      "category": "Categoría",
+      "subcategory": "Subcategoría",
+      "tags": "Etiquetas",
+      "status": "Estado",
+      "currency": "Moneda",
+      "reference": "Referencia",
+      "details": "Detalles",
+      "none": "—"
+    }
+  },
+  "notes": {
+    "heading": "Notas",
+    "addLabel": "Añadir una nota",
+    "addButton": "Añadir",
+    "placeholder": "Añade una nota…",
+    "counter": "Quedan {{remaining}} caracteres",
+    "empty": "Aún no hay notas. Añade la primera.",
+    "deleteAria": "Eliminar nota",
+    "deleteConfirm": "¿Eliminar esta nota?",
+    "errors": {
+      "TX_NOT_FOUND": "Movimiento no encontrado.",
+      "NOTE_NOT_FOUND": "Nota no encontrada.",
+      "TEXT_EMPTY": "La nota no puede estar vacía.",
+      "TEXT_TOO_LONG": "Nota demasiado larga (máx. 2000 caracteres).",
+      "SCHEMA_INVALID": "Los datos de la nota no son válidos.",
+      "INTERNAL": "Algo salió mal. Inténtalo de nuevo."
+    }
+  },
   "configuracion": {
     "title": "Configuración",
     "subtitle": "Gestiona tus cuentas, categorías y etiquetas.",
@@ -355,6 +390,8 @@
         "description": "Descripción",
         "category": "Categoría",
         "tag": "Etiqueta",
+        "reference": "Referencia",
+        "details": "Detalles",
         "ignore": "(Ignorar)"
       },
       "missingRequired": "Mapea Fecha, Importe y Descripción para continuar.",
@@ -402,7 +439,9 @@
         "DATE_REQUIRED": "La fecha es obligatoria",
         "DATE_INVALID_SERIAL": "Fecha de Excel no válida",
         "DATE_OUT_OF_RANGE": "Fecha fuera de rango",
-        "DATE_INVALID_FORMAT": "Formato de fecha no válido"
+        "DATE_INVALID_FORMAT": "Formato de fecha no válido",
+        "REFERENCE_TOO_LONG": "Referencia demasiado larga (máx. 120 caracteres)",
+        "DETAILS_TOO_LONG": "Detalles demasiado largos (máx. 1000 caracteres)"
       }
     },
     "confirm": {

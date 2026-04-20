@@ -32,6 +32,10 @@ export const transactionCreatedPayloadSchema = z.object({
   tagIds: z.array(z.string().length(26)),
   status: transactionStatusSchema,
   createdAt: z.string().datetime(), // ISO 8601 UTC
+  // WI-19 — Optional on the wire for backward compatibility with pre-WI-19
+  // events already persisted to the NDJSON log. New events emit string|null.
+  reference: z.string().max(120).nullable().optional(),
+  details: z.string().max(1000).nullable().optional(),
 });
 
 export type TransactionCreatedPayload = z.infer<typeof transactionCreatedPayloadSchema>;
@@ -180,6 +184,10 @@ export const movementImportedEventSchema = z.object({
   sourceFileName: z.string(),
   importBatchId: z.string().length(26),
   rowIndex: z.number().int().positive(),
+  // WI-19 — Optional on the wire for backward compatibility with events
+  // written before reference/details columns were mappable in the wizard.
+  reference: z.string().max(120).nullable().optional(),
+  details: z.string().max(1000).nullable().optional(),
 });
 
 export type MovementImportedEvent = z.infer<typeof movementImportedEventSchema>;
@@ -196,6 +204,53 @@ export const importMappingUpdatedEventSchema = z.object({
 
 export type ImportMappingUpdatedEvent = z.infer<typeof importMappingUpdatedEventSchema>;
 
+// ---------------------------------------------------------------------------
+// WI-19 — Transaction notes events (flat wire-style, no envelope).
+// Notes are user annotations attached to a Transaction. They live on the same
+// append-only NDJSON event log as movements, and — like description/reference/
+// details on the parent transaction — their free-text content is considered
+// part of the DEK-encrypted payload surface (per ADR-002 / decisions.md, the
+// event log transport layer is responsible for encryption at M2 crypto; the
+// event payload shape itself does NOT leak plaintext in any new code path).
+//
+// Three events model the lifecycle:
+//   - tx.note.added    (create)
+//   - tx.note.edited   (in-place mutation; no version history)
+//   - tx.note.deleted  (hard-delete — notes are ephemeral commentary)
+// ---------------------------------------------------------------------------
+
+export const transactionNoteAddedEventSchema = z.object({
+  type: z.literal('tx.note.added'),
+  id: z.string().length(26), // Event ULID (unique per event — the log's dedupe key).
+  noteId: z.string().length(26), // Note primary key (stable across edits).
+  txId: z.string().length(26),
+  text: z.string().min(1).max(2000),
+  createdAt: z.string().datetime(),
+});
+
+export type TransactionNoteAddedEvent = z.infer<typeof transactionNoteAddedEventSchema>;
+
+export const transactionNoteEditedEventSchema = z.object({
+  type: z.literal('tx.note.edited'),
+  id: z.string().length(26), // Event ULID (unique per edit event).
+  noteId: z.string().length(26), // Note being edited.
+  txId: z.string().length(26),
+  text: z.string().min(1).max(2000),
+  editedAt: z.string().datetime(),
+});
+
+export type TransactionNoteEditedEvent = z.infer<typeof transactionNoteEditedEventSchema>;
+
+export const transactionNoteDeletedEventSchema = z.object({
+  type: z.literal('tx.note.deleted'),
+  id: z.string().length(26), // Event ULID (unique per deletion event).
+  noteId: z.string().length(26), // Note being deleted.
+  txId: z.string().length(26),
+  deletedAt: z.string().datetime(),
+});
+
+export type TransactionNoteDeletedEvent = z.infer<typeof transactionNoteDeletedEventSchema>;
+
 // Union type for all domain events
 export type DomainEvent =
   | TransactionCreatedEvent
@@ -206,4 +261,7 @@ export type DomainEvent =
   | ConfigCategoryCreatedEvent
   | ConfigTagCreatedEvent
   | MovementImportedEvent
-  | ImportMappingUpdatedEvent;
+  | ImportMappingUpdatedEvent
+  | TransactionNoteAddedEvent
+  | TransactionNoteEditedEvent
+  | TransactionNoteDeletedEvent;

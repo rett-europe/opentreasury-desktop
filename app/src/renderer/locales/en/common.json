@@ -217,6 +217,41 @@
       }
     }
   },
+  "transactionDetail": {
+    "title": "Transaction detail",
+    "metadata": {
+      "heading": "Transaction metadata"
+    },
+    "fields": {
+      "account": "Account",
+      "category": "Category",
+      "subcategory": "Subcategory",
+      "tags": "Tags",
+      "status": "Status",
+      "currency": "Currency",
+      "reference": "Reference",
+      "details": "Details",
+      "none": "—"
+    }
+  },
+  "notes": {
+    "heading": "Notes",
+    "addLabel": "Add a note",
+    "addButton": "Add",
+    "placeholder": "Add a note…",
+    "counter": "{{remaining}} characters left",
+    "empty": "No notes yet. Add the first one.",
+    "deleteAria": "Delete note",
+    "deleteConfirm": "Delete this note?",
+    "errors": {
+      "TX_NOT_FOUND": "Transaction not found.",
+      "NOTE_NOT_FOUND": "Note not found.",
+      "TEXT_EMPTY": "Note cannot be empty.",
+      "TEXT_TOO_LONG": "Note is too long (max 2000 characters).",
+      "SCHEMA_INVALID": "The note data is invalid.",
+      "INTERNAL": "Something went wrong. Please try again."
+    }
+  },
   "configuracion": {
     "title": "Settings",
     "subtitle": "Manage your accounts, categories and tags.",
@@ -355,6 +390,8 @@
         "description": "Description",
         "category": "Category",
         "tag": "Tag",
+        "reference": "Reference",
+        "details": "Details",
         "ignore": "(Ignore)"
       },
       "missingRequired": "Map Date, Amount, and Description to continue.",
@@ -402,7 +439,9 @@
         "DATE_REQUIRED": "Date is required",
         "DATE_INVALID_SERIAL": "Invalid Excel date",
         "DATE_OUT_OF_RANGE": "Date out of range",
-        "DATE_INVALID_FORMAT": "Invalid date format"
+        "DATE_INVALID_FORMAT": "Invalid date format",
+        "REFERENCE_TOO_LONG": "Reference too long (max 120 characters)",
+        "DETAILS_TOO_LONG": "Details too long (max 1000 characters)"
       }
     },
     "confirm": {

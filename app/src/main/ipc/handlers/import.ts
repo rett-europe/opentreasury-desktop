@@ -64,6 +64,10 @@ interface ParsedRow {
   description: string | undefined;
   rowHash: string | undefined;
   isDuplicate: boolean | undefined;
+  // WI-19 — pass through mapped reference/details (already normalized:
+  // trim + empty→null + clamped to max length). Always present on valid rows.
+  reference: string | null;
+  details: string | null;
   errors: Array<{
     field: 'date' | 'amount' | 'description';
     code: string;
@@ -560,6 +564,9 @@ export function createCommitHandler(
           sourceFileName,
           importBatchId,
           rowIndex: row.rowIndex,
+          // WI-19 — persist per-row reference/details when mapped.
+          reference: row.reference,
+          details: row.details,
         };
         events.push(event);
       }
@@ -657,6 +664,9 @@ interface RawRow {
   rawDate: string;
   rawAmount: string;
   rawDescription: string;
+  // WI-19 — optional per-row raw values for mappable free-text columns.
+  rawReference: string;
+  rawDetails: string;
 }
 
 interface LoadRowsResult {
@@ -740,6 +750,9 @@ function loadCsvRows(
     const dateIdx = headers.indexOf(mapping.date);
     const amountIdx = headers.indexOf(mapping.amount);
     const descriptionIdx = headers.indexOf(mapping.description);
+    // WI-19 — optional reference/details column indices (-1 when unmapped).
+    const referenceIdx = mapping.reference ? headers.indexOf(mapping.reference) : -1;
+    const detailsIdx = mapping.details ? headers.indexOf(mapping.details) : -1;
 
     if (dateIdx < 0 || amountIdx < 0 || descriptionIdx < 0) {
       return {
@@ -756,6 +769,8 @@ function loadCsvRows(
         rawDate: r[dateIdx] ?? '',
         rawAmount: r[amountIdx] ?? '',
         rawDescription: r[descriptionIdx] ?? '',
+        rawReference: referenceIdx >= 0 ? (r[referenceIdx] ?? '') : '',
+        rawDetails: detailsIdx >= 0 ? (r[detailsIdx] ?? '') : '',
       });
     }
 
@@ -827,6 +842,9 @@ async function loadXlsxRows(
     const dateIdx = headers.indexOf(mapping.date);
     const amountIdx = headers.indexOf(mapping.amount);
     const descriptionIdx = headers.indexOf(mapping.description);
+    // WI-19 — optional reference/details column indices (-1 when unmapped).
+    const referenceIdx = mapping.reference ? headers.indexOf(mapping.reference) : -1;
+    const detailsIdx = mapping.details ? headers.indexOf(mapping.details) : -1;
 
     if (dateIdx < 0 || amountIdx < 0 || descriptionIdx < 0) {
       return {
@@ -857,11 +875,17 @@ async function loadXlsxRows(
         rawDate = sanitizeCell(dateCell.value);
       }
 
+      // WI-19 — reference/details are only read when mapped. Unmapped → ''.
+      const referenceCell = referenceIdx >= 0 ? row.getCell(referenceIdx + 1) : null;
+      const detailsCell = detailsIdx >= 0 ? row.getCell(detailsIdx + 1) : null;
+
       rows.push({
         rowIndex,
         rawDate,
         rawAmount: sanitizeCell(amountCell.value),
         rawDescription: sanitizeCell(descriptionCell.value),
+        rawReference: referenceCell ? sanitizeCell(referenceCell.value) : '',
+        rawDetails: detailsCell ? sanitizeCell(detailsCell.value) : '',
       });
     });
 
@@ -930,6 +954,15 @@ function parseRow(
     });
   }
 
+  // WI-19 — normalize reference/details: trim, empty→null, clamp to max len.
+  const normalizeFreeText = (value: string, maxLen: number): string | null => {
+    const trimmed = (value ?? '').trim();
+    if (trimmed === '') return null;
+    return trimmed.length > maxLen ? trimmed.slice(0, maxLen) : trimmed;
+  };
+  const reference = normalizeFreeText(row.rawReference, 120);
+  const details = normalizeFreeText(row.rawDetails, 1000);
+
   // If any field failed, return early
   if (errors.length > 0) {
     return {
@@ -940,6 +973,8 @@ function parseRow(
       description: undefined,
       rowHash: undefined,
       isDuplicate: undefined,
+      reference,
+      details,
       errors,
     };
   }
@@ -956,6 +991,8 @@ function parseRow(
     description,
     rowHash,
     isDuplicate,
+    reference,
+    details,
     errors: [],
   };
 }

@@ -64,6 +64,20 @@ import {
   type LastMappingRequest,
   type LastMappingResponse,
 } from '../shared/ipc-contracts/import.js';
+import {
+  IPC_TRANSACTION_NOTE_ADD,
+  IPC_TRANSACTION_NOTE_LIST,
+  IPC_TRANSACTION_NOTE_EDIT,
+  IPC_TRANSACTION_NOTE_DELETE,
+  type AddNoteRequest,
+  type AddNoteResponse,
+  type ListNotesRequest,
+  type ListNotesResponse,
+  type EditNoteRequest,
+  type EditNoteResponse,
+  type DeleteNoteRequest,
+  type DeleteNoteResponse,
+} from '../shared/ipc-contracts/notes.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -95,6 +109,20 @@ const api = {
   transaction: {
     create: (req: CreateTransactionRequest): Promise<CreateTransactionResponse> => {
       return ipcRenderer.invoke(IPC_TRANSACTION_CREATE, req);
+    },
+    note: {
+      add: (req: AddNoteRequest): Promise<AddNoteResponse> => {
+        return ipcRenderer.invoke(IPC_TRANSACTION_NOTE_ADD, req);
+      },
+      list: (req: ListNotesRequest): Promise<ListNotesResponse> => {
+        return ipcRenderer.invoke(IPC_TRANSACTION_NOTE_LIST, req);
+      },
+      edit: (req: EditNoteRequest): Promise<EditNoteResponse> => {
+        return ipcRenderer.invoke(IPC_TRANSACTION_NOTE_EDIT, req);
+      },
+      delete: (req: DeleteNoteRequest): Promise<DeleteNoteResponse> => {
+        return ipcRenderer.invoke(IPC_TRANSACTION_NOTE_DELETE, req);
+      },
     },
   },
   movements: {

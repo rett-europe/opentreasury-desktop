@@ -28,6 +28,8 @@ const transactionCreatedPayloadMirrorSchema = z.object({
   tagIds: z.array(z.string().length(26)),
   status: z.enum(['pending', 'approved']),
   createdAt: z.string().datetime(),
+  reference: z.string().max(120).nullable().optional(),
+  details: z.string().max(1000).nullable().optional(),
 });
 
 const transactionCreatedEventMirrorSchema = z.object({
@@ -50,6 +52,23 @@ export type TransactionCreatedEventWire = z.infer<typeof transactionCreatedEvent
 export const transactionTypeSchema = z.enum(['income', 'expense']);
 export const transactionStatusSchema = z.enum(['pending', 'approved']);
 
+// WI-19 — free-text field normalization at the IPC boundary:
+//   - Accepts string | null | undefined.
+//   - Trims whitespace.
+//   - Empty string (after trimming) → null.
+//   - Enforces max length AFTER trimming.
+// Shared by `reference` (120) and `details` (1000) on transaction:create, and
+// re-used inside the notes request schemas.
+const freeTextField = (maxLen: number) =>
+  z
+    .union([z.string(), z.null(), z.undefined()])
+    .transform((v) => {
+      if (v === null || v === undefined) return null;
+      const trimmed = v.trim();
+      return trimmed === '' ? null : trimmed;
+    })
+    .pipe(z.string().max(maxLen).nullable());
+
 // Boundary-level schema — validates the shape of the untrusted IPC payload.
 // Business-rule validation (e.g. accountId exists) happens in the command.
 export const createTransactionRequestSchema = z.object({
@@ -63,6 +82,9 @@ export const createTransactionRequestSchema = z.object({
   subcategoryId: z.string().nullable().optional(),
   tagIds: z.array(z.string()).optional(),
   status: transactionStatusSchema.optional(),
+  // WI-19 — optional user-supplied metadata. Normalized to string|null.
+  reference: freeTextField(120).optional(),
+  details: freeTextField(1000).optional(),
 });
 
 export type CreateTransactionRequest = z.infer<typeof createTransactionRequestSchema>;

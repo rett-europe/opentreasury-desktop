@@ -442,6 +442,12 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                           {t('importWizard.mapColumns.fields.category')}
                         </option>
                         <option value="tag">{t('importWizard.mapColumns.fields.tag')}</option>
+                        <option value="reference">
+                          {t('importWizard.mapColumns.fields.reference')}
+                        </option>
+                        <option value="details">
+                          {t('importWizard.mapColumns.fields.details')}
+                        </option>
                       </select>
                     </td>
                   </tr>

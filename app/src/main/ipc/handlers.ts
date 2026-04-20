@@ -59,6 +59,16 @@ import {
   lastMappingResponseSchema,
 } from '../../shared/ipc-contracts/import.js';
 import {
+  IPC_TRANSACTION_NOTE_ADD,
+  IPC_TRANSACTION_NOTE_LIST,
+  IPC_TRANSACTION_NOTE_EDIT,
+  IPC_TRANSACTION_NOTE_DELETE,
+  addNoteResponseSchema,
+  listNotesResponseSchema,
+  editNoteResponseSchema,
+  deleteNoteResponseSchema,
+} from '../../shared/ipc-contracts/notes.js';
+import {
   handleGetAccounts,
   handleGetAccountBalances,
   handleGetMonthKPIs,
@@ -79,6 +89,12 @@ import {
   createCommitHandler,
   createLastMappingHandler,
 } from './handlers/import.js';
+import {
+  createAddNoteHandler,
+  createListNotesHandler,
+  createEditNoteHandler,
+  createDeleteNoteHandler,
+} from './handlers/notes.js';
 import { getEventLog } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { ACTOR_DEVICE_ID, DATASET_ID, newUlid } from '../ids.js';
@@ -223,5 +239,39 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_IMPORT_LAST_MAPPING, async (_event, raw: unknown) => {
     const response = await handleLastMapping(raw);
     return lastMappingResponseSchema.parse(response);
+  });
+
+  // WI-19 — transaction notes (add / list / edit / delete). Same deps shape
+  // as transaction:create; notes events ride the same NDJSON log.
+  const noteDeps = {
+    eventLog: getEventLog(),
+    getReadModel,
+    now: () => new Date(),
+    newId: newUlid,
+  };
+
+  const handleAddNote = createAddNoteHandler(noteDeps);
+  const handleListNotes = createListNotesHandler({ getReadModel });
+  const handleEditNote = createEditNoteHandler(noteDeps);
+  const handleDeleteNote = createDeleteNoteHandler(noteDeps);
+
+  ipcMain.handle(IPC_TRANSACTION_NOTE_ADD, async (_event, raw: unknown) => {
+    const response = await handleAddNote(raw);
+    return addNoteResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_TRANSACTION_NOTE_LIST, async (_event, raw: unknown) => {
+    const response = await handleListNotes(raw);
+    return listNotesResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_TRANSACTION_NOTE_EDIT, async (_event, raw: unknown) => {
+    const response = await handleEditNote(raw);
+    return editNoteResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_TRANSACTION_NOTE_DELETE, async (_event, raw: unknown) => {
+    const response = await handleDeleteNote(raw);
+    return deleteNoteResponseSchema.parse(response);
   });
 }

@@ -26,6 +26,11 @@ export interface CreateTransactionInput {
   readonly subcategoryId?: string | null;
   readonly tagIds?: readonly string[];
   readonly status?: TransactionStatus;
+  // WI-19 — optional user-supplied metadata. Trim + empty→null is applied
+  // at the IPC boundary (shared/ipc-contracts/transaction.ts); by the time
+  // the command runs, values are either a non-empty string or null/omitted.
+  readonly reference?: string | null;
+  readonly details?: string | null;
 }
 
 export interface CreateTransactionDeps {
@@ -64,6 +69,16 @@ function isValidIsoDate(s: string): boolean {
   // Guard against e.g. 2026-02-31 being coerced to a valid March date.
   const iso = d.toISOString().slice(0, 10);
   return iso === s;
+}
+
+// WI-19 — defensive normalization at the command layer: trim, empty→null,
+// clamp to max length. The IPC schema already normalizes, but the command is
+// callable in tests and future direct-call paths so we repeat the rule here.
+function normalizeFreeText(value: string | null | undefined, maxLen: number): string | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = value.trim();
+  if (trimmed === '') return null;
+  return trimmed.length > maxLen ? trimmed.slice(0, maxLen) : trimmed;
 }
 
 export function createTransaction(
@@ -154,6 +169,11 @@ export function createTransaction(
     tagIds: input.tagIds ? [...input.tagIds] : [],
     status: input.status ?? 'approved',
     createdAt,
+    // WI-19 — always emit explicit null for absent fields so new events are
+    // unambiguous (downstream reducers still tolerate `undefined` for
+    // backward-compat with pre-WI-19 events on disk).
+    reference: normalizeFreeText(input.reference, 120),
+    details: normalizeFreeText(input.details, 1000),
   };
 
   const event: TransactionCreatedEvent = {

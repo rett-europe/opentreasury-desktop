@@ -23,6 +23,11 @@ export interface TableProps<T> {
   readonly sortDirection?: SortDirection;
   readonly onSort?: (columnId: string) => void;
   readonly footer?: ReactNode;
+  /**
+   * Optional per-row click handler. When provided, rows become keyboard-
+   * focusable (tabindex=0) and invoke the callback on click + Enter / Space.
+   */
+  readonly onRowClick?: (row: T) => void;
 }
 
 /**
@@ -41,6 +46,7 @@ export function Table<T>({
   sortDirection,
   onSort,
   footer,
+  onRowClick,
 }: TableProps<T>): JSX.Element {
   return (
     <div className="ot-table-wrap">
@@ -103,33 +109,55 @@ export function Table<T>({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={getRowKey(row)}>
-              {columns.map((col) => {
-                const classes = [
-                  col.align === 'right'
-                    ? 'ot-table__cell--right'
-                    : col.align === 'center'
-                      ? 'ot-table__cell--center'
-                      : '',
-                  col.tabular ? 'ot-table__cell--tnum' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ');
-                const tdStyle: CSSProperties = {};
-                if (col.width != null) tdStyle.width = col.width;
-                return (
-                  <td
-                    key={col.id}
-                    className={classes || undefined}
-                    style={Object.keys(tdStyle).length > 0 ? tdStyle : undefined}
-                  >
-                    {col.render(row)}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
+          {rows.map((row) => {
+            const clickable = !!onRowClick;
+            const handleRowActivate = (): void => {
+              if (onRowClick) onRowClick(row);
+            };
+            return (
+              <tr
+                key={getRowKey(row)}
+                className={clickable ? 'ot-table__row--clickable' : undefined}
+                onClick={clickable ? handleRowActivate : undefined}
+                onKeyDown={
+                  clickable
+                    ? (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleRowActivate();
+                        }
+                      }
+                    : undefined
+                }
+                tabIndex={clickable ? 0 : undefined}
+                role={clickable ? 'button' : undefined}
+              >
+                {columns.map((col) => {
+                  const classes = [
+                    col.align === 'right'
+                      ? 'ot-table__cell--right'
+                      : col.align === 'center'
+                        ? 'ot-table__cell--center'
+                        : '',
+                    col.tabular ? 'ot-table__cell--tnum' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
+                  const tdStyle: CSSProperties = {};
+                  if (col.width != null) tdStyle.width = col.width;
+                  return (
+                    <td
+                      key={col.id}
+                      className={classes || undefined}
+                      style={Object.keys(tdStyle).length > 0 ? tdStyle : undefined}
+                    >
+                      {col.render(row)}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
         {footer ? <tfoot className="ot-table__foot">{footer}</tfoot> : null}
       </table>

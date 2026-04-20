@@ -585,3 +585,47 @@ Since Morpheus changed the error schema field from eason to code + aw, the ren
 
 **Commit:** feat(import): localize dry-run validation errors + show raw values (1dde11f)
 
+
+## 2026-04-21 — WI-19 Transaction extras: detail modal + notes thread
+
+**Shipped (Trinity's slice of WI-19):**
+- **Import wizard**: reference/details added as optional mapping targets next to category/tag. Selecting those columns propagates through the dry-run and commit IPC payloads. New row-error codes `REFERENCE_TOO_LONG` / `DETAILS_TOO_LONG` surface server-side validation in the dry-run list (EN+ES translations added).
+- **Transaction Detail modal (new)**: first-ever tx-detail surface. Locked-width native `<dialog>` mirrors the ImportWizard modal pattern. Layout: header (date + description + color-coded amount), metadata grid (account / category / subcategory / tags / status / currency), optional reference (mono-style read-only field), optional details (`white-space: pre-wrap` read-only block), Notes thread, Close footer. Opened by clicking a row in the Panel recent-transactions table. No Edit button per Pedro's decision #1 (deferred to WI-20).
+- **NotesThread (new)**: lives inside the detail modal. Textarea + live counter (EN: "N characters left" / ES: "Quedan N caracteres"), primary Add button disabled until trimmed draft is non-empty and within 2000-char limit. Oldest-first chronological list (matches Morpheus's `transaction:note:list` contract). Each note card: locale-formatted `Intl.DateTimeFormat` timestamp (dateStyle medium + timeStyle short), `white-space: pre-wrap` body, trash-icon delete with `window.confirm` guard. Empty-state message, error-state message, `aria-live="polite"` list.
+- **Table.onRowClick (new prop)**: Generic Table now supports optional row click — adds `role="button"` + `tabIndex=0` + Enter/Space activation + hover/focus styling. Opt-in so existing consumers unchanged.
+
+**Pattern reuses:**
+- Modal shell is a straight copy of `AddTransactionModal`/`ImportWizard`: native `<dialog>`, `showModal()`/`close()` via `useEffect`, `cancel` event preventDefault + backdrop click = onClose. Locked-width (640px) to avoid jitter when notes stream in. All dialog tests stub `HTMLDialogElement.prototype.showModal` because jsdom doesn't implement it (same workaround as WI-13/17).
+- Service layer: `renderer/services/notesApi.ts` follows the `importApi.ts` shape — thin async wrappers over `window.opentreasury.transaction.note.{add,list,delete}`.
+
+**Contract reconciliation with Morpheus:**
+Morpheus's published `shared/ipc-contracts/notes.ts` diverges from Neo's scope in three places; renderer was realigned to match:
+1. `add`/`delete` responses return `{ ok: true, event }` (not `{ ok: true, note }` / `{ ok: true }`) — same discriminated-union shape as `transaction:create`.
+2. Delete request takes `{ noteId }` (not `{ id }`).
+3. Error codes are `TX_NOT_FOUND` / `NOTE_NOT_FOUND` / `TEXT_EMPTY` / `TEXT_TOO_LONG` / `SCHEMA_INVALID` / `INTERNAL` (Neo's draft used different names). i18n keys under `notes.errors.*` updated to match.
+
+After add/delete the thread refetches the list (no optimistic update) — simpler and avoids stale-read bugs while the event log is settling.
+
+**i18n keys added:**
+- `importWizard.mapColumns.fields.reference` / `.details` (EN+ES).
+- `importWizard.dryRun.errorCodes.REFERENCE_TOO_LONG` / `DETAILS_TOO_LONG` (EN+ES).
+- Top-level `transactionDetail.*` namespace (title, metadata.heading, fields.{account,category,subcategory,tags,status,currency,reference,details,none}).
+- Top-level `notes.*` namespace (heading, addLabel, addButton, placeholder, counter, empty, deleteAria, deleteConfirm, errors.{TX_NOT_FOUND,NOTE_NOT_FOUND,TEXT_EMPTY,TEXT_TOO_LONG,SCHEMA_INVALID,INTERNAL}).
+
+**UX gotchas noted:**
+- `Intl.NumberFormat` in EN locale prepends the currency symbol before the digits; matching on `/€|EUR/` in tests picks up hidden Button icon children with "€" glyphs — prefer a class-scoped CSS query for amount assertions.
+- Button disabled state needs both `overLimit` AND `draft.trim().length === 0` because a whitespace-only draft should not be submittable but the counter alone doesn't reject it.
+- Row-click Table rows need `onKeyDown` that `preventDefault()`s Space; otherwise the browser scrolls before the modal opens.
+
+**Contract additions (shared/ipc-contracts/):**
+- `transaction.ts`: `createTransactionRequestSchema` + created-event mirror gained optional nullable `reference` (max 120) / `details` (max 1000).
+- `panel.ts` / `movements.ts`: `recentTransactionSchema` / `movementRecordSchema` gained the same optional pair so the detail modal has fields to render.
+- `import.ts`: `columnMappingSchema` gained optional `reference` / `details` strings; exported `REFERENCE_MAX_LENGTH` / `DETAILS_MAX_LENGTH` constants.
+
+**Tests added:**
+- `NotesThread.test.tsx` — empty state, list, add+refresh, delete+confirm+refresh, error surfacing.
+- `TransactionDetailModal.test.tsx` — header, reference/details visibility toggle by presence, notes thread mount.
+- `ImportWizard.test.tsx` — mapping dropdown exposes new options + end-to-end dry-run + commit payloads carry `reference`/`details` column names.
+- `notesApi.test.ts` — bridge plumbing, error passthrough (Morpheus also edited this file).
+
+**Gates:** renderer tsc clean, lint clean, prettier clean (after `--write`), vite build clean. Renderer-owned vitest green (5 new files, 16 new tests). Pre-existing Morpheus test failures remain in his domain (main/core typecheck errors + `createTransaction.test.ts` happy-path drift after his schema additions) — consistent with prior parallel-work history.

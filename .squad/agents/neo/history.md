@@ -143,3 +143,15 @@ The web app's bank-specific alias tables (`import_constants.py`) work for 90% of
 **2-of-3 junk rule (golden invariant: never silently lose a legitimate row).** When classifying bottom-of-file rows, "number of parseable required fields" is the right axis — not regex on cell content, not row-position-from-EOF. 0 or 1 parseable = junk (silent skip, count in skippedJunkRows info counter). 2 = surface as row-level error (could be real data with a broken field). 3 = import. The asymmetry is deliberate: silent skip is cheap when wrong in the junk direction (user re-imports), catastrophic when wrong in the data direction (user loses a transaction and may never notice). Always bias toward surfacing. Any future "smarter" rule (e.g. auto-skip /^Total/) requires a new decision — this invariant is locked.
 
 **IPC contract evolution pattern — additive optional fields.** Every WI-18 contract change is (a) new optional request fields with sensible defaults, or (b) new response fields that existing renderers ignore. Zero breaking changes to WI-17. This is now the house pattern for evolving ipc-contracts/*.ts: request additions are .optional(), response additions are fields existing clients won't read. Reserve breaking changes for a numbered contract version bump, which we have not yet needed. Lets Morpheus + Trinity ship in parallel without a flag day.
+
+## 2026-04-20T19:XX:XXZ — WI-19 scope: Transaction fields (reference, details) + Notes entity
+
+**Status:** Scope doc delivered at `.squad/decisions/inbox/neo-wi-19-scope.md`. Awaiting Pedro's sign-off.
+
+### Learnings
+
+**Commentary entities need hard-delete.** Notes (timestamped user comments on a transaction) are ephemeral annotations, not auditable financial records. Soft-delete + versioning adds complexity without business value — users don't need "note edit history" the way they might need transaction audit trails. Hard-delete via `tx.note.deleted` event is simpler and still maintains event-sourced immutability (the delete is an event, not a log mutation).
+
+**Transaction detail view is a prerequisite for notes UI.** MovementsScreen currently has no row-click handler — it's a list view only. Notes thread needs a container to live in (detail modal or inline expand). Modal is simpler; inline expand is slicker but more complex. Recommended modal for M1.5.
+
+**Null normalization simplifies queries.** Storing empty strings vs NULL creates two representations of "absent". Normalizing to NULL (trim + empty→null) keeps queries simple (`WHERE field IS NOT NULL`). Applied to both `reference` and `details` fields.
