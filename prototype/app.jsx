@@ -112,6 +112,9 @@ const App = () => {
   if (route === 'panel') content = <PanelScreen setRoute={setRoute}/>;
   else if (route === 'movimientos') content = <MovimientosScreen searchQuery={searchQuery}/>;
   else if (route === 'saldo') content = <SaldoScreen/>;
+  else if (route === 'cuentas') content = <CuentasScreen/>;
+  else if (route === 'categorias') content = <CategoriasScreen/>;
+  else if (route === 'etiquetas') content = <EtiquetasScreen/>;
   else content = <PlaceholderScreen route={route}/>;
 
   return (
