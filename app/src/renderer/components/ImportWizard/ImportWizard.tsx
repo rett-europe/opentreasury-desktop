@@ -175,7 +175,7 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
         filePath,
         fileName: file.name,
         sheets: resp.sheets,
-        step: 'confirmHeaderRow',
+        step: resp.sheets.length > 1 ? 'pickSheet' : 'confirmHeaderRow',
         selectedSheet: firstSheet?.name ?? null,
         columnHeaders: firstSheet?.columnHeaders ?? [],
         detectedHeaderRow: detected,
