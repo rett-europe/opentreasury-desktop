@@ -62,41 +62,28 @@ export function TransactionDetailModal({
 }: TransactionDetailModalProps): JSX.Element {
   const { t } = useTranslation('common');
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [mode, setMode] = useState<'view' | 'edit'>('view');
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (isOpen && !dialog.open) {
+    if (isOpen && !dialog.open && !isEditModalOpen) {
       dialog.showModal();
-      setMode('view'); // Reset to view mode on open
     } else if (!isOpen && dialog.open) {
       dialog.close();
     }
-  }, [isOpen]);
+  }, [isOpen, isEditModalOpen]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     const handleCancel = (e: Event): void => {
       e.preventDefault();
-      if (mode === 'edit') {
-        // In edit mode, cancel → revert to view
-        setMode('view');
-      } else {
-        // In view mode, cancel → close modal
-        onClose();
-      }
+      onClose();
     };
     const handleClick = (e: MouseEvent): void => {
-      if (e.target === dialog) {
-        if (mode === 'edit') {
-          setMode('view');
-        } else {
-          onClose();
-        }
-      }
+      if (e.target === dialog) onClose();
     };
     dialog.addEventListener('cancel', handleCancel);
     dialog.addEventListener('click', handleClick);
@@ -104,14 +91,14 @@ export function TransactionDetailModal({
       dialog.removeEventListener('cancel', handleCancel);
       dialog.removeEventListener('click', handleClick);
     };
-  }, [onClose, mode]);
+  }, [onClose]);
 
   const handleEdit = (): void => {
-    setMode('edit');
+    setIsEditModalOpen(true);
   };
 
   const handleCancelEdit = (): void => {
-    setMode('view');
+    setIsEditModalOpen(false);
   };
 
   const handleSaveEdit = async (
@@ -119,7 +106,7 @@ export function TransactionDetailModal({
   ): Promise<void> => {
     // In edit mode, we know input is UpdateTransactionRequest
     await onUpdate(input as UpdateTransactionRequest);
-    setMode('view');
+    setIsEditModalOpen(false);
     // Parent will refresh and pass updated transaction
   };
 
@@ -153,48 +140,20 @@ export function TransactionDetailModal({
     );
   }
 
-  // In edit mode, render TransactionFormModal inline
-  if (mode === 'edit') {
-    const initialData: TransactionFormData = {
-      id: transaction.id,
-      accountId: transaction.accountId,
-      date: transaction.date,
-      type: transaction.type,
-      amount: transaction.amount,
-      description: transaction.description,
-      categoryId: transaction.categoryId,
-      subcategoryId: transaction.subcategoryId,
-      tagIds: transaction.tagIds,
-      status: transaction.status,
-      reference: transaction.reference ?? null,
-      details: transaction.details ?? null,
-    };
-
-    return (
-      <dialog
-        ref={dialogRef}
-        className="ot-transaction-detail-modal"
-        aria-labelledby="ot-transaction-detail-title"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="ot-transaction-detail-modal__content">
-          <TransactionFormModal
-            mode="edit"
-            isOpen={true}
-            onClose={handleCancelEdit}
-            onSubmit={handleSaveEdit}
-            accounts={accounts}
-            categories={categories}
-            tags={tags}
-            initialData={initialData}
-          />
-        </div>
-      </dialog>
-    );
-  }
-
-  // View mode (read-only)
+  const initialData: TransactionFormData = {
+    id: transaction.id,
+    accountId: transaction.accountId,
+    date: transaction.date,
+    type: transaction.type,
+    amount: transaction.amount,
+    description: transaction.description,
+    categoryId: transaction.categoryId,
+    subcategoryId: transaction.subcategoryId,
+    tagIds: transaction.tagIds,
+    status: transaction.status,
+    reference: transaction.reference ?? null,
+    details: transaction.details ?? null,
+  };
   const account = accounts.find((a) => a.id === transaction.accountId);
   const accountLabel = account?.accountLabel ?? transaction.accountId;
 
@@ -209,130 +168,143 @@ export function TransactionDetailModal({
   const resolvedTagLabels: readonly string[] = tagLabels ?? transaction.tagIds;
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="ot-transaction-detail-modal"
-      aria-labelledby="ot-transaction-detail-title"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="ot-transaction-detail-modal__content">
-        <header className="ot-transaction-detail-modal__header">
-          <div className="ot-transaction-detail-modal__heading">
-            <span className="ot-transaction-detail-modal__date">
-              {formatDate(transaction.date)}
-            </span>
-            <h1 id="ot-transaction-detail-title" className="ot-transaction-detail-modal__title">
-              {transaction.description}
-            </h1>
-            <span className={`ot-transaction-detail-modal__amount ${amountClass}`}>
-              {formattedAmount}
-            </span>
-          </div>
-          <div className="ot-transaction-detail-modal__header-actions">
-            <button
-              type="button"
-              className="ot-transaction-detail-modal__action-btn"
-              onClick={handleDelete}
-              disabled={isDeleting}
-              aria-label={t('transactionDetail.deleteButton')}
-              title={t('transactionDetail.deleteButton')}
-            >
-              <Trash2 size={18} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className="ot-transaction-detail-modal__close"
-              onClick={onClose}
-              aria-label={t('common.close')}
-            >
-              <X size={20} aria-hidden="true" />
-            </button>
-          </div>
-        </header>
+    <>
+      <dialog
+        ref={dialogRef}
+        className="ot-transaction-detail-modal"
+        aria-labelledby="ot-transaction-detail-title"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="ot-transaction-detail-modal__content">
+          <header className="ot-transaction-detail-modal__header">
+            <div className="ot-transaction-detail-modal__heading">
+              <span className="ot-transaction-detail-modal__date">
+                {formatDate(transaction.date)}
+              </span>
+              <h1 id="ot-transaction-detail-title" className="ot-transaction-detail-modal__title">
+                {transaction.description}
+              </h1>
+              <span className={`ot-transaction-detail-modal__amount ${amountClass}`}>
+                {formattedAmount}
+              </span>
+            </div>
+            <div className="ot-transaction-detail-modal__header-actions">
+              <button
+                type="button"
+                className="ot-transaction-detail-modal__action-btn"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                aria-label={t('transactionDetail.deleteButton')}
+                title={t('transactionDetail.deleteButton')}
+              >
+                <Trash2 size={18} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="ot-transaction-detail-modal__close"
+                onClick={onClose}
+                aria-label={t('common.close')}
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </div>
+          </header>
 
-        <section
-          className="ot-transaction-detail-modal__metadata"
-          aria-label={t('transactionDetail.metadata.heading')}
-        >
-          <dl className="ot-transaction-detail-modal__grid">
-            <div className="ot-transaction-detail-modal__field">
-              <dt>{t('transactionDetail.fields.account')}</dt>
-              <dd>{accountLabel}</dd>
-            </div>
-            <div className="ot-transaction-detail-modal__field">
-              <dt>{t('transactionDetail.fields.category')}</dt>
-              <dd>
-                {categoryLabel ?? transaction.categoryId ?? t('transactionDetail.fields.none')}
-              </dd>
-            </div>
-            <div className="ot-transaction-detail-modal__field">
-              <dt>{t('transactionDetail.fields.subcategory')}</dt>
-              <dd>
-                {subcategoryLabel ??
-                  transaction.subcategoryId ??
-                  t('transactionDetail.fields.none')}
-              </dd>
-            </div>
-            <div className="ot-transaction-detail-modal__field">
-              <dt>{t('transactionDetail.fields.tags')}</dt>
-              <dd>
-                {resolvedTagLabels.length > 0
-                  ? resolvedTagLabels.join(', ')
-                  : t('transactionDetail.fields.none')}
-              </dd>
-            </div>
-            <div className="ot-transaction-detail-modal__field">
-              <dt>{t('transactionDetail.fields.status')}</dt>
-              <dd>{t(`movements.status.${transaction.status}`)}</dd>
-            </div>
-            <div className="ot-transaction-detail-modal__field">
-              <dt>{t('transactionDetail.fields.currency')}</dt>
-              <dd>{transaction.currency}</dd>
-            </div>
-          </dl>
-        </section>
-
-        {transaction.reference ? (
           <section
-            className="ot-transaction-detail-modal__extra"
-            aria-label={t('transactionDetail.fields.reference')}
+            className="ot-transaction-detail-modal__metadata"
+            aria-label={t('transactionDetail.metadata.heading')}
           >
-            <h2 className="ot-transaction-detail-modal__extra-label">
-              {t('transactionDetail.fields.reference')}
-            </h2>
-            <p className="ot-transaction-detail-modal__reference">{transaction.reference}</p>
+            <dl className="ot-transaction-detail-modal__grid">
+              <div className="ot-transaction-detail-modal__field">
+                <dt>{t('transactionDetail.fields.account')}</dt>
+                <dd>{accountLabel}</dd>
+              </div>
+              <div className="ot-transaction-detail-modal__field">
+                <dt>{t('transactionDetail.fields.category')}</dt>
+                <dd>
+                  {categoryLabel ?? transaction.categoryId ?? t('transactionDetail.fields.none')}
+                </dd>
+              </div>
+              <div className="ot-transaction-detail-modal__field">
+                <dt>{t('transactionDetail.fields.subcategory')}</dt>
+                <dd>
+                  {subcategoryLabel ??
+                    transaction.subcategoryId ??
+                    t('transactionDetail.fields.none')}
+                </dd>
+              </div>
+              <div className="ot-transaction-detail-modal__field">
+                <dt>{t('transactionDetail.fields.tags')}</dt>
+                <dd>
+                  {resolvedTagLabels.length > 0
+                    ? resolvedTagLabels.join(', ')
+                    : t('transactionDetail.fields.none')}
+                </dd>
+              </div>
+              <div className="ot-transaction-detail-modal__field">
+                <dt>{t('transactionDetail.fields.status')}</dt>
+                <dd>{t(`movements.status.${transaction.status}`)}</dd>
+              </div>
+              <div className="ot-transaction-detail-modal__field">
+                <dt>{t('transactionDetail.fields.currency')}</dt>
+                <dd>{transaction.currency}</dd>
+              </div>
+            </dl>
           </section>
-        ) : null}
 
-        {transaction.details ? (
-          <section
-            className="ot-transaction-detail-modal__extra"
-            aria-label={t('transactionDetail.fields.details')}
-          >
-            <h2 className="ot-transaction-detail-modal__extra-label">
-              {t('transactionDetail.fields.details')}
-            </h2>
-            <p className="ot-transaction-detail-modal__details">{transaction.details}</p>
-          </section>
-        ) : null}
+          {transaction.reference ? (
+            <section
+              className="ot-transaction-detail-modal__extra"
+              aria-label={t('transactionDetail.fields.reference')}
+            >
+              <h2 className="ot-transaction-detail-modal__extra-label">
+                {t('transactionDetail.fields.reference')}
+              </h2>
+              <p className="ot-transaction-detail-modal__reference">{transaction.reference}</p>
+            </section>
+          ) : null}
 
-        <hr className="ot-transaction-detail-modal__divider" />
+          {transaction.details ? (
+            <section
+              className="ot-transaction-detail-modal__extra"
+              aria-label={t('transactionDetail.fields.details')}
+            >
+              <h2 className="ot-transaction-detail-modal__extra-label">
+                {t('transactionDetail.fields.details')}
+              </h2>
+              <p className="ot-transaction-detail-modal__details">{transaction.details}</p>
+            </section>
+          ) : null}
 
-        <NotesThread txId={transaction.id} />
+          <hr className="ot-transaction-detail-modal__divider" />
 
-        <footer className="ot-transaction-detail-modal__footer">
-          <div className="ot-transaction-detail-modal__footer-actions">
-            <Button type="button" variant="ghost" onClick={handleEdit}>
-              <Edit size={16} />
-              {t('transactionDetail.editButton')}
+          <NotesThread txId={transaction.id} />
+
+          <footer className="ot-transaction-detail-modal__footer">
+            <div className="ot-transaction-detail-modal__footer-actions">
+              <Button type="button" variant="ghost" onClick={handleEdit}>
+                <Edit size={16} />
+                {t('transactionDetail.editButton')}
+              </Button>
+            </div>
+            <Button type="button" variant="ghost" onClick={onClose}>
+              {t('common.close')}
             </Button>
-          </div>
-          <Button type="button" variant="ghost" onClick={onClose}>
-            {t('common.close')}
-          </Button>
-        </footer>
-      </div>
-    </dialog>
+          </footer>
+        </div>
+      </dialog>
+
+      <TransactionFormModal
+        mode="edit"
+        isOpen={isEditModalOpen}
+        onClose={handleCancelEdit}
+        onSubmit={handleSaveEdit}
+        accounts={accounts}
+        categories={categories}
+        tags={tags}
+        initialData={initialData}
+      />
+    </>
   );
 }
