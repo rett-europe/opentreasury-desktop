@@ -502,3 +502,30 @@ coordinator owns commit.
 - **Re-staging on header-row change.** Treat the `stageFile` call as the single source of truth: when the user changes the row, optimistically update local `headerRow` for snappy UI, then re-issue `stageFile({filePath, headerRow})` to refresh `columnHeaders` and `previewRows`. Always re-resolve the active sheet from the new response by name (with first-sheet fallback) so multi-sheet workbooks don't lose their selection on re-stage.
 - **Contract-ahead coding.** Per the WI-18 split, Morpheus owns the `import.ts` IPC schemas. I extended the local `SheetMetadata` type with optional `detectedHeaderRow` / `previewRows` so the renderer compiles today; once Morpheus widens `sheetInfoSchema` and makes `headerRow` required on dryRun/commit, the renderer already passes the field with no further changes. Pattern worth reusing: when the contract isn't landed yet, keep optional fields on a renderer-local type alias, never on the shared schema.
 - **i18n discipline.** Every new step needs both a `importWizard.steps.<step>` label and a `importWizard.<step>.*` namespace mirrored across en + es. Easy to forget the `steps` map since nothing renders it today, but other surfaces (stepper components, telemetry) consume it.
+
+## 2026-04-21 — Wizard UX fixes: sticky footer + error details
+
+**Context:** Pedro reported two UX problems after testing WI-17 + WI-18:
+1. Footer buttons scrolled out of view on long preview/mapping steps
+2. Dry-run showed "Validation errors: 222" with no individual row details
+
+**Solution for footer scrolling:**
+- Added explicit `height: 90vh; max-height: 90vh;` to `.ot-import-wizard__content` so flex layout has concrete bounds
+- Made footer `flex-shrink: 0` + explicit `background: var(--color-surface-primary)` to prevent squashing and ensure solid background when content scrolls behind it
+- Existing structure (header/body/footer as flex children) was already correct; problem was missing height constraint on the parent
+
+**Solution for error visibility:**
+- The IPC contract (`import.ts`) already returned `errors: Array<{ rowIndex, field, reason }>` in dry-run response (WI-18 2-of-3 rule added row-level reporting)
+- Extracted `errors` from `dryRunResult` alongside existing `summary, samples, duplicates`
+- Rendered scrollable error list (`max-height: 200px`) below error count, showing first 50 errors with format `"Row 7 — Amount: invalid value"`
+- If > 50 errors, added `"… and N more"` footer message
+- Added i18n keys `importWizard.dryRun.errorRow` + `errorMore` to both en/es locales
+
+**Key learning — CSS layout debugging:**
+When flex children overflow, the culprit is often a missing `height` or `max-height` on the flex container, not the `overflow-y: auto` child. Flexbox distributes available space, but "available" is undefined if the parent has `max-height` without `height`. Adding both locks the container to viewport constraints and lets the body scroll as intended.
+
+**Key learning — Error detail patterns:**
+Display-count-only is a dark pattern. Users need actionable detail: which row, which field, why it failed. The IPC contract already carried per-row errors; rendering them is a ~15-line change (map + slice + "more" indicator). Always check if backend already provides granular data before surfacing only aggregates.
+
+**Files:** ImportWizard.css (layout + error-list styles), ImportWizard.tsx (error rendering), en/common.json + es/common.json (i18n keys). All gates passed. Commit: fix(import): improve wizard UX - pin footer and show error details (7e1cb50).
+
