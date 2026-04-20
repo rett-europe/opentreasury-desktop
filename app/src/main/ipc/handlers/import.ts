@@ -43,6 +43,7 @@ import {
   resolveFileId,
   evictFileId,
 } from '../../import/sessionFileRegistry.js';
+import { sanitizeCell } from '../../import/cellSanitizer.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB (pre-decompression)
 const MAX_ROW_COUNT = 100_000; // Row-count cap for zip-bomb mitigation
@@ -162,39 +163,6 @@ export function createStageFileHandler(
 
 const PREVIEW_ROWS = 20;
 
-// Sanitize a single cell for display in previewRows and header derivation:
-// strip control chars and cap length at 500.
-function sanitizeCell(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  let s: string;
-  if (value instanceof Date) {
-    s = value.toISOString().substring(0, 10);
-  } else if (typeof value === 'object' && value !== null) {
-    const v = value as Record<string, unknown>;
-    if ('richText' in v && Array.isArray(v.richText)) {
-      s = (v.richText as Array<{ text?: unknown }>).map((r) => String(r?.text ?? '')).join('');
-    } else if ('text' in v && v.text !== null && v.text !== undefined) {
-      s = String(v.text);
-    } else if ('result' in v && v.result !== null && v.result !== undefined) {
-      s = sanitizeCell(v.result);
-    } else if ('formula' in v) {
-      s = String(v.formula ?? '');
-    } else if ('error' in v) {
-      s = String(v.error);
-    } else {
-      s = '';
-    }
-  } else {
-    s = String(value);
-  }
-  return (
-    s
-      // eslint-disable-next-line no-control-regex
-      .replace(/[\x00-\x1F\x7F]/g, '')
-      .substring(0, 500)
-  );
-}
-
 function deriveColumnHeaders(headerRowCells: string[], totalCols: number): string[] {
   const headers: string[] = [];
   const width = Math.max(headerRowCells.length, totalCols);
@@ -227,7 +195,7 @@ async function handleCsvStaging(
           return;
         }
         const row = Array.isArray(result.data) ? (result.data as unknown[]) : [];
-        allRows.push(row.map((c) => sanitizeCell(c)));
+        allRows.push(row.map((c) => sanitizeCell(c, { stripControlChars: true, maxLength: 500 })));
       },
     });
 
@@ -324,7 +292,7 @@ async function handleXlsxStaging(
         const row = worksheet.getRow(r);
         const cells: string[] = [];
         row.eachCell({ includeEmpty: true }, (cell) => {
-          cells.push(sanitizeCell(cell.value));
+          cells.push(sanitizeCell(cell.value, { stripControlChars: true, maxLength: 500 }));
         });
         maxCols = Math.max(maxCols, cells.length);
         previewRows.push(cells);
@@ -886,14 +854,14 @@ async function loadXlsxRows(
         const isoString = dateCell.value.toISOString();
         rawDate = isoString.substring(0, 10); // YYYY-MM-DD (first 10 chars)
       } else if (dateCell.value !== null && dateCell.value !== undefined) {
-        rawDate = String(dateCell.value);
+        rawDate = sanitizeCell(dateCell.value);
       }
 
       rows.push({
         rowIndex,
         rawDate,
-        rawAmount: String(amountCell.value ?? ''),
-        rawDescription: String(descriptionCell.value ?? ''),
+        rawAmount: sanitizeCell(amountCell.value),
+        rawDescription: sanitizeCell(descriptionCell.value),
       });
     });
 

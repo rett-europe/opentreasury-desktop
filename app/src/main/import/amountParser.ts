@@ -17,7 +17,7 @@ export interface ParseAmountSuccess {
 
 export type ParseAmountError =
   | { code: 'EMPTY' }
-  | { code: 'NOT_A_STRING' }
+  | { code: 'NOT_A_STRING'; raw: string }
   | { code: 'NO_DIGITS'; raw: string }
   | { code: 'INVALID_CHARACTERS'; raw: string; offending?: string }
   | { code: 'AMBIGUOUS_FORMAT'; raw: string }
@@ -33,35 +33,47 @@ export interface ParseAmountOptions {
 /**
  * Parse an amount string with locale-aware decimal/thousands separator detection.
  *
- * @param raw - Raw amount string (e.g., "16.433,39", "16,433.39", "€1.234,56")
+ * @param raw - Raw amount (string or number). Strings: "16.433,39", "16,433.39", "€1.234,56". Numbers: pass through directly.
  * @param options - Locale preference ('es' | 'en' | 'auto'). Defaults to 'auto'.
  * @returns Success with { value, locale } or error with { code, raw?, offending? }
  *
  * Error codes:
- * - EMPTY: String is empty or whitespace-only
- * - NOT_A_STRING: Input is not a string
+ * - EMPTY: Input is null, undefined, or empty string
+ * - NOT_A_STRING: Input is not a string or number (e.g., object, array)
  * - NO_DIGITS: After stripping currency, no digits remain
  * - INVALID_CHARACTERS: Contains non-numeric characters (raw + offending provided)
+ * - OUT_OF_RANGE: Number is infinite or NaN
  * - PARSE_FAILED: Could not parse as a valid number
  *
  * @example
  * parseAmount("16.433,39")              → { value: 16433.39, locale: 'es' }
  * parseAmount("16,433.39")              → { value: 16433.39, locale: 'en' }
+ * parseAmount(1234.56)                  → { value: 1234.56, locale: 'en' }
  * parseAmount("(1.234,56)")             → { value: -1234.56, locale: 'es' }
  * parseAmount("€ 16.433,39")            → { value: 16433.39, locale: 'es' }
  * parseAmount("1,234.56 USD")           → { value: 1234.56, locale: 'en' }
  * parseAmount("abc")                    → { code: 'INVALID_CHARACTERS', raw: 'abc', offending: 'abc' }
+ * parseAmount({ formula: 'A1' })        → { code: 'NOT_A_STRING', raw: '[object Object]' }
  */
-export function parseAmount(raw: string, options?: ParseAmountOptions): ParseAmountResult {
+export function parseAmount(raw: unknown, options?: ParseAmountOptions): ParseAmountResult {
   const locale = options?.locale ?? 'auto';
 
-  // Early validation
-  if (!raw) {
+  // Early validation — type guard at boundary
+  if (raw == null) {
     return { code: 'EMPTY' };
   }
 
+  if (typeof raw === 'number') {
+    // Accept numeric cells directly (ExcelJS returns numbers for numeric cells)
+    if (!Number.isFinite(raw)) {
+      return { code: 'OUT_OF_RANGE', raw: String(raw) };
+    }
+    return { value: raw, locale: 'en' }; // Locale is irrelevant for pure numbers
+  }
+
   if (typeof raw !== 'string') {
-    return { code: 'NOT_A_STRING' };
+    // Reject objects, arrays, etc. (defensive guard against upstream bugs)
+    return { code: 'NOT_A_STRING', raw: String(raw) };
   }
 
   const trimmed = raw.trim();

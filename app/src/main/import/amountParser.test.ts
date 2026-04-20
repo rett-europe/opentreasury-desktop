@@ -380,3 +380,71 @@ describe('inferColumnLocale', () => {
     expect(inferColumnLocale(samples)).toBe('es');
   });
 });
+
+describe('parseAmount type guards', () => {
+  it('accepts numeric input directly (ExcelJS numeric cells)', () => {
+    const result = parseAmount(16433.39);
+    expect(result).toEqual({ value: 16433.39, locale: 'en' });
+  });
+
+  it('accepts negative numeric input', () => {
+    const result = parseAmount(-1234.56);
+    expect(result).toEqual({ value: -1234.56, locale: 'en' });
+  });
+
+  it('accepts zero as number', () => {
+    const result = parseAmount(0);
+    expect(result).toEqual({ value: 0, locale: 'en' });
+  });
+
+  it('rejects Infinity', () => {
+    const result = parseAmount(Infinity);
+    expect(result).toHaveProperty('code');
+    if ('code' in result) {
+      expect(result.code).toBe('OUT_OF_RANGE');
+      expect(result.raw).toBe('Infinity');
+    }
+  });
+
+  it('rejects NaN', () => {
+    const result = parseAmount(NaN);
+    expect(result).toHaveProperty('code');
+    if ('code' in result) {
+      expect(result.code).toBe('OUT_OF_RANGE');
+      expect(result.raw).toBe('NaN');
+    }
+  });
+
+  it('rejects object (ExcelJS formula cell without sanitizeCell)', () => {
+    const result = parseAmount({ formula: 'A1+B1', result: 123 });
+    expect(result).toHaveProperty('code');
+    if ('code' in result) {
+      expect(result.code).toBe('NOT_A_STRING');
+      expect(result.raw).toBe('[object Object]');
+    }
+  });
+
+  it('rejects array', () => {
+    const result = parseAmount([1, 2, 3]);
+    expect(result).toHaveProperty('code');
+    if ('code' in result) {
+      expect(result.code).toBe('NOT_A_STRING');
+    }
+  });
+
+  it('handles null', () => {
+    const result = parseAmount(null);
+    expect(result).toHaveProperty('code');
+    if ('code' in result) {
+      expect(result.code).toBe('EMPTY');
+    }
+  });
+
+  it('handles undefined', () => {
+    const result = parseAmount(undefined);
+    expect(result).toHaveProperty('code');
+    if ('code' in result) {
+      expect(result.code).toBe('EMPTY');
+    }
+  });
+});
