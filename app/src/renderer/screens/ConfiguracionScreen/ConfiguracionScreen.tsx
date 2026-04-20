@@ -4,14 +4,16 @@ import { useTranslation } from 'react-i18next';
 import { CuentasTab } from './CuentasTab.js';
 import { CategoriasTab } from './CategoriasTab.js';
 import { EtiquetasTab } from './EtiquetasTab.js';
+import { DatosTab } from './DatosTab.js';
 import './ConfiguracionScreen.css';
 
-type TabId = 'cuentas' | 'categorias' | 'etiquetas';
+type TabId = 'cuentas' | 'categorias' | 'etiquetas' | 'datos';
 
 const TABS: readonly { readonly id: TabId; readonly labelKey: string }[] = [
   { id: 'cuentas', labelKey: 'configuracion.tabs.cuentas' },
   { id: 'categorias', labelKey: 'configuracion.tabs.categorias' },
   { id: 'etiquetas', labelKey: 'configuracion.tabs.etiquetas' },
+  { id: 'datos', labelKey: 'configuracion.tabs.datos' },
 ];
 
 export interface ConfiguracionScreenProps {
@@ -69,8 +71,10 @@ export function ConfiguracionScreen({
           <CuentasTab onListChanged={onConfigChanged} />
         ) : active === 'categorias' ? (
           <CategoriasTab onListChanged={onConfigChanged} />
-        ) : (
+        ) : active === 'etiquetas' ? (
           <EtiquetasTab onListChanged={onConfigChanged} />
+        ) : (
+          <DatosTab onImportComplete={onConfigChanged} />
         )}
       </section>
     </div>

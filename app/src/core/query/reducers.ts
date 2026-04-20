@@ -10,6 +10,8 @@ const emptyReadModel = (): ReadModel => ({
   configAccounts: [],
   configCategories: [],
   configTags: [],
+  importMappings: [],
+  rowHashes: new Set(),
 });
 
 let readModel: ReadModel = emptyReadModel();
@@ -135,6 +137,66 @@ export function applyEvent(event: DomainEvent): void {
         ...readModel,
         configTags: [...readModel.configTags, next],
       };
+      break;
+    }
+
+    case 'movement.imported': {
+      readModel = {
+        ...readModel,
+        transactions: [
+          ...readModel.transactions,
+          {
+            id: event.id,
+            date: event.date,
+            type: event.movementType,
+            amount: event.amount,
+            currency: event.currency,
+            description: event.description,
+            accountId: event.accountId,
+            categoryId: event.categoryId,
+            subcategoryId: event.subcategoryId,
+            tagIds: event.tagIds,
+            status: event.status,
+            createdAt: event.createdAt,
+          },
+        ],
+        rowHashes: new Set([...readModel.rowHashes, event.rowHash]),
+      };
+      break;
+    }
+
+    case 'import.mapping.updated': {
+      const existingIndex = readModel.importMappings.findIndex(
+        (m) => m.accountId === event.accountId,
+      );
+      if (existingIndex >= 0) {
+        const updated = [...readModel.importMappings];
+        updated[existingIndex] = {
+          accountId: event.accountId,
+          dateColumn: event.dateColumn,
+          amountColumn: event.amountColumn,
+          descriptionColumn: event.descriptionColumn,
+          updatedAt: event.updatedAt,
+        };
+        readModel = {
+          ...readModel,
+          importMappings: updated,
+        };
+      } else {
+        readModel = {
+          ...readModel,
+          importMappings: [
+            ...readModel.importMappings,
+            {
+              accountId: event.accountId,
+              dateColumn: event.dateColumn,
+              amountColumn: event.amountColumn,
+              descriptionColumn: event.descriptionColumn,
+              updatedAt: event.updatedAt,
+            },
+          ],
+        };
+      }
       break;
     }
   }

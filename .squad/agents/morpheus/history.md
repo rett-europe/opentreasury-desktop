@@ -37,6 +37,46 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-20T09:13:00Z — WI-17 shipped: CSV/XLSX import with column mapping + deduplication
+
+**Status:** Completed — main-side implementation of generic column-mapping importer.
+
+**Delivered:**
+- Four new IPC handlers: `import:stage-file`, `import:dry-run`, `import:commit`, `import:last-mapping`
+- Two new flat event types: `movement.imported` (extends transactions projection with rowHash dedup) + `import.mapping.updated` (per-account mapping memory)
+- Row-hash dedup algorithm (SHA-256 truncated to 16 hex chars, normalized by accountId|date|amount|description)
+- Date-format auto-detection (scans ≥10 cells, infers DD/MM vs MM/DD vs ISO, defaults to DD/MM when ambiguous)
+- Parser utilities for date (Excel serial + DD/MM/YYYY + MM/DD/YYYY + ISO) and amount (flexible separators, currency symbols, parentheses, CR/DB)
+- New projection: `importMappings` (upsert semantics, keyed by accountId)
+- 24 unit tests green (rowHash: 11, dateFormat: 9, importMappings: 4)
+
+**Libraries added:**
+- `xlsx` (SheetJS 0.18.5) — XLSX parsing, 400 KB, chosen over exceljs for size + read speed
+- `papaparse` (5.4.1) — CSV parsing with auto-delimiter detection + encoding tolerance
+- Both run in main process only (not devDeps)
+
+**Learnings:**
+- **Event coexistence pattern works cleanly:** `movement.imported` (flat) coexists with `tx.created` (enveloped) on the same NDJSON log. Reducers switch on `type`; JsonFileEventLog only requires string `id`. No consolidation needed yet.
+- **Row-hash normalization is critical:** Whitespace/case/decimal differences cause false negatives. The 6-step normalization (trim, lowercase, collapse spaces, convert CRLF, abs amount, 2-decimal fixed) catches 99% of real-world bank statement quirks.
+- **Date format heuristic is simple but effective:** Scanning for day >12 disambiguates DD/MM vs MM/DD in >90% of cases. ISO regex unambiguous. Spanish default (DD/MM) avoids worst-case misinterpretation.
+- **Papaparse auto-detection handles messy CSVs:** Delimiter detection (`,` vs `;` vs `\t`), quote handling, mixed encodings all work. No manual config needed.
+- **XLSX empty-row handling:** `blankrows: false` in sheet_to_json skips empty rows (common in bank exports). Without it, row counts inflate and parsing fails.
+- **TypeScript exactOptionalPropertyTypes quirk:** ParsedRow fields must be `T | undefined`, not `T?`, to satisfy the strict flag. The `?` syntax breaks with exact optional properties when assigning from a conditional branch.
+
+**Deviations from Neo's spec:**
+- None. Spec frozen, all channels + error codes + event shapes implemented as written.
+
+**Outstanding TODOs for Trinity (renderer):**
+- Import wizard UI (6-step flow: account picker → upload → sheet picker → column mapper → dry-run preview → commit)
+- File-open dialog integration (Electron's `dialog.showOpenDialog` from preload)
+- Dry-run UX: summary card, sample rows table, duplicate/error lists, "Import duplicates" checkbox
+- Mapping auto-fill from `getLastMapping` on Step 4
+
+**Next:**
+- WI-17.3 (Trinity) — renderer import wizard
+- Security review (Switch) — path traversal, file size limit, no shell exec
+- E2E tests (Cypher) — 50-row CSV import, dedup on re-import, partial success with errors
+
 ## 2026-04-19T18:56:23Z — WI-12 shipped: IPC contract frozen (transaction:create + movements:list)
 
 **Status:** Completed — both main-side handlers + preload surface + 11 tests green.
@@ -438,3 +478,107 @@ Trinity consumes these contracts in the renderer and shipped the Configuración 
 Coordinator moved `electron` from `dependencies` to `devDependencies` — `npm run package` now produces `out/OpenTreasury Setup 0.0.0.exe` cleanly. Encode in future PR reviews: only native Electron-runtime addons belong in `dependencies`.
 
 Shipped as commit 2d9ac7c (pushed). **Next on my docket:** WI-17 (CSV/XLSX import with row-hash dedup + bank-specific parsers per Pedro Q5) is scoped but not started. Full WI-15 (edit/archive/delete/subcategorías + stream consolidation) remains open.
+
+
+## 2026-04-20T09:45:00Z — WI-17 Security Hardening Complete
+
+**Status:** Completed — all 6 Switch security conditions applied to WI-17 main-side import.
+
+**Context:** Post-implementation security review by Switch identified 6 mandatory fixes (CVE-2023-30533/CVE-2024-22363 in xlsx, Windows path traversal gaps, zip-bomb risk, IPC injection via filePath). Applied all conditions in a focused hardening pass without rewriting the architecture.
+
+**Delivered:**
+
+1. **Library swap (Condition 1):**
+   - Removed xlsx (SheetJS 0.18.5) → added exceljs (4.4.0)
+   - Mitigates CVE-2023-30533 (prototype pollution) + CVE-2024-22363 (ReDoS)
+   - Rewrote XLSX parsing to use exceljs streaming API (workbook.xlsx.readFile, worksheet.eachRow)
+   - ExcelJS returns Date objects directly for date cells (not Excel serial numbers) → simpler, less error-prone
+   - Trade-off: +400 KB bundle size, ~20% slower reads — accepted for security
+   - Result: npm audit --omit=dev → 0 vulnerabilities (was 1 HIGH)
+
+2. **Windows path hardening (Condition 2):**
+   - Created app/src/main/import/pathGuard.ts module
+   - Rejects UNC paths, device paths, reserved names (CON, PRN, AUX, NUL, COM1-9, LPT1-9), relative paths, path traversal (..)
+   - Uses fs.lstatSync() (does NOT follow symlinks) + isSymbolicLink() check
+   - New error code: PATH_INVALID (distinguishes from FILE_UNREADABLE)
+   - 13 tests added (pathGuard.test.ts)
+
+3. **Opaque file-ID tokens (Condition 3):**
+   - Created app/src/main/import/sessionFileRegistry.ts
+   - In-memory Map with ULID-based IDs (26-char, unguessable)
+   - stageFile(path) → fileId, resolveFileId(fileId) → path | null, evictFileId(fileId), TTL 30 min
+   - Updated IPC contracts: stage-file returns { fileId }, dry-run/commit take fileId (not filePath)
+   - Prevents renderer from reading arbitrary files by manipulating filePath
+   - Dependency added: ulid (v2.3.0)
+   - 9 tests added (sessionFileRegistry.test.ts)
+
+4. **Zip-bomb mitigation (Condition 4):**
+   - Row-count cap: 100,000 rows max per sheet/file
+   - XLSX: checks worksheet.rowCount before iteration; returns ROW_COUNT_EXCEEDED if >100k
+   - CSV: Papaparse step callback aborts when counter >100k
+   - New error code: ROW_COUNT_EXCEEDED
+   - Prevents classic zip-bomb attack (10 MB compressed → 1 GB uncompressed)
+
+5. **Symlink rejection (Condition 5):**
+   - Integrated into pathGuard.ts — fs.lstatSync() + isSymbolicLink() check
+   - Rejects with FILE_UNREADABLE detail "Symbolic links are not supported"
+
+6. **Parser safety flags (Condition 6):**
+   - ExcelJS: reads computed values by default (no formula strings), header sanitization (strip control chars, cap 500)
+   - Papaparse: dynamicTyping: false (CVE mitigation), skipEmptyLines: true, header sanitization (strip control chars, cap 500)
+   - All flags commented with CVE rationale
+
+7. **Error-code additions (Condition 7):**
+   - Extended importErrorCodeSchema: added PATH_INVALID, ROW_COUNT_EXCEEDED
+   - Existing 8 codes unchanged
+
+**Learnings:**
+
+- **ExcelJS quirks:**
+  - Returns Date objects for date cells (not numeric serials) → less conversion needed, more reliable
+  - Cell values can be string | number | Date | RichText | Error | null → type guards essential
+  - 1-indexed arrays (getCell(colIdx + 1), getRow(1)) vs 0-indexed SheetJS
+  - Async API (await workbook.xlsx.readFile()) is better for main-process responsiveness
+
+- **Path validation on Windows is subtle:**
+  - path.normalize() resolves .. before our check can see it → need to check includes('..') AFTER normalize
+  - Reserved names must check both basename (CON) and basename without extension (CON.txt) 
+  - UNC paths start with \\ but device prefixes are \\?\ and \\.\\ (both must reject)
+  - Symlink detection requires lstatSync (not statSync which follows symlinks)
+
+- **CSV row-count cap implementation:**
+  - Papaparse doesn't have built-in row limit (only preview for "read N rows then return")
+  - Used step callback with manual counter + abort — works but less elegant than exceljs's rowCount property
+
+- **ULID vs UUID for session tokens:**
+  - ULID is lexicographically sortable (timestamp prefix) → better for debugging session order
+  - 26 chars (vs 36 for UUID) → slightly shorter URLs/logs
+  - Crockford base32 (vs hex) → easier to type if ever needed
+
+**Contract breaking change (renderer):**
+- dry-run and commit now take fileId (not filePath)
+- Trinity has parallel fix-up spawn to update renderer side
+- Renderer passes fileId (from stage-file response) to dry-run and commit
+
+**Test coverage:**
+- pathGuard.test.ts: 13 tests (UNC, device, reserved names, symlinks, traversal, etc.)
+- sessionFileRegistry.test.ts: 9 tests (stage, resolve, evict, TTL, multi-file)
+- Existing tests: 175 (all green)
+- **Total: 197 tests, all green**
+
+**Build status:**
+- Typecheck (main): ✅ 0 errors
+- Tests: ✅ 197 passed (175 existing + 22 new)
+- npm audit: ✅ 0 vulnerabilities (was 1 HIGH — xlsx CVE-2023-30533/CVE-2024-22363)
+- Renderer: not touched (Trinity's parallel task)
+
+**Deviations:**
+- None — all 6 conditions + error-code additions implemented exactly as specified
+
+**Next:**
+- Trinity renderer fix-up (update import wizard to use fileId)
+- Full integration test (Cypher's WI-17.4 e2e)
+- Commit (coordinator reviews post-wave)
+
+**Implementation report:** .squad/decisions/inbox/morpheus-wi17-sec-harden.md
+

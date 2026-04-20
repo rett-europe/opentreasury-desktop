@@ -74,6 +74,14 @@ export interface ConfigTag {
   readonly createdAt: string;
 }
 
+export interface ImportMapping {
+  readonly accountId: string;
+  readonly dateColumn: string;
+  readonly amountColumn: string;
+  readonly descriptionColumn: string;
+  readonly updatedAt: string;
+}
+
 export interface ReadModel {
   readonly transactions: readonly Transaction[];
   readonly accounts: readonly Account[];
@@ -82,4 +90,6 @@ export interface ReadModel {
   readonly configAccounts: readonly ConfigAccount[];
   readonly configCategories: readonly ConfigCategory[];
   readonly configTags: readonly ConfigTag[];
+  readonly importMappings: readonly ImportMapping[];
+  readonly rowHashes: ReadonlySet<string>;
 }

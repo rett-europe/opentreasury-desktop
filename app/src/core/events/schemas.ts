@@ -157,6 +157,45 @@ export const configTagCreatedEventSchema = z.object({
 
 export type ConfigTagCreatedEvent = z.infer<typeof configTagCreatedEventSchema>;
 
+// ---------------------------------------------------------------------------
+// WI-17 — Import events (flat wire-style events, no envelope).
+// Coexist with enveloped and WI-15-lite events on the same NDJSON log.
+// ---------------------------------------------------------------------------
+
+export const movementImportedEventSchema = z.object({
+  type: z.literal('movement.imported'),
+  id: z.string().length(26),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  movementType: z.enum(['income', 'expense']),
+  amount: z.number().positive(),
+  currency: z.literal('EUR'),
+  description: z.string().max(500),
+  accountId: z.string().length(26),
+  categoryId: z.string().length(26).nullable(),
+  subcategoryId: z.string().length(26).nullable(),
+  tagIds: z.array(z.string().length(26)),
+  status: z.enum(['pending', 'approved']),
+  createdAt: z.string().datetime(),
+  rowHash: z.string().length(16),
+  sourceFileName: z.string(),
+  importBatchId: z.string().length(26),
+  rowIndex: z.number().int().positive(),
+});
+
+export type MovementImportedEvent = z.infer<typeof movementImportedEventSchema>;
+
+export const importMappingUpdatedEventSchema = z.object({
+  type: z.literal('import.mapping.updated'),
+  id: z.string().length(26),
+  accountId: z.string().length(26),
+  dateColumn: z.string(),
+  amountColumn: z.string(),
+  descriptionColumn: z.string(),
+  updatedAt: z.string().datetime(),
+});
+
+export type ImportMappingUpdatedEvent = z.infer<typeof importMappingUpdatedEventSchema>;
+
 // Union type for all domain events
 export type DomainEvent =
   | TransactionCreatedEvent
@@ -165,4 +204,6 @@ export type DomainEvent =
   | TagCreatedEvent
   | ConfigAccountCreatedEvent
   | ConfigCategoryCreatedEvent
-  | ConfigTagCreatedEvent;
+  | ConfigTagCreatedEvent
+  | MovementImportedEvent
+  | ImportMappingUpdatedEvent;

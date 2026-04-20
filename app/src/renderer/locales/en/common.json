@@ -224,7 +224,8 @@
       "label": "Settings sections",
       "cuentas": "Accounts",
       "categorias": "Categories",
-      "etiquetas": "Tags"
+      "etiquetas": "Tags",
+      "datos": "Data"
     },
     "cuentas": {
       "heading": "Accounts",
@@ -278,6 +279,124 @@
       "colorInvalid": "That color isn't valid.",
       "schemaInvalid": "Some of the data is invalid.",
       "submitFailed": "Couldn't save. Please try again."
+    },
+    "datos": {
+      "heading": "Data Import & Export",
+      "importCta": "Import Transactions",
+      "empty": {
+        "title": "Import data from bank statements",
+        "body": "Upload an Excel or CSV file and map columns to import transactions."
+      }
+    }
+  },
+  "importWizard": {
+    "title": "Import Transactions",
+    "steps": {
+      "selectAccount": "Select Account",
+      "uploadFile": "Upload File",
+      "pickSheet": "Pick Sheet",
+      "mapColumns": "Map Columns",
+      "dryRun": "Review",
+      "done": "Done"
+    },
+    "selectAccount": {
+      "heading": "Select destination account",
+      "subtitle": "One import = one account. To import to multiple accounts, run separate imports.",
+      "next": "Next"
+    },
+    "uploadFile": {
+      "heading": "Upload your file (Excel or CSV)",
+      "destination": "Destination: {{accountName}}",
+      "dropzone": "Drag file here or click to select",
+      "fileTooLarge": "File too large. Maximum 50 MB.",
+      "wrongType": "Only Excel (.xlsx) or CSV (.csv).",
+      "unreadable": "Can't read file. Verify it's not corrupted.",
+      "next": "Next"
+    },
+    "pickSheet": {
+      "heading": "Which sheet has your transactions?",
+      "rowCount_one": "{{count}} row",
+      "rowCount_other": "{{count}} rows",
+      "emptySheet": "This sheet has no data. Select another.",
+      "insufficientColumns": "This sheet doesn't have enough columns. Minimum 3 required (date, amount, description).",
+      "next": "Next"
+    },
+    "mapColumns": {
+      "heading": "Map your columns",
+      "destination": "Destination account: {{accountName}}",
+      "sourceColumn": "Source column",
+      "targetField": "Maps to",
+      "sampleRow": "Sample row 1",
+      "required": "Required",
+      "optional": "Optional",
+      "fields": {
+        "date": "Date",
+        "amount": "Amount",
+        "description": "Description",
+        "category": "Category",
+        "tag": "Tag",
+        "ignore": "(Ignore)"
+      },
+      "missingRequired": "Map Date, Amount, and Description to continue.",
+      "usingLastMapping": "Using last mapping from {{time}}.",
+      "resetMapping": "Start fresh",
+      "columnMismatch": "File columns don't match previous import. Verify mapping.",
+      "preview": "Preview Import"
+    },
+    "dryRun": {
+      "heading": "Review before importing",
+      "summary": {
+        "willImport": "Will import: {{count}} transactions",
+        "duplicates": "Duplicates detected: {{count}} (won't be imported)",
+        "errors": "Validation errors: {{count}}"
+      },
+      "inferredFormat": "Detected date format: {{format}}",
+      "ambiguousFormat": "Date format ambiguous. Using {{format}}.",
+      "switchFormat": "Switch to {{format}}",
+      "tabs": {
+        "preview": "Preview",
+        "duplicates": "Duplicates ({{count}})",
+        "errors": "Errors ({{count}})"
+      },
+      "previewHeading": "First 5 rows:",
+      "allErrors": "All {{count}} rows have errors. See Errors tab.",
+      "duplicatesHeading": "{{count}} rows match already-imported transactions:",
+      "importDuplicates": "Import duplicates",
+      "errorsHeading": "{{count}} rows can't be imported:",
+      "noValidRows": "No valid transactions to import.",
+      "import": "Import {{count}} transactions",
+      "back": "Back"
+    },
+    "confirm": {
+      "importing": "Importing...",
+      "creatingTransactions": "Creating {{count}} transactions in {{accountName}}. This may take a few seconds.",
+      "success": "Import completed",
+      "successSummary": "Imported {{imported}} transactions to {{accountName}}. Duplicates skipped: {{skipped}}. Errors: {{errors}}.",
+      "viewTransactions": "View transactions",
+      "importAnother": "Import another file",
+      "partialFailure": "Partial import",
+      "partialSummary": "Imported {{imported}} of {{total}} transactions to {{accountName}}. Errors: {{errors}} rows rejected. Review errors below.",
+      "fullFailure": "Import failed",
+      "fullFailureMessage": "Couldn't import transactions. {{detail}}",
+      "tryAgain": "Try again"
+    },
+    "cancel": {
+      "title": "Discard import?",
+      "message": "All progress will be lost. Continue?",
+      "confirm": "Discard",
+      "stay": "Stay"
+    },
+    "errors": {
+      "FILE_UNREADABLE": "File is unreadable or corrupted.",
+      "FILE_TOO_LARGE": "File exceeds 50 MB limit.",
+      "SHEET_NOT_FOUND": "Sheet not found in workbook.",
+      "INSUFFICIENT_COLUMNS": "Sheet doesn't have enough columns.",
+      "MAPPING_INVALID": "Column mapping is incomplete or invalid.",
+      "PARSE_ERROR": "Failed to parse file content.",
+      "SCHEMA_INVALID": "Request data is invalid.",
+      "INTERNAL": "An unexpected error occurred.",
+      "PATH_INVALID": "Invalid file path.",
+      "ROW_COUNT_EXCEEDED": "File exceeds 100,000 row limit."
     }
   }
 }

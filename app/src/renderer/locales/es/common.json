@@ -224,7 +224,8 @@
       "label": "Secciones de configuración",
       "cuentas": "Cuentas",
       "categorias": "Categorías",
-      "etiquetas": "Etiquetas"
+      "etiquetas": "Etiquetas",
+      "datos": "Datos"
     },
     "cuentas": {
       "heading": "Cuentas",
@@ -278,6 +279,124 @@
       "colorInvalid": "Ese color no es válido.",
       "schemaInvalid": "Algunos datos no son válidos.",
       "submitFailed": "No se pudo guardar. Inténtalo de nuevo."
+    },
+    "datos": {
+      "heading": "Importación y Exportación de Datos",
+      "importCta": "Importar Movimientos",
+      "empty": {
+        "title": "Importa datos desde extractos bancarios",
+        "body": "Sube un archivo Excel o CSV y mapea las columnas para importar movimientos."
+      }
+    }
+  },
+  "importWizard": {
+    "title": "Importar Movimientos",
+    "steps": {
+      "selectAccount": "Seleccionar Cuenta",
+      "uploadFile": "Cargar Archivo",
+      "pickSheet": "Elegir Hoja",
+      "mapColumns": "Mapear Columnas",
+      "dryRun": "Revisar",
+      "done": "Listo"
+    },
+    "selectAccount": {
+      "heading": "Selecciona cuenta destino",
+      "subtitle": "Un archivo = una cuenta. Si necesitas importar a múltiples cuentas, haz múltiples importaciones.",
+      "next": "Siguiente"
+    },
+    "uploadFile": {
+      "heading": "Carga tu archivo (Excel o CSV)",
+      "destination": "Destino: {{accountName}}",
+      "dropzone": "Arrastra aquí o haz clic para seleccionar",
+      "fileTooLarge": "Archivo muy grande. Máximo 50 MB.",
+      "wrongType": "Solo Excel (.xlsx) o CSV (.csv).",
+      "unreadable": "No se puede leer el archivo. Verifica que no esté dañado.",
+      "next": "Siguiente"
+    },
+    "pickSheet": {
+      "heading": "¿Cuál es la hoja con tus movimientos?",
+      "rowCount_one": "{{count}} fila",
+      "rowCount_other": "{{count}} filas",
+      "emptySheet": "Esta hoja no tiene datos. Selecciona otra.",
+      "insufficientColumns": "Esta hoja no tiene suficientes columnas. Mínimo 3 requeridas (fecha, importe, descripción).",
+      "next": "Siguiente"
+    },
+    "mapColumns": {
+      "heading": "Mapea tus columnas",
+      "destination": "Cuenta destino: {{accountName}}",
+      "sourceColumn": "Columna origen",
+      "targetField": "Se mapea a",
+      "sampleRow": "Fila de muestra 1",
+      "required": "Obligatorio",
+      "optional": "Opcional",
+      "fields": {
+        "date": "Fecha",
+        "amount": "Importe",
+        "description": "Descripción",
+        "category": "Categoría",
+        "tag": "Etiqueta",
+        "ignore": "(Ignorar)"
+      },
+      "missingRequired": "Mapea Fecha, Importe y Descripción para continuar.",
+      "usingLastMapping": "Usando último mapeo de hace {{time}}.",
+      "resetMapping": "Empezar de cero",
+      "columnMismatch": "Las columnas del archivo no coinciden con la importación anterior. Verifica el mapeo.",
+      "preview": "Vista Previa"
+    },
+    "dryRun": {
+      "heading": "Revisar antes de importar",
+      "summary": {
+        "willImport": "Se importarán: {{count}} movimientos",
+        "duplicates": "Duplicados detectados: {{count}} (no se importan)",
+        "errors": "Errores de validación: {{count}}"
+      },
+      "inferredFormat": "Formato de fecha detectado: {{format}}",
+      "ambiguousFormat": "Formato de fecha ambiguo. Usando {{format}}.",
+      "switchFormat": "Cambiar a {{format}}",
+      "tabs": {
+        "preview": "Vista Previa",
+        "duplicates": "Duplicados ({{count}})",
+        "errors": "Errores ({{count}})"
+      },
+      "previewHeading": "Primeras 5 filas:",
+      "allErrors": "Las {{count}} filas tienen errores. Revisa la pestaña 'Errores'.",
+      "duplicatesHeading": "{{count}} filas coinciden con movimientos ya importados:",
+      "importDuplicates": "Importar duplicados",
+      "errorsHeading": "{{count}} filas no se pueden importar:",
+      "noValidRows": "No hay movimientos válidos para importar.",
+      "import": "Importar {{count}} movimientos",
+      "back": "Atrás"
+    },
+    "confirm": {
+      "importing": "Importando...",
+      "creatingTransactions": "Se están creando {{count}} movimientos en {{accountName}}. Esto puede tardar unos segundos.",
+      "success": "Importación completada",
+      "successSummary": "Se importaron {{imported}} movimientos a {{accountName}}. Duplicados omitidos: {{skipped}}. Errores: {{errors}}.",
+      "viewTransactions": "Ver movimientos",
+      "importAnother": "Importar otro archivo",
+      "partialFailure": "Importación parcial",
+      "partialSummary": "Se importaron {{imported}} de {{total}} movimientos a {{accountName}}. Errores: {{errors}} filas rechazadas. Revisa los errores abajo.",
+      "fullFailure": "Importación fallida",
+      "fullFailureMessage": "No se pudieron importar los movimientos. {{detail}}",
+      "tryAgain": "Intentar de nuevo"
+    },
+    "cancel": {
+      "title": "¿Descartar importación?",
+      "message": "Se perderán todos los cambios. ¿Continuar?",
+      "confirm": "Descartar",
+      "stay": "Quedarme"
+    },
+    "errors": {
+      "FILE_UNREADABLE": "El archivo no se puede leer o está dañado.",
+      "FILE_TOO_LARGE": "El archivo excede el límite de 50 MB.",
+      "SHEET_NOT_FOUND": "Hoja no encontrada en el libro.",
+      "INSUFFICIENT_COLUMNS": "La hoja no tiene suficientes columnas.",
+      "MAPPING_INVALID": "El mapeo de columnas está incompleto o es inválido.",
+      "PARSE_ERROR": "Error al analizar el contenido del archivo.",
+      "SCHEMA_INVALID": "Los datos de la solicitud no son válidos.",
+      "INTERNAL": "Ocurrió un error inesperado.",
+      "PATH_INVALID": "Ruta de archivo no válida.",
+      "ROW_COUNT_EXCEEDED": "El archivo supera el límite de 100.000 filas."
     }
   }
 }

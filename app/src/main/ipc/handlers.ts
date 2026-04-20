@@ -49,6 +49,16 @@ import {
   tagsListResponseSchema,
 } from '../../shared/ipc-contracts/tags.js';
 import {
+  IPC_IMPORT_STAGE_FILE,
+  IPC_IMPORT_DRY_RUN,
+  IPC_IMPORT_COMMIT,
+  IPC_IMPORT_LAST_MAPPING,
+  stageFileResponseSchema,
+  dryRunResponseSchema,
+  commitImportResponseSchema,
+  lastMappingResponseSchema,
+} from '../../shared/ipc-contracts/import.js';
+import {
   handleGetAccounts,
   handleGetAccountBalances,
   handleGetMonthKPIs,
@@ -63,6 +73,12 @@ import {
   createCategoriesListHandler,
 } from './handlers/categories.js';
 import { createTagsCreateHandler, createTagsListHandler } from './handlers/tags.js';
+import {
+  createStageFileHandler,
+  createDryRunHandler,
+  createCommitHandler,
+  createLastMappingHandler,
+} from './handlers/import.js';
 import { getEventLog } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { ACTOR_DEVICE_ID, DATASET_ID, newUlid } from '../ids.js';
@@ -174,5 +190,38 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_TAGS_LIST, async (_event, _raw: unknown) => {
     const response = await handleTagsList();
     return tagsListResponseSchema.parse(response);
+  });
+
+  // WI-17 — Import handlers
+  const importDeps = {
+    eventLog: getEventLog(),
+    getReadModel,
+    now: () => new Date(),
+    newId: newUlid,
+  };
+
+  const handleStageFile = createStageFileHandler({ getReadModel });
+  const handleDryRun = createDryRunHandler({ getReadModel });
+  const handleCommit = createCommitHandler(importDeps);
+  const handleLastMapping = createLastMappingHandler({ getReadModel });
+
+  ipcMain.handle(IPC_IMPORT_STAGE_FILE, async (_event, raw: unknown) => {
+    const response = await handleStageFile(raw);
+    return stageFileResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_IMPORT_DRY_RUN, async (_event, raw: unknown) => {
+    const response = await handleDryRun(raw);
+    return dryRunResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_IMPORT_COMMIT, async (_event, raw: unknown) => {
+    const response = await handleCommit(raw);
+    return commitImportResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_IMPORT_LAST_MAPPING, async (_event, raw: unknown) => {
+    const response = await handleLastMapping(raw);
+    return lastMappingResponseSchema.parse(response);
   });
 }

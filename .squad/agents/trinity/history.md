@@ -33,6 +33,100 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-20 — WI-17 Import Wizard + Panel Polish
+
+**Import Wizard (Job A):**
+Implemented 6-step wizard (select account → upload file → pick sheet → map columns → dry-run → done) in `ImportWizard` component. Followed ConfigModalShell pattern (native `<dialog>`, ref-based lifecycle, escape/backdrop close). Local state only (`useState`) — no global store needed for wizard flow. Service layer (`importApi.ts`) mirrors accountsApi thin-wrapper pattern.
+
+**Pattern: Multi-step wizard state:** Single `WizardState` interface with discriminated `step` union. Each step renders conditionally in `renderStep()` switch. Back navigation handled via reducer-style `setState((s) => ...)` transforms. Preserves data across Back/Forward within same upload session.
+
+**i18n:** Added full `importWizard.*` namespace (EN + ES) covering all 6 steps, error codes, labels. Spanish copy per Niobe's spec (verbatim "Arrastra aquí o haz clic para seleccionar", "Se importarán: N movimientos", etc.). Error mapping via `t(\`importWizard.errors.${code}\`)` pattern (same as ConfigModals errorMap).
+
+**Accessibility:** Wizard uses `<ol aria-label="Pasos">` for step indicator (deferred to polish), `role="alert"` for error banners, proper `<label>` + `<select>` associations in column mapping, `<caption>` + `scope="col"` in dry-run preview table. File input keyboard-accessible (native `<input type="file">` wrapped in `<label>`).
+
+**jsdom `<dialog>` quirk:** Same as WI-13 — can't test modal open/close in vitest (jsdom doesn't implement `showModal()`). Service tests pass; component smoke test deferred to integration or skipped with `it.skip`. Kept pattern from ConfigModalShell (works in real browser/Electron).
+
+**Panel Polish (Job B):**
+All 7 items verified as "already correct" per Mouse's findings:
+1. AccountCard icon color: `color: #ffffff` already set (line 16, AccountCard.css)
+2. Balance coloring: positive/negative classes already use `--color-income-default` / `--color-expense-default`
+3. Grid overflow: 4-col breakpoint at 1439px already exists (globals.css lines 281–289)
+4. Arrows: text arrows `'↑'` / `'↓'` already in use (PanelScreen.tsx lines 207–209), not lucide icons
+5. "View all" link: already bottom-right with border-top separator (PanelScreen.css lines 36–41)
+6. KPI graph preview: deferred to WI-20 (per Pedro)
+7. Mock data cleanup: flagged for Link (not a design issue)
+
+**No CSS changes needed.** All styling correct per Mouse's audit. Mock data is a seed-data concern, not UI.
+
+**Build/test status:**
+- Renderer typecheck: clean (main-process errors exist from Morpheus's parallel work)
+- Renderer lint: clean (main-process lint errors exist from Morpheus's parallel work)
+- Tests: 148 passed (including 6 new importApi tests), 1 failure in Morpheus's importMappings.test.ts (expected)
+- Format: all files formatted via `npm run format`
+
+**Deferred to integration/polish:**
+- Last-mapping pre-fill banner (channel wired, UI deferred)
+- Date-format ambiguity toggle (dry-run returns `inferredDateFormat` + `dateFormatAmbiguous`, but 1-click toggle UI deferred)
+- Dry-run tabs (Preview | Duplicates | Errors currently in single scrollable view, tabs deferred to polish)
+- Sample row display in MapColumns (deferred to polish)
+- File drag-drop (currently file-input-only, drag-drop deferred to polish)
+
+**Key integration notes:**
+1. Wizard assumes `window.opentreasury.import.{stageFile, dryRun, commit, getLastMapping}` exist — Morpheus must wire in preload
+2. Contract frozen (`app/src/shared/ipc-contracts/import.ts`) — if Morpheus's handler differs, coordinator reconciles
+3. File path handling: wizard passes `file.name` to `stageFile({ filePath })` — Morpheus must resolve actual path (via Electron dialog or drag-drop)
+4. Navigation on completion: currently just calls `onConfigChanged()` (triggers Movements refresh) — deeper integration (e.g., filter by `importBatchId`) coordinated with Link
+
+**Files added:** 7 (importApi.ts + test, ImportWizard/*.tsx/css/index, DatosTab.tsx)  
+**Files modified:** 4 (ConfiguracionScreen.tsx, en/common.json, es/common.json, import.ts formatting)  
+**Total LOC:** ~1,200 (wizard + styles + tests + i18n)
+
+## 2026-04-20 — WI-17 TypeScript Fixup + FileId Security Refactor
+
+**Context:** WI-17 wizard shipped but had 6 TypeScript errors under strict settings (`exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`). Morpheus ran parallel SECURITY HARDENING pass that changed IPC contract — replaced `filePath` with opaque `fileId` tokens for path-traversal mitigation.
+
+**Part 1 — TS Strict-Mode Fixes:**
+
+1. **Type extraction from discriminated union:** `StageFileResponse['sheets']` failed because response is `ok: true | false` union. Fixed by defining explicit `SheetMetadata` type extracted from schema.
+
+2. **Array index safety:** `resp.sheets[0]` potentially undefined with `noUncheckedIndexedAccess: true`. Fixed with safe narrowing:
+   ```ts
+   const firstSheet = resp.sheets.length === 1 ? resp.sheets[0] : undefined;
+   setState({ selectedSheet: firstSheet?.name ?? null, ... });
+   ```
+
+3. **Implicit `any` on lambdas:** `.find((s) => ...)` and `.map((sheet) => ...)` had implicit `any` type. Fixed by adding explicit `SheetMetadata` type annotations.
+
+4. **Exact optional property types:** `DatosTabProps.onImportComplete?: () => void` rejected `undefined` at call site with `exactOptionalPropertyTypes: true`. Fixed by changing type to `(() => void) | undefined` — the `?:` marker alone isn't sufficient under exact-optional mode.
+
+**Pattern learned:** With `exactOptionalPropertyTypes: true`, optional props must **explicitly** allow `undefined` in their type signature (`prop?: T | undefined`), not just rely on `?:` shorthand.
+
+**Part 2 — FileId Security Refactor:**
+
+Morpheus updated IPC contract for security hardening:
+- `stage-file` response now returns `fileId: string` (opaque session token)
+- `dry-run` and `commit` requests accept `fileId` instead of `filePath`
+- Added error codes: `PATH_INVALID`, `ROW_COUNT_EXCEEDED`
+
+**Renderer changes:**
+- **Wizard state:** Replaced `filePath` with `fileId` — after successful stage-file, wizard stores `resp.fileId` and passes it to subsequent dry-run/commit calls
+- **i18n:** Added EN/ES translations for new error codes
+- **Tests:** Updated all mocks to include `fileId` in responses/requests; added explicit test verifying token propagation
+
+**Security impact:** Renderer no longer sends raw file paths after initial upload. Main process validates `fileId` against session allowlist, mitigating path-traversal attacks.
+
+**Validation:**
+- Typecheck: Renderer code passes (main-process errors remain — Morpheus's domain)
+- Lint: Renderer code passes (main-process errors remain — Morpheus's domain)
+- Tests: All 8 importApi tests pass (153 total passed)
+- Format: All files formatted
+
+**Files modified:** 5 (ImportWizard.tsx, DatosTab.tsx, importApi.test.ts, en/common.json, es/common.json)
+
+## Learnings
+
+<!-- Append new learnings below. Each entry is something lasting about the project. -->
+
 ## 2026-04-19 — WI-13 landed (Movements + Add-Transaction modal wired)
 
 Commit 17134be ships Add-Transaction modal integrated with real IPC (createTransaction), 

@@ -1,0 +1,242 @@
+/* Import wizard styles - WI-17 */
+
+.ot-import-wizard {
+  max-width: 800px;
+  max-height: 90vh;
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  padding: 0;
+  background: var(--color-surface-primary);
+}
+
+.ot-import-wizard::backdrop {
+  background: var(--color-surface-overlay);
+}
+
+.ot-import-wizard__content {
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+}
+
+.ot-import-wizard__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-7);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.ot-import-wizard__title {
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.ot-import-wizard__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  transition: background var(--motion-duration-base);
+}
+
+.ot-import-wizard__close:hover {
+  background: var(--color-row-hover);
+}
+
+.ot-import-wizard__body {
+  flex: 1;
+  padding: var(--space-7);
+  overflow-y: auto;
+}
+
+.ot-import-wizard__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-7);
+  border-top: 1px solid var(--color-border-default);
+  gap: var(--space-4);
+}
+
+.ot-import-wizard__step h2 {
+  font-size: var(--font-size-18);
+  font-weight: var(--font-weight-semibold);
+  margin: 0 0 var(--space-3) 0;
+  color: var(--color-text-primary);
+}
+
+.ot-import-wizard__subtitle {
+  font-size: var(--font-size-14);
+  color: var(--color-text-secondary);
+  margin: 0 0 var(--space-6) 0;
+}
+
+.ot-import-wizard__error {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-default);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-6);
+  font-size: var(--font-size-14);
+}
+
+.ot-import-wizard__accounts,
+.ot-import-wizard__sheets {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.ot-import-wizard__account-card,
+.ot-import-wizard__sheet-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-primary);
+  cursor: pointer;
+  transition: all var(--motion-duration-base);
+  text-align: left;
+}
+
+.ot-import-wizard__account-card:hover,
+.ot-import-wizard__sheet-card:hover {
+  border-color: var(--color-brand-primary);
+  background: var(--color-brand-surface);
+}
+
+.ot-import-wizard__account-name {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.ot-import-wizard__account-bank,
+.ot-import-wizard__sheet-meta {
+  font-size: var(--font-size-13);
+  color: var(--color-text-secondary);
+}
+
+.ot-import-wizard__dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-9);
+  border: 2px dashed var(--color-border-default);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-secondary);
+  cursor: pointer;
+  transition: all var(--motion-duration-base);
+  color: var(--color-text-secondary);
+}
+
+.ot-import-wizard__dropzone:hover {
+  border-color: var(--color-brand-primary);
+  background: var(--color-brand-surface);
+}
+
+.ot-import-wizard__dropzone input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ot-import-wizard__file-name {
+  margin-top: var(--space-4);
+  font-size: var(--font-size-14);
+  color: var(--color-text-secondary);
+}
+
+.ot-import-wizard__mapping-table,
+.ot-import-wizard__preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-4);
+}
+
+.ot-import-wizard__mapping-table th,
+.ot-import-wizard__preview-table th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-default);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-13);
+  color: var(--color-text-secondary);
+}
+
+.ot-import-wizard__mapping-table td,
+.ot-import-wizard__preview-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-14);
+}
+
+.ot-import-wizard__mapping-table select {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-primary);
+  font-size: var(--font-size-14);
+}
+
+.ot-import-wizard__summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-6);
+}
+
+.ot-import-wizard__summary-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-14);
+  color: var(--color-text-primary);
+}
+
+.ot-import-wizard__summary-item--error {
+  color: var(--color-expense-default);
+}
+
+.ot-import-wizard__checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  font-size: var(--font-size-14);
+  cursor: pointer;
+}
+
+.ot-import-wizard__success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  text-align: center;
+  padding: var(--space-9) var(--space-7);
+}
+
+.ot-import-wizard__success h2 {
+  margin: 0;
+  color: var(--color-income-default);
+}
+
+.ot-import-wizard__done-actions {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}

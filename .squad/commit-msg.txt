@@ -1,10 +1,32 @@
-docs(squad): WI-17 v2 spec wave — generic column-mapping importer
+feat(import): WI-17 — generic column-mapping importer (hardened)
 
-- Neo: frozen IPC contracts, SHA-256 row hash, SheetJS, 6-step flow
-- Niobe: UX flow + state diagram + EN/ES copy + WCAG a11y
-- Mouse: Panel polish punch-list (most items verified-only)
-- Coordinator: WI-17 scope pivot (bank-parsers → generic mapper) + date-format auto-detect ruling
+Main side (Morpheus):
+- 4 IPC channels: import/stage-file, dry-run, commit, last-mapping
+- New events: movement.imported, import.mapping.updated (flat shape, coexists with legacy envelopes)
+- Row-hash dedup: SHA-256(accountId|isoDate|normalizedAmount|lcDescription), first 16 hex chars
+- Date-format auto-detect (scans >=10 cells, DD/MM vs MM/DD vs ISO, default DD/MM on ambiguity)
+- Parsers: exceljs (xlsx) + papaparse (csv) with formula suppression + header sanitization
+- Security hardening (Switch review conditions):
+  * Swapped xlsx (SheetJS) -> exceljs, eliminates 2 HIGH CVEs
+  * Opaque ULID fileId tokens instead of raw paths across IPC
+  * Session file-path allowlist seeded by dialog.showOpenDialog
+  * Windows-aware path guard: rejects UNC, device paths, reserved names, symlinks
+  * Zip-bomb mitigation: 100,000-row cap + decompression guards
+  * New error codes: ROW_COUNT_EXCEEDED, PATH_INVALID
+- 46 new main-side tests (row-hash, date-format, path-guard, session-registry, handlers)
 
-Orchestration logs written. Session log created. Merged 5 inbox files into decisions.md.
-Updated morpheus, trinity, switch, cypher history with WI-17 orientation notes.
+Renderer (Trinity):
+- 6-step ImportWizard (select account -> upload -> pick sheet -> map columns -> dry-run -> done)
+- DATOS tab in Configuracion screen hosts the wizard
+- importApi.ts service with fileId-aware method signatures
+- i18n additions (EN/ES) for importWizard.* incl. new error codes
+- WCAG 2.1 AA: keyboard nav, ARIA roles, table semantics on dry-run
+- 8 new renderer tests
+
+Panel polish:
+- Mouse audit + Trinity verification: all 7 items already correct in code;
+  mock data cosmetics flagged separately for data-layer work
+
+Status: 175 tests pass (33 files), 9 skipped (pre-existing jsdom <dialog>), typecheck+lint+format clean
+
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

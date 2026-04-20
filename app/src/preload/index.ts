@@ -50,6 +50,20 @@ import {
   type CreateTagResponse,
   type TagsListResponse,
 } from '../shared/ipc-contracts/tags.js';
+import {
+  IPC_IMPORT_STAGE_FILE,
+  IPC_IMPORT_DRY_RUN,
+  IPC_IMPORT_COMMIT,
+  IPC_IMPORT_LAST_MAPPING,
+  type StageFileRequest,
+  type StageFileResponse,
+  type DryRunRequest,
+  type DryRunResponse,
+  type CommitImportRequest,
+  type CommitImportResponse,
+  type LastMappingRequest,
+  type LastMappingResponse,
+} from '../shared/ipc-contracts/import.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -110,6 +124,20 @@ const api = {
     },
     list: (): Promise<TagsListResponse> => {
       return ipcRenderer.invoke(IPC_TAGS_LIST);
+    },
+  },
+  import: {
+    stageFile: (req: StageFileRequest): Promise<StageFileResponse> => {
+      return ipcRenderer.invoke(IPC_IMPORT_STAGE_FILE, req);
+    },
+    dryRun: (req: DryRunRequest): Promise<DryRunResponse> => {
+      return ipcRenderer.invoke(IPC_IMPORT_DRY_RUN, req);
+    },
+    commit: (req: CommitImportRequest): Promise<CommitImportResponse> => {
+      return ipcRenderer.invoke(IPC_IMPORT_COMMIT, req);
+    },
+    getLastMapping: (req: LastMappingRequest): Promise<LastMappingResponse> => {
+      return ipcRenderer.invoke(IPC_IMPORT_LAST_MAPPING, req);
     },
   },
 } as const;
