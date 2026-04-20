@@ -37,6 +37,18 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-20T08:15:53Z — Electron crypto hotfix: avoid `ulid` package in main process
+
+**Issue:** `ulid` package's `detectPrng()` crash at app boot: `"secure crypto unusable, insecure Math.random not allowed"` after esbuild bundling.
+
+**Root cause:** `ulid` relies on `globalThis.crypto.getRandomValues()` for PRNG detection. Esbuild ESM bundling isolated the bundled code from the global crypto object. When `detectPrng` found only `Math.random()` available, it threw in strict mode.
+
+**Fix:** Swapped to Node's built-in `crypto.randomUUID()` (from `node:crypto` module). No PRNG detection, built-in to all Node.js versions we target, equally opaque 128-bit tokens. Session file IDs are opaque-only (no sortability requirement), so UUID v4 is a drop-in replacement.
+
+**Learning:** Avoid `ulid` package in Electron main — it can't reliably detect PRNG after bundling. Use `crypto.randomUUID()` from `node:crypto` for any opaque token generation in the main process.
+
+**Verification:** Typecheck + 9/9 unit tests green. App boots without crash. (commit `18f7a61`)
+
 ## 2026-04-20T09:13:00Z — WI-17 shipped: CSV/XLSX import with column mapping + deduplication
 
 **Status:** Completed — main-side implementation of generic column-mapping importer.

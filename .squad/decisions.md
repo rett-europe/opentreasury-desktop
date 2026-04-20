@@ -136,6 +136,19 @@ Shift M1 priority from Movements-centric completion to "Panel first, then Moveme
 
 ---
 
+### 2026-04-20: Drop `ulid` dependency — use Node `crypto.randomUUID()` for session fileId tokens
+**By:** Morpheus (via Copilot) — requested by Pedro
+
+**What:** Replaced `ulid` package with `node:crypto`'s `randomUUID()` in `sessionFileRegistry.ts`. Removed `ulid` from dependencies.
+
+**Why:** `ulid` package's `detectPrng` threw `"secure crypto unusable, insecure Math.random not allowed"` at Electron main boot after esbuild bundling — the bundled ESM lost access to `globalThis.crypto.getRandomValues`. `randomUUID()` is built into Node, needs no PRNG detection, produces equally opaque 128-bit tokens. Test length assertion updated (26→UUID regex). ULIDs were only used as opaque session tokens (not for sortability), so UUIDv4 is a drop-in replacement.
+
+**Affects:** `app/src/main/import/sessionFileRegistry.ts`, its test, `package.json`.
+
+**Status:** Shipped (commit `18f7a61` on main).
+
+---
+
 ### 2026-04-19: Preload Built with esbuild Inline Plugin, Not vite-plugin-electron
 **By:** Coordinator (lightweight direct action) — requested by Pedro  
 **Branch:** main (commit 3c376fd)
