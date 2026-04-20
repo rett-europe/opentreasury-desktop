@@ -164,8 +164,23 @@ function sanitizeCell(value: unknown): string {
   let s: string;
   if (value instanceof Date) {
     s = value.toISOString().substring(0, 10);
-  } else if (typeof value === 'object' && value !== null && 'text' in value) {
-    s = String((value as { text: unknown }).text);
+  } else if (typeof value === 'object' && value !== null) {
+    const v = value as Record<string, unknown>;
+    if ('richText' in v && Array.isArray(v.richText)) {
+      s = (v.richText as Array<{ text?: unknown }>)
+        .map((r) => String(r?.text ?? ''))
+        .join('');
+    } else if ('text' in v && v.text !== null && v.text !== undefined) {
+      s = String(v.text);
+    } else if ('result' in v && v.result !== null && v.result !== undefined) {
+      s = sanitizeCell(v.result);
+    } else if ('formula' in v) {
+      s = String(v.formula ?? '');
+    } else if ('error' in v) {
+      s = String(v.error);
+    } else {
+      s = '';
+    }
   } else {
     s = String(value);
   }
