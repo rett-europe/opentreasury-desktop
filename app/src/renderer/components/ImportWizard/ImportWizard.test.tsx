@@ -205,4 +205,39 @@ describe('ImportWizard — WI-19 reference/details mapping', () => {
     expect(commitArg.columnMapping.reference).toBe('Ref');
     expect(commitArg.columnMapping.details).toBe('Extra');
   });
+
+  it('renders all mapped columns in final preview table', async () => {
+    mountBridge({});
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ImportWizard isOpen onClose={() => {}} onComplete={() => {}} />
+      </I18nextProvider>,
+    );
+
+    await advanceToMapColumns();
+
+    // Map 5 fields: date, amount, description, reference, details
+    const selects = Array.from(document.querySelectorAll('select')) as HTMLSelectElement[];
+    fireEvent.change(selects[0]!, { target: { value: 'date' } });
+    fireEvent.change(selects[1]!, { target: { value: 'amount' } });
+    fireEvent.change(selects[2]!, { target: { value: 'description' } });
+    fireEvent.change(selects[3]!, { target: { value: 'reference' } });
+    fireEvent.change(selects[4]!, { target: { value: 'details' } });
+
+    const previewBtn = screen.getByRole('button', {
+      name: /Preview Import|Vista Previa/i,
+    });
+    fireEvent.click(previewBtn);
+
+    // Wait for dry-run step to render
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Import \d+|Importar \d+/i })).toBeTruthy();
+    });
+
+    // Check that the preview table has 5 column headers (one per mapped field)
+    const previewTable = document.querySelector('.ot-import-wizard__preview-table');
+    expect(previewTable).toBeTruthy();
+    const headers = previewTable?.querySelectorAll('thead th');
+    expect(headers?.length).toBe(5);
+  });
 });

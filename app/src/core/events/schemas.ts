@@ -251,6 +251,51 @@ export const transactionNoteDeletedEventSchema = z.object({
 
 export type TransactionNoteDeletedEvent = z.infer<typeof transactionNoteDeletedEventSchema>;
 
+// ---------------------------------------------------------------------------
+// WI-20 — Transaction edit + delete events (enveloped style).
+// Pattern A from Neo's WI-20 scope doc: full-replacement payload snapshot.
+// ---------------------------------------------------------------------------
+
+export const transactionUpdatedPayloadSchema = z.object({
+  id: z.string().length(26), // ULID (transaction id — unchanged)
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  type: transactionTypeSchema,
+  amount: z.number().positive(),
+  currency: z.literal('EUR'),
+  description: z.string().max(500),
+  accountId: z.string().length(26), // ULID (immutable)
+  categoryId: z.string().length(26).nullable(),
+  subcategoryId: z.string().length(26).nullable(),
+  tagIds: z.array(z.string().length(26)),
+  status: transactionStatusSchema,
+  createdAt: z.string().datetime(), // Original creation timestamp (unchanged)
+  updatedAt: z.string().datetime(), // When the edit occurred
+  reference: z.string().max(120).nullable().optional(),
+  details: z.string().max(1000).nullable().optional(),
+});
+
+export type TransactionUpdatedPayload = z.infer<typeof transactionUpdatedPayloadSchema>;
+
+export const transactionUpdatedEventSchema = eventEnvelopeSchema.extend({
+  type: z.literal('tx.updated'),
+  payload: transactionUpdatedPayloadSchema,
+});
+
+export type TransactionUpdatedEvent = z.infer<typeof transactionUpdatedEventSchema>;
+
+export const transactionDeletedEventSchema = z.object({
+  type: z.literal('tx.deleted'),
+  id: z.string().length(26), // Event ULID (unique per deletion event)
+  txId: z.string().length(26), // Transaction being deleted
+  deletedAt: z.string().datetime(),
+  datasetId: z.string().length(26),
+  actorDeviceId: z.string().length(26),
+  dekVersion: z.number().int().nonnegative(),
+  version: z.number().int().positive().default(1),
+});
+
+export type TransactionDeletedEvent = z.infer<typeof transactionDeletedEventSchema>;
+
 // Union type for all domain events
 export type DomainEvent =
   | TransactionCreatedEvent
@@ -264,4 +309,6 @@ export type DomainEvent =
   | ImportMappingUpdatedEvent
   | TransactionNoteAddedEvent
   | TransactionNoteEditedEvent
-  | TransactionNoteDeletedEvent;
+  | TransactionNoteDeletedEvent
+  | TransactionUpdatedEvent
+  | TransactionDeletedEvent;

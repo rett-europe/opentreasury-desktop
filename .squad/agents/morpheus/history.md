@@ -115,6 +115,64 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 
 **Problem solved:** Pedro can now import XLSX files with formula cells, richText cells, and other ExcelJS object shapes. The dry-run no longer fails with `[object Object]` garbage in the error messages.
 
+## 2026-04-21T23:00:00Z — WI-20 backend implementation (tx.updated + tx.deleted events)
+
+**Status:** Completed and pushed to main (commit `d3ad1ce`).
+
+**Context:** Manual transaction edit + delete. Pedro approved all of Neo's WI-20 scope recommendations: soft-delete via `tx.deleted` event, `accountId` immutable after creation, full-replacement payload for `tx.updated` (Pattern A).
+
+**Delivered:**
+
+1. **Event schemas** (`app/src/core/events/schemas.ts`):
+   - `tx.updated` event (enveloped style, same as `tx.created`). Full-replacement payload includes all fields. `updatedAt` timestamp added alongside preserved `createdAt`. `accountId` immutable (server enforces).
+   - `tx.deleted` event (flat style, similar to `tx.note.*` events). Payload: `{ id, txId, deletedAt, datasetId, actorDeviceId, dekVersion, version }`. Event `id` is the event ULID; `txId` is the transaction being deleted.
+
+2. **IPC contracts** (`app/src/shared/ipc-contracts/transaction.ts`):
+   - `transaction:update` channel. Request omits `accountId`, `currency`, `createdAt` (server-side). Response = discriminated union `{ ok: true, event } | { ok: false, error }`.
+   - `transaction:delete` channel. Request = `{ id }`. Response = same discriminated union.
+   - Error codes: Added `TX_NOT_FOUND`, `REFERENCE_TOO_LONG`, `DETAILS_TOO_LONG`. Reused existing validation codes (`AMOUNT_NON_POSITIVE`, `DATE_INVALID`, `DESCRIPTION_EMPTY`, `TYPE_INVALID`, `SCHEMA_INVALID`, `INTERNAL`).
+
+3. **Commands** (`app/src/core/commands/updateTransaction.ts`, `deleteTransaction.ts`):
+   - `updateTransaction`: validates input, loads existing transaction (returns `TX_NOT_FOUND` if missing), ignores incoming `accountId` (uses stored value to enforce immutability), emits `tx.updated`.
+   - `deleteTransaction`: validates, verifies transaction exists, emits `tx.deleted`.
+   - Both commands use distinct `Result` type aliases (`UpdateResult`, `DeleteResult`) to avoid export conflicts with `createTransaction.ts`.
+
+4. **IPC handlers** (`app/src/main/ipc/handlers/transaction.ts`):
+   - Wired `transaction:update` and `transaction:delete` channels using factory pattern (same as `transaction:create`).
+   - Handlers follow existing idempotent-append pattern: check event log growth before applying to reducer.
+
+5. **Reducer updates** (`app/src/core/query/reducers.ts`):
+   - On `tx.updated`: find transaction by `payload.id`, replace in-place in `transactions` array. Rebuild `transactionsByReference` index (reference may have changed).
+   - On `tx.deleted`: filter transaction from `transactions` array. Delete entry from `transactionsByReference` index. Clean up notes for the deleted transaction (cascade delete from `notes` map).
+
+6. **Preload bridge** (`app/src/preload/index.ts`):
+   - Exposed `transaction.update` and `transaction.delete` methods. Mirrors existing `transaction.create` pattern.
+
+7. **Unit tests**:
+   - `updateTransaction.test.ts`: 9 test cases (happy path, not-found, non-positive amount, negative amount, invalid date, invalid type, empty description, immutable accountId preservation).
+   - `deleteTransaction.test.ts`: 2 test cases (happy path, not-found).
+   - `reducers.test.ts`: 5 additional test cases for `tx.updated` and `tx.deleted` projection (replace transaction, rebuild reference index, remove transaction, remove from reference index, cascade delete notes).
+
+**Learnings:**
+
+- **Pattern A (full-replacement payload) is straightforward:** Reducer logic is a simple find-and-replace. No patch-merge complexity, no field-level delta tracking. For a single-user desktop app with encrypted NDJSON log, storage overhead is negligible.
+
+- **Immutable accountId enforcement approach:** Command uses the stored `accountId` from the existing transaction, ignoring any incoming value from the request. This is cleaner than rejecting requests that include a different `accountId` (which would require the UI to explicitly omit it). Trinity can include `accountId` in her form state without errors — the backend will silently use the correct value.
+
+- **Event `id` vs aggregate `id` split (same as tx.note.* events):** The `tx.deleted` event uses flat style with two id fields: `id` (event ULID, dedupe key for the log) and `txId` (transaction being deleted). This mirrors the pattern from WI-19 transaction notes. The `tx.updated` event uses enveloped style (event `id` in envelope, transaction `id` in `payload`).
+
+- **Reference index rebuild on update/delete:** Transactions can have references. The `transactionsByReference` index must be rebuilt whenever a transaction is updated (reference may change) or deleted (must remove from index). The index-building function (`indexByReference`) is pure and re-runs on every projection, so the reducer just assigns `transactionsByReference: indexByReference(nextTransactions)` after any mutation.
+
+- **Cascade delete notes on tx.deleted:** When a transaction is deleted, its notes become orphaned. The reducer cleans up the `notes` map entry for that `txId` to avoid memory leaks. This is an in-memory projection concern only — the append-only event log still contains the note events, but they're no longer projected.
+
+- **TypeScript exactOptionalPropertyTypes gotcha:** Input interfaces with optional fields like `reference?: string | null` require explicit `| undefined` in strict mode when the IPC schema can return `undefined`. Fixed by adding `| undefined` to `UpdateTransactionInput` optional fields.
+
+- **Result type export conflicts:** All three transaction commands (`createTransaction`, `updateTransaction`, `deleteTransaction`) originally exported a generic `Result<T, E>` type. This caused TypeScript "cannot redeclare" errors when re-exporting from `core/commands/index.ts`. Resolved by renaming to `UpdateResult` and `DeleteResult` in the update/delete commands.
+
+**Verification:** All backend tests green (360 passed, 9 skipped). Typecheck has 2 pre-existing renderer errors (Trinity's TransactionDetailModal and PanelScreen not wired to the new IPC channels yet — expected, she's running in parallel). Lint ✓ · format ✓ · committed and pushed to main (commit `d3ad1ce`).
+
+**Coordination with Trinity:** The IPC contract types (`UpdateTransactionRequest`, `DeleteTransactionRequest`, `UpdateTransactionResponse`, `DeleteTransactionResponse`) are exported from `shared/ipc-contracts/transaction.ts` and exposed via `window.opentreasury.transaction.update` / `.delete` in the preload bridge. Trinity can import these types and call the IPC handlers from her UI code. The `accountId` field is optional in `UpdateTransactionRequest` — if provided, it's ignored; if omitted, no error. The backend always uses the stored value.
+
 ## 2026-04-20T08:15:53Z — Electron crypto hotfix: avoid `ulid` package in main process
 
 **Issue:** `ulid` package's `detectPrng()` crash at app boot: `"secure crypto unusable, insecure Math.random not allowed"` after esbuild bundling.
@@ -159,6 +217,10 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 **Outstanding TODOs for Trinity (renderer):**
 - Import wizard UI (6-step flow: account picker → upload → sheet picker → column mapper → dry-run preview → commit)
 - File-open dialog integration (Electron's `dialog.showOpenDialog` from preload)
+
+## 2026-04-21T10:15:02Z — WI-20 Polish Round 2: new dateFormat util (renderer-side)
+
+Trinity created `src/utils/dateFormat.ts` using `i18n.language` instead of `navigator.language`. Applied to MovementsScreen, PanelScreen, TransactionDetailModal, NotesThread. Renderer-side only; no backend impact. Good to know if backend ever emits date strings for UI rendering.
 - Dry-run UX: summary card, sample rows table, duplicate/error lists, "Import duplicates" checkbox
 - Mapping auto-fill from `getLastMapping` on Step 4
 
@@ -861,3 +923,42 @@ All 122 import tests green · typecheck ✓ · lint ✓ · format:check ✓ · b
 ## Team Updates
 
 - **WI-19 shipped:** Neo scoped, Pedro approved, Morpheus + Trinity delivered. All gates green (345/345 tests). TransactionDetailModal + NotesThread + import wizard mapping live on main. Contract deviations (noteId + id split, transactionsByReference projection) documented in decisions.md.
+
+## 2026-04-21T07:05:00Z — TransactionFormFields extracted by Trinity (renderer-side, no backend impact)
+
+**Context:** WI-20 edit UX fixes landed on main. Trinity refactored TransactionDetailModal to support in-place swap (Option A: same <dialog>, body/footer swap, avoiding stacked-modal regression). To avoid duplicating form field markup between AddTransactionModal and the edit swap, Trinity extracted a new TransactionFormFields reusable component.
+
+**Component:** pp/src/renderer/components/TransactionFormFields/
+- Props: individual field values (date, amount, etc.) + onChange handlers — no internal form state.
+- Parent owns form state + validation.
+- Layout baked into CSS: two-column for compact fields (date/type, amount/account, status/reference), full-width for description/category/tags/details.
+- Used by: TransactionDetailModal (edit mode), AddTransactionModal (candidate for future refactor).
+
+**Backend Impact:** None. Renderer-side UI component extraction; all IPC contracts and field schemas unchanged.
+
+**Rationale:** DRY pattern — shared form fields between add + edit ensure single source of truth for field structure. When WI-15 adds subcategory editing, only TransactionFormFields needs updating; the two consumers (add modal, edit swap) stay in sync automatically.
+
+**Note for future refactors:** If AddTransactionModal is refactored to use TransactionFormFields (currently uses its own inline markup), the duplication will resolve further. The component is ready; no urgent work needed.
+
+
+## 2026-04-21T07:46:31Z — Trinity: UI Polish Round — Unified Modal + TagChipPicker
+
+**Agent:** Trinity (Frontend Dev)  
+**Event:** WI-20 polish round shipped (4 bugs fixed)
+
+**Frontend UI changes (renderer):**
+- MovementsScreen table now wrapped in overflow-x: auto container — horizontal scroll on narrow viewports, all columns visible
+- TransactionDetailModal unified at 760px for BOTH read and edit modes — eliminates jarring shape change (was 640px read, 720px edit)
+- Form inputs use width: 100% within columns — adequate horizontal space for two-column layout
+- **NEW:** TagChipPicker component replaces native <select multiple> for tag selection:
+  - Single-click toggle (no Ctrl/Cmd required)
+  - Visual states: outline chip (unselected), filled chip + checkmark (selected)
+  - Accessible: aria-pressed state, keyboard navigable, screen-reader friendly
+  - Mobile-friendly: touch targets, no modifier keys
+  - Pattern matches Gmail labels, Linear labels, Trello labels
+
+**No backend impact:** All changes are renderer-only UI polish. No IPC contract changes, no event model changes.
+
+**Worth noting for integration testing:** If you're testing the renderer against mock backend data, verify TransactionDetailModal modal width expectations (760px fixed). Tag selection UX now single-click (was Ctrl+click).
+
+See .squad/decisions.md § "2026-04-21: WI-20 Polish" for full decision log (table overflow pattern, modal width rationale, chip picker component spec).

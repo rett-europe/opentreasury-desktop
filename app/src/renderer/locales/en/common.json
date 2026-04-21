@@ -192,6 +192,7 @@
     },
     "form": {
       "title": "Add Transaction",
+      "editTitle": "Edit Transaction",
       "submit": "Save",
       "submitting": "Saving…",
       "fields": {
@@ -202,10 +203,15 @@
         "account": "Account",
         "category": "Category",
         "subcategory": "Subcategory",
-        "tags": "Tags"
+        "tags": "Tags",
+        "status": "Status",
+        "reference": "Reference",
+        "details": "Details"
       },
       "placeholders": {
-        "description": "Enter a description…"
+        "description": "Enter a description…",
+        "reference": "e.g. Invoice #1234",
+        "details": "Additional notes or context…"
       },
       "errors": {
         "dateInvalid": "Please enter a valid date.",
@@ -213,6 +219,9 @@
         "amountNonPositive": "Amount must be greater than zero.",
         "descriptionEmpty": "Description is required.",
         "accountNotFound": "Please select an account.",
+        "referenceTooLong": "Reference must be 120 characters or less.",
+        "detailsTooLong": "Details must be 1000 characters or less.",
+        "txNotFound": "Transaction not found.",
         "submitFailed": "Failed to save the transaction. Please try again."
       }
     }
@@ -232,7 +241,10 @@
       "reference": "Reference",
       "details": "Details",
       "none": "—"
-    }
+    },
+    "editButton": "Edit",
+    "deleteButton": "Delete",
+    "deleteConfirm": "Are you sure you want to delete this transaction? This cannot be undone."
   },
   "notes": {
     "heading": "Notes",

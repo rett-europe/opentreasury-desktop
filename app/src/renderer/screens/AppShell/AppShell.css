@@ -331,7 +331,11 @@
   /* The ONLY scrolling region in the app shell. Sticky elements inside page
    * content (e.g. `.ot-table thead th`) anchor to this container. */
   overflow-y: auto;
-  overflow-x: hidden;
+  /* overflow-x: auto instead of hidden — allow child tables to scroll
+   * horizontally when viewport is narrower than table intrinsic width.
+   * Each screen's table wrapper has overflow-x: auto; this container must
+   * not trap that scroll. */
+  overflow-x: auto;
   /* NO top padding. A sticky child anchored at `top: 0` anchors to the
    * scrollport top, but the container's `padding-top` area is still part of
    * the scrollport — rows scrolling up are rendered through that band,

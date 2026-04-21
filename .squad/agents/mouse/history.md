@@ -160,3 +160,120 @@ Table header styling mismatch discovered during prototype parity pass:
 Per north-star rule, Trinity flagged for resolution: **Niobe/Link must pick one** (keep app natural case OR update prototype CSS to match). The proto CSS rule lives at `prototype/styles.css:430`. Change is small (remove 2 lines); app change would be restore 3 lines in `Table.css`.
 
 See `.squad/decisions.md` 2026-04-19: Trinity — Movements table columns + headers parity pass (Part 2 ratification section).
+
+### 2026-04-21: WI-20 Table truncation + button alignment fix (Mouse)
+
+**Two bugs fixed:**
+
+1. **Table column truncation** — Long category/subcategory codes pushed ESTADO column off-screen at 2040px viewport.
+   - **Cause:** `white-space: nowrap` without `max-width` → infinite table width
+   - **Fix:** `table-layout: fixed` + per-column widths + `text-overflow: ellipsis`
+   - **Column width system:** select(36), type(36), date(100), account(130), description(220), category(150), subcategory(150), tags(180), status(90), amount(110) = ~1202px total
+   - **Hover access:** Added `title` attributes to all truncatable cells
+   - **Chip overflow:** Tags show max 2 chips + "+N" indicator
+
+2. **Editar button icon misalignment** — Pencil icon sat higher than "Editar" text.
+   - **Cause:** Icon passed as direct child instead of `leadingIcon` prop
+   - **Fix:** Changed to `<Button leadingIcon={<Edit size={16} />}>`
+
+**Pattern learned:** Never pass icons as direct Button children. Always use `leadingIcon`/`trailingIcon` props. The prop wrapper adds the correct flexbox alignment rules.
+
+**Vision vs theorizing:** Trinity's 4 failed rounds patched CSS without seeing the actual rendered output. Looking at Pedro's screenshots immediately revealed: (a) which columns were too wide, (b) approximate widths needed, (c) exact icon/text misalignment. Always verify visually.
+
+See `.squad/decisions/inbox/mouse-table-column-widths.md` and `.squad/decisions/inbox/mouse-button-alignment.md`.
+
+### 2026-04-22: WI-20 Round 2 — Available width audit + Panel table fix (Mouse)
+
+**ROOT CAUSE (why Round 1 still trimmed at 1500px):**
+Round 1 summed column widths (1202px) and assumed they'd fit 1366px. Wrong. The 1366px viewport is NOT the table budget — subtract the layout chrome first.
+
+**AVAILABLE WIDTH CALCULATION (1366px viewport):**
+```
+Viewport:     1366px
+Sidebar:      -240px   (--sidebar-width in tokens.css)
+Main padding: -64px    (--space-10 × 2 = 32px left + 32px right)
+Table border: -2px     (1px × 2 from .ot-table-wrap)
+──────────────────────
+AVAILABLE:    1060px
+```
+
+**REVISED COLUMN WIDTHS (MovementsScreen — 10 columns):**
+- select: 32px (was 36)
+- type: 32px (was 36)  
+- date: 88px (was 100)
+- account: 100px (was 130)
+- description: 200px (was 220)
+- category: 120px (was 150)
+- subcategory: 120px (was 150)
+- tags: 140px (was 180)
+- status: 80px (was 90)
+- amount: 100px (was 110)
+- **TOTAL: 1012px** (leaves 48px buffer for rounding/padding)
+
+**PANEL TABLE (7 columns — NEW fix this round):**
+- type: 32px
+- date: 100px
+- account: 120px
+- description: flex (auto-fills remaining ~500px)
+- category: 120px
+- subcategory: 120px
+- amount: 100px
+
+**CHANGES MADE:**
+1. `MovementsScreen.css`: Reduced all column widths by 10-30px each
+2. `PanelScreen.css`: Added `table-layout: fixed` + column widths + ellipsis + scroll fallback
+3. `PanelScreen.tsx`: Added `title` attributes for hover on truncated cells, removed inline `width` props (CSS owns them now)
+
+**LESSON LEARNED:** Always measure the ACTUAL available width at the target breakpoint before setting column budgets. Viewport width ≠ content width.
+
+### 2026-04-22: WI-20 Round 3 — Overflow scroll trap fix (Mouse)
+
+**ROOT CAUSE (why `overflow-x: auto` on table wrappers didn't scroll):**
+The `overflow-x: auto` rule was defeated by an ancestor `overflow-x: hidden` trap in the DOM chain. Horizontal scroll NEVER works if ANY ancestor between the wrapper and the viewport has `overflow-x: hidden` or `overflow: hidden`.
+
+**DOM CHAIN AUDIT:**
+```
+.ot-shell__main (grid item, main scrollport)
+├─ overflow-y: auto ✅
+├─ overflow-x: hidden ❌ ← THE TRAP
+└─ .ot-movements (flex container)
+   ├─ display: flex ✅
+   ├─ (no min-width: 0) ❌ ← SECOND TRAP (flex shrink blocked)
+   └─ .ot-movements__table-container (overflow-x: auto wrapper)
+      └─ .ot-table (fixed-layout, 1012px intrinsic width)
+```
+
+**THREE CULPRITS FIXED:**
+1. **`.ot-shell__main`** had `overflow-x: hidden` → changed to `overflow-x: auto` to pass scroll through
+2. **`.ot-movements`** lacked `min-width: 0` → flex items default to `min-width: auto` (= content size), preventing wrapper from shrinking below table width
+3. **`.ot-panel-recent`** had `overflow: hidden` → changed to `overflow-x: auto` + `overflow-y: hidden`
+
+**THE FLEX `min-width: 0` RULE:**
+When a flex item contains wide content (like a table), it defaults to `min-width: auto` = "don't shrink below content width". This prevents the parent flex container from contracting below the table's 1012px intrinsic width, so the wrapper with `overflow-x: auto` never gets narrower than the table and never scrolls. **ALWAYS add `min-width: 0` to flex containers that wrap scrollable content.**
+
+**VERIFICATION:**
+- At >=1366px: table fits, no scrollbar (no regression)
+- Below ~1350px: horizontal scrollbar appears, user can scroll to see ESTADO + all columns
+
+**COMMIT:** `f21de3f` — fix(ui): enable horizontal scroll fallback on narrow viewports
+
+**LESSON FOR FUTURE AGENTS:** When a scroll wrapper (`overflow-x: auto`) doesn't scroll, audit the ENTIRE ancestor chain from the wrapper to the viewport root:
+1. Look for `overflow: hidden` or `overflow-x: hidden` on ANY ancestor — that's a trap
+2. Look for flex/grid parents WITHOUT `min-width: 0` on the wrapper (flex children)
+3. The scroll wrapper itself must be NARROWER than its child content to trigger the scrollbar — if ancestors prevent contraction, no scroll
+
+
+### 2026-04-22: Edit Mode is a Skin of View Mode — Not a Separate Template (Mouse)
+
+**THE PATTERN:** When a modal has view mode and edit mode, edit mode should be a SKIN of view mode — same layout primitives, same labels, same row rhythm. Only the value slot changes (text → input/select). This ensures view↔edit toggle only morphs the value cells; everything else stays put.
+
+**ROOT CAUSE OF VISUAL DIVERGENCE:** The edit mode was using TransactionFormFields component with its own completely different layout structure (different gap spacing, different grid template, different min-height). This created a jarring visual change when switching from view to edit.
+
+**FIXES APPLIED:**
+1. **Added summary header to edit mode** — Edit body now shows the same date/description/amount summary block as view mode (read-only context for what's being edited)
+2. **Unified CSS spacing** — Changed TransactionFormFields.css to use same gap values (space-5) and grid template (epeat(2, minmax(0, 1fr))) as view mode's __grid
+3. **Reduced visual weight of inputs** — Changed input padding, focus shadow size, and disabled state to feel less heavy and more inline with the view mode's text display
+
+**KEY PRINCIPLE:** The edit modal should visually feel like you're editing IN PLACE within the same layout, not teleporting to a different dialog. Labels, row order, and column layout must be identical; only the value cells transform.
+
+**COMMIT:** see commit hash below

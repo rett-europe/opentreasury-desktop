@@ -543,17 +543,22 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                 <table className="ot-import-wizard__preview-table">
                   <thead>
                     <tr>
-                      <th>{t('importWizard.mapColumns.fields.date')}</th>
-                      <th>{t('importWizard.mapColumns.fields.amount')}</th>
-                      <th>{t('importWizard.mapColumns.fields.description')}</th>
+                      {Object.keys(state.columnMapping).map((field) => (
+                        <th key={field}>{t(`importWizard.mapColumns.fields.${field}`)}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {samples.map((row) => (
                       <tr key={row.rowIndex}>
-                        <td>{row.date}</td>
-                        <td>{row.amount}</td>
-                        <td>{row.description}</td>
+                        {Object.keys(state.columnMapping).map((field) => {
+                          const value = (row as Record<string, unknown>)[field];
+                          return (
+                            <td key={field}>
+                              {value !== null && value !== undefined ? String(value) : '—'}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>

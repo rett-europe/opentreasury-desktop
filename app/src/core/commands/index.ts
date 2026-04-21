@@ -3,3 +3,5 @@
 // They never perform I/O; the caller wires them to the event log.
 export * from './createTransaction';
 export * from './transactionNote';
+export * from './updateTransaction';
+export * from './deleteTransaction';

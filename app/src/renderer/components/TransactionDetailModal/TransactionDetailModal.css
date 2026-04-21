@@ -1,9 +1,11 @@
-/* Transaction Detail modal — WI-19.
-   Fixed width matches the ImportWizard "locked-width" pattern so the body
-   doesn't jitter when the notes thread loads or grows. */
+/* Transaction Detail modal — WI-19 + WI-20 (in-place edit swap).
+   Unified width: 760px for both read and edit modes to eliminate shape change.
+   Previous: 640px read / 720px edit caused jarring jump on edit click.
+   760px provides adequate breathing room for two-column form layout without
+   overwhelming smaller screens (max-width: 92vw ensures mobile safety). */
 
 .ot-transaction-detail-modal {
-  width: 640px;
+  width: 760px;
   max-width: 92vw;
   max-height: 88vh;
   padding: 0;
@@ -12,6 +14,11 @@
   box-shadow: var(--shadow-lg);
   background: var(--color-surface-primary);
   color: var(--color-text-primary);
+}
+
+/* No width transition needed — both modes use the same width */
+.ot-transaction-detail-modal--edit {
+  /* Edit mode marker class — no style changes, kept for semantic clarity */
 }
 
 .ot-transaction-detail-modal::backdrop {
@@ -23,32 +30,19 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  padding: var(--space-6);
   max-height: 88vh;
   overflow-y: auto;
+  padding: var(--space-6);
 }
 
 .ot-transaction-detail-modal__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  margin: 0;
   padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--color-border-default, var(--color-border));
-}
-
-.ot-transaction-detail-modal__heading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-  flex: 1;
-}
-
-.ot-transaction-detail-modal__date {
-  font-size: var(--font-size-sm, 0.875rem);
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
 }
 
 .ot-transaction-detail-modal__title {
@@ -56,7 +50,51 @@
   font-size: var(--font-size-lg, 1.125rem);
   font-weight: 600;
   color: var(--color-text-primary);
-  word-break: break-word;
+}
+
+.ot-transaction-detail-modal__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.ot-transaction-detail-modal__action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-error-text);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.ot-transaction-detail-modal__action-btn:hover:not(:disabled) {
+  background: var(--color-error-surface);
+  color: var(--color-error-default);
+}
+
+.ot-transaction-detail-modal__action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ot-transaction-detail-modal__action-btn:focus-visible {
+  outline: 2px solid var(--color-error-default);
+  outline-offset: 1px;
+}
+
+.ot-transaction-detail-modal__date {
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .ot-transaction-detail-modal__amount {
@@ -93,6 +131,48 @@
   outline-offset: 1px;
 }
 
+/* Edit body — contains summary header + TransactionFormFields.
+ * Same structure as read-body: summary at top, then form fields.
+ * This ensures view↔edit toggle only morphs value cells. */
+.ot-transaction-detail-modal__edit-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 400px;
+}
+
+.ot-transaction-detail-modal__error {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-error-surface);
+  color: var(--color-error-text);
+  font-size: var(--font-size-sm);
+}
+
+/* Read body — contains transaction details + notes */
+.ot-transaction-detail-modal__read-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 520px;
+}
+
+.ot-transaction-detail-modal__summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border-default, var(--color-border));
+}
+
+.ot-transaction-detail-modal__description {
+  margin: 0;
+  font-size: var(--font-size-base, 1rem);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  word-break: break-word;
+}
+
 .ot-transaction-detail-modal__metadata {
   display: flex;
   flex-direction: column;
@@ -103,13 +183,13 @@
   margin: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3) var(--space-5);
+  gap: var(--space-5) var(--space-6);
 }
 
 .ot-transaction-detail-modal__field {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -120,6 +200,7 @@
   color: var(--color-text-muted);
   font-weight: 600;
   margin: 0;
+  margin-bottom: var(--space-1);
 }
 
 .ot-transaction-detail-modal__field dd {
@@ -127,6 +208,7 @@
   font-size: var(--font-size-sm, 0.875rem);
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
+  line-height: 1.5;
 }
 
 .ot-transaction-detail-modal__extra {
@@ -174,7 +256,13 @@
 
 .ot-transaction-detail-modal__footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-border-default, var(--color-border));
+}
+
+.ot-transaction-detail-modal__footer-actions {
+  display: flex;
+  gap: var(--space-2);
 }

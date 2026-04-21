@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 import { Button } from '../Button/index.js';
+import { formatDateTime } from '../../utils/dateFormat.js';
 import * as notesApi from '../../services/notesApi.js';
 import { NOTE_TEXT_MAX_LENGTH, type TransactionNote } from '../../../shared/ipc-contracts/notes.js';
 import './NotesThread.css';
@@ -15,26 +16,14 @@ type ThreadState =
   | { kind: 'loaded'; notes: readonly TransactionNote[] }
   | { kind: 'error'; message: string };
 
-function formatTimestamp(iso: string): string {
-  try {
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) return iso;
-    return new Intl.DateTimeFormat(navigator.language, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(date);
-  } catch {
-    return iso;
-  }
-}
-
 /**
  * Notes thread — chronological list + add/delete UI. Lives inside the
  * Transaction Detail modal. Oldest-first ordering matches the backend
  * `transaction:note:list` channel contract.
  */
 export function NotesThread({ txId }: NotesThreadProps): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
   const [state, setState] = useState<ThreadState>({ kind: 'loading' });
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -175,7 +164,7 @@ export function NotesThread({ txId }: NotesThreadProps): JSX.Element {
             <article key={note.id} className="ot-notes-thread__card">
               <header className="ot-notes-thread__card-header">
                 <time className="ot-notes-thread__timestamp" dateTime={note.createdAt}>
-                  {formatTimestamp(note.createdAt)}
+                  {formatDateTime(note.createdAt, locale)}
                 </time>
                 <button
                   type="button"

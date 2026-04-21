@@ -6,8 +6,10 @@
 
 import { z } from 'zod';
 
-// IPC channel name constant
+// IPC channel name constants
 export const IPC_TRANSACTION_CREATE = 'transaction:create';
+export const IPC_TRANSACTION_UPDATE = 'transaction:update';
+export const IPC_TRANSACTION_DELETE = 'transaction:delete';
 
 // ----------------------------------------------------------------------------
 // Event schema — mirrors core/events/schemas.ts transactionCreatedEventSchema.
@@ -100,6 +102,7 @@ export const transactionValidationErrorCodeSchema = z.enum([
   'DATE_INVALID',
   'DESCRIPTION_EMPTY',
   'TYPE_INVALID',
+  'TX_NOT_FOUND',
   'SCHEMA_INVALID',
   'INTERNAL',
 ]);
@@ -120,3 +123,135 @@ export const createTransactionResponseSchema = z.discriminatedUnion('ok', [
 ]);
 
 export type CreateTransactionResponse = z.infer<typeof createTransactionResponseSchema>;
+
+// ============================================================================
+// WI-20 — Update Transaction
+// ============================================================================
+
+// Mirrors tx.updated event payload schema from core/events/schemas.ts
+const transactionUpdatedPayloadMirrorSchema = z.object({
+  id: z.string().length(26),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  type: z.enum(['income', 'expense']),
+  amount: z.number().positive(),
+  currency: z.literal('EUR'),
+  description: z.string().max(500),
+  accountId: z.string().length(26),
+  categoryId: z.string().length(26).nullable(),
+  subcategoryId: z.string().length(26).nullable(),
+  tagIds: z.array(z.string().length(26)),
+  status: z.enum(['pending', 'approved']),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  reference: z.string().max(120).nullable().optional(),
+  details: z.string().max(1000).nullable().optional(),
+});
+
+const transactionUpdatedEventMirrorSchema = z.object({
+  id: z.string().length(26),
+  type: z.literal('tx.updated'),
+  datasetId: z.string().length(26),
+  actorDeviceId: z.string().length(26),
+  createdAt: z.string().datetime(),
+  dekVersion: z.number().int().nonnegative(),
+  version: z.number().int().positive(),
+  payload: transactionUpdatedPayloadMirrorSchema,
+});
+
+export type TransactionUpdatedEventWire = z.infer<typeof transactionUpdatedEventMirrorSchema>;
+
+// Request schema — full payload (accountId, currency, createdAt are server-side)
+export const updateTransactionRequestSchema = z.object({
+  id: z.string().min(1), // Transaction id being updated
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  type: transactionTypeSchema,
+  amount: z.number().positive().finite(),
+  description: z.string().min(1).max(500),
+  categoryId: z.string().nullable().optional(),
+  subcategoryId: z.string().nullable().optional(),
+  tagIds: z.array(z.string()).optional(),
+  status: transactionStatusSchema.optional(),
+  reference: freeTextField(120).optional(),
+  details: freeTextField(1000).optional(),
+});
+
+export type UpdateTransactionRequest = z.infer<typeof updateTransactionRequestSchema>;
+
+export const updateTransactionValidationErrorCodeSchema = z.enum([
+  'TX_NOT_FOUND',
+  'AMOUNT_NON_POSITIVE',
+  'DATE_INVALID',
+  'DESCRIPTION_EMPTY',
+  'TYPE_INVALID',
+  'REFERENCE_TOO_LONG',
+  'DETAILS_TOO_LONG',
+  'SCHEMA_INVALID',
+  'INTERNAL',
+]);
+
+export type UpdateTransactionValidationErrorCode = z.infer<
+  typeof updateTransactionValidationErrorCodeSchema
+>;
+
+export const updateTransactionErrorSchema = z.object({
+  code: updateTransactionValidationErrorCodeSchema,
+  message: z.string(),
+  field: z.string().optional(),
+});
+
+export type UpdateTransactionError = z.infer<typeof updateTransactionErrorSchema>;
+
+export const updateTransactionResponseSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), event: transactionUpdatedEventMirrorSchema }),
+  z.object({ ok: z.literal(false), error: updateTransactionErrorSchema }),
+]);
+
+export type UpdateTransactionResponse = z.infer<typeof updateTransactionResponseSchema>;
+
+// ============================================================================
+// WI-20 — Delete Transaction
+// ============================================================================
+
+const transactionDeletedEventMirrorSchema = z.object({
+  type: z.literal('tx.deleted'),
+  id: z.string().length(26),
+  txId: z.string().length(26),
+  deletedAt: z.string().datetime(),
+  datasetId: z.string().length(26),
+  actorDeviceId: z.string().length(26),
+  dekVersion: z.number().int().nonnegative(),
+  version: z.number().int().positive(),
+});
+
+export type TransactionDeletedEventWire = z.infer<typeof transactionDeletedEventMirrorSchema>;
+
+export const deleteTransactionRequestSchema = z.object({
+  id: z.string().min(1),
+});
+
+export type DeleteTransactionRequest = z.infer<typeof deleteTransactionRequestSchema>;
+
+export const deleteTransactionValidationErrorCodeSchema = z.enum([
+  'TX_NOT_FOUND',
+  'SCHEMA_INVALID',
+  'INTERNAL',
+]);
+
+export type DeleteTransactionValidationErrorCode = z.infer<
+  typeof deleteTransactionValidationErrorCodeSchema
+>;
+
+export const deleteTransactionErrorSchema = z.object({
+  code: deleteTransactionValidationErrorCodeSchema,
+  message: z.string(),
+  field: z.string().optional(),
+});
+
+export type DeleteTransactionError = z.infer<typeof deleteTransactionErrorSchema>;
+
+export const deleteTransactionResponseSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), event: transactionDeletedEventMirrorSchema }),
+  z.object({ ok: z.literal(false), error: deleteTransactionErrorSchema }),
+]);
+
+export type DeleteTransactionResponse = z.infer<typeof deleteTransactionResponseSchema>;

@@ -8,14 +8,22 @@ import { EmptyState } from '../../components/EmptyState/index.js';
 import { Table } from '../../components/Table/index.js';
 import type { TableColumn, SortDirection } from '../../components/Table/index.js';
 import { AddTransactionModal } from '../../components/AddTransactionModal/index.js';
+import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
 import { listMovements } from '../../services/movementsApi.js';
-import { createTransaction } from '../../services/transactionApi.js';
+import {
+  createTransaction,
+  updateTransaction,
+  deleteTransaction,
+} from '../../services/transactionApi.js';
 import { getAccounts } from '../../services/panelApi.js';
 import { listCategories } from '../../services/categoriesApi.js';
 import { listTags } from '../../services/tagsApi.js';
 import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
-import type { CreateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
-import type { Account } from '../../../shared/ipc-contracts/panel.js';
+import type {
+  CreateTransactionRequest,
+  UpdateTransactionRequest,
+} from '../../../shared/ipc-contracts/transaction.js';
+import type { Account, RecentTransaction } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import type { Movement, MovementStatus, MovementTotals } from '../../types/movement.js';
 import './MovementsScreen.css';
@@ -148,6 +156,9 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<readonly CategoryRecord[]>([]);
   const [tags, setTags] = useState<readonly TagRecord[]>([]);
+
+  // Selected transaction for detail modal
+  const [selectedTx, setSelectedTx] = useState<RecentTransaction | null>(null);
 
   // Filter state
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
@@ -467,7 +478,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         header: t('movements.columns.account'),
         sortable: true,
         render: (m) => (
-          <span className="ot-account-pill">
+          <span className="ot-account-pill" title={m.account}>
             <span className="ot-account-pill__dot" aria-hidden="true" />
             {m.account}
           </span>
@@ -477,7 +488,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         id: 'description',
         header: t('movements.columns.observations'),
         sortable: true,
-        render: (m) => m.description,
+        render: (m) => <span title={m.description}>{m.description}</span>,
       },
       {
         id: 'category',
@@ -485,7 +496,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         sortable: true,
         render: (m) =>
           m.category != null ? (
-            m.category
+            <span title={m.category}>{m.category}</span>
           ) : (
             <span className="ot-badge ot-badge--uncategorized">
               {t('movements.filters.uncategorizedOnly')}
@@ -497,7 +508,11 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         header: t('movements.columns.subcategory'),
         sortable: true,
         render: (m) =>
-          m.subcategory != null ? m.subcategory : <span className="ot-text-muted">—</span>,
+          m.subcategory != null ? (
+            <span title={m.subcategory}>{m.subcategory}</span>
+          ) : (
+            <span className="ot-text-muted">—</span>
+          ),
       },
       {
         id: 'tags',
@@ -505,17 +520,30 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         sortable: false,
         render: (m) => {
           if (m.tags.length === 0) return <span className="ot-text-muted">—</span>;
+          // Show max 2 chips visibly; overflow as +N indicator with title listing rest
+          const MAX_VISIBLE = 2;
+          const visibleTags = m.tags.slice(0, MAX_VISIBLE);
+          const overflowTags = m.tags.slice(MAX_VISIBLE);
+          const overflowCount = overflowTags.length;
           return (
-            <span className="ot-tag-chip-row">
-              {m.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="ot-tag-chip"
-                  style={{ ['--ot-tag-color' as string]: tagColor(tag) }}
-                >
-                  {tag}
+            <span className="ot-tag-cell" title={m.tags.join(', ')}>
+              <span className="ot-tag-cell__chips">
+                {visibleTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="ot-tag-chip"
+                    style={{ ['--ot-tag-color' as string]: tagColor(tag) }}
+                    title={tag}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </span>
+              {overflowCount > 0 && (
+                <span className="ot-tag-cell__overflow" title={overflowTags.join(', ')}>
+                  +{overflowCount}
                 </span>
-              ))}
+              )}
             </span>
           );
         },
@@ -792,16 +820,64 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
               />
             </Card>
           ) : (
-            <Table
-              caption={t('movements.title') satisfies string}
-              columns={columns}
-              rows={sortedRows}
-              getRowKey={(m) => m.id}
-              sortBy={sortBy}
-              sortDirection={sortDir}
-              onSort={handleSort}
-            />
+            <div className="ot-movements__table-container">
+              <Table
+                caption={t('movements.title') satisfies string}
+                columns={columns}
+                rows={sortedRows}
+                getRowKey={(m) => m.id}
+                sortBy={sortBy}
+                sortDirection={sortDir}
+                onSort={handleSort}
+                onRowClick={(row) => {
+                  // Convert Movement to RecentTransaction for the detail modal
+                  const tx: RecentTransaction = {
+                    id: row.id,
+                    date: row.date,
+                    type: row.type,
+                    amount: row.amount,
+                    currency: row.currency,
+                    description: row.description,
+                    accountId: accounts.find((a) => a.accountLabel === row.account)?.id ?? '',
+                    categoryId: row.category ?? null,
+                    subcategoryId: row.subcategory ?? null,
+                    tagIds: row.tags.slice(),
+                    status: row.status === 'rejected' ? 'pending' : row.status,
+                    reference: undefined,
+                    details: undefined,
+                    createdAt: new Date().toISOString(),
+                  };
+                  setSelectedTx(tx);
+                }}
+              />
+            </div>
           )}
+
+          <TransactionDetailModal
+            isOpen={selectedTx !== null}
+            onClose={() => setSelectedTx(null)}
+            transaction={selectedTx}
+            accounts={accounts}
+            categories={categories}
+            tags={tags}
+            onUpdate={async (input: UpdateTransactionRequest) => {
+              const result = await updateTransaction(input);
+              if (!result.ok) {
+                throw new Error(result.error.message);
+              }
+              // Reload movements list to reflect changes
+              await loadAll();
+            }}
+            onDelete={async (id: string) => {
+              const result = await deleteTransaction({ id });
+              if (!result.ok) {
+                throw new Error(result.error.message);
+              }
+              // Reload movements list to reflect changes
+              await loadAll();
+              setSelectedTx(null);
+            }}
+          />
         </>
       )}
     </div>

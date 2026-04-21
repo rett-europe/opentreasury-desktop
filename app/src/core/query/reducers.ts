@@ -277,6 +277,51 @@ export function applyEvent(event: DomainEvent): void {
       }
       break;
     }
+
+    case 'tx.updated': {
+      // Pattern A: Full-replacement payload. Find transaction by id, replace.
+      const idx = readModel.transactions.findIndex((tx) => tx.id === event.payload.id);
+      if (idx >= 0) {
+        const nextTransactions = [...readModel.transactions];
+        nextTransactions[idx] = {
+          id: event.payload.id,
+          date: event.payload.date,
+          type: event.payload.type,
+          amount: event.payload.amount,
+          currency: event.payload.currency,
+          description: event.payload.description,
+          accountId: event.payload.accountId,
+          categoryId: event.payload.categoryId,
+          subcategoryId: event.payload.subcategoryId,
+          tagIds: event.payload.tagIds,
+          status: event.payload.status,
+          createdAt: event.payload.createdAt, // Preserve original creation timestamp
+          reference: event.payload.reference ?? null,
+          details: event.payload.details ?? null,
+        };
+        readModel = {
+          ...readModel,
+          transactions: nextTransactions,
+          transactionsByReference: indexByReference(nextTransactions),
+        };
+      }
+      break;
+    }
+
+    case 'tx.deleted': {
+      // Soft-delete: remove transaction from projection
+      const nextTransactions = readModel.transactions.filter((tx) => tx.id !== event.txId);
+      // Also clean up notes for this transaction
+      const nextNotes = new Map(readModel.notes);
+      nextNotes.delete(event.txId);
+      readModel = {
+        ...readModel,
+        transactions: nextTransactions,
+        transactionsByReference: indexByReference(nextTransactions),
+        notes: nextNotes,
+      };
+      break;
+    }
   }
 }
 

@@ -156,6 +156,58 @@ The web app's bank-specific alias tables (`import_constants.py`) work for 90% of
 
 **Null normalization simplifies queries.** Storing empty strings vs NULL creates two representations of "absent". Normalizing to NULL (trim + empty→null) keeps queries simple (`WHERE field IS NOT NULL`). Applied to both `reference` and `details` fields.
 
+## 2026-04-21 — WI-20 scope: Transaction Manual Add + Edit
+
+**Status:** Scope doc delivered at `.squad/decisions/inbox/neo-wi-20-scope.md`. Awaiting Pedro sign-off.
+
+### Summary
+
+Pedro asked to "close the loop" on manual transaction entry. WI-20 adds:
+- **Edit flow:** TransactionDetailModal (WI-19) gains an Edit button → opens form pre-filled → submits `transaction:update` IPC → `tx.updated` event → reducer updates projection.
+- **Manual add polish:** Existing `AddTransactionModal` needs status picker (currently hardcoded) + reference/details fields (WI-19 fields, not wired yet).
+- **(Pending Pedro)** Delete: `tx.deleted` event + confirmation UI.
+
+### Key architectural decision
+
+Event-sourcing edit pattern: **Full payload snapshot (`tx.updated`)** — not field-level patch. Rationale: single-user desktop app, storage is cheap, replay is trivial, no patch versioning needed.
+
+### Immutability constraints
+
+`accountId` stays immutable after creation (no account reassignment in WI-20). Rationale: reassignment affects balance projections across accounts — complexity not worth it for M1.5. Users can delete + re-create if truly needed.
+
+### Four decisions for Pedro
+
+1. Include delete in WI-20? (Rec: Yes)
+2. Account immutability OK? (Rec: Yes)
+3. Add "New transaction" to MovementsScreen header? (Rec: Yes)
+4. Edit UX in-place swap OK? (Rec: Yes)
+
+**Artifact:** `.squad/decisions/inbox/neo-wi-20-scope.md`
+
+## 2026-04-21 — WI-20 shipped
+
+**Status:** All gates green (360/360 tests). Morpheus + Trinity delivered in parallel.
+
+**What shipped:**
+- Backend: `tx.updated` + `tx.deleted` events, IPC contracts, reducers, 16 tests (Morpheus: commits d3ad1ce + 7c48518)
+- Frontend: TransactionDetailModal edit/delete, TransactionFormModal (add+edit modes), status picker, reference/details fields, i18n, 16 tests (Trinity: merged via Morpheus)
+- Entry points: "New transaction" button in PanelScreen + MovementsScreen headers
+- Confirmation dialogs: delete confirmation in detail modal
+
+**Key decisions locked:**
+- Immutable `accountId` (ignore incoming value, use stored) — prevents balance-projection drift
+- Full payload snapshot (`tx.updated`) — simpler than field patches for single-user app
+- Separate edit modal (Option B) — leverages TransactionFormModal reusability despite earlier Option A suggestion
+
+**Cross-coordination:**
+- Morpheus created TransactionFormModal as shared UI surface; Trinity wired it to both add (WI-13) and edit (WI-20) flows
+- Trinity reports: modal composition was actually Option B (separate dialog) rather than Option A (in-place swap), but mental model preserved — user sees seamless edit-in-place workflow
+
+**Follow-up:** Account deletion rule (Pedro directive: "only if no transactions") flagged for future Accounts work item; NOT in WI-20 scope.
+
+**Artifact:** `.squad/orchestration-log/2026-04-21T20-44-08Z-{morpheus,trinity}.md`
+
 ## Team Updates
 
 - **WI-19 shipped:** Neo scoped, Pedro approved, Morpheus + Trinity delivered. All gates green (345/345 tests). TransactionDetailModal + NotesThread + import wizard mapping live on main. Contract deviations (noteId + id split, transactionsByReference projection) documented in decisions.md.
+- **WI-20 shipped:** Neo scoped, Pedro approved 4 decisions, Morpheus + Trinity delivered. All gates green (360/360 tests). Edit + delete + form refactor live on main. Decisions merged to decisions.md; inbox cleared.

@@ -7,6 +7,7 @@ import { KPIStrip } from '../../components/KPIStrip/index.js';
 import { Table } from '../../components/Table/index.js';
 import type { TableColumn } from '../../components/Table/Table.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
+import { formatDate, formatMonth } from '../../utils/dateFormat.js';
 import type {
   Account,
   AccountBalance,
@@ -14,7 +15,9 @@ import type {
   GetAccountSparklinesResponse,
   RecentTransaction,
 } from '../../../shared/ipc-contracts/panel';
+import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import * as panelApi from '../../services/panelApi.js';
+import { updateTransaction, deleteTransaction } from '../../services/transactionApi.js';
 import './PanelScreen.css';
 
 type PanelState = 'skeleton' | 'loaded' | 'error';
@@ -44,56 +47,46 @@ const MOCK_TX_COUNTS: Readonly<Record<string, number>> = {
  * Read-only surface; all mutations happen on Movements.
  */
 export function PanelScreen(): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
   const [state, setState] = useState<PanelState>('skeleton');
   const [data, setData] = useState<PanelData | null>(null);
   const [selectedTx, setSelectedTx] = useState<RecentTransaction | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadPanel = async () => {
+    try {
+      setState('skeleton');
 
-    async function loadPanel() {
-      try {
-        setState('skeleton');
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const [accountsResp, balancesResp, kpisResp, transactionsResp] = await Promise.all([
+        panelApi.getAccounts(),
+        panelApi.getAccountBalances(),
+        panelApi.getMonthKPIs(currentMonth),
+        panelApi.queryRecentTransactions(8),
+      ]);
 
-        const [accountsResp, balancesResp, kpisResp, transactionsResp] = await Promise.all([
-          panelApi.getAccounts(),
-          panelApi.getAccountBalances(),
-          panelApi.getMonthKPIs(currentMonth),
-          panelApi.queryRecentTransactions(8),
-        ]);
+      const sparklinePromises = accountsResp.accounts.map((acc) =>
+        panelApi.getAccountSparklines(acc.id).then((resp) => [acc.id, resp.sparkline] as const),
+      );
+      const sparklineEntries = await Promise.all(sparklinePromises);
 
-        if (cancelled) return;
-
-        const sparklinePromises = accountsResp.accounts.map((acc) =>
-          panelApi.getAccountSparklines(acc.id).then((resp) => [acc.id, resp.sparkline] as const),
-        );
-        const sparklineEntries = await Promise.all(sparklinePromises);
-
-        if (cancelled) return;
-
-        setData({
-          accounts: accountsResp.accounts,
-          balances: balancesResp.balances,
-          kpis: kpisResp.kpis,
-          sparklines: new Map(sparklineEntries),
-          transactions: transactionsResp.transactions,
-        });
-        setState('loaded');
-      } catch (err) {
-        if (cancelled) return;
-        console.error('Panel query failed:', err);
-        setState('error');
-      }
+      setData({
+        accounts: accountsResp.accounts,
+        balances: balancesResp.balances,
+        kpis: kpisResp.kpis,
+        sparklines: new Map(sparklineEntries),
+        transactions: transactionsResp.transactions,
+      });
+      setState('loaded');
+    } catch (err) {
+      console.error('Panel query failed:', err);
+      setState('error');
     }
+  };
 
+  useEffect(() => {
     loadPanel();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   if (state === 'skeleton') {
@@ -181,24 +174,15 @@ export function PanelScreen(): JSX.Element {
     };
   });
 
-  const formatMonth = (yearMonth: string) => {
-    const parts = yearMonth.split('-');
-    if (parts.length !== 2) return yearMonth;
-    const [year, month] = parts;
-    const date = new Date(parseInt(year!), parseInt(month!) - 1, 1);
-    return new Intl.DateTimeFormat(navigator.language, { month: 'long', year: 'numeric' }).format(
-      date,
-    );
-  };
-
   // Recent transactions table columns — arrow chip + account pill + amount
   // tone mirror MovementsScreen so a truncated Panel row looks identical to
   // the equivalent row on the full transactions screen.
+  // WI-20 Round 2: width values moved to CSS (PanelScreen.css) for proper
+  // table-layout: fixed. Title attributes added for hover on truncated cells.
   const columns: TableColumn<RecentTransaction>[] = [
     {
       id: 'type',
       header: '',
-      width: 36,
       align: 'center',
       render: (row) => {
         const cls =
@@ -215,17 +199,12 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'date',
       header: t('movements.columns.date'),
-      width: 120,
       tabular: true,
-      render: (row) =>
-        new Intl.DateTimeFormat(navigator.language, { dateStyle: 'medium' }).format(
-          new Date(`${row.date}T00:00:00Z`),
-        ),
+      render: (row) => formatDate(row.date, locale),
     },
     {
       id: 'account',
       header: t('movements.columns.account'),
-      width: 160,
       render: (row) => {
         const account = accountById.get(row.accountId);
         const label =
@@ -234,6 +213,7 @@ export function PanelScreen(): JSX.Element {
         return (
           <span
             className="ot-account-pill"
+            title={label}
             style={{
               background: `color-mix(in oklch, ${color} 18%, transparent)`,
               color: 'var(--color-text-primary)',
@@ -252,15 +232,18 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'description',
       header: t('movements.columns.observations'),
-      render: (row) => <span className="ot-panel-recent__desc">{row.description}</span>,
+      render: (row) => (
+        <span className="ot-panel-recent__desc" title={row.description}>
+          {row.description}
+        </span>
+      ),
     },
     {
       id: 'category',
       header: t('movements.columns.category'),
-      width: 150,
       render: (row) =>
         row.categoryId ? (
-          row.categoryId
+          <span title={row.categoryId}>{row.categoryId}</span>
         ) : (
           <span className="ot-badge ot-badge--uncategorized">
             {t('panel.recent.uncategorized')}
@@ -270,10 +253,11 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'subcategory',
       header: t('movements.columns.subcategory'),
-      width: 160,
       render: (row) =>
         row.subcategoryId ? (
-          <span className="ot-text-muted">{row.subcategoryId}</span>
+          <span className="ot-text-muted" title={row.subcategoryId}>
+            {row.subcategoryId}
+          </span>
         ) : (
           <span className="ot-text-muted">—</span>
         ),
@@ -281,7 +265,6 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'amount',
       header: t('movements.columns.amount'),
-      width: 120,
       align: 'right',
       tabular: true,
       render: (row) => {
@@ -309,7 +292,7 @@ export function PanelScreen(): JSX.Element {
         </div>
         <div className="ot-page-header__actions">
           <Button variant="secondary" leadingIcon={<Calendar size={16} />} disabled>
-            {formatMonth(kpis.yearMonth)}
+            {formatMonth(kpis.yearMonth, locale)}
           </Button>
         </div>
       </header>
@@ -333,7 +316,7 @@ export function PanelScreen(): JSX.Element {
         income={kpis.income}
         expense={kpis.expense}
         net={kpis.net}
-        month={formatMonth(kpis.yearMonth)}
+        month={formatMonth(kpis.yearMonth, locale)}
       />
 
       <div className="ot-section-label">{t('panel.sections.monthly-trend')}</div>
@@ -364,6 +347,23 @@ export function PanelScreen(): JSX.Element {
         onClose={() => setSelectedTx(null)}
         transaction={selectedTx}
         accounts={accounts}
+        onUpdate={async (input: UpdateTransactionRequest) => {
+          const result = await updateTransaction(input);
+          if (!result.ok) {
+            throw new Error(result.error.message);
+          }
+          // Reload Panel data to reflect changes
+          await loadPanel();
+        }}
+        onDelete={async (id: string) => {
+          const result = await deleteTransaction({ id });
+          if (!result.ok) {
+            throw new Error(result.error.message);
+          }
+          // Reload Panel data to reflect changes
+          await loadPanel();
+          setSelectedTx(null);
+        }}
       />
     </div>
   );
