@@ -262,3 +262,18 @@ When a flex item contains wide content (like a table), it defaults to `min-width
 2. Look for flex/grid parents WITHOUT `min-width: 0` on the wrapper (flex children)
 3. The scroll wrapper itself must be NARROWER than its child content to trigger the scrollbar — if ancestors prevent contraction, no scroll
 
+
+### 2026-04-22: Edit Mode is a Skin of View Mode — Not a Separate Template (Mouse)
+
+**THE PATTERN:** When a modal has view mode and edit mode, edit mode should be a SKIN of view mode — same layout primitives, same labels, same row rhythm. Only the value slot changes (text → input/select). This ensures view↔edit toggle only morphs the value cells; everything else stays put.
+
+**ROOT CAUSE OF VISUAL DIVERGENCE:** The edit mode was using TransactionFormFields component with its own completely different layout structure (different gap spacing, different grid template, different min-height). This created a jarring visual change when switching from view to edit.
+
+**FIXES APPLIED:**
+1. **Added summary header to edit mode** — Edit body now shows the same date/description/amount summary block as view mode (read-only context for what's being edited)
+2. **Unified CSS spacing** — Changed TransactionFormFields.css to use same gap values (space-5) and grid template (epeat(2, minmax(0, 1fr))) as view mode's __grid
+3. **Reduced visual weight of inputs** — Changed input padding, focus shadow size, and disabled state to feel less heavy and more inline with the view mode's text display
+
+**KEY PRINCIPLE:** The edit modal should visually feel like you're editing IN PLACE within the same layout, not teleporting to a different dialog. Labels, row order, and column layout must be identical; only the value cells transform.
+
+**COMMIT:** see commit hash below

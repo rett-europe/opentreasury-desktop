@@ -313,8 +313,19 @@ export function TransactionDetailModal({
 
         {/* Body: swaps between read-only view and editable form */}
         {isEditMode ? (
-          /* EDIT MODE: Show TransactionFormFields */
+          /* EDIT MODE: Same layout as view, only value cells become inputs */
           <div className="ot-transaction-detail-modal__edit-body">
+            {/* Summary header: same as view mode (read-only context) */}
+            <div className="ot-transaction-detail-modal__summary">
+              <span className="ot-transaction-detail-modal__date">
+                {formatDate(transaction.date, locale)}
+              </span>
+              <p className="ot-transaction-detail-modal__description">{transaction.description}</p>
+              <span className={`ot-transaction-detail-modal__amount ${amountClass}`}>
+                {formattedAmount}
+              </span>
+            </div>
+
             {generalError && (
               <div className="ot-transaction-detail-modal__error" role="alert">
                 {generalError}

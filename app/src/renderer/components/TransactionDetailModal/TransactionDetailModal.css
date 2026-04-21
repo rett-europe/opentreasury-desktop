@@ -131,12 +131,14 @@
   outline-offset: 1px;
 }
 
-/* Edit body — contains TransactionFormFields */
+/* Edit body — contains summary header + TransactionFormFields.
+ * Same structure as read-body: summary at top, then form fields.
+ * This ensures view↔edit toggle only morphs value cells. */
 .ot-transaction-detail-modal__edit-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  min-height: 520px;
+  gap: var(--space-5);
+  min-height: 400px;
 }
 
 .ot-transaction-detail-modal__error {
