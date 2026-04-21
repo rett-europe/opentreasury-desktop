@@ -1,9 +1,11 @@
 /* Transaction Detail modal — WI-19 + WI-20 (in-place edit swap).
-   Read-only: 640px locked width
-   Edit mode: 720px for better form breathing room */
+   Unified width: 760px for both read and edit modes to eliminate shape change.
+   Previous: 640px read / 720px edit caused jarring jump on edit click.
+   760px provides adequate breathing room for two-column form layout without
+   overwhelming smaller screens (max-width: 92vw ensures mobile safety). */
 
 .ot-transaction-detail-modal {
-  width: 640px;
+  width: 760px;
   max-width: 92vw;
   max-height: 88vh;
   padding: 0;
@@ -12,12 +14,11 @@
   box-shadow: var(--shadow-lg);
   background: var(--color-surface-primary);
   color: var(--color-text-primary);
-  transition: width 0.2s ease;
 }
 
-/* Widen in edit mode for better form spacing */
+/* No width transition needed — both modes use the same width */
 .ot-transaction-detail-modal--edit {
-  width: 720px;
+  /* Edit mode marker class — no style changes, kept for semantic clarity */
 }
 
 .ot-transaction-detail-modal::backdrop {

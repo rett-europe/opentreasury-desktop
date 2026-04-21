@@ -270,3 +270,11 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* Table overflow container — Bug fix: on narrow viewports, table extends past
+ * the visible area. Wrapping in overflow-x: auto allows horizontal scrolling
+ * while preserving all columns. */
+.ot-movements__table-container {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+}

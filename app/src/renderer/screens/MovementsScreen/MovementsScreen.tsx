@@ -803,35 +803,37 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
               />
             </Card>
           ) : (
-            <Table
-              caption={t('movements.title') satisfies string}
-              columns={columns}
-              rows={sortedRows}
-              getRowKey={(m) => m.id}
-              sortBy={sortBy}
-              sortDirection={sortDir}
-              onSort={handleSort}
-              onRowClick={(row) => {
-                // Convert Movement to RecentTransaction for the detail modal
-                const tx: RecentTransaction = {
-                  id: row.id,
-                  date: row.date,
-                  type: row.type,
-                  amount: row.amount,
-                  currency: row.currency,
-                  description: row.description,
-                  accountId: accounts.find((a) => a.accountLabel === row.account)?.id ?? '',
-                  categoryId: row.category ?? null,
-                  subcategoryId: row.subcategory ?? null,
-                  tagIds: row.tags.slice(),
-                  status: row.status === 'rejected' ? 'pending' : row.status,
-                  reference: undefined,
-                  details: undefined,
-                  createdAt: new Date().toISOString(),
-                };
-                setSelectedTx(tx);
-              }}
-            />
+            <div className="ot-movements__table-container">
+              <Table
+                caption={t('movements.title') satisfies string}
+                columns={columns}
+                rows={sortedRows}
+                getRowKey={(m) => m.id}
+                sortBy={sortBy}
+                sortDirection={sortDir}
+                onSort={handleSort}
+                onRowClick={(row) => {
+                  // Convert Movement to RecentTransaction for the detail modal
+                  const tx: RecentTransaction = {
+                    id: row.id,
+                    date: row.date,
+                    type: row.type,
+                    amount: row.amount,
+                    currency: row.currency,
+                    description: row.description,
+                    accountId: accounts.find((a) => a.accountLabel === row.account)?.id ?? '',
+                    categoryId: row.category ?? null,
+                    subcategoryId: row.subcategory ?? null,
+                    tagIds: row.tags.slice(),
+                    status: row.status === 'rejected' ? 'pending' : row.status,
+                    reference: undefined,
+                    details: undefined,
+                    createdAt: new Date().toISOString(),
+                  };
+                  setSelectedTx(tx);
+                }}
+              />
+            </div>
           )}
 
           <TransactionDetailModal

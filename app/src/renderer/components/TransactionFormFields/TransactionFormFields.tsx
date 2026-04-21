@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { TagChipPicker } from '../TagChipPicker/index.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import './TransactionFormFields.css';
@@ -223,27 +224,18 @@ export function TransactionFormFields({
         </div>
 
         <div className="ot-tx-fields__field">
-          <label htmlFor="tx-tags" className="ot-tx-fields__label">
-            {t('movements.form.fields.tags')}
-          </label>
-          <select
-            id="tx-tags"
-            multiple
-            value={tagIds}
-            onChange={(e) => {
-              const opts = Array.from(e.target.selectedOptions).map((o) => o.value);
-              onTagIdsChange(opts);
+          <label className="ot-tx-fields__label">{t('movements.form.fields.tags')}</label>
+          <TagChipPicker
+            availableTags={tags}
+            selectedIds={tagIds}
+            onToggle={(tagId) => {
+              const newTagIds = tagIds.includes(tagId)
+                ? tagIds.filter((id) => id !== tagId)
+                : [...tagIds, tagId];
+              onTagIdsChange(newTagIds);
             }}
-            className="ot-tx-fields__input"
-            size={Math.min(4, Math.max(2, tags.length))}
             disabled={readonly}
-          >
-            {tags.map((tg) => (
-              <option key={tg.id} value={tg.id}>
-                {tg.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 
