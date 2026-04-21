@@ -688,3 +688,62 @@ Added `'renders all mapped columns in final preview table'` test that asserts `h
 
 In-place swap pattern shipped. See .squad/decisions/inbox/trinity-edit-inplace-swap.md
 
+## 2026-04-21 - WI-20 Polish — UI Bug Fixes
+
+**Context:** Pedro reported 4 polish bugs after testing the in-place swap implementation: table overflow on narrow screens, cramped edit form, jarring shape change on edit click, and label picker requiring Ctrl+click (poor UX).
+
+**Bugs Fixed:**
+
+1. **MovementsScreen table overflow** — Wrapped `<Table>` in `.ot-movements__table-container` with `overflow-x: auto`. On narrow viewports, the table now shows a horizontal scrollbar instead of clipping the right edge. All columns remain visible.
+
+2. **Modal unified width** — Changed from 640px (read) / 720px (edit) to **760px unified** for both modes. Eliminates the jarring shape change when clicking "Editar". 760px provides adequate breathing room for the two-column form layout without overwhelming smaller screens. Ensured form inputs use `width: 100%` within their columns.
+
+3. **Shape change on edit** — Fixed by unifying width (see above). No more width transition needed. Both read and edit modes use the same 760px width, so the only change when clicking "Editar" is the body content swap (fields → inputs), which is smooth and non-jarring.
+
+4. **Label/tag picker UX** — Replaced native `<select multiple>` (which required Ctrl+click to toggle selection) with **TagChipPicker** component. New UX: single click toggles selection, selected chips show filled background + checkmark, unselected chips show outline style. No modifier keys required. Pattern is reusable for other multi-select UIs.
+
+**Pattern: Chip-based multi-select**
+
+Created `TagChipPicker` component as a reusable alternative to native `<select multiple>`. Props:
+- `availableTags: { id, name }[]` — all possible tags
+- `selectedIds: string[]` — currently selected tag IDs
+- `onToggle: (tagId: string) => void` — called when user clicks a chip
+- `disabled?: boolean` — disables all chips
+
+Parent owns state and toggle logic. Example integration:
+```tsx
+<TagChipPicker
+  availableTags={tags}
+  selectedIds={tagIds}
+  onToggle={(tagId) => {
+    const newIds = tagIds.includes(tagId)
+      ? tagIds.filter(id => id !== tagId)
+      : [...tagIds, tagId];
+    onTagIdsChange(newIds);
+  }}
+/>
+```
+
+**Learnings:**
+
+- **Table overflow pattern:** Always wrap data tables in `overflow-x: auto` containers when column widths may exceed viewport on narrow screens. This is simpler and more reliable than hiding columns at breakpoints.
+
+- **Modal width consistency:** Don't change modal width between modes within the same dialog. Unified width (sized for the widest mode) eliminates transition jank. Smooth content swaps only.
+
+- **Chip-picker over native multi-select:** Native `<select multiple>` has terrible UX (Ctrl+click, non-obvious selection state, poor mobile support). Chip-based toggles are intuitive, accessible, and visually clear.
+
+- **Final modal width choice (760px):** Chosen to accommodate two-column form layout with adequate horizontal space. Smaller than typical desktop web apps (which often use 800-900px) but respects Electron desktop app constraints. max-width: 92vw ensures mobile safety.
+
+**Gates:** typecheck clean, lint clean, prettier clean, tests pass (370 → 376 tests; +6 TagChipPicker tests), build succeeds.
+
+**Files added:**
+- TagChipPicker/{index.ts, TagChipPicker.tsx, TagChipPicker.css, TagChipPicker.test.tsx}
+
+**Files modified:**
+- MovementsScreen/{MovementsScreen.tsx, MovementsScreen.css} — table overflow container
+- TransactionDetailModal/TransactionDetailModal.css — unified 760px width
+- TransactionFormFields/{TransactionFormFields.tsx, TransactionFormFields.css} — chip picker integration, full-width inputs
+
+**Commit:** fix(tx): WI-20 polish — list overflow, unified modal width, label chip picker
+
+
