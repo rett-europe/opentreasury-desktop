@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, FolderOpen, Search, Edit, Trash2, Download, Info } from 'lucide-react';
+import { Plus, FolderOpen, Search, Edit, Trash2, Info } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
@@ -18,14 +18,15 @@ export interface CategoriasTabProps {
 }
 
 /**
- * Categorías — master-detail layout mirroring the PR#2 prototype.
+ * Categorías — master-detail layout (PR#2 parity, round 2).
  *
- * The detail pane shows *subcategories* of the selected category. WI-15-lite's
- * `CategoryCreated` event does not (yet) carry subcategories, so the detail
- * pane renders an informative empty state until the schema is extended — see
- * `.squad/decisions/inbox/trinity-config-full-renovation.md`. Pedro's Q4
- * locked categories as direction-agnostic, so the prototype's Ingreso/Gasto
- * chip filter is intentionally omitted.
+ * Round-2 rebalance: master rows are richer (icon · name · meta line · swatch
+ * · actions) so the left card holds its weight against the detail pane. The
+ * detail pane renders a subcategory empty-state with the same `list-rows`
+ * rhythm as the master, plus a footer "Añadir subcategoría" ghost button that
+ * stays disabled until `SubcategoryAdded` events exist. The prototype's
+ * Ingreso/Gasto chip filter is intentionally omitted — Pedro's Q4 decision
+ * locked categories as direction-agnostic.
  */
 export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Element {
   const { t } = useTranslation('common');
@@ -85,11 +86,6 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
           ) : null}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          {state.kind === 'loaded' && state.categories.length > 0 ? (
-            <Button variant="secondary" size="md" leadingIcon={<Download size={16} />}>
-              Exportar
-            </Button>
-          ) : null}
           <Button
             variant="primary"
             size="md"
@@ -146,7 +142,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
           </div>
 
           <div className="ot-config__master-detail">
-            {/* Master — category list */}
+            {/* ─── Master: categories list ─── */}
             <div className="ot-config__md-card">
               <div className="ot-config__md-head">
                 <div>
@@ -159,8 +155,9 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
               </div>
               <ul className="ot-config__list-rows">
                 {filteredCategories.length === 0 ? (
-                  <li className="ot-config__table-empty">
-                    Ninguna categoría coincide con la búsqueda.
+                  <li className="ot-config__md-empty">
+                    <FolderOpen size={20} aria-hidden="true" />
+                    <span>Ninguna categoría coincide con la búsqueda.</span>
                   </li>
                 ) : (
                   filteredCategories.map((c) => {
@@ -183,12 +180,16 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                           >
                             <FolderOpen size={14} />
                           </span>
-                          <span
-                            className="ot-config__cell-truncate"
-                            style={{ fontWeight: 'var(--font-weight-medium)' }}
-                            title={c.name}
-                          >
-                            {c.name}
+                          <span className="ot-config__list-row-text">
+                            <span
+                              className="ot-config__list-row-title ot-config__cell-truncate"
+                              title={c.name}
+                            >
+                              {c.name}
+                            </span>
+                            <span className="ot-config__list-row-sub">
+                              Sin subcategorías · pendiente de eventos
+                            </span>
                           </span>
                         </button>
                         <span className="ot-config__list-row-actions">
@@ -214,28 +215,31 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                   })
                 )}
               </ul>
+              <button
+                type="button"
+                className="ot-config__list-add"
+                onClick={() => setModalOpen(true)}
+              >
+                <Plus size={14} aria-hidden="true" /> Nueva categoría
+              </button>
             </div>
 
-            {/* Detail — subcategory pane */}
+            {/* ─── Detail: subcategory pane ─── */}
             <div className="ot-config__md-card">
               {selected ? (
                 <>
                   <div className="ot-config__md-head">
                     <div>
-                      <div className="ot-config__md-title">{selected.name}</div>
+                      <div className="ot-config__md-title">
+                        <span
+                          className="ot-config__swatch-sm"
+                          style={{ background: selected.color || 'var(--color-brand-primary)' }}
+                          aria-hidden="true"
+                        />
+                        {selected.name}
+                      </div>
                       <div className="ot-config__md-sub">
-                        {selected.color ? (
-                          <>
-                            <span
-                              className="ot-config__swatch-sm"
-                              style={{ background: selected.color }}
-                              aria-hidden="true"
-                            />{' '}
-                            {selected.color}
-                          </>
-                        ) : (
-                          'Sin color asignado'
-                        )}
+                        0 subcategorías · modelo plano (WI-15-lite)
                       </div>
                     </div>
                     <button
@@ -247,18 +251,31 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                       <Edit size={14} />
                     </button>
                   </div>
+                  <ul className="ot-config__list-rows">
+                    <li className="ot-config__md-empty">
+                      <FolderOpen size={20} aria-hidden="true" />
+                      <span>Esta categoría aún no tiene subcategorías.</span>
+                    </li>
+                  </ul>
                   <div className="ot-config__md-body">
                     <div className="ot-config__callout" role="note">
                       <Info size={14} aria-hidden="true" />
                       <span>
-                        Las <strong>subcategorías</strong> forman parte de la renovación de
-                        Categorías pero aún no están conectadas al event log (pendiente de los
-                        eventos <code>SubcategoryAdded/Removed/Renamed</code>). Hasta entonces, esta
-                        pantalla refleja el modelo plano de WI-15-lite: una categoría sin
-                        subcategorías.
+                        Las <strong>subcategorías</strong> forman parte de la renovación pero aún no
+                        están conectadas al event log (pendiente de{' '}
+                        <code>SubcategoryAdded/Removed/Renamed</code>). Hasta entonces la pantalla
+                        refleja el modelo plano de WI-15-lite.
                       </span>
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    className="ot-config__list-add"
+                    title="Añadir subcategoría (próximamente)"
+                    disabled
+                  >
+                    <Plus size={14} aria-hidden="true" /> Añadir subcategoría
+                  </button>
                 </>
               ) : (
                 <div className="ot-config__md-empty">

@@ -1,6 +1,3 @@
-import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-
 import { CuentasTab } from './CuentasTab.js';
 import { CategoriasTab } from './CategoriasTab.js';
 import { EtiquetasTab } from './EtiquetasTab.js';
@@ -8,77 +5,45 @@ import './ConfiguracionScreen.css';
 
 export type ConfigTabId = 'cuentas' | 'categorias' | 'etiquetas';
 
-const TABS: readonly { readonly id: ConfigTabId; readonly labelKey: string }[] = [
-  { id: 'categorias', labelKey: 'configuracion.tabs.categorias' },
-  { id: 'etiquetas', labelKey: 'configuracion.tabs.etiquetas' },
-  { id: 'cuentas', labelKey: 'configuracion.tabs.cuentas' },
-];
-
 export interface ConfiguracionScreenProps {
   /** Fires whenever any tab's list mutates (create). The MovementsScreen
    *  listens for this so the Add-Transaction modal hydrates fresh data. */
   readonly onConfigChanged?: () => void;
+  /**
+   * The active config sub-route, selected from the sidebar. Each of the three
+   * config entities is a sibling top-level route — there is no internal tab
+   * chrome anymore, the screen simply renders the matching sub-tab's content.
+   */
   readonly initialTab?: ConfigTabId;
-  /** Keep the AppShell route in sync when user clicks an internal tab. */
+  /**
+   * Retained for API stability with AppShell. With the sidebar owning the
+   * active route there is nothing for the screen itself to report back today,
+   * but the prop lets us re-introduce in-screen navigation without churning
+   * callers if we ever want to.
+   */
   readonly onTabChange?: (tab: ConfigTabId) => void;
 }
 
 /**
- * WI-15-lite — Configuración screen (PR#2 parity 2026-04-21).
- * Three tabs (Categorías / Etiquetas / Cuentas) each with list + "+ Añadir".
- * Tabs are now mirrored as sidebar sub-routes; the tab strip stays for quick
- * in-screen switching and deep-link fallback.
+ * WI-15-lite — Configuración screen (PR#2 parity, round 2).
+ *
+ * The sidebar exposes Categorías / Etiquetas / Cuentas as sibling routes, so
+ * this screen is a pure render-by-route host: no internal tab strip, no
+ * role="tablist" chrome. Each sub-route renders its own standalone page.
  */
 export function ConfiguracionScreen({
   onConfigChanged,
   initialTab = 'categorias',
-  onTabChange,
 }: ConfiguracionScreenProps): JSX.Element {
-  const { t } = useTranslation('common');
-  const [active, setActive] = useState<ConfigTabId>(initialTab);
-
-  useEffect(() => {
-    setActive(initialTab);
-  }, [initialTab]);
-
-  const handleSelect = (id: ConfigTabId): void => {
-    setActive(id);
-    onTabChange?.(id);
-  };
-
   return (
     <div className="ot-config">
-      <div className="ot-config__tabs" role="tablist" aria-label={t('configuracion.tabs.label')}>
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            id={`config-tab-${tab.id}`}
-            aria-selected={active === tab.id}
-            aria-controls={`config-panel-${tab.id}`}
-            tabIndex={active === tab.id ? 0 : -1}
-            className="ot-config__tab"
-            onClick={() => handleSelect(tab.id)}
-          >
-            {t(tab.labelKey)}
-          </button>
-        ))}
-      </div>
-
-      <section
-        role="tabpanel"
-        id={`config-panel-${active}`}
-        aria-labelledby={`config-tab-${active}`}
-      >
-        {active === 'cuentas' ? (
-          <CuentasTab onListChanged={onConfigChanged} />
-        ) : active === 'categorias' ? (
-          <CategoriasTab onListChanged={onConfigChanged} />
-        ) : (
-          <EtiquetasTab onListChanged={onConfigChanged} />
-        )}
-      </section>
+      {initialTab === 'cuentas' ? (
+        <CuentasTab onListChanged={onConfigChanged} />
+      ) : initialTab === 'categorias' ? (
+        <CategoriasTab onListChanged={onConfigChanged} />
+      ) : (
+        <EtiquetasTab onListChanged={onConfigChanged} />
+      )}
     </div>
   );
 }

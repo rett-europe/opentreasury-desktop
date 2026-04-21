@@ -34,11 +34,7 @@ export function App(): JSX.Element {
       ) : route === 'panel' ? (
         <PanelScreen />
       ) : isConfigRoute ? (
-        <ConfiguracionScreen
-          onConfigChanged={bumpConfigRevision}
-          initialTab={route}
-          onTabChange={setRoute}
-        />
+        <ConfiguracionScreen onConfigChanged={bumpConfigRevision} initialTab={route} />
       ) : route === 'datos' ? (
         <DatosScreen onImportComplete={bumpConfigRevision} />
       ) : (

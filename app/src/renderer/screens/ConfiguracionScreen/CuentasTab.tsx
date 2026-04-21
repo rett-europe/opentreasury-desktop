@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Landmark, Search, Edit, Trash2, Download, Eye, EyeOff } from 'lucide-react';
+import { Plus, Landmark, Search, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
@@ -114,11 +114,6 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
           ) : null}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          {state.kind === 'loaded' && state.accounts.length > 0 ? (
-            <Button variant="secondary" size="md" leadingIcon={<Download size={16} />}>
-              Exportar
-            </Button>
-          ) : null}
           <Button
             variant="primary"
             size="md"

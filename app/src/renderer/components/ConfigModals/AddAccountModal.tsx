@@ -23,15 +23,6 @@ interface Errors {
   iban?: string;
 }
 
-const LABEL_SUGGESTIONS = [
-  'Principal',
-  'Operaciones',
-  'Eventos',
-  'Donaciones',
-  'FinRett',
-  'Reserva',
-];
-
 function maskIban(iban: string): string {
   const compact = iban.replace(/\s+/g, '');
   if (compact.length <= 4) return compact;
@@ -213,17 +204,11 @@ export function AddAccountModal({ isOpen, onClose, onCreated }: AddAccountModalP
           id="acc-label"
           className="ot-config-modal__input"
           type="text"
-          list="acc-label-suggestions"
           value={label}
           maxLength={30}
           placeholder="p. ej. Principal, Operaciones, Eventos…"
           onChange={(e) => setLabel(e.target.value)}
         />
-        <datalist id="acc-label-suggestions">
-          {LABEL_SUGGESTIONS.map((s) => (
-            <option key={s} value={s} />
-          ))}
-        </datalist>
         <span className="ot-config-modal__field-hint">
           Describe el propósito interno (Principal, Operaciones, Reserva…). No se aplica a los
           movimientos — es solo un metadato de la cuenta.

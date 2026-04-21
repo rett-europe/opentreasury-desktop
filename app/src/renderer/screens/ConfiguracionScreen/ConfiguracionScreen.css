@@ -6,43 +6,9 @@
   min-height: 100%;
 }
 
-.ot-config__tabs {
-  display: flex;
-  gap: var(--space-2);
-  border-bottom: 1px solid var(--color-border-default);
-  margin-bottom: var(--space-8);
-}
-
-.ot-config__tab {
-  padding: var(--space-4) var(--space-6);
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  font: inherit;
-  font-size: var(--font-size-14);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition:
-    color var(--motion-duration-fast) var(--motion-easing-standard),
-    border-color var(--motion-duration-fast) var(--motion-easing-standard);
-  margin-bottom: -1px;
-}
-
-.ot-config__tab:hover {
-  color: var(--color-text-primary);
-}
-
-.ot-config__tab[aria-selected='true'] {
-  color: var(--color-brand-primary);
-  border-bottom-color: var(--color-brand-primary);
-}
-
-.ot-config__tab:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
+/* Legacy in-screen tab strip was removed in round 2 — each sub-route is now a
+ * top-level sidebar item, so ConfiguracionScreen renders one tab's content
+ * without any tab chrome. Related .ot-config__tab{,s} rules dropped. */
 
 .ot-config__tab-actions {
   display: flex;
@@ -553,6 +519,21 @@
   cursor: pointer;
   text-align: left;
 }
+.ot-config__list-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.ot-config__list-row-title {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-14);
+}
+.ot-config__list-row-sub {
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
+}
 .ot-config__list-row-actions {
   display: inline-flex;
   gap: var(--space-1);
@@ -562,6 +543,40 @@
 .ot-config__list-row:hover .ot-config__list-row-actions,
 .ot-config__list-row--active .ot-config__list-row-actions {
   opacity: 1;
+}
+
+/* ═══ Card footer "+ Nueva …" ghost button (master-detail) ═══ */
+.ot-config__list-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3) var(--space-5);
+  background: transparent;
+  color: var(--color-brand-primary);
+  border: none;
+  border-top: 1px dashed var(--color-border-subtle);
+  font: inherit;
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+.ot-config__list-add:hover {
+  background: var(--color-brand-surface);
+}
+.ot-config__list-add:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+.ot-config__list-add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--color-text-muted);
+}
+.ot-config__list-add:disabled:hover {
+  background: transparent;
 }
 
 .ot-config__callout {

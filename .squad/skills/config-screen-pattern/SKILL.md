@@ -24,10 +24,13 @@ app/src/main/ipc/handlers/{accounts,categories,tags}.ts  # create+list
 
 ## Six guaranteed requirements
 
-1. **Navbar item per entity.** Each config entity is a **top-level** sidebar
-   route under the `shell.sections.config` section. Per-entity lucide icons
-   (Landmark/FolderOpen/Tag). Keep `ConfiguracionScreen` as a tabbed host that
-   accepts `initialTab` + `onTabChange`.
+1. **Navbar item per entity — and NO in-screen tab strip.** Each config
+   entity is a **top-level** sidebar route under the `shell.sections.config`
+   section. Per-entity lucide icons (Landmark/FolderOpen/Tag). The host
+   screen (`ConfiguracionScreen`) renders one sub-tab's content via a plain
+   `if (initialTab === …)` tree — no `role="tablist"`, no visible tabs.
+   **Navbar routes replace internal tabs — never both** (round-2 lesson:
+   shipping both looked like two competing navigation systems).
 2. **Table-layout:fixed with colgroup** for any tabular view. Every td that
    might overflow gets `ot-config__cell-truncate` + `title={…}`. Flex parent
    gets `min-width: 0`. Wrap in `.ot-config__table-wrapper` for the rounded
@@ -82,6 +85,19 @@ Two `.ot-config__md-card` blocks in a responsive `grid-template-columns:
 with `--active` state; detail renders `.ot-config__md-head` + body. When a
 feature is gated behind unshipped events, render
 `.ot-config__callout` with an Info icon and honest copy.
+
+**Balance rule (round-2 lesson):** master rows must carry weight. The PR#2
+prototype row is `entity-icon · list-row-text (title + sub-line) · row-actions`;
+drop any of those and the left card looks empty against the detail pane.
+Both cards should end with a `.ot-config__list-add` ghost footer so the
+vertical rhythm "rhymes" — the detail card's button stays `disabled` until
+the sub-entity events land, matching the row-action-disable rule above.
+
+**Never render an entity `id` in UI copy.** The prototype renders a slug in
+the tag card meta row; our `TagRecord.id` is an opaque ULID. If the schema
+does not guarantee a human-readable identifier, drop the slot entirely
+rather than substitute the ULID — users read
+`01KPKVR0RMXVV963MEH1TSK2QZ` as visual noise.
 
 ## Modal tier — shared contract
 

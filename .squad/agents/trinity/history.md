@@ -999,3 +999,44 @@ Now the swap is truly in-place: same outer box, same padding, same min-height, o
   must be served with a text MIME type for Babel-standalone to fetch them.
 - Screenshots go to `.squad/decisions/inbox/playwright-config-diff/*.png`
   — Scribe only deletes `.md` files on archival, so PNGs persist.
+
+
+---
+
+## Learnings — Config polish round 2 (2026-04-21)
+
+
+**ULID leak in EtiquetasTab — root cause.** The prototype at
+`prototype/configuracion.jsx` renders `{t.id}` as a small monospace "slug"
+under each tag name — but in the prototype `t.id` is auto-derived from the
+tag name (slugged to `campana-navidad` style) via a `React.useEffect` in
+`EtiquetaModal`. In OpenTreasury, `TagRecord.id` is an opaque ULID generated
+by the command layer — rendering it surfaced 26-char identifiers like
+`01KPKVR0RMXVV963MEH1TSK2QZ` in the UI. **Rule: never render an entity `id`
+in user-facing copy unless the schema guarantees a human-readable slug.**
+Until `TagCreated` grows a `slug` field, drop the meta slot entirely rather
+than substitute a fake.
+
+**CategoriasTab layout pattern that actually matches the prototype.** The
+first attempt reused the master-detail shell but shipped sparse rows (icon +
+name only) against a detail pane dominated by a large info callout — visually
+lopsided. The prototype row carries *four* primitives: entity icon, title,
+sub-line (subcategory/movimiento counts), and actions; plus a `list-add`
+ghost footer on every card ("Nueva categoría" / "Añadir subcategoría"). Our
+round-2 rebuild keeps the prototype's cadence:
+
+- Master row = `entity-icon + list-row-text (title + sub) + list-row-actions`
+- Detail pane re-uses the same `list-rows` container so the empty-state for
+  subcategories sits in the same vertical rhythm as the list above.
+- Both cards end with a `.ot-config__list-add` ghost button so the two panes
+  "rhyme" visually; detail's button stays `disabled` until the
+  `SubcategoryAdded/Removed/Renamed` events land.
+- Because WI-15-lite categories are direction-agnostic (Pedro Q4), the
+  prototype's `type-pill` (Ingreso/Gasto) is intentionally omitted — do not
+  add it back.
+
+**Navbar routes replace internal tabs — never both.** Once a screen's
+sub-sections are promoted to sibling sidebar items, the in-screen tablist is
+duplicated chrome. Keep the screen a simple `if (route === …)` render tree
+and delete the tab DOM + CSS; do not leave the tablist as a "deep-link
+fallback" — it looks like two navigation systems fighting for authority.
