@@ -919,3 +919,20 @@ All 122 import tests green · typecheck ✓ · lint ✓ · format:check ✓ · b
 ## Team Updates
 
 - **WI-19 shipped:** Neo scoped, Pedro approved, Morpheus + Trinity delivered. All gates green (345/345 tests). TransactionDetailModal + NotesThread + import wizard mapping live on main. Contract deviations (noteId + id split, transactionsByReference projection) documented in decisions.md.
+
+## 2026-04-21T07:05:00Z — TransactionFormFields extracted by Trinity (renderer-side, no backend impact)
+
+**Context:** WI-20 edit UX fixes landed on main. Trinity refactored TransactionDetailModal to support in-place swap (Option A: same <dialog>, body/footer swap, avoiding stacked-modal regression). To avoid duplicating form field markup between AddTransactionModal and the edit swap, Trinity extracted a new TransactionFormFields reusable component.
+
+**Component:** pp/src/renderer/components/TransactionFormFields/
+- Props: individual field values (date, amount, etc.) + onChange handlers — no internal form state.
+- Parent owns form state + validation.
+- Layout baked into CSS: two-column for compact fields (date/type, amount/account, status/reference), full-width for description/category/tags/details.
+- Used by: TransactionDetailModal (edit mode), AddTransactionModal (candidate for future refactor).
+
+**Backend Impact:** None. Renderer-side UI component extraction; all IPC contracts and field schemas unchanged.
+
+**Rationale:** DRY pattern — shared form fields between add + edit ensure single source of truth for field structure. When WI-15 adds subcategory editing, only TransactionFormFields needs updating; the two consumers (add modal, edit swap) stay in sync automatically.
+
+**Note for future refactors:** If AddTransactionModal is refactored to use TransactionFormFields (currently uses its own inline markup), the duplication will resolve further. The component is ready; no urgent work needed.
+

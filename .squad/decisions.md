@@ -2,6 +2,171 @@
 
 ## Active Decisions
 
+### 2026-04-21: WI-20 — Edit UX fixes (in-place swap, MovementsScreen wiring, width)
+
+# WI-20 Edit UX: In-Place Swap Pattern
+
+**Date:** 2026-04-21  
+**By:** Trinity (Frontend Dev)  
+**Status:** ✅ SHIPPED
+
+## Context
+
+Pedro's WI-20 feedback on the initial transaction edit UI identified three issues:
+1. Edit/Delete only worked from Dashboard (PanelScreen), not Transactions (MovementsScreen)
+2. Edit modal too cramped (form squeezed into 640px read-only modal width)
+3. Edit opened a SECOND modal on top (Option B), violating Pedro's explicit approval of Option A (in-place swap)
+
+## Decisions
+
+### 1. Modal Swap Pattern: In-Place (Option A)
+
+**Decision:** Refactored TransactionDetailModal to do **in-place body swap** instead of opening a stacked TransactionFormModal.
+
+**Rationale:**
+- Pedro explicitly approved "Option A: in-place swap inside TransactionDetailModal — the same modal stays open, fields turn into inputs, footer swaps to Cancelar/Guardar."
+- Option B (stacked second modal) was rejected.
+- The stacked-modal approach likely happened because it was easier to invoke the existing TransactionFormModal than refactor the detail modal for swap behavior.
+
+**Implementation:**
+- SAME `<dialog>` element stays open during edit.
+- Header changes: title swaps from "Detalle del movimiento" → "Editar Movimiento".
+- Body swaps: read-only view (fields + notes thread) ↔ editable form (TransactionFormFields component).
+- Footer swaps: "Editar / Cerrar" (read) ↔ "Cancelar / Guardar" (edit).
+- Delete button (trash icon) **hides** during edit mode to reduce footgun risk (user should cancel/save first, not delete mid-edit).
+
+### 2. Modal Width: Widens to 720px in Edit Mode
+
+**Decision:** Modal width = **640px** in read-only mode, **720px** in edit mode.
+
+**Rationale:**
+- Read-only view is content-dense but fits comfortably in 640px (matches the modal width-lock pattern from history.md).
+- Edit mode form needs breathing room — the two-column layout (date/type, amount/account, status/reference) + full-width description/details requires ~720px to avoid cramped inputs.
+- Smooth transition via CSS (`transition: width 0.2s ease`) — no jitter.
+
+**Alternatives considered:**
+- (a) Keep 640px, restructure form into tighter two-column layout → rejected because it would deviate from the existing TransactionFormModal pattern users are familiar with.
+- (b) Widen to 800px → rejected as too wide; 720px provides adequate space without overwhelming smaller screens.
+
+### 3. Notes Thread Behavior in Edit Mode
+
+**Decision:** **Hides** the notes thread when in edit mode.
+
+**Rationale:**
+- Edit form takes full body space — displaying notes alongside would require scrolling or cramming both into a smaller viewport.
+- User can cancel edit to return to read-only view and access notes.
+- Future enhancement: collapse notes into a read-only accordion below the form if needed.
+
+### 4. Shared Form Fields Component
+
+**Decision:** Extracted `TransactionFormFields` component (reusable form markup) to avoid duplication between AddTransactionModal and TransactionDetailModal's edit swap.
+
+**Implementation:**
+- New component: `app/src/renderer/components/TransactionFormFields/`
+- Props: individual field values + onChange handlers (no internal form state).
+- Layout: two-column for compact fields (date/type, amount/account, status/reference), full-width for description/category/tags/details.
+- Used by: AddTransactionModal (future refactor), TransactionDetailModal (edit mode).
+
+**Rationale:**
+- DRY: form fields are identical between add + edit; extracting avoids drift.
+- Testability: shared component = single source of truth for field structure.
+- Future-proof: when WI-15 adds subcategory editing, only TransactionFormFields needs updating.
+
+### 5. MovementsScreen Wiring
+
+**Decision:** Wired TransactionDetailModal into MovementsScreen with the same row-click handler + update/delete refresh pattern as PanelScreen.
+
+**Implementation:**
+- Added `selectedTx` state + `setSelectedTx(row)` on Table's `onRowClick`.
+- Converted `Movement` (display shape, label-based) → `RecentTransaction` (wire shape, ID-based) for modal props.
+- On update/delete success: calls `loadAll()` to refresh movements list (mirrors PanelScreen's `loadPanel()` pattern).
+
+**Rationale:**
+- Consistency: both screens now have identical edit/delete flows.
+- No new backend work: reuses existing `updateTransaction` / `deleteTransaction` IPC handlers.
+
+## Test Updates
+
+Updated `TransactionDetailModal.test.tsx` to verify in-place swap behavior:
+- ✅ Edit button click → modal title changes, form fields appear, footer swaps to Cancel/Save.
+- ✅ Cancel button → reverts to read-only view.
+- ✅ Delete button hidden during edit mode.
+- ✅ Notes thread hidden during edit mode.
+
+All 364 tests pass (9 skipped).
+
+## Files Changed
+
+**Added:**
+- `app/src/renderer/components/TransactionFormFields/TransactionFormFields.tsx`
+- `app/src/renderer/components/TransactionFormFields/TransactionFormFields.css`
+- `app/src/renderer/components/TransactionFormFields/index.ts`
+
+**Modified:**
+- `app/src/renderer/components/TransactionDetailModal/TransactionDetailModal.tsx` — refactored for in-place swap
+- `app/src/renderer/components/TransactionDetailModal/TransactionDetailModal.css` — added edit-mode width + body styles
+- `app/src/renderer/components/TransactionDetailModal/TransactionDetailModal.test.tsx` — updated tests for swap behavior
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.tsx` — wired detail modal + update/delete handlers
+
+## Gates Passed
+
+✅ `npm run typecheck`  
+✅ `npm run lint`  
+✅ `npm run format:check`  
+✅ `npm test` — 364/373 passed (9 skipped)  
+✅ `npm run build`
+
+## Commit Message
+
+```
+fix(tx): WI-20 edit UX corrections — in-place swap, MovementsScreen wiring, width
+
+- Refactor TransactionDetailModal edit to in-place swap (rejected Option B
+  stacked modal). Same <dialog>, body swaps read-only ↔ form, footer swaps
+  Cerrar ↔ Cancelar/Guardar.
+- Extract shared form fields component (TransactionFormFields) — reusable 
+  between AddTransactionModal and edit swap.
+- Wire TransactionDetailModal open + update/delete refresh into MovementsScreen
+  (was previously only wired in PanelScreen).
+- Fix cramped edit form: modal widens from 640px → 720px in edit mode for 
+  better form breathing room.
+- Hide delete button + notes thread during edit mode (UX clarity).
+- Update tests to assert in-place swap instead of stacked-modal mount.
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+```
+
+## Next Steps
+
+None — all three bugs fixed, scope complete.
+
+## Learnings
+
+### Root Cause of Stacked-Modal Regression
+
+The initial WI-20 implementation opened a second `TransactionFormModal` on top of the detail modal (Option B) instead of doing an in-place swap (Option A). Root cause:
+- Easier to invoke existing `<TransactionFormModal mode="edit">` than refactor TransactionDetailModal for swap behavior.
+- Likely happened because the detail modal was originally read-only (WI-19); adding edit as a separate modal was the path of least resistance.
+- **Lesson:** When Pedro approves a specific UX pattern (Option A vs B), verify the implementation matches before shipping — even if a different approach is simpler.
+
+### Shared Form Fields Pattern
+
+Extracted `TransactionFormFields` as a reusable component to avoid duplicating field markup between add-modal and edit-swap. Pattern:
+- Component takes individual props (date, amount, etc.) + onChange handlers — no internal state.
+- Parent owns form state + validation.
+- Layout is baked into the component CSS (two-column for compact fields, full-width for description/details).
+- **Benefit:** Single source of truth for field structure; when WI-15 adds subcategory editing, only one component updates.
+
+### Width Choice Rationale
+
+Chose 720px for edit mode (vs 640px read-only) because:
+- Form needs two-column layout for compact fields (date/type, amount/account, status/reference) to avoid vertical sprawl.
+- 640px cramped the inputs — labels truncated, focus rings clipped.
+- 720px provides adequate horizontal space without overwhelming smaller screens (max-width: 92vw ensures mobile safety).
+- Smooth transition via CSS (`transition: width 0.2s ease`) prevents jank.
+
+
+---
 ### 2026-04-20: WI-19 — Transaction extras (reference / details / notes) — shipped
 
 **By:** Neo (scope), Pedro (approval), Morpheus (backend), Trinity (frontend)  
