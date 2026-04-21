@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeftRight,
+  FolderOpen,
+  Landmark,
   LayoutDashboard,
   LogOut,
   Monitor,
@@ -10,14 +12,21 @@ import {
   Scale,
   Search,
   Settings,
-  SlidersHorizontal,
   Sun,
+  Tag,
   Upload,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme.js';
 import './AppShell.css';
 
-export type Route = 'panel' | 'movements' | 'balance' | 'datos' | 'configuracion';
+export type Route =
+  | 'panel'
+  | 'movements'
+  | 'balance'
+  | 'datos'
+  | 'cuentas'
+  | 'categorias'
+  | 'etiquetas';
 
 export interface AppShellProps {
   readonly currentRoute: Route;
@@ -36,6 +45,12 @@ interface NavSection {
   readonly items: readonly NavItem[];
 }
 
+/**
+ * PR#2 parity — Configuración section exposes Categorías / Etiquetas / Cuentas
+ * as three sibling routes (folder / tag / bank icons) instead of one tabbed
+ * entry point. Datos is its own section with Importación (upload). The old
+ * single "configuracion" route is gone.
+ */
 const NAV_SECTIONS: readonly NavSection[] = [
   {
     labelKey: 'shell.sections.main',
@@ -43,18 +58,19 @@ const NAV_SECTIONS: readonly NavSection[] = [
       { id: 'panel', labelKey: 'shell.nav.panel', icon: <LayoutDashboard size={18} /> },
       { id: 'movements', labelKey: 'shell.nav.movements', icon: <ArrowLeftRight size={18} /> },
       { id: 'balance', labelKey: 'shell.nav.balance', icon: <Scale size={18} /> },
-      { id: 'datos', labelKey: 'shell.nav.datos', icon: <Upload size={18} /> },
     ],
   },
   {
     labelKey: 'shell.sections.config',
     items: [
-      {
-        id: 'configuracion',
-        labelKey: 'shell.nav.configuracion',
-        icon: <SlidersHorizontal size={18} />,
-      },
+      { id: 'categorias', labelKey: 'shell.nav.categorias', icon: <FolderOpen size={18} /> },
+      { id: 'etiquetas', labelKey: 'shell.nav.etiquetas', icon: <Tag size={18} /> },
+      { id: 'cuentas', labelKey: 'shell.nav.cuentas', icon: <Landmark size={18} /> },
     ],
+  },
+  {
+    labelKey: 'shell.sections.datos',
+    items: [{ id: 'datos', labelKey: 'shell.nav.datos', icon: <Upload size={18} /> }],
   },
 ];
 

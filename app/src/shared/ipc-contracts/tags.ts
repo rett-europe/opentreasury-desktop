@@ -14,6 +14,8 @@ export const tagCreatedEventSchema = z.object({
   type: z.literal('TagCreated'),
   id: z.string().min(1),
   name: z.string().min(1),
+  // PR#2 parity — optional for backward-compat.
+  color: z.string().optional(),
   createdAt: z.string().datetime(),
 });
 
@@ -26,6 +28,7 @@ export type TagCreatedEvent = z.infer<typeof tagCreatedEventSchema>;
 export const tagRecordSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  color: z.string().optional(),
   createdAt: z.string().datetime(),
 });
 
@@ -37,6 +40,7 @@ export type TagRecord = z.infer<typeof tagRecordSchema>;
 
 export const createTagRequestSchema = z.object({
   name: z.string(),
+  color: z.string().optional(),
 });
 
 export type CreateTagRequest = z.infer<typeof createTagRequestSchema>;

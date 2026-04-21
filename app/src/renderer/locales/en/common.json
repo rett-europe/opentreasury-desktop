@@ -22,7 +22,10 @@
       "movements": "Transactions",
       "balance": "Balance",
       "datos": "Data",
-      "configuracion": "Settings"
+      "configuracion": "Settings",
+      "cuentas": "Accounts",
+      "categorias": "Categories",
+      "etiquetas": "Tags"
     },
     "theme": {
       "label": "Theme",
@@ -42,7 +45,8 @@
     },
     "sections": {
       "main": "Main",
-      "config": "Settings"
+      "config": "Settings",
+      "datos": "Data"
     },
     "user": {
       "name": "Pedro Rocha",

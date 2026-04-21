@@ -959,3 +959,43 @@ Now the swap is truly in-place: same outer box, same padding, same min-height, o
 **Commit:** fix(tx): round 2 polish — real table overflow, symmetric modal, date i18n
 
 
+
+
+## Learnings — 2026-04-21 · PR#2 full renovation
+
+### Prototype features that required schema extension
+- **Account.iban** — IBAN masking with per-row eye-toggle is core prototype UX;
+  ships as `z.string().optional()` on both wire schemas + read-model. Never
+  stored/echoed in plaintext beyond the modal reveal toggle.
+- **Account.label** — free-text usage label ("Principal", "Operaciones", …)
+  drives the colored pill column. Added as optional string.
+- **Account.color + Account.isPaypal** — color drives the entity-icon swatch
+  and the label-pill tint (`color-mix(in srgb, var 18%, transparent)`).
+  `isPaypal` flags "Plataforma externa" subtitle + disables IBAN capture.
+- **Tag.color** — required for chip-tint rendering and round swatch in the
+  grid/list views. Optional on wire.
+- Category `type` (Ingreso/Gasto) is **blocked** by Pedro Q4 direction-agnostic
+  lock-in; subcategory CRUD is blocked by missing wire events.
+
+### Navbar treatment pattern (prototype-aligned)
+- Three sections in the sidebar: `Principal` (Panel/Movimientos/Saldo),
+  `Configuración` (Categorías/Etiquetas/Cuentas — per-entity icons
+  FolderOpen/Tag/Landmark), `Datos` (Importación — Upload icon).
+- Each config sub-route is a top-level `Route` union member; the tabbed
+  `ConfiguracionScreen` keeps its tab strip for in-screen switching and
+  accepts `initialTab`/`onTabChange` so sidebar + tab stay in sync.
+- Section headers = `shell.sections.*` i18n keys; nav item labels
+  `shell.nav.*`.
+
+### Playwright-against-Electron setup notes
+- Booting the real Electron build via `@playwright/test` + `electron.launch`
+  is doable but heavy for a quick diff. Faster: a plain
+  `chromium.launch()` pointed at the Vite dev server (`5173`), with
+  `page.addInitScript` injecting a stubbed `window.opentreasury` object
+  (shape = `OpenTreasuryApi`) before any bundle runs.
+- The prototype lives in `prototype/*.{html,jsx,js,css}` and is rendered
+  via Babel-standalone; a 40-line `http.createServer` static-file server
+  (`scripts/config-diff-playwright.mjs`) is enough to host it. JSX files
+  must be served with a text MIME type for Babel-standalone to fetch them.
+- Screenshots go to `.squad/decisions/inbox/playwright-config-diff/*.png`
+  — Scribe only deletes `.md` files on archival, so PNGs persist.

@@ -18,6 +18,12 @@ export const accountCreatedEventSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   bankName: z.string().optional(),
+  // PR#2 parity — see config-diff-report 2026-04-21. These fields are optional
+  // on the wire for backward-compat with events written before the fields existed.
+  label: z.string().optional(),
+  iban: z.string().optional(),
+  color: z.string().optional(),
+  isPaypal: z.boolean().optional(),
   currency: z.literal('EUR'),
   openingBalance: z.number(),
   createdAt: z.string().datetime(),
@@ -33,6 +39,10 @@ export const accountRecordSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   bankName: z.string().optional(),
+  label: z.string().optional(),
+  iban: z.string().optional(),
+  color: z.string().optional(),
+  isPaypal: z.boolean().optional(),
   currency: z.literal('EUR'),
   openingBalance: z.number(),
   createdAt: z.string().datetime(),
@@ -47,6 +57,10 @@ export type AccountRecord = z.infer<typeof accountRecordSchema>;
 export const createAccountRequestSchema = z.object({
   name: z.string(),
   bankName: z.string().optional(),
+  label: z.string().optional(),
+  iban: z.string().optional(),
+  color: z.string().optional(),
+  isPaypal: z.boolean().optional(),
   openingBalance: z.number().optional(),
 });
 

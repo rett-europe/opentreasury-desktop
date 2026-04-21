@@ -69,6 +69,10 @@ export interface ConfigAccount {
   readonly id: string;
   readonly name: string;
   readonly bankName?: string;
+  readonly label?: string;
+  readonly iban?: string;
+  readonly color?: string;
+  readonly isPaypal?: boolean;
   readonly currency: 'EUR';
   readonly openingBalance: number;
   readonly createdAt: string;
@@ -84,6 +88,7 @@ export interface ConfigCategory {
 export interface ConfigTag {
   readonly id: string;
   readonly name: string;
+  readonly color?: string;
   readonly createdAt: string;
 }
 

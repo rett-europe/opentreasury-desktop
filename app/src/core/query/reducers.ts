@@ -138,6 +138,10 @@ export function applyEvent(event: DomainEvent): void {
         openingBalance: event.openingBalance,
         createdAt: event.createdAt,
         ...(event.bankName !== undefined ? { bankName: event.bankName } : {}),
+        ...(event.label !== undefined ? { label: event.label } : {}),
+        ...(event.iban !== undefined ? { iban: event.iban } : {}),
+        ...(event.color !== undefined ? { color: event.color } : {}),
+        ...(event.isPaypal !== undefined ? { isPaypal: event.isPaypal } : {}),
       };
       readModel = {
         ...readModel,
@@ -165,6 +169,7 @@ export function applyEvent(event: DomainEvent): void {
         id: event.id,
         name: event.name,
         createdAt: event.createdAt,
+        ...(event.color !== undefined ? { color: event.color } : {}),
       };
       readModel = {
         ...readModel,

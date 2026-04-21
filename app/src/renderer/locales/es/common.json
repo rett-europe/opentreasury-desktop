@@ -22,7 +22,10 @@
       "movements": "Movimientos",
       "balance": "Saldo",
       "datos": "Datos",
-      "configuracion": "Configuración"
+      "configuracion": "Configuración",
+      "cuentas": "Cuentas",
+      "categorias": "Categorías",
+      "etiquetas": "Etiquetas"
     },
     "theme": {
       "label": "Tema",
@@ -42,7 +45,8 @@
     },
     "sections": {
       "main": "Principal",
-      "config": "Configuración"
+      "config": "Configuración",
+      "datos": "Datos"
     },
     "user": {
       "name": "Pedro Rocha",

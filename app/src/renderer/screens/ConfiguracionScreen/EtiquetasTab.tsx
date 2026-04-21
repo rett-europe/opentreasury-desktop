@@ -17,11 +17,14 @@ export interface EtiquetasTabProps {
   readonly onListChanged?: (() => void) | undefined;
 }
 
+type ViewMode = 'grid' | 'list';
+
 export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element {
   const { t } = useTranslation('common');
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [modalOpen, setModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [view, setView] = useState<ViewMode>('grid');
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -29,10 +32,7 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
       const resp = await listTags();
       setState({ kind: 'loaded', tags: resp.tags });
     } catch (err) {
-      setState({
-        kind: 'error',
-        message: err instanceof Error ? err.message : 'unknown',
-      });
+      setState({ kind: 'error', message: err instanceof Error ? err.message : 'unknown' });
     }
   }, []);
 
@@ -45,14 +45,16 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
     onListChanged?.();
   }, [load, onListChanged]);
 
-  // Filter tags by search query
   const filteredTags =
     state.kind === 'loaded'
-      ? state.tags.filter((t) => {
+      ? state.tags.filter((tg) => {
           if (!searchQuery) return true;
-          return t.name.toLowerCase().includes(searchQuery.toLowerCase());
+          return tg.name.toLowerCase().includes(searchQuery.toLowerCase());
         })
       : [];
+
+  const tintBg = (c: string | undefined): string =>
+    c ? `color-mix(in srgb, ${c} 30%, transparent)` : 'var(--color-brand-surface)';
 
   return (
     <>
@@ -68,6 +70,26 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
           ) : null}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          {state.kind === 'loaded' && state.tags.length > 0 ? (
+            <div className="ot-config__segmented" role="tablist" aria-label="Vista">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'grid'}
+                onClick={() => setView('grid')}
+              >
+                Tarjetas
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'list'}
+                onClick={() => setView('list')}
+              >
+                Lista
+              </button>
+            </div>
+          ) : null}
           {state.kind === 'loaded' && state.tags.length > 0 ? (
             <Button variant="secondary" size="md" leadingIcon={<Download size={16} />}>
               Exportar
@@ -134,33 +156,115 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
                 Ninguna etiqueta coincide con la búsqueda.
               </div>
             </div>
-          ) : (
+          ) : view === 'grid' ? (
             <ul className="ot-config__tag-grid">
               {filteredTags.map((tg) => (
                 <li key={tg.id} className="ot-config__tag-grid-item">
                   <div className="ot-config__tag-grid-header">
-                    <span className="ot-config__tag-pill">{tg.name}</span>
+                    <span
+                      className="ot-config__swatch-lg"
+                      style={{ background: tg.color || 'var(--color-brand-primary)' }}
+                      aria-hidden="true"
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        className="ot-config__cell-truncate"
+                        style={{ fontWeight: 'var(--font-weight-medium)' }}
+                        title={tg.name}
+                      >
+                        {tg.name}
+                      </div>
+                      <span className="ot-config__meta-text ot-config__code-mono">{tg.id}</span>
+                    </div>
                     <div className="ot-config__tag-grid-actions">
                       <button
                         className="ot-config__row-action-btn"
-                        title="Editar etiqueta"
+                        title="Editar (próximamente)"
                         aria-label="Editar etiqueta"
+                        disabled
                       >
                         <Edit size={14} />
                       </button>
                       <button
                         className="ot-config__row-action-btn ot-config__row-action-btn--danger"
-                        title="Eliminar etiqueta"
+                        title="Eliminar (próximamente)"
                         aria-label="Eliminar etiqueta"
+                        disabled
                       >
                         <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
-                  <span className="ot-config__meta-text">ID: {tg.id}</span>
                 </li>
               ))}
             </ul>
+          ) : (
+            <div className="ot-config__table-wrapper">
+              <table className="ot-config__table">
+                <colgroup>
+                  <col style={{ width: '48px' }} />
+                  <col style={{ width: '40%' }} />
+                  <col style={{ width: '40%' }} />
+                  <col style={{ width: '80px' }} />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Etiqueta</th>
+                    <th>Identificador</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTags.map((tg) => (
+                    <tr key={tg.id}>
+                      <td>
+                        <span
+                          className="ot-config__swatch-lg"
+                          style={{ background: tg.color || 'var(--color-brand-primary)' }}
+                          aria-hidden="true"
+                        />
+                      </td>
+                      <td>
+                        <span
+                          className="ot-config__tag-pill"
+                          style={{
+                            background: tintBg(tg.color),
+                            color: 'var(--color-text-primary)',
+                          }}
+                          title={tg.name}
+                        >
+                          {tg.name}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="ot-config__code-mono">{tg.id}</span>
+                      </td>
+                      <td>
+                        <div className="ot-config__row-actions">
+                          <button
+                            className="ot-config__row-action-btn"
+                            title="Editar (próximamente)"
+                            aria-label="Editar etiqueta"
+                            disabled
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            className="ot-config__row-action-btn ot-config__row-action-btn--danger"
+                            title="Eliminar (próximamente)"
+                            aria-label="Eliminar etiqueta"
+                            disabled
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </>
       )}

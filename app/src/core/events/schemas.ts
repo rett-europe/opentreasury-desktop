@@ -135,6 +135,10 @@ export const configAccountCreatedEventSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   bankName: z.string().optional(),
+  label: z.string().optional(),
+  iban: z.string().optional(),
+  color: z.string().optional(),
+  isPaypal: z.boolean().optional(),
   currency: z.literal('EUR'),
   openingBalance: z.number(),
   createdAt: z.string().datetime(),
@@ -156,6 +160,7 @@ export const configTagCreatedEventSchema = z.object({
   type: z.literal('TagCreated'),
   id: z.string().min(1),
   name: z.string().min(1),
+  color: z.string().optional(),
   createdAt: z.string().datetime(),
 });
 
