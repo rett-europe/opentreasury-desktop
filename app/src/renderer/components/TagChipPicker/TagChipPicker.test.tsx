@@ -19,9 +19,7 @@ describe('TagChipPicker', () => {
   });
 
   it('marks selected tags with pressed state', () => {
-    render(
-      <TagChipPicker availableTags={mockTags} selectedIds={['1', '3']} onToggle={vi.fn()} />,
-    );
+    render(<TagChipPicker availableTags={mockTags} selectedIds={['1', '3']} onToggle={vi.fn()} />);
 
     const urgentChip = screen.getByRole('button', { name: /Urgent/i });
     const personalChip = screen.getByRole('button', { name: /Personal/i });
@@ -46,9 +44,7 @@ describe('TagChipPicker', () => {
   it('allows toggling selection without modifier keys', () => {
     const handleToggle = vi.fn();
 
-    render(
-      <TagChipPicker availableTags={mockTags} selectedIds={['1']} onToggle={handleToggle} />,
-    );
+    render(<TagChipPicker availableTags={mockTags} selectedIds={['1']} onToggle={handleToggle} />);
 
     // Click selected chip to unselect
     const urgentChip = screen.getByRole('button', { name: /Urgent/i });

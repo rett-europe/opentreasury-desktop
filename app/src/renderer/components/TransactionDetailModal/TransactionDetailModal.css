@@ -30,7 +30,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  padding: var(--space-6);
   max-height: 88vh;
   overflow-y: auto;
 }
@@ -135,6 +134,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-height: 520px;
+  padding: var(--space-6);
 }
 
 .ot-transaction-detail-modal__error {
@@ -150,6 +151,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+  min-height: 520px;
+  padding: var(--space-6);
 }
 
 .ot-transaction-detail-modal__summary {
@@ -178,13 +181,13 @@
   margin: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3) var(--space-5);
+  gap: var(--space-5) var(--space-6);
 }
 
 .ot-transaction-detail-modal__field {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -195,6 +198,7 @@
   color: var(--color-text-muted);
   font-weight: 600;
   margin: 0;
+  margin-bottom: var(--space-1);
 }
 
 .ot-transaction-detail-modal__field dd {
@@ -202,6 +206,7 @@
   font-size: var(--font-size-sm, 0.875rem);
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
+  line-height: 1.5;
 }
 
 .ot-transaction-detail-modal__extra {

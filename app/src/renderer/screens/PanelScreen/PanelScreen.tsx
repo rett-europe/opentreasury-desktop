@@ -7,6 +7,7 @@ import { KPIStrip } from '../../components/KPIStrip/index.js';
 import { Table } from '../../components/Table/index.js';
 import type { TableColumn } from '../../components/Table/Table.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
+import { formatDate, formatMonth } from '../../utils/dateFormat.js';
 import type {
   Account,
   AccountBalance,
@@ -46,7 +47,8 @@ const MOCK_TX_COUNTS: Readonly<Record<string, number>> = {
  * Read-only surface; all mutations happen on Movements.
  */
 export function PanelScreen(): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
   const [state, setState] = useState<PanelState>('skeleton');
   const [data, setData] = useState<PanelData | null>(null);
   const [selectedTx, setSelectedTx] = useState<RecentTransaction | null>(null);
@@ -172,16 +174,6 @@ export function PanelScreen(): JSX.Element {
     };
   });
 
-  const formatMonth = (yearMonth: string) => {
-    const parts = yearMonth.split('-');
-    if (parts.length !== 2) return yearMonth;
-    const [year, month] = parts;
-    const date = new Date(parseInt(year!), parseInt(month!) - 1, 1);
-    return new Intl.DateTimeFormat(navigator.language, { month: 'long', year: 'numeric' }).format(
-      date,
-    );
-  };
-
   // Recent transactions table columns — arrow chip + account pill + amount
   // tone mirror MovementsScreen so a truncated Panel row looks identical to
   // the equivalent row on the full transactions screen.
@@ -208,10 +200,7 @@ export function PanelScreen(): JSX.Element {
       header: t('movements.columns.date'),
       width: 120,
       tabular: true,
-      render: (row) =>
-        new Intl.DateTimeFormat(navigator.language, { dateStyle: 'medium' }).format(
-          new Date(`${row.date}T00:00:00Z`),
-        ),
+      render: (row) => formatDate(row.date, locale),
     },
     {
       id: 'account',
@@ -300,7 +289,7 @@ export function PanelScreen(): JSX.Element {
         </div>
         <div className="ot-page-header__actions">
           <Button variant="secondary" leadingIcon={<Calendar size={16} />} disabled>
-            {formatMonth(kpis.yearMonth)}
+            {formatMonth(kpis.yearMonth, locale)}
           </Button>
         </div>
       </header>
@@ -324,7 +313,7 @@ export function PanelScreen(): JSX.Element {
         income={kpis.income}
         expense={kpis.expense}
         net={kpis.net}
-        month={formatMonth(kpis.yearMonth)}
+        month={formatMonth(kpis.yearMonth, locale)}
       />
 
       <div className="ot-section-label">{t('panel.sections.monthly-trend')}</div>

@@ -2,7 +2,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
+  gap: 6px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   font-family: inherit;
@@ -13,6 +13,10 @@
     background-color var(--motion-duration-fast) var(--motion-easing-standard),
     border-color var(--motion-duration-fast) var(--motion-easing-standard),
     color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-button > svg {
+  flex-shrink: 0;
 }
 
 .ot-button:focus-visible {

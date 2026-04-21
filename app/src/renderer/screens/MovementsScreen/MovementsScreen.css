@@ -276,5 +276,12 @@
  * while preserving all columns. */
 .ot-movements__table-container {
   overflow-x: auto;
+  width: 100%;
   border-radius: var(--radius-lg);
+}
+
+/* Ensure table respects its natural width and triggers overflow when columns
+ * are wider than viewport. Without min-width, table compresses to fit. */
+.ot-movements__table-container .ot-table {
+  min-width: max-content;
 }

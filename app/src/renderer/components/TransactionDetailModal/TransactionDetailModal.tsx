@@ -4,6 +4,7 @@ import { X, Edit, Trash2 } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { NotesThread } from '../NotesThread/index.js';
 import { TransactionFormFields } from '../TransactionFormFields/index.js';
+import { formatDate } from '../../utils/dateFormat.js';
 import type { Account, RecentTransaction } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
@@ -21,17 +22,6 @@ export interface TransactionDetailModalProps {
   readonly tagLabels?: readonly string[];
   readonly onUpdate: (input: UpdateTransactionRequest) => Promise<void>;
   readonly onDelete: (id: string) => Promise<void>;
-}
-
-function formatDate(iso: string): string {
-  try {
-    // YYYY-MM-DD — format as medium date in user locale.
-    const date = new Date(`${iso}T00:00:00Z`);
-    if (Number.isNaN(date.getTime())) return iso;
-    return new Intl.DateTimeFormat(navigator.language, { dateStyle: 'medium' }).format(date);
-  } catch {
-    return iso;
-  }
 }
 
 interface FormErrors {
@@ -69,7 +59,8 @@ export function TransactionDetailModal({
   onUpdate,
   onDelete,
 }: TransactionDetailModalProps): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // Edit mode state — true when user clicked "Editar", false when viewing/after cancel
@@ -365,7 +356,7 @@ export function TransactionDetailModal({
             <div className="ot-transaction-detail-modal__read-body">
               <div className="ot-transaction-detail-modal__summary">
                 <span className="ot-transaction-detail-modal__date">
-                  {formatDate(transaction.date)}
+                  {formatDate(transaction.date, locale)}
                 </span>
                 <p className="ot-transaction-detail-modal__description">
                   {transaction.description}
