@@ -14,7 +14,10 @@
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
-  overflow: hidden;
+  /* overflow-x: auto instead of overflow: hidden — allow horizontal scroll
+   * fallback when viewport is narrower than table intrinsic width. */
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 /* Drop the Table's own outer chrome when embedded — we want a single card
