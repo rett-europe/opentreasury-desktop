@@ -197,6 +197,61 @@ Inline `style={{ color: 'var(--token)' }}` works but scatters token names across
 
 Trinity wired the renderer half of WI-12: transactionApi (create command client), movementsApi (list query client), typed window.opentreasury surface. Services follow the existing panel.* pattern. Ready for WI-13 (Add-Transaction modal + Movements list real-data wiring). No renderer-side changes needed until WI-14 (Panel invalidation subscription).
 
+## 2026-04-21 — Configuration Screens Renovation (PR #2 Prototypes)
+
+**Context:** Pedro created PR #2 with visual prototypes for the Configuration area (Cuentas / Categorías / Etiquetas). The prototypes introduce enhanced UI patterns: table layouts with search filters, better visual hierarchy, hover-revealed action buttons, and improved metadata display.
+
+**Approach:** Pragmatic enhancement of existing minimal CRUD implementation. The prototype shows advanced features (IBAN masking, account labels/colors, subcategories, tag colors) that don't exist in the current backend data model (AccountRecord/CategoryRecord/TagRecord only have name, bankName, openingBalance for accounts; name, color for categories; name for tags). Instead of blocking on backend work, implemented the prototype's **visual patterns** while working with current simple data.
+
+**What shipped:**
+
+1. **Enhanced CSS from prototype** (ConfiguracionScreen.css):
+   - Filter bar pattern with search input + result counts
+   - Table layout replacing card grids for Accounts/Categories
+   - Row action buttons with hover states + danger variant
+   - Tag grid with improved card styling and hover effects
+   - Metadata text and stats display tokens
+
+2. **Cuentas (Accounts) Tab:**
+   - Table layout (Name | Bank | Opening Balance | Actions)
+   - Search filter by name or bank
+   - Stats header: "N cuentas · Saldo total: €XXX"
+   - Color-coded balance (green positive, red negative)
+   - Hover-revealed Edit/Delete action buttons
+   - Export button when accounts exist
+   - Empty state and "no results" handling
+
+3. **Categorías (Categories) Tab:**
+   - Table layout with color swatch column
+   - Search filter with result counts
+   - Color swatches for categories with colors
+   - FolderOpen icon fallback for categories without colors
+   - Consistent action button patterns
+
+4. **Etiquetas (Tags) Tab:**
+   - Grid layout with improved card styling
+   - Search filter with result counts
+   - Tag pill display + metadata (ID)
+   - Hover effects on cards
+   - Export button integration
+
+**What's deferred (backend data unavailable):**
+- IBAN field + masking/reveal (AccountRecord has no iban field)
+- Account labels + color swatches (no label, color, isPaypal fields)
+- Master-detail layout for Categories with subcategories (no subcategories in backend)
+- Tag colors (TagRecord has no color field)
+- Grid/List view toggle for Tags (kept grid only)
+
+**Pattern established:** When prototypes demonstrate features requiring backend data not yet available, implement the **visual scaffolding** (CSS patterns, layout structure, UI patterns) that will house the data when backend catches up. This unblocks frontend iteration and validates UX patterns early.
+
+**Validation:**
+- Typecheck ✓, lint ✓, format:check ✓, test ✓, build ✓
+- All existing CRUD functionality preserved
+- Visual patterns match PR #2 prototype intent
+
+**Files modified:** 5 (CuentasTab.tsx, CategoriasTab.tsx, EtiquetasTab.tsx, ConfiguracionScreen.css, PanelScreen.tsx — formatting only)
+
+**Commit:** cd1ebb5 "feat(config): renovate Accounts/Categories/Labels screens per PR #2 prototypes"
 ## 2026-04-19 — WI-3: Panel IPC wiring complete
 
 **Pattern: Skeleton→Loaded transition**  
