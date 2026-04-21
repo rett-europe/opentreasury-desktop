@@ -272,6 +272,33 @@
     "title": "Settings",
     "subtitle": "Manage your accounts, categories and tags.",
     "optional": "(optional)",
+    "archivedToggle": "Show archived",
+    "archivedBadge": "(archived)",
+    "unarchive": "Restore",
+    "unarchiveTooltip": "Restore",
+    "delete": {
+      "usage": {
+        "withCount_one": "{{count}} linked transaction",
+        "withCount_other": "{{count}} linked transactions",
+        "unknown": "—",
+        "none": "No linked transactions"
+      },
+      "warning": {
+        "delete": "This action cannot be undone.",
+        "archive": "It will be hidden from lists, but its history will be kept."
+      },
+      "buttons": {
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "archive": "Archive",
+        "deleting": "Deleting…",
+        "archiving": "Archiving…"
+      },
+      "error": {
+        "generic": "Couldn't complete the action. Please try again.",
+        "inUse": "Can't delete: there are linked transactions. Archive it instead."
+      }
+    },
     "tabs": {
       "label": "Settings sections",
       "cuentas": "Accounts",
@@ -285,7 +312,29 @@
       "bank": "Bank",
       "openingBalance": "Opening balance (€)",
       "modal": {
-        "title": "New account"
+        "title": "New account",
+        "editTitle": "Edit account"
+      },
+      "actions": {
+        "edit": "Edit",
+        "editTooltip": "Edit account",
+        "delete": "Delete",
+        "deleteTooltip": "Delete account",
+        "archiveTooltip": "Archive account"
+      },
+      "deleteConfirm": {
+        "title": "Delete account",
+        "archiveTitle": "Archive account",
+        "confirmDelete": "Delete the account \"{{name}}\"?",
+        "confirmArchive": "Archive the account \"{{name}}\"?",
+        "bodyDelete": "This will permanently remove the account.",
+        "bodyArchive": "The account will no longer appear in lists or pickers, but its history will be kept."
+      },
+      "toast": {
+        "deleteSuccess": "Account deleted",
+        "archiveSuccess": "Account archived",
+        "unarchiveSuccess": "Account restored",
+        "updateSuccess": "Account updated"
       },
       "empty": {
         "title": "No accounts yet",
@@ -339,25 +388,107 @@
         "pendingEvents": "Subcategories and usage counts will arrive when the event log supports them."
       },
       "actions": {
-        "editTitle": "Edit (coming soon)",
-        "deleteTitle": "Delete (coming soon)",
-        "renameTitle": "Rename (coming soon)",
-        "addSubTitle": "Add subcategory (coming soon)"
+        "edit": "Edit",
+        "editTooltip": "Edit category",
+        "delete": "Delete",
+        "deleteTooltip": "Delete category",
+        "archiveTooltip": "Archive category",
+        "rename": "Rename",
+        "renameTooltip": "Rename category",
+        "addSub": "Subcategory",
+        "addSubTooltip": "Add subcategory",
+        "editTitle": "Edit category",
+        "deleteTitle": "Archive category",
+        "renameTitle": "Rename category",
+        "addSubTitle": "Add subcategory"
+      },
+      "deleteConfirm": {
+        "title": "Delete category",
+        "archiveTitle": "Archive category",
+        "confirmDelete": "Delete the category \"{{name}}\"?",
+        "confirmArchive": "Archive the category \"{{name}}\"?",
+        "bodyDelete": "Its subcategories will also be deleted. Transactions already classified will become uncategorized.",
+        "bodyArchive": "The category will no longer appear when classifying, but its history will be kept."
+      },
+      "toast": {
+        "deleteSuccess": "Category deleted",
+        "archiveSuccess": "Category archived",
+        "unarchiveSuccess": "Category restored",
+        "updateSuccess": "Category updated"
       },
       "modal": {
-        "title": "New category"
+        "title": "New category",
+        "editTitle": "Edit category"
       },
       "empty": {
         "title": "No categories yet",
         "body": "Create categories to group your income and expenses."
       }
     },
+    "subcategorias": {
+      "heading": "Subcategories",
+      "add": "Add subcategory",
+      "name": "Subcategory name",
+      "inline": {
+        "addLabel": "Add subcategory to {{parent}}",
+        "placeholder": "Subcategory name",
+        "save": "Add",
+        "saving": "Adding…",
+        "update": "Save",
+        "updating": "Saving…",
+        "cancel": "Cancel"
+      },
+      "actions": {
+        "edit": "Edit",
+        "editTooltip": "Edit subcategory",
+        "delete": "Delete",
+        "deleteTooltip": "Delete subcategory",
+        "archiveTooltip": "Archive subcategory"
+      },
+      "deleteConfirm": {
+        "title": "Delete subcategory",
+        "archiveTitle": "Archive subcategory",
+        "confirmDelete": "Delete the subcategory \"{{name}}\"?",
+        "confirmArchive": "Archive the subcategory \"{{name}}\"?",
+        "bodyDelete": "Linked transactions will keep the parent category, but lose the subcategory.",
+        "bodyArchive": "The subcategory will no longer appear when classifying, but transactions already classified will keep it."
+      },
+      "toast": {
+        "deleteSuccess": "Subcategory deleted",
+        "archiveSuccess": "Subcategory archived",
+        "unarchiveSuccess": "Subcategory restored",
+        "updateSuccess": "Subcategory updated"
+      },
+      "empty": "This category has no subcategories yet."
+    },
     "etiquetas": {
       "heading": "Tags",
       "add": "Add tag",
       "name": "Tag name",
       "modal": {
-        "title": "New tag"
+        "title": "New tag",
+        "editTitle": "Edit tag"
+      },
+      "actions": {
+        "edit": "Edit",
+        "editTooltip": "Edit tag",
+        "delete": "Delete",
+        "deleteTooltip": "Delete tag",
+        "archiveTooltip": "Archive tag"
+      },
+      "deleteConfirm": {
+        "title": "Delete tag",
+        "archiveTitle": "Archive tag",
+        "confirmDelete": "Delete the tag \"{{name}}\"?",
+        "confirmArchive": "Archive the tag \"{{name}}\"?",
+        "bodyDelete": "It will be removed from every transaction that has it.",
+        "bodyArchive": "The tag will no longer appear when selecting, but transactions that already have it will keep it."
+      },
+      "toast": {
+        "deleteSuccess": "Tag deleted",
+        "archiveSuccess": "Tag archived",
+        "unarchiveSuccess": "Tag restored",
+        "updateSuccess": "Tag updated"
       },
       "empty": {
         "title": "No tags yet",

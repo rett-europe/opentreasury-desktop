@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Tag as TagIcon } from 'lucide-react';
 import { createTag } from '../../services/tagsApi.js';
+import { updateTag } from '../../services/configMutationsApi.js';
 import type { CreateTagResponse, TagRecord } from '../../../shared/ipc-contracts/tags.js';
 import { ConfigModalShell } from './ConfigModalShell.js';
 import { mapConfigErrorToFieldKey } from './errorMap.js';
@@ -10,7 +11,9 @@ import { CATEGORY_PALETTE } from './AddCategoryModal.js';
 export interface AddTagModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onCreated: (tag: TagRecord) => void;
+  readonly onSaved: (tag: TagRecord) => void;
+  readonly mode?: 'add' | 'edit';
+  readonly record?: TagRecord | null;
 }
 
 function toSlug(name: string): string {
@@ -23,7 +26,13 @@ function toSlug(name: string): string {
     .slice(0, 24);
 }
 
-export function AddTagModal({ isOpen, onClose, onCreated }: AddTagModalProps): JSX.Element {
+export function AddTagModal({
+  isOpen,
+  onClose,
+  onSaved,
+  mode = 'add',
+  record = null,
+}: AddTagModalProps): JSX.Element {
   const { t } = useTranslation('common');
 
   const [name, setName] = useState('');
@@ -34,13 +43,18 @@ export function AddTagModal({ isOpen, onClose, onCreated }: AddTagModalProps): J
 
   useEffect(() => {
     if (isOpen) {
-      setName('');
-      setColor(CATEGORY_PALETTE[0] ?? '#6d4d8c');
+      if (mode === 'edit' && record) {
+        setName(record.name);
+        setColor(record.color ?? CATEGORY_PALETTE[0] ?? '#6d4d8c');
+      } else {
+        setName('');
+        setColor(CATEGORY_PALETTE[0] ?? '#6d4d8c');
+      }
       setError(null);
       setGeneralError(null);
       setSubmitting(false);
     }
-  }, [isOpen]);
+  }, [isOpen, mode, record]);
 
   const applyServerError = useCallback(
     (resp: Extract<CreateTagResponse, { ok: false }>) => {
@@ -66,12 +80,18 @@ export function AddTagModal({ isOpen, onClose, onCreated }: AddTagModalProps): J
     }
     setSubmitting(true);
     try {
+      if (mode === 'edit' && record) {
+        const updated = await updateTag(record.id, { name: trimmed, color });
+        onSaved(updated);
+        onClose();
+        return;
+      }
       const resp = await createTag({ name: trimmed, color });
       if (!resp.ok) {
         applyServerError(resp);
         return;
       }
-      onCreated({
+      onSaved({
         id: resp.event.id,
         name: resp.event.name,
         createdAt: resp.event.createdAt,
@@ -83,14 +103,18 @@ export function AddTagModal({ isOpen, onClose, onCreated }: AddTagModalProps): J
     } finally {
       setSubmitting(false);
     }
-  }, [name, color, onCreated, onClose, applyServerError, t]);
+  }, [name, color, onSaved, onClose, applyServerError, mode, record, t]);
 
   const slug = toSlug(name);
 
   return (
     <ConfigModalShell
       isOpen={isOpen}
-      titleKey="configuracion.etiquetas.modal.title"
+      titleKey={
+        mode === 'edit'
+          ? 'configuracion.etiquetas.modal.editTitle'
+          : 'configuracion.etiquetas.modal.title'
+      }
       onClose={onClose}
       onSubmit={handleSubmit}
       submitting={submitting}

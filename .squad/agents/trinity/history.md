@@ -1120,3 +1120,47 @@ share a line when text is short, which put "8 resultados" beside
 wants a subtitle stack: use an explicit `.ot-config__md-head-text`
 wrapper (`display: flex; flex-direction: column; gap: 2px`) with
 `display: flex` on both children.
+
+
+## Learnings — WI-21 Config CRUD (2026-04-22)
+
+**Pick `mode: 'add' | 'edit'` over separate EditXxxModal files.** All three
+Config modals already reset their state on `isOpen` transition; extending
+that hook to branch on `(mode, record)` is five lines per file and keeps
+validation + server-error mapping in one place. A parallel EditAccountModal
+would have forced copy-paste of 200+ lines of form JSX across three new
+files.
+
+**Runtime bridge detection is the right seam when main-process IPC is in
+flight.** `configMutationsApi.ts` checks `window.opentreasury.xxx.update`
+existence before invoking and throws a clear `TODO(morpheus): ...` message
+when absent. That lets the UI ship with a visible error rather than a cryptic
+`TypeError: undefined is not a function`, and the swap-in for Morpheus is
+literally deleting the guard. Don't pre-negotiate the exact response shape
+when it's still moving — accept `{ account: Rec } | Rec` via `'account' in result`
+narrow.
+
+**Archive state is metadata, not a separate collection.** I was tempted to
+split archived accounts into a second list. The `showArchived` toggle + a
+single `isArchived(record)` helper keeps the reducer + list endpoint
+shape identical (Morpheus can return the full set and the renderer filters);
+stats/balances explicitly exclude archived via `.filter(!isArchived)`.
+
+**Archived rendering: opacity + line-through on the name cell only.** Striking
+through the *whole row* (including amounts) made screenshots unreadable.
+Strike only the name/title cell; leave tabular numeric columns (balance,
+IBAN) visually intact so the data is still scannable when you're reviewing
+why you archived something.
+
+**Inline subcategory editor > modal.** Modal-over-modal-over-modal kills
+keyboard flow. Three states in one pane — `visibleSubs.map` read row, Edit
+flips one row to `<input>+check/x`, "Añadir subcategoría" flips the footer
+to `<input>+save/cancel` — is faster to use and to implement. Escape key
+abandons, Enter commits, autoFocus on the input.
+
+**Concurrent-agent format:check reality.** Baseline `format:check` on
+`wi-21/config-crud` already showed 31 warnings because Morpheus's WIP in
+`app/src/{core,main,shared,preload}` hadn't been prettier'd. Running
+`prettier --write` on just my files dropped the count to 23; the residual
+8 are all Morpheus's domain. Never run `prettier --write .` on a shared
+branch — you'll eat a teammate's unformatted WIP into your diff.

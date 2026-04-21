@@ -1,16 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Folder, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Folder, Search, Edit, Archive, RotateCcw, Check, X as XIcon } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
-import { AddCategoryModal } from '../../components/ConfigModals/index.js';
+import { AddCategoryModal, ArchiveConfirmModal } from '../../components/ConfigModals/index.js';
 import { listCategories } from '../../services/categoriesApi.js';
+import {
+  archiveCategory,
+  archiveSubcategory,
+  createSubcategory,
+  isArchived,
+  listSubcategories,
+  unarchiveCategory,
+  unarchiveSubcategory,
+  updateSubcategory,
+  type ConfigCategory,
+  type SubcategoryRecord,
+} from '../../services/configMutationsApi.js';
 import type { CategoryKind, CategoryRecord } from '../../types/config.js';
 
 type State =
   | { kind: 'loading' }
-  | { kind: 'loaded'; categories: readonly CategoryRecord[] }
+  | { kind: 'loaded'; categories: readonly ConfigCategory[] }
   | { kind: 'error'; message: string };
 
 type KindFilter = 'all' | CategoryKind;
@@ -43,17 +55,29 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
   const { t } = useTranslation('common');
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<ConfigCategory | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<ConfigCategory | null>(null);
+  const [subArchiveTarget, setSubArchiveTarget] = useState<SubcategoryRecord | null>(null);
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [subs, setSubs] = useState<readonly SubcategoryRecord[]>([]);
+  const [subAddName, setSubAddName] = useState('');
+  const [subAddOpen, setSubAddOpen] = useState(false);
+  const [subEditing, setSubEditing] = useState<SubcategoryRecord | null>(null);
+  const [subEditName, setSubEditName] = useState('');
+  const [subError, setSubError] = useState<string | null>(null);
+  const [subBusy, setSubBusy] = useState(false);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
       const resp = await listCategories();
-      setState({ kind: 'loaded', categories: resp.categories });
-      if (resp.categories.length > 0 && !selectedId) {
-        setSelectedId(resp.categories[0]?.id ?? null);
+      const cats = resp.categories as readonly ConfigCategory[];
+      setState({ kind: 'loaded', categories: cats });
+      if (cats.length > 0 && !selectedId) {
+        setSelectedId(cats[0]?.id ?? null);
       }
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : 'unknown' });
@@ -66,32 +90,70 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
     void load();
   }, [load]);
 
-  const handleCreated = useCallback(() => {
-    void load();
+  const loadSubs = useCallback(async (parentId: string) => {
+    try {
+      const list = await listSubcategories(parentId);
+      setSubs(list);
+    } catch {
+      setSubs([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedId) void loadSubs(selectedId);
+    else setSubs([]);
+  }, [selectedId, loadSubs]);
+
+  const handleSaved = useCallback(
+    (_saved: CategoryRecord) => {
+      void load();
+      onListChanged?.();
+    },
+    [load, onListChanged],
+  );
+
+  const handleArchive = useCallback(async () => {
+    if (!archiveTarget) return;
+    await archiveCategory(archiveTarget.id);
+    await load();
     onListChanged?.();
-  }, [load, onListChanged]);
+  }, [archiveTarget, load, onListChanged]);
+
+  const handleUnarchive = useCallback(
+    async (id: string) => {
+      await unarchiveCategory(id);
+      await load();
+      onListChanged?.();
+    },
+    [load, onListChanged],
+  );
 
   const categories = useMemo(
-    () => (state.kind === 'loaded' ? state.categories : ([] as readonly CategoryRecord[])),
+    () => (state.kind === 'loaded' ? state.categories : ([] as readonly ConfigCategory[])),
     [state],
   );
 
   const counts = useMemo(
     () => ({
-      all: categories.length,
-      income: categories.filter((c) => c.kind === 'income').length,
-      expense: categories.filter((c) => c.kind === 'expense').length,
+      all: categories.filter((c) => !isArchived(c)).length,
+      income: categories.filter((c) => c.kind === 'income' && !isArchived(c)).length,
+      expense: categories.filter((c) => c.kind === 'expense' && !isArchived(c)).length,
     }),
     [categories],
   );
 
+  const visibleCategories = useMemo(
+    () => categories.filter((c) => showArchived || !isArchived(c)),
+    [categories, showArchived],
+  );
+
   const filteredCategories = useMemo(() => {
-    return categories.filter((c) => {
+    return visibleCategories.filter((c) => {
       if (kindFilter !== 'all' && c.kind !== kindFilter) return false;
       if (searchQuery && !c.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       return true;
     });
-  }, [categories, kindFilter, searchQuery]);
+  }, [visibleCategories, kindFilter, searchQuery]);
 
   const selected = useMemo(
     () => filteredCategories.find((c) => c.id === selectedId) ?? filteredCategories[0] ?? null,
@@ -106,6 +168,64 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
       </span>
     );
   };
+
+  const submitSubAdd = useCallback(async () => {
+    if (!selectedId) return;
+    const trimmed = subAddName.trim();
+    if (!trimmed) {
+      setSubError(t('configuracion.errors.nameEmpty'));
+      return;
+    }
+    setSubBusy(true);
+    setSubError(null);
+    try {
+      await createSubcategory(selectedId, trimmed);
+      setSubAddName('');
+      setSubAddOpen(false);
+      await loadSubs(selectedId);
+    } catch (err) {
+      setSubError(err instanceof Error ? err.message : t('configuracion.errors.submitFailed'));
+    } finally {
+      setSubBusy(false);
+    }
+  }, [selectedId, subAddName, loadSubs, t]);
+
+  const submitSubEdit = useCallback(async () => {
+    if (!subEditing) return;
+    const trimmed = subEditName.trim();
+    if (!trimmed) {
+      setSubError(t('configuracion.errors.nameEmpty'));
+      return;
+    }
+    setSubBusy(true);
+    setSubError(null);
+    try {
+      await updateSubcategory(subEditing.id, subEditing.parentCategoryId, { name: trimmed });
+      setSubEditing(null);
+      setSubEditName('');
+      await loadSubs(subEditing.parentCategoryId);
+    } catch (err) {
+      setSubError(err instanceof Error ? err.message : t('configuracion.errors.submitFailed'));
+    } finally {
+      setSubBusy(false);
+    }
+  }, [subEditing, subEditName, loadSubs, t]);
+
+  const doSubArchive = useCallback(async () => {
+    if (!subArchiveTarget) return;
+    await archiveSubcategory(subArchiveTarget.id, subArchiveTarget.parentCategoryId);
+    await loadSubs(subArchiveTarget.parentCategoryId);
+  }, [subArchiveTarget, loadSubs]);
+
+  const doSubUnarchive = useCallback(
+    async (sub: SubcategoryRecord) => {
+      await unarchiveSubcategory(sub.id, sub.parentCategoryId);
+      await loadSubs(sub.parentCategoryId);
+    },
+    [loadSubs],
+  );
+
+  const visibleSubs = subs.filter((s) => showArchived || !isArchived(s));
 
   return (
     <>
@@ -191,6 +311,14 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+            <label className="ot-config__archived-toggle">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+              />
+              {t('configuracion.archivedToggle')}
+            </label>
           </div>
 
           <div className="ot-config__master-detail">
@@ -218,10 +346,13 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                   filteredCategories.map((c) => {
                     const active = selected?.id === c.id;
                     const swatch = c.color || 'var(--color-brand-primary)';
+                    const archived = isArchived(c);
                     return (
                       <li
                         key={c.id}
-                        className={`ot-config__list-row${active ? ' ot-config__list-row--active' : ''}`}
+                        className={`ot-config__list-row${active ? ' ot-config__list-row--active' : ''}${
+                          archived ? ' ot-config__list-row--archived' : ''
+                        }`}
                       >
                         <button
                           type="button"
@@ -241,6 +372,11 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                               title={c.name}
                             >
                               {c.name}
+                              {archived ? (
+                                <span className="ot-config__archived-badge">
+                                  {t('configuracion.archivedBadge')}
+                                </span>
+                              ) : null}
                             </span>
                             <span className="ot-config__list-row-sub">
                               {t('configuracion.categorias.master.rowSub', {
@@ -253,22 +389,35 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                         </button>
                         {renderKindPill(c.kind)}
                         <span className="ot-config__list-row-actions">
-                          <button
-                            className="ot-config__row-action-btn"
-                            title={t('configuracion.categorias.actions.editTitle')}
-                            aria-label={t('configuracion.categorias.actions.editTitle')}
-                            disabled
-                          >
-                            <Edit size={14} />
-                          </button>
-                          <button
-                            className="ot-config__row-action-btn ot-config__row-action-btn--danger"
-                            title={t('configuracion.categorias.actions.deleteTitle')}
-                            aria-label={t('configuracion.categorias.actions.deleteTitle')}
-                            disabled
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {archived ? (
+                            <button
+                              className="ot-config__row-action-btn"
+                              title={t('configuracion.unarchiveTooltip')}
+                              aria-label={t('configuracion.unarchiveTooltip')}
+                              onClick={() => void handleUnarchive(c.id)}
+                            >
+                              <RotateCcw size={14} />
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                className="ot-config__row-action-btn"
+                                title={t('configuracion.categorias.actions.editTooltip')}
+                                aria-label={t('configuracion.categorias.actions.editTooltip')}
+                                onClick={() => setEditing(c)}
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button
+                                className="ot-config__row-action-btn"
+                                title={t('configuracion.categorias.actions.archiveTooltip')}
+                                aria-label={t('configuracion.categorias.actions.archiveTooltip')}
+                                onClick={() => setArchiveTarget(c)}
+                              >
+                                <Archive size={14} />
+                              </button>
+                            </>
+                          )}
                         </span>
                       </li>
                     );
@@ -302,9 +451,9 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                       </div>
                       <div className="ot-config__md-sub">
                         {t('configuracion.categorias.detail.sub', {
-                          subs: 0,
+                          subs: visibleSubs.length,
                           moves: 0,
-                          count: 0,
+                          count: visibleSubs.length,
                         })}
                       </div>
                     </div>
@@ -313,8 +462,8 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                         variant="secondary"
                         size="sm"
                         leadingIcon={<Edit size={14} />}
-                        disabled
-                        title={t('configuracion.categorias.actions.renameTitle')}
+                        onClick={() => setEditing(selected)}
+                        title={t('configuracion.categorias.actions.editTitle')}
                       >
                         {t('configuracion.categorias.detail.rename')}
                       </Button>
@@ -322,29 +471,182 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                         variant="primary"
                         size="sm"
                         leadingIcon={<Plus size={14} />}
-                        disabled
+                        onClick={() => {
+                          setSubAddOpen(true);
+                          setSubAddName('');
+                          setSubError(null);
+                        }}
                         title={t('configuracion.categorias.actions.addSubTitle')}
                       >
                         {t('configuracion.categorias.detail.addSub')}
                       </Button>
                     </div>
                   </div>
-                  <ul className="ot-config__list-rows">
-                    <li className="ot-config__md-empty">
-                      <Folder size={20} aria-hidden="true" />
-                      <span>{t('configuracion.categorias.detail.emptySub')}</span>
-                    </li>
+                  {subError ? (
+                    <div
+                      className="ot-config-modal__error"
+                      role="alert"
+                      style={{ margin: 'var(--space-3) var(--space-5)' }}
+                    >
+                      {subError}
+                    </div>
+                  ) : null}
+                  <ul className="ot-config__list-rows" style={{ listStyle: 'none' }}>
+                    {visibleSubs.length === 0 && !subAddOpen ? (
+                      <li className="ot-config__md-empty">
+                        <Folder size={20} aria-hidden="true" />
+                        <span>{t('configuracion.subcategorias.empty')}</span>
+                      </li>
+                    ) : (
+                      visibleSubs.map((sub) => {
+                        const archived = isArchived(sub);
+                        const isEdit = subEditing?.id === sub.id;
+                        return (
+                          <li
+                            key={sub.id}
+                            className={`ot-config__subrow${archived ? ' ot-config__subrow--archived' : ''}`}
+                          >
+                            {isEdit ? (
+                              <>
+                                <input
+                                  autoFocus
+                                  value={subEditName}
+                                  maxLength={80}
+                                  onChange={(e) => setSubEditName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') void submitSubEdit();
+                                    if (e.key === 'Escape') setSubEditing(null);
+                                  }}
+                                  style={{ flex: 1 }}
+                                  className="ot-config-modal__input"
+                                />
+                                <button
+                                  className="ot-config__row-action-btn"
+                                  title={t('configuracion.subcategorias.inline.update')}
+                                  aria-label={t('configuracion.subcategorias.inline.update')}
+                                  disabled={subBusy}
+                                  onClick={() => void submitSubEdit()}
+                                >
+                                  <Check size={14} />
+                                </button>
+                                <button
+                                  className="ot-config__row-action-btn"
+                                  title={t('configuracion.subcategorias.inline.cancel')}
+                                  aria-label={t('configuracion.subcategorias.inline.cancel')}
+                                  onClick={() => setSubEditing(null)}
+                                >
+                                  <XIcon size={14} />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="ot-config__subrow-name" title={sub.name}>
+                                  {sub.name}
+                                  {archived ? (
+                                    <span className="ot-config__archived-badge">
+                                      {t('configuracion.archivedBadge')}
+                                    </span>
+                                  ) : null}
+                                </span>
+                                {archived ? (
+                                  <button
+                                    className="ot-config__row-action-btn"
+                                    title={t('configuracion.unarchiveTooltip')}
+                                    aria-label={t('configuracion.unarchiveTooltip')}
+                                    onClick={() => void doSubUnarchive(sub)}
+                                  >
+                                    <RotateCcw size={14} />
+                                  </button>
+                                ) : (
+                                  <>
+                                    <button
+                                      className="ot-config__row-action-btn"
+                                      title={t('configuracion.subcategorias.actions.editTooltip')}
+                                      aria-label={t(
+                                        'configuracion.subcategorias.actions.editTooltip',
+                                      )}
+                                      onClick={() => {
+                                        setSubEditing(sub);
+                                        setSubEditName(sub.name);
+                                        setSubError(null);
+                                      }}
+                                    >
+                                      <Edit size={14} />
+                                    </button>
+                                    <button
+                                      className="ot-config__row-action-btn"
+                                      title={t(
+                                        'configuracion.subcategorias.actions.archiveTooltip',
+                                      )}
+                                      aria-label={t(
+                                        'configuracion.subcategorias.actions.archiveTooltip',
+                                      )}
+                                      onClick={() => setSubArchiveTarget(sub)}
+                                    >
+                                      <Archive size={14} />
+                                    </button>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </li>
+                        );
+                      })
+                    )}
                   </ul>
-                  <button
-                    type="button"
-                    className="ot-config__list-add"
-                    title={t('configuracion.categorias.actions.addSubTitle')}
-                    disabled
-                  >
-                    <Plus size={14} aria-hidden="true" />{' '}
-                    {t('configuracion.categorias.detail.addSubTo')}{' '}
-                    <strong style={{ marginLeft: 4 }}>{selected.name}</strong>
-                  </button>
+                  {subAddOpen ? (
+                    <div className="ot-config__subrow-form">
+                      <input
+                        autoFocus
+                        value={subAddName}
+                        maxLength={80}
+                        placeholder={t('configuracion.subcategorias.inline.placeholder')}
+                        onChange={(e) => setSubAddName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void submitSubAdd();
+                          if (e.key === 'Escape') {
+                            setSubAddOpen(false);
+                            setSubAddName('');
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={() => void submitSubAdd()}
+                        disabled={subBusy}
+                      >
+                        {subBusy
+                          ? t('configuracion.subcategorias.inline.saving')
+                          : t('configuracion.subcategorias.inline.save')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSubAddOpen(false);
+                          setSubAddName('');
+                        }}
+                      >
+                        {t('configuracion.subcategorias.inline.cancel')}
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="ot-config__list-add"
+                      onClick={() => {
+                        setSubAddOpen(true);
+                        setSubAddName('');
+                        setSubError(null);
+                      }}
+                    >
+                      <Plus size={14} aria-hidden="true" />{' '}
+                      {t('configuracion.subcategorias.inline.addLabel', { parent: selected.name })}
+                    </button>
+                  )}
                 </>
               ) : (
                 <div className="ot-config__md-empty">
@@ -360,7 +662,28 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
       <AddCategoryModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onCreated={handleCreated}
+        onSaved={handleSaved}
+      />
+      <AddCategoryModal
+        isOpen={editing !== null}
+        mode="edit"
+        record={editing}
+        onClose={() => setEditing(null)}
+        onSaved={handleSaved}
+      />
+      <ArchiveConfirmModal
+        isOpen={archiveTarget !== null}
+        entity="categorias"
+        name={archiveTarget?.name ?? ''}
+        onClose={() => setArchiveTarget(null)}
+        onConfirm={handleArchive}
+      />
+      <ArchiveConfirmModal
+        isOpen={subArchiveTarget !== null}
+        entity="subcategorias"
+        name={subArchiveTarget?.name ?? ''}
+        onClose={() => setSubArchiveTarget(null)}
+        onConfirm={doSubArchive}
       />
     </>
   );
