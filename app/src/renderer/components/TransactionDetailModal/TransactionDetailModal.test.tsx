@@ -86,9 +86,9 @@ describe('TransactionDetailModal', () => {
     );
   }
 
-  it('renders read-only view by default', () => {
+  it('renders read-only view by default', async () => {
     renderModal(baseTx);
-    expect(screen.getByText('Donation RETT Europe')).toBeTruthy();
+    expect(await screen.findByText('Donation RETT Europe')).toBeTruthy();
     // Amount rendered via Intl — find the specific amount node by its class.
     const amountNode = document.querySelector('.ot-transaction-detail-modal__amount');
     expect(amountNode).not.toBeNull();

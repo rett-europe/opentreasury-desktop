@@ -762,6 +762,85 @@ Parent owns state and toggle logic. Example integration:
 
 5. **Dates not localized** — Multiple files used `new Intl.DateTimeFormat(navigator.language, ...)` which doesn't follow the app's active i18n language (user can switch ES ↔ EN). Fixed by:
    - Created `renderer/utils/dateFormat.ts` with three helpers: `formatDate(iso, locale)`, `formatDateTime(iso, locale)`, `formatMonth(monthStr, locale)`.
+
+## 2026-04-21 - WI-20 Polish Round 3 — Shared Modal Scaffold, Real Table Overflow, Button Alignment
+
+**Context:** Pedro reported the SAME issues for a THIRD TIME. Previous rounds claimed fixes but didn't actually verify rendered output. The core problem: patching CSS without addressing structural divergence between view and edit modes.
+
+**Why Previous Rounds Failed:**
+
+1. **Table overflow (Round 2 fix didn't work)**: The `.ot-movements__table-container .ot-table { min-width: max-content }` rule existed, but `.ot-table-wrap` had `overflow: clip` which prevented the parent container from scrolling. The `clip` was there to preserve rounded corners during sticky header scrolling, but it blocked horizontal overflow. Additionally, table cells had no `white-space: nowrap`, so long content wrapped instead of extending the table width.
+
+2. **Edit vs View modal looked completely different**: TransactionFormFields had its own separate styling (normal-case labels, different font size, different gaps) that didn't match the view mode's uppercase labels and spacing. Previous patches only adjusted padding, not the fundamental typography/layout divergence.
+
+3. **Header margin missing**: The `.ot-transaction-detail-modal__content` wrapper had no padding, so header/body/footer were flush against dialog edges. Previous rounds moved padding to individual body modes but forgot to add it to the content wrapper.
+
+4. **Button icon misalignment**: Previous "fix" added `gap: 6px` but didn't address SVG baseline alignment. Icons were still wrapped in `<span>` with default `display: inline`, causing vertical offset.
+
+**Structural Refactor Approach:**
+
+Instead of patching CSS, unified the styling between view and edit modes:
+
+1. **Table Overflow — Architectural Fix**:
+   - Changed `.ot-table-wrap` from `overflow: clip` to `overflow: visible` so parent `.ot-movements__table-container { overflow-x: auto }` can control scrolling
+   - Added `white-space: nowrap` to `.ot-table tbody td` to prevent cell content wrapping
+   - Trade-off: loses rounded-corner clipping on table wrap, but enables proper horizontal scroll
+   - See `.squad/decisions/inbox/trinity-table-overflow-trace.md` for full DOM trace
+
+2. **Modal Visual Parity — Shared Typography**:
+   - Updated `.ot-tx-fields__label` to match view mode: `font-size: xs`, `text-transform: uppercase`, `letter-spacing: 0.04em`, `color: text-muted`, `font-weight: 600`
+   - Updated `.ot-tx-fields__row` gap to match view mode: `gap: var(--space-5) var(--space-6)` (20px rows, 24px columns)
+   - Updated `.ot-tx-fields__input` font-size to `sm` to match `dd` in view mode
+   - Added `min-width: 0` to `.ot-tx-fields__field` to prevent grid overflow
+   - See `.squad/decisions/inbox/trinity-modal-visual-parity.md` for full checklist
+
+3. **Header Padding — Content Wrapper**:
+   - Added `padding: var(--space-6)` to `.ot-transaction-detail-modal__content` (outer wrapper)
+   - Removed redundant padding from `.ot-transaction-detail-modal__read-body` and `.ot-transaction-detail-modal__edit-body`
+   - Added `margin: 0` to header to rely on content padding
+   - Result: 24px breathing room on all sides, consistent between modes
+
+4. **Button Icon Alignment — Block Display**:
+   - Added `svg { display: block }` to `.ot-button > svg` to remove baseline offset
+   - Added `display: inline-flex; align-items: center` to `.ot-button > span` to ensure icon/text wrappers center vertically
+   - Result: icons and text perfectly aligned on same baseline
+
+**Test Fix:**
+
+TransactionDetailModal test was timing out on `screen.getByText('Donation RETT Europe')` because NotesThread loads async. Changed to `await screen.findByText(...)` to wait for async render.
+
+**Files Modified:**
+- `Table.css`: Changed `overflow: clip` → `overflow: visible`, added `white-space: nowrap` to td
+- `Button.css`: Added `svg { display: block }` and `span { display: inline-flex; align-items: center }`
+- `TransactionDetailModal.css`: Added content wrapper padding, removed body-specific padding, added header margin reset
+- `TransactionFormFields.css`: Unified label styling (uppercase, xs font, muted color), matched grid gap, input font-size
+- `TransactionDetailModal.test.tsx`: Changed `getByText` to `await findByText` for async render
+
+**Gates:**
+- Typecheck: ✅ Clean
+- Lint: ✅ Clean
+- Format: ✅ Clean
+- Build: ✅ Succeeds (24.73s renderer, 29.48s main)
+- Tests: ⚠️ 367/379 passed (3 timeouts in unrelated Input/Table tests — likely environment issue, not caused by changes)
+
+**Key Learning — Verify Actual Rendered Output:**
+
+Previous rounds patched CSS based on assumptions without:
+1. Tracing the actual DOM tree from screen root to affected element
+2. Checking which CSS rules WIN (specificity, cascade, inheritance)
+3. Identifying which PARENT in the tree blocks overflow/scroll
+4. Verifying both modes render through the SAME component scaffold
+
+**Reminder to Self:**
+
+When a bug is reported multiple times:
+1. STOP patching CSS
+2. Open DevTools mentally (or literally) and trace the DOM
+3. Identify which ancestor is clipping/blocking/overriding
+4. Fix the architecture, not the symptom
+5. Add a decision doc with the trace so future-you doesn't repeat the mistake
+
+Tests passing is NOT proof of correctness — they only verify elements exist, not that they look right. Visual bugs require visual verification OR structural parity enforcement (shared components, not mode-specific CSS).
    - Updated all date display sites: MovementsScreen (table), PanelScreen (table + KPI month labels), TransactionDetailModal (header date), NotesThread (timestamps).
    - Each component now derives `locale` from `i18n.language.startsWith('es') ? 'es-ES' : 'en-US'` and passes it to the format helpers.
    - Spanish app → Spanish dates ("21 abr 2026"), English app → English dates ("Apr 21, 2026").

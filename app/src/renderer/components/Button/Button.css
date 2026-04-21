@@ -16,7 +16,13 @@
 }
 
 .ot-button > svg {
+  display: block;
   flex-shrink: 0;
+}
+
+.ot-button > span {
+  display: inline-flex;
+  align-items: center;
 }
 
 .ot-button:focus-visible {
