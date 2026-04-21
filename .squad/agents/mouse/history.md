@@ -182,3 +182,47 @@ See `.squad/decisions.md` 2026-04-19: Trinity — Movements table columns + head
 
 See `.squad/decisions/inbox/mouse-table-column-widths.md` and `.squad/decisions/inbox/mouse-button-alignment.md`.
 
+### 2026-04-22: WI-20 Round 2 — Available width audit + Panel table fix (Mouse)
+
+**ROOT CAUSE (why Round 1 still trimmed at 1500px):**
+Round 1 summed column widths (1202px) and assumed they'd fit 1366px. Wrong. The 1366px viewport is NOT the table budget — subtract the layout chrome first.
+
+**AVAILABLE WIDTH CALCULATION (1366px viewport):**
+```
+Viewport:     1366px
+Sidebar:      -240px   (--sidebar-width in tokens.css)
+Main padding: -64px    (--space-10 × 2 = 32px left + 32px right)
+Table border: -2px     (1px × 2 from .ot-table-wrap)
+──────────────────────
+AVAILABLE:    1060px
+```
+
+**REVISED COLUMN WIDTHS (MovementsScreen — 10 columns):**
+- select: 32px (was 36)
+- type: 32px (was 36)  
+- date: 88px (was 100)
+- account: 100px (was 130)
+- description: 200px (was 220)
+- category: 120px (was 150)
+- subcategory: 120px (was 150)
+- tags: 140px (was 180)
+- status: 80px (was 90)
+- amount: 100px (was 110)
+- **TOTAL: 1012px** (leaves 48px buffer for rounding/padding)
+
+**PANEL TABLE (7 columns — NEW fix this round):**
+- type: 32px
+- date: 100px
+- account: 120px
+- description: flex (auto-fills remaining ~500px)
+- category: 120px
+- subcategory: 120px
+- amount: 100px
+
+**CHANGES MADE:**
+1. `MovementsScreen.css`: Reduced all column widths by 10-30px each
+2. `PanelScreen.css`: Added `table-layout: fixed` + column widths + ellipsis + scroll fallback
+3. `PanelScreen.tsx`: Added `title` attributes for hover on truncated cells, removed inline `width` props (CSS owns them now)
+
+**LESSON LEARNED:** Always measure the ACTUAL available width at the target breakpoint before setting column budgets. Viewport width ≠ content width.
+

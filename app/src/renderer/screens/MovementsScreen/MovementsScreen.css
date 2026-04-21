@@ -282,26 +282,32 @@
 
 /* ══════════════════════════════════════════════════════════════════════════
  * COLUMN WIDTH SYSTEM — WI-20 fix for table truncation (Mouse, 2026-04-21)
+ * Refined Round 2 (2026-04-22) — actual available-width audit
  *
- * Problem: Long codes like CATC00000000000000000000000 push ESTADO column
- * off-screen. Pedro's Surface laptop at ~2040px viewport width shows trimming.
+ * AVAILABLE WIDTH CALCULATION (1366px viewport):
+ *   Viewport:     1366px
+ *   Sidebar:      -240px  (--sidebar-width in tokens.css)
+ *   Main padding: -64px   (--space-10 × 2 = 32px × 2, from .ot-shell__main)
+ *   Table border: -2px    (1px × 2 from .ot-table-wrap)
+ *   ────────────────────
+ *   AVAILABLE:    1060px
  *
- * Solution: Fixed max-width per column with ellipsis truncation. Full value
- * available on hover via title attribute. Table must fit at 1366px viewport.
+ * Column widths tuned to fit 1060px content width:
+ *   select:       32px  (checkbox only — was 36)
+ *   type:         32px  (arrow icon — was 36)
+ *   date:         88px  (dd MMM yyyy — was 100)
+ *   account:     100px  (truncate — was 130)
+ *   description: 200px  (main text — was 220)
+ *   category:    120px  (truncate — was 150)
+ *   subcategory: 120px  (truncate — was 150)
+ *   tags:        140px  (chips +N — was 180)
+ *   status:       80px  (badge — was 90)
+ *   amount:      100px  (currency — was 110)
+ *   ────────────────────
+ *   TOTAL:       1012px (48px buffer for cell padding rounding)
  *
- * Column width tokens (px values optimized for 1366–2560px viewports):
- *   select:       36px  (checkbox only)
- *   type:         36px  (arrow icon)
- *   date:        100px  (dd MMM yyyy)
- *   account:     130px  (truncate long account names)
- *   description: 220px  (main text column, gets most space)
- *   category:    150px  (truncate long category codes)
- *   subcategory: 150px  (truncate long subcategory codes)
- *   tags:        180px  (chips with +N overflow indicator)
- *   status:       90px  (badge — Pendiente/Aprobado)
- *   amount:      110px  (right-aligned currency)
- *
- * Total: ~1202px minimum, leaves breathing room for sidebar + gutters at 1366px.
+ * Note: Cell padding (12px × 2 per cell) is INSIDE each column width when
+ * using table-layout: fixed. The 1012px includes rendered content + padding.
  * ══════════════════════════════════════════════════════════════════════════ */
 
 /* Remove min-width: max-content from Round 2 — it let the table grow infinitely.
@@ -323,65 +329,65 @@
 /* 1: select checkbox */
 .ot-movements__table-container .ot-table th:nth-child(1),
 .ot-movements__table-container .ot-table td:nth-child(1) {
-  width: 36px;
-  max-width: 36px;
+  width: 32px;
+  max-width: 32px;
   text-overflow: clip;
 }
 /* 2: type arrow */
 .ot-movements__table-container .ot-table th:nth-child(2),
 .ot-movements__table-container .ot-table td:nth-child(2) {
-  width: 36px;
-  max-width: 36px;
+  width: 32px;
+  max-width: 32px;
   text-overflow: clip;
 }
 /* 3: date */
 .ot-movements__table-container .ot-table th:nth-child(3),
 .ot-movements__table-container .ot-table td:nth-child(3) {
-  width: 100px;
-  max-width: 100px;
+  width: 88px;
+  max-width: 88px;
 }
 /* 4: account */
 .ot-movements__table-container .ot-table th:nth-child(4),
 .ot-movements__table-container .ot-table td:nth-child(4) {
-  width: 130px;
-  max-width: 130px;
+  width: 100px;
+  max-width: 100px;
 }
 /* 5: description (observations) */
 .ot-movements__table-container .ot-table th:nth-child(5),
 .ot-movements__table-container .ot-table td:nth-child(5) {
-  width: 220px;
-  max-width: 220px;
+  width: 200px;
+  max-width: 200px;
 }
 /* 6: category */
 .ot-movements__table-container .ot-table th:nth-child(6),
 .ot-movements__table-container .ot-table td:nth-child(6) {
-  width: 150px;
-  max-width: 150px;
+  width: 120px;
+  max-width: 120px;
 }
 /* 7: subcategory */
 .ot-movements__table-container .ot-table th:nth-child(7),
 .ot-movements__table-container .ot-table td:nth-child(7) {
-  width: 150px;
-  max-width: 150px;
+  width: 120px;
+  max-width: 120px;
 }
 /* 8: tags (uses chip overflow, not ellipsis — see .ot-tag-cell below) */
 .ot-movements__table-container .ot-table th:nth-child(8),
 .ot-movements__table-container .ot-table td:nth-child(8) {
-  width: 180px;
-  max-width: 180px;
+  width: 140px;
+  max-width: 140px;
   text-overflow: clip; /* Chips handle their own overflow with +N indicator */
 }
 /* 9: status */
 .ot-movements__table-container .ot-table th:nth-child(9),
 .ot-movements__table-container .ot-table td:nth-child(9) {
-  width: 90px;
-  max-width: 90px;
+  width: 80px;
+  max-width: 80px;
 }
 /* 10: amount */
 .ot-movements__table-container .ot-table th:nth-child(10),
 .ot-movements__table-container .ot-table td:nth-child(10) {
-  width: 110px;
-  max-width: 110px;
+  width: 100px;
+  max-width: 100px;
 }
 
 /* ── Tag chip cell with overflow indicator ─────────────────────────────────── */

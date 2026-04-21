@@ -6,6 +6,27 @@
 
 Tables with `table-layout: auto` (default) let columns grow to fit content. Combined with `white-space: nowrap`, this pushes columns off-screen without triggering horizontal scroll.
 
+## ⚠️ Lesson Learned (WI-20 Round 2)
+
+**Measure ACTUAL available width before choosing column budgets.**
+
+Viewport width ≠ table content area. Always subtract layout chrome:
+
+```
+At 1366px viewport (Surface laptop):
+  Viewport:       1366px
+  Sidebar:        -240px   (--sidebar-width)
+  Main padding:   -64px    (--space-10 × 2 = 32px left + 32px right)
+  Table border:   -2px
+  ─────────────────────────
+  AVAILABLE:      1060px   ← This is your table budget, NOT 1366px
+```
+
+Different viewports:
+- 1366px → 1060px available
+- 1440px → 1134px available
+- 1920px → 1614px available
+
 ## The Solution: Fixed Layout + Ellipsis
 
 ### 1. Enable Fixed Table Layout

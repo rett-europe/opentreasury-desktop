@@ -177,11 +177,12 @@ export function PanelScreen(): JSX.Element {
   // Recent transactions table columns — arrow chip + account pill + amount
   // tone mirror MovementsScreen so a truncated Panel row looks identical to
   // the equivalent row on the full transactions screen.
+  // WI-20 Round 2: width values moved to CSS (PanelScreen.css) for proper
+  // table-layout: fixed. Title attributes added for hover on truncated cells.
   const columns: TableColumn<RecentTransaction>[] = [
     {
       id: 'type',
       header: '',
-      width: 36,
       align: 'center',
       render: (row) => {
         const cls =
@@ -198,14 +199,12 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'date',
       header: t('movements.columns.date'),
-      width: 120,
       tabular: true,
       render: (row) => formatDate(row.date, locale),
     },
     {
       id: 'account',
       header: t('movements.columns.account'),
-      width: 160,
       render: (row) => {
         const account = accountById.get(row.accountId);
         const label =
@@ -214,6 +213,7 @@ export function PanelScreen(): JSX.Element {
         return (
           <span
             className="ot-account-pill"
+            title={label}
             style={{
               background: `color-mix(in oklch, ${color} 18%, transparent)`,
               color: 'var(--color-text-primary)',
@@ -232,15 +232,18 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'description',
       header: t('movements.columns.observations'),
-      render: (row) => <span className="ot-panel-recent__desc">{row.description}</span>,
+      render: (row) => (
+        <span className="ot-panel-recent__desc" title={row.description}>
+          {row.description}
+        </span>
+      ),
     },
     {
       id: 'category',
       header: t('movements.columns.category'),
-      width: 150,
       render: (row) =>
         row.categoryId ? (
-          row.categoryId
+          <span title={row.categoryId}>{row.categoryId}</span>
         ) : (
           <span className="ot-badge ot-badge--uncategorized">
             {t('panel.recent.uncategorized')}
@@ -250,10 +253,11 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'subcategory',
       header: t('movements.columns.subcategory'),
-      width: 160,
       render: (row) =>
         row.subcategoryId ? (
-          <span className="ot-text-muted">{row.subcategoryId}</span>
+          <span className="ot-text-muted" title={row.subcategoryId}>
+            {row.subcategoryId}
+          </span>
         ) : (
           <span className="ot-text-muted">—</span>
         ),
@@ -261,7 +265,6 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'amount',
       header: t('movements.columns.amount'),
-      width: 120,
       align: 'right',
       tabular: true,
       render: (row) => {
