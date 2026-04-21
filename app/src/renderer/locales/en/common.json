@@ -294,11 +294,56 @@
     },
     "categorias": {
       "heading": "Categories",
-      "add": "Add category",
+      "add": "New category",
       "name": "Category name",
       "color": "Color",
       "colorNone": "No color",
       "none": "No category",
+      "kind": {
+        "label": "Type",
+        "income": "Income",
+        "expense": "Expense",
+        "hint": "Classify the category by movement direction."
+      },
+      "filter": {
+        "all": "All",
+        "income": "Income",
+        "expense": "Expense",
+        "search": "Search categories…",
+        "none": "No category matches the search."
+      },
+      "stats": {
+        "total_one": "{{count}} category",
+        "total_other": "{{count}} categories",
+        "income_one": "{{count}} income",
+        "income_other": "{{count}} income",
+        "expense_one": "{{count}} expense",
+        "expense_other": "{{count}} expenses"
+      },
+      "master": {
+        "title": "Categories",
+        "results_one": "{{count}} result",
+        "results_other": "{{count}} results",
+        "rowSub_one": "{{subs}} subcategory · {{moves}} transaction",
+        "rowSub_other": "{{subs}} subcategories · {{moves}} transactions",
+        "newCategory": "New category"
+      },
+      "detail": {
+        "sub_one": "{{subs}} subcategory · {{moves}} classified transaction",
+        "sub_other": "{{subs}} subcategories · {{moves}} classified transactions",
+        "rename": "Rename",
+        "addSub": "Subcategory",
+        "emptySub": "This category has no subcategories yet.",
+        "addSubTo": "Add subcategory to",
+        "selectPrompt": "Select a category to view its subcategories.",
+        "pendingEvents": "Subcategories and usage counts will arrive when the event log supports them."
+      },
+      "actions": {
+        "editTitle": "Edit (coming soon)",
+        "deleteTitle": "Delete (coming soon)",
+        "renameTitle": "Rename (coming soon)",
+        "addSubTitle": "Add subcategory (coming soon)"
+      },
       "modal": {
         "title": "New category"
       },

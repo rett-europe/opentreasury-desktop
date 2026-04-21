@@ -151,6 +151,10 @@ export const configCategoryCreatedEventSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   color: z.string().optional(),
+  // 2026-04-22 — Optional direction (income|expense) added to match the
+  // updated Categorías prototype. Optional on the wire so pre-existing
+  // NDJSON events replay cleanly.
+  kind: z.enum(['income', 'expense']).optional(),
   createdAt: z.string().datetime(),
 });
 

@@ -32,6 +32,7 @@ export function selectCategories(model: ReadModel): CategoryRecord[] {
     name: c.name,
     createdAt: c.createdAt,
     ...(c.color !== undefined ? { color: c.color } : {}),
+    ...(c.kind !== undefined ? { kind: c.kind } : {}),
   }));
 }
 

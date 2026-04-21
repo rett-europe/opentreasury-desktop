@@ -19,6 +19,7 @@ export type {
 export type {
   CategoryRecord,
   CategoryCreatedEvent,
+  CategoryKind,
   CreateCategoryRequest,
   CreateCategoryResponse,
   CategoriesListResponse,

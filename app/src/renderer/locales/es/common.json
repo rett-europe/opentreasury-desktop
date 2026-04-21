@@ -294,11 +294,56 @@
     },
     "categorias": {
       "heading": "Categorías",
-      "add": "Añadir categoría",
+      "add": "Nueva categoría",
       "name": "Nombre de la categoría",
       "color": "Color",
       "colorNone": "Sin color",
       "none": "Sin categoría",
+      "kind": {
+        "label": "Tipo",
+        "income": "Ingreso",
+        "expense": "Gasto",
+        "hint": "Clasifica la categoría por dirección del movimiento."
+      },
+      "filter": {
+        "all": "Todas",
+        "income": "Ingresos",
+        "expense": "Gastos",
+        "search": "Buscar categoría…",
+        "none": "Ninguna categoría coincide con la búsqueda."
+      },
+      "stats": {
+        "total_one": "{{count}} categoría",
+        "total_other": "{{count}} categorías",
+        "income_one": "{{count}} ingreso",
+        "income_other": "{{count}} ingresos",
+        "expense_one": "{{count}} gasto",
+        "expense_other": "{{count}} gastos"
+      },
+      "master": {
+        "title": "Categorías",
+        "results_one": "{{count}} resultado",
+        "results_other": "{{count}} resultados",
+        "rowSub_one": "{{subs}} subcategoría · {{moves}} movimiento",
+        "rowSub_other": "{{subs}} subcategorías · {{moves}} movimientos",
+        "newCategory": "Nueva categoría"
+      },
+      "detail": {
+        "sub_one": "{{subs}} subcategoría · {{moves}} movimiento clasificado",
+        "sub_other": "{{subs}} subcategorías · {{moves}} movimientos clasificados",
+        "rename": "Renombrar",
+        "addSub": "Subcategoría",
+        "emptySub": "Esta categoría aún no tiene subcategorías.",
+        "addSubTo": "Añadir subcategoría a",
+        "selectPrompt": "Selecciona una categoría para ver sus subcategorías.",
+        "pendingEvents": "Las subcategorías y los contadores de uso llegarán cuando el event log lo soporte."
+      },
+      "actions": {
+        "editTitle": "Editar (próximamente)",
+        "deleteTitle": "Eliminar (próximamente)",
+        "renameTitle": "Renombrar (próximamente)",
+        "addSubTitle": "Añadir subcategoría (próximamente)"
+      },
       "modal": {
         "title": "Nueva categoría"
       },

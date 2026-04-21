@@ -22,6 +22,24 @@ app/src/main/projections/config.ts  # select{Entities} defensive copies
 app/src/main/ipc/handlers/{accounts,categories,tags}.ts  # create+list
 ```
 
+## Round 3 rule — ground from the prototype screenshot, not memory
+
+**Always open the authoritative prototype PNG before writing code.** Pedro
+drops the rendered prototype screenshot into
+`.squad/decisions/inbox/prototype-<tab>.png` — that image is the
+contract, not the `prototype/*.jsx` source and not any older
+`decisions.md` line. Before touching the TSX: open the PNG, list every
+visible delta vs the current screen (header, buttons, chips, row
+primitives, active state, callouts, footer), then code. Skipping this
+step cost Categorías three rounds — rounds 1 and 2 both looked "close
+enough" against the source JSX while diverging loudly from the image.
+
+Prototype PNGs override older `decisions.md` entries: a prior Q&A line
+("categories are direction-agnostic") does NOT outweigh a newer handoff
+screenshot that visibly shows Ingreso/Gasto pills, a colored summary
+count, and a kind-based filter chip group. When the two conflict, log
+the reversal to `decisions/inbox/` and match the screenshot.
+
 ## Six guaranteed requirements
 
 1. **Navbar item per entity — and NO in-screen tab strip.** Each config
@@ -82,22 +100,55 @@ Per-row reveal state is a `Set<string>` keyed by entity id. In the modal use
 
 Two `.ot-config__md-card` blocks in a responsive `grid-template-columns:
 1fr 1fr` (collapses to single column at 960px). Master is `.ot-config__list-rows`
-with `--active` state; detail renders `.ot-config__md-head` + body. When a
-feature is gated behind unshipped events, render
-`.ot-config__callout` with an Info icon and honest copy.
+with `--active` state; detail renders `.ot-config__md-head` + body.
 
-**Balance rule (round-2 lesson):** master rows must carry weight. The PR#2
-prototype row is `entity-icon · list-row-text (title + sub-line) · row-actions`;
-drop any of those and the left card looks empty against the detail pane.
-Both cards should end with a `.ot-config__list-add` ghost footer so the
-vertical rhythm "rhymes" — the detail card's button stays `disabled` until
-the sub-entity events land, matching the row-action-disable rule above.
+**Round-3 anatomy (pixel-close to `prototype-categorias.png`):**
 
-**Never render an entity `id` in UI copy.** The prototype renders a slug in
-the tag card meta row; our `TagRecord.id` is an opaque ULID. If the schema
-does not guarantee a human-readable identifier, drop the slot entirely
-rather than substitute the ULID — users read
+- Page header: title + colored stats row (`N categorías · X ingresos · Y
+  gastos`, ingresos green / gastos rose) on the left; primary "Nueva
+  categoría" button on the right. Export buttons are intentionally
+  dropped per constraint.
+- Filter bar: `.ot-config__chip-group` (pill-shaped, tinted surface-hover
+  background) with `Todas / Ingresos / Gastos` and a grow-flex
+  `.ot-config__search-input`. The filter-count pill is NOT rendered for
+  Categorías — the master-card header already carries the result count.
+- Master row: `.ot-config__folder-tile` (neutral grey square, colored
+  folder glyph inside — NOT a solid-color tile) + `.ot-config__list-row-
+  text` (title + `X subcategoría(s) · Y movimiento(s)` sub) +
+  `.ot-config__kind-pill--{income|expense}` + hoverable
+  `.ot-config__list-row-actions` (edit + delete, both `disabled` until
+  `CategoryUpdated / CategoryDeleted` events exist).
+- Detail head: `{name}` + optional kind-pill in the title row; subtitle
+  `X subcategoría(s) · Y movimiento(s) clasificados`. Right side is a
+  button pair, not a single icon: `<Button variant="secondary" sm>
+  Renombrar</Button>` + `<Button variant="primary" sm> Subcategoría
+  </Button>`, both `disabled` until subcategory events land.
+- Detail footer: `+ Añadir subcategoría a {name}` — disabled
+  `.ot-config__list-add` ghost button.
+- Both cards end with a `.ot-config__list-add` footer so the two panes
+  "rhyme" visually.
+
+**Balance rule (round-2 lesson, still applies):** master rows must carry
+weight against the detail pane. Drop any of `folder-tile | title | sub |
+kind-pill | actions` and the layout collapses into the sparse
+"placeholder grid" Pedro rejected twice.
+
+**Never render an entity `id` in UI copy.** The prototype renders a slug
+in the tag card meta row; our `TagRecord.id` is an opaque ULID. If the
+schema does not guarantee a human-readable identifier, drop the slot
+entirely rather than substitute the ULID — users read
 `01KPKVR0RMXVV963MEH1TSK2QZ` as visual noise.
+
+## Additive optional fields — the pattern to reach for
+
+When the prototype shows data our schema does not yet capture (e.g.
+Categorías `kind` = income|expense), the right move is an **additive
+optional field**, NOT "render the prototype visually minus that column".
+Extend the Zod schemas + the flat event schema + the read-model type +
+the reducer spread + the projection selector + the handler pass-through
++ the modal form — all in one commit, all with `.optional()` at the
+wire level so old events replay as `undefined`. Renderer can then show
+pills only when set and the legacy records degrade gracefully.
 
 ## Modal tier — shared contract
 

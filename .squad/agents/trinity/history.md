@@ -1040,3 +1040,53 @@ sub-sections are promoted to sibling sidebar items, the in-screen tablist is
 duplicated chrome. Keep the screen a simple `if (route === …)` render tree
 and delete the tab DOM + CSS; do not leave the tablist as a "deep-link
 fallback" — it looks like two navigation systems fighting for authority.
+
+## Learnings — Categorías rebuild round 3 (2026-04-22)
+
+**What I got wrong in rounds 1 and 2.** I built the Categorías screen from
+memory of the `prototype/configuracion.jsx` source rather than from the
+actual rendered prototype screenshot. Round 1 dropped most of the prototype's
+visual scaffolding. Round 2 "rebalanced" the master rows but still missed
+the three load-bearing ingredients the prototype image makes unmissable:
+the Ingreso/Gasto kind pill, the colored `X ingresos · Y gastos` summary
+count, and the Todas/Ingresos/Gastos segmented filter. I had even baked a
+note into the previous history ("prototype's type-pill is intentionally
+omitted — do not add it back") citing Pedro's Q4 direction-agnostic call,
+but the prototype Pedro handed back in round 3 explicitly reverses that
+call. Lesson: a prior design decision in `decisions.md` is not a license
+to ignore a newer prototype — prototypes win.
+
+**The structural pattern the prototype actually uses.** A 3-zone page:
+
+  1. `page-header` — title + count summary (total · ingresos · gastos with
+     green/red tint) on the left, outline + primary buttons on the right.
+  2. `filter-bar` — a pill-shaped segmented chip group (Todas / Ingresos /
+     Gastos) inline with a grow-flex search input (no `X de Y` count — the
+     master-card header carries the result count).
+  3. `master-detail` — two `ot-config__md-card` columns, each ending in
+     an `ot-config__list-add` ghost footer. Master rows carry the`r
+     five primitives: `folder-tile`, title, `X subcategoría(s) · Y`r
+     movimiento(s)` sub, kind-pill, row-actions (edit+delete). Detail`r
+     head has a secondary "Renombrar" + primary "Subcategoría" button`r
+     pair (instead of a single edit icon) and the footer reads`r
+     "+ Añadir subcategoría a {name}" — disabled until`r
+     `SubcategoryAdded/Removed/Renamed` events land.
+
+**Additive schema changes can match boundaries.** Adding an **optional**
+`kind: 'income' | 'expense'` to `categoryCreatedEventSchema` +
+`categoryRecordSchema` + `createCategoryRequestSchema` + the flat
+`configCategoryCreatedEventSchema` and the `ConfigCategory` read-model
+type is additive: old NDJSON events still replay (field undefined, record
+has no `kind`), the reducer keeps its `...(event.kind !== undefined ? {`r
+kind: event.kind } : {})` spread pattern so the projections test's`r
+`toEqual` assertion still passes, the modal makes `kind` required for`r
+**new** categories. This is the "new optional field" pattern the skill doc`r
+already endorses — I just had to remember it applies when the prototype`r
+demands data we don't yet capture.
+
+**Never ship "pixel-close" from memory. Ground from the image.** The
+prototype image Pedro dropped in the decisions inbox is authoritative. I
+will open the PNG first (I have vision) and list the visible deltas before
+writing a single line of TSX. That check would have caught rounds 1 and 2
+in the first 60 seconds.
+

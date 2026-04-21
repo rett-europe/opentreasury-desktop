@@ -156,6 +156,7 @@ export function applyEvent(event: DomainEvent): void {
         name: event.name,
         createdAt: event.createdAt,
         ...(event.color !== undefined ? { color: event.color } : {}),
+        ...(event.kind !== undefined ? { kind: event.kind } : {}),
       };
       readModel = {
         ...readModel,

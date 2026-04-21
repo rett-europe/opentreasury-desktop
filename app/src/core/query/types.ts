@@ -82,6 +82,7 @@ export interface ConfigCategory {
   readonly id: string;
   readonly name: string;
   readonly color?: string;
+  readonly kind?: 'income' | 'expense';
   readonly createdAt: string;
 }
 

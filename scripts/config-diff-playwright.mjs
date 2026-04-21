@@ -16,7 +16,14 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const OUT = path.join(ROOT, '.squad', 'decisions', 'inbox', 'playwright-config-diff');
+const OUT = path.join(
+  ROOT,
+  '.squad',
+  'decisions',
+  'inbox',
+  'playwright-config-diff',
+  'round3',
+);
 fs.mkdirSync(OUT, { recursive: true });
 
 const PROTOTYPE_PORT = 4567;
@@ -108,9 +115,14 @@ async function captureCurrent(page, devUrl) {
       },
     ],
     categories: [
-      { id: 'c1', name: 'Actividades', createdAt: '2024-01-01T00:00:00Z' },
-      { id: 'c2', name: 'Administrativo', createdAt: '2024-01-01T00:00:00Z' },
-      { id: 'c3', name: 'Donaciones', createdAt: '2024-01-01T00:00:00Z' },
+      { id: 'c1', name: 'Actividades', kind: 'expense', createdAt: '2024-01-01T00:00:00Z' },
+      { id: 'c2', name: 'Administrativo', kind: 'expense', createdAt: '2024-01-01T00:00:00Z' },
+      { id: 'c3', name: 'Cuotas', kind: 'income', createdAt: '2024-01-01T00:00:00Z' },
+      { id: 'c4', name: 'Donaciones', kind: 'income', createdAt: '2024-01-01T00:00:00Z' },
+      { id: 'c5', name: 'Eventos', kind: 'income', createdAt: '2024-01-01T00:00:00Z' },
+      { id: 'c6', name: 'Gastos', kind: 'expense', createdAt: '2024-01-01T00:00:00Z' },
+      { id: 'c7', name: 'Subvenciones', kind: 'income', createdAt: '2024-01-01T00:00:00Z' },
+      { id: 'c8', name: 'Teaming', kind: 'income', createdAt: '2024-01-01T00:00:00Z' },
     ],
     tags: [
       { id: 't1', name: 'Día Enfermedades Raras', createdAt: '2024-01-01T00:00:00Z' },
