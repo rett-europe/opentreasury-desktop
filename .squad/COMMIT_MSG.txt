@@ -1,0 +1,12 @@
+chore(squad): log Mouse rescue round — table truncation + button alignment
+
+- Orchestration log: Mouse (UI Designer) took over WI-20 after Trinity lockout
+- Session log: Brief incident record (Trinity 4 rounds, Mouse fixed, gates green)
+- Decision inbox: Merged 4 .md files into decisions.md (table column widths, button icon alignment, modal parity)
+- Trinity history: Added learning about visual bug debugging + DOM verification
+- Archive: Created decisions-archive.md placeholder (no old entries yet, project started 2026-04-19)
+- History summarization: Consolidated pre-2026-04-21 entries into Core Context, reduced file size
+
+Commit 6127fa5 (Mouse's fix) pushed to main. All gates green.
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

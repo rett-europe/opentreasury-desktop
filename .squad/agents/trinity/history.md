@@ -29,7 +29,15 @@ Contract shape (post WI-15-lite): create responses are flat-event discriminated 
 
 Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering, WI-15-lite Configuración (3 tabs + 3 modals + service apis + AppShell wiring). No toast primitive yet (WI-16). No archive/edit/delete, no subcategories (WI-15-lite scope). Deferred: WI-17 import UI, full WI-15 edit/archive/delete.
 
+**Historical Summary (2026-04-19 — 2026-04-20):**
+- **WI-17 Completed:** Import wizard (6-step UI), security hardening (fileId tokens, pathGuard, sessionFileRegistry), TypeScript strict-mode alignment. 175 tests passing. Commit a97d21e on main.
+- **WI-13 Shipped:** Add-Transaction modal + Movements list with real IPC (createTransaction). Pattern: native `<dialog>`, two-tier validation, Zod schema parse-on-receive.
+- **Panel IPC wiring complete:** All 5 queries fire on mount, skeleton→loaded transition, zero layout shift. Zod schema parsing at boundary catches main-process drift.
+- **Foundational patterns:** Multi-step wizard state (discriminated unions), modal form validation, i18n for all user-facing text (EN+ES), date formatting centralized, accessible form fields.
+
 ## Learnings
+
+**WI-20 Visual Bug Debugging:** When Pedro reports the same visual bug 3+ times across multiple rounds, STOP patching CSS. Read the screenshot. Consider that tests passing does not equal visually correct. If a modal/component has multiple modes (view/edit), they should render through the SAME structural scaffold — only cell contents should differ. If you find yourself writing mode-specific CSS classes or swapping between different component trees, you've already diverged. Add visual regression tests or snapshots that compare scaffold structure between modes, not just DOM presence checks.
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 

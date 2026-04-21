@@ -4826,3 +4826,74 @@ Update seed data to use more generic/less branded names, or replace with actual 
 See end of this document for history entry.
 
 
+
+---
+
+## 2026-04-21: WI-20 Polish Round 3 — Table Truncation + Button Alignment (Mouse Rescue)
+
+**Date:** 2026-04-21  
+**By:** Mouse (UI Designer, vision)  
+**Status:** ✅ SHIPPED (commit 6127fa5)
+
+Trinity locked out after 4 failed rounds on same artifact. Coordinator spawned Mouse with vision capability to review Pedro's screenshots.
+
+### Table Column Width System (WI-20 Fix)
+
+**Problem:** Movements table cut off at right edge (ESTADO column invisible) at 2040px viewport. Long category codes pushed columns past viewport with no horizontal scroll visible.
+
+**Root Cause:** Table layout mode conflict. Round 2 added white-space: nowrap to prevent wrapping but without max-width constraints, the table extended infinitely. min-width: max-content made it worse by preventing compression.
+
+**Solution:** Switched to 	able-layout: fixed with explicit column widths:
+
+| Column        | Width | Rationale |
+|---------------|-------|-----------|
+| select        | 36px  | Checkbox only |
+| type          | 36px  | Arrow icon only |
+| date          | 100px | dd MMM yyyy format |
+| account       | 130px | Account name with pill styling |
+| description   | 220px | Main text column, gets most space |
+| category      | 150px | Truncate long category codes |
+| subcategory   | 150px | Truncate long subcategory codes |
+| tags          | 180px | Chips with +N overflow indicator |
+| status        | 90px  | Badge (Pendiente/Aprobado/Rechazado) |
+| amount        | 110px | Right-aligned currency |
+
+**Implementation Pattern:**
+- 	able-layout: fixed for predictable column widths
+- overflow: hidden; text-overflow: ellipsis; white-space: nowrap on all cells
+- Title attributes on truncated cells for hover tooltips
+- Tag chip overflow: show max 2 chips visible, +N indicator for rest
+
+**Files:** MovementsScreen.tsx, MovementsScreen.css
+
+### Button Icon/Text Alignment Fix (WI-20)
+
+**Problem:** "Editar" button in TransactionDetailModal footer — pencil icon sitting visually higher than text. No shared vertical center line.
+
+**Root Cause:** Editar button passed icon as direct child instead of using leadingIcon prop. When passed as direct child, icon wasn't getting the wrapper with display: inline-flex; align-items: center; applied by Button.css.
+
+**Solution:** Use Button's leadingIcon prop as designed:
+
+`	sx
+<Button 
+  type="button" 
+  variant="ghost" 
+  onClick={handleEdit} 
+  leadingIcon={<Edit size={16} />}
+>
+  {t('transactionDetail.editButton')}
+</Button>
+`
+
+Button wraps icon in <span aria-hidden="true"> with proper flexbox alignment + SVG display: block to remove baseline offset.
+
+**Files:** TransactionDetailModal.tsx
+
+### Lesson Learned
+
+**Why Trinity failed 4 rounds:** CSS patches without DOM verification. View/edit modes used completely different component trees (<dl> vs <TransactionFormFields>), so CSS-only fixes couldn't make them match. Tests passed because they only checked element existence, not visual correctness.
+
+**Why vision helped:** Seeing actual screenshot revealed exact columns overflowing and button misalignment obvious in rendered output. Trinity was theorizing without seeing.
+
+**Prevention:** Add visual regression tests or snapshots comparing scaffold structure between modes. Don't trust tests that only check DOM presence.
+
