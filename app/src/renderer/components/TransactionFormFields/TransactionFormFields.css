@@ -1,0 +1,60 @@
+/* TransactionFormFields — Shared form layout for transaction entry/edit */
+
+.ot-tx-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ot-tx-fields__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.ot-tx-fields__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-tx-fields__label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.ot-tx-fields__input {
+  padding: var(--space-2-5) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  background: var(--color-surface-primary);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ot-tx-fields__input:focus {
+  outline: none;
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px var(--color-brand-surface);
+}
+
+.ot-tx-fields__input:disabled {
+  background: var(--color-surface-secondary);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.ot-tx-fields__input[aria-invalid='true'] {
+  border-color: var(--color-error-default);
+}
+
+.ot-tx-fields__field-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-error-text);
+  margin-top: var(--space-1);
+}

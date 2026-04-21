@@ -8,14 +8,22 @@ import { EmptyState } from '../../components/EmptyState/index.js';
 import { Table } from '../../components/Table/index.js';
 import type { TableColumn, SortDirection } from '../../components/Table/index.js';
 import { AddTransactionModal } from '../../components/AddTransactionModal/index.js';
+import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
 import { listMovements } from '../../services/movementsApi.js';
-import { createTransaction } from '../../services/transactionApi.js';
+import {
+  createTransaction,
+  updateTransaction,
+  deleteTransaction,
+} from '../../services/transactionApi.js';
 import { getAccounts } from '../../services/panelApi.js';
 import { listCategories } from '../../services/categoriesApi.js';
 import { listTags } from '../../services/tagsApi.js';
 import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
-import type { CreateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
-import type { Account } from '../../../shared/ipc-contracts/panel.js';
+import type {
+  CreateTransactionRequest,
+  UpdateTransactionRequest,
+} from '../../../shared/ipc-contracts/transaction.js';
+import type { Account, RecentTransaction } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import type { Movement, MovementStatus, MovementTotals } from '../../types/movement.js';
 import './MovementsScreen.css';
@@ -148,6 +156,9 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<readonly CategoryRecord[]>([]);
   const [tags, setTags] = useState<readonly TagRecord[]>([]);
+
+  // Selected transaction for detail modal
+  const [selectedTx, setSelectedTx] = useState<RecentTransaction | null>(null);
 
   // Filter state
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
@@ -800,8 +811,54 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
               sortBy={sortBy}
               sortDirection={sortDir}
               onSort={handleSort}
+              onRowClick={(row) => {
+                // Convert Movement to RecentTransaction for the detail modal
+                const tx: RecentTransaction = {
+                  id: row.id,
+                  date: row.date,
+                  type: row.type,
+                  amount: row.amount,
+                  currency: row.currency,
+                  description: row.description,
+                  accountId: accounts.find((a) => a.accountLabel === row.account)?.id ?? '',
+                  categoryId: row.category ?? null,
+                  subcategoryId: row.subcategory ?? null,
+                  tagIds: row.tags.slice(),
+                  status: row.status === 'rejected' ? 'pending' : row.status,
+                  reference: undefined,
+                  details: undefined,
+                  createdAt: new Date().toISOString(),
+                };
+                setSelectedTx(tx);
+              }}
             />
           )}
+
+          <TransactionDetailModal
+            isOpen={selectedTx !== null}
+            onClose={() => setSelectedTx(null)}
+            transaction={selectedTx}
+            accounts={accounts}
+            categories={categories}
+            tags={tags}
+            onUpdate={async (input: UpdateTransactionRequest) => {
+              const result = await updateTransaction(input);
+              if (!result.ok) {
+                throw new Error(result.error.message);
+              }
+              // Reload movements list to reflect changes
+              await loadAll();
+            }}
+            onDelete={async (id: string) => {
+              const result = await deleteTransaction({ id });
+              if (!result.ok) {
+                throw new Error(result.error.message);
+              }
+              // Reload movements list to reflect changes
+              await loadAll();
+              setSelectedTx(null);
+            }}
+          />
         </>
       )}
     </div>

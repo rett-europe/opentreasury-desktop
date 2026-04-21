@@ -683,3 +683,8 @@ When adding new optional fields to the mapping step, BOTH the final preview tabl
 
 **Test pattern:**
 Added `'renders all mapped columns in final preview table'` test that asserts `headers.length === mapped field count`. Future mapping additions should update this test to verify new fields appear in the preview.
+
+## 2026-04-21 - WI-20 Edit UX Corrections
+
+In-place swap pattern shipped. See .squad/decisions/inbox/trinity-edit-inplace-swap.md
+
