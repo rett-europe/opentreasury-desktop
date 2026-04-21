@@ -746,4 +746,74 @@ Parent owns state and toggle logic. Example integration:
 
 **Commit:** fix(tx): WI-20 polish — list overflow, unified modal width, label chip picker
 
+## 2026-04-21 - WI-20 Polish Round 2 — Real Table Overflow, Symmetric Modal, Date i18n
+
+**Context:** Pedro tested the first polish round and surfaced 5 issues requiring deeper fixes. The first overflow fix didn't work because the container didn't actually constrain the table. Modal modes still looked different because padding and min-height didn't match. Dates weren't localized because they used `navigator.language` instead of `i18n.language`.
+
+**Root Cause Analysis:**
+
+1. **Table overflow didn't trigger** — The `.ot-movements__table-container { overflow-x: auto }` existed, but the Table component had `width: 100%` which shrinks to fit the container. Without `min-width: max-content`, the table compresses columns instead of overflowing. Fixed by adding `.ot-movements__table-container .ot-table { min-width: max-content; width: 100%; }` so the table respects its natural content width and triggers horizontal scroll when columns exceed viewport.
+
+2. **View modal cramped vertically** — The grid used `gap: var(--space-3)` (~12px) between rows, and fields had `gap: 2px` between label and value. This made Account/Category/Status/etc. stack too tightly. Fixed by increasing grid gap to `var(--space-5)` (~20px) between rows, `var(--space-6)` (~24px) between columns, and field gap to `var(--space-2)` (~8px). Also added `margin-bottom: var(--space-1)` on `dt` and `line-height: 1.5` on `dd` for breathing room.
+
+3. **Modal modes not symmetric** — View and edit modes had same width (760px) but different padding and no min-height lock. The body content swapped but the outer container could still change height. Fixed by moving `padding: var(--space-6)` from `.ot-transaction-detail-modal__content` (the wrapper) to each body mode (`.ot-transaction-detail-modal__read-body` and `.ot-transaction-detail-modal__edit-body`), and adding `min-height: 520px` to both. Now both modes have identical outer dimensions — only the cells change (text → input).
+
+4. **Button icon misalignment** — The Button component already had `display: inline-flex; align-items: center` but the gap was `var(--space-4)` which could be too wide/narrow depending on design tokens. Changed to explicit `gap: 6px` (matches visual design) and added `svg { flex-shrink: 0 }` to prevent icon compression.
+
+5. **Dates not localized** — Multiple files used `new Intl.DateTimeFormat(navigator.language, ...)` which doesn't follow the app's active i18n language (user can switch ES ↔ EN). Fixed by:
+   - Created `renderer/utils/dateFormat.ts` with three helpers: `formatDate(iso, locale)`, `formatDateTime(iso, locale)`, `formatMonth(monthStr, locale)`.
+   - Updated all date display sites: MovementsScreen (table), PanelScreen (table + KPI month labels), TransactionDetailModal (header date), NotesThread (timestamps).
+   - Each component now derives `locale` from `i18n.language.startsWith('es') ? 'es-ES' : 'en-US'` and passes it to the format helpers.
+   - Spanish app → Spanish dates ("21 abr 2026"), English app → English dates ("Apr 21, 2026").
+
+**Pattern: Centralized date formatting util**
+
+Created `renderer/utils/dateFormat.ts` as the single source of truth for all date display. Three exported functions:
+
+- `formatDate(iso: string, locale: string): string` — YYYY-MM-DD → medium date (e.g., "Apr 21, 2026")
+- `formatDateTime(iso: string, locale: string): string` — ISO 8601 timestamp → medium date + short time (e.g., "Apr 21, 2026, 3:45 PM")
+- `formatMonth(monthStr: string, locale: string): string` — YYYY-MM → long month + year (e.g., "April 2026")
+
+All three use `Intl.DateTimeFormat` with the provided locale. Each component derives `locale` from `i18n.language` (via `useTranslation`) and passes it to these helpers. This prevents locale drift (where some dates are in Spanish and others in English in the same UI).
+
+**Why the first overflow fix failed:**
+
+The previous fix added `.ot-movements__table-container { overflow-x: auto }` but didn't constrain the Table's natural width. A table with `width: 100%` will shrink columns to fit the container — it won't trigger overflow unless its `min-width` exceeds the container's width. The fix required TWO CSS rules:
+
+1. Container: `overflow-x: auto; width: 100%;` — defines the scrollable viewport
+2. Table: `min-width: max-content;` — forces table to respect its natural column widths
+
+Without #2, the table compresses (columns get narrower) instead of scrolling. With both, wide tables overflow horizontally as intended.
+
+**Why modal modes still looked different:**
+
+The 760px width unification was correct, but the padding lived on the wrong element. The outer `__content` wrapper had `padding: var(--space-6)`, which meant:
+
+- In view mode, the `__read-body` div got padding from its parent.
+- In edit mode, the `__edit-body` div ALSO got padding from its parent.
+
+But the bodies themselves had no min-height constraint, so they could shrink/grow based on content. The fix:
+
+- Removed padding from `__content` (the wrapper).
+- Moved `padding: var(--space-6)` to BOTH `__read-body` and `__edit-body`.
+- Added `min-height: 520px` to BOTH bodies.
+
+Now the swap is truly in-place: same outer box, same padding, same min-height, only the internal fields change.
+
+**Gates:** typecheck ✅, lint ✅, prettier ✅, tests ✅ (370 passed), build ✅
+
+**Files added:**
+
+- `renderer/utils/dateFormat.ts` — centralized date formatting (formatDate, formatDateTime, formatMonth)
+
+**Files modified:**
+
+- MovementsScreen/MovementsScreen.css — table min-width: max-content
+- TransactionDetailModal/{TransactionDetailModal.tsx, TransactionDetailModal.css} — symmetric padding + min-height, import formatDate util
+- NotesThread/NotesThread.tsx — import formatDateTime util, derive locale from i18n
+- PanelScreen/PanelScreen.tsx — import formatDate + formatMonth utils, derive locale from i18n
+- Button/Button.css — gap: 6px, svg flex-shrink: 0
+
+**Commit:** fix(tx): round 2 polish — real table overflow, symmetric modal, date i18n
+
 
