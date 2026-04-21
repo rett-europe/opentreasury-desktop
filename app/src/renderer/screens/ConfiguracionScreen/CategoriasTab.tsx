@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, FolderOpen, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Folder, Search, Edit, Trash2 } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
@@ -152,7 +152,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
         />
       ) : state.categories.length === 0 ? (
         <EmptyState
-          icon={<FolderOpen size={32} aria-hidden="true" />}
+          icon={<Folder size={32} aria-hidden="true" />}
           title={t('configuracion.categorias.empty.title')}
           body={t('configuracion.categorias.empty.body')}
           actions={
@@ -168,14 +168,14 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
       ) : (
         <>
           <div className="ot-config__filter-bar">
-            <div className="ot-config__chip-group" role="tablist" aria-label="Filtro de tipo">
+            <div className="ot-filter-bar__chips" role="tablist" aria-label="Filtro de tipo">
               {(['all', 'income', 'expense'] as const).map((k) => (
                 <button
                   key={k}
                   type="button"
                   role="tab"
                   aria-selected={kindFilter === k}
-                  className={`ot-config__chip${kindFilter === k ? ' ot-config__chip--active' : ''}`}
+                  className={`ot-filter-bar__chip${kindFilter === k ? ' ot-filter-bar__chip--active' : ''}`}
                   onClick={() => setKindFilter(k)}
                 >
                   {t(`configuracion.categorias.filter.${k === 'all' ? 'all' : k}`)}
@@ -197,7 +197,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
             {/* ─── Master: categories list ─── */}
             <div className="ot-config__md-card">
               <div className="ot-config__md-head">
-                <div>
+                <div className="ot-config__md-head-text">
                   <div className="ot-config__md-title">
                     {t('configuracion.categorias.master.title')}
                   </div>
@@ -211,7 +211,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
               <ul className="ot-config__list-rows">
                 {filteredCategories.length === 0 ? (
                   <li className="ot-config__md-empty">
-                    <FolderOpen size={20} aria-hidden="true" />
+                    <Folder size={20} aria-hidden="true" />
                     <span>{t('configuracion.categorias.filter.none')}</span>
                   </li>
                 ) : (
@@ -233,7 +233,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                             style={{ color: swatch }}
                             aria-hidden="true"
                           >
-                            <FolderOpen size={16} />
+                            <Folder size={16} />
                           </span>
                           <span className="ot-config__list-row-text">
                             <span
@@ -290,7 +290,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
               {selected ? (
                 <>
                   <div className="ot-config__md-head">
-                    <div>
+                    <div className="ot-config__md-head-text">
                       <div className="ot-config__md-title">
                         <span
                           className="ot-config__swatch-sm"
@@ -331,7 +331,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                   </div>
                   <ul className="ot-config__list-rows">
                     <li className="ot-config__md-empty">
-                      <FolderOpen size={20} aria-hidden="true" />
+                      <Folder size={20} aria-hidden="true" />
                       <span>{t('configuracion.categorias.detail.emptySub')}</span>
                     </li>
                   </ul>
@@ -348,7 +348,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                 </>
               ) : (
                 <div className="ot-config__md-empty">
-                  <FolderOpen size={24} aria-hidden="true" />
+                  <Folder size={24} aria-hidden="true" />
                   <span>{t('configuracion.categorias.detail.selectPrompt')}</span>
                 </div>
               )}

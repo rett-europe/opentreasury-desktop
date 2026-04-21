@@ -1090,3 +1090,33 @@ will open the PNG first (I have vision) and list the visible deltas before
 writing a single line of TSX. That check would have caught rounds 1 and 2
 in the first 60 seconds.
 
+
+## Learnings — Categorías polish round 4 (2026-04-22)
+
+**Shared filter chip component — reuse, don't re-skin.** Movements already
+ships a segmented pill filter. I'd built an ot-config__chip* look-alike
+for Categorías in round 3; Pedro correctly rejected the duplication. Fix:
+the chip rules now live in `app/src/renderer/styles/filter-chips.css`
+under the `.ot-filter-bar__chips` / `.ot-filter-bar__chip[--active]`
+namespace, imported globally from `main.tsx`. Movements keeps the same
+markup (no TSX churn); Categorías emits the same classes. If Etiquetas or
+Cuentas add a filter later they must reuse this — do not spawn a third
+look-alike.
+
+**Folder icon mapping.** The prototype master-row glyph is `Folder` from
+`lucide-react` (closed folder), NOT `FolderOpen`. Mapping going forward:
+
+- Categorías master row / folder tile / empty states → `Folder` (closed)
+- File/attachment indicators → `FolderOpen`
+- Shell sidebar nav icon for Categorías → `FolderOpen` (unchanged — that
+  one is a route affordance, not a content type)
+
+**`inline-flex` on stacked title+sub bites.** Round 3 set both
+`.ot-config__md-title` and `.ot-config__md-sub` to `display:
+inline-flex`. Two inline-level boxes inside a plain `<div>` will
+share a line when text is short, which put "8 resultados" beside
+"Categorías" on the left pane but below "Actividades" on the right
+(longer text wrapped). Block-level is non-negotiable when the caller
+wants a subtitle stack: use an explicit `.ot-config__md-head-text`
+wrapper (`display: flex; flex-direction: column; gap: 2px`) with
+`display: flex` on both children.

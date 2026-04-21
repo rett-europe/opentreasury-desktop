@@ -16,14 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
-const OUT = path.join(
-  ROOT,
-  '.squad',
-  'decisions',
-  'inbox',
-  'playwright-config-diff',
-  'round3',
-);
+const OUT = path.join(ROOT, '.squad', 'decisions', 'inbox', 'playwright-config-diff', 'round4');
 fs.mkdirSync(OUT, { recursive: true });
 
 const PROTOTYPE_PORT = 4567;
