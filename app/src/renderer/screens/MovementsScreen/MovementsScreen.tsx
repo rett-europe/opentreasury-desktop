@@ -478,7 +478,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         header: t('movements.columns.account'),
         sortable: true,
         render: (m) => (
-          <span className="ot-account-pill">
+          <span className="ot-account-pill" title={m.account}>
             <span className="ot-account-pill__dot" aria-hidden="true" />
             {m.account}
           </span>
@@ -488,7 +488,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         id: 'description',
         header: t('movements.columns.observations'),
         sortable: true,
-        render: (m) => m.description,
+        render: (m) => <span title={m.description}>{m.description}</span>,
       },
       {
         id: 'category',
@@ -496,7 +496,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         sortable: true,
         render: (m) =>
           m.category != null ? (
-            m.category
+            <span title={m.category}>{m.category}</span>
           ) : (
             <span className="ot-badge ot-badge--uncategorized">
               {t('movements.filters.uncategorizedOnly')}
@@ -508,7 +508,11 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         header: t('movements.columns.subcategory'),
         sortable: true,
         render: (m) =>
-          m.subcategory != null ? m.subcategory : <span className="ot-text-muted">—</span>,
+          m.subcategory != null ? (
+            <span title={m.subcategory}>{m.subcategory}</span>
+          ) : (
+            <span className="ot-text-muted">—</span>
+          ),
       },
       {
         id: 'tags',
@@ -516,17 +520,30 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         sortable: false,
         render: (m) => {
           if (m.tags.length === 0) return <span className="ot-text-muted">—</span>;
+          // Show max 2 chips visibly; overflow as +N indicator with title listing rest
+          const MAX_VISIBLE = 2;
+          const visibleTags = m.tags.slice(0, MAX_VISIBLE);
+          const overflowTags = m.tags.slice(MAX_VISIBLE);
+          const overflowCount = overflowTags.length;
           return (
-            <span className="ot-tag-chip-row">
-              {m.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="ot-tag-chip"
-                  style={{ ['--ot-tag-color' as string]: tagColor(tag) }}
-                >
-                  {tag}
+            <span className="ot-tag-cell" title={m.tags.join(', ')}>
+              <span className="ot-tag-cell__chips">
+                {visibleTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="ot-tag-chip"
+                    style={{ ['--ot-tag-color' as string]: tagColor(tag) }}
+                    title={tag}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </span>
+              {overflowCount > 0 && (
+                <span className="ot-tag-cell__overflow" title={overflowTags.join(', ')}>
+                  +{overflowCount}
                 </span>
-              ))}
+              )}
             </span>
           );
         },

@@ -467,8 +467,12 @@ export function TransactionDetailModal({
             /* Read-only mode footer: Edit button + Close */
             <>
               <div className="ot-transaction-detail-modal__footer-actions">
-                <Button type="button" variant="ghost" onClick={handleEdit}>
-                  <Edit size={16} />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleEdit}
+                  leadingIcon={<Edit size={16} />}
+                >
                   {t('transactionDetail.editButton')}
                 </Button>
               </div>

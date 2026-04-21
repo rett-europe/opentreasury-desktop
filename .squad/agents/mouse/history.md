@@ -160,3 +160,25 @@ Table header styling mismatch discovered during prototype parity pass:
 Per north-star rule, Trinity flagged for resolution: **Niobe/Link must pick one** (keep app natural case OR update prototype CSS to match). The proto CSS rule lives at `prototype/styles.css:430`. Change is small (remove 2 lines); app change would be restore 3 lines in `Table.css`.
 
 See `.squad/decisions.md` 2026-04-19: Trinity — Movements table columns + headers parity pass (Part 2 ratification section).
+
+### 2026-04-21: WI-20 Table truncation + button alignment fix (Mouse)
+
+**Two bugs fixed:**
+
+1. **Table column truncation** — Long category/subcategory codes pushed ESTADO column off-screen at 2040px viewport.
+   - **Cause:** `white-space: nowrap` without `max-width` → infinite table width
+   - **Fix:** `table-layout: fixed` + per-column widths + `text-overflow: ellipsis`
+   - **Column width system:** select(36), type(36), date(100), account(130), description(220), category(150), subcategory(150), tags(180), status(90), amount(110) = ~1202px total
+   - **Hover access:** Added `title` attributes to all truncatable cells
+   - **Chip overflow:** Tags show max 2 chips + "+N" indicator
+
+2. **Editar button icon misalignment** — Pencil icon sat higher than "Editar" text.
+   - **Cause:** Icon passed as direct child instead of `leadingIcon` prop
+   - **Fix:** Changed to `<Button leadingIcon={<Edit size={16} />}>`
+
+**Pattern learned:** Never pass icons as direct Button children. Always use `leadingIcon`/`trailingIcon` props. The prop wrapper adds the correct flexbox alignment rules.
+
+**Vision vs theorizing:** Trinity's 4 failed rounds patched CSS without seeing the actual rendered output. Looking at Pedro's screenshots immediately revealed: (a) which columns were too wide, (b) approximate widths needed, (c) exact icon/text misalignment. Always verify visually.
+
+See `.squad/decisions/inbox/mouse-table-column-widths.md` and `.squad/decisions/inbox/mouse-button-alignment.md`.
+

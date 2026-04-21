@@ -280,8 +280,134 @@
   border-radius: var(--radius-lg);
 }
 
-/* Ensure table respects its natural width and triggers overflow when columns
- * are wider than viewport. Without min-width, table compresses to fit. */
+/* ══════════════════════════════════════════════════════════════════════════
+ * COLUMN WIDTH SYSTEM — WI-20 fix for table truncation (Mouse, 2026-04-21)
+ *
+ * Problem: Long codes like CATC00000000000000000000000 push ESTADO column
+ * off-screen. Pedro's Surface laptop at ~2040px viewport width shows trimming.
+ *
+ * Solution: Fixed max-width per column with ellipsis truncation. Full value
+ * available on hover via title attribute. Table must fit at 1366px viewport.
+ *
+ * Column width tokens (px values optimized for 1366–2560px viewports):
+ *   select:       36px  (checkbox only)
+ *   type:         36px  (arrow icon)
+ *   date:        100px  (dd MMM yyyy)
+ *   account:     130px  (truncate long account names)
+ *   description: 220px  (main text column, gets most space)
+ *   category:    150px  (truncate long category codes)
+ *   subcategory: 150px  (truncate long subcategory codes)
+ *   tags:        180px  (chips with +N overflow indicator)
+ *   status:       90px  (badge — Pendiente/Aprobado)
+ *   amount:      110px  (right-aligned currency)
+ *
+ * Total: ~1202px minimum, leaves breathing room for sidebar + gutters at 1366px.
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* Remove min-width: max-content from Round 2 — it let the table grow infinitely.
+ * Table now uses table-layout: fixed with explicit column widths. */
 .ot-movements__table-container .ot-table {
-  min-width: max-content;
+  table-layout: fixed;
+  width: 100%;
+}
+
+/* Apply max-width + ellipsis to all td cells with truncatable content.
+ * Cells with non-text content (checkbox, arrow) are excluded via column classes. */
+.ot-movements__table-container .ot-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Column widths via nth-child (matches column order in MovementsScreen.tsx) ─ */
+/* 1: select checkbox */
+.ot-movements__table-container .ot-table th:nth-child(1),
+.ot-movements__table-container .ot-table td:nth-child(1) {
+  width: 36px;
+  max-width: 36px;
+  text-overflow: clip;
+}
+/* 2: type arrow */
+.ot-movements__table-container .ot-table th:nth-child(2),
+.ot-movements__table-container .ot-table td:nth-child(2) {
+  width: 36px;
+  max-width: 36px;
+  text-overflow: clip;
+}
+/* 3: date */
+.ot-movements__table-container .ot-table th:nth-child(3),
+.ot-movements__table-container .ot-table td:nth-child(3) {
+  width: 100px;
+  max-width: 100px;
+}
+/* 4: account */
+.ot-movements__table-container .ot-table th:nth-child(4),
+.ot-movements__table-container .ot-table td:nth-child(4) {
+  width: 130px;
+  max-width: 130px;
+}
+/* 5: description (observations) */
+.ot-movements__table-container .ot-table th:nth-child(5),
+.ot-movements__table-container .ot-table td:nth-child(5) {
+  width: 220px;
+  max-width: 220px;
+}
+/* 6: category */
+.ot-movements__table-container .ot-table th:nth-child(6),
+.ot-movements__table-container .ot-table td:nth-child(6) {
+  width: 150px;
+  max-width: 150px;
+}
+/* 7: subcategory */
+.ot-movements__table-container .ot-table th:nth-child(7),
+.ot-movements__table-container .ot-table td:nth-child(7) {
+  width: 150px;
+  max-width: 150px;
+}
+/* 8: tags (uses chip overflow, not ellipsis — see .ot-tag-cell below) */
+.ot-movements__table-container .ot-table th:nth-child(8),
+.ot-movements__table-container .ot-table td:nth-child(8) {
+  width: 180px;
+  max-width: 180px;
+  text-overflow: clip; /* Chips handle their own overflow with +N indicator */
+}
+/* 9: status */
+.ot-movements__table-container .ot-table th:nth-child(9),
+.ot-movements__table-container .ot-table td:nth-child(9) {
+  width: 90px;
+  max-width: 90px;
+}
+/* 10: amount */
+.ot-movements__table-container .ot-table th:nth-child(10),
+.ot-movements__table-container .ot-table td:nth-child(10) {
+  width: 110px;
+  max-width: 110px;
+}
+
+/* ── Tag chip cell with overflow indicator ─────────────────────────────────── */
+/* When tags overflow the cell, show visible chips inline and a +N badge. */
+.ot-tag-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  overflow: hidden;
+}
+.ot-tag-cell__chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  overflow: hidden;
+}
+.ot-tag-cell__overflow {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  background: var(--color-surface-secondary);
+  cursor: help;
 }
