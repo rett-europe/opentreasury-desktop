@@ -144,3 +144,82 @@ return (
 ❌ `white-space: nowrap` without `max-width` — same problem
 ❌ `table-layout: auto` with long content — columns resize unpredictably
 ❌ Horizontal scroll container only — forces user to scroll to see status/actions columns
+
+## ⚠️ Lesson Learned (WI-20 Round 3): Scroll Fallback Requires Unobstructed Ancestor Chain
+
+**The overflow-x: auto scroll fallback pattern ONLY works if the ancestor chain is properly configured.**
+
+### The Problem
+
+Even with `overflow-x: auto` on a table wrapper and proper `table-layout: fixed` column widths, horizontal scroll may NOT appear if:
+
+1. **Any ancestor has `overflow-x: hidden` or `overflow: hidden`** — this traps the scroll before it reaches the wrapper
+2. **The wrapper is a flex child without `min-width: 0`** — flex items default to `min-width: auto` (= content width), preventing the wrapper from shrinking below the table's intrinsic width, so no scrollbar triggers
+3. **Parent containers prevent width contraction** — if ancestors can't get narrower than the table, the wrapper never becomes smaller than its content
+
+### The Solution: Audit the Full DOM Chain
+
+When adding `overflow-x: auto` scroll fallback, trace from the wrapper UP to the viewport root:
+
+```html
+<main class="ot-shell__main">          <!-- ✅ overflow-x: auto (allow pass-through) -->
+  <div class="ot-screen">               <!-- ✅ min-width: 0 if flex item -->
+    <div class="ot-table-container">    <!-- ✅ overflow-x: auto (scroll wrapper) -->
+      <table class="ot-table">          <!-- table-layout: fixed, explicit widths -->
+```
+
+**Required fixes:**
+1. **Remove `overflow-x: hidden` from ALL ancestors** — change to `overflow-x: auto` or remove entirely
+2. **Add `min-width: 0` to flex containers** that wrap the scroll wrapper
+3. **Verify width contraction path** — the wrapper's parent chain must be ABLE to shrink below table width
+
+### Example Fix (OpenTreasury Desktop)
+
+**Before (broken):**
+```css
+.ot-shell__main {
+  overflow-x: hidden;  /* ❌ traps scroll from children */
+}
+
+.ot-movements {
+  display: flex;
+  flex-direction: column;
+  /* ❌ missing min-width: 0, prevents shrink */
+}
+
+.ot-panel-recent {
+  overflow: hidden;  /* ❌ blocks horizontal scroll */
+}
+```
+
+**After (working):**
+```css
+.ot-shell__main {
+  overflow-x: auto;  /* ✅ allow scroll pass-through */
+}
+
+.ot-movements {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;  /* ✅ allow flex child to shrink */
+}
+
+.ot-panel-recent {
+  overflow-x: auto;  /* ✅ enable horizontal scroll */
+  overflow-y: hidden;
+}
+```
+
+**Why `min-width: 0` matters:**
+Flex items default to `min-width: auto`, which means "don't shrink below content width". When the content is a 1012px table, the flex container refuses to become narrower than 1012px, so the child wrapper with `overflow-x: auto` never gets small enough to trigger the scrollbar. Setting `min-width: 0` removes that floor, allowing the container to contract below content width.
+
+### Debugging Checklist
+
+If `overflow-x: auto` doesn't work:
+- [ ] Inspect each ancestor from wrapper → viewport for `overflow-x: hidden` or `overflow: clip`
+- [ ] Check if wrapper or its parents are flex/grid items — add `min-width: 0` to allow shrink
+- [ ] Verify table has `table-layout: fixed` + explicit column widths (intrinsic width > wrapper width)
+- [ ] Test at narrow viewport (<1350px) — scrollbar should appear and allow horizontal scroll
+- [ ] Verify no `width: 100%` on table WITHOUT width cap on wrapper
+
+**Commit reference:** `f21de3f` — fix(ui): enable horizontal scroll fallback on narrow viewports

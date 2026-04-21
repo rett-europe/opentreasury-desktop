@@ -226,3 +226,39 @@ AVAILABLE:    1060px
 
 **LESSON LEARNED:** Always measure the ACTUAL available width at the target breakpoint before setting column budgets. Viewport width ≠ content width.
 
+### 2026-04-22: WI-20 Round 3 — Overflow scroll trap fix (Mouse)
+
+**ROOT CAUSE (why `overflow-x: auto` on table wrappers didn't scroll):**
+The `overflow-x: auto` rule was defeated by an ancestor `overflow-x: hidden` trap in the DOM chain. Horizontal scroll NEVER works if ANY ancestor between the wrapper and the viewport has `overflow-x: hidden` or `overflow: hidden`.
+
+**DOM CHAIN AUDIT:**
+```
+.ot-shell__main (grid item, main scrollport)
+├─ overflow-y: auto ✅
+├─ overflow-x: hidden ❌ ← THE TRAP
+└─ .ot-movements (flex container)
+   ├─ display: flex ✅
+   ├─ (no min-width: 0) ❌ ← SECOND TRAP (flex shrink blocked)
+   └─ .ot-movements__table-container (overflow-x: auto wrapper)
+      └─ .ot-table (fixed-layout, 1012px intrinsic width)
+```
+
+**THREE CULPRITS FIXED:**
+1. **`.ot-shell__main`** had `overflow-x: hidden` → changed to `overflow-x: auto` to pass scroll through
+2. **`.ot-movements`** lacked `min-width: 0` → flex items default to `min-width: auto` (= content size), preventing wrapper from shrinking below table width
+3. **`.ot-panel-recent`** had `overflow: hidden` → changed to `overflow-x: auto` + `overflow-y: hidden`
+
+**THE FLEX `min-width: 0` RULE:**
+When a flex item contains wide content (like a table), it defaults to `min-width: auto` = "don't shrink below content width". This prevents the parent flex container from contracting below the table's 1012px intrinsic width, so the wrapper with `overflow-x: auto` never gets narrower than the table and never scrolls. **ALWAYS add `min-width: 0` to flex containers that wrap scrollable content.**
+
+**VERIFICATION:**
+- At >=1366px: table fits, no scrollbar (no regression)
+- Below ~1350px: horizontal scrollbar appears, user can scroll to see ESTADO + all columns
+
+**COMMIT:** `f21de3f` — fix(ui): enable horizontal scroll fallback on narrow viewports
+
+**LESSON FOR FUTURE AGENTS:** When a scroll wrapper (`overflow-x: auto`) doesn't scroll, audit the ENTIRE ancestor chain from the wrapper to the viewport root:
+1. Look for `overflow: hidden` or `overflow-x: hidden` on ANY ancestor — that's a trap
+2. Look for flex/grid parents WITHOUT `min-width: 0` on the wrapper (flex children)
+3. The scroll wrapper itself must be NARROWER than its child content to trigger the scrollbar — if ancestors prevent contraction, no scroll
+
