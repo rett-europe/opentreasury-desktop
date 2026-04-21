@@ -217,6 +217,10 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 **Outstanding TODOs for Trinity (renderer):**
 - Import wizard UI (6-step flow: account picker → upload → sheet picker → column mapper → dry-run preview → commit)
 - File-open dialog integration (Electron's `dialog.showOpenDialog` from preload)
+
+## 2026-04-21T10:15:02Z — WI-20 Polish Round 2: new dateFormat util (renderer-side)
+
+Trinity created `src/utils/dateFormat.ts` using `i18n.language` instead of `navigator.language`. Applied to MovementsScreen, PanelScreen, TransactionDetailModal, NotesThread. Renderer-side only; no backend impact. Good to know if backend ever emits date strings for UI rendering.
 - Dry-run UX: summary card, sample rows table, duplicate/error lists, "Import duplicates" checkbox
 - Mapping auto-fill from `getLastMapping` on Step 4
 
