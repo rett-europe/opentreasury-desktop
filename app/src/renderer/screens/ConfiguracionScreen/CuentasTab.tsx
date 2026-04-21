@@ -56,9 +56,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
       ? state.accounts.filter((a) => {
           if (!searchQuery) return true;
           const q = searchQuery.toLowerCase();
-          return (
-            a.name.toLowerCase().includes(q) || (a.bankName || '').toLowerCase().includes(q)
-          );
+          return a.name.toLowerCase().includes(q) || (a.bankName || '').toLowerCase().includes(q);
         })
       : [];
 
@@ -80,7 +78,10 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                 Saldo total:{' '}
                 <strong
                   style={{
-                    color: totalBalance >= 0 ? 'var(--color-status-success)' : 'var(--color-status-error)',
+                    color:
+                      totalBalance >= 0
+                        ? 'var(--color-status-success)'
+                        : 'var(--color-status-error)',
                   }}
                 >
                   {fmtCurrency.format(totalBalance)}

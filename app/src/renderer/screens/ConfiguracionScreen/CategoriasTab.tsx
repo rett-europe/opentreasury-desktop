@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, FolderOpen } from 'lucide-react';
+import { Plus, FolderOpen, Search, Edit, Trash2, Download } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
@@ -21,6 +21,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
   const { t } = useTranslation('common');
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [modalOpen, setModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -44,18 +45,43 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
     onListChanged?.();
   }, [load, onListChanged]);
 
+  // Filter categories by search query
+  const filteredCategories =
+    state.kind === 'loaded'
+      ? state.categories.filter((c) => {
+          if (!searchQuery) return true;
+          return c.name.toLowerCase().includes(searchQuery.toLowerCase());
+        })
+      : [];
+
   return (
     <>
       <div className="ot-config__tab-actions">
-        <h2 className="ot-config__tab-title">{t('configuracion.categorias.heading')}</h2>
-        <Button
-          variant="primary"
-          size="md"
-          leadingIcon={<Plus size={16} />}
-          onClick={() => setModalOpen(true)}
-        >
-          {t('configuracion.categorias.add')}
-        </Button>
+        <div>
+          <h2 className="ot-config__tab-title">{t('configuracion.categorias.heading')}</h2>
+          {state.kind === 'loaded' && state.categories.length > 0 ? (
+            <div className="ot-page-header__stats">
+              <span>
+                {state.categories.length} categoría{state.categories.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          {state.kind === 'loaded' && state.categories.length > 0 ? (
+            <Button variant="secondary" size="md" leadingIcon={<Download size={16} />}>
+              Exportar
+            </Button>
+          ) : null}
+          <Button
+            variant="primary"
+            size="md"
+            leadingIcon={<Plus size={16} />}
+            onClick={() => setModalOpen(true)}
+          >
+            {t('configuracion.categorias.add')}
+          </Button>
+        </div>
       </div>
 
       {state.kind === 'loading' ? (
@@ -86,22 +112,85 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
           }
         />
       ) : (
-        <ul className="ot-config__list">
-          {state.categories.map((c) => (
-            <li key={c.id} className="ot-config__card">
-              <h3 className="ot-config__card-name">
-                {c.color ? (
-                  <span
-                    className="ot-config__card-swatch"
-                    style={{ background: c.color }}
-                    aria-hidden="true"
-                  />
-                ) : null}
-                {c.name}
-              </h3>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="ot-config__filter-bar">
+            <div className="ot-config__search-input">
+              <Search size={14} />
+              <input
+                type="text"
+                placeholder="Buscar categoría…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <span className="ot-config__filter-count">
+              {filteredCategories.length} de {state.categories.length}
+            </span>
+          </div>
+
+          <div className="ot-config__table-wrapper">
+            <table className="ot-config__table">
+              <thead>
+                <tr>
+                  <th style={{ width: '40px' }}></th>
+                  <th>Nombre</th>
+                  <th style={{ width: '80px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCategories.length > 0 ? (
+                  filteredCategories.map((c) => (
+                    <tr key={c.id}>
+                      <td>
+                        {c.color ? (
+                          <div
+                            style={{
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              background: c.color,
+                              border: '1px solid var(--color-border-default)',
+                            }}
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <FolderOpen size={20} style={{ color: 'var(--color-text-muted)' }} />
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 'var(--font-weight-medium)' }}>{c.name}</div>
+                      </td>
+                      <td>
+                        <div className="ot-config__row-actions">
+                          <button
+                            className="ot-config__row-action-btn"
+                            title="Editar categoría"
+                            aria-label="Editar categoría"
+                          >
+                            <Edit size={14} />
+                          </button>
+                          <button
+                            className="ot-config__row-action-btn ot-config__row-action-btn--danger"
+                            title="Eliminar categoría"
+                            aria-label="Eliminar categoría"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="ot-config__table-empty">
+                      Ninguna categoría coincide con la búsqueda.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       <AddCategoryModal

@@ -64,14 +64,15 @@ export function PanelScreen(): JSX.Element {
 
       const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-      const [accountsResp, balancesResp, kpisResp, transactionsResp, categoriesResp, tagsResp] = await Promise.all([
-        panelApi.getAccounts(),
-        panelApi.getAccountBalances(),
-        panelApi.getMonthKPIs(currentMonth),
-        panelApi.queryRecentTransactions(8),
-        listCategories(),
-        listTags(),
-      ]);
+      const [accountsResp, balancesResp, kpisResp, transactionsResp, categoriesResp, tagsResp] =
+        await Promise.all([
+          panelApi.getAccounts(),
+          panelApi.getAccountBalances(),
+          panelApi.getMonthKPIs(currentMonth),
+          panelApi.queryRecentTransactions(8),
+          listCategories(),
+          listTags(),
+        ]);
 
       const sparklinePromises = accountsResp.accounts.map((acc) =>
         panelApi.getAccountSparklines(acc.id).then((resp) => [acc.id, resp.sparkline] as const),
