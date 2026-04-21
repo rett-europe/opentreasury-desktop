@@ -665,3 +665,21 @@ WI-20 was a parallel backend+frontend task. Morpheus landed contracts (transacti
 
 **Key learning — Separate modals vs in-place swap:**
 When a modal needs to transition between significantly different states (read-only detail view vs editable form), opening a second modal on top is simpler than swapping the first modal's internals. Keeps dialog lifecycles independent, avoids nested-dialog complexity, and leverages existing modal components without modification. The "single pane" mental model is preserved by closing the edit modal and returning to the detail modal with fresh data.
+
+
+## 2026-04-22 — Import Preview Bug: Hardcoded Columns vs Dynamic Mapping
+
+**Root cause:**
+The final preview/review step in ImportWizard (dry-run step, lines 543-560) rendered a hardcoded table with only 3 columns (Date, Description, Amount) instead of dynamically rendering all mapped fields. User maps 5 fields (including optional Reference/Details from WI-19), but preview showed only the mandatory three.
+
+**Fix pattern:**
+Changed from hardcoded `<th>` elements to dynamic column rendering based on `Object.keys(state.columnMapping)`. Each mapped field now gets a column header with localized label via `t(\`importWizard.mapColumns.fields.${field}\`)`. Cells render the sample value or `'—'` for null/undefined (backend limitation: optional fields not included in sample response).
+
+**Backend limitation documented:**
+The dry-run response's `parsedRowSampleSchema` (import.ts:108-114) only includes mandatory fields (date, amount, description, isDuplicate). Optional fields (reference, details, category, tag) exist in the `ParsedRow` internal type (import handler line 69-70) but are stripped when building the `samples` array (import handler lines 421-427). Frontend now works around this by showing empty cells for optional columns rather than hiding them.
+
+**Key takeaway:**
+When adding new optional fields to the mapping step, BOTH the final preview table AND the backend sample builder must be updated. If backend doesn't return optional fields in samples, frontend should still render column headers to avoid user confusion. Document backend limitations in decision notes when they affect UX.
+
+**Test pattern:**
+Added `'renders all mapped columns in final preview table'` test that asserts `headers.length === mapped field count`. Future mapping additions should update this test to verify new fields appear in the preview.
