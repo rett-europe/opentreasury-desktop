@@ -40,7 +40,7 @@
 
 ## Model
 
-- **Preferred:** auto
+- **Preferred:** claude-opus-4.7
 - **Rationale:** Coordinator selects — cost first unless the task involves writing structured artifacts (PRDs) that benefit from higher quality
 - **Fallback:** Standard chain — the coordinator handles fallback automatically
 
