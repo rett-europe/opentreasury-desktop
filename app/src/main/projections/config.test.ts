@@ -80,6 +80,9 @@ describe('WI-15-lite projections — rehydration', () => {
       name: 'Gastos',
       color: '#cc0000',
       createdAt: '2026-04-20T12:00:00.000Z',
+      // WI-21 — projections now always include the inlined subcategory tree
+      // (empty array for categories created without any subcategory events).
+      subcategories: [],
     });
 
     expect(selectTags(model)).toHaveLength(2);
