@@ -135,6 +135,10 @@ export const configAccountCreatedEventSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   bankName: z.string().optional(),
+  label: z.string().optional(),
+  iban: z.string().optional(),
+  color: z.string().optional(),
+  isPaypal: z.boolean().optional(),
   currency: z.literal('EUR'),
   openingBalance: z.number(),
   createdAt: z.string().datetime(),
@@ -147,6 +151,10 @@ export const configCategoryCreatedEventSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   color: z.string().optional(),
+  // 2026-04-22 — Optional direction (income|expense) added to match the
+  // updated Categorías prototype. Optional on the wire so pre-existing
+  // NDJSON events replay cleanly.
+  kind: z.enum(['income', 'expense']).optional(),
   createdAt: z.string().datetime(),
 });
 
@@ -156,6 +164,7 @@ export const configTagCreatedEventSchema = z.object({
   type: z.literal('TagCreated'),
   id: z.string().min(1),
   name: z.string().min(1),
+  color: z.string().optional(),
   createdAt: z.string().datetime(),
 });
 

@@ -1,7 +1,8 @@
 // categories:create + categories:list IPC handler factories — WI-15-lite.
 //
-// Mirrors the accounts handler. Categories are direction-agnostic labels
-// (Pedro's Q4) — no `type` field, no subcategories in this slice.
+// Mirrors the accounts handler. Categories carry an optional `kind`
+// (income|expense) per the 2026-04-22 prototype update; subcategories
+// are still deferred to a follow-up slice.
 
 import type { EventLog } from '../../../core/eventLog/index.js';
 import type { ConfigCategoryCreatedEvent } from '../../../core/events/schemas.js';
@@ -62,12 +63,14 @@ export function createCategoriesCreateHandler(
       }
 
       const color = parsed.data.color?.trim();
+      const kind = parsed.data.kind;
       const event: ConfigCategoryCreatedEvent = {
         type: 'CategoryCreated',
         id: deps.newId(),
         name,
         createdAt: deps.now().toISOString(),
         ...(color !== undefined && color.length > 0 ? { color } : {}),
+        ...(kind !== undefined ? { kind } : {}),
       };
 
       const before = (await deps.eventLog.load()).length;

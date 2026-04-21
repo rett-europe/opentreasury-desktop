@@ -1,3 +1,14 @@
 {
-  "version": 1
+  "version": 1,
+  "agentModelOverrides": {
+    "neo": "claude-opus-4.7",
+    "morpheus": "claude-opus-4.7",
+    "trinity": "claude-opus-4.7",
+    "mouse": "claude-opus-4.7",
+    "cypher": "claude-opus-4.7",
+    "link": "claude-opus-4.7",
+    "niobe": "claude-opus-4.7",
+    "oracle": "claude-opus-4.7",
+    "switch": "claude-opus-4.7"
+  }
 }

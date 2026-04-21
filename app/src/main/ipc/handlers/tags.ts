@@ -58,11 +58,13 @@ export function createTagsCreateHandler(
         };
       }
 
+      const color = parsed.data.color?.trim();
       const event: ConfigTagCreatedEvent = {
         type: 'TagCreated',
         id: deps.newId(),
         name,
         createdAt: deps.now().toISOString(),
+        ...(color !== undefined && color.length > 0 ? { color } : {}),
       };
 
       const before = (await deps.eventLog.load()).length;

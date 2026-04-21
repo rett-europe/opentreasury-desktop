@@ -53,6 +53,72 @@ Modal pairs (view + edit) must share primitives: grid, gaps, row rhythm, labels.
 
 ---
 
+## 2026-04-24: Twin Round — Mouse Modal Parity R3 + Trinity Config Renovation
+
+### Round A: Mouse — Modal Parity Round 3 (Dashboard–Transactions Divergence)
+
+**Who:** Mouse (UI Designer)  
+**What:** Resolved data parity drift + CSS flicker when toggling view/edit in Dashboard vs Transactions modals  
+**Why:** Pedro reported modal divergence: Dashboard showed account names; Transactions exposed raw ULIDs. Size flicker on toggle between modes.
+
+#### Root Causes
+
+**A. Data Parity Leak:** PanelScreen only passed `accounts` lookup array to modal, not `categories` and `tags` → FK IDs unresolved  
+**B. CSS Min-Height Mismatch:** read-body pegged at 520px, edit-body at 400px → modal shrinks on toggle
+
+#### The Fix
+
+- Dashboard now passes all three lookup arrays (`accounts`, `categories`, `tags`) to modal context
+- Unified modal body min-height to stable 520px across both modes
+- Modal view/edit toggle now seamless, no size jitter
+
+#### Output
+
+- **Commit:** `164148d` — fix(modal): resolve data parity + stabilize size across view/edit toggle
+
+#### Key Lesson
+
+Modal pairs require complete lookup context; parent responsibility. CSS baseline must account for both modes' content height.
+
+---
+
+### Round B: Trinity — Config Tabs Renovation (PR #2 Prototypes → PR #3 Docs)
+
+**Who:** Trinity (Configuration UX)  
+**What:** Shipped renovated Configuration screens (Cuentas, Categorías, Etiquetas) with table layouts, search bars, stats headers, hover actions, and export buttons  
+**Why:** Pedro requested prototype integration; configuration management needed modern affordances
+
+#### What Shipped
+
+| Tab | Pattern |
+|-----|---------|
+| CuentasTab | Table + search + stats header + hover actions (edit/delete/export) |
+| CategoriasTab | Ditto |
+| EtiquetasTab | Ditto |
+
+New CSS namespace: `.ot-config__*` — table wrappers, cell styling, action buttons all forward-compatible.
+
+#### Deferred (Pending Backend)
+
+Advanced features held for backend field availability:
+- IBAN display/validation
+- Color picking (Categorías)
+- Subcategories (nested table)
+- Usage counts (analytics)
+
+CSS slots are in place; features can land without restyling.
+
+#### Output
+
+- **Commit:** `cd1ebb5` — feat(config): renovate Cuentas/Categorías/Etiquetas tabs with table + search + export (main)
+- **Docs:** PR #3 — trinity/config-renovation-docs — decision log + CSS namespace guide
+
+#### Key Lesson
+
+Deferred features require forward-compatible CSS slots; don't ship half-baked fields. Backend contract clarity prevents rework.
+
+---
+
 ## 2026-04-22: Mouse — Scroll-Fallback Round (WI-20 Finalization)
 
 **Who:** Mouse (UI Designer)  

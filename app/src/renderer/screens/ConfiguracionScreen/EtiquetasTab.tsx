@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Tag as TagIcon, Search, Edit, Trash2, Download } from 'lucide-react';
+import { Plus, Tag as TagIcon, Search, Edit, Trash2 } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
@@ -17,6 +17,16 @@ export interface EtiquetasTabProps {
   readonly onListChanged?: (() => void) | undefined;
 }
 
+/**
+ * Etiquetas — card grid only (round 2).
+ *
+ * The earlier version shipped a list/grid segmented toggle and exposed the raw
+ * ULID (`tag.id`) as a "slug" under the name, which leaked opaque identifiers
+ * like `01KPKVR0RMXVV963MEH1TSK2QZ` into the UI. The prototype intended that
+ * slot for a human-readable slug derived from the tag name — a field we do not
+ * (yet) carry on `TagCreated`. Rather than fabricate one, we simply drop the
+ * meta row until the schema grows a slug. Grid-only until usage counts exist.
+ */
 export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element {
   const { t } = useTranslation('common');
   const [state, setState] = useState<State>({ kind: 'loading' });
@@ -29,10 +39,7 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
       const resp = await listTags();
       setState({ kind: 'loaded', tags: resp.tags });
     } catch (err) {
-      setState({
-        kind: 'error',
-        message: err instanceof Error ? err.message : 'unknown',
-      });
+      setState({ kind: 'error', message: err instanceof Error ? err.message : 'unknown' });
     }
   }, []);
 
@@ -45,12 +52,11 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
     onListChanged?.();
   }, [load, onListChanged]);
 
-  // Filter tags by search query
   const filteredTags =
     state.kind === 'loaded'
-      ? state.tags.filter((t) => {
+      ? state.tags.filter((tg) => {
           if (!searchQuery) return true;
-          return t.name.toLowerCase().includes(searchQuery.toLowerCase());
+          return tg.name.toLowerCase().includes(searchQuery.toLowerCase());
         })
       : [];
 
@@ -68,11 +74,6 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
           ) : null}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          {state.kind === 'loaded' && state.tags.length > 0 ? (
-            <Button variant="secondary" size="md" leadingIcon={<Download size={16} />}>
-              Exportar
-            </Button>
-          ) : null}
           <Button
             variant="primary"
             size="md"
@@ -139,25 +140,39 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
               {filteredTags.map((tg) => (
                 <li key={tg.id} className="ot-config__tag-grid-item">
                   <div className="ot-config__tag-grid-header">
-                    <span className="ot-config__tag-pill">{tg.name}</span>
+                    <span
+                      className="ot-config__swatch-lg"
+                      style={{ background: tg.color || 'var(--color-brand-primary)' }}
+                      aria-hidden="true"
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        className="ot-config__cell-truncate"
+                        style={{ fontWeight: 'var(--font-weight-medium)' }}
+                        title={tg.name}
+                      >
+                        {tg.name}
+                      </div>
+                    </div>
                     <div className="ot-config__tag-grid-actions">
                       <button
                         className="ot-config__row-action-btn"
-                        title="Editar etiqueta"
+                        title="Editar (próximamente)"
                         aria-label="Editar etiqueta"
+                        disabled
                       >
                         <Edit size={14} />
                       </button>
                       <button
                         className="ot-config__row-action-btn ot-config__row-action-btn--danger"
-                        title="Eliminar etiqueta"
+                        title="Eliminar (próximamente)"
                         aria-label="Eliminar etiqueta"
+                        disabled
                       >
                         <Trash2 size={14} />
                       </button>
                     </div>
                   </div>
-                  <span className="ot-config__meta-text">ID: {tg.id}</span>
                 </li>
               ))}
             </ul>

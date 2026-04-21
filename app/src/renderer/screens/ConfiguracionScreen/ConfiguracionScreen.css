@@ -6,43 +6,9 @@
   min-height: 100%;
 }
 
-.ot-config__tabs {
-  display: flex;
-  gap: var(--space-2);
-  border-bottom: 1px solid var(--color-border-default);
-  margin-bottom: var(--space-8);
-}
-
-.ot-config__tab {
-  padding: var(--space-4) var(--space-6);
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  font: inherit;
-  font-size: var(--font-size-14);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition:
-    color var(--motion-duration-fast) var(--motion-easing-standard),
-    border-color var(--motion-duration-fast) var(--motion-easing-standard);
-  margin-bottom: -1px;
-}
-
-.ot-config__tab:hover {
-  color: var(--color-text-primary);
-}
-
-.ot-config__tab[aria-selected='true'] {
-  color: var(--color-brand-primary);
-  border-bottom-color: var(--color-brand-primary);
-}
-
-.ot-config__tab:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
+/* Legacy in-screen tab strip was removed in round 2 — each sub-route is now a
+ * top-level sidebar item, so ConfiguracionScreen renders one tab's content
+ * without any tab chrome. Related .ot-config__tab{,s} rules dropped. */
 
 .ot-config__tab-actions {
   display: flex;
@@ -336,4 +302,415 @@
 
 .ot-page-header__stat-separator {
   color: var(--color-border-default);
+}
+
+/* ═══ PR#2 parity — entity icons, account pills, IBAN reveal ═══ */
+
+.ot-config__entity-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  color: #fff;
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 20%, transparent);
+}
+.ot-config__entity-icon--sm {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+}
+
+.ot-config__account-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ot-config__account-pill-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ot-config__iban-reveal {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ot-config__code-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--font-size-12);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.ot-config__cell-truncate {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ot-config__table--accounts {
+  table-layout: fixed;
+}
+.ot-config__table--accounts td,
+.ot-config__table--accounts th {
+  min-width: 0;
+}
+
+/* ═══ Swatches ═══ */
+.ot-config__swatch-sm {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: middle;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+.ot-config__swatch-lg {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 15%, transparent);
+}
+
+/* ═══ Tag pill w/ color tint ═══ */
+.ot-config__tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ═══ Segmented control (Tarjetas / Lista) ═══ */
+.ot-config__segmented {
+  display: inline-flex;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.ot-config__segmented button {
+  padding: var(--space-2) var(--space-4);
+  background: transparent;
+  color: var(--color-text-muted);
+  border: none;
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+.ot-config__segmented button + button {
+  border-left: 1px solid var(--color-border-default);
+}
+.ot-config__segmented button[aria-selected='true'] {
+  background: var(--color-brand-surface);
+  color: var(--color-brand-primary);
+}
+
+/* ═══ Master-detail layout for Categorías ═══ */
+.ot-config__master-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .ot-config__master-detail {
+    grid-template-columns: 1fr;
+  }
+}
+.ot-config__md-card {
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.ot-config__md-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border-default);
+}
+.ot-config__md-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ot-config__md-title {
+  font-size: var(--font-size-15);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.ot-config__md-sub {
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.ot-config__md-body {
+  padding: var(--space-5);
+}
+.ot-config__md-empty {
+  padding: var(--space-10);
+  text-align: center;
+  color: var(--color-text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ot-config__list-rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ot-config__list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+  transition: background 150ms ease;
+  min-width: 0;
+}
+.ot-config__list-row:last-child {
+  border-bottom: none;
+}
+.ot-config__list-row:hover {
+  background: var(--color-surface-hover);
+}
+.ot-config__list-row--active {
+  background: var(--color-brand-surface);
+}
+.ot-config__list-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.ot-config__list-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.ot-config__list-row-title {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-14);
+}
+.ot-config__list-row-sub {
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
+}
+.ot-config__list-row-actions {
+  display: inline-flex;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.ot-config__list-row:hover .ot-config__list-row-actions,
+.ot-config__list-row--active .ot-config__list-row-actions {
+  opacity: 1;
+}
+
+/* ═══ Card footer "+ Nueva …" ghost button (master-detail) ═══ */
+.ot-config__list-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-3) var(--space-5);
+  background: transparent;
+  color: var(--color-brand-primary);
+  border: none;
+  border-top: 1px dashed var(--color-border-subtle);
+  font: inherit;
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+.ot-config__list-add:hover {
+  background: var(--color-brand-surface);
+}
+.ot-config__list-add:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+.ot-config__list-add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: var(--color-text-muted);
+}
+.ot-config__list-add:disabled:hover {
+  background: transparent;
+}
+
+.ot-config__callout {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-brand-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-13);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+.ot-config__callout code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--color-surface-primary);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* ═══ Disabled row-action (edit/delete deferred) ═══ */
+.ot-config__row-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.ot-config__row-action-btn:disabled:hover {
+  background: transparent;
+  color: var(--color-text-muted);
+}
+
+/* ═══ Categorías — kind pills, chip-group, folder-tile, stat colors ═══
+ * 2026-04-22 — prototype-categorias.png parity. The master row puts a
+ * subtle grey folder tile (neutral, the swatch colour lives on the folder
+ * glyph itself) before the title, a type-pill (Ingreso/Gasto) after the
+ * subtitle, and edit/delete actions that fade in on row hover/active.
+ */
+
+.ot-config__folder-tile {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-hover);
+  flex-shrink: 0;
+}
+
+.ot-config__kind-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ot-config__kind-pill--income {
+  background: color-mix(in srgb, var(--color-status-success) 14%, transparent);
+  color: var(--color-status-success);
+}
+.ot-config__kind-pill--expense {
+  background: color-mix(in srgb, var(--color-status-error) 14%, transparent);
+  color: var(--color-status-error);
+}
+
+.ot-config__stat--income {
+  color: var(--color-status-success);
+}
+.ot-config__stat--expense {
+  color: var(--color-status-error);
+}
+
+/* Segmented chip group moved to `styles/filter-chips.css` — reuse the
+ * `.ot-filter-bar__chips` / `.ot-filter-bar__chip[--active]` classes
+ * from the Movements screen. The old `.ot-config__chip*` rules are
+ * intentionally removed so Configuración and Transactions render the
+ * exact same component. */
+
+/* The prototype no longer shows a "X de Y" count — the left card header
+ * already carries the result count. Drop the filter-count display when it
+ * sits inside the Categorías filter-bar by letting chip-group come first
+ * and search grow to fill. (filter-count rule above still applies for the
+ * other tabs that keep it.) */
+
+/* Detail card header — secondary/primary button pair on the right. */
+.ot-config__md-head-actions {
+  display: inline-flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Modal — Tipo (income|expense) choice. */
+.ot-config__kind-choice {
+  display: inline-flex;
+  gap: var(--space-2);
+  width: 100%;
+}
+.ot-config__kind-choice-btn {
+  flex: 1;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+.ot-config__kind-choice-btn:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text-primary);
+}
+.ot-config__kind-choice-btn--income.ot-config__kind-choice-btn--active {
+  background: color-mix(in srgb, var(--color-status-success) 12%, transparent);
+  border-color: var(--color-status-success);
+  color: var(--color-status-success);
+}
+.ot-config__kind-choice-btn--expense.ot-config__kind-choice-btn--active {
+  background: color-mix(in srgb, var(--color-status-error) 12%, transparent);
+  border-color: var(--color-status-error);
+  color: var(--color-status-error);
 }

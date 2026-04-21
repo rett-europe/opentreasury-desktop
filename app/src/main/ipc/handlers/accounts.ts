@@ -77,6 +77,9 @@ export function createAccountsCreateHandler(
       }
 
       const bankName = parsed.data.bankName?.trim();
+      const label = parsed.data.label?.trim();
+      const iban = parsed.data.iban?.trim();
+      const color = parsed.data.color?.trim();
       const event: ConfigAccountCreatedEvent = {
         type: 'AccountCreated',
         id: deps.newId(),
@@ -85,6 +88,10 @@ export function createAccountsCreateHandler(
         openingBalance,
         createdAt: deps.now().toISOString(),
         ...(bankName !== undefined && bankName.length > 0 ? { bankName } : {}),
+        ...(label !== undefined && label.length > 0 ? { label } : {}),
+        ...(iban !== undefined && iban.length > 0 ? { iban } : {}),
+        ...(color !== undefined && color.length > 0 ? { color } : {}),
+        ...(parsed.data.isPaypal !== undefined ? { isPaypal: parsed.data.isPaypal } : {}),
       };
 
       // Idempotent append — JsonFileEventLog dedupes by event.id; only apply

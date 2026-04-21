@@ -197,6 +197,61 @@ Inline `style={{ color: 'var(--token)' }}` works but scatters token names across
 
 Trinity wired the renderer half of WI-12: transactionApi (create command client), movementsApi (list query client), typed window.opentreasury surface. Services follow the existing panel.* pattern. Ready for WI-13 (Add-Transaction modal + Movements list real-data wiring). No renderer-side changes needed until WI-14 (Panel invalidation subscription).
 
+## 2026-04-21 — Configuration Screens Renovation (PR #2 Prototypes)
+
+**Context:** Pedro created PR #2 with visual prototypes for the Configuration area (Cuentas / Categorías / Etiquetas). The prototypes introduce enhanced UI patterns: table layouts with search filters, better visual hierarchy, hover-revealed action buttons, and improved metadata display.
+
+**Approach:** Pragmatic enhancement of existing minimal CRUD implementation. The prototype shows advanced features (IBAN masking, account labels/colors, subcategories, tag colors) that don't exist in the current backend data model (AccountRecord/CategoryRecord/TagRecord only have name, bankName, openingBalance for accounts; name, color for categories; name for tags). Instead of blocking on backend work, implemented the prototype's **visual patterns** while working with current simple data.
+
+**What shipped:**
+
+1. **Enhanced CSS from prototype** (ConfiguracionScreen.css):
+   - Filter bar pattern with search input + result counts
+   - Table layout replacing card grids for Accounts/Categories
+   - Row action buttons with hover states + danger variant
+   - Tag grid with improved card styling and hover effects
+   - Metadata text and stats display tokens
+
+2. **Cuentas (Accounts) Tab:**
+   - Table layout (Name | Bank | Opening Balance | Actions)
+   - Search filter by name or bank
+   - Stats header: "N cuentas · Saldo total: €XXX"
+   - Color-coded balance (green positive, red negative)
+   - Hover-revealed Edit/Delete action buttons
+   - Export button when accounts exist
+   - Empty state and "no results" handling
+
+3. **Categorías (Categories) Tab:**
+   - Table layout with color swatch column
+   - Search filter with result counts
+   - Color swatches for categories with colors
+   - FolderOpen icon fallback for categories without colors
+   - Consistent action button patterns
+
+4. **Etiquetas (Tags) Tab:**
+   - Grid layout with improved card styling
+   - Search filter with result counts
+   - Tag pill display + metadata (ID)
+   - Hover effects on cards
+   - Export button integration
+
+**What's deferred (backend data unavailable):**
+- IBAN field + masking/reveal (AccountRecord has no iban field)
+- Account labels + color swatches (no label, color, isPaypal fields)
+- Master-detail layout for Categories with subcategories (no subcategories in backend)
+- Tag colors (TagRecord has no color field)
+- Grid/List view toggle for Tags (kept grid only)
+
+**Pattern established:** When prototypes demonstrate features requiring backend data not yet available, implement the **visual scaffolding** (CSS patterns, layout structure, UI patterns) that will house the data when backend catches up. This unblocks frontend iteration and validates UX patterns early.
+
+**Validation:**
+- Typecheck ✓, lint ✓, format:check ✓, test ✓, build ✓
+- All existing CRUD functionality preserved
+- Visual patterns match PR #2 prototype intent
+
+**Files modified:** 5 (CuentasTab.tsx, CategoriasTab.tsx, EtiquetasTab.tsx, ConfiguracionScreen.css, PanelScreen.tsx — formatting only)
+
+**Commit:** cd1ebb5 "feat(config): renovate Accounts/Categories/Labels screens per PR #2 prototypes"
 ## 2026-04-19 — WI-3: Panel IPC wiring complete
 
 **Pattern: Skeleton→Loaded transition**  
@@ -904,3 +959,164 @@ Now the swap is truly in-place: same outer box, same padding, same min-height, o
 **Commit:** fix(tx): round 2 polish — real table overflow, symmetric modal, date i18n
 
 
+
+
+## Learnings — 2026-04-21 · PR#2 full renovation
+
+### Prototype features that required schema extension
+- **Account.iban** — IBAN masking with per-row eye-toggle is core prototype UX;
+  ships as `z.string().optional()` on both wire schemas + read-model. Never
+  stored/echoed in plaintext beyond the modal reveal toggle.
+- **Account.label** — free-text usage label ("Principal", "Operaciones", …)
+  drives the colored pill column. Added as optional string.
+- **Account.color + Account.isPaypal** — color drives the entity-icon swatch
+  and the label-pill tint (`color-mix(in srgb, var 18%, transparent)`).
+  `isPaypal` flags "Plataforma externa" subtitle + disables IBAN capture.
+- **Tag.color** — required for chip-tint rendering and round swatch in the
+  grid/list views. Optional on wire.
+- Category `type` (Ingreso/Gasto) is **blocked** by Pedro Q4 direction-agnostic
+  lock-in; subcategory CRUD is blocked by missing wire events.
+
+### Navbar treatment pattern (prototype-aligned)
+- Three sections in the sidebar: `Principal` (Panel/Movimientos/Saldo),
+  `Configuración` (Categorías/Etiquetas/Cuentas — per-entity icons
+  FolderOpen/Tag/Landmark), `Datos` (Importación — Upload icon).
+- Each config sub-route is a top-level `Route` union member; the tabbed
+  `ConfiguracionScreen` keeps its tab strip for in-screen switching and
+  accepts `initialTab`/`onTabChange` so sidebar + tab stay in sync.
+- Section headers = `shell.sections.*` i18n keys; nav item labels
+  `shell.nav.*`.
+
+### Playwright-against-Electron setup notes
+- Booting the real Electron build via `@playwright/test` + `electron.launch`
+  is doable but heavy for a quick diff. Faster: a plain
+  `chromium.launch()` pointed at the Vite dev server (`5173`), with
+  `page.addInitScript` injecting a stubbed `window.opentreasury` object
+  (shape = `OpenTreasuryApi`) before any bundle runs.
+- The prototype lives in `prototype/*.{html,jsx,js,css}` and is rendered
+  via Babel-standalone; a 40-line `http.createServer` static-file server
+  (`scripts/config-diff-playwright.mjs`) is enough to host it. JSX files
+  must be served with a text MIME type for Babel-standalone to fetch them.
+- Screenshots go to `.squad/decisions/inbox/playwright-config-diff/*.png`
+  — Scribe only deletes `.md` files on archival, so PNGs persist.
+
+
+---
+
+## Learnings — Config polish round 2 (2026-04-21)
+
+
+**ULID leak in EtiquetasTab — root cause.** The prototype at
+`prototype/configuracion.jsx` renders `{t.id}` as a small monospace "slug"
+under each tag name — but in the prototype `t.id` is auto-derived from the
+tag name (slugged to `campana-navidad` style) via a `React.useEffect` in
+`EtiquetaModal`. In OpenTreasury, `TagRecord.id` is an opaque ULID generated
+by the command layer — rendering it surfaced 26-char identifiers like
+`01KPKVR0RMXVV963MEH1TSK2QZ` in the UI. **Rule: never render an entity `id`
+in user-facing copy unless the schema guarantees a human-readable slug.**
+Until `TagCreated` grows a `slug` field, drop the meta slot entirely rather
+than substitute a fake.
+
+**CategoriasTab layout pattern that actually matches the prototype.** The
+first attempt reused the master-detail shell but shipped sparse rows (icon +
+name only) against a detail pane dominated by a large info callout — visually
+lopsided. The prototype row carries *four* primitives: entity icon, title,
+sub-line (subcategory/movimiento counts), and actions; plus a `list-add`
+ghost footer on every card ("Nueva categoría" / "Añadir subcategoría"). Our
+round-2 rebuild keeps the prototype's cadence:
+
+- Master row = `entity-icon + list-row-text (title + sub) + list-row-actions`
+- Detail pane re-uses the same `list-rows` container so the empty-state for
+  subcategories sits in the same vertical rhythm as the list above.
+- Both cards end with a `.ot-config__list-add` ghost button so the two panes
+  "rhyme" visually; detail's button stays `disabled` until the
+  `SubcategoryAdded/Removed/Renamed` events land.
+- Because WI-15-lite categories are direction-agnostic (Pedro Q4), the
+  prototype's `type-pill` (Ingreso/Gasto) is intentionally omitted — do not
+  add it back.
+
+**Navbar routes replace internal tabs — never both.** Once a screen's
+sub-sections are promoted to sibling sidebar items, the in-screen tablist is
+duplicated chrome. Keep the screen a simple `if (route === …)` render tree
+and delete the tab DOM + CSS; do not leave the tablist as a "deep-link
+fallback" — it looks like two navigation systems fighting for authority.
+
+## Learnings — Categorías rebuild round 3 (2026-04-22)
+
+**What I got wrong in rounds 1 and 2.** I built the Categorías screen from
+memory of the `prototype/configuracion.jsx` source rather than from the
+actual rendered prototype screenshot. Round 1 dropped most of the prototype's
+visual scaffolding. Round 2 "rebalanced" the master rows but still missed
+the three load-bearing ingredients the prototype image makes unmissable:
+the Ingreso/Gasto kind pill, the colored `X ingresos · Y gastos` summary
+count, and the Todas/Ingresos/Gastos segmented filter. I had even baked a
+note into the previous history ("prototype's type-pill is intentionally
+omitted — do not add it back") citing Pedro's Q4 direction-agnostic call,
+but the prototype Pedro handed back in round 3 explicitly reverses that
+call. Lesson: a prior design decision in `decisions.md` is not a license
+to ignore a newer prototype — prototypes win.
+
+**The structural pattern the prototype actually uses.** A 3-zone page:
+
+  1. `page-header` — title + count summary (total · ingresos · gastos with
+     green/red tint) on the left, outline + primary buttons on the right.
+  2. `filter-bar` — a pill-shaped segmented chip group (Todas / Ingresos /
+     Gastos) inline with a grow-flex search input (no `X de Y` count — the
+     master-card header carries the result count).
+  3. `master-detail` — two `ot-config__md-card` columns, each ending in
+     an `ot-config__list-add` ghost footer. Master rows carry the`r
+     five primitives: `folder-tile`, title, `X subcategoría(s) · Y`r
+     movimiento(s)` sub, kind-pill, row-actions (edit+delete). Detail`r
+     head has a secondary "Renombrar" + primary "Subcategoría" button`r
+     pair (instead of a single edit icon) and the footer reads`r
+     "+ Añadir subcategoría a {name}" — disabled until`r
+     `SubcategoryAdded/Removed/Renamed` events land.
+
+**Additive schema changes can match boundaries.** Adding an **optional**
+`kind: 'income' | 'expense'` to `categoryCreatedEventSchema` +
+`categoryRecordSchema` + `createCategoryRequestSchema` + the flat
+`configCategoryCreatedEventSchema` and the `ConfigCategory` read-model
+type is additive: old NDJSON events still replay (field undefined, record
+has no `kind`), the reducer keeps its `...(event.kind !== undefined ? {`r
+kind: event.kind } : {})` spread pattern so the projections test's`r
+`toEqual` assertion still passes, the modal makes `kind` required for`r
+**new** categories. This is the "new optional field" pattern the skill doc`r
+already endorses — I just had to remember it applies when the prototype`r
+demands data we don't yet capture.
+
+**Never ship "pixel-close" from memory. Ground from the image.** The
+prototype image Pedro dropped in the decisions inbox is authoritative. I
+will open the PNG first (I have vision) and list the visible deltas before
+writing a single line of TSX. That check would have caught rounds 1 and 2
+in the first 60 seconds.
+
+
+## Learnings — Categorías polish round 4 (2026-04-22)
+
+**Shared filter chip component — reuse, don't re-skin.** Movements already
+ships a segmented pill filter. I'd built an ot-config__chip* look-alike
+for Categorías in round 3; Pedro correctly rejected the duplication. Fix:
+the chip rules now live in `app/src/renderer/styles/filter-chips.css`
+under the `.ot-filter-bar__chips` / `.ot-filter-bar__chip[--active]`
+namespace, imported globally from `main.tsx`. Movements keeps the same
+markup (no TSX churn); Categorías emits the same classes. If Etiquetas or
+Cuentas add a filter later they must reuse this — do not spawn a third
+look-alike.
+
+**Folder icon mapping.** The prototype master-row glyph is `Folder` from
+`lucide-react` (closed folder), NOT `FolderOpen`. Mapping going forward:
+
+- Categorías master row / folder tile / empty states → `Folder` (closed)
+- File/attachment indicators → `FolderOpen`
+- Shell sidebar nav icon for Categorías → `FolderOpen` (unchanged — that
+  one is a route affordance, not a content type)
+
+**`inline-flex` on stacked title+sub bites.** Round 3 set both
+`.ot-config__md-title` and `.ot-config__md-sub` to `display:
+inline-flex`. Two inline-level boxes inside a plain `<div>` will
+share a line when text is short, which put "8 resultados" beside
+"Categorías" on the left pane but below "Actividades" on the right
+(longer text wrapped). Block-level is non-negotiable when the caller
+wants a subtitle stack: use an explicit `.ot-config__md-head-text`
+wrapper (`display: flex; flex-direction: column; gap: 2px`) with
+`display: flex` on both children.

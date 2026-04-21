@@ -15,6 +15,10 @@ import '@fontsource/inter/700.css';
 // properties every component references via var(--…)).
 import './styles/tokens.css';
 import './styles/globals.css';
+// Shared UI patterns reused across multiple screens (imported globally so
+// either Movements or Configuración can render the chip group without a
+// cross-screen CSS import).
+import './styles/filter-chips.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Root element not found');

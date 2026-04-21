@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react';
 import { createCategory } from '../../services/categoriesApi.js';
 import type {
+  CategoryKind,
   CategoryRecord,
   CreateCategoryResponse,
 } from '../../../shared/ipc-contracts/categories.js';
@@ -31,6 +32,7 @@ export interface AddCategoryModalProps {
 interface Errors {
   name?: string;
   color?: string;
+  kind?: string;
 }
 
 export function AddCategoryModal({
@@ -42,6 +44,7 @@ export function AddCategoryModal({
 
   const [name, setName] = useState('');
   const [color, setColor] = useState<string | null>(null);
+  const [kind, setKind] = useState<CategoryKind | null>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +53,7 @@ export function AddCategoryModal({
     if (isOpen) {
       setName('');
       setColor(null);
+      setKind(null);
       setErrors({});
       setGeneralError(null);
       setSubmitting(false);
@@ -60,9 +64,10 @@ export function AddCategoryModal({
     const next: Errors = {};
     if (!name.trim()) next.name = t('configuracion.errors.nameEmpty');
     else if (name.trim().length > 80) next.name = t('configuracion.errors.nameTooLong');
+    if (!kind) next.kind = t('configuracion.errors.nameEmpty');
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [name, t]);
+  }, [name, kind, t]);
 
   const applyServerError = useCallback(
     (resp: Extract<CreateCategoryResponse, { ok: false }>) => {
@@ -84,6 +89,7 @@ export function AddCategoryModal({
       const resp = await createCategory({
         name: name.trim(),
         color: color ?? undefined,
+        ...(kind !== null ? { kind } : {}),
       });
       if (!resp.ok) {
         applyServerError(resp);
@@ -94,6 +100,7 @@ export function AddCategoryModal({
         name: resp.event.name,
         createdAt: resp.event.createdAt,
         ...(resp.event.color !== undefined ? { color: resp.event.color } : {}),
+        ...(resp.event.kind !== undefined ? { kind: resp.event.kind } : {}),
       });
       onClose();
     } catch (err) {
@@ -101,7 +108,7 @@ export function AddCategoryModal({
     } finally {
       setSubmitting(false);
     }
-  }, [validate, name, color, onCreated, onClose, applyServerError, t]);
+  }, [validate, name, color, kind, onCreated, onClose, applyServerError, t]);
 
   return (
     <ConfigModalShell
@@ -132,6 +139,48 @@ export function AddCategoryModal({
             {errors.name}
           </span>
         ) : null}
+      </div>
+
+      <div className="ot-config-modal__field">
+        <span className="ot-config-modal__label" id="cat-kind-label">
+          {t('configuracion.categorias.kind.label')}
+        </span>
+        <div
+          className="ot-config__kind-choice"
+          role="radiogroup"
+          aria-labelledby="cat-kind-label"
+          aria-invalid={Boolean(errors.kind)}
+        >
+          <button
+            type="button"
+            role="radio"
+            aria-checked={kind === 'income'}
+            className={`ot-config__kind-choice-btn ot-config__kind-choice-btn--income${
+              kind === 'income' ? ' ot-config__kind-choice-btn--active' : ''
+            }`}
+            onClick={() => setKind('income')}
+          >
+            {t('configuracion.categorias.kind.income')}
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={kind === 'expense'}
+            className={`ot-config__kind-choice-btn ot-config__kind-choice-btn--expense${
+              kind === 'expense' ? ' ot-config__kind-choice-btn--active' : ''
+            }`}
+            onClick={() => setKind('expense')}
+          >
+            {t('configuracion.categorias.kind.expense')}
+          </button>
+        </div>
+        {errors.kind ? (
+          <span className="ot-config-modal__field-error">{errors.kind}</span>
+        ) : (
+          <span className="ot-config-modal__label-hint">
+            {t('configuracion.categorias.kind.hint')}
+          </span>
+        )}
       </div>
 
       <div className="ot-config-modal__field">

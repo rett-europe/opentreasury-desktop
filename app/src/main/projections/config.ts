@@ -19,6 +19,10 @@ export function selectAccounts(model: ReadModel): AccountRecord[] {
     openingBalance: a.openingBalance,
     createdAt: a.createdAt,
     ...(a.bankName !== undefined ? { bankName: a.bankName } : {}),
+    ...(a.label !== undefined ? { label: a.label } : {}),
+    ...(a.iban !== undefined ? { iban: a.iban } : {}),
+    ...(a.color !== undefined ? { color: a.color } : {}),
+    ...(a.isPaypal !== undefined ? { isPaypal: a.isPaypal } : {}),
   }));
 }
 
@@ -28,6 +32,7 @@ export function selectCategories(model: ReadModel): CategoryRecord[] {
     name: c.name,
     createdAt: c.createdAt,
     ...(c.color !== undefined ? { color: c.color } : {}),
+    ...(c.kind !== undefined ? { kind: c.kind } : {}),
   }));
 }
 
@@ -36,5 +41,6 @@ export function selectTags(model: ReadModel): TagRecord[] {
     id: t.id,
     name: t.name,
     createdAt: t.createdAt,
+    ...(t.color !== undefined ? { color: t.color } : {}),
   }));
 }

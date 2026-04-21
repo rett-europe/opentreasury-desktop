@@ -1,0 +1,58 @@
+/* ═══ Shared filter chip group — "Todas / Ingresos / Gastos" pattern ═══
+ *
+ * Single source of truth for the segmented pill filter used across
+ * screens (Transactions/Movements, Configuración → Categorías, future
+ * Etiquetas/Cuentas filters). Kept under the existing
+ * `ot-filter-bar__chip*` namespace so Movements markup doesn't have to
+ * change, and any new screen can opt-in by emitting the same classes.
+ *
+ * Visual contract (from prototype-categorias.png + MovementsScreen):
+ *   - Outer `.ot-filter-bar__chips` is a pill-shaped tinted container
+ *     with a soft border and 2px inner padding.
+ *   - Each `.ot-filter-bar__chip` is a borderless pill; muted text by
+ *     default, promotes to surface-primary + brand text when active.
+ *   - The active chip uses the brand primary fill to match the rest of
+ *     the Movements screen's filter bar.
+ */
+
+.ot-filter-bar__chips {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--color-brand-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  flex-shrink: 0;
+}
+
+.ot-filter-bar__chip {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 4px 12px;
+  border-radius: calc(var(--radius-pill) - 2px);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+  line-height: 1.4;
+}
+
+.ot-filter-bar__chip:hover {
+  background: var(--color-brand-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.ot-filter-bar__chip:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.ot-filter-bar__chip--active,
+.ot-filter-bar__chip--active:hover {
+  background: var(--color-brand-primary);
+  color: var(--color-brand-on-primary);
+}
