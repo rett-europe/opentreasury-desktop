@@ -76,6 +76,22 @@ export interface ConfigAccount {
   readonly currency: 'EUR';
   readonly openingBalance: number;
   readonly createdAt: string;
+  // WI-21 — archive flag. ISO 8601 UTC when set; undefined = active.
+  readonly archivedAt?: string;
+}
+
+// WI-21 — Subcategory (nested under a ConfigCategory). First-class events
+// (SubcategoryCreated/Updated/Archived/Unarchived) carry `parentCategoryId`,
+// but the projection inlines them into the parent so UI can render the tree
+// in a single list call. Archiving a parent does NOT cascade-archive
+// children (per Switch's ruling — explicit act required).
+export interface ConfigSubcategory {
+  readonly id: string;
+  readonly parentCategoryId: string;
+  readonly name: string;
+  readonly color?: string;
+  readonly createdAt: string;
+  readonly archivedAt?: string;
 }
 
 export interface ConfigCategory {
@@ -84,6 +100,11 @@ export interface ConfigCategory {
   readonly color?: string;
   readonly kind?: 'income' | 'expense';
   readonly createdAt: string;
+  // WI-21 — archive flag + inlined subcategories. `subcategories` defaults
+  // to an empty array on any ConfigCategory (backfilled at projection time
+  // so downstream consumers never hit `undefined`).
+  readonly archivedAt?: string;
+  readonly subcategories: readonly ConfigSubcategory[];
 }
 
 export interface ConfigTag {
@@ -91,6 +112,7 @@ export interface ConfigTag {
   readonly name: string;
   readonly color?: string;
   readonly createdAt: string;
+  readonly archivedAt?: string;
 }
 
 export interface ImportMapping {

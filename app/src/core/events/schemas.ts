@@ -171,6 +171,181 @@ export const configTagCreatedEventSchema = z.object({
 export type ConfigTagCreatedEvent = z.infer<typeof configTagCreatedEventSchema>;
 
 // ---------------------------------------------------------------------------
+// WI-21 — Configuración CRUD (Account / Category / Subcategory / Tag).
+// Archive-only per Switch's ruling (.squad/decisions/inbox/
+// switch-wi21-cascade-policy.md) — NO hard-delete events in this slice.
+// Flat wire shape, PascalCase `type`, to match the existing WI-15-lite
+// config stream; renaming the `*Created` events to a dot-notation would
+// break backward-compat for any NDJSON log already on disk.
+//
+// `*Updated` carry a partial `changes` patch. `*Archived` stamp `archivedAt`.
+// `*Unarchived` clear the flag (no timestamp needed in the read model).
+// Subcategories are first-class on the event log (parent-scoped via
+// `parentCategoryId`) but projected inline on `ConfigCategory.subcategories`.
+// ---------------------------------------------------------------------------
+
+export const configAccountUpdatedEventSchema = z.object({
+  type: z.literal('AccountUpdated'),
+  // Unique event ULID. Decouples the event-log dedupe key from the entity
+  // id so multiple mutations of the same account produce distinct log
+  // entries (the JsonFileEventLog drops duplicate `id`s). Mirrors the
+  // `tx.note.added` / `tx.deleted` pattern.
+  id: z.string().min(1),
+  accountId: z.string().min(1),
+  changes: z
+    .object({
+      name: z.string().min(1).optional(),
+      bankName: z.string().optional(),
+      label: z.string().optional(),
+      iban: z.string().optional(),
+      color: z.string().optional(),
+      isPaypal: z.boolean().optional(),
+    })
+    .refine((c) => Object.keys(c).length > 0, { message: 'changes must be non-empty' }),
+  updatedAt: z.string().datetime(),
+});
+
+export type ConfigAccountUpdatedEvent = z.infer<typeof configAccountUpdatedEventSchema>;
+
+export const configAccountArchivedEventSchema = z.object({
+  type: z.literal('AccountArchived'),
+  id: z.string().min(1),
+  accountId: z.string().min(1),
+  archivedAt: z.string().datetime(),
+});
+
+export type ConfigAccountArchivedEvent = z.infer<typeof configAccountArchivedEventSchema>;
+
+export const configAccountUnarchivedEventSchema = z.object({
+  type: z.literal('AccountUnarchived'),
+  id: z.string().min(1),
+  accountId: z.string().min(1),
+  unarchivedAt: z.string().datetime(),
+});
+
+export type ConfigAccountUnarchivedEvent = z.infer<typeof configAccountUnarchivedEventSchema>;
+
+export const configCategoryUpdatedEventSchema = z.object({
+  type: z.literal('CategoryUpdated'),
+  id: z.string().min(1),
+  categoryId: z.string().min(1),
+  changes: z
+    .object({
+      name: z.string().min(1).optional(),
+      color: z.string().optional(),
+      kind: z.enum(['income', 'expense']).optional(),
+    })
+    .refine((c) => Object.keys(c).length > 0, { message: 'changes must be non-empty' }),
+  updatedAt: z.string().datetime(),
+});
+
+export type ConfigCategoryUpdatedEvent = z.infer<typeof configCategoryUpdatedEventSchema>;
+
+export const configCategoryArchivedEventSchema = z.object({
+  type: z.literal('CategoryArchived'),
+  id: z.string().min(1),
+  categoryId: z.string().min(1),
+  archivedAt: z.string().datetime(),
+});
+
+export type ConfigCategoryArchivedEvent = z.infer<typeof configCategoryArchivedEventSchema>;
+
+export const configCategoryUnarchivedEventSchema = z.object({
+  type: z.literal('CategoryUnarchived'),
+  id: z.string().min(1),
+  categoryId: z.string().min(1),
+  unarchivedAt: z.string().datetime(),
+});
+
+export type ConfigCategoryUnarchivedEvent = z.infer<typeof configCategoryUnarchivedEventSchema>;
+
+export const configSubcategoryCreatedEventSchema = z.object({
+  type: z.literal('SubcategoryCreated'),
+  // Matches the WI-15-lite `*Created` convention: `id` IS the entity id
+  // (a subcategory is only created once per id — entity-level uniqueness
+  // doubles as the log's dedupe guarantee). Subsequent mutations carry a
+  // separate event ULID in `id` and keep the entity id under `subcategoryId`.
+  id: z.string().min(1),
+  parentCategoryId: z.string().min(1),
+  name: z.string().min(1),
+  color: z.string().optional(),
+  createdAt: z.string().datetime(),
+});
+
+export type ConfigSubcategoryCreatedEvent = z.infer<typeof configSubcategoryCreatedEventSchema>;
+
+export const configSubcategoryUpdatedEventSchema = z.object({
+  type: z.literal('SubcategoryUpdated'),
+  id: z.string().min(1),
+  subcategoryId: z.string().min(1),
+  parentCategoryId: z.string().min(1),
+  changes: z
+    .object({
+      name: z.string().min(1).optional(),
+      color: z.string().optional(),
+    })
+    .refine((c) => Object.keys(c).length > 0, { message: 'changes must be non-empty' }),
+  updatedAt: z.string().datetime(),
+});
+
+export type ConfigSubcategoryUpdatedEvent = z.infer<typeof configSubcategoryUpdatedEventSchema>;
+
+export const configSubcategoryArchivedEventSchema = z.object({
+  type: z.literal('SubcategoryArchived'),
+  id: z.string().min(1),
+  subcategoryId: z.string().min(1),
+  parentCategoryId: z.string().min(1),
+  archivedAt: z.string().datetime(),
+});
+
+export type ConfigSubcategoryArchivedEvent = z.infer<typeof configSubcategoryArchivedEventSchema>;
+
+export const configSubcategoryUnarchivedEventSchema = z.object({
+  type: z.literal('SubcategoryUnarchived'),
+  id: z.string().min(1),
+  subcategoryId: z.string().min(1),
+  parentCategoryId: z.string().min(1),
+  unarchivedAt: z.string().datetime(),
+});
+
+export type ConfigSubcategoryUnarchivedEvent = z.infer<
+  typeof configSubcategoryUnarchivedEventSchema
+>;
+
+export const configTagUpdatedEventSchema = z.object({
+  type: z.literal('TagUpdated'),
+  id: z.string().min(1),
+  tagId: z.string().min(1),
+  changes: z
+    .object({
+      name: z.string().min(1).optional(),
+      color: z.string().optional(),
+    })
+    .refine((c) => Object.keys(c).length > 0, { message: 'changes must be non-empty' }),
+  updatedAt: z.string().datetime(),
+});
+
+export type ConfigTagUpdatedEvent = z.infer<typeof configTagUpdatedEventSchema>;
+
+export const configTagArchivedEventSchema = z.object({
+  type: z.literal('TagArchived'),
+  id: z.string().min(1),
+  tagId: z.string().min(1),
+  archivedAt: z.string().datetime(),
+});
+
+export type ConfigTagArchivedEvent = z.infer<typeof configTagArchivedEventSchema>;
+
+export const configTagUnarchivedEventSchema = z.object({
+  type: z.literal('TagUnarchived'),
+  id: z.string().min(1),
+  tagId: z.string().min(1),
+  unarchivedAt: z.string().datetime(),
+});
+
+export type ConfigTagUnarchivedEvent = z.infer<typeof configTagUnarchivedEventSchema>;
+
+// ---------------------------------------------------------------------------
 // WI-17 — Import events (flat wire-style events, no envelope).
 // Coexist with enveloped and WI-15-lite events on the same NDJSON log.
 // ---------------------------------------------------------------------------
@@ -312,8 +487,21 @@ export type DomainEvent =
   | CategoryCreatedEvent
   | TagCreatedEvent
   | ConfigAccountCreatedEvent
+  | ConfigAccountUpdatedEvent
+  | ConfigAccountArchivedEvent
+  | ConfigAccountUnarchivedEvent
   | ConfigCategoryCreatedEvent
+  | ConfigCategoryUpdatedEvent
+  | ConfigCategoryArchivedEvent
+  | ConfigCategoryUnarchivedEvent
+  | ConfigSubcategoryCreatedEvent
+  | ConfigSubcategoryUpdatedEvent
+  | ConfigSubcategoryArchivedEvent
+  | ConfigSubcategoryUnarchivedEvent
   | ConfigTagCreatedEvent
+  | ConfigTagUpdatedEvent
+  | ConfigTagArchivedEvent
+  | ConfigTagUnarchivedEvent
   | MovementImportedEvent
   | ImportMappingUpdatedEvent
   | TransactionNoteAddedEvent
