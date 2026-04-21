@@ -1,5 +1,29 @@
 # Squad Journal
 
+## 2026-04-24: Mouse — Modal View-Edit Parity Round 2
+
+**Who:** Mouse (UI Designer)  
+**What:** Fixed modal field data parity (resolved FK IDs to names) and aligned edit mode field order to view mode  
+**Why:** Pedro reported view modal showed raw account ULID; edit modal had different field order and no labels
+
+### Changes
+
+View mode now resolves FK IDs (category/subcategory/tags) to display names internally. Edit mode field order realigned to match view exactly:
+
+```
+Cuenta → Categoría → Subcategoría → Etiquetas → Estado → Referencia → Detalles
+```
+
+### Output
+
+- **Commit:** `28717f7` — fix(modal): show account name + align edit field order & labels to view
+
+### Key Lesson
+
+Modal pairs require parity in both presentation (labels, resolved IDs) and field sequence for consistent UX.
+
+---
+
 ## 2026-04-23: Mouse — Modal View-Edit Parity Round
 
 **Who:** Mouse (UI Designer)  
