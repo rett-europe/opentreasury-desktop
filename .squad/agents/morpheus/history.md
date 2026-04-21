@@ -37,6 +37,24 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-22T00:25:00Z — WI-21 Config CRUD backend landed (archive-only per Switch)
+
+**Status:** Backend surface complete on `wi-21/config-crud`; Trinity renderer still in flight. Decision drop at `.squad/decisions/inbox/morpheus-wi21-events-ipc.md`.
+
+### Key decisions
+
+1. **No `*.deleted` events. Ever.** Switch's cascade ruling (`switch-wi21-cascade-policy.md`) is the law. `Archived` stamps `archivedAt`, `Unarchived` clears it — both are pure reducer transitions, not tombstones.
+2. **Subcategory shape — first-class events, inlined projection.** SubcategoryCreated/Updated/Archived/Unarchived live on the NDJSON log with `parentCategoryId` as the routing key. The read model inlines them under `ConfigCategory.subcategories[]` so the renderer can fetch the whole picker tree with one `categories:list` call. Rationale: keeps event log granular for audit; avoids a new top-level stream; aligns with Switch's "no cascade" ruling (parent archive does NOT touch children).
+3. **Event `id` is the log dedupe key, not the entity id.** Pre-existing `JsonFileEventLog` dedupes by `event.id`. Re-using the entity id across `Created → Updated → Archived → Unarchived` would silently drop every mutation after the first. Fix: every mutation event carries `id: <fresh ULID>` plus a domain-named `{accountId|categoryId|subcategoryId|tagId}` field. `SubcategoryCreated` stays on the WI-15-lite `*Created` convention (`id` = entity id) because a create is unique-per-id by construction, and the renderer already relies on that shape.
+4. **`archivedAt?: string` is optional everywhere.** `selectActive*` helpers filter it out; list IPC handlers accept `{ includeArchived?: boolean }` (default `false`). Archived subcategories are also stripped from otherwise-active parent categories in the default view.
+5. **Backward-compat pinned by a replay test.** `reducers.wi21.test.ts > "replaying only pre-WI-21 *Created events produces an identical projection"` proves that an old NDJSON log still projects cleanly — no missing fields, no crashes, `archivedAt` undefined across the board.
+
+### Gotchas future-me will hit again
+
+- When adding mutation events to any append-only log stream, **always check how the log dedupes** before re-using an id. JsonFileEventLog uses `event.id` — not `(type, id)`, not `(dataset, id)`. Same pattern already shows up on `tx.note.added` and `tx.deleted` (envelope `id` = event ULID, `noteId`/`txId` = entity).
+- `exactOptionalPropertyTypes` strikes every time: to "clear" an optional field on a read-model record, destructure `{ field: _drop, ...rest }` and drop `_drop`. Don't set `undefined` — TypeScript will reject it.
+- Trinity's in-flight renderer work on the shared branch left the baseline `typecheck` and `format:check` red. Don't panic: run both, capture the baseline, then confirm your changes don't *add* errors. My files (core/main/shared/preload) are all clean; the residual prettier/tsc misses are renderer-side and Trinity's to close.
+
 ## 2026-04-20T20:33:00Z — ExcelJS cell normalization must happen at the boundary (SECOND TIME)
 
 **Status:** Completed and pushed to main (commit `738362d`).
