@@ -118,3 +118,218 @@
   font-size: var(--font-size-12);
   font-weight: var(--font-weight-medium);
 }
+
+/* ═══ Enhanced Configuration Patterns from PR #2 Prototype ═══ */
+
+/* Filter bar — search + chips + counts */
+.ot-config__filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-5);
+}
+
+.ot-config__search-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-14);
+  min-width: 0;
+  flex: 1;
+  min-width: 200px;
+}
+
+.ot-config__search-input:focus-within {
+  border-color: var(--color-brand-primary);
+  outline: 2px solid var(--color-brand-surface);
+  outline-offset: 1px;
+}
+
+.ot-config__search-input svg {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.ot-config__search-input input {
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-14);
+  min-width: 0;
+  flex: 1;
+}
+
+.ot-config__search-input input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.ot-config__filter-count {
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* Improved table layout for Cuentas */
+.ot-config__table-wrapper {
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.ot-config__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-14);
+}
+
+.ot-config__table thead th {
+  font-size: var(--font-size-12);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-align: left;
+  padding: var(--space-4) var(--space-4);
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--color-surface-primary);
+  white-space: nowrap;
+}
+
+.ot-config__table thead th.align-right {
+  text-align: right;
+}
+
+.ot-config__table tbody td {
+  padding: var(--space-4) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  vertical-align: middle;
+}
+
+.ot-config__table tbody tr {
+  transition: background-color 150ms ease;
+}
+
+.ot-config__table tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.ot-config__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ot-config__table td.align-right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ot-config__table-empty {
+  padding: var(--space-12) var(--space-6);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-14);
+}
+
+/* Row action buttons */
+.ot-config__row-actions {
+  display: inline-flex;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.ot-config__table tbody tr:hover .ot-config__row-actions {
+  opacity: 1;
+}
+
+.ot-config__row-action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  display: inline-grid;
+  place-items: center;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.ot-config__row-action-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.ot-config__row-action-btn--danger:hover {
+  background: color-mix(in srgb, var(--color-status-error) 15%, transparent);
+  color: var(--color-status-error);
+}
+
+/* Improved list grid for Etiquetas */
+.ot-config__tag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.ot-config__tag-grid-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  transition: box-shadow 150ms ease, transform 150ms ease;
+}
+
+.ot-config__tag-grid-item:hover {
+  box-shadow: var(--shadow-card);
+  transform: translateY(-1px);
+}
+
+.ot-config__tag-grid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.ot-config__tag-grid-actions {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+/* Small metadata text */
+.ot-config__meta-text {
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
+}
+
+/* Page header improvements */
+.ot-page-header__stats {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  font-size: var(--font-size-14);
+  color: var(--color-text-muted);
+}
+
+.ot-page-header__stat-separator {
+  color: var(--color-border-default);
+}

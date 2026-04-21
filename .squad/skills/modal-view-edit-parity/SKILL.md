@@ -98,7 +98,51 @@ const resolvedLabel = categoryLabel ?? category?.name ?? null;
 ❌ Different label styling (font-size, case, color) between modes  
 ❌ Adding extra min-height that makes the modal jump in size  
 ❌ **Different field ORDER between view and edit modes**  
-❌ **Showing raw FK IDs instead of resolved display names**
+❌ **Showing raw FK IDs instead of resolved display names**  
+❌ **Different min-height values for read-body vs edit-body — causes flicker**  
+❌ **Passing different props to the same modal from different screens**
+
+## Size Stability Rule
+
+The modal shell must maintain identical dimensions across mode toggles:
+
+```css
+/* BOTH modes must have the SAME min-height */
+.modal__read-body {
+  min-height: 520px;
+}
+
+.modal__edit-body {
+  min-height: 520px;  /* ← SAME as read-body */
+}
+```
+
+**Why it matters:** Users toggle view↔edit rapidly. If the modal shrinks or grows, it causes a jarring flicker and shifts the footer buttons they're about to click.
+
+## Cross-Screen Invocation Rule
+
+When the same modal component is used from multiple screens:
+
+1. **All screens must pass identical props** — if the modal needs `accounts`, `categories`, and `tags` for FK resolution, ALL callers must provide them
+2. **Extract to shared helper if divergence appears** — if one screen forgets to pass `categories`, the modal degrades silently (shows raw IDs)
+
+```tsx
+// WRONG — Dashboard passes only accounts
+<TransactionDetailModal
+  transaction={tx}
+  accounts={accounts}
+  onUpdate={...}
+/>
+
+// RIGHT — Dashboard passes the complete prop set
+<TransactionDetailModal
+  transaction={tx}
+  accounts={accounts}
+  categories={categories}  // ← FK resolution
+  tags={tags}               // ← FK resolution
+  onUpdate={...}
+/>
+```
 
 ## Visual Test
 

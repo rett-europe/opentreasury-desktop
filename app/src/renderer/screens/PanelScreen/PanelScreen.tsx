@@ -16,7 +16,10 @@ import type {
   RecentTransaction,
 } from '../../../shared/ipc-contracts/panel';
 import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
+import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import * as panelApi from '../../services/panelApi.js';
+import { listCategories } from '../../services/categoriesApi.js';
+import { listTags } from '../../services/tagsApi.js';
 import { updateTransaction, deleteTransaction } from '../../services/transactionApi.js';
 import './PanelScreen.css';
 
@@ -28,6 +31,8 @@ interface PanelData {
   kpis: GetMonthKPIsResponse['kpis'];
   sparklines: Map<string, GetAccountSparklinesResponse['sparkline']>;
   transactions: RecentTransaction[];
+  categories: CategoryRecord[];
+  tags: TagRecord[];
 }
 
 // Mock per-account transaction counts mirroring prototype/data.js. Replaced
@@ -59,11 +64,13 @@ export function PanelScreen(): JSX.Element {
 
       const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-      const [accountsResp, balancesResp, kpisResp, transactionsResp] = await Promise.all([
+      const [accountsResp, balancesResp, kpisResp, transactionsResp, categoriesResp, tagsResp] = await Promise.all([
         panelApi.getAccounts(),
         panelApi.getAccountBalances(),
         panelApi.getMonthKPIs(currentMonth),
         panelApi.queryRecentTransactions(8),
+        listCategories(),
+        listTags(),
       ]);
 
       const sparklinePromises = accountsResp.accounts.map((acc) =>
@@ -77,6 +84,8 @@ export function PanelScreen(): JSX.Element {
         kpis: kpisResp.kpis,
         sparklines: new Map(sparklineEntries),
         transactions: transactionsResp.transactions,
+        categories: categoriesResp.categories,
+        tags: tagsResp.tags,
       });
       setState('loaded');
     } catch (err) {
@@ -157,7 +166,7 @@ export function PanelScreen(): JSX.Element {
     );
   }
 
-  const { accounts, balances, kpis, sparklines, transactions } = data;
+  const { accounts, balances, kpis, sparklines, transactions, categories, tags } = data;
   const accountById = new Map(accounts.map((a) => [a.id, a]));
 
   const accountsWithBalances = accounts.map((acc) => {
@@ -347,6 +356,8 @@ export function PanelScreen(): JSX.Element {
         onClose={() => setSelectedTx(null)}
         transaction={selectedTx}
         accounts={accounts}
+        categories={categories}
+        tags={tags}
         onUpdate={async (input: UpdateTransactionRequest) => {
           const result = await updateTransaction(input);
           if (!result.ok) {

@@ -311,3 +311,33 @@ This violated the "edit is a skin of view" pattern. Switching modes caused a jar
 - ✅ Same field ORDER
 - ✅ Same LABEL markup (uppercase tracking from view's dt elements)
 - ✅ Only the value slot changes (dd text → input/select)
+
+### 2026-04-22: Modal Invocations Across Screens Must Pass Identical Props (Mouse)
+
+**BUG:** The TransactionDetailModal behaved differently when opened from Dashboard (PanelScreen) vs Transactions (MovementsScreen). Dashboard showed raw FK IDs (category ULIDs, tag ULIDs) while Transactions resolved them to names.
+
+**ROOT CAUSE:** PanelScreen was only passing `accounts` to the modal. It was NOT passing `categories` or `tags` arrays. Without those lookup arrays, the modal couldn't resolve category/tag IDs to display names.
+
+**FIX:** Updated PanelScreen to:
+1. Load `categories` and `tags` via `listCategories()` and `listTags()` in the `loadPanel()` function (added to the existing `Promise.all` call)
+2. Pass `categories={categories}` and `tags={tags}` to `TransactionDetailModal`
+
+Now both screens pass the identical props: `accounts`, `categories`, `tags`, `onUpdate`, `onDelete`.
+
+**RULE:** When the same modal component is used across multiple screens, ALL screens must pass the complete set of props needed for full functionality. Extract to a shared helper if the invocation pattern diverges.
+
+### 2026-04-22: Modal Size Must Be Stable Across View↔Edit Mode Toggle (Mouse)
+
+**BUG:** On the Transactions screen, toggling from view to edit mode caused a visible size flicker/jump. The modal container changed height.
+
+**ROOT CAUSE:** The CSS had different `min-height` values:
+- `ot-transaction-detail-modal__read-body`: `min-height: 520px`
+- `ot-transaction-detail-modal__edit-body`: `min-height: 400px`
+
+This 120px difference caused the modal to shrink when entering edit mode.
+
+**FIX:** Unified both to `min-height: 520px`. Now the modal container holds a stable size regardless of mode.
+
+**RULE:** Modal min-height must be set on the OUTER shell and be IDENTICAL for both view and edit modes. If inner content varies, use consistent min-height so the container doesn't reflow on toggle.
+
+**COMMIT:** see commit hash below
