@@ -702,3 +702,307 @@ body.theme-dark .badge-uncategorized { background: var(--clr-uncategorized-bg); 
   border-bottom: 1px solid var(--clr-border);
 }
 .yoy-head span:nth-child(2), .yoy-head span:nth-child(4) { text-align: right; }
+
+/* ═══ Configuration screens (Accounts / Categories / Tags) ═══ */
+
+/* Row-action icon buttons used inside list rows. */
+.row-action {
+  width: 28px; height: 28px; border-radius: var(--rad-md);
+  display: inline-grid; place-items: center;
+  color: var(--clr-text-muted);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.row-action:hover { background: var(--clr-row-hover); color: var(--clr-text-primary); }
+.row-action.danger:hover { background: var(--clr-expense-bg); color: var(--clr-expense); }
+
+/* Small colored square / round swatches. */
+.swatch {
+  width: 14px; height: 14px; border-radius: var(--rad-xs);
+  border: 1px solid var(--clr-border);
+  flex-shrink: 0;
+}
+.swatch.round { border-radius: 50%; }
+.swatch.lg { width: 20px; height: 20px; }
+
+/* Account avatar / icon tile (reused on Cuentas list) */
+.entity-icon {
+  width: 32px; height: 32px; border-radius: var(--rad-md);
+  display: grid; place-items: center;
+  color: white; flex-shrink: 0;
+}
+
+/* Master-detail layout used by Categorías. */
+.master-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spc-16);
+  align-items: start;
+}
+@media (max-width: 900px) { .master-detail { grid-template-columns: 1fr; } }
+
+/* Generic list-row pattern for master lists and detail sublists. */
+.list-rows { display: flex; flex-direction: column; }
+.list-row {
+  display: flex; align-items: center; gap: var(--spc-12);
+  padding: var(--spc-10) var(--spc-16);
+  border-bottom: 1px solid var(--clr-divider);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.list-row:last-child { border-bottom: none; }
+.list-row:hover { background: var(--clr-row-hover); }
+.list-row.active {
+  background: var(--brand-surface);
+  box-shadow: inset 3px 0 0 var(--brand-primary);
+}
+.list-row .lr-main { flex: 1; min-width: 0; }
+.list-row .lr-title {
+  font-size: var(--font-body); font-weight: var(--fw-medium);
+  color: var(--clr-text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.list-row .lr-sub {
+  font-size: var(--font-xs); color: var(--clr-text-muted);
+  margin-top: 2px;
+}
+.list-row .lr-actions {
+  display: inline-flex; gap: 2px;
+  opacity: 0; transition: opacity var(--transition-fast);
+}
+.list-row:hover .lr-actions,
+.list-row.active .lr-actions { opacity: 1; }
+
+/* Type pills for categories (Ingreso / Gasto) — semantic-tinted. */
+.type-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: var(--rad-pill);
+  font-size: var(--font-xs); font-weight: var(--fw-medium);
+}
+.type-pill.income  { color: var(--clr-income);  background: var(--clr-income-bg); }
+.type-pill.expense { color: var(--clr-expense); background: var(--clr-expense-bg); }
+
+/* Card section header with title on the left and an action on the right. */
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--spc-12) var(--spc-16);
+  border-bottom: 1px solid var(--clr-divider);
+}
+.card-head .ch-title {
+  font-size: var(--font-body); font-weight: var(--fw-semibold);
+  color: var(--clr-text-primary);
+}
+.card-head .ch-sub {
+  font-size: var(--font-xs); color: var(--clr-text-muted);
+  margin-top: 2px;
+}
+
+/* Inline "Add" row at the bottom of a list — ghost CTA. */
+.list-add {
+  display: flex; align-items: center; gap: var(--spc-8);
+  padding: var(--spc-10) var(--spc-16);
+  color: var(--brand-primary); font-weight: var(--fw-medium);
+  font-size: var(--font-body);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.list-add:hover { background: var(--brand-surface); }
+
+/* Empty state used inside detail cards. */
+.empty-state {
+  padding: var(--spc-48) var(--spc-24);
+  text-align: center; color: var(--clr-text-muted);
+}
+.empty-state .es-icon {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--brand-surface); color: var(--brand-primary);
+  display: inline-grid; place-items: center;
+  margin-bottom: var(--spc-12);
+}
+
+/* Tag grid (Etiquetas) */
+.tag-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--spc-12);
+}
+.tag-card {
+  display: flex; align-items: center; gap: var(--spc-12);
+  padding: var(--spc-12) var(--spc-16);
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--rad-lg);
+  box-shadow: var(--elev-card);
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
+}
+.tag-card:hover { box-shadow: var(--elev-card-hover); }
+.tag-card .tc-main { flex: 1; min-width: 0; }
+.tag-card .tc-name {
+  font-size: var(--font-body); font-weight: var(--fw-medium);
+  color: var(--clr-text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tag-card .tc-meta {
+  font-size: var(--font-xs); color: var(--clr-text-muted);
+  margin-top: 2px;
+}
+.tag-card .tc-actions { display: inline-flex; gap: 2px; }
+
+/* Monospaced readout for identifiers (IBAN, tag id, etc.) */
+.code-mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--font-xs); color: var(--clr-text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* Inline IBAN with a reveal/hide affordance. */
+.iban-reveal {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.iban-reveal .code-mono {
+  color: var(--clr-text-secondary);
+}
+.iban-reveal .row-action { width: 22px; height: 22px; }
+
+/* ═══ Modal dialog (Create / Edit entity) ═══ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(20, 15, 28, 0.48);
+  backdrop-filter: blur(2px);
+  display: grid; place-items: center;
+  z-index: 2000;
+  animation: fadeIn 140ms ease-out;
+  padding: var(--spc-24);
+}
+body.theme-dark .modal-overlay {
+  background: rgba(0, 0, 0, 0.60);
+}
+.modal {
+  width: 100%;
+  max-width: 520px;
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--rad-lg);
+  box-shadow: var(--elev-dialog);
+  max-height: calc(100vh - 48px);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.modal.modal-lg { max-width: 640px; }
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--spc-16) var(--spc-20);
+  border-bottom: 1px solid var(--clr-divider);
+}
+.modal-head h2 {
+  margin: 0;
+  font-size: var(--font-lg); font-weight: var(--fw-semibold);
+  color: var(--clr-text-primary);
+}
+.modal-head .mh-sub {
+  margin-top: 2px;
+  font-size: var(--font-xs); color: var(--clr-text-muted);
+}
+.modal-body {
+  padding: var(--spc-20);
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--spc-16);
+}
+.modal-foot {
+  display: flex; align-items: center; justify-content: flex-end; gap: var(--spc-8);
+  padding: var(--spc-12) var(--spc-20);
+  border-top: 1px solid var(--clr-divider);
+  background: var(--clr-surface-panel);
+}
+.modal-foot .mf-spacer { flex: 1; }
+
+/* Form primitives used inside modals */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field-row {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: var(--spc-12);
+}
+@media (max-width: 520px) { .field-row { grid-template-columns: 1fr; } }
+.field label {
+  font-size: var(--font-xs);
+  color: var(--clr-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-section);
+  font-weight: var(--fw-semibold);
+}
+.field label .req { color: var(--clr-expense); margin-left: 2px; }
+.field .hint {
+  font-size: var(--font-xs); color: var(--clr-text-muted);
+}
+.input {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--rad-md);
+  background: var(--clr-surface);
+  color: var(--clr-text-primary);
+  font-size: var(--font-body);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.input:focus-within {
+  border-color: var(--brand-primary-light);
+  box-shadow: 0 0 0 3px var(--brand-surface);
+}
+.input input, .input select, .input textarea {
+  flex: 1; min-width: 0;
+  border: none; outline: none; background: transparent;
+  color: var(--clr-text-primary);
+  font-size: var(--font-body);
+  font-family: inherit;
+}
+.input textarea { resize: vertical; min-height: 64px; }
+.input svg { color: var(--clr-text-muted); flex-shrink: 0; }
+.input.mono input { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; letter-spacing: 0.02em; }
+
+/* Color-swatch picker for tags / accounts */
+.swatch-picker {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.swatch-picker .swatch-btn {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 2px;
+  background-clip: content-box;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+.swatch-picker .swatch-btn:hover { transform: scale(1.06); }
+.swatch-picker .swatch-btn.active {
+  border-color: var(--brand-primary);
+}
+
+/* Preview card inside a modal (shows how the saved entity will appear) */
+.preview-box {
+  padding: var(--spc-12) var(--spc-16);
+  border: 1px dashed var(--clr-border);
+  border-radius: var(--rad-md);
+  background: var(--clr-surface-panel);
+  display: flex; align-items: center; gap: var(--spc-12);
+}
+.preview-box .pb-label {
+  font-size: var(--font-xs);
+  color: var(--clr-text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-section);
+  font-weight: var(--fw-semibold);
+  margin-right: var(--spc-8);
+}
+
+/* Inline callout (informational strip used to explain the Label concept, etc.) */
+.callout {
+  display: flex; gap: var(--spc-12);
+  padding: var(--spc-12) var(--spc-16);
+  border-radius: var(--rad-md);
+  background: var(--brand-surface);
+  color: var(--clr-text-secondary);
+  font-size: var(--font-sm);
+  line-height: 1.4;
+}
+.callout .ca-icon {
+  color: var(--brand-primary); flex-shrink: 0; margin-top: 1px;
+}
+.callout strong { color: var(--clr-text-primary); }
