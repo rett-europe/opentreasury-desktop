@@ -165,6 +165,98 @@ Chose 720px for edit mode (vs 640px read-only) because:
 - 720px provides adequate horizontal space without overwhelming smaller screens (max-width: 92vw ensures mobile safety).
 - Smooth transition via CSS (`transition: width 0.2s ease`) prevents jank.
 
+### 2026-04-21: WI-20 Polish — Unified Modal Width & Chip-based Multi-Select — shipped
+
+**By:** Trinity (Frontend Dev)  
+**Status:** ✅ SHIPPED (376 tests green, +6 new)
+
+**Context:** After WI-20 in-place swap shipped, Pedro reported 4 polish bugs during testing:
+1. MovementsScreen table right-edge clipping on narrow viewports (<~1200px) — no horizontal scroll
+2. Edit modal still cramped despite 720px (two-column form squeezed too tightly)
+3. Edit triggers jarring shape change (width jumped 640px → 720px, reflow jank)
+4. Label picker requires Ctrl+click to unselect (native `<select multiple>` UX)
+
+**Decisions:**
+
+#### 1. Table Overflow Container
+**Decision:** Wrap MovementsScreen `<Table>` in `overflow-x: auto` container.
+
+**Rationale:** Simple, reliable pattern — table preserves natural width, scrollbar appears when needed. Matches PanelScreen's transaction list pattern.
+
+**Implementation:**
+```tsx
+<div className="ot-movements__table-container">
+  <Table ... />
+</div>
+```
+```css
+.ot-movements__table-container {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+}
+```
+
+#### 2. Unified Modal Width (760px)
+**Decision:** TransactionDetailModal uses **760px for both read and edit modes**. No width transition.
+
+**Rationale:**
+- Eliminates jarring shape change — both modes same width, only body content swaps.
+- 760px provides adequate breathing room for two-column layout:
+  - Row 1: Date / Type (narrow) — fits comfortably
+  - Row 2: Amount / Account — fits comfortably
+  - Row 3: Category / Tags (chip picker, expands vertically) — fits comfortably
+  - Row 4: Status / Reference — fits comfortably
+  - Full-width: Description, Details (textarea)
+- Larger than 640px (too cramped, labels truncated) but smaller than typical desktop web apps (800-900px, respects Electron constraints)
+- `max-width: 92vw` ensures mobile safety (modal shrinks on small screens)
+
+**Comparison:**
+- 640px: Too narrow for two-column form, labels truncated, focus rings clipped
+- 720px (first attempt): Still cramped; only 40px/column wider than 640px
+- 760px (final): Two-column layout breathes, inputs adequate horizontal space, labels don't truncate
+
+**No transition removed:** Both modes use same width, only body content swaps (fields ↔ inputs). Removed `transition: width 0.2s ease` since no width change occurs.
+
+#### 3. Form Input Full-Width
+**Decision:** All form inputs use `width: 100%` within their column.
+
+**Rationale:** Without full-width, inputs defaulted to narrow intrinsic widths. Full-width inputs maximize available horizontal space per column. Combined with 760px modal, provides adequate breathing room.
+
+#### 4. Chip-based Multi-Select for Tags (TagChipPicker)
+**Decision:** Replaced native `<select multiple>` with custom **TagChipPicker** component. Single-click toggle; no Ctrl/Cmd required.
+
+**Rationale:**
+- Native `<select multiple>` poor UX: requires Ctrl+click, non-obvious state, poor mobile support
+- Chip-based toggles: intuitive single-click, visually clear (filled selected / outline unselected + checkmark), accessible (aria-pressed, keyboard nav), mobile-friendly, familiar pattern (Gmail labels, Linear, Trello)
+
+**Component API:**
+```tsx
+interface TagChipPickerProps {
+  readonly availableTags: readonly { id: string; name: string }[];
+  readonly selectedIds: readonly string[];
+  readonly onToggle: (tagId: string) => void;
+  readonly disabled?: boolean;
+}
+```
+
+**Visual states:**
+- Unselected: outline border, grey text, transparent bg; hover → light grey
+- Selected: filled brand-primary bg, white text, checkmark; hover → darker brand
+- Disabled: 50% opacity, not-allowed cursor
+
+**Reusability:** Pattern can be extracted to generic `ChipMultiSelect` for other multi-select UIs (category filters, status filters). For now, TagChipPicker is specialized for tags.
+
+**Outcomes:** All 4 bugs fixed:
+1. ✅ Table scrolls horizontally on narrow viewports — all columns visible
+2. ✅ Unified 760px modal provides adequate form layout breathing room
+3. ✅ Shape change eliminated — no jarring jump on edit click
+4. ✅ Single-click toggle (no Ctrl/Cmd) — intuitive, accessible, mobile-friendly
+
+**Test coverage:** +6 new tests for TagChipPicker (render, toggle selection, disabled state, empty state, aria-pressed).
+
+**Gates:** typecheck ✅, lint ✅, prettier ✅, tests ✅ (370 → 376 passed), build ✅
+
+**Next steps:** Monitor Pedro's feedback on 760px width. If still too cramped, consider 800px or single-column layout. Consider extracting generic ChipMultiSelect if needed for other multi-select UIs.
 
 ---
 ### 2026-04-20: WI-19 — Transaction extras (reference / details / notes) — shipped

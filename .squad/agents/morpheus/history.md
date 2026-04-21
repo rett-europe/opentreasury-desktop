@@ -936,3 +936,25 @@ All 122 import tests green · typecheck ✓ · lint ✓ · format:check ✓ · b
 
 **Note for future refactors:** If AddTransactionModal is refactored to use TransactionFormFields (currently uses its own inline markup), the duplication will resolve further. The component is ready; no urgent work needed.
 
+
+## 2026-04-21T07:46:31Z — Trinity: UI Polish Round — Unified Modal + TagChipPicker
+
+**Agent:** Trinity (Frontend Dev)  
+**Event:** WI-20 polish round shipped (4 bugs fixed)
+
+**Frontend UI changes (renderer):**
+- MovementsScreen table now wrapped in overflow-x: auto container — horizontal scroll on narrow viewports, all columns visible
+- TransactionDetailModal unified at 760px for BOTH read and edit modes — eliminates jarring shape change (was 640px read, 720px edit)
+- Form inputs use width: 100% within columns — adequate horizontal space for two-column layout
+- **NEW:** TagChipPicker component replaces native <select multiple> for tag selection:
+  - Single-click toggle (no Ctrl/Cmd required)
+  - Visual states: outline chip (unselected), filled chip + checkmark (selected)
+  - Accessible: aria-pressed state, keyboard navigable, screen-reader friendly
+  - Mobile-friendly: touch targets, no modifier keys
+  - Pattern matches Gmail labels, Linear labels, Trello labels
+
+**No backend impact:** All changes are renderer-only UI polish. No IPC contract changes, no event model changes.
+
+**Worth noting for integration testing:** If you're testing the renderer against mock backend data, verify TransactionDetailModal modal width expectations (760px fixed). Tag selection UX now single-click (was Ctrl+click).
+
+See .squad/decisions.md § "2026-04-21: WI-20 Polish" for full decision log (table overflow pattern, modal width rationale, chip picker component spec).
