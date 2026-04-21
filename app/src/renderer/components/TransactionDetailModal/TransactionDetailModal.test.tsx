@@ -108,9 +108,10 @@ describe('TransactionDetailModal', () => {
       screen.getByRole('heading', { name: /Edit Transaction|Editar Movimiento/i }),
     ).toBeTruthy();
 
-    // Form inputs should now be visible (amount input, description input, etc.)
-    expect(screen.getByLabelText(/Amount|Importe/i)).toBeTruthy();
-    expect(screen.getByLabelText(/Description|Concepto/i)).toBeTruthy();
+    // Edit mode shows editable metadata fields (Account, Category, Status, etc.)
+    // Date/Description/Amount remain read-only in summary header (same as view mode)
+    expect(screen.getByLabelText(/Account|Cuenta/i)).toBeTruthy();
+    expect(screen.getByLabelText(/Status|Estado/i)).toBeTruthy();
 
     // Footer should now show "Cancel" and "Save" buttons instead of "Edit" and "Close"
     expect(screen.getByRole('button', { name: /Cancel|Cancelar/i })).toBeTruthy();

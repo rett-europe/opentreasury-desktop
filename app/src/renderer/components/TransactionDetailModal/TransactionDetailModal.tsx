@@ -259,6 +259,18 @@ export function TransactionDetailModal({
   const account = accounts.find((a) => a.id === transaction.accountId);
   const accountLabel = account?.accountLabel ?? transaction.accountId;
 
+  // Resolve FK IDs to display names — never show raw IDs in the UI
+  const category = categories.find((c) => c.id === transaction.categoryId);
+  const resolvedCategoryLabel = categoryLabel ?? category?.name ?? null;
+  const subcategory = categories.find((c) => c.id === transaction.subcategoryId);
+  const resolvedSubcategoryLabel = subcategoryLabel ?? subcategory?.name ?? null;
+  const resolvedTagLabels: readonly string[] =
+    tagLabels ??
+    transaction.tagIds
+      ?.map((tid) => tags.find((t) => t.id === tid)?.name)
+      .filter((n): n is string => !!n) ??
+    [];
+
   const amountClass = transaction.type === 'income' ? 'ot-amount--income' : 'ot-amount--expense';
   const signed = transaction.type === 'expense' ? -transaction.amount : transaction.amount;
   const formattedAmount = new Intl.NumberFormat(navigator.language, {
@@ -266,8 +278,6 @@ export function TransactionDetailModal({
     currency: transaction.currency,
     signDisplay: 'auto',
   }).format(signed);
-
-  const resolvedTagLabels: readonly string[] = tagLabels ?? transaction.tagIds;
 
   // Modal title changes in edit mode
   const modalTitle = isEditMode ? t('movements.form.editTitle') : t('transactionDetail.title');
@@ -359,6 +369,7 @@ export function TransactionDetailModal({
               tags={tags}
               errors={errors}
               mode="edit"
+              currency={transaction.currency}
             />
           </div>
         ) : (
@@ -388,19 +399,11 @@ export function TransactionDetailModal({
                   </div>
                   <div className="ot-transaction-detail-modal__field">
                     <dt>{t('transactionDetail.fields.category')}</dt>
-                    <dd>
-                      {categoryLabel ??
-                        transaction.categoryId ??
-                        t('transactionDetail.fields.none')}
-                    </dd>
+                    <dd>{resolvedCategoryLabel ?? t('transactionDetail.fields.none')}</dd>
                   </div>
                   <div className="ot-transaction-detail-modal__field">
                     <dt>{t('transactionDetail.fields.subcategory')}</dt>
-                    <dd>
-                      {subcategoryLabel ??
-                        transaction.subcategoryId ??
-                        t('transactionDetail.fields.none')}
-                    </dd>
+                    <dd>{resolvedSubcategoryLabel ?? t('transactionDetail.fields.none')}</dd>
                   </div>
                   <div className="ot-transaction-detail-modal__field">
                     <dt>{t('transactionDetail.fields.tags')}</dt>

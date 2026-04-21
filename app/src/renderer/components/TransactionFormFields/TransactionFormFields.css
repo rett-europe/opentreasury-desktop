@@ -37,6 +37,14 @@
   margin-bottom: var(--space-1);
 }
 
+/* Read-only value styling identical to view mode's dd */
+.ot-tx-fields__value {
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  padding: var(--space-2) 0;
+}
+
 /* Input styling: subtle, low visual weight to match view mode's dd text */
 .ot-tx-fields__input {
   width: 100%;

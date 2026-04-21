@@ -33,15 +33,23 @@ export interface TransactionFormFieldsProps {
   errors?: Record<string, string | undefined>;
   readonly?: boolean;
   mode?: 'add' | 'edit';
+  /** Currency for read-only display (edit mode mirrors view's currency field) */
+  currency?: string;
 }
 
 /**
  * TransactionFormFields — Shared form field markup for transaction entry.
- * Used by both AddTransactionModal (mode=add) and TransactionDetailModal (in-place edit).
  *
- * Two-column layout for compact fields (date/type, amount/account, status/reference)
- * and full-width for description/category/tags/details. This structure matches
- * the existing TransactionFormModal pattern and provides adequate breathing room.
+ * In edit mode, field ORDER and LABEL styling MIRRORS the view mode exactly:
+ *   Row 1: Account / Category
+ *   Row 2: Subcategory / Tags
+ *   Row 3: Status / Currency (read-only)
+ *   Then: Reference, Details (extra sections)
+ *
+ * In add mode, includes editable date/type/amount/description at the top
+ * since those aren't provided by a summary header.
+ *
+ * Labels use same uppercase tracking style as view mode's dt elements.
  */
 export function TransactionFormFields({
   date,
@@ -56,8 +64,8 @@ export function TransactionFormFields({
   onAccountIdChange,
   categoryId,
   onCategoryIdChange,
-  subcategoryId: _subcategoryId,
-  onSubcategoryIdChange: _onSubcategoryIdChange,
+  subcategoryId,
+  onSubcategoryIdChange,
   tagIds,
   onTagIdsChange,
   status,
@@ -72,9 +80,178 @@ export function TransactionFormFields({
   errors = {},
   readonly = false,
   mode = 'add',
+  currency,
 }: TransactionFormFieldsProps): JSX.Element {
   const { t } = useTranslation('common');
 
+  // Edit mode: field order mirrors view mode (Account → Category → Subcategory → Tags → Status → Currency)
+  // Add mode: includes editable date/type/amount/description at the top
+  if (mode === 'edit') {
+    return (
+      <div className="ot-tx-fields">
+        {/* Row 1: Account / Category — matches view mode */}
+        <div className="ot-tx-fields__row">
+          <div className="ot-tx-fields__field">
+            <label htmlFor="tx-account" className="ot-tx-fields__label">
+              {t('transactionDetail.fields.account')}
+            </label>
+            <select
+              id="tx-account"
+              value={accountId}
+              onChange={(e) => onAccountIdChange(e.target.value)}
+              className="ot-tx-fields__input"
+              aria-invalid={!!errors.accountId}
+              aria-describedby={errors.accountId ? 'error-account' : undefined}
+              disabled={readonly || mode === 'edit'}
+            >
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.accountLabel}
+                </option>
+              ))}
+            </select>
+            {errors.accountId && (
+              <span id="error-account" className="ot-tx-fields__field-error">
+                {errors.accountId}
+              </span>
+            )}
+          </div>
+
+          <div className="ot-tx-fields__field">
+            <label htmlFor="tx-category" className="ot-tx-fields__label">
+              {t('transactionDetail.fields.category')}
+            </label>
+            <select
+              id="tx-category"
+              value={categoryId}
+              onChange={(e) => onCategoryIdChange(e.target.value)}
+              className="ot-tx-fields__input"
+              disabled={readonly}
+            >
+              <option value="">{t('transactionDetail.fields.none')}</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Row 2: Subcategory / Tags — matches view mode */}
+        <div className="ot-tx-fields__row">
+          <div className="ot-tx-fields__field">
+            <label htmlFor="tx-subcategory" className="ot-tx-fields__label">
+              {t('transactionDetail.fields.subcategory')}
+            </label>
+            <select
+              id="tx-subcategory"
+              value={subcategoryId}
+              onChange={(e) => onSubcategoryIdChange(e.target.value)}
+              className="ot-tx-fields__input"
+              disabled={readonly}
+            >
+              <option value="">{t('transactionDetail.fields.none')}</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="ot-tx-fields__field">
+            <label className="ot-tx-fields__label">{t('transactionDetail.fields.tags')}</label>
+            <TagChipPicker
+              availableTags={tags}
+              selectedIds={tagIds}
+              onToggle={(tagId) => {
+                const newTagIds = tagIds.includes(tagId)
+                  ? tagIds.filter((id) => id !== tagId)
+                  : [...tagIds, tagId];
+                onTagIdsChange(newTagIds);
+              }}
+              disabled={readonly}
+            />
+          </div>
+        </div>
+
+        {/* Row 3: Status / Currency — matches view mode */}
+        <div className="ot-tx-fields__row">
+          <div className="ot-tx-fields__field">
+            <label htmlFor="tx-status" className="ot-tx-fields__label">
+              {t('transactionDetail.fields.status')}
+            </label>
+            <select
+              id="tx-status"
+              value={status}
+              onChange={(e) => onStatusChange(e.target.value as 'pending' | 'approved')}
+              className="ot-tx-fields__input"
+              disabled={readonly}
+            >
+              <option value="approved">{t('movements.status.approved')}</option>
+              <option value="pending">{t('movements.status.pending')}</option>
+            </select>
+          </div>
+
+          <div className="ot-tx-fields__field">
+            <span className="ot-tx-fields__label">{t('transactionDetail.fields.currency')}</span>
+            <span className="ot-tx-fields__value">{currency ?? '—'}</span>
+          </div>
+        </div>
+
+        {/* Reference — matches view mode extra section */}
+        <div className="ot-tx-fields__field">
+          <label htmlFor="tx-reference" className="ot-tx-fields__label">
+            {t('transactionDetail.fields.reference')}
+          </label>
+          <input
+            id="tx-reference"
+            type="text"
+            value={reference}
+            onChange={(e) => onReferenceChange(e.target.value)}
+            placeholder={t('movements.form.placeholders.reference')}
+            maxLength={120}
+            className="ot-tx-fields__input"
+            aria-invalid={!!errors.reference}
+            aria-describedby={errors.reference ? 'error-reference' : undefined}
+            disabled={readonly}
+          />
+          {errors.reference && (
+            <span id="error-reference" className="ot-tx-fields__field-error">
+              {errors.reference}
+            </span>
+          )}
+        </div>
+
+        {/* Details — matches view mode extra section */}
+        <div className="ot-tx-fields__field">
+          <label htmlFor="tx-details" className="ot-tx-fields__label">
+            {t('transactionDetail.fields.details')}
+          </label>
+          <textarea
+            id="tx-details"
+            value={details}
+            onChange={(e) => onDetailsChange(e.target.value)}
+            placeholder={t('movements.form.placeholders.details')}
+            maxLength={1000}
+            rows={3}
+            className="ot-tx-fields__input"
+            aria-invalid={!!errors.details}
+            aria-describedby={errors.details ? 'error-details' : undefined}
+            disabled={readonly}
+          />
+          {errors.details && (
+            <span id="error-details" className="ot-tx-fields__field-error">
+              {errors.details}
+            </span>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Add mode: includes editable date/type/amount/description first
   return (
     <div className="ot-tx-fields">
       {/* Row 1: Date / Type */}
@@ -152,7 +329,7 @@ export function TransactionFormFields({
 
         <div className="ot-tx-fields__field">
           <label htmlFor="tx-account" className="ot-tx-fields__label">
-            {t('movements.form.fields.account')}
+            {t('transactionDetail.fields.account')}
           </label>
           <select
             id="tx-account"
@@ -161,7 +338,7 @@ export function TransactionFormFields({
             className="ot-tx-fields__input"
             aria-invalid={!!errors.accountId}
             aria-describedby={errors.accountId ? 'error-account' : undefined}
-            disabled={readonly || mode === 'edit'}
+            disabled={readonly}
           >
             {accounts.map((acc) => (
               <option key={acc.id} value={acc.id}>
@@ -201,11 +378,11 @@ export function TransactionFormFields({
         )}
       </div>
 
-      {/* Row 3: Category / Tags */}
+      {/* Row 3: Category / Subcategory */}
       <div className="ot-tx-fields__row">
         <div className="ot-tx-fields__field">
           <label htmlFor="tx-category" className="ot-tx-fields__label">
-            {t('movements.form.fields.category')}
+            {t('transactionDetail.fields.category')}
           </label>
           <select
             id="tx-category"
@@ -214,7 +391,7 @@ export function TransactionFormFields({
             className="ot-tx-fields__input"
             disabled={readonly}
           >
-            <option value="">{t('configuracion.categorias.none')}</option>
+            <option value="">{t('transactionDetail.fields.none')}</option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -224,7 +401,30 @@ export function TransactionFormFields({
         </div>
 
         <div className="ot-tx-fields__field">
-          <label className="ot-tx-fields__label">{t('movements.form.fields.tags')}</label>
+          <label htmlFor="tx-subcategory" className="ot-tx-fields__label">
+            {t('transactionDetail.fields.subcategory')}
+          </label>
+          <select
+            id="tx-subcategory"
+            value={subcategoryId}
+            onChange={(e) => onSubcategoryIdChange(e.target.value)}
+            className="ot-tx-fields__input"
+            disabled={readonly}
+          >
+            <option value="">{t('transactionDetail.fields.none')}</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Row 4: Tags / Status */}
+      <div className="ot-tx-fields__row">
+        <div className="ot-tx-fields__field">
+          <label className="ot-tx-fields__label">{t('transactionDetail.fields.tags')}</label>
           <TagChipPicker
             availableTags={tags}
             selectedIds={tagIds}
@@ -237,13 +437,10 @@ export function TransactionFormFields({
             disabled={readonly}
           />
         </div>
-      </div>
 
-      {/* Row 4: Status / Reference */}
-      <div className="ot-tx-fields__row">
         <div className="ot-tx-fields__field">
           <label htmlFor="tx-status" className="ot-tx-fields__label">
-            {t('movements.form.fields.status')}
+            {t('transactionDetail.fields.status')}
           </label>
           <select
             id="tx-status"
@@ -256,35 +453,36 @@ export function TransactionFormFields({
             <option value="pending">{t('movements.status.pending')}</option>
           </select>
         </div>
-
-        <div className="ot-tx-fields__field">
-          <label htmlFor="tx-reference" className="ot-tx-fields__label">
-            {t('movements.form.fields.reference')}
-          </label>
-          <input
-            id="tx-reference"
-            type="text"
-            value={reference}
-            onChange={(e) => onReferenceChange(e.target.value)}
-            placeholder={t('movements.form.placeholders.reference')}
-            maxLength={120}
-            className="ot-tx-fields__input"
-            aria-invalid={!!errors.reference}
-            aria-describedby={errors.reference ? 'error-reference' : undefined}
-            disabled={readonly}
-          />
-          {errors.reference && (
-            <span id="error-reference" className="ot-tx-fields__field-error">
-              {errors.reference}
-            </span>
-          )}
-        </div>
       </div>
 
-      {/* Full-width: Details */}
+      {/* Reference */}
+      <div className="ot-tx-fields__field">
+        <label htmlFor="tx-reference" className="ot-tx-fields__label">
+          {t('transactionDetail.fields.reference')}
+        </label>
+        <input
+          id="tx-reference"
+          type="text"
+          value={reference}
+          onChange={(e) => onReferenceChange(e.target.value)}
+          placeholder={t('movements.form.placeholders.reference')}
+          maxLength={120}
+          className="ot-tx-fields__input"
+          aria-invalid={!!errors.reference}
+          aria-describedby={errors.reference ? 'error-reference' : undefined}
+          disabled={readonly}
+        />
+        {errors.reference && (
+          <span id="error-reference" className="ot-tx-fields__field-error">
+            {errors.reference}
+          </span>
+        )}
+      </div>
+
+      {/* Details */}
       <div className="ot-tx-fields__field">
         <label htmlFor="tx-details" className="ot-tx-fields__label">
-          {t('movements.form.fields.details')}
+          {t('transactionDetail.fields.details')}
         </label>
         <textarea
           id="tx-details"

@@ -277,3 +277,37 @@ When a flex item contains wide content (like a table), it defaults to `min-width
 **KEY PRINCIPLE:** The edit modal should visually feel like you're editing IN PLACE within the same layout, not teleporting to a different dialog. Labels, row order, and column layout must be identical; only the value cells transform.
 
 **COMMIT:** see commit hash below
+
+### 2026-04-22: FK Columns Must Resolve to Display Names — Never Render Raw IDs (Mouse)
+
+**BUG:** The view modal's CUENTA field was rendering raw ULIDs like `01KPN5TXCPDJA6227JJAG07RF4` instead of the account name. Similar issue for category/subcategory/tags if the parent component didn't pass pre-resolved label props.
+
+**ROOT CAUSE:** The modal was falling back to raw `transaction.categoryId` / `transaction.subcategoryId` / `transaction.tagIds` when `categoryLabel`, `subcategoryLabel`, `tagLabels` props weren't passed. The calling screens (PanelScreen, MovementsScreen) weren't passing these props, relying on the modal to display raw FK values.
+
+**FIX:** The modal now resolves FK IDs internally using the `categories` and `tags` arrays that ARE passed:
+```typescript
+const category = categories.find((c) => c.id === transaction.categoryId);
+const resolvedCategoryLabel = categoryLabel ?? category?.name ?? null;
+```
+This makes the modal self-sufficient — if pre-resolved labels are passed, use them; otherwise, resolve from the passed reference arrays.
+
+**RULE:** FK columns in any detail view must ALWAYS resolve to display names. Never render raw IDs. If the data isn't joined upstream, do the lookup inline from available reference data.
+
+### 2026-04-22: Edit Mode Field Order Must Match View Mode Exactly (Mouse)
+
+**BUG:** Edit mode showed fields in a completely different order than view mode:
+- **View:** Account → Category → Subcategory → Tags → Status → Currency
+- **Edit (was):** Date → Type → Amount → Account → Description → Category → Tags → Status → Reference → Details
+
+This violated the "edit is a skin of view" pattern. Switching modes caused a jarring field reshuffle.
+
+**FIX:** TransactionFormFields now has two render paths:
+1. **Edit mode:** Field order mirrors view exactly (Account/Category, Subcategory/Tags, Status/Currency). Date/description/amount stay in the read-only summary header.
+2. **Add mode:** Includes editable date/type/amount/description at top since those aren't provided by a summary header.
+
+**LESSON:** "Edit as skin of view" extends to:
+- ✅ Same spacing/gaps
+- ✅ Same min-height
+- ✅ Same field ORDER
+- ✅ Same LABEL markup (uppercase tracking from view's dt elements)
+- ✅ Only the value slot changes (dd text → input/select)
