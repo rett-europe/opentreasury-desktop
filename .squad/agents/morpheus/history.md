@@ -37,6 +37,18 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-22T10:40:00Z — PR #4 round 2: tightening update invariants
+
+**Status:** Pushed to `wi-21/config-crud` (commit `4f30d11`). Decision drop at `.squad/decisions/inbox/morpheus-pr4-round2-invariants.md`. Addresses 7 of 19 Copilot PR reviewer findings on 57ae73b (Trinity owns the other 12 renderer ones).
+
+### Durable learnings
+
+- **Zod `.refine` on "at least one change" must inspect VALUES, not KEYS.** `Object.keys(c).length > 0` passes for `{ color: undefined }` and lets a no-op `*Updated` event into the log. Correct predicate: `Object.values(c).some((v) => v !== undefined)`. Rule of thumb: any refine on an object-of-optionals needs to test what the keys carry, not that the keys exist.
+- **Optional-string update handlers need trim + empty→delete, not trim alone.** The WI-21 reducers apply `changes.color` whenever the key is present (`!== undefined`). Leaving `''` in the payload overwrites a previously-valid colour with an empty string in the read model — diverging from create-time semantics that just omit empty optionals. Pattern: after trim, `delete normalised.color` (or `undefined`) when length is 0, *plus* a final `Object.values(normalised).some(...)` check so a payload that was all-whitespace can't smuggle a no-op event through.
+- **Schema rejections must match handler rejections EXACTLY.** Any divergence is a bug. `createSubcategoryRequestSchema.name: z.string()` was accepting `''` while the handler rejected it — caught by the PR bot. `z.string().min(1)` at the schema is the right line of defence; the handler's trim-check then covers whitespace-only names.
+- **Event-sourced = permanent.** Any invariant breach that reaches NDJSON replays forever. Two-layered defence (schema boundary + handler) is the minimum; both layers must agree.
+- **Shared working tree with a parallel agent is hostile terrain.** Trinity's in-flight renderer changes appeared in the working tree while I ran tests, and at one point her process reset the tree (reflog showed `reset: moving to HEAD`) and wiped my uncommitted edits. Lessons: (1) commit your changes ASAP, don't let them sit in the worktree across long gate runs; (2) when tests/typecheck surface errors in files you don't own, `git stash push -- <their-paths>` to validate your work in isolation before drawing conclusions about baselines; (3) always `git add` an explicit file list, never `git add .` on a shared tree.
+
 ## 2026-04-22T00:25:00Z — WI-21 Config CRUD backend landed (archive-only per Switch)
 
 **Status:** Backend surface complete on `wi-21/config-crud`; Trinity renderer still in flight. Decision drop at `.squad/decisions/inbox/morpheus-wi21-events-ipc.md`.
