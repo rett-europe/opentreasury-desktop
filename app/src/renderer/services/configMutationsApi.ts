@@ -62,7 +62,7 @@ export type { SubcategoryRecord } from '../../shared/ipc-contracts/categories.js
 // ---------------------------------------------------------------------------
 
 export interface ArchivableMeta {
-  readonly archivedAt?: string;
+  readonly archivedAt?: string | undefined;
 }
 
 export type ConfigAccount = AccountRecord & ArchivableMeta;

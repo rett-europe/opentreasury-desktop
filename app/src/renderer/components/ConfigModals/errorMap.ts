@@ -34,9 +34,11 @@ export function mapConfigErrorToFieldKey(code: string): string {
  * archive/unarchive handlers, archive dialog) so English `err.message` doesn't
  * leak into the Spanish UI.
  */
+import type { TFunction } from 'i18next';
+
 export function mapConfigMutationErrorToMessage(
   err: { readonly code: string; readonly message: string; readonly field?: string | undefined },
-  t: (key: string, opts?: Record<string, unknown>) => string,
+  t: TFunction,
 ): string {
   const key = mapConfigErrorToFieldKey(err.code);
   return t(`configuracion.errors.${key}`, { defaultValue: err.message });
