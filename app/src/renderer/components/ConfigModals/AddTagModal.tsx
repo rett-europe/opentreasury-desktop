@@ -16,16 +16,6 @@ export interface AddTagModalProps {
   readonly record?: TagRecord | null;
 }
 
-function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 24);
-}
-
 export function AddTagModal({
   isOpen,
   onClose,
@@ -105,8 +95,6 @@ export function AddTagModal({
     }
   }, [name, color, onSaved, onClose, applyServerError, mode, record, t]);
 
-  const slug = toSlug(name);
-
   return (
     <ConfigModalShell
       isOpen={isOpen}
@@ -138,14 +126,6 @@ export function AddTagModal({
         {error ? (
           <span id="tag-name-err" className="ot-config-modal__field-error">
             {error}
-          </span>
-        ) : null}
-        {slug ? (
-          <span className="ot-config-modal__field-hint">
-            Identificador:{' '}
-            <span className="ot-config__code-mono" style={{ fontSize: 'inherit' }}>
-              {slug}
-            </span>
           </span>
         ) : null}
       </div>
