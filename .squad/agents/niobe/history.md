@@ -24,6 +24,8 @@ A prototype exists in `/prototype/` with React-based JSX components.
 
 ### 2026-04-20 — WI-21 Delete/Edit i18n copy drafted
 
+**WI-22 Saldo shipped (2026-04-22):** i18n namespace `saldo.*` (72 keys ES/EN parity) merged to main in PR #9. Locked 3 microcopy decisions for Pedro (KPI labels, dropped-category sublabel). Projection badge, same-month-prior-year tooltip, data-table captions all spec'd. Pattern: numeric formatting stays OUT of i18n values; component calls `formatCurrency` / `Intl.NumberFormat` / `Intl.DateTimeFormat`. All gates green: typecheck ✅, lint ✅, format ✅, test ✅.
+
 Drafted full ES+EN copy for Edit/Delete CRUD on Accounts/Categories/Subcategories/Tags in
 `.squad/decisions/inbox/niobe-wi21-delete-copy.md`. Key learnings:
 

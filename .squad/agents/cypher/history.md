@@ -31,6 +31,16 @@ Testing considerations for a financial desktop app:
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-22 — WI-22 Saldo property test verified (commit 255b0f8, PR #7)
+
+**Verification complete:** 510 fast-check property-test iterations across 8 invariants + 6 boundary cases. All green. INVARIANT HELD — no shrunk counterexample. Morpheus' aggregation is provably sound.
+
+**Invariants:** I1–I4 (internal consistency), I5–I6 (monthly series consistency, no projection drift), I7 (prior-period brute-force), **I8 (Saldo ≡ Movements — critical equivalence)**.
+
+**Boundary cases pinned:** Leap-day collapse, UTC boundaries, day-1 projection, period-end, zero events, same-month-prior-year semantics.
+
+**Skill drafted:** `.squad/skills/property-testing-aggregations/` — pattern (on-demand read-model aggregation + period resolver + brute-force reference) is reusable for Panel, Movements, any future aggregation query.
+
 ## 2026-04-19 — Team Context Update (from Scribe)
 - ADR-001 (Proposed) at `docs/architecture/adr-001-tech-stack.md` — Neo recommends Option A (React+TS, append-only event-sourced JSON, `age` encryption).
 - Security Requirements v0.1 at `docs/security/security-requirements-v0.1.md` — Switch: 20 requirements, 15 stack constraints, 8 accepted risks, 6 open questions for Pedro.
@@ -56,3 +66,21 @@ You can clone, `npm install --legacy-peer-deps`, and run: `npm run typecheck`, `
 
 ## Cross-agent update (Scribe, 2026-04-19T10:34:16Z)
 Wave 1 UX COMPLETE. Acceptance criteria sections in each spec give you testable statements for E2E test derivation.
+
+## 2026-04-22 — WI-22 Saldo property test (commit 255b0f8, PR #7)
+
+**Outcome:** INVARIANT HELD. 510 fast-check runs + 6 boundary unit tests green against Morpheus' backend. Test count 436→446.
+
+**Pattern (reusable for any read-model aggregation):**
+1. Generator yields randomized EVENT logs (create/update/delete), not just entities — closer to what the reducer sees.
+2. Project events to entities inline in the test (don't couple to production reducer — duplication IS the test).
+3. Brute-force reference impl in the same file, one loop + range check. Intentionally NOT sharing code with the unit under test.
+4. Amounts as integer cents; compare with strict === after Math.round(x*100). Avoids float tolerance wobble — saldo's round2 is idempotent on 2dp inputs.
+5. Include a `now` arbitrary so projection/isPartial gets fuzzed too. Don't only test the "period complete" path.
+6. Pair property blocks with deterministic boundary unit tests — property tests are statistical, corners need explicit pins (leap day, UTC midnight, daysElapsed=1, daysElapsed=daysInPeriod, empty period).
+
+**Gotcha found (not a bug — live behaviour):** when the current period is partial AND has zero events, `currentProjectedTotal` is `{income:0, expense:0}` (populated, not null). Null is reserved strictly for `isPartial=false`. Asserted explicitly in the zero-events boundary test so future refactors can't silently flip it.
+
+**Gotcha (lint):** `import fc from 'fast-check'` triggers `import/no-named-as-default-member` at max-warnings 0. Use `import * as fc from 'fast-check'`.
+
+**fast-check added as devDependency ^4.7.0.** No other scaffolding touched.

@@ -39,6 +39,8 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 
 **From Morpheus (WI-21 config CRUD):** Update payload invariant pattern — schema refines on VALUES (not keys), handlers trim + delete empty optionals, then re-check for no-op collapse. This is useful when Trinity needs to reason about whether a payload will actually reach the log or get rejected early. When Trinity encounters "the user just clicked Save but nothing changed" UX issues, the pattern is: schema enforces "no empty object of optionals" + handler normalizes before checking again. No payload with all-undefined/empty-string fields can sneak through. Apply this pattern to other update handlers Trinity builds in future WIs (edit category, edit tag, etc.).
 
+**WI-22 Saldo shipped (2026-04-22):** PR #7 (Morpheus backend S1–S3) merged to main. PR #9 (Niobe i18n, 72 ES/EN keys) merged to main. S4 (Trinity chart primitive) complete; S5 (SaldoScreen wiring) in progress. Last `<ComingSoonScreen />` on M1 route now removed — Internal Alpha gate open. Property test verified all 8 invariants hold (I8: Saldo ≡ Movements proven sound).
+
 ## Learnings
 
 **WI-20 Visual Bug Debugging:** When Pedro reports the same visual bug 3+ times across multiple rounds, STOP patching CSS. Read the screenshot. Consider that tests passing does not equal visually correct. If a modal/component has multiple modes (view/edit), they should render through the SAME structural scaffold — only cell contents should differ. If you find yourself writing mode-specific CSS classes or swapping between different component trees, you've already diverged. Add visual regression tests or snapshots that compare scaffold structure between modes, not just DOM presence checks.
