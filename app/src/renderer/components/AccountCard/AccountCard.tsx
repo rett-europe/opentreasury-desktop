@@ -1,5 +1,6 @@
 import { Landmark } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { formatCurrency } from '../../utils/numberFormat.js';
 import './AccountCard.css';
 
 export interface AccountCardProps {
@@ -21,7 +22,8 @@ export function AccountCard({
   balance,
   hasSparkline = false,
 }: AccountCardProps): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
   const isNegative = balance < 0;
 
   return (
@@ -40,11 +42,7 @@ export function AccountCard({
       <div
         className={`ot-account-card__balance ${isNegative ? 'ot-account-card__balance--negative' : 'ot-account-card__balance--positive'}`}
       >
-        {new Intl.NumberFormat(navigator.language, {
-          style: 'currency',
-          currency: 'EUR',
-          signDisplay: 'auto',
-        }).format(balance)}
+        {formatCurrency(balance, locale)}
       </div>
       {hasSparkline && <div className="ot-account-card__sparkline-placeholder" />}
     </div>

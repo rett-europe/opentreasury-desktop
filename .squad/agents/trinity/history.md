@@ -1224,3 +1224,12 @@ branch — you'll eat a teammate's unformatted WIP into your diff.
 
 - typecheck ✓, lint ✓, format:check — pre-existing 36-file backlog on main, none mine, unchanged count on my branch
 - tests: 408 passed / 9 skipped (identical to main baseline)
+
+
+## Learnings - numberFormat helper extraction (2026-04-23)
+
+- **formatCurrency(amount, locale, currency = "EUR") is the one export I shipped.** Deliberately did not pre-build formatNumber (no-symbol), percent, or per-currency variants: WI-22 Saldo will add them if/when it actually needs them. Shipping speculative API surface invites divergent call-site patterns.
+- **API shape mirrors dateFormat.ts exactly**: explicit locale param, no module-level locale read, try/catch returning "amount currency" string on failure. This preserves the "caller owns locale source" invariant and keeps all three utils files stylistically identical - easy to add formatPercent later without reinventing conventions.
+- **exactOptionalPropertyTypes: true interaction:** a defaulted primitive param (currency: string = "EUR") is safe because the param type is string, not string | undefined. If typed as currency?: string, passing undefined explicitly would have required string | undefined. Default + non-optional type is the correct pattern under this strictness flag.
+- **Node stripped ICU in test env doesn't emit thousand separators for es-ES** (observed "1500,50" instead of "1.500,50"). Locale unit tests must assert on structural invariants (comma decimal, symbol trailing vs. leading) rather than exact separator output - otherwise they pass on dev machines with full-ICU and fail in CI.
+- **CRLF + endOfLine "lf" bite:** new files created via the create tool on Windows land as CRLF, which prettier --check fails. Fix at file-creation time by normalising to LF before committing, not by disabling the rule.

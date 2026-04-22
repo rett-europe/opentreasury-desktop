@@ -8,6 +8,7 @@ import { Table } from '../../components/Table/index.js';
 import type { TableColumn } from '../../components/Table/Table.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
 import { formatDate, formatMonth } from '../../utils/dateFormat.js';
+import { formatCurrency } from '../../utils/numberFormat.js';
 import type {
   Account,
   AccountBalance,
@@ -280,15 +281,7 @@ export function PanelScreen(): JSX.Element {
       render: (row) => {
         const cls = row.type === 'income' ? 'ot-amount--income' : 'ot-amount--expense';
         const signed = row.type === 'expense' ? -row.amount : row.amount;
-        return (
-          <span className={cls}>
-            {new Intl.NumberFormat(navigator.language, {
-              style: 'currency',
-              currency: 'EUR',
-              signDisplay: 'auto',
-            }).format(signed)}
-          </span>
-        );
+        return <span className={cls}>{formatCurrency(signed, locale)}</span>;
       },
     },
   ];
