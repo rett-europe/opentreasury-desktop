@@ -477,3 +477,295 @@ While Pedro's scope suggested Option A, implementation reality made Option B sig
 ### Mental Model
 
 The "single pane" mental model is maintained: user sees detail modal → clicks Edit → form appears → saves → returns to detail view. The fact this is implemented via two dialogs vs one with swapped body is an implementation detail not visible to the user.
+
+---
+
+## Decision: WI-21 Config CRUD — Delete/Cascade Policy
+
+**Date:** 2026-04-21  
+**By:** Switch (Security Engineer)  
+**Status:** 🔒 RULING — binding for WI-21 event design  
+**Context:** WI-21 Config CRUD (branch `wi-21/config-crud`). Morpheus needs the cascade contract before designing `*.updated` / `*.deleted` / `*.archived` events for Account, Category, Subcategory, Tag. Requested by Pedro (perocha).
+
+### TL;DR
+
+| Entity | Delete semantics | Events | UI affordance |
+|---|---|---|---|
+| **Account** | **Archive-only.** Hard-delete FORBIDDEN. | `account.updated`, `account.archived`, `account.unarchived` | Button "Archivar". Confirm dialog. No destructive variant in M1. |
+| **Category** | **Archive-only.** Hard-delete FORBIDDEN. | `category.updated`, `category.archived`, `category.unarchived` | Button "Archivar". Confirm dialog. Migrate-then-delete DEFERRED. |
+| **Subcategory** | **Archive-only**, scoped to parent. Same reasoning. | `subcategory.updated`, `subcategory.archived`, `subcategory.unarchived` | Same as Category. Archiving parent does NOT cascade-archive children yet (explicit act required). |
+| **Tag** | **Archive-only.** Hard-delete FORBIDDEN in M1. | `tag.updated`, `tag.archived`, `tag.unarchived` | Button "Archivar". Confirm. Array-membership preserved on transactions. |
+
+**Default everywhere: ARCHIVE.** Hard-delete is not implemented in WI-21. Tombstone events (`*.deleted`) are explicitly **out of scope** until the decoupling in the account-id situation is resolved and a migrate-then-delete flow is specified.
+
+### Problem
+
+WI-21 adds Edit/Delete to three config entities. Transactions reference two of them by id (`categoryId`, `subcategoryId`, `tagIds[]`); accounts are currently **decoupled** from `transaction.accountId`. The app is event-sourced (append-only NDJSON, replay-driven read model) and classified 🔴 High for financial data.
+
+A naive hard-delete would:
+1. Break replay for anyone whose transaction stream references the deleted id (dangling foreign key in the read model).
+2. Destroy audit history for categorization / tagging decisions — unacceptable for a 7-year-retention treasury product.
+3. Force Morpheus to design a migrate-then-delete flow under time pressure.
+
+### Ruling (per entity)
+
+#### 1. Account — ARCHIVE ONLY
+
+- **Delete semantics:** Hard-delete forbidden. `account.archived { id, archivedAt }` sets an `archived: true` flag in `ConfigAccount`.
+- **Why not hard-delete:** The decoupling is a temporary quirk, not a design choice. Once account-id unification lands, historical transactions WILL reference these config account ids. Shipping hard-delete now creates a permanent data-loss footgun.
+- **Events:**
+  - `account.updated { id, changes: { label?, iban?, color?, isPaypal? } }`
+  - `account.archived { id, archivedAt }`
+  - `account.unarchived { id }` (required — archive must be reversible)
+
+#### 2. Category — ARCHIVE ONLY
+
+- **Delete semantics:** Hard-delete forbidden. Transactions reference `categoryId` directly. Hard-delete would orphan those references.
+- **Transaction behaviour on archive:** Archiving a category does **not** touch transactions. Their `categoryId` stays intact; the UI resolves archived categories with a muted label.
+- **Events:**
+  - `category.updated { id, changes: { name?, color?, ... } }`
+  - `category.archived { id, archivedAt }`
+  - `category.unarchived { id }`
+- **Migrate-then-delete:** explicitly **deferred** to a later WI.
+
+#### 3. Subcategory — ARCHIVE ONLY, parent-scoped
+
+- **Delete semantics:** Same rule as Category.
+- **Cascade from parent:** Archiving a category does **NOT** auto-archive its subcategories in WI-21. Explicit act required for each.
+- **Events:**
+  - `subcategory.updated { id, parentCategoryId, changes: { name? } }`
+  - `subcategory.archived { id, parentCategoryId, archivedAt }`
+  - `subcategory.unarchived { id, parentCategoryId }`
+
+#### 4. Tag — ARCHIVE ONLY (array membership preserved)
+
+- **Delete semantics:** Hard-delete forbidden. Transactions carry tag ids in `tagIds: string[]`.
+- **Array behaviour on archive:** `tagIds` arrays on historical transactions are **NOT rewritten**. No synthetic `tx.untagged` events.
+- **Events:**
+  - `tag.updated { id, changes: { name?, color? } }`
+  - `tag.archived { id, archivedAt }`
+  - `tag.unarchived { id }`
+
+### UI implications
+
+| Case | Affordance |
+|---|---|
+| Any entity, "Eliminar" button | **Rename to "Archivar"** in ES ("Archive" in EN). The verb is the contract. |
+| Confirm dialog copy | Archive is reversible. Single primary action. No destructive red styling. |
+| Archived list | Hidden by default behind a "Mostrar archivadas" toggle. Archived rows show with muted styling and a "Restaurar" action. |
+| Block outright | None. Archive is always safe. |
+| Migrate-then-delete | NOT in WI-21. Deferred. |
+
+### Scope: what this ruling does NOT cover
+
+- Hard-delete semantics, tombstone events, or migrate-then-delete flows — **deferred**, require follow-up once account-id decoupling is resolved.
+- Bulk archive / bulk restore — out of WI-21.
+- Cascade rules between Account ↔ Transaction once the decoupling is fixed.
+
+### Rationale summary
+
+Archive-first is the only policy that is simultaneously: safe under the current decoupling quirk, safe after the future unification migration, preserves the append-only event-sourcing contract, preserves the 7-year audit trail, and imposes zero blocking requirements on WI-21.
+
+---
+
+## Decision: WI-21 Config CRUD — Morpheus: events & IPC surface
+
+**Date:** 2026-04-22  
+**Author:** Morpheus (Backend/Event-Sourcing)  
+**Audience:** Trinity (renderer), Pedro (coordinator), Switch (review)  
+**Scope:** Backend surface for WI-21 (Config CRUD, archive-only per Switch).
+
+### TL;DR
+
+- **No** `*.deleted` events. Archive-only per Switch.
+- **No** rename of existing events. Old NDJSON logs replay identically.
+- Every new mutation event uses `id` = unique event ULID (log dedupe key) and a domain-named field (`accountId` / `categoryId` / `subcategoryId` / `tagId`) for the target entity. `SubcategoryCreated` is the only exception — it follows the WI-15-lite `*Created` convention where `id` IS the entity id.
+- `archivedAt?: string (ISO)` optional on every record. `Archived` stamps it. `Unarchived` clears it. No cascade.
+
+### Event catalog (all PascalCase, flat — matching WI-15-lite)
+
+#### Accounts
+
+| Event               | Shape                                                             |
+| ------------------- | ----------------------------------------------------------------- |
+| `AccountCreated`    | unchanged (WI-15-lite)                                            |
+| `AccountUpdated`    | `{ id, accountId, changes, updatedAt }`                           |
+| `AccountArchived`   | `{ id, accountId, archivedAt }`                                   |
+| `AccountUnarchived` | `{ id, accountId, unarchivedAt }`                                 |
+
+`changes` is a non-empty partial: `{ name?, bankName?, label?, iban?, color?, isPaypal? }`.
+
+#### Categories
+
+| Event                | Shape                                    |
+| -------------------- | ---------------------------------------- |
+| `CategoryCreated`    | unchanged                                |
+| `CategoryUpdated`    | `{ id, categoryId, changes, updatedAt }` |
+| `CategoryArchived`   | `{ id, categoryId, archivedAt }`         |
+| `CategoryUnarchived` | `{ id, categoryId, unarchivedAt }`       |
+
+#### Subcategories *(NEW — promoted to first-class events)*
+
+**Shape decision:** Subcategories get their own first-class events on the NDJSON log (parent-scoped via `parentCategoryId`) but are **inlined on `ConfigCategory.subcategories[]`** in the read model.
+
+Rationale:
+- Single-fetch tree consumption → renderer calls `categories:list` once and has the full picker tree.
+- Events stay append-only and per-subcategory granular.
+- No new top-level read-model stream required.
+- Aligns with Switch's cascade ruling: parent archive does **not** auto-archive subcategories.
+
+| Event                   | Shape                                                                       |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `SubcategoryCreated`    | `{ id, parentCategoryId, name, color?, createdAt }` — `id` = entity id     |
+| `SubcategoryUpdated`    | `{ id, subcategoryId, parentCategoryId, changes, updatedAt }`               |
+| `SubcategoryArchived`   | `{ id, subcategoryId, parentCategoryId, archivedAt }`                       |
+| `SubcategoryUnarchived` | `{ id, subcategoryId, parentCategoryId, unarchivedAt }`                     |
+
+Uniqueness of subcategory name is **scoped to the parent**. `parentCategoryId` is required on every subcategory event so projection can route without a secondary lookup.
+
+#### Tags
+
+| Event           | Shape                               |
+| --------------- | ----------------------------------- |
+| `TagCreated`    | unchanged                           |
+| `TagUpdated`    | `{ id, tagId, changes, updatedAt }` |
+| `TagArchived`   | `{ id, tagId, archivedAt }`         |
+| `TagUnarchived` | `{ id, tagId, unarchivedAt }`       |
+
+### IPC channels
+
+```
+accounts:create       accounts:update       accounts:archive       accounts:unarchive
+accounts:list         (?: { includeArchived?: boolean })
+categories:create     categories:update     categories:archive     categories:unarchive
+categories:list       (?: { includeArchived?: boolean })
+subcategories:create  subcategories:update  subcategories:archive  subcategories:unarchive
+tags:create           tags:update           tags:archive           tags:unarchive
+tags:list             (?: { includeArchived?: boolean })
+```
+
+Every mutation returns: `{ ok: true, event: <the emitted event> }` or `{ ok: false, error: { code, message, field? } }`.
+
+### Preload bridge (renderer surface)
+
+```ts
+window.api.accounts.{create,list,update,archive,unarchive}
+window.api.categories.{create,list,update,archive,unarchive}
+window.api.categories.subcategory.{create,update,archive,unarchive}
+window.api.tags.{create,list,update,archive,unarchive}
+```
+
+### Active-only selectors
+
+`app/src/main/projections/config.ts` exposes two flavours per entity:
+
+- `select{Accounts,Categories,Tags}` — returns everything, archivedAt verbatim.
+- `selectActive{Accounts,Categories,Tags}` — filters archived; **also strips archived subcategories** from otherwise-active categories.
+
+### Backward-compat guarantees
+
+- `*Created` event shapes are untouched; all existing NDJSON fixtures replay identically.
+- The `DomainEvent` union is **extended**, not rewritten; the reducer's `switch` falls through on unknown `type`.
+- `CategoryRecord.subcategories` is optional on the wire (Zod `.optional()`) so Trinity can construct optimistic records without providing an empty array.
+
+---
+
+## Decision: WI-21 Config CRUD — i18n copy for Edit/Delete/Archive modals
+
+**Author:** Niobe  
+**Date:** 2026-04-20  
+**Branch:** wi-21/config-crud  
+**Status:** Shipped with WI-21
+
+### Summary
+
+WI-21 ships Edit/Delete on Config entities (Accounts, Categories, Subcategories, Tags). Since Switch ruled **archive-only** (no hard-delete in M1), this spec provides copy variants under `configuracion.*` namespace.
+
+### Namespace convention
+
+Existing locale files use **`configuracion.{entity}`** — NOT `config.{entity}`. Entity slugs are in Spanish in both locales (`cuentas`, `categorias`, `etiquetas`). Subcategories now get first-class CRUD surface, so new top-level node: `configuracion.subcategorias.*`.
+
+All keys follow **`configuracion.{entity}.{action}`**.
+
+### Entity key paths
+
+| Entity       | Key root                         |
+|--------------|----------------------------------|
+| Account      | `configuracion.cuentas`          |
+| Category     | `configuracion.categorias`       |
+| Subcategory  | `configuracion.subcategorias`    |
+| Tag          | `configuracion.etiquetas`        |
+
+Each gets an `.actions` block, a `.deleteConfirm` block (paired delete/archive copy), and a `.toast` block.
+
+### Shared keys
+
+`configuracion.delete.*` holds verbiage reused across entities:
+- `usage.{withCount_one,withCount_other,unknown,none}`
+- `warning.{delete,archive}`
+- `buttons.{cancel,delete,archive,deleting,archiving}`
+- `error.{generic,inUse}`
+
+### Modal composition (Trinity integration)
+
+Top to bottom:
+1. **Title** — `configuracion.{entity}.deleteConfirm.title` OR `.archiveTitle`
+2. **Prompt line** — `configuracion.{entity}.deleteConfirm.confirmDelete` OR `.confirmArchive` (interpolates `{{name}}`)
+3. **Body** — `configuracion.{entity}.deleteConfirm.bodyDelete` OR `.bodyArchive`
+4. **Usage line** — one of:
+   - `configuracion.delete.usage.withCount` (pluralized) when count ≥ 1
+   - `configuracion.delete.usage.none` when count === 0
+   - `configuracion.delete.usage.unknown` (renders `—`) when count unavailable
+5. **Warning** — `configuracion.delete.warning.delete` OR `.archive`
+6. **Buttons** — `configuracion.delete.buttons.cancel` + `.delete` / `.archive` (primary).
+
+### Status
+
+Switch ruled archive-only for M1. All copy now uses "Archivar" verb. Hard-delete copy preserved in spec for future migrate-then-delete flow.
+
+---
+
+## Decision: WI-21 Config CRUD — renderer shape (modals + subcategory editor)
+
+**Date:** 2026-04-22  
+**By:** Trinity (Frontend)  
+**Status:** Ships with branch `wi-21/config-crud`  
+**Context:** WI-21 Edit/Archive/Unarchive for Accounts, Categories, Subcategories, Tags.
+
+### TL;DR
+
+| Concern | Choice |
+|---|---|
+| Add vs. Edit modal | **Extended Add*Modal with `mode: 'add' \| 'edit'` + optional `record` prop** — single component per entity, branches in `useEffect` for prefill and in `handleSubmit` for create vs. update. |
+| Modal success callback | Renamed `onCreated` → `onSaved` uniformly (3 callers updated). |
+| Archive confirm | New `ArchiveConfirmModal` — single generic component parameterized by `entity`. Uses Niobe's copy. Usage count renders `—`. |
+| Subcategory CRUD | **Inline editor under each parent category's detail pane.** Add-form, inline rename, archive button per row, RotateCcw unarchive. No separate modal. |
+| Archived display | `ot-config__*--archived` classes — opacity 0.55 + line-through + `(archivada)` italic badge. |
+| "Mostrar archivadas" toggle | Plain checkbox in every filter bar, default off. |
+| IPC wiring | New `services/configMutationsApi.ts` with runtime detection. Throws `TODO` when bridge missing, surfaces error string instead of crashing. |
+
+### Files touched
+
+**New:**
+- `app/src/renderer/components/ConfigModals/ArchiveConfirmModal.tsx`
+- `app/src/renderer/services/configMutationsApi.ts`
+
+**Modified:**
+- `app/src/renderer/components/ConfigModals/{AddAccountModal,AddCategoryModal,AddTagModal,index}.{tsx,ts}`
+- `app/src/renderer/screens/ConfiguracionScreen/{CuentasTab,CategoriasTab,EtiquetasTab,ConfiguracionScreen.css}.{tsx,css}`
+- `app/src/renderer/locales/{es,en}/common.json`
+
+### IPC call shape (ready for Morpheus)
+
+```ts
+window.opentreasury.accounts.{create,list,update,archive,unarchive}
+window.opentreasury.categories.{create,list,update,archive,unarchive}
+window.opentreasury.categories.subcategory.{create,update,archive,unarchive}
+window.opentreasury.tags.{create,list,update,archive,unarchive}
+```
+
+### Follow-ups
+
+- Once Morpheus's preload + handlers land, delete `notWired()` path in `configMutationsApi.ts`.
+- When usage counts available, swap `configuracion.delete.usage.unknown` for `withCount` key.
+- Move renderer-local subcategory type to `@/shared/ipc-contracts/`.

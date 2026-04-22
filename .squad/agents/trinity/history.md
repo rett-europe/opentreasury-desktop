@@ -35,6 +35,10 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 - **Panel IPC wiring complete:** All 5 queries fire on mount, skeleton→loaded transition, zero layout shift. Zod schema parsing at boundary catches main-process drift.
 - **Foundational patterns:** Multi-step wizard state (discriminated unions), modal form validation, i18n for all user-facing text (EN+ES), date formatting centralized, accessible form fields.
 
+## Cross-Agent Learning (2026-04-22)
+
+**From Morpheus (WI-21 config CRUD):** Update payload invariant pattern — schema refines on VALUES (not keys), handlers trim + delete empty optionals, then re-check for no-op collapse. This is useful when Trinity needs to reason about whether a payload will actually reach the log or get rejected early. When Trinity encounters "the user just clicked Save but nothing changed" UX issues, the pattern is: schema enforces "no empty object of optionals" + handler normalizes before checking again. No payload with all-undefined/empty-string fields can sneak through. Apply this pattern to other update handlers Trinity builds in future WIs (edit category, edit tag, etc.).
+
 ## Learnings
 
 **WI-20 Visual Bug Debugging:** When Pedro reports the same visual bug 3+ times across multiple rounds, STOP patching CSS. Read the screenshot. Consider that tests passing does not equal visually correct. If a modal/component has multiple modes (view/edit), they should render through the SAME structural scaffold — only cell contents should differ. If you find yourself writing mode-specific CSS classes or swapping between different component trees, you've already diverged. Add visual regression tests or snapshots that compare scaffold structure between modes, not just DOM presence checks.
@@ -1120,3 +1124,71 @@ share a line when text is short, which put "8 resultados" beside
 wants a subtitle stack: use an explicit `.ot-config__md-head-text`
 wrapper (`display: flex; flex-direction: column; gap: 2px`) with
 `display: flex` on both children.
+
+
+## Learnings — WI-21 Config CRUD (2026-04-22)
+
+**Pick `mode: 'add' | 'edit'` over separate EditXxxModal files.** All three
+Config modals already reset their state on `isOpen` transition; extending
+that hook to branch on `(mode, record)` is five lines per file and keeps
+validation + server-error mapping in one place. A parallel EditAccountModal
+would have forced copy-paste of 200+ lines of form JSX across three new
+files.
+
+**Runtime bridge detection is the right seam when main-process IPC is in
+flight.** `configMutationsApi.ts` checks `window.opentreasury.xxx.update`
+existence before invoking and throws a clear `TODO(morpheus): ...` message
+when absent. That lets the UI ship with a visible error rather than a cryptic
+`TypeError: undefined is not a function`, and the swap-in for Morpheus is
+literally deleting the guard. Don't pre-negotiate the exact response shape
+when it's still moving — accept `{ account: Rec } | Rec` via `'account' in result`
+narrow.
+
+**Archive state is metadata, not a separate collection.** I was tempted to
+split archived accounts into a second list. The `showArchived` toggle + a
+single `isArchived(record)` helper keeps the reducer + list endpoint
+shape identical (Morpheus can return the full set and the renderer filters);
+stats/balances explicitly exclude archived via `.filter(!isArchived)`.
+
+**Archived rendering: opacity + line-through on the name cell only.** Striking
+through the *whole row* (including amounts) made screenshots unreadable.
+Strike only the name/title cell; leave tabular numeric columns (balance,
+IBAN) visually intact so the data is still scannable when you're reviewing
+why you archived something.
+
+**Inline subcategory editor > modal.** Modal-over-modal-over-modal kills
+keyboard flow. Three states in one pane — `visibleSubs.map` read row, Edit
+flips one row to `<input>+check/x`, "Añadir subcategoría" flips the footer
+to `<input>+save/cancel` — is faster to use and to implement. Escape key
+abandons, Enter commits, autoFocus on the input.
+
+**Concurrent-agent format:check reality.** Baseline `format:check` on
+`wi-21/config-crud` already showed 31 warnings because Morpheus's WIP in
+`app/src/{core,main,shared,preload}` hadn't been prettier'd. Running
+`prettier --write` on just my files dropped the count to 23; the residual
+8 are all Morpheus's domain. Never run `prettier --write .` on a shared
+branch — you'll eat a teammate's unformatted WIP into your diff.
+
+## Learnings - WI-21 PR#4 review-fix round (2026-04-22)
+
+**Preload subcategory path is `categories.subcategory.*`, not top-level.** Morpheus nested subcategory CRUD under the parent `categories` namespace on `window.opentreasury` (no top-level `subcategories`). There is also no `list` method: subcategories are inlined on `CategoryRecord.subcategories[]` from `categories:list`. Renderer code that assumed a separate list/namespace is a guaranteed runtime bug.
+
+**Every WI-21 IPC response is `{ ok: true, event } | { ok: false, error: { code, message } }`.** The renderer service layer MUST mirror that exactly and convert `ok:false` to a thrown error (I kept a typed `ConfigMutationError` carrying `code`/`field` for future per-code UX). Loose `as { account: X } | X` casts hide this bug — typecheck will not catch it. Update wrappers now return `Promise<void>`; callers reload via the parent `load()`. Only `createSubcategory` returns a synthesised record (the `SubcategoryCreated` event is rich enough).
+
+**`archivedAt?: string` is the canonical archive flag — there is no boolean `archived`.** `isArchived` must check `archivedAt !== undefined`. Dropped the speculative `archived?: boolean` from `ArchivableMeta` to stop future drift.
+
+**`includeArchived` must be threaded through the list calls.** Default list shape is active-only. A `showArchived` toggle that does not pass `{ includeArchived: true }` is cosmetic — the archived rows are never in the payload to begin with. Re-run `load()` on toggle change (effect dep).
+
+**Opening balance is immutable in edit mode.** Event-sourced semantics: genesis state anchors the balance history. The contract's `accountChangesSchema` deliberately omits `openingBalance`; the renderer must omit it from edit-mode `changes` and should visually signal the constraint (read-only input + hint).
+
+**Parallel-agent integration lesson.** When Morpheus and Trinity ship the two halves of a single WI in parallel (IPC contract + renderer), the renderer MUST be validated against the **actual** final preload shape — not the assumed/early-draft one. Typecheck/lint/tests can all pass while runtime is broken because the service layer used `any` casts and optional-chain runtime detection. Future WIs: add an explicit "renderer smoke pass against actual bridge" gate before opening a PR when two agents contribute to one feature.
+
+
+## Learnings — PR #4 round 2 (2026-04-23)
+
+- `useId()` is mandatory for `aria-labelledby` / `id` pairs on modals that may render in multiple instances on the same screen (Categorías renders `ArchiveConfirmModal` for both categories and subcategories → hard-coded `ot-archive-modal-title` duplicated in the DOM). Apply to both the `<h2 id={id}>` and the `aria-labelledby={id}`.
+- `onSaved` edit-mode semantics: the callback must receive the **post-edit** record, synthesised from form state + immutable fields (`id`, `currency`, `openingBalance`, `createdAt`, `archivedAt`). Passing the pre-edit `record` prop straight through silently feeds parents stale name/color/kind.
+- Archive/unarchive error paths always need try/catch at the tab level — `ConfigMutationError` propagates out of the service wrapper and unhandled promise rejections will crash the tab. Funnel to the tab's existing error surface (`setState` error branch, or the master-detail `subError` state).
+- i18n leak pattern: non-create catch blocks (edit modal, archive dialog) must map `ConfigMutationError.code` to `configuracion.errors.<key>` the same way `applyServerError` already does for create. Raw `err.message` is server English and will show up in a Spanish UI. Added shared helper `mapConfigMutationErrorToMessage(err, t)`.
+- Own-skill lesson: `config-screen-pattern/SKILL.md` explicitly warned against loose `any` / `unknown` casts in IPC wrappers, and my round-1 `configMutationsApi.ts` violated that rule **in the same PR that introduced the rule**. New meta-lesson: **Always run the SKILL check on your own code before committing** — the skill hadn't been re-read after the wrapper was written. Skill confidence bumped from medium → high, with a self-referential note.
+- Contract re-export pattern: when a renderer service duplicates a contract type (`SubcategoryRecord`), re-export from the service module so call sites keep their single import path while the type source-of-truth stays in `app/src/shared/ipc-contracts/`.

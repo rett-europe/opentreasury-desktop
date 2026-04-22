@@ -2,6 +2,7 @@ import type { DomainEvent } from '../events/schemas';
 import type {
   ConfigAccount,
   ConfigCategory,
+  ConfigSubcategory,
   ConfigTag,
   ReadModel,
   Transaction,
@@ -155,6 +156,7 @@ export function applyEvent(event: DomainEvent): void {
         id: event.id,
         name: event.name,
         createdAt: event.createdAt,
+        subcategories: [],
         ...(event.color !== undefined ? { color: event.color } : {}),
         ...(event.kind !== undefined ? { kind: event.kind } : {}),
       };
@@ -176,6 +178,207 @@ export function applyEvent(event: DomainEvent): void {
         ...readModel,
         configTags: [...readModel.configTags, next],
       };
+      break;
+    }
+
+    // ---------------------------------------------------------------------
+    // WI-21 — Configuración CRUD (archive-only). Each update/archive event
+    // rewrites the matching record in-place; `unarchive` clears archivedAt
+    // rather than stamping a value so the read model stays boolean-like.
+    // Missing-record events are tolerated silently so replay of an event
+    // log that lost its `*Created` somehow still converges.
+    // ---------------------------------------------------------------------
+
+    case 'AccountUpdated': {
+      const idx = readModel.configAccounts.findIndex((a) => a.id === event.accountId);
+      if (idx < 0) break;
+      const current = readModel.configAccounts[idx]!;
+      const patched: ConfigAccount = {
+        ...current,
+        ...(event.changes.name !== undefined ? { name: event.changes.name } : {}),
+        ...(event.changes.bankName !== undefined ? { bankName: event.changes.bankName } : {}),
+        ...(event.changes.label !== undefined ? { label: event.changes.label } : {}),
+        ...(event.changes.iban !== undefined ? { iban: event.changes.iban } : {}),
+        ...(event.changes.color !== undefined ? { color: event.changes.color } : {}),
+        ...(event.changes.isPaypal !== undefined ? { isPaypal: event.changes.isPaypal } : {}),
+      };
+      const nextAccounts = [...readModel.configAccounts];
+      nextAccounts[idx] = patched;
+      readModel = { ...readModel, configAccounts: nextAccounts };
+      break;
+    }
+
+    case 'AccountArchived': {
+      const idx = readModel.configAccounts.findIndex((a) => a.id === event.accountId);
+      if (idx < 0) break;
+      const next = [...readModel.configAccounts];
+      next[idx] = { ...next[idx]!, archivedAt: event.archivedAt };
+      readModel = { ...readModel, configAccounts: next };
+      break;
+    }
+
+    case 'AccountUnarchived': {
+      const idx = readModel.configAccounts.findIndex((a) => a.id === event.accountId);
+      if (idx < 0) break;
+      const current = readModel.configAccounts[idx]!;
+      // Drop archivedAt by reconstructing without it.
+      const { archivedAt: _drop, ...rest } = current;
+      void _drop;
+      const next = [...readModel.configAccounts];
+      next[idx] = rest;
+      readModel = { ...readModel, configAccounts: next };
+      break;
+    }
+
+    case 'CategoryUpdated': {
+      const idx = readModel.configCategories.findIndex((c) => c.id === event.categoryId);
+      if (idx < 0) break;
+      const current = readModel.configCategories[idx]!;
+      const patched: ConfigCategory = {
+        ...current,
+        ...(event.changes.name !== undefined ? { name: event.changes.name } : {}),
+        ...(event.changes.color !== undefined ? { color: event.changes.color } : {}),
+        ...(event.changes.kind !== undefined ? { kind: event.changes.kind } : {}),
+      };
+      const next = [...readModel.configCategories];
+      next[idx] = patched;
+      readModel = { ...readModel, configCategories: next };
+      break;
+    }
+
+    case 'CategoryArchived': {
+      const idx = readModel.configCategories.findIndex((c) => c.id === event.categoryId);
+      if (idx < 0) break;
+      const next = [...readModel.configCategories];
+      next[idx] = { ...next[idx]!, archivedAt: event.archivedAt };
+      readModel = { ...readModel, configCategories: next };
+      break;
+    }
+
+    case 'CategoryUnarchived': {
+      const idx = readModel.configCategories.findIndex((c) => c.id === event.categoryId);
+      if (idx < 0) break;
+      const current = readModel.configCategories[idx]!;
+      const { archivedAt: _drop, ...rest } = current;
+      void _drop;
+      const next = [...readModel.configCategories];
+      next[idx] = rest;
+      readModel = { ...readModel, configCategories: next };
+      break;
+    }
+
+    case 'SubcategoryCreated': {
+      const parentIdx = readModel.configCategories.findIndex(
+        (c) => c.id === event.parentCategoryId,
+      );
+      if (parentIdx < 0) break;
+      const parent = readModel.configCategories[parentIdx]!;
+      const sub: ConfigSubcategory = {
+        id: event.id,
+        parentCategoryId: event.parentCategoryId,
+        name: event.name,
+        createdAt: event.createdAt,
+        ...(event.color !== undefined ? { color: event.color } : {}),
+      };
+      const nextParent: ConfigCategory = {
+        ...parent,
+        subcategories: [...parent.subcategories, sub],
+      };
+      const nextCats = [...readModel.configCategories];
+      nextCats[parentIdx] = nextParent;
+      readModel = { ...readModel, configCategories: nextCats };
+      break;
+    }
+
+    case 'SubcategoryUpdated': {
+      const parentIdx = readModel.configCategories.findIndex(
+        (c) => c.id === event.parentCategoryId,
+      );
+      if (parentIdx < 0) break;
+      const parent = readModel.configCategories[parentIdx]!;
+      const subIdx = parent.subcategories.findIndex((s) => s.id === event.subcategoryId);
+      if (subIdx < 0) break;
+      const current = parent.subcategories[subIdx]!;
+      const patched: ConfigSubcategory = {
+        ...current,
+        ...(event.changes.name !== undefined ? { name: event.changes.name } : {}),
+        ...(event.changes.color !== undefined ? { color: event.changes.color } : {}),
+      };
+      const nextSubs = [...parent.subcategories];
+      nextSubs[subIdx] = patched;
+      const nextCats = [...readModel.configCategories];
+      nextCats[parentIdx] = { ...parent, subcategories: nextSubs };
+      readModel = { ...readModel, configCategories: nextCats };
+      break;
+    }
+
+    case 'SubcategoryArchived': {
+      const parentIdx = readModel.configCategories.findIndex(
+        (c) => c.id === event.parentCategoryId,
+      );
+      if (parentIdx < 0) break;
+      const parent = readModel.configCategories[parentIdx]!;
+      const subIdx = parent.subcategories.findIndex((s) => s.id === event.subcategoryId);
+      if (subIdx < 0) break;
+      const nextSubs = [...parent.subcategories];
+      nextSubs[subIdx] = { ...nextSubs[subIdx]!, archivedAt: event.archivedAt };
+      const nextCats = [...readModel.configCategories];
+      nextCats[parentIdx] = { ...parent, subcategories: nextSubs };
+      readModel = { ...readModel, configCategories: nextCats };
+      break;
+    }
+
+    case 'SubcategoryUnarchived': {
+      const parentIdx = readModel.configCategories.findIndex(
+        (c) => c.id === event.parentCategoryId,
+      );
+      if (parentIdx < 0) break;
+      const parent = readModel.configCategories[parentIdx]!;
+      const subIdx = parent.subcategories.findIndex((s) => s.id === event.subcategoryId);
+      if (subIdx < 0) break;
+      const { archivedAt: _drop, ...rest } = parent.subcategories[subIdx]!;
+      void _drop;
+      const nextSubs = [...parent.subcategories];
+      nextSubs[subIdx] = rest;
+      const nextCats = [...readModel.configCategories];
+      nextCats[parentIdx] = { ...parent, subcategories: nextSubs };
+      readModel = { ...readModel, configCategories: nextCats };
+      break;
+    }
+
+    case 'TagUpdated': {
+      const idx = readModel.configTags.findIndex((t) => t.id === event.tagId);
+      if (idx < 0) break;
+      const current = readModel.configTags[idx]!;
+      const patched: ConfigTag = {
+        ...current,
+        ...(event.changes.name !== undefined ? { name: event.changes.name } : {}),
+        ...(event.changes.color !== undefined ? { color: event.changes.color } : {}),
+      };
+      const next = [...readModel.configTags];
+      next[idx] = patched;
+      readModel = { ...readModel, configTags: next };
+      break;
+    }
+
+    case 'TagArchived': {
+      const idx = readModel.configTags.findIndex((t) => t.id === event.tagId);
+      if (idx < 0) break;
+      const next = [...readModel.configTags];
+      next[idx] = { ...next[idx]!, archivedAt: event.archivedAt };
+      readModel = { ...readModel, configTags: next };
+      break;
+    }
+
+    case 'TagUnarchived': {
+      const idx = readModel.configTags.findIndex((t) => t.id === event.tagId);
+      if (idx < 0) break;
+      const current = readModel.configTags[idx]!;
+      const { archivedAt: _drop, ...rest } = current;
+      void _drop;
+      const next = [...readModel.configTags];
+      next[idx] = rest;
+      readModel = { ...readModel, configTags: next };
       break;
     }
 

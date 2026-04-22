@@ -33,9 +33,43 @@ Shipped so far: WI-11 (event log + crypto), WI-12 (transaction:create + movement
 
 Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (CSV/XLSX import with row-hash dedup + bank-specific parsers per Pedro Q5), full WI-15 (edit/archive/delete/subcategorías + stream consolidation).
 
+## Cross-Agent Learning (2026-04-22)
+
+**From Trinity (WI-21 config CRUD):** Strong typing per-method with `MethodBridge<Req,Res>` is a durable IPC pattern. Trinity's PR #4 renderer fixes relied on the strongly-typed bridges — when Morpheus diverged from the spec (e.g., nested subcategory path), TypeScript surface-area tests immediately flagged it without needing manual e2e testing. Future IPC work in WI-22+ should use the same strongly-typed bridge pattern rather than generic request/response wrappers. Applied to all config mutation channels in WI-21; validated in practice by PR #4's catch rate.
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+## 2026-04-22T10:40:00Z — PR #4 round 2: tightening update invariants
+
+**Status:** Pushed to `wi-21/config-crud` (commit `4f30d11`). Decision drop at `.squad/decisions/inbox/morpheus-pr4-round2-invariants.md`. Addresses 7 of 19 Copilot PR reviewer findings on 57ae73b (Trinity owns the other 12 renderer ones).
+
+### Durable learnings
+
+- **Zod `.refine` on "at least one change" must inspect VALUES, not KEYS.** `Object.keys(c).length > 0` passes for `{ color: undefined }` and lets a no-op `*Updated` event into the log. Correct predicate: `Object.values(c).some((v) => v !== undefined)`. Rule of thumb: any refine on an object-of-optionals needs to test what the keys carry, not that the keys exist.
+- **Optional-string update handlers need trim + empty→delete, not trim alone.** The WI-21 reducers apply `changes.color` whenever the key is present (`!== undefined`). Leaving `''` in the payload overwrites a previously-valid colour with an empty string in the read model — diverging from create-time semantics that just omit empty optionals. Pattern: after trim, `delete normalised.color` (or `undefined`) when length is 0, *plus* a final `Object.values(normalised).some(...)` check so a payload that was all-whitespace can't smuggle a no-op event through.
+- **Schema rejections must match handler rejections EXACTLY.** Any divergence is a bug. `createSubcategoryRequestSchema.name: z.string()` was accepting `''` while the handler rejected it — caught by the PR bot. `z.string().min(1)` at the schema is the right line of defence; the handler's trim-check then covers whitespace-only names.
+- **Event-sourced = permanent.** Any invariant breach that reaches NDJSON replays forever. Two-layered defence (schema boundary + handler) is the minimum; both layers must agree.
+- **Shared working tree with a parallel agent is hostile terrain.** Trinity's in-flight renderer changes appeared in the working tree while I ran tests, and at one point her process reset the tree (reflog showed `reset: moving to HEAD`) and wiped my uncommitted edits. Lessons: (1) commit your changes ASAP, don't let them sit in the worktree across long gate runs; (2) when tests/typecheck surface errors in files you don't own, `git stash push -- <their-paths>` to validate your work in isolation before drawing conclusions about baselines; (3) always `git add` an explicit file list, never `git add .` on a shared tree.
+
+## 2026-04-22T00:25:00Z — WI-21 Config CRUD backend landed (archive-only per Switch)
+
+**Status:** Backend surface complete on `wi-21/config-crud`; Trinity renderer still in flight. Decision drop at `.squad/decisions/inbox/morpheus-wi21-events-ipc.md`.
+
+### Key decisions
+
+1. **No `*.deleted` events. Ever.** Switch's cascade ruling (`switch-wi21-cascade-policy.md`) is the law. `Archived` stamps `archivedAt`, `Unarchived` clears it — both are pure reducer transitions, not tombstones.
+2. **Subcategory shape — first-class events, inlined projection.** SubcategoryCreated/Updated/Archived/Unarchived live on the NDJSON log with `parentCategoryId` as the routing key. The read model inlines them under `ConfigCategory.subcategories[]` so the renderer can fetch the whole picker tree with one `categories:list` call. Rationale: keeps event log granular for audit; avoids a new top-level stream; aligns with Switch's "no cascade" ruling (parent archive does NOT touch children).
+3. **Event `id` is the log dedupe key, not the entity id.** Pre-existing `JsonFileEventLog` dedupes by `event.id`. Re-using the entity id across `Created → Updated → Archived → Unarchived` would silently drop every mutation after the first. Fix: every mutation event carries `id: <fresh ULID>` plus a domain-named `{accountId|categoryId|subcategoryId|tagId}` field. `SubcategoryCreated` stays on the WI-15-lite `*Created` convention (`id` = entity id) because a create is unique-per-id by construction, and the renderer already relies on that shape.
+4. **`archivedAt?: string` is optional everywhere.** `selectActive*` helpers filter it out; list IPC handlers accept `{ includeArchived?: boolean }` (default `false`). Archived subcategories are also stripped from otherwise-active parent categories in the default view.
+5. **Backward-compat pinned by a replay test.** `reducers.wi21.test.ts > "replaying only pre-WI-21 *Created events produces an identical projection"` proves that an old NDJSON log still projects cleanly — no missing fields, no crashes, `archivedAt` undefined across the board.
+
+### Gotchas future-me will hit again
+
+- When adding mutation events to any append-only log stream, **always check how the log dedupes** before re-using an id. JsonFileEventLog uses `event.id` — not `(type, id)`, not `(dataset, id)`. Same pattern already shows up on `tx.note.added` and `tx.deleted` (envelope `id` = event ULID, `noteId`/`txId` = entity).
+- `exactOptionalPropertyTypes` strikes every time: to "clear" an optional field on a read-model record, destructure `{ field: _drop, ...rest }` and drop `_drop`. Don't set `undefined` — TypeScript will reject it.
+- Trinity's in-flight renderer work on the shared branch left the baseline `typecheck` and `format:check` red. Don't panic: run both, capture the baseline, then confirm your changes don't *add* errors. My files (core/main/shared/preload) are all clean; the residual prettier/tsc misses are renderer-side and Trinity's to close.
 
 ## 2026-04-20T20:33:00Z — ExcelJS cell normalization must happen at the boundary (SECOND TIME)
 

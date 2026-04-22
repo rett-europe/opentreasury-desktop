@@ -15,7 +15,31 @@ export function mapConfigErrorToFieldKey(code: string): string {
       return 'colorInvalid';
     case 'SCHEMA_INVALID':
       return 'schemaInvalid';
+    case 'NOT_FOUND':
+      return 'notFound';
+    case 'ALREADY_ARCHIVED':
+      return 'alreadyArchived';
+    case 'NOT_ARCHIVED':
+      return 'notArchived';
+    case 'INTERNAL':
+      return 'internal';
     default:
       return 'submitFailed';
   }
+}
+
+/**
+ * Map a ConfigMutationError (code + optional field) to a localized message via
+ * the provided translator. Used by non-create call sites (edit catch blocks,
+ * archive/unarchive handlers, archive dialog) so English `err.message` doesn't
+ * leak into the Spanish UI.
+ */
+import type { TFunction } from 'i18next';
+
+export function mapConfigMutationErrorToMessage(
+  err: { readonly code: string; readonly message: string; readonly field?: string | undefined },
+  t: TFunction,
+): string {
+  const key = mapConfigErrorToFieldKey(err.code);
+  return t(`configuracion.errors.${key}`, { defaultValue: err.message });
 }

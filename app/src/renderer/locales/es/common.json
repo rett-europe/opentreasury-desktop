@@ -272,6 +272,33 @@
     "title": "Configuración",
     "subtitle": "Gestiona tus cuentas, categorías y etiquetas.",
     "optional": "(opcional)",
+    "archivedToggle": "Mostrar archivadas",
+    "archivedBadge": "(archivada)",
+    "unarchive": "Restaurar",
+    "unarchiveTooltip": "Restaurar",
+    "delete": {
+      "usage": {
+        "withCount_one": "{{count}} movimiento asociado",
+        "withCount_other": "{{count}} movimientos asociados",
+        "unknown": "—",
+        "none": "Sin movimientos asociados"
+      },
+      "warning": {
+        "delete": "Esta acción no se puede deshacer.",
+        "archive": "Se ocultará de las listas, pero se conservará el historial."
+      },
+      "buttons": {
+        "cancel": "Cancelar",
+        "delete": "Eliminar",
+        "archive": "Archivar",
+        "deleting": "Eliminando…",
+        "archiving": "Archivando…"
+      },
+      "error": {
+        "generic": "No se pudo completar la acción. Inténtalo de nuevo.",
+        "inUse": "No se puede eliminar: hay movimientos asociados. Archívalo en su lugar."
+      }
+    },
     "tabs": {
       "label": "Secciones de configuración",
       "cuentas": "Cuentas",
@@ -285,7 +312,30 @@
       "bank": "Banco",
       "openingBalance": "Saldo inicial (€)",
       "modal": {
-        "title": "Nueva cuenta"
+        "title": "Nueva cuenta",
+        "editTitle": "Editar cuenta",
+        "openingBalanceImmutable": "El saldo inicial no puede modificarse después de crear la cuenta."
+      },
+      "actions": {
+        "edit": "Editar",
+        "editTooltip": "Editar cuenta",
+        "delete": "Eliminar",
+        "deleteTooltip": "Eliminar cuenta",
+        "archiveTooltip": "Archivar cuenta"
+      },
+      "deleteConfirm": {
+        "title": "Eliminar cuenta",
+        "archiveTitle": "Archivar cuenta",
+        "confirmDelete": "¿Eliminar la cuenta «{{name}}»?",
+        "confirmArchive": "¿Archivar la cuenta «{{name}}»?",
+        "bodyDelete": "Se eliminará la cuenta de forma permanente.",
+        "bodyArchive": "La cuenta dejará de aparecer en las listas y selectores, pero se conservará su historial."
+      },
+      "toast": {
+        "deleteSuccess": "Cuenta eliminada",
+        "archiveSuccess": "Cuenta archivada",
+        "unarchiveSuccess": "Cuenta restaurada",
+        "updateSuccess": "Cuenta actualizada"
       },
       "empty": {
         "title": "Aún no hay cuentas",
@@ -339,25 +389,107 @@
         "pendingEvents": "Las subcategorías y los contadores de uso llegarán cuando el event log lo soporte."
       },
       "actions": {
-        "editTitle": "Editar (próximamente)",
-        "deleteTitle": "Eliminar (próximamente)",
-        "renameTitle": "Renombrar (próximamente)",
-        "addSubTitle": "Añadir subcategoría (próximamente)"
+        "edit": "Editar",
+        "editTooltip": "Editar categoría",
+        "delete": "Eliminar",
+        "deleteTooltip": "Eliminar categoría",
+        "archiveTooltip": "Archivar categoría",
+        "rename": "Renombrar",
+        "renameTooltip": "Renombrar categoría",
+        "addSub": "Subcategoría",
+        "addSubTooltip": "Añadir subcategoría",
+        "editTitle": "Editar categoría",
+        "deleteTitle": "Archivar categoría",
+        "renameTitle": "Renombrar categoría",
+        "addSubTitle": "Añadir subcategoría"
+      },
+      "deleteConfirm": {
+        "title": "Eliminar categoría",
+        "archiveTitle": "Archivar categoría",
+        "confirmDelete": "¿Eliminar la categoría «{{name}}»?",
+        "confirmArchive": "¿Archivar la categoría «{{name}}»?",
+        "bodyDelete": "Se eliminarán también sus subcategorías. Los movimientos ya clasificados quedarán sin categoría.",
+        "bodyArchive": "La categoría dejará de aparecer al clasificar, pero se conservará el historial."
+      },
+      "toast": {
+        "deleteSuccess": "Categoría eliminada",
+        "archiveSuccess": "Categoría archivada",
+        "unarchiveSuccess": "Categoría restaurada",
+        "updateSuccess": "Categoría actualizada"
       },
       "modal": {
-        "title": "Nueva categoría"
+        "title": "Nueva categoría",
+        "editTitle": "Editar categoría"
       },
       "empty": {
         "title": "Aún no hay categorías",
         "body": "Crea categorías para agrupar tus ingresos y gastos."
       }
     },
+    "subcategorias": {
+      "heading": "Subcategorías",
+      "add": "Añadir subcategoría",
+      "name": "Nombre de la subcategoría",
+      "inline": {
+        "addLabel": "Añadir subcategoría a {{parent}}",
+        "placeholder": "Nombre de la subcategoría",
+        "save": "Añadir",
+        "saving": "Añadiendo…",
+        "update": "Guardar",
+        "updating": "Guardando…",
+        "cancel": "Cancelar"
+      },
+      "actions": {
+        "edit": "Editar",
+        "editTooltip": "Editar subcategoría",
+        "delete": "Eliminar",
+        "deleteTooltip": "Eliminar subcategoría",
+        "archiveTooltip": "Archivar subcategoría"
+      },
+      "deleteConfirm": {
+        "title": "Eliminar subcategoría",
+        "archiveTitle": "Archivar subcategoría",
+        "confirmDelete": "¿Eliminar la subcategoría «{{name}}»?",
+        "confirmArchive": "¿Archivar la subcategoría «{{name}}»?",
+        "bodyDelete": "Los movimientos asociados conservarán la categoría principal, pero perderán la subcategoría.",
+        "bodyArchive": "La subcategoría dejará de aparecer al clasificar, pero los movimientos ya clasificados la conservarán."
+      },
+      "toast": {
+        "deleteSuccess": "Subcategoría eliminada",
+        "archiveSuccess": "Subcategoría archivada",
+        "unarchiveSuccess": "Subcategoría restaurada",
+        "updateSuccess": "Subcategoría actualizada"
+      },
+      "empty": "Esta categoría aún no tiene subcategorías."
+    },
     "etiquetas": {
       "heading": "Etiquetas",
       "add": "Añadir etiqueta",
       "name": "Nombre de la etiqueta",
       "modal": {
-        "title": "Nueva etiqueta"
+        "title": "Nueva etiqueta",
+        "editTitle": "Editar etiqueta"
+      },
+      "actions": {
+        "edit": "Editar",
+        "editTooltip": "Editar etiqueta",
+        "delete": "Eliminar",
+        "deleteTooltip": "Eliminar etiqueta",
+        "archiveTooltip": "Archivar etiqueta"
+      },
+      "deleteConfirm": {
+        "title": "Eliminar etiqueta",
+        "archiveTitle": "Archivar etiqueta",
+        "confirmDelete": "¿Eliminar la etiqueta «{{name}}»?",
+        "confirmArchive": "¿Archivar la etiqueta «{{name}}»?",
+        "bodyDelete": "Se quitará de todos los movimientos que la tengan asignada.",
+        "bodyArchive": "La etiqueta dejará de aparecer al seleccionar, pero los movimientos que ya la tengan la conservarán."
+      },
+      "toast": {
+        "deleteSuccess": "Etiqueta eliminada",
+        "archiveSuccess": "Etiqueta archivada",
+        "unarchiveSuccess": "Etiqueta restaurada",
+        "updateSuccess": "Etiqueta actualizada"
       },
       "empty": {
         "title": "Aún no hay etiquetas",
@@ -374,6 +506,10 @@
       "openingBalanceInvalid": "El saldo inicial debe ser un número válido.",
       "colorInvalid": "Ese color no es válido.",
       "schemaInvalid": "Algunos datos no son válidos.",
+      "notFound": "El elemento ya no existe. Actualiza la lista e inténtalo de nuevo.",
+      "alreadyArchived": "Este elemento ya estaba archivado.",
+      "notArchived": "Este elemento no está archivado.",
+      "internal": "Ocurrió un error interno. Inténtalo de nuevo.",
       "submitFailed": "No se pudo guardar. Inténtalo de nuevo."
     }
   },

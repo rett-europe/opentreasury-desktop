@@ -1,16 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Landmark, Search, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Landmark, Search, Edit, Archive, Eye, EyeOff, RotateCcw } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
-import { AddAccountModal } from '../../components/ConfigModals/index.js';
+import { AddAccountModal, ArchiveConfirmModal } from '../../components/ConfigModals/index.js';
 import { listAccounts } from '../../services/accountsApi.js';
+import {
+  archiveAccount,
+  ConfigMutationError,
+  isArchived,
+  unarchiveAccount,
+  type ConfigAccount,
+} from '../../services/configMutationsApi.js';
+import { mapConfigMutationErrorToMessage } from '../../components/ConfigModals/errorMap.js';
 import type { AccountRecord } from '../../types/config.js';
 
 type State =
   | { kind: 'loading' }
-  | { kind: 'loaded'; accounts: readonly AccountRecord[] }
+  | { kind: 'loaded'; accounts: readonly ConfigAccount[] }
   | { kind: 'error'; message: string };
 
 export interface CuentasTabProps {
@@ -33,7 +41,10 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<ConfigAccount | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<ConfigAccount | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   const [revealed, setRevealed] = useState<ReadonlySet<string>>(() => new Set());
 
   const toggleReveal = (id: string): void => {
@@ -48,43 +59,74 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const resp = await listAccounts();
-      setState({ kind: 'loaded', accounts: resp.accounts });
+      const resp = await listAccounts({ includeArchived: showArchived });
+      setState({ kind: 'loaded', accounts: resp.accounts as readonly ConfigAccount[] });
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : 'unknown' });
     }
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const handleCreated = useCallback(() => {
-    void load();
+  const handleSaved = useCallback(
+    (_saved: AccountRecord) => {
+      void load();
+      onListChanged?.();
+    },
+    [load, onListChanged],
+  );
+
+  const handleArchive = useCallback(async () => {
+    if (!archiveTarget) return;
+    await archiveAccount(archiveTarget.id);
+    await load();
     onListChanged?.();
-  }, [load, onListChanged]);
+  }, [archiveTarget, load, onListChanged]);
+
+  const handleUnarchive = useCallback(
+    async (id: string) => {
+      try {
+        await unarchiveAccount(id);
+        await load();
+        onListChanged?.();
+      } catch (err) {
+        const message =
+          err instanceof ConfigMutationError
+            ? mapConfigMutationErrorToMessage(err, t)
+            : err instanceof Error
+              ? err.message
+              : t('configuracion.errors.submitFailed');
+        setState({ kind: 'error', message });
+      }
+    },
+    [load, onListChanged, t],
+  );
 
   const fmtCurrency = new Intl.NumberFormat(i18n.language.startsWith('es') ? 'es-ES' : 'en-US', {
     style: 'currency',
     currency: 'EUR',
   });
 
-  const filteredAccounts =
-    state.kind === 'loaded'
-      ? state.accounts.filter((a) => {
-          if (!searchQuery) return true;
-          const q = searchQuery.toLowerCase();
-          return (
-            a.name.toLowerCase().includes(q) ||
-            (a.bankName || '').toLowerCase().includes(q) ||
-            (a.label || '').toLowerCase().includes(q) ||
-            (a.iban || '').toLowerCase().includes(q)
-          );
-        })
-      : [];
+  const visibleAccounts =
+    state.kind === 'loaded' ? state.accounts.filter((a) => showArchived || !isArchived(a)) : [];
+
+  const filteredAccounts = visibleAccounts.filter((a) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      a.name.toLowerCase().includes(q) ||
+      (a.bankName || '').toLowerCase().includes(q) ||
+      (a.label || '').toLowerCase().includes(q) ||
+      (a.iban || '').toLowerCase().includes(q)
+    );
+  });
 
   const totalBalance =
-    state.kind === 'loaded' ? state.accounts.reduce((sum, a) => sum + a.openingBalance, 0) : 0;
+    state.kind === 'loaded'
+      ? state.accounts.filter((a) => !isArchived(a)).reduce((sum, a) => sum + a.openingBalance, 0)
+      : 0;
 
   return (
     <>
@@ -164,8 +206,16 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+            <label className="ot-config__archived-toggle">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+              />
+              {t('configuracion.archivedToggle')}
+            </label>
             <span className="ot-config__filter-count">
-              {filteredAccounts.length} de {state.accounts.length}
+              {filteredAccounts.length} de {visibleAccounts.length}
             </span>
           </div>
 
@@ -196,8 +246,9 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                   filteredAccounts.map((a) => {
                     const isRevealed = revealed.has(a.id);
                     const swatch = a.color || 'var(--color-brand-primary)';
+                    const archived = isArchived(a);
                     return (
-                      <tr key={a.id}>
+                      <tr key={a.id} className={archived ? 'ot-config__row--archived' : undefined}>
                         <td>
                           <span
                             className="ot-config__entity-icon"
@@ -208,7 +259,14 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                           </span>
                         </td>
                         <td className="ot-config__cell-truncate" title={a.name}>
-                          <div style={{ fontWeight: 'var(--font-weight-medium)' }}>{a.name}</div>
+                          <div style={{ fontWeight: 'var(--font-weight-medium)' }}>
+                            {a.name}
+                            {archived ? (
+                              <span className="ot-config__archived-badge">
+                                {t('configuracion.archivedBadge')}
+                              </span>
+                            ) : null}
+                          </div>
                           <div className="ot-config__meta-text">
                             {a.isPaypal ? 'Plataforma externa' : 'Cuenta bancaria'}
                           </div>
@@ -274,22 +332,35 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                         </td>
                         <td>
                           <div className="ot-config__row-actions">
-                            <button
-                              className="ot-config__row-action-btn"
-                              title="Editar (próximamente)"
-                              aria-label="Editar cuenta"
-                              disabled
-                            >
-                              <Edit size={14} />
-                            </button>
-                            <button
-                              className="ot-config__row-action-btn ot-config__row-action-btn--danger"
-                              title="Eliminar (próximamente)"
-                              aria-label="Eliminar cuenta"
-                              disabled
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            {archived ? (
+                              <button
+                                className="ot-config__row-action-btn"
+                                title={t('configuracion.unarchiveTooltip')}
+                                aria-label={t('configuracion.unarchiveTooltip')}
+                                onClick={() => void handleUnarchive(a.id)}
+                              >
+                                <RotateCcw size={14} />
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  className="ot-config__row-action-btn"
+                                  title={t('configuracion.cuentas.actions.editTooltip')}
+                                  aria-label={t('configuracion.cuentas.actions.editTooltip')}
+                                  onClick={() => setEditing(a)}
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button
+                                  className="ot-config__row-action-btn"
+                                  title={t('configuracion.cuentas.actions.archiveTooltip')}
+                                  aria-label={t('configuracion.cuentas.actions.archiveTooltip')}
+                                  onClick={() => setArchiveTarget(a)}
+                                >
+                                  <Archive size={14} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -311,7 +382,21 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
       <AddAccountModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onCreated={handleCreated}
+        onSaved={handleSaved}
+      />
+      <AddAccountModal
+        isOpen={editing !== null}
+        mode="edit"
+        record={editing}
+        onClose={() => setEditing(null)}
+        onSaved={handleSaved}
+      />
+      <ArchiveConfirmModal
+        isOpen={archiveTarget !== null}
+        entity="cuentas"
+        name={archiveTarget?.name ?? ''}
+        onClose={() => setArchiveTarget(null)}
+        onConfirm={handleArchive}
       />
     </>
   );

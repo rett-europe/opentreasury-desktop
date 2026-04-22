@@ -2,14 +2,15 @@
 // Mirrors panelApi/movementsApi patterns. Part of WI-15-lite (Trinity).
 
 import type {
+  AccountsListRequest,
   AccountsListResponse,
   CreateAccountRequest,
   CreateAccountResponse,
 } from '../../shared/ipc-contracts/accounts.js';
 
-/** List all accounts (server sort order). */
-export async function listAccounts(): Promise<AccountsListResponse> {
-  return window.opentreasury.accounts.list();
+/** List accounts (server sort order). Pass `includeArchived: true` to surface archived records. */
+export async function listAccounts(req?: AccountsListRequest): Promise<AccountsListResponse> {
+  return window.opentreasury.accounts.list(req);
 }
 
 /**

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react';
 import { createCategory } from '../../services/categoriesApi.js';
+import { updateCategory } from '../../services/configMutationsApi.js';
 import type {
   CategoryKind,
   CategoryRecord,
@@ -26,7 +27,9 @@ export const CATEGORY_PALETTE: readonly string[] = [
 export interface AddCategoryModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onCreated: (category: CategoryRecord) => void;
+  readonly onSaved: (category: CategoryRecord) => void;
+  readonly mode?: 'add' | 'edit';
+  readonly record?: CategoryRecord | null;
 }
 
 interface Errors {
@@ -38,7 +41,9 @@ interface Errors {
 export function AddCategoryModal({
   isOpen,
   onClose,
-  onCreated,
+  onSaved,
+  mode = 'add',
+  record = null,
 }: AddCategoryModalProps): JSX.Element {
   const { t } = useTranslation('common');
 
@@ -51,14 +56,20 @@ export function AddCategoryModal({
 
   useEffect(() => {
     if (isOpen) {
-      setName('');
-      setColor(null);
-      setKind(null);
+      if (mode === 'edit' && record) {
+        setName(record.name);
+        setColor(record.color ?? null);
+        setKind(record.kind ?? null);
+      } else {
+        setName('');
+        setColor(null);
+        setKind(null);
+      }
       setErrors({});
       setGeneralError(null);
       setSubmitting(false);
     }
-  }, [isOpen]);
+  }, [isOpen, mode, record]);
 
   const validate = useCallback((): boolean => {
     const next: Errors = {};
@@ -86,6 +97,23 @@ export function AddCategoryModal({
     if (!validate()) return;
     setSubmitting(true);
     try {
+      if (mode === 'edit' && record) {
+        const trimmedName = name.trim();
+        await updateCategory(record.id, {
+          name: trimmedName,
+          color: color ?? undefined,
+          ...(kind !== null ? { kind } : {}),
+        });
+        const updated: CategoryRecord = {
+          ...record,
+          name: trimmedName,
+          ...(color !== null ? { color } : {}),
+          ...(kind !== null ? { kind } : {}),
+        };
+        onSaved(updated);
+        onClose();
+        return;
+      }
       const resp = await createCategory({
         name: name.trim(),
         color: color ?? undefined,
@@ -95,7 +123,7 @@ export function AddCategoryModal({
         applyServerError(resp);
         return;
       }
-      onCreated({
+      onSaved({
         id: resp.event.id,
         name: resp.event.name,
         createdAt: resp.event.createdAt,
@@ -108,12 +136,16 @@ export function AddCategoryModal({
     } finally {
       setSubmitting(false);
     }
-  }, [validate, name, color, kind, onCreated, onClose, applyServerError, t]);
+  }, [validate, name, color, kind, onSaved, onClose, applyServerError, mode, record, t]);
 
   return (
     <ConfigModalShell
       isOpen={isOpen}
-      titleKey="configuracion.categorias.modal.title"
+      titleKey={
+        mode === 'edit'
+          ? 'configuracion.categorias.modal.editTitle'
+          : 'configuracion.categorias.modal.title'
+      }
       onClose={onClose}
       onSubmit={handleSubmit}
       submitting={submitting}

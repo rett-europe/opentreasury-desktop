@@ -4,11 +4,12 @@
 import type {
   CreateTagRequest,
   CreateTagResponse,
+  TagsListRequest,
   TagsListResponse,
 } from '../../shared/ipc-contracts/tags.js';
 
-export async function listTags(): Promise<TagsListResponse> {
-  return window.opentreasury.tags.list();
+export async function listTags(req?: TagsListRequest): Promise<TagsListResponse> {
+  return window.opentreasury.tags.list(req);
 }
 
 export async function createTag(input: CreateTagRequest): Promise<CreateTagResponse> {

@@ -22,6 +22,38 @@ A prototype exists in `/prototype/` with React-based JSX components.
 
 ## Learnings
 
+### 2026-04-20 — WI-21 Delete/Edit i18n copy drafted
+
+Drafted full ES+EN copy for Edit/Delete CRUD on Accounts/Categories/Subcategories/Tags in
+`.squad/decisions/inbox/niobe-wi21-delete-copy.md`. Key learnings:
+
+1. **Existing namespace is `configuracion.*`, NOT `config.*`** — the task brief's "config.{entity}"
+   shorthand is misleading; the locale files use the Spanish root and Spanish entity slugs
+   (`cuentas`, `categorias`, `etiquetas`) in *both* ES and EN. Any future copy work must respect
+   this — changing it would break all existing i18n keys. Added a `configuracion.subcategorias`
+   top-level node proposal since subcategories now need first-class Edit/Delete affordances.
+
+2. **Delete-vs-Archive copy must be paired, not either/or** — Switch hasn't ruled which entities
+   are hard-delete vs soft-archive. Providing both `.confirmDelete` / `.confirmArchive` + matching
+   bodies/toasts unblocks Trinity now and absorbs Switch's verdict later without re-translation.
+   Recommended verdict: Tags hard-delete, Accounts/Categories/Subcategories archive-only (FK +
+   audit weight). Awaits Switch confirmation.
+
+3. **Neutral body copy per entity carries the "what will happen" weight** — each entity has a
+   distinct downstream blast radius (accounts touch balances/imports; categories orphan their
+   children; subcategories only lose the leaf; tags detach cleanly). Generic "esta acción no se
+   puede deshacer" isn't enough — the body line must state the *specific* consequence. This
+   improves treasurer trust over a one-size-fits-all dialog.
+
+4. **Usage count must degrade gracefully to `—`** — event-sourced read model may not yet expose
+   movement counts per config entity. Introduced `configuracion.delete.usage.unknown: "—"` plus
+   a pluralized `withCount` key, so Trinity can render the dialog today and Morpheus can wire
+   real counts later without touching the modal.
+
+5. **Centralizing buttons/warning/error under `configuracion.delete.*`** avoids 4× duplication
+   across entities and keeps verb consistency (Cancelar / Eliminar / Archivar). Only entity-
+   specific copy (title, prompt, body, toasts) lives per-entity.
+
 ### 2026-04-19 — UX-007 Configuración v1 spec finalized
 
 Completed 34KB comprehensive UX spec for WI-15 Configuración screens. Covers Cuentas (bank + PayPal, 

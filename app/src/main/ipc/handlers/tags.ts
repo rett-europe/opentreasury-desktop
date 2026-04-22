@@ -1,15 +1,27 @@
-// tags:create + tags:list IPC handler factories — WI-15-lite.
+// tags:* IPC handler factories — WI-15-lite + WI-21.
+// Archive-only (no hard-delete) per Switch's WI-21 ruling.
 
 import type { EventLog } from '../../../core/eventLog/index.js';
-import type { ConfigTagCreatedEvent } from '../../../core/events/schemas.js';
+import type {
+  ConfigTagArchivedEvent,
+  ConfigTagCreatedEvent,
+  ConfigTagUnarchivedEvent,
+  ConfigTagUpdatedEvent,
+} from '../../../core/events/schemas.js';
 import { applyEvent as coreApplyEvent } from '../../../core/query/reducers.js';
 import type { ReadModel } from '../../../core/query/types.js';
 import {
+  archiveTagRequestSchema,
   createTagRequestSchema,
-  type TagRecord,
+  unarchiveTagRequestSchema,
+  updateTagRequestSchema,
+  type ArchiveTagResponse,
   type CreateTagResponse,
+  type TagRecord,
+  type UnarchiveTagResponse,
+  type UpdateTagResponse,
 } from '../../../shared/ipc-contracts/tags.js';
-import { selectTags } from '../../projections/config.js';
+import { selectActiveTags, selectTags } from '../../projections/config.js';
 
 export interface TagsHandlerDeps {
   readonly eventLog: EventLog;
@@ -19,11 +31,22 @@ export interface TagsHandlerDeps {
   readonly applyEvent?: typeof coreApplyEvent;
 }
 
+async function appendAndApply(
+  deps: TagsHandlerDeps,
+  event: Parameters<typeof coreApplyEvent>[0],
+): Promise<void> {
+  const apply = deps.applyEvent ?? coreApplyEvent;
+  const before = (await deps.eventLog.load()).length;
+  await deps.eventLog.append(event);
+  const after = (await deps.eventLog.load()).length;
+  if (after > before) {
+    apply(event);
+  }
+}
+
 export function createTagsCreateHandler(
   deps: TagsHandlerDeps,
 ): (raw: unknown) => Promise<CreateTagResponse> {
-  const apply = deps.applyEvent ?? coreApplyEvent;
-
   return async function handleTagsCreate(raw: unknown): Promise<CreateTagResponse> {
     try {
       const parsed = createTagRequestSchema.safeParse(raw);
@@ -67,12 +90,7 @@ export function createTagsCreateHandler(
         ...(color !== undefined && color.length > 0 ? { color } : {}),
       };
 
-      const before = (await deps.eventLog.load()).length;
-      await deps.eventLog.append(event);
-      const after = (await deps.eventLog.load()).length;
-      if (after > before) {
-        apply(event);
-      }
+      await appendAndApply(deps, event);
 
       return { ok: true, event };
     } catch (err) {
@@ -84,8 +102,174 @@ export function createTagsCreateHandler(
 
 export function createTagsListHandler(
   deps: Pick<TagsHandlerDeps, 'getReadModel'>,
-): () => Promise<{ tags: TagRecord[] }> {
-  return async function handleTagsList(): Promise<{ tags: TagRecord[] }> {
-    return { tags: selectTags(deps.getReadModel()) };
+): (raw?: unknown) => Promise<{ tags: TagRecord[] }> {
+  return async function handleTagsList(raw?: unknown): Promise<{ tags: TagRecord[] }> {
+    const includeArchived =
+      typeof raw === 'object' &&
+      raw !== null &&
+      'includeArchived' in raw &&
+      (raw as { includeArchived?: unknown }).includeArchived === true;
+    const model = deps.getReadModel();
+    return { tags: includeArchived ? selectTags(model) : selectActiveTags(model) };
+  };
+}
+
+export function createTagsUpdateHandler(
+  deps: TagsHandlerDeps,
+): (raw: unknown) => Promise<UpdateTagResponse> {
+  return async function handleTagsUpdate(raw: unknown): Promise<UpdateTagResponse> {
+    try {
+      const parsed = updateTagRequestSchema.safeParse(raw);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          error: {
+            code: 'SCHEMA_INVALID',
+            message: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+          },
+        };
+      }
+      const { id, changes } = parsed.data;
+      const existing = deps.getReadModel().configTags;
+      const current = existing.find((t) => t.id === id);
+      if (!current) {
+        return { ok: false, error: { code: 'NOT_FOUND', message: `Tag ${id} not found` } };
+      }
+
+      const normalised: typeof changes = { ...changes };
+      if (normalised.name !== undefined) {
+        const trimmed = normalised.name.trim();
+        if (trimmed.length === 0) {
+          return {
+            ok: false,
+            error: { code: 'NAME_EMPTY', message: 'Tag name is required', field: 'name' },
+          };
+        }
+        normalised.name = trimmed;
+      }
+      if (normalised.color !== undefined) {
+        const trimmed = normalised.color.trim();
+        if (trimmed.length === 0) delete normalised.color;
+        else normalised.color = trimmed;
+      }
+
+      if (!Object.values(normalised).some((v) => v !== undefined)) {
+        return {
+          ok: false,
+          error: { code: 'SCHEMA_INVALID', message: 'changes must be non-empty' },
+        };
+      }
+
+      if (normalised.name !== undefined) {
+        const clash = existing.some(
+          (t) => t.id !== id && t.name.trim().toLowerCase() === normalised.name!.toLowerCase(),
+        );
+        if (clash) {
+          return {
+            ok: false,
+            error: {
+              code: 'NAME_DUPLICATE',
+              message: `A tag named "${normalised.name}" already exists`,
+              field: 'name',
+            },
+          };
+        }
+      }
+
+      const event: ConfigTagUpdatedEvent = {
+        type: 'TagUpdated',
+        id: deps.newId(),
+        tagId: id,
+        changes: normalised,
+        updatedAt: deps.now().toISOString(),
+      };
+      await appendAndApply(deps, event);
+      return { ok: true, event };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: { code: 'INTERNAL', message } };
+    }
+  };
+}
+
+export function createTagsArchiveHandler(
+  deps: TagsHandlerDeps,
+): (raw: unknown) => Promise<ArchiveTagResponse> {
+  return async function handleTagsArchive(raw: unknown): Promise<ArchiveTagResponse> {
+    try {
+      const parsed = archiveTagRequestSchema.safeParse(raw);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          error: {
+            code: 'SCHEMA_INVALID',
+            message: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+          },
+        };
+      }
+      const { id } = parsed.data;
+      const current = deps.getReadModel().configTags.find((t) => t.id === id);
+      if (!current) {
+        return { ok: false, error: { code: 'NOT_FOUND', message: `Tag ${id} not found` } };
+      }
+      if (current.archivedAt !== undefined) {
+        return {
+          ok: false,
+          error: { code: 'ALREADY_ARCHIVED', message: `Tag ${id} is already archived` },
+        };
+      }
+      const event: ConfigTagArchivedEvent = {
+        type: 'TagArchived',
+        id: deps.newId(),
+        tagId: id,
+        archivedAt: deps.now().toISOString(),
+      };
+      await appendAndApply(deps, event);
+      return { ok: true, event };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: { code: 'INTERNAL', message } };
+    }
+  };
+}
+
+export function createTagsUnarchiveHandler(
+  deps: TagsHandlerDeps,
+): (raw: unknown) => Promise<UnarchiveTagResponse> {
+  return async function handleTagsUnarchive(raw: unknown): Promise<UnarchiveTagResponse> {
+    try {
+      const parsed = unarchiveTagRequestSchema.safeParse(raw);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          error: {
+            code: 'SCHEMA_INVALID',
+            message: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+          },
+        };
+      }
+      const { id } = parsed.data;
+      const current = deps.getReadModel().configTags.find((t) => t.id === id);
+      if (!current) {
+        return { ok: false, error: { code: 'NOT_FOUND', message: `Tag ${id} not found` } };
+      }
+      if (current.archivedAt === undefined) {
+        return {
+          ok: false,
+          error: { code: 'NOT_ARCHIVED', message: `Tag ${id} is not archived` },
+        };
+      }
+      const event: ConfigTagUnarchivedEvent = {
+        type: 'TagUnarchived',
+        id: deps.newId(),
+        tagId: id,
+        unarchivedAt: deps.now().toISOString(),
+      };
+      await appendAndApply(deps, event);
+      return { ok: true, event };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: { code: 'INTERNAL', message } };
+    }
   };
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Eye, EyeOff, Landmark, Tag as TagIcon } from 'lucide-react';
 import { createAccount } from '../../services/accountsApi.js';
+import { updateAccount } from '../../services/configMutationsApi.js';
 import type {
   AccountRecord,
   CreateAccountResponse,
@@ -13,7 +14,9 @@ import { CATEGORY_PALETTE } from './AddCategoryModal.js';
 export interface AddAccountModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
-  readonly onCreated: (account: AccountRecord) => void;
+  readonly onSaved: (account: AccountRecord) => void;
+  readonly mode?: 'add' | 'edit';
+  readonly record?: AccountRecord | null;
 }
 
 interface Errors {
@@ -33,7 +36,13 @@ function maskIban(iban: string): string {
   return `${prefix}${stars}${last4}`.replace(/(.{4})(?=.)/g, '$1 ');
 }
 
-export function AddAccountModal({ isOpen, onClose, onCreated }: AddAccountModalProps): JSX.Element {
+export function AddAccountModal({
+  isOpen,
+  onClose,
+  onSaved,
+  mode = 'add',
+  record = null,
+}: AddAccountModalProps): JSX.Element {
   const { t } = useTranslation('common');
 
   const [name, setName] = useState('');
@@ -50,19 +59,29 @@ export function AddAccountModal({ isOpen, onClose, onCreated }: AddAccountModalP
 
   useEffect(() => {
     if (isOpen) {
-      setName('');
-      setBankName('');
-      setLabel('');
-      setIban('');
-      setColor(CATEGORY_PALETTE[0] ?? '#6d4d8c');
-      setIsPaypal(false);
+      if (mode === 'edit' && record) {
+        setName(record.name);
+        setBankName(record.bankName ?? '');
+        setLabel(record.label ?? '');
+        setIban(record.iban ?? '');
+        setColor(record.color ?? CATEGORY_PALETTE[0] ?? '#6d4d8c');
+        setIsPaypal(Boolean(record.isPaypal));
+        setOpeningBalance(String(record.openingBalance ?? ''));
+      } else {
+        setName('');
+        setBankName('');
+        setLabel('');
+        setIban('');
+        setColor(CATEGORY_PALETTE[0] ?? '#6d4d8c');
+        setIsPaypal(false);
+        setOpeningBalance('');
+      }
       setRevealIban(false);
-      setOpeningBalance('');
       setErrors({});
       setGeneralError(null);
       setSubmitting(false);
     }
-  }, [isOpen]);
+  }, [isOpen, mode, record]);
 
   const validate = useCallback((): boolean => {
     const next: Errors = {};
@@ -98,6 +117,33 @@ export function AddAccountModal({ isOpen, onClose, onCreated }: AddAccountModalP
     setSubmitting(true);
     try {
       const parsed = openingBalance.trim() === '' ? undefined : Number(openingBalance);
+      if (mode === 'edit' && record) {
+        const changes = {
+          name: name.trim(),
+          bankName: bankName.trim() || undefined,
+          label: label.trim() || undefined,
+          iban: !isPaypal && iban.trim() ? iban.trim() : undefined,
+          color,
+          isPaypal,
+        };
+        await updateAccount(record.id, changes);
+        const updated: AccountRecord = {
+          id: record.id,
+          name: changes.name,
+          currency: record.currency,
+          openingBalance: record.openingBalance,
+          createdAt: record.createdAt,
+          ...(changes.bankName !== undefined ? { bankName: changes.bankName } : {}),
+          ...(changes.label !== undefined ? { label: changes.label } : {}),
+          ...(changes.iban !== undefined ? { iban: changes.iban } : {}),
+          ...(changes.color !== undefined ? { color: changes.color } : {}),
+          ...(changes.isPaypal !== undefined ? { isPaypal: changes.isPaypal } : {}),
+          ...(record.archivedAt !== undefined ? { archivedAt: record.archivedAt } : {}),
+        };
+        onSaved(updated);
+        onClose();
+        return;
+      }
       const resp = await createAccount({
         name: name.trim(),
         bankName: bankName.trim() || undefined,
@@ -111,7 +157,7 @@ export function AddAccountModal({ isOpen, onClose, onCreated }: AddAccountModalP
         applyServerError(resp);
         return;
       }
-      onCreated({
+      onSaved({
         id: resp.event.id,
         name: resp.event.name,
         currency: resp.event.currency,
@@ -138,16 +184,22 @@ export function AddAccountModal({ isOpen, onClose, onCreated }: AddAccountModalP
     iban,
     color,
     isPaypal,
-    onCreated,
+    onSaved,
     onClose,
     applyServerError,
+    mode,
+    record,
     t,
   ]);
 
   return (
     <ConfigModalShell
       isOpen={isOpen}
-      titleKey="configuracion.cuentas.modal.title"
+      titleKey={
+        mode === 'edit'
+          ? 'configuracion.cuentas.modal.editTitle'
+          : 'configuracion.cuentas.modal.title'
+      }
       onClose={onClose}
       onSubmit={handleSubmit}
       submitting={submitting}
@@ -300,7 +352,14 @@ export function AddAccountModal({ isOpen, onClose, onCreated }: AddAccountModalP
           onChange={(e) => setOpeningBalance(e.target.value)}
           aria-invalid={Boolean(errors.openingBalance)}
           aria-describedby={errors.openingBalance ? 'acc-opening-err' : undefined}
+          readOnly={mode === 'edit'}
+          disabled={mode === 'edit'}
         />
+        {mode === 'edit' ? (
+          <span className="ot-config-modal__field-hint">
+            {t('configuracion.cuentas.modal.openingBalanceImmutable')}
+          </span>
+        ) : null}
         {errors.openingBalance ? (
           <span id="acc-opening-err" className="ot-config-modal__field-error">
             {errors.openingBalance}

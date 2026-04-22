@@ -38,23 +38,65 @@ import {
 import {
   IPC_ACCOUNTS_CREATE,
   IPC_ACCOUNTS_LIST,
+  IPC_ACCOUNTS_UPDATE,
+  IPC_ACCOUNTS_ARCHIVE,
+  IPC_ACCOUNTS_UNARCHIVE,
   type CreateAccountRequest,
   type CreateAccountResponse,
+  type AccountsListRequest,
   type AccountsListResponse,
+  type UpdateAccountRequest,
+  type UpdateAccountResponse,
+  type ArchiveAccountRequest,
+  type ArchiveAccountResponse,
+  type UnarchiveAccountRequest,
+  type UnarchiveAccountResponse,
 } from '../shared/ipc-contracts/accounts.js';
 import {
   IPC_CATEGORIES_CREATE,
   IPC_CATEGORIES_LIST,
+  IPC_CATEGORIES_UPDATE,
+  IPC_CATEGORIES_ARCHIVE,
+  IPC_CATEGORIES_UNARCHIVE,
+  IPC_SUBCATEGORIES_CREATE,
+  IPC_SUBCATEGORIES_UPDATE,
+  IPC_SUBCATEGORIES_ARCHIVE,
+  IPC_SUBCATEGORIES_UNARCHIVE,
   type CreateCategoryRequest,
   type CreateCategoryResponse,
+  type CategoriesListRequest,
   type CategoriesListResponse,
+  type UpdateCategoryRequest,
+  type UpdateCategoryResponse,
+  type ArchiveCategoryRequest,
+  type ArchiveCategoryResponse,
+  type UnarchiveCategoryRequest,
+  type UnarchiveCategoryResponse,
+  type CreateSubcategoryRequest,
+  type CreateSubcategoryResponse,
+  type UpdateSubcategoryRequest,
+  type UpdateSubcategoryResponse,
+  type ArchiveSubcategoryRequest,
+  type ArchiveSubcategoryResponse,
+  type UnarchiveSubcategoryRequest,
+  type UnarchiveSubcategoryResponse,
 } from '../shared/ipc-contracts/categories.js';
 import {
   IPC_TAGS_CREATE,
   IPC_TAGS_LIST,
+  IPC_TAGS_UPDATE,
+  IPC_TAGS_ARCHIVE,
+  IPC_TAGS_UNARCHIVE,
   type CreateTagRequest,
   type CreateTagResponse,
+  type TagsListRequest,
   type TagsListResponse,
+  type UpdateTagRequest,
+  type UpdateTagResponse,
+  type ArchiveTagRequest,
+  type ArchiveTagResponse,
+  type UnarchiveTagRequest,
+  type UnarchiveTagResponse,
 } from '../shared/ipc-contracts/tags.js';
 import {
   IPC_IMPORT_STAGE_FILE,
@@ -146,24 +188,65 @@ const api = {
     create: (req: CreateAccountRequest): Promise<CreateAccountResponse> => {
       return ipcRenderer.invoke(IPC_ACCOUNTS_CREATE, req);
     },
-    list: (): Promise<AccountsListResponse> => {
-      return ipcRenderer.invoke(IPC_ACCOUNTS_LIST);
+    list: (req?: AccountsListRequest): Promise<AccountsListResponse> => {
+      return ipcRenderer.invoke(IPC_ACCOUNTS_LIST, req ?? {});
+    },
+    update: (req: UpdateAccountRequest): Promise<UpdateAccountResponse> => {
+      return ipcRenderer.invoke(IPC_ACCOUNTS_UPDATE, req);
+    },
+    archive: (req: ArchiveAccountRequest): Promise<ArchiveAccountResponse> => {
+      return ipcRenderer.invoke(IPC_ACCOUNTS_ARCHIVE, req);
+    },
+    unarchive: (req: UnarchiveAccountRequest): Promise<UnarchiveAccountResponse> => {
+      return ipcRenderer.invoke(IPC_ACCOUNTS_UNARCHIVE, req);
     },
   },
   categories: {
     create: (req: CreateCategoryRequest): Promise<CreateCategoryResponse> => {
       return ipcRenderer.invoke(IPC_CATEGORIES_CREATE, req);
     },
-    list: (): Promise<CategoriesListResponse> => {
-      return ipcRenderer.invoke(IPC_CATEGORIES_LIST);
+    list: (req?: CategoriesListRequest): Promise<CategoriesListResponse> => {
+      return ipcRenderer.invoke(IPC_CATEGORIES_LIST, req ?? {});
+    },
+    update: (req: UpdateCategoryRequest): Promise<UpdateCategoryResponse> => {
+      return ipcRenderer.invoke(IPC_CATEGORIES_UPDATE, req);
+    },
+    archive: (req: ArchiveCategoryRequest): Promise<ArchiveCategoryResponse> => {
+      return ipcRenderer.invoke(IPC_CATEGORIES_ARCHIVE, req);
+    },
+    unarchive: (req: UnarchiveCategoryRequest): Promise<UnarchiveCategoryResponse> => {
+      return ipcRenderer.invoke(IPC_CATEGORIES_UNARCHIVE, req);
+    },
+    subcategory: {
+      create: (req: CreateSubcategoryRequest): Promise<CreateSubcategoryResponse> => {
+        return ipcRenderer.invoke(IPC_SUBCATEGORIES_CREATE, req);
+      },
+      update: (req: UpdateSubcategoryRequest): Promise<UpdateSubcategoryResponse> => {
+        return ipcRenderer.invoke(IPC_SUBCATEGORIES_UPDATE, req);
+      },
+      archive: (req: ArchiveSubcategoryRequest): Promise<ArchiveSubcategoryResponse> => {
+        return ipcRenderer.invoke(IPC_SUBCATEGORIES_ARCHIVE, req);
+      },
+      unarchive: (req: UnarchiveSubcategoryRequest): Promise<UnarchiveSubcategoryResponse> => {
+        return ipcRenderer.invoke(IPC_SUBCATEGORIES_UNARCHIVE, req);
+      },
     },
   },
   tags: {
     create: (req: CreateTagRequest): Promise<CreateTagResponse> => {
       return ipcRenderer.invoke(IPC_TAGS_CREATE, req);
     },
-    list: (): Promise<TagsListResponse> => {
-      return ipcRenderer.invoke(IPC_TAGS_LIST);
+    list: (req?: TagsListRequest): Promise<TagsListResponse> => {
+      return ipcRenderer.invoke(IPC_TAGS_LIST, req ?? {});
+    },
+    update: (req: UpdateTagRequest): Promise<UpdateTagResponse> => {
+      return ipcRenderer.invoke(IPC_TAGS_UPDATE, req);
+    },
+    archive: (req: ArchiveTagRequest): Promise<ArchiveTagResponse> => {
+      return ipcRenderer.invoke(IPC_TAGS_ARCHIVE, req);
+    },
+    unarchive: (req: UnarchiveTagRequest): Promise<UnarchiveTagResponse> => {
+      return ipcRenderer.invoke(IPC_TAGS_UNARCHIVE, req);
     },
   },
   import: {
