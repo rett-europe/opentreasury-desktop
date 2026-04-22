@@ -282,10 +282,18 @@
  * ══════════════════════════════════════════════════════════════════════════ */
 
 /* Remove min-width: max-content from Round 2 — it let the table grow infinitely.
- * Table now uses table-layout: fixed with explicit column widths. */
+ * Table now uses table-layout: fixed with explicit column widths.
+ *
+ * `min-width` equals the sum of column widths (1012px) so the table keeps its
+ * tuned breathing-room size when the viewport is narrower than that threshold.
+ * Combined with .ot-movements__table-container `overflow-x: auto`, this makes
+ * the container horizontally scroll below ~1320px viewports instead of
+ * silently compressing columns into illegible strips. Keyboard users can
+ * reach hidden cells via native scroll + Tab focus ring scroll-into-view. */
 .ot-movements__table-container .ot-table {
   table-layout: fixed;
   width: 100%;
+  min-width: 1012px;
 }
 
 /* Apply max-width + ellipsis to all td cells with truncatable content.

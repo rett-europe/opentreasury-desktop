@@ -273,7 +273,7 @@ export function TransactionDetailModal({
 
   const amountClass = transaction.type === 'income' ? 'ot-amount--income' : 'ot-amount--expense';
   const signed = transaction.type === 'expense' ? -transaction.amount : transaction.amount;
-  const formattedAmount = new Intl.NumberFormat(navigator.language, {
+  const formattedAmount = new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: transaction.currency,
     signDisplay: 'auto',

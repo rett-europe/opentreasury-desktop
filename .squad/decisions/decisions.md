@@ -530,6 +530,107 @@ A naive hard-delete would:
 
 #### 3. Subcategory — ARCHIVE ONLY, parent-scoped
 
+---
+
+## Decision: Link — WI-22 Recommendation (post-WI-21 merge)
+
+**Author:** Link (PM)  
+**Date:** 2026-04-22  
+**Status:** Decision-ready for Pedro
+
+### TL;DR
+
+**Primary recommendation: WI-22 — Saldo screen (M1 closer).**
+
+It's the last unfilled PRD-002 surface and the final gate blocker for Internal Alpha. Ship it and M1 exit criteria flip green.
+
+Before starting WI-22, a **~half-day polish pass** to clear three small items that will otherwise bleed into Saldo's session and hurt dogfooding velocity.
+
+### Where we are (post-WI-21)
+
+M1 shipped slice by slice:
+- WI-17/18 — CSV/XLSX import (generic mapping importer)
+- WI-19 — Transaction list + detail modal
+- WI-20 — Transaction edit (in-place swap) + delete
+- WI-21 — Config CRUD archive-only (Accounts, Categories, Subcategories, Tags)
+
+**M1 exit criterion** (roadmap §M1): *"create account → enter tx → categorize → see it on Panel, Movements, **Saldo**."*
+Panel ✅ · Movements ✅ · **Saldo still `<ComingSoonScreen />`** ❌
+
+### Candidate next WIs (ranked)
+
+#### 🥇 WI-22 — Saldo (YoY comparison) screen — **RECOMMENDED**
+
+**User problem (treasurer POV):**
+"Before the quarterly board meeting I need to see, at a glance, whether we're ahead or behind vs last year — per category, with a monthly net trend — without clicking through pages."
+
+**Acceptance criteria (from PRD-002, condensed):**
+1. Two side-by-side panels — Income by category / Expense by category — each row showing current-period total, prior-period total, delta (↑/↓/flat + %). (PR1–PR2)
+2. Period selector (Mes / Trimestre / Año, default Año; default 2026 vs 2025), plus account filter. (PR6, PR10)
+3. Partial-period rows annotated with linear pro-rata projection ("proy. vs 2025"). (PR3)
+4. KPI strip above panels: total income, total expense, net — each citing prior-year counterpart. (PR5)
+5. Net-monthly comparison bar chart (12 months, current-year vs prior-year bars side by side) with collapsible data-table equivalent for a11y. (PR4 + UX-004)
+6. Aggregations derived from the existing read model (no new events, no writes); Saldo totals MUST equal Movements totals for the same filter set (property-test target). (PR11–PR12)
+7. ES + EN strings populated; Intl locale-aware number/date formatting. (PR17)
+8. Performance: ≤300ms p95 first render at 1,000 events; ≤100ms on period-selector change. (PR14)
+
+**Rough scope / agents:**
+- **Neo** — thin tech spec: which queries to add to `app/src/core/query/` (monthly-net reducer, by-category aggregator), whether to materialize or compute on demand at M1 sizes.
+- **Morpheus** — query implementation + property test proving Saldo≡Movements equivalence. No event catalog changes.
+- **Niobe** — UX-004 already Accepted; confirm partial-period annotation copy + empty-state branches.
+- **Mouse** — tokens already in place; chart styling + KPI strip visual.
+- **Trinity** — screen implementation replacing `<ComingSoonScreen />`, period selector, two panels, KPI strip, chart, a11y data-table, i18n keys in ES+EN.
+- **Switch** — confirms Saldo reads only from decrypted read model; no new crypto surface.
+- **Cypher** — e2e/smoke: load real seed → flip period → check deltas + chart.
+
+**Dependencies / risks:**
+- 🟢 No blocked dependencies — read model has everything needed.
+- 🟡 Chart primitive — do we reuse Panel's 12-month sparkline infrastructure or introduce a grouped-bar chart? Decision for Neo (30 min).
+- 🟡 Pro-rata projection: simple linear; spec is clear, resist scope creep (no seasonality, no moving averages — those are v1.x).
+- 🟡 Account filter shape: confirm it uses the same top-bar pattern as Movements to avoid a bespoke control.
+
+**Why now:**
+- Closes M1 → unlocks Internal Alpha gate (Pedro-as-dogfooder criterion).
+- Only remaining canonical screen; prototype, PRD, UX spec, tokens all ready — highest leverage for smallest net-new design work.
+- Ships value to the only audience that matters this milestone: the treasurer preparing a board report.
+
+#### 🥈 WI-23 — `configAccount` ↔ `transaction.accountId` unification
+
+Unblocks three deferred items at once:
+- Usage counts on config rows (accounts / categories / tags "N movimientos")
+- Hard-delete path for config entities (migrate-then-delete)
+- Prototype fidelity on Cuentas (Movimientos column, accurate row counts)
+
+**Why not first:** Platform work with low end-user visibility. Saldo is a user-facing win; this is a developer-facing win. Sequence it right after Saldo so Internal Alpha ships with visible value and then we clean the plumbing before the NGO pilot.
+
+#### 🥉 WI-24 — Global search (⌘K palette)
+
+Prototype has it; app doesn't. High affordance for power users, touches shell, not a PRD-002/003 blocker. Roadmap slots this in M3 (v1 parity). Defer unless Pedro wants a "wow" Internal Alpha demo.
+
+### Polish pass BEFORE WI-22 (≤ half day)
+
+These three are small, but each will cause friction during Saldo dogfooding if they linger:
+
+1. **Movements table horizontal scroll ~1350px** (flagged during WI-20/21 polish). Saldo uses the same table primitive for its two panels — fixing once avoids re-fixing twice. **Trinity, ~1–2h.**
+2. **TransactionDetailModal date/locale polish** (Mouse's territory; flagged during WI-21). Date rendering is inconsistent with Intl formatter rules we'll lean on heavily in Saldo's KPI strip and chart axis. **Mouse + Trinity, ~1–2h.**
+3. **Header situation (Pedro-deferred).** I need Pedro to confirm *what exactly* is pending here before I can classify it. If it's the topbar "Nuevo Movimiento" button visibility rule (UX-005 Q2) or the sidebar grouping (sibling Config entries per prototype), those are <1h each. **Pedro to clarify → then Niobe/Trinity ~1h.**
+
+### What "done" looks like (Internal Alpha gate)
+
+With WI-22 shipped:
+- Treasurer can: install → pick folder → create account → import or enter txs → categorize → see Panel + Movements + **Saldo** all rendering real data.
+- Pedro runs the app on real NGO-like data for ≥1 week; zero data-loss incidents.
+- All three canonical screens ES+EN complete.
+- M1 roadmap row flips to **Done**; Internal Alpha gate opens.
+
+### Ask of Pedro
+
+1. **Confirm WI-22 = Saldo** as the next work item. (Or pick WI-23 if you want platform-cleanup first.)
+2. **Clarify the "header situation"** you deferred — one sentence is enough and I'll route to the right agent.
+3. **Approve the polish pass** (table scroll + TDM date + header) as a pre-WI-22 sweep.
+
+---
+
 - **Delete semantics:** Same rule as Category.
 - **Cascade from parent:** Archiving a category does **NOT** auto-archive its subcategories in WI-21. Explicit act required for each.
 - **Events:**

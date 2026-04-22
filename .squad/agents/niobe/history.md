@@ -224,3 +224,7 @@ Every UX spec going forward must open with a `Prototype reference` block citing 
 5. **i18n copy strategy (entity name + action verb):** `import.step{N}.{field}` keeps keys discoverable and avoids duplication across specs.
 
 **Next:** Await Pedro's answers on 7 open questions (especially date format + duplicate UX + memory scope). Once locked, Trinity to validate visual design + interaction against this spec. UX-017 ready for implementation handoff post-ratification.
+
+---
+
+**2026-04-22 — NEXT:** Link recommended **WI-22 Saldo** as next priority (primary). WI-23/24 runners-up. See decisions.md § "Link — WI-22 Recommendation (post-WI-21 merge)" for full spec. UX-004 spec already accepted; confirm partial-period annotation copy + empty-state branches. Awaiting Pedro confirmation.
