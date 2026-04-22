@@ -228,3 +228,27 @@ Every UX spec going forward must open with a `Prototype reference` block citing 
 ---
 
 **2026-04-22 — NEXT:** Link recommended **WI-22 Saldo** as next priority (primary). WI-23/24 runners-up. See decisions.md § "Link — WI-22 Recommendation (post-WI-21 merge)" for full spec. UX-004 spec already accepted; confirm partial-period annotation copy + empty-state branches. Awaiting Pedro confirmation.
+
+
+### 2026-04-22 — WI-22 Saldo i18n + UX interaction spec
+
+Drafted the complete `saldo.*` namespace (72 leaf keys, ES/EN parity) for Trinity's S5 and a 1-page interaction spec at `.squad/agents/niobe/wi-22-saldo-ux.md`. Branch `wi-22/saldo-i18n`. PR title `WI-22: Saldo UX copy + i18n (ES/EN)`.
+
+**Namespace structure (new pattern — carry forward):**
+`saldo.{title,subtitle} · states.{loading,emptyBoth,emptyCurrent,emptyPrior,error} · period.{label,srDescription,options,srOption,*Tooltip} · account · comparison.vs{Year,Month,Quarter} (+ aria variants) · kpi.{net,income,expense,biggestGrowth,delta} · projection.{badge,sublabel,tooltip,ariaHint,rowTooltip} · table.{columns,uncategorized,noPrior,dropped,flat} · chart.{…}`
+
+Kept the legacy `balance.*` stub untouched (still wired to `ComingSoonScreen`); Trinity drops it when S5 lands.
+
+**Patterns worth reusing for future comparison screens:**
+
+1. **Persistent projection disclosure, not hover-only.** `[Proyección lineal]` badge appears on every absolute-value surface (KPI cards, category rows) whenever `isPartialCurrent=true`. The badge itself is the disclosure; tooltip carries transparency copy `Proyección lineal basada en {{daysElapsed}}/{{daysInPeriod}} días`. Rule: **monthly/series data is never projected; totals always are (when partial)**. Chart subtitle `chart.monthlyNetSubtitle` ("Valores reales — sin proyección") locks the chart into actuals even without a badge.
+
+2. **Same-month-prior-year comparison basis lives on the *selected* period option.** Tooltip + `aria-describedby` sits on the currently-selected radio in the segmented control (`saldo.period.{year,quarter,month}Tooltip`), not a page-level banner. Treasurer sees *exactly the disclosure that matches the selected granularity*.
+
+3. **Numeric formatting stays OUT of i18n values.** Currency, percentages, month labels all go through `formatCurrency` / `Intl.NumberFormat` / `Intl.DateTimeFormat` in the component. i18n layer only knows `{{value}}`, `{{year}}`, `{{month}}`, `{{daysElapsed}}`, `{{daysInPeriod}}` — never pre-formatted strings.
+
+4. **aria-label variants on every delta key.** `kpi.delta.{up,down,flat,noPrior}` exists specifically so screen readers announce `aumento` / `descenso` / `sin cambios` / `sin datos previos` instead of just a glyph. Add this to the pattern checklist for any Δ pill — never rely on color/glyph alone.
+
+Three microcopy calls flagged for Pedro (`.squad/decisions/inbox/niobe-wi22-copy-locked.md`): lead-KPI label "Variación neta" vs "Balance neto"; 4th-KPI label "Mayor crecimiento" vs "Categoría con mayor subida"; dropped-category sublabel "Sin movimientos este periodo" vs "Categoría dada de baja". Shipping my calls; Pedro can flip with a one-liner.
+
+Gates: typecheck ✅ · lint ✅ · format:check on my 2 JSONs ✅ (45 pre-existing warnings in unrelated files left alone per charter) · 425 tests pass.

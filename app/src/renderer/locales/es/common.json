@@ -104,6 +104,126 @@
     },
     "skeleton": "Vista previa — datos en una próxima iteración."
   },
+  "saldo": {
+    "title": "Saldo",
+    "subtitle": "Compara ingresos y gastos frente al año anterior",
+    "states": {
+      "loading": "Cargando saldo…",
+      "emptyBoth": {
+        "title": "Sin movimientos en este periodo",
+        "body": "Registra un movimiento o amplía el periodo para comparar."
+      },
+      "emptyCurrent": {
+        "title": "Sin movimientos en el periodo actual",
+        "body": "Aún no hay datos del periodo en curso para comparar con el anterior."
+      },
+      "emptyPrior": {
+        "title": "Sin datos del periodo anterior",
+        "body": "No había movimientos en el mismo periodo del año pasado, así que no se puede calcular la variación."
+      },
+      "error": {
+        "title": "No se pudo cargar el saldo",
+        "body": "Revisa la conexión o inténtalo de nuevo.",
+        "retry": "Reintentar"
+      }
+    },
+    "period": {
+      "label": "Periodo",
+      "srDescription": "Elige el nivel de detalle de la comparación",
+      "options": {
+        "year": "Año",
+        "quarter": "Trimestre",
+        "month": "Mes"
+      },
+      "srOption": {
+        "year": "Comparar el año en curso con el año anterior completo",
+        "quarter": "Comparar el trimestre en curso con el mismo trimestre del año anterior",
+        "month": "Comparar el mes en curso con el mismo mes del año anterior"
+      },
+      "monthTooltip": "Comparando con el mismo mes del año anterior",
+      "quarterTooltip": "Comparando con el mismo trimestre del año anterior",
+      "yearTooltip": "Comparando con el año anterior completo"
+    },
+    "account": {
+      "label": "Cuenta",
+      "all": "Todas las cuentas",
+      "srDescription": "Filtra la comparación por una cuenta concreta"
+    },
+    "comparison": {
+      "vsYear": "vs. {{year}}",
+      "vsMonth": "vs. {{month}} {{year}}",
+      "vsQuarter": "vs. T{{quarter}} {{year}}",
+      "ariaVsYear": "comparado con el año {{year}}",
+      "ariaVsMonth": "comparado con {{month}} de {{year}}",
+      "ariaVsQuarter": "comparado con el trimestre {{quarter}} de {{year}}"
+    },
+    "kpi": {
+      "net": {
+        "label": "Variación neta",
+        "description": "Diferencia entre ingresos y gastos frente al periodo anterior"
+      },
+      "income": {
+        "label": "Variación de ingresos",
+        "description": "Variación de los ingresos frente al periodo anterior"
+      },
+      "expense": {
+        "label": "Variación de gastos",
+        "description": "Variación de los gastos frente al periodo anterior"
+      },
+      "biggestGrowth": {
+        "label": "Mayor crecimiento",
+        "description": "Categoría con mayor aumento respecto al periodo anterior",
+        "empty": "Sin crecimiento destacable",
+        "value": "{{category}} · {{delta}}"
+      },
+      "delta": {
+        "up": "aumento",
+        "down": "descenso",
+        "flat": "sin cambios",
+        "noPrior": "sin datos previos"
+      }
+    },
+    "projection": {
+      "badge": "Proyección lineal",
+      "sublabel": "Proyectado",
+      "tooltip": "Proyección lineal basada en {{daysElapsed}}/{{daysInPeriod}} días transcurridos",
+      "ariaHint": "Valor proyectado: extrapolación lineal a partir de los días transcurridos del periodo",
+      "rowTooltip": "Total proyectado al cierre del periodo"
+    },
+    "table": {
+      "caption": "Desglose por categoría",
+      "columns": {
+        "category": "Categoría",
+        "income": "Ingresos",
+        "expense": "Gastos",
+        "net": "Neto",
+        "delta": "Δ vs. anterior"
+      },
+      "uncategorized": "Sin categoría",
+      "noPrior": "Sin datos previos",
+      "dropped": "Sin movimientos este periodo",
+      "flat": "Prácticamente igual"
+    },
+    "chart": {
+      "monthlyNetTitle": "Saldo neto mensual",
+      "monthlyNetSubtitle": "Valores reales — sin proyección",
+      "monthlyNetAriaLabel": "Gráfico de barras del saldo neto mensual comparando el periodo actual con el anterior",
+      "dataTableCaption": "Saldo neto por mes: periodo actual y periodo anterior",
+      "dataTableToggle": {
+        "show": "Ver tabla de datos",
+        "hide": "Ocultar tabla de datos"
+      },
+      "series": {
+        "current": "Actual",
+        "prior": "Anterior"
+      },
+      "tooltip": {
+        "current": "{{value}} en {{month}}",
+        "prior": "{{value}} en {{month}} del periodo anterior"
+      },
+      "emptyMonth": "Sin movimientos"
+    }
+  },
   "movements": {
     "title": "Movimientos",
     "subtitle": "Filtra por rango para ver tus movimientos.",
