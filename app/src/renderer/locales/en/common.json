@@ -163,10 +163,7 @@
       }
     },
     "projection": {
-      "badge": "Linear projection",
       "sublabel": "Projected",
-      "tooltip": "Linear projection based on {{daysElapsed}}/{{daysInPeriod}} days elapsed",
-      "ariaHint": "Projected value: linear extrapolation from the days elapsed in the period",
       "rowTooltip": "Total projected to period close"
     },
     "chart": {
@@ -246,7 +243,8 @@
       "expense": "Expense",
       "net": "Net",
       "count_one": "{{count}} transaction",
-      "count_other": "{{count}} transactions"
+      "count_other": "{{count}} transactions",
+      "countLabel": "Transactions"
     },
     "cta": {
       "new": "New Transaction",

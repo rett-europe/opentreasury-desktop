@@ -170,6 +170,14 @@ export function PanelScreen(): JSX.Element {
 
   const { accounts, balances, kpis, sparklines, transactions, categories, tags } = data;
   const accountById = new Map(accounts.map((a) => [a.id, a]));
+  const categoryNameById = new Map<string, string>();
+  const subcategoryNameById = new Map<string, string>();
+  for (const cat of categories) {
+    categoryNameById.set(cat.id, cat.name);
+    for (const sub of cat.subcategories ?? []) {
+      subcategoryNameById.set(sub.id, sub.name);
+    }
+  }
 
   const accountsWithBalances = accounts.map((acc) => {
     const balance = balances.find((b) => b.accountId === acc.id);
@@ -252,26 +260,34 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'category',
       header: t('movements.columns.category'),
-      render: (row) =>
-        row.categoryId ? (
-          <span title={row.categoryId}>{row.categoryId}</span>
+      render: (row) => {
+        const name = row.categoryId
+          ? (categoryNameById.get(row.categoryId) ?? row.categoryId)
+          : null;
+        return name ? (
+          <span title={name}>{name}</span>
         ) : (
           <span className="ot-badge ot-badge--uncategorized">
             {t('panel.recent.uncategorized')}
           </span>
-        ),
+        );
+      },
     },
     {
       id: 'subcategory',
       header: t('movements.columns.subcategory'),
-      render: (row) =>
-        row.subcategoryId ? (
-          <span className="ot-text-muted" title={row.subcategoryId}>
-            {row.subcategoryId}
+      render: (row) => {
+        const name = row.subcategoryId
+          ? (subcategoryNameById.get(row.subcategoryId) ?? row.subcategoryId)
+          : null;
+        return name ? (
+          <span className="ot-text-muted" title={name}>
+            {name}
           </span>
         ) : (
           <span className="ot-text-muted">—</span>
-        ),
+        );
+      },
     },
     {
       id: 'amount',

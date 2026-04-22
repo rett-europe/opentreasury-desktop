@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { Calculator, Calendar, Download, TrendingDown, TrendingUp } from 'lucide-react';
+import { Calculator, Calendar, TrendingDown, TrendingUp } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
@@ -123,9 +123,6 @@ export function SaldoScreen(): JSX.Element {
         <div className="ot-page-header__actions">
           <PeriodSelector period={period} onChange={setPeriod} />
           {years ? <YearChip priorYear={years.prior} currentYear={years.current} t={t} /> : null}
-          <Button variant="secondary" leadingIcon={<Download size={16} />} disabled>
-            {t('saldo.cta.export')}
-          </Button>
         </div>
       </header>
 
@@ -264,13 +261,6 @@ function SaldoLoadedView({ data, locale }: LoadedProps): JSX.Element {
 
   return (
     <>
-      {data.currentPeriod.isPartial ? (
-        <PartialPeriodBadge
-          daysElapsed={data.currentPeriod.daysElapsed}
-          daysInPeriod={data.currentPeriod.daysInPeriod}
-        />
-      ) : null}
-
       <KpiStrip data={data} locale={locale} priorYear={priorYear} currentYear={currentYear} />
 
       <MonthlyNetChart
@@ -294,32 +284,6 @@ function SaldoLoadedView({ data, locale }: LoadedProps): JSX.Element {
         locale={locale}
       />
     </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Partial-period badge.
-// ---------------------------------------------------------------------------
-
-type PartialPeriodBadgeProps = {
-  readonly daysElapsed: number;
-  readonly daysInPeriod: number;
-};
-
-function PartialPeriodBadge({ daysElapsed, daysInPeriod }: PartialPeriodBadgeProps): JSX.Element {
-  const { t } = useTranslation('common');
-  const tooltip = t('saldo.projection.tooltip', { daysElapsed, daysInPeriod });
-  return (
-    <div
-      className="ot-badge ot-badge--pending"
-      role="note"
-      title={tooltip}
-      aria-label={t('saldo.projection.ariaHint')}
-      data-testid="saldo-projection-badge"
-      style={{ display: 'inline-block', marginBottom: 'var(--space-6)' }}
-    >
-      {t('saldo.projection.badge')}
-    </div>
   );
 }
 
