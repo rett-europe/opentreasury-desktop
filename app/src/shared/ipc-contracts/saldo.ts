@@ -8,7 +8,9 @@
 //   - Default period is Año (current year vs prior year).
 //   - Partial-period projection is linear pro-rata, UTC inclusive day count.
 //   - Monthly series (12/3/1 buckets) is NEVER projected — only the
-//     `currentPeriod` totals carry a projection.
+//     `currentPeriod` totals carry a projection. This applies to BOTH
+//     `monthlySeries` (current period) and `priorMonthlySeries` (prior
+//     same-period window) — both are raw unprojected buckets, shape-identical.
 //   - Projection lives on the server (server-derived-fields pattern); the
 //     renderer renders `currentProjectedTotal` verbatim, never recomputes.
 
@@ -131,6 +133,12 @@ export const saldoComparisonResponseSchema = z.object({
   currentPeriod: saldoCurrentPeriodSchema,
   priorPeriod: saldoPriorPeriodSchema,
   monthlySeries: z.array(saldoMonthlyBucketSchema),
+  // Same shape as `monthlySeries` but keyed to the prior same-period-prior-year
+  // window (e.g. 12 buckets 2025-01-01…2025-12-01 when the current period is
+  // 2026 `ano`). Required — renderers get a predictable shape and can render a
+  // flat line when a period has no prior data (zero-filled buckets). Never
+  // projected (same rule as `monthlySeries`).
+  priorMonthlySeries: z.array(saldoMonthlyBucketSchema),
   kpis: saldoKpisSchema,
 });
 export type SaldoComparisonResponse = z.infer<typeof saldoComparisonResponseSchema>;
