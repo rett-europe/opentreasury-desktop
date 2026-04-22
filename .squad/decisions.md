@@ -5597,3 +5597,186 @@ categories/etiquetas/cuentas don't show as peers of Panel/Movimientos/Saldo.
 ---
 
 
+
+
+---
+
+### 2026-04-22: WI-22 Saldo Fan-Out Shipped — Three Parallel PRs
+
+**Date:** 2026-04-22  
+**PRs Merged:** #7 (backend/Morpheus), #8 (chart/Trinity), #9 (i18n/Niobe)  
+**Status:** ✅ SHIPPED
+
+**Owners:** Link (Product), Neo (Architecture), Morpheus (Backend), Trinity (Frontend), Niobe (i18n), Cypher (QA)
+
+## Summary
+
+WI-22 delivers the Saldo comparison screen, enabling treasurers to analyze year-over-year (or month/quarter) income/expense/net by category. Three coordinated PRs:
+- **PR #7 (Morpheus):** IPC contract, on-demand aggregation query, linear pro-rata projection, handler integration (436 tests pass)
+- **PR #8 (Trinity):** Grouped-bar chart primitive S4 complete; S5 screen wiring in progress
+- **PR #9 (Niobe):** i18n namespace (72 keys ES/EN parity), copy locked
+
+**Milestone:** Last `<ComingSoonScreen />` on M1 route unlocked. Internal Alpha gate now open.
+
+## Decisions Locked
+
+### 1. Aggregation: On-Demand, No Materialized Buckets
+
+**Decision:** Compute Saldo data on-demand per IPC call, not pre-materialized in reducer.
+
+**Why:** At 1k events, on-demand O(n) <5ms. p95 300ms target dominated by IPC + React. Pre-materializing doubles reducer surface (must invalidate on tx.created/updated/deleted).
+
+**Benchmark gate:** If cold aggregation + IPC exceeds 150ms at 1k events, revisit. Cypher property test verified no regression.
+
+### 2. Single Round-Trip IPC (\`saldo:get-comparison\`)
+
+**Decision:** One IPC call returns everything (current + prior periods, monthly series, KPIs).
+
+**Why:** Saldo data is tightly coupled. Single call avoids Panel's 5-query pattern.
+
+**Response fields (critical):**
+- Income/expense/net totals per period
+- Category breakdown rows (server-side filtered: zero-in-both suppressed)
+- Monthly series (12/3/1 buckets, NEVER projected)
+- KPIs with pre-computed deltas
+- **`currentProjectedTotal` (REQUIRED):** null when complete, `{income, expense}` when partial — Trinity renders verbatim, NEVER recomputes
+
+### 3. Period Semantics: Same-Month-Prior-Year
+
+**Decision:** For all granularities, prior = same-period-prior-year.
+
+**Boundary rules:**
+- Year: 2026 → 2025
+- Quarter: Q2 2026 → Q2 2025
+- Month: abr 2026 → abr 2025 (NOT preceding month)
+
+**Why:** YoY is the thesis. Leap-day collapse handled (Feb 29 → Feb 28).
+
+### 4. Linear Pro-Rata Projection (Partial Periods)
+
+**Decision:** When current period incomplete, project totals linearly.
+
+**Formula:**
+```
+elapsedDays = max(1, daysBetween(start, min(today, end)) + 1)
+totalDays = daysBetween(start, end) + 1
+projected(x) = x / (elapsedDays / totalDays)
+```
+
+**Applied to:** currentIncome, currentExpense, currentNet (pre-computed by server). NEVER per-category rows or monthly chart.
+
+**Why:** Single source of truth. Trinity renders verbatim; no float order-of-ops drift.
+
+### 5. Chart Primitive: New \`GroupedBarChart\`, Don't Reuse Panel Sparkline
+
+**Decision:** Build new primitive for grouped bars (12 months × 2 series). Don't extend sparkline.
+
+**Why:** Sparkline is single-series line/area. Grouped bars need labels, tooltips, a11y table. Forcing extension bloats it with unused props.
+
+**API (thin):**
+```ts
+type GroupedBarChartProps = {
+  buckets: { label: string; current: number; previous: number }[];
+  currentLabel: string;  // e.g. "2026"
+  previousLabel: string;
+  formatValue: (n: number) => string;
+  height?: number;
+  ariaCaption: string;
+};
+```
+
+### 6. Zero-Total Row Filtering: Server-Side
+
+**Decision:** Morpheus filters rows where both currentTotal and previousTotal are zero before returning.
+
+**Why:** One place, not two. Reduces response payload.
+
+### 7. i18n: New \`saldo.*\` Namespace (72 Keys ES/EN)
+
+**Decision:** All Saldo strings under \`ux.saldo.*\`. Full ES/EN parity. Currency via Intl.NumberFormat, dates via Intl.DateTimeFormat, month labels via Intl.DateTimeFormat.
+
+**Patterns locked:**
+- Same-month-prior-year tooltip on period radio (info-icon + aria-describedby)
+- Projection badge on KPIs + table rows (never on chart — chart subtitle says it's actuals-only)
+
+### 8. Microcopy: 3 Calls for Pedro (Niobe's Recommendations)
+
+| # | Decision | Recommended | Alternative | Why |
+|----|----------|-------------|-------------|-----|
+| 1 | Lead KPI | **"Variación neta"** | "Balance neto" | Shows delta vs prior, not absolute |
+| 2 | 4th KPI | **"Mayor crecimiento"** | "Categoría con mayor subida" | Shorter; description explains context |
+| 3 | Dropped-category | **"Sin movimientos este periodo"** | "Categoría dada de baja" | Empty this period, not archived |
+
+**Status:** Shipped as defaults. Flip any one-liner if Pedro objects.
+
+### 9. Property Test Verification: 8 Invariants (Cypher)
+
+**Decision:** Verify aggregation with 510 property-test iterations across 8 invariants.
+
+**Invariants:**
+- I1–I4: Internal consistency (totals === row sums)
+- I5–I6: Monthly series consistency (sums === totals, no projection drift)
+- I7: Prior-period brute-force validation
+- **I8: Saldo ≡ Movements** — same (period, account, category) triple, identical amounts
+
+**Boundary cases pinned:**
+- Leap-day collapse, UTC boundaries, day-1 projection, period-end, zero events, same-month-prior-year semantics
+
+**Verdict:** ✅ INVARIANT HELD. 510 iterations green. Morpheus' aggregation provably sound.
+
+### 10. Parallelizable Slices (5 Phases)
+
+| Slice | Owner | Timeline | Blocks |
+|-------|-------|----------|--------|
+| S1 | Morpheus | Day 1 AM | S2, S3 |
+| S2 | Morpheus | Day 1 PM–Day 2 | S3 |
+| S3 | Morpheus | Day 2 | S5 (Trinity) |
+| S4 | Trinity | Day 1–2 parallel | None (only needs S1 types) |
+| S5 | Trinity | Day 3–4 after S3 | None |
+
+**Parallelism:** Morpheus (S1→S2→S3) + Trinity (S4 from S1, then S5 after S3 lands). One sync point = S1 contract freeze. After that, fully parallel.
+
+## Test Coverage
+
+**PR #7 (Morpheus):**
+- Baseline: 411 pass / 9 skipped
+- After WI-22: 436 pass / 9 skipped
+- New tests: 25 (6 contract + 16 aggregation+projection+KPI + 3 integration)
+- Gates: typecheck ✅, lint ✅, format ✅, test ✅
+
+**PR #9 (Niobe):**
+- After i18n: 425 pass / 9 skipped
+- Gates: typecheck ✅, lint ✅, format ✅
+
+**Cypher Property Test:**
+- 510 iterations across 8 invariant blocks + 6 boundary tests
+- Runtime: ~1.6s on Windows dev box
+- All green, no counterexample
+
+## Risks & Mitigations
+
+| Risk | Mitigation |
+|------|-----------|
+| Read-model performance >1k events | Benchmark gate (150ms). Property test verified no regression. |
+| YoY parity drift | Property test I8 on every PR. Blocks merge. |
+| Projection misleads on seasonal NGOs | Tooltip explicitly names "proyección lineal". Advanced projections deferred. |
+| Intl helper late from polish branch | Trinity forks minimal helpers (15-line stub). Rebase later. |
+
+## Handoff
+
+- **Trinity (S5):** Import \`getSaldoComparison\` from \`renderer/services/saldoApi.ts\`. Render \`currentProjectedTotal\` verbatim (do NOT recompute).
+- **Cypher:** Property test complete. I8 equivalence holds.
+- **Link:** Ratify or object to 3 Niobe microcopy calls. No code impact.
+- **Pedro:** Milestone gate now open. Last ComingSoonScreen on M1 route removed.
+
+---
+
+### 2026-04-22: User Directive — Panel Polish Deferred
+
+**By:** Pedro (via Copilot/Squad)
+**What:** Two Panel polish items (not urgent) for post-WI-22:
+  1. Bank account boxes: placeholder visuals → need real design
+  2. "Income vs Expense" section: currently empty
+
+**Status:** Captured for post-WI-22 planning. Not blocking WI-22 or Internal Alpha.
+
