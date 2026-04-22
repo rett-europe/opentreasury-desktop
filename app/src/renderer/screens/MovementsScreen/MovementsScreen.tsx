@@ -69,8 +69,19 @@ type MonthFilter = 'all' | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
  * for now we stub with the ID as the label (works for accounts since the
  * Panel contract already returns accountLabel).
  */
-function mapMovementRecord(record: MovementRecord, accountsMap: Map<string, Account>): Movement {
+function mapMovementRecord(
+  record: MovementRecord,
+  accountsMap: Map<string, Account>,
+  categoryNameById: Map<string, string>,
+  subcategoryNameById: Map<string, string>,
+): Movement {
   const account = accountsMap.get(record.accountId);
+  const categoryName =
+    record.categoryId != null ? (categoryNameById.get(record.categoryId) ?? record.categoryId) : null;
+  const subcategoryName =
+    record.subcategoryId != null
+      ? (subcategoryNameById.get(record.subcategoryId) ?? record.subcategoryId)
+      : null;
   return {
     id: record.id,
     date: record.date,
@@ -79,8 +90,8 @@ function mapMovementRecord(record: MovementRecord, accountsMap: Map<string, Acco
     currency: record.currency,
     description: record.description,
     account: account?.accountLabel ?? record.accountId,
-    category: record.categoryId ?? null,
-    subcategory: record.subcategoryId ?? null,
+    category: categoryName,
+    subcategory: subcategoryName,
     tags: record.tagIds ?? [],
     status: record.status,
   };
@@ -187,7 +198,17 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
       ]);
 
       const accountsMap = new Map(accountsResp.accounts.map((a) => [a.id, a]));
-      const rows = records.map((r) => mapMovementRecord(r, accountsMap));
+      const categoryNameById = new Map<string, string>();
+      const subcategoryNameById = new Map<string, string>();
+      for (const cat of categoriesResp.categories) {
+        categoryNameById.set(cat.id, cat.name);
+        for (const sub of cat.subcategories ?? []) {
+          subcategoryNameById.set(sub.id, sub.name);
+        }
+      }
+      const rows = records.map((r) =>
+        mapMovementRecord(r, accountsMap, categoryNameById, subcategoryNameById),
+      );
 
       setAccounts(accountsResp.accounts);
       setCategories(categoriesResp.categories);
@@ -799,7 +820,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
             </div>
             <div>
               <span className="ot-movements__totals-label">
-                {t('movements.totals.count', { count: totals.count })}
+                {t('movements.totals.countLabel')}
               </span>
               <span className="ot-movements__totals-value">{totals.count}</span>
             </div>

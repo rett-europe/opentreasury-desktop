@@ -246,7 +246,8 @@
       "expense": "Expense",
       "net": "Net",
       "count_one": "{{count}} transaction",
-      "count_other": "{{count}} transactions"
+      "count_other": "{{count}} transactions",
+      "countLabel": "Transactions"
     },
     "cta": {
       "new": "New Transaction",

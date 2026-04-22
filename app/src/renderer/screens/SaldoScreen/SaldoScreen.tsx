@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { Calculator, Calendar, Download, TrendingDown, TrendingUp } from 'lucide-react';
+import { Calculator, Calendar, TrendingDown, TrendingUp } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
@@ -123,9 +123,6 @@ export function SaldoScreen(): JSX.Element {
         <div className="ot-page-header__actions">
           <PeriodSelector period={period} onChange={setPeriod} />
           {years ? <YearChip priorYear={years.prior} currentYear={years.current} t={t} /> : null}
-          <Button variant="secondary" leadingIcon={<Download size={16} />} disabled>
-            {t('saldo.cta.export')}
-          </Button>
         </div>
       </header>
 
@@ -311,7 +308,7 @@ function PartialPeriodBadge({ daysElapsed, daysInPeriod }: PartialPeriodBadgePro
   const tooltip = t('saldo.projection.tooltip', { daysElapsed, daysInPeriod });
   return (
     <div
-      className="ot-badge ot-badge--pending"
+      className="ot-badge ot-badge--info"
       role="note"
       title={tooltip}
       aria-label={t('saldo.projection.ariaHint')}

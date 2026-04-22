@@ -397,6 +397,14 @@ a:hover {
   background: var(--color-uncategorized-bg);
   font-style: italic;
 }
+/* Informational neutral variant — subtle muted tone for non-urgent notes
+ * (e.g. Saldo "Linear projection" hint on partial periods). Intentionally
+ * low-contrast to avoid competing with pending/approved status colors. */
+.ot-badge--info {
+  color: var(--color-text-muted);
+  background: var(--color-surface-subtle, rgba(148, 163, 184, 0.12));
+  border: 1px solid var(--color-border-subtle, rgba(148, 163, 184, 0.24));
+}
 /* Rejected status — mirrors pending/approved pattern using the expense
  * palette (no dedicated rejected tokens yet in Mouse v0.2). */
 .ot-badge--rejected {

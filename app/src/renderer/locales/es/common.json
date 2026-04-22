@@ -246,7 +246,8 @@
       "expense": "Gastos",
       "net": "Neto",
       "count_one": "{{count}} movimiento",
-      "count_other": "{{count}} movimientos"
+      "count_other": "{{count}} movimientos",
+      "countLabel": "Movimientos"
     },
     "cta": {
       "new": "Nuevo Movimiento",
