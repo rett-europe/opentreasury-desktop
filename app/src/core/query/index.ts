@@ -2,3 +2,4 @@
 export * from './types';
 export * from './reducers';
 export * from './queries';
+export { getSaldoComparison } from './saldo';
