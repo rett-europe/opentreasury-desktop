@@ -1474,6 +1474,48 @@ Mirrors the prototype `.shell / .topbar / .sidebar / .main` pattern in
 
 **Next:** WI-6 (Morpheus wires preload handlers), WI-7/8 (sparklines + chart)
 
+---
+
+## 2026-04-22: PR #4 Round 2 Fixes — Invariants + Integration
+
+### Trinity — PR #4 renderer fixes (WI-21 config CRUD)
+
+**Date:** 2026-04-22
+**Branch:** `wi-21/config-crud`
+**Commit:** `ee12677`
+
+Corrected 12 renderer findings from Copilot PR #4 review. Root cause: preload shape mismatch with main process + loose `any` casts in `configMutationsApi`.
+
+**Key fixes:**
+1. **Subcategory path correction:** `window.opentreasury.categories.subcategory.*` (nested), no top-level `subcategories` namespace
+2. **Response shape:** All WI-21 IPC returns `{ ok, event } | { ok, error: { code, message, field? } }`
+3. **Archive state:** `archivedAt?: string` is canonical; `archived?: boolean` removed
+4. **Opening balance immutable in edit:** Excluded from `changes` payload, `readOnly` + `disabled` in UI
+5. **Include archived toggle:** All tabs pass `{ includeArchived }` to list calls
+6. **Subcategories inlined:** Removed `listSubcategories()`, reads `CategoryRecord.subcategories[]` directly
+
+**Tests:** 409 total, 400 pass, 9 pre-existing skip. All gates green.
+
+### Morpheus — PR #4 contract/handler invariant tightening
+
+**Date:** 2026-04-22
+**Branch:** `wi-21/config-crud`
+**Commits:** `4f30d11` + `e37a88e`
+
+Fixed 7 backend findings from Copilot PR #4 review on update event invariants.
+
+**Invariants established:**
+1. **No no-op mutations:** `*ChangesSchema.refine` checks `Object.values(changes).some(v => v !== undefined)` (not just key count)
+2. **Empty strings never persisted:** Handler trims + deletes empty optional strings (`bankName`, `label`, `iban`, `color` on accounts/tags/categories/subcategories)
+3. **Handler re-checks post-normalisation:** Payload like `{ color: '   ' }` collapses to `{}` → short-circuit with `SCHEMA_INVALID`
+4. **Schema-handler alignment:** `createSubcategoryRequestSchema.name.min(1)` matches handler rejection
+
+**Tests added:** 7 focused test scenarios across `accounts.wi21.test.ts`, `tags.wi21.test.ts`, `categories.wi21.test.ts`. All gates green.
+
+**Why this matters:** Event-sourced append-only log means invariant violations are permanent. Double-layered defence (schema + handler) is minimum.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

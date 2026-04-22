@@ -35,6 +35,10 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 - **Panel IPC wiring complete:** All 5 queries fire on mount, skeleton→loaded transition, zero layout shift. Zod schema parsing at boundary catches main-process drift.
 - **Foundational patterns:** Multi-step wizard state (discriminated unions), modal form validation, i18n for all user-facing text (EN+ES), date formatting centralized, accessible form fields.
 
+## Cross-Agent Learning (2026-04-22)
+
+**From Morpheus (WI-21 config CRUD):** Update payload invariant pattern — schema refines on VALUES (not keys), handlers trim + delete empty optionals, then re-check for no-op collapse. This is useful when Trinity needs to reason about whether a payload will actually reach the log or get rejected early. When Trinity encounters "the user just clicked Save but nothing changed" UX issues, the pattern is: schema enforces "no empty object of optionals" + handler normalizes before checking again. No payload with all-undefined/empty-string fields can sneak through. Apply this pattern to other update handlers Trinity builds in future WIs (edit category, edit tag, etc.).
+
 ## Learnings
 
 **WI-20 Visual Bug Debugging:** When Pedro reports the same visual bug 3+ times across multiple rounds, STOP patching CSS. Read the screenshot. Consider that tests passing does not equal visually correct. If a modal/component has multiple modes (view/edit), they should render through the SAME structural scaffold — only cell contents should differ. If you find yourself writing mode-specific CSS classes or swapping between different component trees, you've already diverged. Add visual regression tests or snapshots that compare scaffold structure between modes, not just DOM presence checks.

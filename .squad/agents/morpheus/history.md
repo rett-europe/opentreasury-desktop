@@ -33,6 +33,10 @@ Shipped so far: WI-11 (event log + crypto), WI-12 (transaction:create + movement
 
 Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (CSV/XLSX import with row-hash dedup + bank-specific parsers per Pedro Q5), full WI-15 (edit/archive/delete/subcategorías + stream consolidation).
 
+## Cross-Agent Learning (2026-04-22)
+
+**From Trinity (WI-21 config CRUD):** Strong typing per-method with `MethodBridge<Req,Res>` is a durable IPC pattern. Trinity's PR #4 renderer fixes relied on the strongly-typed bridges — when Morpheus diverged from the spec (e.g., nested subcategory path), TypeScript surface-area tests immediately flagged it without needing manual e2e testing. Future IPC work in WI-22+ should use the same strongly-typed bridge pattern rather than generic request/response wrappers. Applied to all config mutation channels in WI-21; validated in practice by PR #4's catch rate.
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
