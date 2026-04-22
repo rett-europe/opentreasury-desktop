@@ -345,3 +345,46 @@ This 120px difference caused the modal to shrink when entering edit mode.
 ---
 
 **2026-04-22 — NEXT:** Link recommended **WI-22 Saldo** as next priority (primary). WI-23/24 runners-up. See decisions.md § "Link — WI-22 Recommendation (post-WI-21 merge)" for full spec. Chart primitive decision (sparkline reuse vs new grouped-bar) deferred to Neo; locale polish (date formatting) flagged for pre-WI-22 pass. Awaiting Pedro confirmation.
+
+### 2026-04-22: Saldo Prototype vs Shipped — Design Gap Analysis (Mouse)
+
+**TASK:** Pedro flagged that shipped Saldo screen is far simpler than his prototype. Produced detailed redesign spec at `.squad/decisions/inbox/mouse-saldo-redesign-spec.md`.
+
+## Learnings
+
+### Visual Tokens for Saldo Screen
+- **KPI card value colors:** Income = `--color-income-default` (#2e7d32), Expense = `--color-expense-default` (#c62828), Net/Brand = `--color-brand-primary` (#6d4d8c)
+- **KPI icon backgrounds:** Use semantic bg tokens (`--color-income-bg`, `--color-expense-bg`, `--color-brand-surface`)
+- **KPI label style:** `--section-label-size` (11px), `letter-spacing: 0.08em`, `uppercase`, `--color-text-muted`
+- **KPI value size:** `--font-size-24` (24px), `--font-weight-semibold`
+- **Panel cards:** `--radius-md` (8px), `--shadow-card`, `--space-7` (16px) padding
+- **Progress bars:** Track = `--color-surface-secondary`, bar colors = semantic income/expense with 50% alpha for prior year
+- **Year chip:** `--color-surface-secondary` bg, `--color-border-default` border, `--radius-sm` (6px)
+
+### Ingresos/Gastos Split Pattern (Paired-Panel Category Breakdown)
+The prototype shows a two-panel side-by-side layout for category breakdowns:
+1. **Left panel:** "Ingresos" (income categories only)
+2. **Right panel:** "Gastos" (expense categories only)
+
+Each panel has:
+- Header with title + subtitle + total amount (semantic color)
+- Table with CATEGORÍA / 2025 / 2026 (period) / Δ columns
+- Category rows with: name, type sublabel (income/expense), 2025 amount, inline progress bar, 2026 amount, delta % with "proy. vs 2025" sublabel
+
+**Routing logic:** Categories are routed to Ingresos or Gastos panel based on whether their `income` or `expense` value is non-zero. Mixed categories (both >0) need a rule from Pedro.
+
+### Design Decisions Worth Remembering
+1. **KPI strip semantics:** Prototype shows 3 ABSOLUTE VALUE cards (INGRESOS TOTALES / GASTOS TOTALES / SALDO NETO), shipped shows 4 DELTA cards. These are fundamentally different information architectures — absolute values tell "how much" while deltas tell "how changed".
+
+2. **Chart semantics gap:** Prototype shows year-over-year NET comparison (2025 vs 2026 net per month). Shipped shows Income vs Expense bars (current year only). This is a CONTRACT-LEVEL difference — backend needs to provide prior year monthly data.
+
+3. **Year context chip:** Prototype has explicit `📅 2025 vs 2026` chip next to period selector. This gives immediate context about what's being compared. Essential for user orientation.
+
+4. **Progress bar normalization:** Bars appear to be normalized within-row (relative 2025 vs 2026 for that category), not against panel total. Confirms with proportional bar widths that don't reflect absolute amounts.
+
+### Contract Gaps Identified
+- **BLOCKER:** `monthlySeries` only provides current year data; prototype needs prior year NET per month
+- **Medium:** Category `type` field not in contract; can infer from income/expense values for M1
+- **Low:** Per-category projection not available; use raw current values
+
+**SPEC LOCATION:** `.squad/decisions/inbox/mouse-saldo-redesign-spec.md`

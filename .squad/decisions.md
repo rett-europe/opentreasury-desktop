@@ -5780,3 +5780,101 @@ type GroupedBarChartProps = {
 
 **Status:** Captured for post-WI-22 planning. Not blocking WI-22 or Internal Alpha.
 
+
+---
+
+## WI-22 Saldo Prototype-Fidelity Arc Decisions
+
+### 2026-04-22: WI-22 S1 — Saldo Prototype Gap Audit
+
+**Date:** 2026-04-22  
+**By:** Mouse (Designer)  
+**Status:** ✅ Complete  
+
+Audit of Saldo redesign prototype vs shipped PR #11 SaldoScreen identified 12 fidelity gaps across visual components and data semantics:
+
+- **Page Header:** Copy acceptable (shipped Compara ingresos y gastos frente al año anterior cleaner than prototype).
+- **Period Selector + Year Chip:** Year chip 📅 2025 vs 2026 missing; needs addition next to selector.
+- **KPI Strip:** Shipped 4 delta cards vs prototype 3 absolute cards (INGRESOS TOTALES, GASTOS TOTALES, SALDO NETO). Gap severity: HIGH. Requires card restructure + new sublabel format 2025: X€ · proy. 2026: Y€.
+- **Chart Section:** Shipped Income vs Expense per month (current year) vs prototype NET monthly (two years). Gap severity: CRITICAL. Requires semantic shift (net computation) + prior-year series.
+- **Category Breakdown:** Shipped single combined table vs prototype TWO SIDE-BY-SIDE PANELS (Ingresos/Gastos). Gap severity: CRITICAL. Requires layout split, progress bar visualization, and type sublabels.
+- **Visual Details:** Icon backgrounds, sublabel format, delta position all differ.
+
+**Artifact:** .squad/decisions/inbox/mouse-saldo-redesign-spec.md (12-item spec with remediation priority; condensed to this entry in archive).
+
+**Recommendation:** Spec ready for future redesign refinement post-S5 ship (deferred to S6/M1.25).
+
+### 2026-04-22: WI-22 S2 — Saldo Contract Adequacy Audit
+
+**Date:** 2026-04-22  
+**By:** Neo (Tech Lead/Architect)  
+**Status:** ✅ Approved & Implemented (Decision B)  
+
+Audit of frozen Saldo IPC contract vs prototype UX spec.
+
+**Verdict Summary:**
+- **KPI strip (1.1):** ✅ All fields sufficient. Client derivations trivial.
+- **Monthly chart (1.2):** ❌ Hard gap — prior-year monthly series missing. Required for two-year NET chart.
+- **Category panels (1.3):** ✅ All fields sufficient. One soft policy note on per-category delta derivation.
+
+**Decision (B): Additive Amendment Required**
+
+- Add priorMonthlySeries: MonthlySeriesBucket[] to SaldoComparisonResponse.
+- Backend computes via existing aggregation logic, prior-period window.
+- Non-breaking addition.
+
+**Recommendation:** Implement before or alongside PR #11. Morpheus accepted (PR #12 shipped 91d87fa).
+
+### 2026-04-22: WI-22 S4b — Saldo Contract Amendment Shipped
+
+**Date:** 2026-04-22  
+**By:** Morpheus (Backend)  
+**Status:** ✅ Shipped (PR #12)  
+
+Implemented Neo's (B) decision: priorMonthlySeries amendment to Saldo IPC contract.
+
+**Changes:**
+- **Contract:** Added priorMonthlySeries?: MonthlySeriesBucket[] to SaldoComparisonResponse (additive, non-breaking).
+- **Backend:** Extended getSaldoComparison handler to compute prior-year monthly aggregates deterministically.
+- **Testing:** Extended fast-check property-test suite with new invariants and edge cases.
+
+**Results:** 457/9 tests pass (+11 net). All invariants green. No regressions.
+
+**PR:** #12 eat(saldo): add priorMonthlySeries for year-over-year chart (commit 91d87fa).
+
+### 2026-04-22: WI-22 S5 — SaldoScreen Shipped (Prototype-Fidelity Redesign)
+
+**Date:** 2026-04-22  
+**By:** Trinity (Frontend)  
+**Status:** ✅ Shipped (PR #11)  
+
+Full Saldo screen redesign implementing frozen IPC contract (post-amendment).
+
+**Delivered:**
+- **Page Header + Period Selector:** Segmented control, year chip 📅 2025 vs 2026.
+- **KPI Strip (3 cards):** INGRESOS TOTALES, GASTOS TOTALES, SALDO NETO with colored icons. Sublabel: 2025: X€ · proy. 2026: Y€.
+- **Monthly NET Chart:** Two-series (● 2025 ● 2026), bars show NET per month.
+- **Category Breakdown:** TWO PANELS (Ingresos/Gastos), progress bars, deltas, sublabels.
+- **i18n:** Full saldo.* namespace (144 keys, ES/EN). Legacy alance.* deleted (one orphan deferred).
+- **Tests:** SaldoScreen.test.tsx (7 specs). Edge cases covered.
+
+**Results:** 467/9 tests pass (+21 net). Typecheck, lint green. Internal Alpha gate unblocked.
+
+**Non-blockers:** Chart semantics drift (deferred M1.25), Export rename (M3), account filter (M1.25).
+
+**PR:** #11 WI-22 S5: SaldoScreen (backend + chart + i18n wiring) (commit ce8f2a3).
+
+### 2026-04-22: WI-22 Devseed Backfill (2025+2026 YoY Transactions)
+
+**Date:** 2026-04-22  
+**By:** Cypher (Devops/Data)  
+**Status:** ✅ Shipped (PR #13)  
+
+Dev seed backfilled with ~200 synthetic transactions (Jan 2025 → Apr 2026) for realistic year-over-year saldo validation.
+
+**Changes:** Extended seed across 16 months, income + expense categories, deterministic PRNG.
+
+**Impact:** Saldo YoY chart validation enabled. All 457/9 tests pass with extended range. Supports future refinements.
+
+**PR:** #13 chore(devseed): backfill 2025+2026 transactions for saldo validation (commit b0f6d29, HEAD).
+
