@@ -23,6 +23,11 @@ import {
   queryRecentTransactionsResponseSchema,
 } from '../../shared/ipc-contracts/panel.js';
 import {
+  IPC_SALDO_GET_COMPARISON,
+  saldoComparisonRequestSchema,
+  saldoComparisonResponseSchema,
+} from '../../shared/ipc-contracts/saldo.js';
+import {
   IPC_TRANSACTION_CREATE,
   IPC_TRANSACTION_UPDATE,
   IPC_TRANSACTION_DELETE,
@@ -105,6 +110,7 @@ import {
   handleGetAccountSparklines,
   handleQueryRecentTransactions,
 } from './handlers/panel.js';
+import { handleGetSaldoComparison } from './handlers/saldo.js';
 import {
   createTransactionCreateHandler,
   createTransactionUpdateHandler,
@@ -192,6 +198,13 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     const request = queryRecentTransactionsRequestSchema.parse(raw);
     const response = await handleQueryRecentTransactions(request);
     return queryRecentTransactionsResponseSchema.parse(response);
+  });
+
+  // WI-22 — Saldo aggregation (single read-only comparison endpoint).
+  ipcMain.handle(IPC_SALDO_GET_COMPARISON, async (_event, raw: unknown) => {
+    const request = saldoComparisonRequestSchema.parse(raw);
+    const response = await handleGetSaldoComparison(request);
+    return saldoComparisonResponseSchema.parse(response);
   });
 
   // WI-12 — transaction.create + movements.list

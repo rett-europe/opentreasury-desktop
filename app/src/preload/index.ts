@@ -20,6 +20,11 @@ import {
   type QueryRecentTransactionsResponse,
 } from '../shared/ipc-contracts/panel.js';
 import {
+  IPC_SALDO_GET_COMPARISON,
+  type SaldoComparisonRequest,
+  type SaldoComparisonResponse,
+} from '../shared/ipc-contracts/saldo.js';
+import {
   IPC_TRANSACTION_CREATE,
   IPC_TRANSACTION_UPDATE,
   IPC_TRANSACTION_DELETE,
@@ -152,6 +157,11 @@ const api = {
       req: QueryRecentTransactionsRequest,
     ): Promise<QueryRecentTransactionsResponse> => {
       return ipcRenderer.invoke(IPC_PANEL_QUERY_RECENT_TRANSACTIONS, req);
+    },
+  },
+  saldo: {
+    getComparison: (req: SaldoComparisonRequest): Promise<SaldoComparisonResponse> => {
+      return ipcRenderer.invoke(IPC_SALDO_GET_COMPARISON, req);
     },
   },
   transaction: {
