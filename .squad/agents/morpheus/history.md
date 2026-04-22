@@ -43,6 +43,32 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-22T20:30:00Z — Dev-seed backfill for Saldo YoY validation
+
+**Status:** Shipped on `chore/dev-seed-2025-2026` (PR #13). Unblocks Pedro's visual validation of the Saldo screen (year-over-year chart + Ingresos/Gastos category panels).
+
+### Durable learnings
+
+- **Deterministic PRNG pattern for dev seeds:** Use a seeded PRNG (mulberry32 with constant seed) instead of `Math.random()` or `Date.now()` so re-running the seed produces byte-identical events. The pattern:
+  ```typescript
+  function mulberry32(seed: number): () => number {
+    return function (): number {
+      let t = (seed += 0x6d2b79f5);
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(0x52657474); // 'Rett' as hex
+  ```
+  Helper functions `pick<T>(arr)`, `randInt(min, max)`, and domain-specific `randAmount(type)` wrap the PRNG for realistic distributions. This pattern is reusable for any dev-seed expansion (e.g., future tags, accounts, or multi-year backfills).
+
+- **Seed structure matters for test stability:** Keep curated transactions (the existing 30) separate from programmatically-generated ones. Merge them before sorting by `(date, id)` to ensure monotonic `createdAt` timestamps. Use distinct ID prefixes (`t001`–`t030` for curated, `g0001`+ for generated) to avoid collisions and maintain traceability in the event log.
+
+- **Description variety is a UX signal:** Rotating templates per subcategory (`"Socio #S0042"`, `"Donante #W0123"`) makes the UI feel authentic during validation. A single copy-pasted description across 100 rows is a red flag that the seed is synthetic. The template map pattern is cheap to maintain and scales to any category/subcategory taxonomy.
+
+- **Distribution > volume for visual validation:** A realistic monthly distribution (≥6 transactions per month, all categories represented, year-over-year shape differences) is more valuable than a flat 200-transaction dump. The YoY chart tells a story only if 2025 and 2026 have different income/expense trends (e.g., 2026 stronger on donations, 2025 stronger on grants).
+
 ## 2026-04-22T17:00:00Z — WI-22 `priorMonthlySeries` additive amendment
 
 **Status:** Shipped on `wi-22/saldo-prior-monthly-series`. Unblocks Trinity's PR #11 prototype-fidelity renderer (year-over-year net line chart). Neo's adequacy doc at `.squad/decisions/inbox/neo-saldo-contract-adequacy.md`.
