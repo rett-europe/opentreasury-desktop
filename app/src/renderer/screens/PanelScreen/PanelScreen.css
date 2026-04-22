@@ -51,10 +51,16 @@
  *   Fixed cols:   592px  (description flexes to fill remaining ~468px)
  * ══════════════════════════════════════════════════════════════════════════ */
 
-/* Enable fixed-layout table + horizontal scroll fallback */
+/* Enable fixed-layout table + horizontal scroll fallback.
+ *
+ * `min-width` keeps the table at a readable intrinsic size so that on narrow
+ * viewports the card's `overflow-x: auto` produces a real horizontal scroll
+ * instead of silently compressing columns (description shrinking below its
+ * 240px min). Total = 32+100+120+240+120+120+100 = 832px. */
 .ot-panel-recent .ot-table {
   table-layout: fixed;
   width: 100%;
+  min-width: 832px;
 }
 
 /* Apply ellipsis truncation to all cells by default */
@@ -90,7 +96,7 @@
 .ot-panel-recent .ot-table th:nth-child(4),
 .ot-panel-recent .ot-table td:nth-child(4) {
   /* No explicit width — flexes to fill remaining space */
-  min-width: 120px; /* Ensure minimum readable width */
+  min-width: 240px; /* Ensure minimum readable width before overflow scroll kicks in */
 }
 
 /* Column 5: category (120px) */
