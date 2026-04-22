@@ -1233,3 +1233,76 @@ branch — you'll eat a teammate's unformatted WIP into your diff.
 - **exactOptionalPropertyTypes: true interaction:** a defaulted primitive param (currency: string = "EUR") is safe because the param type is string, not string | undefined. If typed as currency?: string, passing undefined explicitly would have required string | undefined. Default + non-optional type is the correct pattern under this strictness flag.
 - **Node stripped ICU in test env doesn't emit thousand separators for es-ES** (observed "1500,50" instead of "1.500,50"). Locale unit tests must assert on structural invariants (comma decimal, symbol trailing vs. leading) rather than exact separator output - otherwise they pass on dev machines with full-ICU and fail in CI.
 - **CRLF + endOfLine "lf" bite:** new files created via the create tool on Windows land as CRLF, which prettier --check fails. Fix at file-creation time by normalising to LF before committing, not by disabling the rule.
+
+
+---
+
+## 2026-04-22 — WI-22 S4: GroupedBarChart primitive
+
+**What shipped:** `app/src/renderer/components/GroupedBarChart/` — pure-SVG two-series grouped bar chart for Saldo. Self-contained, contract-free, opens PR #8 (draft).
+
+### API shape (final)
+
+``ts
+type GroupedBarChartProps = {
+  readonly series: ReadonlyArray<{ readonly label: string; readonly values: readonly [number, number] }>;
+  readonly legend: readonly [string, string];
+  readonly currency?: string;            // default 'EUR'
+  readonly locale: string;               // from i18n.language, not navigator.language
+  readonly ariaLabel: string;            // parent resolves t()
+  readonly dataTableCaption: string;     // parent resolves t()
+  readonly emptyLabel?: string;          // parent resolves t() — shown when all values 0
+};
+``
+
+Readonly tuple + ReadonlyArray on inputs — cheap way to advertise presentational contract (no mutation) and avoids accidental shared-reference bugs when Saldo re-renders.
+
+### SVG choices
+
+- **ViewBox:** 600×340, `preserveAspectRatio="xMidYMid meet"`, CSS `width: 100%; height: auto` → responsive without ResizeObserver or lib.
+- **Paddings:** PAD_L=32 / PAD_R=16 / PAD_T=24 / PAD_B=56. The bottom padding reserves real estate for the month labels rendered as `<text>` inside the same SVG — no separate HTML axis layer.
+- **Y-scale supports negatives:** domain is `[min(0, …values), max(0, …values)]`. `zeroY` is the computed baseline; each bar's y + height is derived from `Math.min(y, zeroY)` / `Math.abs(y - zeroY)`. A `<line>` at zeroY provides the axis. This matters because `net` can legitimately go negative on Saldo.
+- **No chart lib:** ~180 LOC of TSX + CSS. Bundle impact effectively zero. Neo's ~80 LOC estimate was accurate for the bar-math — the rest is tooltip + a11y table + keyboard nav scaffolding.
+
+### A11y pattern (reusable — candidate skill)
+
+- **Bar-group = focusable atom.** Each `<g>` has `tabIndex={0}`, `role="img"`, and `aria-label` that packs label + legend[0] + formatted current + legend[1] + formatted prior + delta%. Screen readers read that single string per group; no live region churn.
+- **Keyboard model:** ArrowRight/Down → next, ArrowLeft/Up → prev, Home → first, End → last. Implemented with a `groupRefs` array and `moveFocus(i)` helper. SVG `<g>` elements are focusable in modern browsers when `tabIndex` is set — `.focus()` works without foreignObject tricks.
+- **Visually-hidden data table** uses the existing `.ot-sr-only` helper in `styles/globals.css`. Structure: `<table><caption>{dataTableCaption}</caption><thead><tr><th/><th>{legend[0]}</th><th>{legend[1]}</th></tr></thead><tbody>…</tbody></table>`. Corner `<th>` left empty on purpose — the caption carries the dataset name; duplicating it as a cell header caused the first test iteration to fail with "found multiple elements".
+- **Tooltip is a visual-only aid** (`role="presentation"`, `pointer-events: none`). All information it shows is already in the group's `aria-label` — no screen-reader redundancy, no aria-describedby dance. Position: absolutely pinned top-right of the plot container, not anchored to the focused bar — avoids overflow bugs at the chart edges and works for the full 12-month strip.
+
+### Data-flow invariants
+
+- **No projection inside the chart.** Parent passes actual monthly values only — projections live in KPI strip / category rows (per Neo §5). The chart never multiplies by `elapsedFraction`.
+- **Empty detection is `values[0] === 0 && values[1] === 0` for every entry.** Skips rendering the SVG entirely and shows the empty state — cheaper than rendering zero-height bars and avoids a "visually empty but focusable" confusion for keyboard users.
+- **Delta = (current - prior) / prior × 100**, `null` when prior is 0. Null renders as "—" in the tooltip and is omitted from the aria-label percentage segment.
+
+### Formatting hygiene
+
+- `formatCurrency(value, locale, currency)` from `utils/numberFormat.ts` (PR #6). No inline `new Intl.NumberFormat` anywhere — keeps the "one formatter, one place" invariant the polish branch established.
+- `locale` is a required prop. Parent must derive it from `i18n.language` (e.g. `i18n.language.startsWith('es') ? 'es-ES' : 'en-US'`). Not optional — I didn't want the primitive to fall through to a default and mask a caller bug.
+
+### Gotchas worth re-reading before S5
+
+1. **Ref typing:** `useRef<Array<SVGGElement | null>>([])` — SVG elements have `.focus()` via `HTMLOrSVGElement`, no cast needed in modern lib.dom.
+2. **exactOptionalPropertyTypes + default param** (same pattern as formatCurrency): `currency: string = 'EUR'` works because the declared type is `string`. If you write `currency?: string`, then `currency = 'EUR'` narrows at the use site but the prop type still needs `string | undefined` for exactOptional to accept `{ currency: undefined }` — which you don't want callers to do anyway.
+3. **verbatimModuleSyntax=true**: `import { type KeyboardEvent, useRef, useState } from 'react'` — the `type` keyword on type-only imports is mandatory.
+4. **Git state pollution on this branch:** other squad members (Morpheus/Niobe) had unstaged + untracked files in the shared working tree. I had to carefully `git add` only my component path; a stray commit landed extra files once before I noticed. Lesson: on WORKTREE_MODE=false, always inspect `git status --short` before every commit and `git restore --staged` anything that isn't mine.
+5. **Branch-switch-on-commit weirdness:** after a reset/soft-reset loop my HEAD ended up on `wi-22/saldo-i18n` (Niobe's branch) despite having `wi-22/saldo-chart` checked out before. Had to cherry-pick onto the right branch and hard-reset the i18n branch back. Sanity-check `git branch --show-current` after any reset/pop sequence in this repo.
+
+### Test coverage (8 tests, all green; 411 → 419)
+
+- 12 month-groups render (prop count respected).
+- Data-table row count + header column count.
+- Locale-formatted currency present in cells (en-US EUR).
+- Tooltip on focus shows both series + computed delta %.
+- Empty state appears when every value is 0 and suppresses the bars.
+- ArrowRight advances focus / ArrowLeft retreats.
+- Home/End jump to first/last.
+- `aria-label` on a group is complete (label + both legends + both values + delta).
+
+### PR
+
+- Draft: `#8` — https://github.com/rett-europe/opentreasury-desktop/pull/8
+- Branch: `wi-22/saldo-chart` from `main`.
+- Gates: typecheck ✅ · lint ✅ · format:check (my files ✅; pre-existing 42-file baseline unchanged) · tests 419/9.
