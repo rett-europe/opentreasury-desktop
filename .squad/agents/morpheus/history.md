@@ -1000,3 +1000,43 @@ See .squad/decisions.md § "2026-04-21: WI-20 Polish" for full decision log (tab
 ---
 
 **2026-04-22 — NEXT:** Link recommended **WI-22 Saldo** as next priority (primary). WI-23/24 runners-up. See decisions.md § "Link — WI-22 Recommendation (post-WI-21 merge)" for full spec. Query + property-test scope awaiting Neo tech spec. Awaiting Pedro confirmation.
+
+## 2026-04-22 — WI-22 Saldo backend (S1+S2+S3) shipped
+
+
+## 2026-04-22 — WI-22 Saldo backend (S1+S2+S3)
+
+Shipped `saldo:get-comparison` end-to-end on branch `wi-22/saldo-backend` → PR #7.
+
+### Learnings
+
+- **Projection lives on the server, period.** The `server-derived-fields` pattern (Neo's skill) played out exactly as described: by making `currentProjectedTotal: { income, expense } | null` a REQUIRED response field, Trinity has a one-line render path (`projected ?? raw`) and there is zero drift between "display this projection" and "what the property test sees". Renderers that multiply inputs are bug generators.
+- **Aggregation invariants must be the aggregation _shape_, not a downstream check.** `netByCategory` is built from the same pass that computes `totalIncome` / `totalExpense`, so `Σ rows.income === totalIncome` is structurally true, not a happy accident. A test asserts it; the code can't violate it without rewriting both simultaneously.
+- **Same-period-prior-year is a year shift, not a date shift.** For leap days (2024-02-29), the prior range is derived by recomputing the last day of the target month in the prior year (`2023-02-28`), NOT by subtracting 365 days. Wrote `shiftPriorYear` to be explicit about that, with a dedicated test.
+- **UTC-inclusive day counting trap.** "Today" must be normalized to UTC midnight before clamping to `[start, end]`, otherwise local-time drift silently flips `isPartial` around midnight. Use `Date.UTC(...)` constructors throughout; never mix `new Date()` with local getters.
+- **Day-elapsed floor of 1.** If the period hasn't started yet (caller passes a future anchor) or the server clock is before the first day, `daysElapsed = max(1, …)` keeps the projection denominator safe. Neo flagged this in §5; I'd have hit it on the first integration test otherwise.
+- **Shared-repo concurrency gotcha.** Multiple agents working in the same worktree cause surprise branch switches — source files I created got clipped out from under me when the HEAD moved. Mitigation: commit early (S1 frozen within minutes, pushed), and redo any transient edits (handlers.ts, preload/index.ts) right after verifying the current branch. Uncommitted untracked files survive `git checkout`; uncommitted modifications to tracked files follow HEAD unless stashed.
+
+### Aggregation formula shipped (projection, S3)
+
+```
+daysInPeriod = daysBetweenInclusive(start, end)         // UTC midnights, inclusive
+daysElapsed  = max(1, daysBetweenInclusive(start, clamp(today, [start, end])))
+isPartial    = today < end
+projected    = isPartial ? actual * (daysInPeriod / daysElapsed) : null
+```
+
+Applied to `totalIncome` and `totalExpense` independently. Per-category rows and monthly buckets are not projected (Pedro lock).
+
+### Contract surface (frozen on Day 1)
+
+- `saldo:get-comparison` single endpoint.
+- Request: `{ period: 'ano' | 'trim' | 'mes', anchor: YYYY-MM-DD, currency?: 'EUR' }`.
+- Response top-level keys: `currentPeriod`, `priorPeriod`, `monthlySeries`, `kpis`.
+- `currentPeriod.currentProjectedTotal` is the required nullable field — null iff complete.
+
+### Gotchas for future me
+
+- TS project references + `moduleResolution: "Bundler"`: when adding a new file to `shared/ipc-contracts/`, a `tsc -b` run sometimes emits the `.d.ts` lazily — if the typecheck screams "cannot find module", do a clean `rm -rf dist && tsc -b` once and confirm the new `.d.ts` shows up under `dist/shared/ipc-contracts/`. Don't trust incremental build caches for cross-project moves.
+- `verbatimModuleSyntax: true` means `import type` matters: I import `SaldoComparisonRequest`/`Response` as types in the handler, but the schemas at runtime. Don't conflate.
+- `exactOptionalPropertyTypes: true` — `currency?: 'EUR'` (optional) is NOT the same as `currency: 'EUR' | undefined`. Keep callers passing `{ period, anchor }` without an explicit `undefined` currency.
