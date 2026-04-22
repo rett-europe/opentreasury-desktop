@@ -90,23 +90,12 @@
       "retry": "Reintentar"
     }
   },
-  "balance": {
-    "title": "Saldo",
-    "subtitle": "Vista comparativa de ingresos y gastos por categoría",
-    "cta": {
-      "export": "Exportar"
-    },
-    "sections": {
-      "summary": "Totales del año",
-      "income": "Ingresos por categoría",
-      "expense": "Gastos por categoría",
-      "monthly-net": "Saldo neto mensual"
-    },
-    "skeleton": "Vista previa — datos en una próxima iteración."
-  },
   "saldo": {
     "title": "Saldo",
     "subtitle": "Compara ingresos y gastos frente al año anterior",
+    "cta": {
+      "export": "Exportar"
+    },
     "states": {
       "loading": "Cargando saldo…",
       "emptyBoth": {
@@ -149,32 +138,22 @@
       "all": "Todas las cuentas",
       "srDescription": "Filtra la comparación por una cuenta concreta"
     },
-    "comparison": {
-      "vsYear": "vs. {{year}}",
-      "vsMonth": "vs. {{month}} {{year}}",
-      "vsQuarter": "vs. T{{quarter}} {{year}}",
-      "ariaVsYear": "comparado con el año {{year}}",
-      "ariaVsMonth": "comparado con {{month}} de {{year}}",
-      "ariaVsQuarter": "comparado con el trimestre {{quarter}} de {{year}}"
+    "yearChip": {
+      "label": "{{priorYear}} vs {{currentYear}}"
     },
     "kpi": {
-      "net": {
-        "label": "Variación neta",
-        "description": "Diferencia entre ingresos y gastos frente al periodo anterior"
-      },
       "income": {
-        "label": "Variación de ingresos",
-        "description": "Variación de los ingresos frente al periodo anterior"
+        "labelTotal": "INGRESOS TOTALES"
       },
       "expense": {
-        "label": "Variación de gastos",
-        "description": "Variación de los gastos frente al periodo anterior"
+        "labelTotal": "GASTOS TOTALES"
       },
-      "biggestGrowth": {
-        "label": "Mayor crecimiento",
-        "description": "Categoría con mayor aumento respecto al periodo anterior",
-        "empty": "Sin crecimiento destacable",
-        "value": "{{category}} · {{delta}}"
+      "net": {
+        "labelTotal": "SALDO NETO"
+      },
+      "sublabel": {
+        "priorOnly": "{{priorYear}}: {{priorValue}}",
+        "priorAndProjected": "{{priorYear}}: {{priorValue}} · proy. {{currentYear}}: {{projectedValue}}"
       },
       "delta": {
         "up": "aumento",
@@ -190,38 +169,36 @@
       "ariaHint": "Valor proyectado: extrapolación lineal a partir de los días transcurridos del periodo",
       "rowTooltip": "Total proyectado al cierre del periodo"
     },
-    "table": {
-      "caption": "Desglose por categoría",
-      "columns": {
-        "category": "Categoría",
-        "income": "Ingresos",
-        "expense": "Gastos",
-        "net": "Neto",
-        "delta": "Δ vs. anterior"
-      },
-      "uncategorized": "Sin categoría",
-      "noPrior": "Sin datos previos",
-      "dropped": "Sin movimientos este periodo",
-      "flat": "Prácticamente igual"
-    },
     "chart": {
       "monthlyNetTitle": "Saldo neto mensual",
-      "monthlyNetSubtitle": "Valores reales — sin proyección",
-      "monthlyNetAriaLabel": "Gráfico de barras del saldo neto mensual comparando el periodo actual con el anterior",
+      "monthlyNetSubtitleYears": "Diferencia ingresos − gastos · {{priorYear}} vs {{currentYear}}",
+      "monthlyNetAriaLabel": "Gráfico de barras del saldo neto mensual comparando {{priorYear}} con {{currentYear}}",
       "dataTableCaption": "Saldo neto por mes: periodo actual y periodo anterior",
-      "dataTableToggle": {
-        "show": "Ver tabla de datos",
-        "hide": "Ocultar tabla de datos"
-      },
-      "series": {
-        "current": "Actual",
-        "prior": "Anterior"
-      },
-      "tooltip": {
-        "current": "{{value}} en {{month}}",
-        "prior": "{{value}} en {{month}} del periodo anterior"
-      },
       "emptyMonth": "Sin movimientos"
+    },
+    "panel": {
+      "subtitle": "Comparación por categoría",
+      "income": {
+        "title": "Ingresos",
+        "totalLabel": "Total ingresos {{year}}"
+      },
+      "expense": {
+        "title": "Gastos",
+        "totalLabel": "Total gastos {{year}}"
+      },
+      "columns": {
+        "category": "Categoría"
+      },
+      "type": {
+        "income": "income",
+        "expense": "expense"
+      },
+      "row": {
+        "projectedVs": "proy. vs {{year}}",
+        "vs": "vs {{year}}",
+        "barsAria": "Comparación visual: {{priorYear}} {{priorValue}}, periodo actual {{currentValue}}"
+      },
+      "empty": "Sin categorías en este periodo"
     }
   },
   "movements": {

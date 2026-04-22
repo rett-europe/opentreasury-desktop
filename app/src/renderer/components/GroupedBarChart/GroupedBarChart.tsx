@@ -18,7 +18,10 @@ export type GroupedBarChartProps = {
 
 // SVG viewBox constants — responsive via CSS width: 100%.
 const VIEW_W = 600;
-const VIEW_H = 340;
+// Aspect ratio ~2:1. Prototype shows a generously tall plot area under the
+// KPI strip; the previous 240/140 shrinks over-compressed the ribbon and
+// made negative bars unreadable. 300 restores prototype-like proportion.
+const VIEW_H = 300;
 const PAD_L = 32;
 const PAD_R = 16;
 const PAD_T = 24;
