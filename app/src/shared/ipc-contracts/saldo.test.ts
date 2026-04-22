@@ -63,6 +63,7 @@ describe('saldo IPC contract', () => {
         netByCategory: [],
       },
       monthlySeries: [],
+      priorMonthlySeries: [],
       kpis: {
         netDelta: 0.25,
         incomeDelta: 0.25,
@@ -101,6 +102,10 @@ describe('saldo IPC contract', () => {
         { monthIso: '2026-01-01', netIncome: 100, netExpense: 30 },
         { monthIso: '2026-02-01', netIncome: 120, netExpense: 40 },
       ],
+      priorMonthlySeries: [
+        { monthIso: '2025-01-01', netIncome: 80, netExpense: 20 },
+        { monthIso: '2025-02-01', netIncome: 90, netExpense: 25 },
+      ],
       kpis: {
         netDelta: 0.1,
         incomeDelta: 0.095,
@@ -137,6 +142,7 @@ describe('saldo IPC contract', () => {
         netByCategory: [],
       },
       monthlySeries: [],
+      priorMonthlySeries: [],
       kpis: {
         netDelta: null,
         incomeDelta: null,
@@ -145,5 +151,43 @@ describe('saldo IPC contract', () => {
       },
     };
     expect(saldoComparisonResponseSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it('requires priorMonthlySeries (WI-22 amendment — additive, year-over-year chart)', () => {
+    const base = {
+      currentPeriod: {
+        start: '2026-01-01',
+        end: '2026-12-31',
+        totalIncome: 0,
+        totalExpense: 0,
+        netByCategory: [],
+        isPartial: false,
+        daysElapsed: 365,
+        daysInPeriod: 365,
+        currentProjectedTotal: null,
+      },
+      priorPeriod: {
+        start: '2025-01-01',
+        end: '2025-12-31',
+        totalIncome: 0,
+        totalExpense: 0,
+        netByCategory: [],
+      },
+      monthlySeries: [],
+      kpis: {
+        netDelta: null,
+        incomeDelta: null,
+        expenseDelta: null,
+        biggestCategoryGrowth: null,
+      },
+    };
+    // Missing priorMonthlySeries → rejected.
+    expect(saldoComparisonResponseSchema.safeParse(base).success).toBe(false);
+    // Zero-filled array is acceptable — e.g. empty prior window is still a valid shape.
+    const ok = saldoComparisonResponseSchema.safeParse({
+      ...base,
+      priorMonthlySeries: [{ monthIso: '2025-01-01', netIncome: 0, netExpense: 0 }],
+    });
+    expect(ok.success).toBe(true);
   });
 });
