@@ -261,13 +261,6 @@ function SaldoLoadedView({ data, locale }: LoadedProps): JSX.Element {
 
   return (
     <>
-      {data.currentPeriod.isPartial ? (
-        <PartialPeriodBadge
-          daysElapsed={data.currentPeriod.daysElapsed}
-          daysInPeriod={data.currentPeriod.daysInPeriod}
-        />
-      ) : null}
-
       <KpiStrip data={data} locale={locale} priorYear={priorYear} currentYear={currentYear} />
 
       <MonthlyNetChart
@@ -291,32 +284,6 @@ function SaldoLoadedView({ data, locale }: LoadedProps): JSX.Element {
         locale={locale}
       />
     </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Partial-period badge.
-// ---------------------------------------------------------------------------
-
-type PartialPeriodBadgeProps = {
-  readonly daysElapsed: number;
-  readonly daysInPeriod: number;
-};
-
-function PartialPeriodBadge({ daysElapsed, daysInPeriod }: PartialPeriodBadgeProps): JSX.Element {
-  const { t } = useTranslation('common');
-  const tooltip = t('saldo.projection.tooltip', { daysElapsed, daysInPeriod });
-  return (
-    <div
-      className="ot-badge ot-badge--info"
-      role="note"
-      title={tooltip}
-      aria-label={t('saldo.projection.ariaHint')}
-      data-testid="saldo-projection-badge"
-      style={{ display: 'inline-block', marginBottom: 'var(--space-6)' }}
-    >
-      {t('saldo.projection.badge')}
-    </div>
   );
 }
 

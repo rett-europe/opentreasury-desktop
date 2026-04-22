@@ -261,7 +261,9 @@ export function PanelScreen(): JSX.Element {
       id: 'category',
       header: t('movements.columns.category'),
       render: (row) => {
-        const name = row.categoryId ? (categoryNameById.get(row.categoryId) ?? row.categoryId) : null;
+        const name = row.categoryId
+          ? (categoryNameById.get(row.categoryId) ?? row.categoryId)
+          : null;
         return name ? (
           <span title={name}>{name}</span>
         ) : (

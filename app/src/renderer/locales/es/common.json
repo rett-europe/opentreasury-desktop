@@ -163,10 +163,7 @@
       }
     },
     "projection": {
-      "badge": "Proyección lineal",
       "sublabel": "Proyectado",
-      "tooltip": "Proyección lineal basada en {{daysElapsed}}/{{daysInPeriod}} días transcurridos",
-      "ariaHint": "Valor proyectado: extrapolación lineal a partir de los días transcurridos del periodo",
       "rowTooltip": "Total proyectado al cierre del periodo"
     },
     "chart": {

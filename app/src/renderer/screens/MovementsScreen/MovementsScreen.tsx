@@ -77,7 +77,9 @@ function mapMovementRecord(
 ): Movement {
   const account = accountsMap.get(record.accountId);
   const categoryName =
-    record.categoryId != null ? (categoryNameById.get(record.categoryId) ?? record.categoryId) : null;
+    record.categoryId != null
+      ? (categoryNameById.get(record.categoryId) ?? record.categoryId)
+      : null;
   const subcategoryName =
     record.subcategoryId != null
       ? (subcategoryNameById.get(record.subcategoryId) ?? record.subcategoryId)
@@ -819,9 +821,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
               </span>
             </div>
             <div>
-              <span className="ot-movements__totals-label">
-                {t('movements.totals.countLabel')}
-              </span>
+              <span className="ot-movements__totals-label">{t('movements.totals.countLabel')}</span>
               <span className="ot-movements__totals-value">{totals.count}</span>
             </div>
           </div>

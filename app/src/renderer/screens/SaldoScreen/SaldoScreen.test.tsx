@@ -141,7 +141,7 @@ describe('SaldoScreen', () => {
     });
   });
 
-  it('renders the partial-period badge and projected KPI sublabel when isPartial=true', async () => {
+  it('renders the projected KPI sublabel when isPartial=true', async () => {
     vi.mocked(getSaldoComparison).mockResolvedValue(
       makeResponse({
         currentPeriod: {
@@ -162,7 +162,7 @@ describe('SaldoScreen', () => {
     );
     renderWithI18n();
     await waitFor(() => {
-      expect(screen.getByTestId('saldo-projection-badge')).toBeDefined();
+      expect(screen.getByTestId('saldo-kpi-income')).toBeDefined();
     });
     // Income card shows both prior and projected sublabel segments.
     const income = screen.getByTestId('saldo-kpi-income').textContent ?? '';
