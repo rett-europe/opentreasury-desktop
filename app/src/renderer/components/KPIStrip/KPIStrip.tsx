@@ -1,5 +1,6 @@
 import { TrendingUp, TrendingDown, Calculator } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { formatCurrency } from '../../utils/numberFormat.js';
 import './KPIStrip.css';
 
 export interface KPIStripProps {
@@ -14,13 +15,9 @@ export interface KPIStripProps {
  * Each metric has icon, label, value (colored), and month caption.
  */
 export function KPIStrip({ income, expense, net, month }: KPIStripProps): JSX.Element {
-  const { t } = useTranslation('common');
-
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat(navigator.language, {
-      style: 'currency',
-      currency: 'EUR',
-    }).format(value);
+  const { t, i18n } = useTranslation('common');
+  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
+  const format = (value: number) => formatCurrency(value, locale);
 
   return (
     <div className="ot-kpi-strip" role="status" aria-live="polite">
@@ -30,7 +27,7 @@ export function KPIStrip({ income, expense, net, month }: KPIStripProps): JSX.El
         </div>
         <div>
           <div className="ot-kpi__label">{t('movements.totals.income')}</div>
-          <div className="ot-kpi__value">{formatCurrency(income)}</div>
+          <div className="ot-kpi__value">{format(income)}</div>
           <div className="ot-kpi__delta">{month}</div>
         </div>
       </div>
@@ -40,7 +37,7 @@ export function KPIStrip({ income, expense, net, month }: KPIStripProps): JSX.El
         </div>
         <div>
           <div className="ot-kpi__label">{t('movements.totals.expense')}</div>
-          <div className="ot-kpi__value">{formatCurrency(expense)}</div>
+          <div className="ot-kpi__value">{format(expense)}</div>
           <div className="ot-kpi__delta">{month}</div>
         </div>
       </div>
@@ -50,7 +47,7 @@ export function KPIStrip({ income, expense, net, month }: KPIStripProps): JSX.El
         </div>
         <div>
           <div className="ot-kpi__label">{t('movements.totals.net')}</div>
-          <div className="ot-kpi__value">{formatCurrency(net)}</div>
+          <div className="ot-kpi__value">{format(net)}</div>
           <div className="ot-kpi__delta">{month}</div>
         </div>
       </div>
