@@ -12,8 +12,7 @@ import {
 import { applyEvent, resetReadModel } from '../../../core/query/reducers';
 import type { DomainEvent } from '../../../core/events/schemas';
 
-const ulid = (suffix: string): string =>
-  (suffix + '0'.repeat(26)).slice(0, 26).toUpperCase();
+const ulid = (suffix: string): string => (suffix + '0'.repeat(26)).slice(0, 26).toUpperCase();
 
 const DATASET = ulid('DATA');
 const DEVICE = ulid('DEV1');

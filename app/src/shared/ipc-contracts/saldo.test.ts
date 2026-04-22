@@ -16,9 +16,10 @@ describe('saldo IPC contract', () => {
 
   it('parses a valid request for each period variant', () => {
     for (const period of ['ano', 'trim', 'mes'] as const) {
-      expect(
-        saldoComparisonRequestSchema.parse({ period, anchor: '2026-04-01' }),
-      ).toEqual({ period, anchor: '2026-04-01' });
+      expect(saldoComparisonRequestSchema.parse({ period, anchor: '2026-04-01' })).toEqual({
+        period,
+        anchor: '2026-04-01',
+      });
     }
     expect(
       saldoComparisonRequestSchema.parse({
@@ -30,9 +31,15 @@ describe('saldo IPC contract', () => {
   });
 
   it('rejects invalid periods and malformed anchors', () => {
-    expect(saldoComparisonRequestSchema.safeParse({ period: 'year', anchor: '2026-01-01' }).success).toBe(false);
-    expect(saldoComparisonRequestSchema.safeParse({ period: 'ano', anchor: '2026' }).success).toBe(false);
-    expect(saldoComparisonRequestSchema.safeParse({ period: 'ano', anchor: '01-01-2026' }).success).toBe(false);
+    expect(
+      saldoComparisonRequestSchema.safeParse({ period: 'year', anchor: '2026-01-01' }).success,
+    ).toBe(false);
+    expect(saldoComparisonRequestSchema.safeParse({ period: 'ano', anchor: '2026' }).success).toBe(
+      false,
+    );
+    expect(
+      saldoComparisonRequestSchema.safeParse({ period: 'ano', anchor: '01-01-2026' }).success,
+    ).toBe(false);
   });
 
   it('accepts a minimally-populated complete-period response (no projection)', () => {

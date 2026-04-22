@@ -47,12 +47,8 @@ function makeModel(
   };
 }
 
-const runSaldo = (
-  model: ReadModel,
-  period: 'ano' | 'trim' | 'mes',
-  anchor: string,
-  now: Date,
-) => getSaldoComparison({ period, anchor }, { now: () => now, getReadModel: () => model });
+const runSaldo = (model: ReadModel, period: 'ano' | 'trim' | 'mes', anchor: string, now: Date) =>
+  getSaldoComparison({ period, anchor }, { now: () => now, getReadModel: () => model });
 
 describe('resolvePeriodRange', () => {
   it('resolves ano to full year inclusive', () => {
@@ -100,19 +96,22 @@ describe('resolvePeriodRange', () => {
 
 describe('shiftPriorYear — Pedro-locked same-period-prior-year semantics', () => {
   it('shifts ano back by one year', () => {
-    expect(
-      __internal.shiftPriorYear({ start: '2026-01-01', end: '2026-12-31' }),
-    ).toEqual({ start: '2025-01-01', end: '2025-12-31' });
+    expect(__internal.shiftPriorYear({ start: '2026-01-01', end: '2026-12-31' })).toEqual({
+      start: '2025-01-01',
+      end: '2025-12-31',
+    });
   });
   it('shifts mes back by one year (abr 2026 → abr 2025)', () => {
-    expect(
-      __internal.shiftPriorYear({ start: '2026-04-01', end: '2026-04-30' }),
-    ).toEqual({ start: '2025-04-01', end: '2025-04-30' });
+    expect(__internal.shiftPriorYear({ start: '2026-04-01', end: '2026-04-30' })).toEqual({
+      start: '2025-04-01',
+      end: '2025-04-30',
+    });
   });
   it('handles leap-year collapse on Feb', () => {
-    expect(
-      __internal.shiftPriorYear({ start: '2024-02-01', end: '2024-02-29' }),
-    ).toEqual({ start: '2023-02-01', end: '2023-02-28' });
+    expect(__internal.shiftPriorYear({ start: '2024-02-01', end: '2024-02-29' })).toEqual({
+      start: '2023-02-01',
+      end: '2023-02-28',
+    });
   });
 });
 
@@ -162,9 +161,7 @@ describe('getSaldoComparison — aggregation', () => {
   });
 
   it('buckets uncategorized transactions under categoryId=null with Spanish fallback name', () => {
-    const model = makeModel([
-      { date: '2026-02-01', type: 'income', amount: 50, categoryId: null },
-    ]);
+    const model = makeModel([{ date: '2026-02-01', type: 'income', amount: 50, categoryId: null }]);
     const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
     const uncat = res.currentPeriod.netByCategory.find((r) => r.categoryId === null);
     expect(uncat).toEqual({
@@ -176,9 +173,10 @@ describe('getSaldoComparison — aggregation', () => {
   });
 
   it('builds exactly 12 / 3 / 1 monthly buckets and never projects them', () => {
-    const model = makeModel([
-      { date: '2026-04-15', type: 'income', amount: 1000, categoryId: 'c1' },
-    ], [{ id: 'c1', name: 'Donaciones' }]);
+    const model = makeModel(
+      [{ date: '2026-04-15', type: 'income', amount: 1000, categoryId: 'c1' }],
+      [{ id: 'c1', name: 'Donaciones' }],
+    );
 
     const ano = runSaldo(model, 'ano', '2026-01-01', new Date('2026-04-20T00:00:00Z'));
     expect(ano.monthlySeries).toHaveLength(12);
@@ -280,10 +278,13 @@ describe('getSaldoComparison — projection (S3)', () => {
     // Prior Q2 complete: 120 income, 0 expense.
     // Projected current income ≈ 100 * 91/45 ≈ 202.22.
     // incomeDelta = (projected - prior)/prior ≈ (202.22 - 120)/120 ≈ 0.685.
-    const model = makeModel([
-      { date: '2026-04-15', type: 'income', amount: 100, categoryId: 'c1' },
-      { date: '2025-05-10', type: 'income', amount: 120, categoryId: 'c1' },
-    ], [{ id: 'c1', name: 'Donaciones' }]);
+    const model = makeModel(
+      [
+        { date: '2026-04-15', type: 'income', amount: 100, categoryId: 'c1' },
+        { date: '2025-05-10', type: 'income', amount: 120, categoryId: 'c1' },
+      ],
+      [{ id: 'c1', name: 'Donaciones' }],
+    );
     const res = runSaldo(model, 'trim', '2026-04-01', new Date('2026-05-15T00:00:00Z'));
     expect(res.currentPeriod.isPartial).toBe(true);
     expect(res.kpis.incomeDelta).not.toBeNull();

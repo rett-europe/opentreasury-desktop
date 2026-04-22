@@ -35,10 +35,7 @@ import { getReadModel } from './reducers';
 // matching the null-bucket convention.
 const UNCATEGORIZED_LABEL = 'Sin categoría';
 
-function resolveCategoryName(
-  categoryId: string | null,
-  model: ReadModel,
-): string {
+function resolveCategoryName(categoryId: string | null, model: ReadModel): string {
   if (categoryId === null) return UNCATEGORIZED_LABEL;
   const c = model.configCategories.find((x) => x.id === categoryId);
   return c?.name ?? UNCATEGORIZED_LABEL;
@@ -127,10 +124,7 @@ interface TotalsAgg {
   byCategory: Map<string | null, { name: string; income: number; expense: number }>;
 }
 
-function aggregateTotals(
-  model: ReadModel,
-  range: PeriodRange,
-): TotalsAgg {
+function aggregateTotals(model: ReadModel, range: PeriodRange): TotalsAgg {
   const agg: TotalsAgg = {
     totalIncome: 0,
     totalExpense: 0,
@@ -188,10 +182,7 @@ function round2(n: number): number {
 
 // ----- Monthly series (never projected) ---------------------------------
 
-function buildMonthlySeries(
-  model: ReadModel,
-  range: PeriodRange,
-): SaldoMonthlyBucket[] {
+function buildMonthlySeries(model: ReadModel, range: PeriodRange): SaldoMonthlyBucket[] {
   // Enumerate the months contained in [range.start, range.end] inclusive.
   const start = parseUtcDate(range.start);
   const end = parseUtcDate(range.end);
