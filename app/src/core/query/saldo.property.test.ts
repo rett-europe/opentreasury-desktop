@@ -12,6 +12,8 @@
 //   I4  Σ netByCategory.expense     === currentPeriod.totalExpense
 //   I5  Σ monthlySeries.netIncome   === currentPeriod.totalIncome  (no projection drift)
 //   I6  Σ monthlySeries.netExpense  === currentPeriod.totalExpense
+//   I5p Σ priorMonthlySeries.netIncome  === priorPeriod.totalIncome  (mirror, never projected)
+//   I6p Σ priorMonthlySeries.netExpense === priorPeriod.totalExpense
 //   I7  priorPeriod totals          === brute-force over [prior.start, prior.end]
 //   I8  Saldo ≡ Movements           — same period, same filter, same totals.
 //
@@ -287,6 +289,28 @@ describe('Saldo aggregation — property-based invariants (fast-check)', () => {
         );
         expect(seriesIncomeCents).toBe(Math.round(res.currentPeriod.totalIncome * 100));
         expect(seriesExpenseCents).toBe(Math.round(res.currentPeriod.totalExpense * 100));
+
+        // I5p / I6p (WI-22 amendment): priorMonthlySeries mirrors the same
+        // invariant against priorPeriod totals. Bucket count matches
+        // monthlySeries — same granularity → same bucket count, just shifted
+        // to the prior-year window.
+        expect(res.priorMonthlySeries).toHaveLength(expectedBuckets);
+        const priorSeriesIncomeCents = res.priorMonthlySeries.reduce(
+          (s, b) => s + Math.round(b.netIncome * 100),
+          0,
+        );
+        const priorSeriesExpenseCents = res.priorMonthlySeries.reduce(
+          (s, b) => s + Math.round(b.netExpense * 100),
+          0,
+        );
+        expect(priorSeriesIncomeCents).toBe(Math.round(res.priorPeriod.totalIncome * 100));
+        expect(priorSeriesExpenseCents).toBe(Math.round(res.priorPeriod.totalExpense * 100));
+
+        // All prior buckets must lie within the prior-year window.
+        for (const b of res.priorMonthlySeries) {
+          expect(b.monthIso >= res.priorPeriod.start).toBe(true);
+          expect(b.monthIso <= res.priorPeriod.end).toBe(true);
+        }
       }),
       { numRuns: 120, verbose: true },
     );
@@ -469,5 +493,70 @@ describe('Saldo — boundary cases', () => {
     expect(res.currentPeriod.end).toBe('2026-04-30');
     expect(res.priorPeriod.start).toBe('2025-04-01');
     expect(res.priorPeriod.end).toBe('2025-04-30');
+  });
+
+  it('priorMonthlySeries (WI-22): bucket count mirrors monthlySeries and is keyed to the prior window', () => {
+    const model = deterministicModel([
+      // Current 2026 events
+      { date: '2026-04-15', type: 'income', amountCents: 10_000, categoryId: 'c1' },
+      // Prior 2025 events — distributed across months so we verify bucketing,
+      // not just totals.
+      { date: '2025-01-10', type: 'income', amountCents: 2_500, categoryId: 'c1' },
+      { date: '2025-04-20', type: 'expense', amountCents: 1_500, categoryId: 'c1' },
+      { date: '2025-12-31', type: 'income', amountCents: 3_000, categoryId: 'c1' },
+    ]);
+
+    const ano = getSaldoComparison(
+      { period: 'ano', anchor: '2026-01-01' },
+      { now: () => new Date('2026-05-01T00:00:00Z'), getReadModel: () => model },
+    );
+    expect(ano.priorMonthlySeries).toHaveLength(12);
+    expect(ano.priorMonthlySeries[0]!.monthIso).toBe('2025-01-01');
+    expect(ano.priorMonthlySeries[11]!.monthIso).toBe('2025-12-01');
+    expect(ano.priorMonthlySeries[0]).toEqual({
+      monthIso: '2025-01-01',
+      netIncome: 25,
+      netExpense: 0,
+    });
+    expect(ano.priorMonthlySeries[3]).toEqual({
+      monthIso: '2025-04-01',
+      netIncome: 0,
+      netExpense: 15,
+    });
+    // Σ prior buckets === prior totals (never projected).
+    const sumInc = ano.priorMonthlySeries.reduce((s, b) => s + b.netIncome, 0);
+    const sumExp = ano.priorMonthlySeries.reduce((s, b) => s + b.netExpense, 0);
+    expect(sumInc).toBe(ano.priorPeriod.totalIncome);
+    expect(sumExp).toBe(ano.priorPeriod.totalExpense);
+
+    const trim = getSaldoComparison(
+      { period: 'trim', anchor: '2026-04-01' },
+      { now: () => new Date('2026-05-01T00:00:00Z'), getReadModel: () => model },
+    );
+    expect(trim.priorMonthlySeries).toHaveLength(3);
+    expect(trim.priorMonthlySeries[0]!.monthIso).toBe('2025-04-01');
+
+    const mes = getSaldoComparison(
+      { period: 'mes', anchor: '2026-04-01' },
+      { now: () => new Date('2026-05-01T00:00:00Z'), getReadModel: () => model },
+    );
+    expect(mes.priorMonthlySeries).toHaveLength(1);
+    expect(mes.priorMonthlySeries[0]!.monthIso).toBe('2025-04-01');
+  });
+
+  it('priorMonthlySeries (WI-22): zero-filled when no prior-period data exists', () => {
+    const model = deterministicModel([
+      { date: '2026-06-01', type: 'income', amountCents: 10_000, categoryId: 'c1' },
+    ]);
+    const res = getSaldoComparison(
+      { period: 'ano', anchor: '2026-01-01' },
+      { now: () => new Date('2026-06-15T00:00:00Z'), getReadModel: () => model },
+    );
+    expect(res.priorMonthlySeries).toHaveLength(12);
+    for (const b of res.priorMonthlySeries) {
+      expect(b.netIncome).toBe(0);
+      expect(b.netExpense).toBe(0);
+      expect(b.monthIso.startsWith('2025-')).toBe(true);
+    }
   });
 });

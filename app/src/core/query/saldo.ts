@@ -14,7 +14,9 @@
 //   * Partial-period projection is linear pro-rata, UTC inclusive day count:
 //       projected = actual * (daysInPeriod / daysElapsed)
 //     applied to totalIncome and totalExpense (NOT to per-category rows, NOT
-//     to the monthly series — per thin-spec §5).
+//     to the monthly series — per thin-spec §5). Applies to BOTH
+//     `monthlySeries` and `priorMonthlySeries` — the prior-year monthly
+//     buckets share the current-period never-projected rule.
 //   * Server-derived-fields pattern: currentProjectedTotal is a REQUIRED
 //     response field (null iff period complete). Renderer renders verbatim.
 
@@ -340,6 +342,7 @@ export function getSaldoComparison(
   const priorRows = toCategoryNetArray(priorAgg);
 
   const monthlySeries = buildMonthlySeries(model, currentRange);
+  const priorMonthlySeries = buildMonthlySeries(model, priorRange);
 
   const projection = computeProjection(
     currentRange,
@@ -390,6 +393,7 @@ export function getSaldoComparison(
       netByCategory: priorRows,
     },
     monthlySeries,
+    priorMonthlySeries,
     kpis: {
       netDelta: pctDelta(effectiveNet, priorNet),
       incomeDelta: pctDelta(effectiveIncome, priorIncome),

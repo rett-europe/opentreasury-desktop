@@ -43,6 +43,16 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-22T17:00:00Z — WI-22 `priorMonthlySeries` additive amendment
+
+**Status:** Shipped on `wi-22/saldo-prior-monthly-series`. Unblocks Trinity's PR #11 prototype-fidelity renderer (year-over-year net line chart). Neo's adequacy doc at `.squad/decisions/inbox/neo-saldo-contract-adequacy.md`.
+
+### Durable learnings
+
+- **"Reuse the same helper over a different range" is the cheapest way to extend a server-derived field.** `buildMonthlySeries(model, currentRange)` and `buildMonthlySeries(model, priorRange)` — two calls, one helper, no new code paths, no new projection rules to maintain. The read-model-aggregation skill pattern (pure function over a date window) makes additive extensions free.
+- **Property-test mirror invariants are near-zero cost but high ROI.** `Σ priorMonthlySeries ≡ priorPeriod.totals` is a one-line mirror of `Σ monthlySeries ≡ currentPeriod.totals`. If the original invariant is structural (correct by construction), the mirror is too — but having it in fast-check means any future "optimization" that special-cases one side can't silently drift.
+- **Zod contract tests that hard-code response fixtures need a fixture update alongside any `z.object({...})` amendment.** The `saldo.test.ts` freeze tests carry full response literals; adding a required top-level field made three of them fail at parse until I added `priorMonthlySeries: []` to each fixture. Cheap to fix but easy to miss — grep for `monthlySeries` callsites in tests when extending the response shape.
+- **Pre-existing prettier backlog ≠ excuse to skip format:check — snapshot the baseline.** `git stash` + run `prettier --check` on the same files → confirms the warnings are inherited, not newly introduced. Doing this before committing kept me honest and avoids "why did you reformat these files" review friction.
 ## 2026-04-22T10:40:00Z — PR #4 round 2: tightening update invariants
 
 **Status:** Pushed to `wi-21/config-crud` (commit `4f30d11`). Decision drop at `.squad/decisions/inbox/morpheus-pr4-round2-invariants.md`. Addresses 7 of 19 Copilot PR reviewer findings on 57ae73b (Trinity owns the other 12 renderer ones).
