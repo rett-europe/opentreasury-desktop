@@ -90,23 +90,12 @@
       "retry": "Try Again"
     }
   },
-  "balance": {
-    "title": "Balance",
-    "subtitle": "Year-over-year income and expense comparison",
-    "cta": {
-      "export": "Export"
-    },
-    "sections": {
-      "summary": "Yearly totals",
-      "income": "Income by category",
-      "expense": "Expense by category",
-      "monthly-net": "Monthly net balance"
-    },
-    "skeleton": "Preview — data in a future iteration."
-  },
   "saldo": {
     "title": "Balance",
     "subtitle": "Compare income and expense against the prior year",
+    "cta": {
+      "export": "Export"
+    },
     "states": {
       "loading": "Loading balance…",
       "emptyBoth": {
@@ -149,32 +138,22 @@
       "all": "All accounts",
       "srDescription": "Filter the comparison to a single account"
     },
-    "comparison": {
-      "vsYear": "vs. {{year}}",
-      "vsMonth": "vs. {{month}} {{year}}",
-      "vsQuarter": "vs. Q{{quarter}} {{year}}",
-      "ariaVsYear": "compared with year {{year}}",
-      "ariaVsMonth": "compared with {{month}} {{year}}",
-      "ariaVsQuarter": "compared with quarter {{quarter}} of {{year}}"
+    "yearChip": {
+      "label": "{{priorYear}} vs {{currentYear}}"
     },
     "kpi": {
-      "net": {
-        "label": "Net change",
-        "description": "Difference between income and expense versus the prior period"
-      },
       "income": {
-        "label": "Income change",
-        "description": "Change in income versus the prior period"
+        "labelTotal": "TOTAL INCOME"
       },
       "expense": {
-        "label": "Expense change",
-        "description": "Change in expense versus the prior period"
+        "labelTotal": "TOTAL EXPENSE"
       },
-      "biggestGrowth": {
-        "label": "Biggest growth",
-        "description": "Category with the largest increase versus the prior period",
-        "empty": "No notable growth",
-        "value": "{{category}} · {{delta}}"
+      "net": {
+        "labelTotal": "NET BALANCE"
+      },
+      "sublabel": {
+        "priorOnly": "{{priorYear}}: {{priorValue}}",
+        "priorAndProjected": "{{priorYear}}: {{priorValue}} · proj. {{currentYear}}: {{projectedValue}}"
       },
       "delta": {
         "up": "increase",
@@ -190,38 +169,36 @@
       "ariaHint": "Projected value: linear extrapolation from the days elapsed in the period",
       "rowTooltip": "Total projected to period close"
     },
-    "table": {
-      "caption": "Breakdown by category",
-      "columns": {
-        "category": "Category",
-        "income": "Income",
-        "expense": "Expense",
-        "net": "Net",
-        "delta": "Δ vs. prior"
-      },
-      "uncategorized": "Uncategorized",
-      "noPrior": "No prior data",
-      "dropped": "No transactions this period",
-      "flat": "About the same"
-    },
     "chart": {
       "monthlyNetTitle": "Monthly net balance",
-      "monthlyNetSubtitle": "Actuals — not projected",
-      "monthlyNetAriaLabel": "Bar chart of monthly net balance comparing the current period with the prior one",
+      "monthlyNetSubtitleYears": "Income − expense · {{priorYear}} vs {{currentYear}}",
+      "monthlyNetAriaLabel": "Bar chart of monthly net balance comparing {{priorYear}} with {{currentYear}}",
       "dataTableCaption": "Monthly net balance: current period and prior period",
-      "dataTableToggle": {
-        "show": "Show data table",
-        "hide": "Hide data table"
-      },
-      "series": {
-        "current": "Current",
-        "prior": "Prior"
-      },
-      "tooltip": {
-        "current": "{{value}} in {{month}}",
-        "prior": "{{value}} in {{month}} of the prior period"
-      },
       "emptyMonth": "No transactions"
+    },
+    "panel": {
+      "subtitle": "Breakdown by category",
+      "income": {
+        "title": "Income",
+        "totalLabel": "Total income {{year}}"
+      },
+      "expense": {
+        "title": "Expense",
+        "totalLabel": "Total expense {{year}}"
+      },
+      "columns": {
+        "category": "Category"
+      },
+      "type": {
+        "income": "income",
+        "expense": "expense"
+      },
+      "row": {
+        "projectedVs": "proj. vs {{year}}",
+        "vs": "vs {{year}}",
+        "barsAria": "Visual comparison: {{priorYear}} {{priorValue}}, current {{currentValue}}"
+      },
+      "empty": "No categories in this period"
     }
   },
   "movements": {

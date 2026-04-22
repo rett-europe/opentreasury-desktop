@@ -1308,3 +1308,34 @@ Readonly tuple + ReadonlyArray on inputs — cheap way to advertise presentation
 - Draft: `#8` — https://github.com/rett-europe/opentreasury-desktop/pull/8
 - Branch: `wi-22/saldo-chart` from `main`.
 - Gates: typecheck ✅ · lint ✅ · format:check (my files ✅; pre-existing 42-file baseline unchanged) · tests 419/9.
+
+---
+
+## 2026-04-22 — WI-22 Saldo screen prototype-fidelity redesign (PR #11)
+
+### Scope
+Mouse's spec (`.squad/decisions/inbox/mouse-saldo-redesign-spec.md`) drove a full redesign of the Saldo screen to match Pedro's prototype (`.squad/decisions/inbox/panel_saldo.png`). Morpheus had already landed `priorMonthlySeries` on main, so the two-year chart data was available.
+
+### What shipped
+1. KPI strip: 4 delta cards → 3 absolute cards (INGRESOS TOTALES / GASTOS TOTALES / SALDO NETO). Big tone-colored number + `{{priorYear}}: X € · proy. {{currentYear}}: Y €` sublabel. `Mayor crecimiento` card removed.
+2. Year chip (`Calendar` icon + `2025 vs 2026`) between the segmented period selector and the disabled Export button. Non-interactive (`role=note`) — tracks `priorPeriod.start` / `currentPeriod.start` years.
+3. Fixed legacy `balance.cta.export` i18n key → `saldo.cta.export`. Removed the whole `balance` namespace from both ES and EN.
+4. Chart: reused `GroupedBarChart` as-is (it was already a generic two-series primitive — values tuple + legend tuple, negative-capable). Fed it `[currentNet, priorNet]` per month from `monthlySeries` + `priorMonthlySeries` with legend = `[String(currentYear), String(priorYear)]`. Swatches already matched brand-primary / brand-primary-muted. Bumped `VIEW_H` 240 → 300 to restore generous vertical proportion (Mouse called out the 340→240→140 shrinks as solving the wrong problem).
+5. Paired `Ingresos` / `Gastos` panels with progress bars. Category routing: a row lands in the income panel if `income > 0` in either period, expense panel if `expense > 0` in either period — same category can appear in both (prototype `Eventos` does this explicitly).
+6. Per-row delta: derived client-side using `scale = daysInPeriod / daysElapsed` + `projectedCur = cur * scale`. Policy bend (soft) acknowledged in Neo's adequacy note — same numeric result as server-side would give. Sublabel swaps `vs 2025` ↔ `proy. vs 2025` based on `isPartial`.
+
+### Learnings
+1. **GroupedBarChart is already series-agnostic.** Its `[current, prior]` tuple + `[legendA, legendB]` design is orthogonal to what the series mean — no refactor needed to repurpose it from Income/Expense to CurrentYear/PriorYear. Lesson: check a primitive's actual prop shape before assuming it's semantically coupled.
+2. **Partial-period projection lives in two places now.** Server projects the period totals; renderer derives per-category projections from the exposed scale factor. Any third surface that needs projected per-category deltas should trigger a contract amendment (Neo's §2.2) rather than a third copy of the pro-rata math.
+3. **Mixed category rule.** "Same category in both panels" only works because `income` and `expense` are separate non-negative scalars on the contract — no sign disambiguation needed. If we ever collapse to a signed `amount`, the routing rule collapses too.
+4. **Locale-agnostic assertions in tests.** Tests run under `en` in CI but `es` locally because of `LanguageDetector`. Use `/10[.,]000/` and `/pro[yj]\./` style regexes to stay stable across both.
+5. **Design tokens earn their keep.** The new category panels use only `var(--color-income-default)` / `var(--color-expense-default)` + `color-mix()` for the muted bar; zero new hex values introduced. The prototype-parity audit has been right.
+
+### Gates after
+- typecheck ✅
+- lint ✅ (0 warnings)
+- format:check: my files ✅; pre-existing 56-file baseline unchanged
+- tests: 467 passed / 9 skipped (baseline was 464 here — added 3 Saldo tests, kept old GroupedBarChart tests stable)
+
+### PR
+- #11 `wi-22/saldo-screen` — updated with prototype-fidelity commit.

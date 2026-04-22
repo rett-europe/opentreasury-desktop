@@ -1,29 +1,34 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Award, Calculator, Download, TrendingDown, TrendingUp } from 'lucide-react';
+import type { TFunction } from 'i18next';
+import { Calculator, Calendar, Download, TrendingDown, TrendingUp } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
 import { GroupedBarChart } from '../../components/GroupedBarChart/index.js';
 import { getSaldoComparison } from '../../services/saldoApi.js';
 import type {
+  SaldoCategoryNet,
   SaldoComparisonResponse,
-  SaldoKpis,
+  SaldoMonthlyBucket,
   SaldoPeriod,
 } from '../../../shared/ipc-contracts/saldo.js';
 import { formatCurrency } from '../../utils/numberFormat.js';
+import './SaldoScreen.css';
 
 /**
- * WI-22 S5 — SaldoScreen.
+ * WI-22 — SaldoScreen, prototype-fidelity redesign.
  *
- * Replaces the legacy `balance.*`-keyed stub with the real screen wired to
- * the frozen `saldo:get-comparison` IPC (Zod contract in
- * `shared/ipc-contracts/saldo.ts`). All server-derived fields (projections,
- * deltas) are rendered verbatim — no local recompute (Neo's
- * `server-derived-fields` pattern).
+ * Reference: `.squad/decisions/inbox/panel_saldo.png` + Mouse's spec
+ * (`.squad/decisions/inbox/mouse-saldo-redesign-spec.md`).
  *
- * Layout follows Niobe's UX spec (.squad/agents/niobe/wi-22-saldo-ux.md):
- *   header · period selector · KPI strip · monthly chart · category tables.
+ * Layout: page-header · period selector + year chip + export · KPI strip
+ * (3 cards) · monthly net chart (two-year series) · paired Ingresos/Gastos
+ * panels.
+ *
+ * Server-derived fields (period-level projected totals) are rendered verbatim.
+ * Per-category projected deltas are derived client-side from the exposed
+ * scale factor (`daysInPeriod / daysElapsed`) — see Neo's adequacy note.
  */
 
 type ScreenState =
@@ -31,19 +36,16 @@ type ScreenState =
   | { kind: 'loaded'; data: SaldoComparisonResponse }
   | { kind: 'error'; message: string };
 
-// Locale resolver — mirrors the pattern used by KPIStrip / MovementsScreen.
-// Never `navigator.language`; always `i18n.language`.
 function resolveLocale(lng: string): string {
   return lng.startsWith('es') ? 'es-ES' : 'en-US';
 }
 
-// Anchor = first day of the current period (UTC-safe, YYYY-MM-DD).
 function computeAnchor(period: SaldoPeriod, now: Date): string {
   const y = now.getFullYear();
-  const m = now.getMonth(); // 0-based
+  const m = now.getMonth();
   if (period === 'ano') return `${y}-01-01`;
   if (period === 'trim') {
-    const qStart = Math.floor(m / 3) * 3 + 1; // 1|4|7|10
+    const qStart = Math.floor(m / 3) * 3 + 1;
     return `${y}-${String(qStart).padStart(2, '0')}-01`;
   }
   return `${y}-${String(m + 1).padStart(2, '0')}-01`;
@@ -54,7 +56,6 @@ function yearFromIso(iso: string): number {
 }
 
 function formatMonthShort(iso: string, locale: string): string {
-  // iso is YYYY-MM-DD. Parse in UTC to dodge TZ drift.
   const parts = iso.split('-').map((s) => Number.parseInt(s, 10));
   const y = parts[0] ?? 1970;
   const m = parts[1] ?? 1;
@@ -71,7 +72,6 @@ function formatPct(delta: number, locale: string): string {
   }).format(delta);
 }
 
-// Δ semantics per UX spec: |Δ| < 3% → flat.
 type DeltaKind = 'up' | 'down' | 'flat' | 'noPrior';
 function classifyDelta(delta: number | null): DeltaKind {
   if (delta === null) return 'noPrior';
@@ -105,6 +105,14 @@ export function SaldoScreen(): JSX.Element {
     void fetchData(period);
   }, [period, fetchData]);
 
+  const years =
+    state.kind === 'loaded'
+      ? {
+          prior: yearFromIso(state.data.priorPeriod.start),
+          current: yearFromIso(state.data.currentPeriod.start),
+        }
+      : null;
+
   return (
     <div>
       <header className="ot-page-header">
@@ -113,13 +121,13 @@ export function SaldoScreen(): JSX.Element {
           <p className="ot-page-header__subtitle">{t('saldo.subtitle')}</p>
         </div>
         <div className="ot-page-header__actions">
+          <PeriodSelector period={period} onChange={setPeriod} />
+          {years ? <YearChip priorYear={years.prior} currentYear={years.current} t={t} /> : null}
           <Button variant="secondary" leadingIcon={<Download size={16} />} disabled>
-            {t('balance.cta.export')}
+            {t('saldo.cta.export')}
           </Button>
         </div>
       </header>
-
-      <PeriodSelector period={period} onChange={setPeriod} />
 
       {state.kind === 'loading' ? (
         <div className="ot-skeleton" role="status" style={{ minHeight: 200 }}>
@@ -145,7 +153,7 @@ export function SaldoScreen(): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// Period selector (radiogroup) — matches Movements type-filter chip pattern.
+// Period selector.
 // ---------------------------------------------------------------------------
 
 type PeriodSelectorProps = {
@@ -156,13 +164,13 @@ type PeriodSelectorProps = {
 function PeriodSelector({ period, onChange }: PeriodSelectorProps): JSX.Element {
   const { t } = useTranslation('common');
   const options: ReadonlyArray<{ value: SaldoPeriod; labelKey: string; srKey: string }> = [
-    { value: 'ano', labelKey: 'saldo.period.options.year', srKey: 'saldo.period.srOption.year' },
+    { value: 'mes', labelKey: 'saldo.period.options.month', srKey: 'saldo.period.srOption.month' },
     {
       value: 'trim',
       labelKey: 'saldo.period.options.quarter',
       srKey: 'saldo.period.srOption.quarter',
     },
-    { value: 'mes', labelKey: 'saldo.period.options.month', srKey: 'saldo.period.srOption.month' },
+    { value: 'ano', labelKey: 'saldo.period.options.year', srKey: 'saldo.period.srOption.year' },
   ];
 
   return (
@@ -198,7 +206,35 @@ function PeriodSelector({ period, onChange }: PeriodSelectorProps): JSX.Element 
 }
 
 // ---------------------------------------------------------------------------
-// Loaded view — KPI strip + disclosure + chart + category table.
+// Year chip — non-interactive context pill (e.g. "📅 2025 vs 2026").
+// ---------------------------------------------------------------------------
+
+type YearChipProps = {
+  readonly priorYear: number;
+  readonly currentYear: number;
+  readonly t: TFunction;
+};
+
+function YearChip({ priorYear, currentYear, t }: YearChipProps): JSX.Element {
+  const label = t('saldo.yearChip.label', { priorYear, currentYear });
+  return (
+    <span
+      className="ot-year-chip"
+      role="note"
+      aria-label={label}
+      data-testid="saldo-year-chip"
+      title={label}
+    >
+      <span className="ot-year-chip__icon" aria-hidden="true">
+        <Calendar size={14} />
+      </span>
+      {label}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Loaded view.
 // ---------------------------------------------------------------------------
 
 type LoadedProps = {
@@ -208,9 +244,8 @@ type LoadedProps = {
 
 function SaldoLoadedView({ data, locale }: LoadedProps): JSX.Element {
   const { t } = useTranslation('common');
-
   const priorYear = yearFromIso(data.priorPeriod.start);
-  const comparisonSublabel = t('saldo.comparison.vsYear', { year: priorYear });
+  const currentYear = yearFromIso(data.currentPeriod.start);
 
   const isFullyEmpty =
     data.currentPeriod.totalIncome === 0 &&
@@ -236,36 +271,26 @@ function SaldoLoadedView({ data, locale }: LoadedProps): JSX.Element {
         />
       ) : null}
 
-      <KpiStrip
-        kpis={data.kpis}
-        currentIncome={data.currentPeriod.totalIncome}
-        currentExpense={data.currentPeriod.totalExpense}
-        projected={data.currentPeriod.currentProjectedTotal}
-        comparisonSublabel={comparisonSublabel}
+      <KpiStrip data={data} locale={locale} priorYear={priorYear} currentYear={currentYear} />
+
+      <MonthlyNetChart
+        currentSeries={data.monthlySeries}
+        priorSeries={data.priorMonthlySeries}
+        priorYear={priorYear}
+        currentYear={currentYear}
         locale={locale}
       />
 
-      <section aria-labelledby="saldo-chart-title">
-        <div className="ot-section-label" id="saldo-chart-title">
-          {t('saldo.chart.monthlyNetTitle')}
-        </div>
-        <p className="ot-page-header__subtitle">{t('saldo.chart.monthlyNetSubtitle')}</p>
-        <GroupedBarChart
-          series={data.monthlySeries.map((b) => ({
-            label: formatMonthShort(b.monthIso, locale),
-            values: [b.netIncome, b.netExpense] as const,
-          }))}
-          legend={[t('saldo.table.columns.income'), t('saldo.table.columns.expense')]}
-          locale={locale}
-          ariaLabel={t('saldo.chart.monthlyNetAriaLabel')}
-          dataTableCaption={t('saldo.chart.dataTableCaption')}
-          emptyLabel={t('saldo.chart.emptyMonth')}
-        />
-      </section>
-
-      <CategoryTable
+      <CategoryPanels
         current={data.currentPeriod.netByCategory}
         prior={data.priorPeriod.netByCategory}
+        totalIncome={data.currentPeriod.totalIncome}
+        totalExpense={data.currentPeriod.totalExpense}
+        daysElapsed={data.currentPeriod.daysElapsed}
+        daysInPeriod={data.currentPeriod.daysInPeriod}
+        isPartial={data.currentPeriod.isPartial}
+        priorYear={priorYear}
+        currentYear={currentYear}
         locale={locale}
       />
     </>
@@ -273,7 +298,7 @@ function SaldoLoadedView({ data, locale }: LoadedProps): JSX.Element {
 }
 
 // ---------------------------------------------------------------------------
-// Partial-period disclosure badge.
+// Partial-period badge.
 // ---------------------------------------------------------------------------
 
 type PartialPeriodBadgeProps = {
@@ -291,7 +316,7 @@ function PartialPeriodBadge({ daysElapsed, daysInPeriod }: PartialPeriodBadgePro
       title={tooltip}
       aria-label={t('saldo.projection.ariaHint')}
       data-testid="saldo-projection-badge"
-      style={{ display: 'inline-block', marginTop: 'var(--space-3)' }}
+      style={{ display: 'inline-block', marginBottom: 'var(--space-6)' }}
     >
       {t('saldo.projection.badge')}
     </div>
@@ -299,307 +324,465 @@ function PartialPeriodBadge({ daysElapsed, daysInPeriod }: PartialPeriodBadgePro
 }
 
 // ---------------------------------------------------------------------------
-// KPI strip — 4 KPIs, server-computed deltas rendered verbatim.
+// KPI strip — 3 cards (Ingresos / Gastos / Saldo neto).
 // ---------------------------------------------------------------------------
 
 type KpiStripProps = {
-  readonly kpis: SaldoKpis;
-  readonly currentIncome: number;
-  readonly currentExpense: number;
-  readonly projected: { readonly income: number; readonly expense: number } | null;
-  readonly comparisonSublabel: string;
+  readonly data: SaldoComparisonResponse;
   readonly locale: string;
+  readonly priorYear: number;
+  readonly currentYear: number;
 };
 
-function KpiStrip({
-  kpis,
-  currentIncome,
-  currentExpense,
-  projected,
-  comparisonSublabel,
-  locale,
-}: KpiStripProps): JSX.Element {
+function KpiStrip({ data, locale, priorYear, currentYear }: KpiStripProps): JSX.Element {
   const { t } = useTranslation('common');
+  const { currentPeriod, priorPeriod } = data;
+  const projected = currentPeriod.currentProjectedTotal;
 
-  const effectiveIncome = projected ? projected.income : currentIncome;
-  const effectiveExpense = projected ? projected.expense : currentExpense;
-  const effectiveNet = effectiveIncome - effectiveExpense;
+  const curIncome = currentPeriod.totalIncome;
+  const curExpense = currentPeriod.totalExpense;
+  const curNet = curIncome - curExpense;
+  const priorIncome = priorPeriod.totalIncome;
+  const priorExpense = priorPeriod.totalExpense;
+  const priorNet = priorIncome - priorExpense;
 
-  const biggest = kpis.biggestCategoryGrowth;
+  const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
+
+  const incomeSublabel = projected
+    ? t('saldo.kpi.sublabel.priorAndProjected', {
+        priorYear,
+        priorValue: fmt(priorIncome),
+        currentYear,
+        projectedValue: fmt(projected.income),
+      })
+    : t('saldo.kpi.sublabel.priorOnly', {
+        priorYear,
+        priorValue: fmt(priorIncome),
+      });
+
+  const expenseSublabel = projected
+    ? t('saldo.kpi.sublabel.priorAndProjected', {
+        priorYear,
+        priorValue: fmt(priorExpense),
+        currentYear,
+        projectedValue: fmt(projected.expense),
+      })
+    : t('saldo.kpi.sublabel.priorOnly', {
+        priorYear,
+        priorValue: fmt(priorExpense),
+      });
+
+  // Per prototype, Saldo Neto card shows only the prior-year sublabel (no
+  // projection line).
+  const netSublabel = t('saldo.kpi.sublabel.priorOnly', {
+    priorYear,
+    priorValue: fmt(priorNet),
+  });
 
   return (
     <div className="ot-kpi-strip" role="status" aria-live="polite">
-      <KpiCard
-        icon={<Calculator size={20} />}
-        iconBg="var(--color-brand-surface)"
-        iconColor="var(--color-brand-primary)"
-        label={t('saldo.kpi.net.label')}
-        value={formatCurrency(effectiveNet, locale)}
-        valueColor="var(--color-brand-primary)"
-        delta={kpis.netDelta}
-        projected={projected !== null}
-        sublabel={comparisonSublabel}
-        locale={locale}
-        testId="saldo-kpi-net"
-      />
-      <KpiCard
-        icon={<TrendingUp size={20} />}
-        iconBg="var(--color-income-bg)"
-        iconColor="var(--color-income-default)"
-        label={t('saldo.kpi.income.label')}
-        value={formatCurrency(effectiveIncome, locale)}
-        valueColor="var(--color-income-default)"
-        delta={kpis.incomeDelta}
-        projected={projected !== null}
-        sublabel={comparisonSublabel}
-        locale={locale}
-        testId="saldo-kpi-income"
-      />
-      <KpiCard
-        icon={<TrendingDown size={20} />}
-        iconBg="var(--color-expense-bg)"
-        iconColor="var(--color-expense-default)"
-        label={t('saldo.kpi.expense.label')}
-        value={formatCurrency(effectiveExpense, locale)}
-        valueColor="var(--color-expense-default)"
-        delta={kpis.expenseDelta}
-        projected={projected !== null}
-        sublabel={comparisonSublabel}
-        locale={locale}
-        testId="saldo-kpi-expense"
-      />
-      <KpiCard
-        icon={<Award size={20} />}
-        iconBg="var(--color-brand-surface)"
-        iconColor="var(--color-brand-primary)"
-        label={t('saldo.kpi.biggestGrowth.label')}
-        value={
-          biggest
-            ? t('saldo.kpi.biggestGrowth.value', {
-                category: biggest.categoryName,
-                delta: formatPct(biggest.deltaPct, locale),
-              })
-            : t('saldo.kpi.biggestGrowth.empty')
-        }
-        valueColor="var(--color-brand-primary)"
-        delta={null}
-        projected={false}
-        sublabel={comparisonSublabel}
-        locale={locale}
-        testId="saldo-kpi-biggest-growth"
-      />
+      <div className="ot-kpi ot-kpi--income" data-testid="saldo-kpi-income">
+        <div className="ot-kpi__icon">
+          <TrendingUp size={20} />
+        </div>
+        <div>
+          <div className="ot-kpi__label">{t('saldo.kpi.income.labelTotal')}</div>
+          <div className="ot-kpi__value">{fmt(curIncome)}</div>
+          <div className="ot-kpi__sublabel">{incomeSublabel}</div>
+        </div>
+      </div>
+
+      <div className="ot-kpi ot-kpi--expense" data-testid="saldo-kpi-expense">
+        <div className="ot-kpi__icon">
+          <TrendingDown size={20} />
+        </div>
+        <div>
+          <div className="ot-kpi__label">{t('saldo.kpi.expense.labelTotal')}</div>
+          <div className="ot-kpi__value">{fmt(curExpense)}</div>
+          <div className="ot-kpi__sublabel">{expenseSublabel}</div>
+        </div>
+      </div>
+
+      <div className="ot-kpi ot-kpi--net" data-testid="saldo-kpi-net">
+        <div className="ot-kpi__icon">
+          <Calculator size={20} />
+        </div>
+        <div>
+          <div className="ot-kpi__label">{t('saldo.kpi.net.labelTotal')}</div>
+          <div className="ot-kpi__value">{fmt(curNet)}</div>
+          <div className="ot-kpi__sublabel">{netSublabel}</div>
+        </div>
+      </div>
     </div>
   );
 }
 
-type KpiCardProps = {
-  readonly icon: JSX.Element;
-  readonly iconBg: string;
-  readonly iconColor: string;
-  readonly label: string;
-  readonly value: string;
-  readonly valueColor: string;
-  readonly delta: number | null;
-  readonly projected: boolean;
-  readonly sublabel: string;
+// ---------------------------------------------------------------------------
+// Monthly net chart — two year series fed to GroupedBarChart.
+// ---------------------------------------------------------------------------
+
+type MonthlyNetChartProps = {
+  readonly currentSeries: ReadonlyArray<SaldoMonthlyBucket>;
+  readonly priorSeries: ReadonlyArray<SaldoMonthlyBucket>;
+  readonly priorYear: number;
+  readonly currentYear: number;
   readonly locale: string;
-  readonly testId: string;
 };
 
-function KpiCard({
-  icon,
-  iconBg,
-  iconColor,
-  label,
-  value,
-  valueColor,
-  delta,
-  projected,
-  sublabel,
+function MonthlyNetChart({
+  currentSeries,
+  priorSeries,
+  priorYear,
+  currentYear,
   locale,
-  testId,
-}: KpiCardProps): JSX.Element {
+}: MonthlyNetChartProps): JSX.Element {
   const { t } = useTranslation('common');
-  const kind = classifyDelta(delta);
-  const deltaText =
-    kind === 'noPrior'
-      ? '—'
-      : kind === 'flat'
-        ? formatPct(0, locale)
-        : formatPct(delta as number, locale);
-  const deltaAriaLabel = t(`saldo.kpi.delta.${kind}`);
+
+  // Join by month index (both series are same length by contract — the backend
+  // emits zero-filled buckets when a period has no prior data).
+  const series = useMemo(() => {
+    const n = Math.max(currentSeries.length, priorSeries.length);
+    const out: Array<{ label: string; values: readonly [number, number] }> = [];
+    for (let i = 0; i < n; i += 1) {
+      const cur = currentSeries[i];
+      const prev = priorSeries[i];
+      const curNet = cur ? cur.netIncome - cur.netExpense : 0;
+      const priorNet = prev ? prev.netIncome - prev.netExpense : 0;
+      const iso = cur?.monthIso ?? prev?.monthIso ?? '1970-01-01';
+      out.push({ label: formatMonthShort(iso, locale), values: [curNet, priorNet] as const });
+    }
+    return out;
+  }, [currentSeries, priorSeries, locale]);
+
+  const currentLabel = String(currentYear);
+  const priorLabel = String(priorYear);
 
   return (
-    <div className="ot-kpi" data-testid={testId}>
-      <div className="ot-kpi__icon" style={{ background: iconBg, color: iconColor }}>
-        {icon}
-      </div>
-      <div>
-        <div className="ot-kpi__label">{label}</div>
-        <div className="ot-kpi__value" style={{ color: valueColor }}>
-          {value}
+    <section className="ot-saldo-chart" aria-labelledby="saldo-chart-title">
+      <div className="ot-saldo-chart__header">
+        <div>
+          <h2 className="ot-saldo-chart__title" id="saldo-chart-title">
+            {t('saldo.chart.monthlyNetTitle')}
+          </h2>
+          <p className="ot-saldo-chart__subtitle">
+            {t('saldo.chart.monthlyNetSubtitleYears', { priorYear, currentYear })}
+          </p>
         </div>
-        <div className="ot-kpi__delta">
-          <span aria-label={deltaAriaLabel}>{deltaText}</span>
-          <span> · </span>
-          <span>{sublabel}</span>
-        </div>
-        {projected ? (
-          <div
-            className="ot-kpi__delta"
-            data-testid={`${testId}-projected`}
-            title={t('saldo.projection.rowTooltip')}
-          >
-            {t('saldo.projection.sublabel')}
-          </div>
-        ) : null}
       </div>
-    </div>
+      <GroupedBarChart
+        series={series}
+        legend={[currentLabel, priorLabel]}
+        locale={locale}
+        ariaLabel={t('saldo.chart.monthlyNetAriaLabel', { priorYear, currentYear })}
+        dataTableCaption={t('saldo.chart.dataTableCaption')}
+        emptyLabel={t('saldo.chart.emptyMonth')}
+      />
+    </section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Category table — current vs prior net per category, with delta pill.
+// Paired category panels — Ingresos (left) + Gastos (right).
 // ---------------------------------------------------------------------------
 
-type CategoryTableProps = {
-  readonly current: SaldoComparisonResponse['currentPeriod']['netByCategory'];
-  readonly prior: SaldoComparisonResponse['priorPeriod']['netByCategory'];
+type CategoryPanelsProps = {
+  readonly current: ReadonlyArray<SaldoCategoryNet>;
+  readonly prior: ReadonlyArray<SaldoCategoryNet>;
+  readonly totalIncome: number;
+  readonly totalExpense: number;
+  readonly daysElapsed: number;
+  readonly daysInPeriod: number;
+  readonly isPartial: boolean;
+  readonly priorYear: number;
+  readonly currentYear: number;
   readonly locale: string;
 };
 
-type MergedRow = {
+type PanelRow = {
   readonly id: string;
-  readonly categoryId: string | null;
-  readonly categoryName: string;
-  readonly currentNet: number;
-  readonly priorNet: number;
-  readonly droppedThisPeriod: boolean;
+  readonly name: string;
+  readonly prior: number;
+  readonly current: number;
+  readonly projectedCurrent: number;
+  readonly delta: number | null;
 };
 
 function keyFor(categoryId: string | null): string {
   return categoryId ?? '__uncategorized__';
 }
 
-function mergeRows(
-  current: CategoryTableProps['current'],
-  prior: CategoryTableProps['prior'],
-): MergedRow[] {
-  const byKey = new Map<string, MergedRow>();
+/**
+ * Route category-net rows into income / expense panels. A category appears in
+ * a panel whenever it has non-zero income (→ ingresos) or non-zero expense
+ * (→ gastos) in EITHER period — mirrors the prototype where "Eventos" surfaces
+ * on both sides when it carries both sign types.
+ */
+function buildPanelRows(
+  current: ReadonlyArray<SaldoCategoryNet>,
+  prior: ReadonlyArray<SaldoCategoryNet>,
+  kind: 'income' | 'expense',
+  scale: number,
+): PanelRow[] {
+  const byKey = new Map<
+    string,
+    { categoryId: string | null; name: string; cur: number; prev: number }
+  >();
+  const pick = (row: SaldoCategoryNet): number => (kind === 'income' ? row.income : row.expense);
+
   for (const row of current) {
+    if (pick(row) <= 0) continue;
     const k = keyFor(row.categoryId);
     byKey.set(k, {
-      id: k,
       categoryId: row.categoryId,
-      categoryName: row.categoryName,
-      currentNet: row.income - row.expense,
-      priorNet: 0,
-      droppedThisPeriod: false,
+      name: row.categoryName,
+      cur: pick(row),
+      prev: 0,
     });
   }
   for (const row of prior) {
+    if (pick(row) <= 0) continue;
     const k = keyFor(row.categoryId);
     const existing = byKey.get(k);
-    const priorNet = row.income - row.expense;
     if (existing) {
-      byKey.set(k, { ...existing, priorNet });
+      byKey.set(k, { ...existing, prev: pick(row) });
     } else {
       byKey.set(k, {
-        id: k,
         categoryId: row.categoryId,
-        categoryName: row.categoryName,
-        currentNet: 0,
-        priorNet,
-        droppedThisPeriod: priorNet !== 0,
+        name: row.categoryName,
+        cur: 0,
+        prev: pick(row),
       });
     }
   }
-  return [...byKey.values()].sort((a, b) => {
-    // Absolute current first, then prior, then name.
-    const absDiff = Math.abs(b.currentNet) - Math.abs(a.currentNet);
-    if (absDiff !== 0) return absDiff;
-    const priorDiff = Math.abs(b.priorNet) - Math.abs(a.priorNet);
-    if (priorDiff !== 0) return priorDiff;
-    return a.categoryName.localeCompare(b.categoryName);
-  });
-}
 
-function computeRowDelta(currentNet: number, priorNet: number): number | null {
-  if (priorNet === 0) return null;
-  return (currentNet - priorNet) / Math.abs(priorNet);
-}
-
-function CategoryTable({ current, prior, locale }: CategoryTableProps): JSX.Element {
-  const { t } = useTranslation('common');
-  const rows = useMemo(() => mergeRows(current, prior), [current, prior]);
-
-  if (rows.length === 0) {
-    return (
-      <EmptyState
-        title={t('saldo.states.emptyCurrent.title')}
-        body={t('saldo.states.emptyCurrent.body')}
-      />
-    );
+  const rows: PanelRow[] = [];
+  for (const [k, v] of byKey) {
+    const projectedCurrent = v.cur * scale;
+    const delta = v.prev > 0 ? (projectedCurrent - v.prev) / v.prev : null;
+    rows.push({
+      id: k,
+      name: v.name,
+      prior: v.prev,
+      current: v.cur,
+      projectedCurrent,
+      delta,
+    });
   }
+  // Sort by absolute projected-current first (biggest movers up top), then prior, then name.
+  rows.sort((a, b) => {
+    const byCur = Math.abs(b.projectedCurrent) - Math.abs(a.projectedCurrent);
+    if (byCur !== 0) return byCur;
+    const byPrev = Math.abs(b.prior) - Math.abs(a.prior);
+    if (byPrev !== 0) return byPrev;
+    return a.name.localeCompare(b.name);
+  });
+  return rows;
+}
+
+function CategoryPanels({
+  current,
+  prior,
+  totalIncome,
+  totalExpense,
+  daysElapsed,
+  daysInPeriod,
+  isPartial,
+  priorYear,
+  currentYear,
+  locale,
+}: CategoryPanelsProps): JSX.Element {
+  const { t } = useTranslation('common');
+  const scale = isPartial && daysElapsed > 0 ? daysInPeriod / daysElapsed : 1;
+
+  const incomeRows = useMemo(
+    () => buildPanelRows(current, prior, 'income', scale),
+    [current, prior, scale],
+  );
+  const expenseRows = useMemo(
+    () => buildPanelRows(current, prior, 'expense', scale),
+    [current, prior, scale],
+  );
 
   return (
-    <section aria-labelledby="saldo-table-caption">
-      <div className="ot-section-label" id="saldo-table-caption">
-        {t('saldo.table.caption')}
-      </div>
-      <table className="ot-table" data-testid="saldo-category-table">
-        <thead>
-          <tr>
-            <th scope="col">{t('saldo.table.columns.category')}</th>
-            <th scope="col" style={{ textAlign: 'right' }}>
-              {t('saldo.chart.series.current')}
-            </th>
-            <th scope="col" style={{ textAlign: 'right' }}>
-              {t('saldo.chart.series.prior')}
-            </th>
-            <th scope="col" style={{ textAlign: 'right' }}>
-              {t('saldo.table.columns.delta')}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const delta = computeRowDelta(row.currentNet, row.priorNet);
-            const kind = classifyDelta(delta);
-            const deltaText =
-              kind === 'noPrior'
-                ? '—'
-                : kind === 'flat'
-                  ? formatPct(0, locale)
-                  : formatPct(delta as number, locale);
-            const deltaTitle =
-              kind === 'noPrior'
-                ? t('saldo.table.noPrior')
-                : kind === 'flat'
-                  ? t('saldo.table.flat')
-                  : t(`saldo.kpi.delta.${kind}`);
-            const displayName =
-              row.categoryId === null ? t('saldo.table.uncategorized') : row.categoryName;
-            return (
-              <tr key={row.id} data-testid={`saldo-row-${row.id}`}>
-                <td>
-                  {displayName}
-                  {row.droppedThisPeriod ? (
-                    <div className="ot-kpi__delta" data-testid={`saldo-row-${row.id}-dropped`}>
-                      {t('saldo.table.dropped')}
-                    </div>
-                  ) : null}
-                </td>
-                <td style={{ textAlign: 'right' }}>{formatCurrency(row.currentNet, locale)}</td>
-                <td style={{ textAlign: 'right' }}>{formatCurrency(row.priorNet, locale)}</td>
-                <td style={{ textAlign: 'right' }} title={deltaTitle}>
-                  {deltaText}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="ot-saldo-panels">
+      <CategoryPanel
+        kind="income"
+        title={t('saldo.panel.income.title')}
+        subtitle={t('saldo.panel.subtitle')}
+        totalLabel={t('saldo.panel.income.totalLabel', { year: currentYear })}
+        totalValue={totalIncome}
+        rows={incomeRows}
+        priorYear={priorYear}
+        currentYear={currentYear}
+        isPartial={isPartial}
+        locale={locale}
+      />
+      <CategoryPanel
+        kind="expense"
+        title={t('saldo.panel.expense.title')}
+        subtitle={t('saldo.panel.subtitle')}
+        totalLabel={t('saldo.panel.expense.totalLabel', { year: currentYear })}
+        totalValue={totalExpense}
+        rows={expenseRows}
+        priorYear={priorYear}
+        currentYear={currentYear}
+        isPartial={isPartial}
+        locale={locale}
+      />
+    </div>
+  );
+}
+
+type CategoryPanelProps = {
+  readonly kind: 'income' | 'expense';
+  readonly title: string;
+  readonly subtitle: string;
+  readonly totalLabel: string;
+  readonly totalValue: number;
+  readonly rows: ReadonlyArray<PanelRow>;
+  readonly priorYear: number;
+  readonly currentYear: number;
+  readonly isPartial: boolean;
+  readonly locale: string;
+};
+
+function CategoryPanel({
+  kind,
+  title,
+  subtitle,
+  totalLabel,
+  totalValue,
+  rows,
+  priorYear,
+  currentYear,
+  isPartial,
+  locale,
+}: CategoryPanelProps): JSX.Element {
+  const { t } = useTranslation('common');
+  return (
+    <section
+      className={`ot-saldo-panel ot-saldo-panel--${kind}`}
+      data-testid={`saldo-panel-${kind}`}
+      aria-labelledby={`saldo-panel-${kind}-title`}
+    >
+      <header className="ot-saldo-panel__header">
+        <div>
+          <h2 className="ot-saldo-panel__title" id={`saldo-panel-${kind}-title`}>
+            {title}
+          </h2>
+          <p className="ot-saldo-panel__subtitle">{subtitle}</p>
+        </div>
+        <div className="ot-saldo-panel__total">
+          <span className="ot-saldo-panel__total-label">{totalLabel}</span>
+          <span className="ot-saldo-panel__total-value">
+            {formatCurrency(totalValue, locale, 'EUR')}
+          </span>
+        </div>
+      </header>
+
+      {rows.length === 0 ? (
+        <div className="ot-saldo-panel__empty" role="status">
+          {t('saldo.panel.empty')}
+        </div>
+      ) : (
+        <>
+          <div className="ot-saldo-panel__columns" aria-hidden="true">
+            <span>{t('saldo.panel.columns.category')}</span>
+            <span className="ot-saldo-panel__col--right">{priorYear}</span>
+            <span />
+            <span className="ot-saldo-panel__col--right">{currentYear}</span>
+            <span className="ot-saldo-panel__col--right">Δ</span>
+          </div>
+          <div className="ot-saldo-panel__rows">
+            {rows.map((row) => (
+              <CategoryRow
+                key={row.id}
+                row={row}
+                kind={kind}
+                isPartial={isPartial}
+                priorYear={priorYear}
+                locale={locale}
+                t={t}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </section>
+  );
+}
+
+type CategoryRowProps = {
+  readonly row: PanelRow;
+  readonly kind: 'income' | 'expense';
+  readonly isPartial: boolean;
+  readonly priorYear: number;
+  readonly locale: string;
+  readonly t: TFunction;
+};
+
+function CategoryRow({
+  row,
+  kind,
+  isPartial,
+  priorYear,
+  locale,
+  t,
+}: CategoryRowProps): JSX.Element {
+  const typeLabel = t(`saldo.panel.type.${kind}`);
+
+  const maxVal = Math.max(row.prior, row.projectedCurrent, 1);
+  const priorPct = (row.prior / maxVal) * 100;
+  const currentPct = (row.projectedCurrent / maxVal) * 100;
+
+  const deltaKind = classifyDelta(row.delta);
+  const deltaText =
+    deltaKind === 'noPrior'
+      ? '—'
+      : deltaKind === 'flat'
+        ? formatPct(0, locale)
+        : formatPct(row.delta as number, locale);
+
+  const deltaSublabel = isPartial
+    ? t('saldo.panel.row.projectedVs', { year: priorYear })
+    : t('saldo.panel.row.vs', { year: priorYear });
+
+  return (
+    <div className="ot-saldo-row" data-testid={`saldo-row-${kind}-${row.id}`}>
+      <span className="ot-saldo-row__name">{row.name}</span>
+      <span className="ot-saldo-row__type">{typeLabel}</span>
+      <span className="ot-saldo-row__prior">{formatCurrency(row.prior, locale, 'EUR')}</span>
+      <div
+        className="ot-saldo-row__bars"
+        role="img"
+        aria-label={t('saldo.panel.row.barsAria', {
+          priorYear,
+          priorValue: formatCurrency(row.prior, locale, 'EUR'),
+          currentValue: formatCurrency(row.current, locale, 'EUR'),
+        })}
+      >
+        <div className="ot-saldo-row__bar-track">
+          <div
+            className="ot-saldo-row__bar-fill ot-saldo-row__bar-fill--prior"
+            style={{ width: `${priorPct}%` }}
+          />
+        </div>
+        <div className="ot-saldo-row__bar-track">
+          <div
+            className="ot-saldo-row__bar-fill ot-saldo-row__bar-fill--current"
+            style={{ width: `${currentPct}%` }}
+          />
+        </div>
+      </div>
+      <span className="ot-saldo-row__current">{formatCurrency(row.current, locale, 'EUR')}</span>
+      <span
+        className={`ot-saldo-row__delta ot-saldo-row__delta--${deltaKind}`}
+        data-testid={`saldo-row-${kind}-${row.id}-delta`}
+      >
+        {deltaKind === 'up' ? '↑ ' : deltaKind === 'down' ? '↓ ' : ''}
+        {deltaText}
+      </span>
+      <span className="ot-saldo-row__delta-sublabel">{deltaSublabel}</span>
+    </div>
   );
 }
