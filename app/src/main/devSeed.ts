@@ -178,6 +178,174 @@ interface TxSeed {
   status: 'pending' | 'approved';
 }
 
+// ----------------------------------------------------------------------------
+// Deterministic PRNG (mulberry32) — seeded with constant for reproducibility.
+// NO Math.random() — re-runs must produce byte-identical events.
+// ----------------------------------------------------------------------------
+function mulberry32(seed: number): () => number {
+  return function (): number {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const PRNG_SEED = 0x52657474; // 'Rett' as hex
+const rng = mulberry32(PRNG_SEED);
+
+// Pick from an array deterministically
+function pick<T>(arr: readonly T[]): T {
+  return arr[Math.floor(rng() * arr.length)]!;
+}
+
+// Random int [min, max] inclusive
+function randInt(min: number, max: number): number {
+  return Math.floor(rng() * (max - min + 1)) + min;
+}
+
+// Random amount with realistic distribution per category type
+function randAmount(type: 'small' | 'mid' | 'large' | 'grant'): number {
+  if (type === 'small') return randInt(5, 50);
+  if (type === 'mid') return randInt(80, 500);
+  if (type === 'large') return randInt(700, 2000);
+  // grant
+  return randInt(2500, 6000);
+}
+
+// ----------------------------------------------------------------------------
+// Backfill generator: ~100 tx in 2025 (Jan-Dec), ~70 tx in 2026 (Jan-Apr).
+// Keeps existing curated `t001`-`t030` untouched; generates new ids `g0001`+.
+// ----------------------------------------------------------------------------
+function generateBackfillTransactions(): TxSeed[] {
+  const backfill: TxSeed[] = [];
+  let counter = 1;
+
+  // Description templates per subcategory for variety
+  const descTemplates: Record<string, (n: number) => string> = {
+    // Income
+    'Cuota Socio Anual': (n) => `Socio #S${String(n).padStart(4, '0')}`,
+    'Cuota Socio Mensual': (n) => `Socio #S${String(n).padStart(4, '0')}`,
+    'Cuota Familia': (n) => `Cuota familia #F${String(n).padStart(3, '0')}`,
+    Individuales: (n) => `Donante #W${String(n).padStart(4, '0')}`,
+    Empresas: (n) => `Donación corporativa — Empresa #E${String(n).padStart(3, '0')}`,
+    Anónimas: () => 'Donación anónima',
+    'Galas benéficas': (n) => `Recaudación gala benéfica #G${n}`,
+    Mercadillos: (n) => `Recaudación mercadillo #M${n}`,
+    'Carreras solidarias': (n) => `Recaudación carrera solidaria #R${n}`,
+    Charlas: (n) => `Recaudación charla #C${n}`,
+    Públicas: (n) => `Subvención pública — Programa #${n}`,
+    Privadas: (n) => `Subvención privada — Fundación #${n}`,
+    Teaming: () => 'Teaming mensual',
+    // Expense
+    Talleres: (n) => `Pago taller — Grupo #T${n}`,
+    Terapias: (n) => `Pago sesiones terapéuticas — Profesional #P${String(n).padStart(2, '0')}`,
+    Formación: (n) => `Curso formación — Módulo #${n}`,
+    'Material oficina': () => pick(['Compra material oficina', 'Papelería', 'Consumibles']),
+    'Servicios profesionales': () =>
+      pick(['Servicio imprenta', 'Asesoría contable', 'Servicio diseño gráfico']),
+    Seguros: () => pick(['Seguro RC anual', 'Seguro multirriesgo']),
+    Comisiones: () => pick(['Comisión mantenimiento', 'Comisión devolución recibo']),
+    Alquiler: () => 'Recibo alquiler — Local sede',
+    Suministros: () => pick(['Recibo suministro eléctrico', 'Recibo agua']),
+    Transporte: () => pick(['Envío postal', 'Gastos desplazamiento', 'Combustible']),
+    Comunicación: () => 'Recibo telefonía — Línea oficina',
+  };
+
+  // Per-year generation
+  for (const year of [2025, 2026]) {
+    const startMonth = year === 2025 ? 1 : 1;
+    const endMonth = year === 2025 ? 12 : 4; // 2026 through April
+    const targetPerMonth = year === 2025 ? 8 : 17; // ~100 / 12 ≈ 8; ~70 / 4 ≈ 17
+
+    for (let m = startMonth; m <= endMonth; m++) {
+      for (let i = 0; i < targetPerMonth; i++) {
+        const dayOfMonth = randInt(1, m === 2 ? 28 : [4, 6, 9, 11].includes(m) ? 30 : 31);
+        const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(dayOfMonth).padStart(2, '0')}`;
+
+        // Weighted category selection: bias for diversity
+        const catChoice = rng();
+        let cat: CategorySeed;
+        if (catChoice < 0.25) cat = CATEGORIES.find((c) => c.key === 'CATCUO')!;
+        else if (catChoice < 0.45) cat = CATEGORIES.find((c) => c.key === 'CATDON')!;
+        else if (catChoice < 0.55) cat = CATEGORIES.find((c) => c.key === 'CATSUB')!;
+        else if (catChoice < 0.65) cat = CATEGORIES.find((c) => c.key === 'CATEVT')!;
+        else if (catChoice < 0.75) cat = CATEGORIES.find((c) => c.key === 'CATGAS')!;
+        else if (catChoice < 0.85) cat = CATEGORIES.find((c) => c.key === 'CATADM')!;
+        else if (catChoice < 0.95) cat = CATEGORIES.find((c) => c.key === 'CATACT')!;
+        else cat = CATEGORIES.find((c) => c.key === 'CATTEA')!;
+
+        const subName = pick(cat.subs);
+        const catShort = Object.keys(CATEGORY_BY_SHORT).find(
+          (k) => CATEGORY_BY_SHORT[k] === cat.key,
+        )!;
+
+        // Amount scaling by subcategory
+        let amountType: 'small' | 'mid' | 'large' | 'grant' = 'mid';
+        if (cat.key === 'CATSUB') amountType = 'grant';
+        else if (
+          cat.key === 'CATEVT' &&
+          (subName === 'Galas benéficas' || subName === 'Mercadillos')
+        )
+          amountType = 'large';
+        else if (cat.key === 'CATDON' && subName === 'Empresas') amountType = 'large';
+        else if (cat.key === 'CATDON' || cat.key === 'CATTEA') amountType = 'small';
+        else if (cat.key === 'CATGAS' && subName === 'Alquiler') amountType = 'large';
+
+        const rawAmount = randAmount(amountType);
+        const signedAmount = cat.type === 'income' ? rawAmount : -rawAmount;
+
+        // Account distribution: ~70% unicaja, rest split
+        const accountChoice = rng();
+        let account: keyof typeof ACCOUNT_BY_SHORT;
+        if (accountChoice < 0.7) account = 'unicaja';
+        else if (accountChoice < 0.8) account = 'paypal';
+        else if (accountChoice < 0.85) account = 'caixa-ops';
+        else if (accountChoice < 0.95) account = 'caixa-0951';
+        else account = 'caixa-fin';
+
+        // Tags: ~10-15% get a tag, biased to event categories
+        const tagIds: (keyof typeof TAG_BY_SHORT)[] = [];
+        if (cat.key === 'CATEVT' && rng() < 0.3) {
+          if (subName === 'Galas benéficas') tagIds.push('gala');
+          else if (subName === 'Mercadillos') tagIds.push('merca');
+          else if (subName === 'Carreras solidarias') tagIds.push('reto');
+        } else if (rng() < 0.05) {
+          tagIds.push(pick(['raras', 'cal', 'semana'] as const));
+        }
+
+        // Description
+        const descFn = descTemplates[subName] ?? (() => `${cat.name} — ${subName}`);
+        const desc = descFn(counter);
+
+        // Status: mostly approved; a handful of recent 2026 entries as pending
+        let status: 'pending' | 'approved' = 'approved';
+        if (year === 2026 && m === 4 && dayOfMonth >= 20 && rng() < 0.3) {
+          status = 'pending';
+        }
+
+        backfill.push({
+          id: `g${String(counter).padStart(4, '0')}`,
+          date: dateStr,
+          signedAmount,
+          desc,
+          account,
+          cat: catShort,
+          sub: subName,
+          tagIds,
+          status,
+        });
+        counter++;
+      }
+    }
+  }
+
+  return backfill;
+}
+
+// ----------------------------------------------------------------------------
+// Curated transactions (existing 30, kept untouched).
+// ----------------------------------------------------------------------------
 const TRANSACTIONS: readonly TxSeed[] = [
   {
     id: 't001',
@@ -599,9 +767,11 @@ export function buildDevSeedEvents(): DomainEvent[] {
     } as DomainEvent);
   }
 
-  // 4. Transactions — sort ascending by (date, id) so envelope createdAt is
-  //    monotonic (good hygiene; reducers don't require it).
-  const sorted = [...TRANSACTIONS].sort((a, b) => {
+  // 4. Transactions — merge curated + backfill, then sort ascending by (date, id)
+  //    so envelope createdAt is monotonic (good hygiene; reducers don't require it).
+  const backfillTx = generateBackfillTransactions();
+  const allTx = [...TRANSACTIONS, ...backfillTx];
+  const sorted = allTx.sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date);
     return a.id.localeCompare(b.id);
   });
