@@ -104,6 +104,126 @@
     },
     "skeleton": "Preview — data in a future iteration."
   },
+  "saldo": {
+    "title": "Balance",
+    "subtitle": "Compare income and expense against the prior year",
+    "states": {
+      "loading": "Loading balance…",
+      "emptyBoth": {
+        "title": "No transactions in this period",
+        "body": "Record a transaction or widen the period to compare."
+      },
+      "emptyCurrent": {
+        "title": "No transactions in the current period",
+        "body": "There's no data yet in the current period to compare against the prior one."
+      },
+      "emptyPrior": {
+        "title": "No data for the prior period",
+        "body": "There were no transactions in the same period last year, so variation can't be calculated."
+      },
+      "error": {
+        "title": "Couldn't load the balance",
+        "body": "Check the connection or try again.",
+        "retry": "Try again"
+      }
+    },
+    "period": {
+      "label": "Period",
+      "srDescription": "Choose the granularity of the comparison",
+      "options": {
+        "year": "Year",
+        "quarter": "Quarter",
+        "month": "Month"
+      },
+      "srOption": {
+        "year": "Compare the current year with the full prior year",
+        "quarter": "Compare the current quarter with the same quarter of the prior year",
+        "month": "Compare the current month with the same month of the prior year"
+      },
+      "monthTooltip": "Comparing against the same month of the prior year",
+      "quarterTooltip": "Comparing against the same quarter of the prior year",
+      "yearTooltip": "Comparing against the full prior year"
+    },
+    "account": {
+      "label": "Account",
+      "all": "All accounts",
+      "srDescription": "Filter the comparison to a single account"
+    },
+    "comparison": {
+      "vsYear": "vs. {{year}}",
+      "vsMonth": "vs. {{month}} {{year}}",
+      "vsQuarter": "vs. Q{{quarter}} {{year}}",
+      "ariaVsYear": "compared with year {{year}}",
+      "ariaVsMonth": "compared with {{month}} {{year}}",
+      "ariaVsQuarter": "compared with quarter {{quarter}} of {{year}}"
+    },
+    "kpi": {
+      "net": {
+        "label": "Net change",
+        "description": "Difference between income and expense versus the prior period"
+      },
+      "income": {
+        "label": "Income change",
+        "description": "Change in income versus the prior period"
+      },
+      "expense": {
+        "label": "Expense change",
+        "description": "Change in expense versus the prior period"
+      },
+      "biggestGrowth": {
+        "label": "Biggest growth",
+        "description": "Category with the largest increase versus the prior period",
+        "empty": "No notable growth",
+        "value": "{{category}} · {{delta}}"
+      },
+      "delta": {
+        "up": "increase",
+        "down": "decrease",
+        "flat": "no change",
+        "noPrior": "no prior data"
+      }
+    },
+    "projection": {
+      "badge": "Linear projection",
+      "sublabel": "Projected",
+      "tooltip": "Linear projection based on {{daysElapsed}}/{{daysInPeriod}} days elapsed",
+      "ariaHint": "Projected value: linear extrapolation from the days elapsed in the period",
+      "rowTooltip": "Total projected to period close"
+    },
+    "table": {
+      "caption": "Breakdown by category",
+      "columns": {
+        "category": "Category",
+        "income": "Income",
+        "expense": "Expense",
+        "net": "Net",
+        "delta": "Δ vs. prior"
+      },
+      "uncategorized": "Uncategorized",
+      "noPrior": "No prior data",
+      "dropped": "No transactions this period",
+      "flat": "About the same"
+    },
+    "chart": {
+      "monthlyNetTitle": "Monthly net balance",
+      "monthlyNetSubtitle": "Actuals — not projected",
+      "monthlyNetAriaLabel": "Bar chart of monthly net balance comparing the current period with the prior one",
+      "dataTableCaption": "Monthly net balance: current period and prior period",
+      "dataTableToggle": {
+        "show": "Show data table",
+        "hide": "Hide data table"
+      },
+      "series": {
+        "current": "Current",
+        "prior": "Prior"
+      },
+      "tooltip": {
+        "current": "{{value}} in {{month}}",
+        "prior": "{{value}} in {{month}} of the prior period"
+      },
+      "emptyMonth": "No transactions"
+    }
+  },
   "movements": {
     "title": "Transactions",
     "subtitle": "Pick a range to see your transactions.",
