@@ -1,0 +1,138 @@
+/*
+ * GroupedBarChart — two-series grouped bar chart primitive for Saldo (WI-22).
+ * Pure SVG, responsive via container width. Tokens sourced from tokens.css.
+ */
+
+.ot-grouped-bar-chart {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  width: 100%;
+}
+
+.ot-grouped-bar-chart__legend {
+  display: flex;
+  gap: var(--space-4, 16px);
+  font-size: var(--font-size-xs, 12px);
+  color: var(--color-text-muted);
+}
+
+.ot-grouped-bar-chart__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ot-grouped-bar-chart__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--color-uncategorized);
+}
+
+.ot-grouped-bar-chart__swatch--current {
+  background: var(--color-brand-primary);
+}
+
+.ot-grouped-bar-chart__swatch--prior {
+  background: var(--color-brand-primary-muted);
+}
+
+.ot-grouped-bar-chart__plot {
+  position: relative;
+  width: 100%;
+}
+
+.ot-grouped-bar-chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ot-grouped-bar-chart__axis {
+  stroke: var(--color-border-subtle);
+  stroke-width: 1;
+}
+
+.ot-grouped-bar-chart__group {
+  cursor: default;
+  outline: none;
+}
+
+.ot-grouped-bar-chart__group:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ot-grouped-bar-chart__bar {
+  transition: opacity 120ms ease-out;
+}
+
+.ot-grouped-bar-chart__bar--current {
+  fill: var(--color-brand-primary);
+}
+
+.ot-grouped-bar-chart__bar--prior {
+  fill: var(--color-brand-primary-muted);
+}
+
+.ot-grouped-bar-chart__group:hover .ot-grouped-bar-chart__bar,
+.ot-grouped-bar-chart__group:focus-visible .ot-grouped-bar-chart__bar {
+  opacity: 0.85;
+}
+
+.ot-grouped-bar-chart__x-label {
+  fill: var(--color-text-muted);
+  font-size: 11px;
+}
+
+.ot-grouped-bar-chart__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm, 13px);
+  background: var(--color-surface-secondary);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-md, 6px);
+}
+
+.ot-grouped-bar-chart__tooltip {
+  position: absolute;
+  top: var(--space-2, 8px);
+  right: var(--space-2, 8px);
+  padding: 8px 10px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm, 4px);
+  font-size: var(--font-size-xs, 12px);
+  line-height: 1.4;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ot-grouped-bar-chart__tooltip-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ot-grouped-bar-chart__tooltip-delta {
+  font-weight: 600;
+}
+
+.ot-grouped-bar-chart__tooltip-delta--up {
+  color: var(--color-income-default);
+}
+
+.ot-grouped-bar-chart__tooltip-delta--down {
+  color: var(--color-expense-default);
+}
