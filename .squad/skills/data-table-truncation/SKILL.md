@@ -222,4 +222,39 @@ If `overflow-x: auto` doesn't work:
 - [ ] Test at narrow viewport (<1350px) — scrollbar should appear and allow horizontal scroll
 - [ ] Verify no `width: 100%` on table WITHOUT width cap on wrapper
 
-**Commit reference:** `f21de3f` — fix(ui): enable horizontal scroll fallback on narrow viewports
+## ⚠️ Lesson Learned (Polish pre-WI-22, 2026-04-22): ``table-layout: fixed`` Needs Explicit ``min-width`` for Scroll
+
+**``table-layout: fixed; width: 100%;`` without ``min-width`` silently defeats the overflow-x: auto fallback.**
+
+### The Problem
+
+With ``table-layout: fixed``, the table's rendered width = its ``width`` property (here ``100%`` of container). When the container is narrower than the sum of the declared column widths, the browser **compresses the columns proportionally** instead of overflowing. The wrapping ``overflow-x: auto`` container therefore never sees content wider than itself → no scrollbar, no scroll, columns get illegibly cramped.
+
+### The Solution: Pair Fixed Layout with `min-width`
+
+```css
+.my-table-container {
+  overflow-x: auto;
+}
+.my-table-container .ot-table {
+  table-layout: fixed;
+  width: 100%;
+  /* Sum of the declared per-column widths — forces the table to keep its
+   * tuned intrinsic size and overflow the container when viewport is
+   * too narrow, triggering a real horizontal scrollbar. */
+  min-width: 1012px;
+}
+```
+
+### Reference Implementations
+
+- ``MovementsScreen.css`` — ``min-width: 1012px`` (10 columns: 32+32+88+100+200+120+120+140+80+100)
+- ``PanelScreen.css`` — ``min-width: 832px`` (7 columns, description col gets ``min-width: 240px`` as the flex remainder before scroll)
+
+### Debugging Checklist Update
+
+Append to the existing "If `overflow-x: auto` doesn't work" checklist:
+- [ ] If using ``table-layout: fixed``, verify the table has an explicit ``min-width`` ≥ sum of column widths. ``width: 100%`` alone will cause silent proportional shrink, not overflow.
+
+**Commit reference:** `70b8625` — fix(ui): enable horizontal scroll when tables exceed viewport width
+

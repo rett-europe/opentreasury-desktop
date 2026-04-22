@@ -1196,3 +1196,31 @@ branch — you'll eat a teammate's unformatted WIP into your diff.
 ---
 
 **2026-04-22 — NEXT:** Link recommended **WI-22 Saldo** as next priority (primary). WI-23/24 runners-up. See decisions.md § "Link — WI-22 Recommendation (post-WI-21 merge)" for full spec. Polish pass (table scroll, date locale) scoped before WI-22. Awaiting Pedro confirmation.
+
+
+## 2026-04-22 - Polish pre-WI-22 — Table horizontal scroll + TransactionDetailModal locale
+
+**Branch:** polish/pre-wi22-table-scroll-modal-locale  
+**PR:** #5
+
+### Fixes shipped
+
+1. **Table horizontal scroll (Movements + Panel).** With `table-layout: fixed; width: 100%` and no `min-width` on the inner table, columns silently compress when the container is narrower than the sum of column widths — the container's `overflow-x: auto` never triggers. Fix: `min-width` on `.ot-movements__table-container .ot-table` = 1012px, on `.ot-panel-recent .ot-table` = 832px (plus description flex column `min-width` 120 → 240). Below those thresholds, real horizontal scrollbar appears, all columns preserved. Sticky thead still works.
+2. **TransactionDetailModal currency locale.** `Intl.NumberFormat(navigator.language, ...)` → `Intl.NumberFormat(locale, ...)` where `locale` already comes from `i18n.language`. Dates were already correct. View/edit size parity re-verified (both bodies still have `min-height: 520px`, shell is 760px in both modes — unchanged since WI-20 R2).
+
+### Files touched
+
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.css` — table `min-width: 1012px`
+- `app/src/renderer/screens/PanelScreen/PanelScreen.css` — table `min-width: 832px`, description col `min-width` 120→240
+- `app/src/renderer/components/TransactionDetailModal/TransactionDetailModal.tsx` — `navigator.language` → `locale`
+
+### Gotchas
+
+- **`table-layout: fixed` + `width: 100%` without `min-width` is a scroll-killer.** The container's `overflow-x: auto` does nothing because the table always matches container width. Always pair fixed-layout tables with a `min-width` equal to the column-width sum when you want overflow-scroll fallback. Update to data-table-truncation skill warranted.
+- **`git -c core.autocrlf=false commit` on Windows rewrites the whole blob** when the repo default is `autocrlf=true`. Each "edit tool" write uses LF, git would normally convert back to LF in the blob on commit — but with autocrlf disabled locally, CRLF gets stored, producing massive +N/-N diffs. Fix: let default autocrlf run.
+- `AccountCard.tsx`, `KPIStrip.tsx`, `PanelScreen.tsx` (recent-tx amount cell) still use `navigator.language` for currency. Left for a follow-up sweep (flagged in decisions inbox). Saldo (WI-22) will likely reuse an `useLocaleFormat()` helper — worth pulling the formatter into `utils/` alongside `dateFormat.ts`.
+
+### Gates
+
+- typecheck ✓, lint ✓, format:check — pre-existing 36-file backlog on main, none mine, unchanged count on my branch
+- tests: 408 passed / 9 skipped (identical to main baseline)
