@@ -18,7 +18,10 @@ export type GroupedBarChartProps = {
 
 // SVG viewBox constants — responsive via CSS width: 100%.
 const VIEW_W = 600;
-const VIEW_H = 340;
+// Aspect ratio 600:240 (2.5:1) keeps the chart proportionate with the KPI
+// strip and category table on the Saldo screen. Reduced from 340 so the plot
+// area does not visually dominate the page layout.
+const VIEW_H = 240;
 const PAD_L = 32;
 const PAD_R = 16;
 const PAD_T = 24;
