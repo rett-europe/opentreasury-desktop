@@ -195,7 +195,8 @@
         "vs": "vs {{year}}",
         "barsAria": "Comparación visual: {{priorYear}} {{priorValue}}, periodo actual {{currentValue}}"
       },
-      "empty": "Sin categorías en este periodo"
+      "empty": "Sin categorías en este periodo",
+      "uncategorized": "Sin categoría"
     }
   },
   "movements": {

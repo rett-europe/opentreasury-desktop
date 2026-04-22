@@ -464,7 +464,7 @@ type CategoryPanelsProps = {
 
 type PanelRow = {
   readonly id: string;
-  readonly name: string;
+  readonly name: string | null;
   readonly prior: number;
   readonly current: number;
   readonly projectedCurrent: number;
@@ -489,7 +489,7 @@ function buildPanelRows(
 ): PanelRow[] {
   const byKey = new Map<
     string,
-    { categoryId: string | null; name: string; cur: number; prev: number }
+    { categoryId: string | null; name: string | null; cur: number; prev: number }
   >();
   const pick = (row: SaldoCategoryNet): number => (kind === 'income' ? row.income : row.expense);
 
@@ -538,7 +538,7 @@ function buildPanelRows(
     if (byCur !== 0) return byCur;
     const byPrev = Math.abs(b.prior) - Math.abs(a.prior);
     if (byPrev !== 0) return byPrev;
-    return a.name.localeCompare(b.name);
+    return (a.name ?? '\uffff').localeCompare(b.name ?? '\uffff');
   });
   return rows;
 }
@@ -713,7 +713,7 @@ function CategoryRow({
 
   return (
     <div className="ot-saldo-row" data-testid={`saldo-row-${kind}-${row.id}`}>
-      <span className="ot-saldo-row__name">{row.name}</span>
+      <span className="ot-saldo-row__name">{row.name ?? t('saldo.panel.uncategorized')}</span>
       <span className="ot-saldo-row__type">{typeLabel}</span>
       <span className="ot-saldo-row__prior">{formatCurrency(row.prior, locale, 'EUR')}</span>
       <div
