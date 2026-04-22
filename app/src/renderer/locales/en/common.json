@@ -506,6 +506,10 @@
       "openingBalanceInvalid": "Opening balance must be a valid number.",
       "colorInvalid": "That color isn't valid.",
       "schemaInvalid": "Some of the data is invalid.",
+      "notFound": "This item no longer exists. Refresh the list and try again.",
+      "alreadyArchived": "This item was already archived.",
+      "notArchived": "This item isn't archived.",
+      "internal": "An internal error occurred. Please try again.",
       "submitFailed": "Couldn't save. Please try again."
     }
   },

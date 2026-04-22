@@ -6,15 +6,59 @@
 //
 // Archive state is canonically represented by `archivedAt` (ISO timestamp).
 // There is no boolean `archived` flag anywhere in the contracts.
+//
+// Finding #12 (PR#4 round 2) — the previous version wrapped the bridge in a
+// loose `BridgeFn = (req: unknown) => Promise<unknown>` shape and cast the
+// result to a hand-rolled `ContractResult`. That pattern hides integration
+// drift behind TS casts (see .squad/skills/config-screen-pattern/SKILL.md
+// §"IPC service wrappers"). Each wrapper below now imports its contract
+// Request/Response pair and types the bridge method explicitly — if the
+// preload surface ever drifts from the contract, TypeScript will flag it here
+// at the wrapper layer, not inside opaque runtime casts.
 
-import type { AccountRecord } from '../../shared/ipc-contracts/accounts.js';
-import type { CategoryKind, CategoryRecord } from '../../shared/ipc-contracts/categories.js';
-import type { TagRecord } from '../../shared/ipc-contracts/tags.js';
+import type {
+  AccountRecord,
+  ArchiveAccountRequest,
+  ArchiveAccountResponse,
+  UnarchiveAccountRequest,
+  UnarchiveAccountResponse,
+  UpdateAccountRequest,
+  UpdateAccountResponse,
+} from '../../shared/ipc-contracts/accounts.js';
+import type {
+  ArchiveCategoryRequest,
+  ArchiveCategoryResponse,
+  ArchiveSubcategoryRequest,
+  ArchiveSubcategoryResponse,
+  CategoryKind,
+  CategoryRecord,
+  CreateSubcategoryRequest,
+  CreateSubcategoryResponse,
+  SubcategoryRecord,
+  UnarchiveCategoryRequest,
+  UnarchiveCategoryResponse,
+  UnarchiveSubcategoryRequest,
+  UnarchiveSubcategoryResponse,
+  UpdateCategoryRequest,
+  UpdateCategoryResponse,
+  UpdateSubcategoryRequest,
+  UpdateSubcategoryResponse,
+} from '../../shared/ipc-contracts/categories.js';
+import type {
+  ArchiveTagRequest,
+  ArchiveTagResponse,
+  TagRecord,
+  UnarchiveTagRequest,
+  UnarchiveTagResponse,
+  UpdateTagRequest,
+  UpdateTagResponse,
+} from '../../shared/ipc-contracts/tags.js';
+
+// Re-export so renderer call sites import the contract type from one place.
+export type { SubcategoryRecord } from '../../shared/ipc-contracts/categories.js';
 
 // ---------------------------------------------------------------------------
-// Local types — archive metadata augments the shared records; the subcategory
-// record is a renderer-side mirror of the inlined `CategoryRecord.subcategories[]`
-// shape (see app/src/shared/ipc-contracts/categories.ts → subcategoryRecordSchema).
+// Local types — archive metadata augments the shared records.
 // ---------------------------------------------------------------------------
 
 export interface ArchivableMeta {
@@ -24,14 +68,6 @@ export interface ArchivableMeta {
 export type ConfigAccount = AccountRecord & ArchivableMeta;
 export type ConfigCategory = CategoryRecord & ArchivableMeta;
 export type ConfigTag = TagRecord & ArchivableMeta;
-
-export interface SubcategoryRecord extends ArchivableMeta {
-  readonly id: string;
-  readonly parentCategoryId: string;
-  readonly name: string;
-  readonly color?: string;
-  readonly createdAt: string;
-}
 
 export function isArchived(record: ArchivableMeta | null | undefined): boolean {
   return record?.archivedAt !== undefined && record.archivedAt !== null;
@@ -70,47 +106,51 @@ export interface UpdateSubcategoryChanges {
 }
 
 // ---------------------------------------------------------------------------
-// Bridge access — typed against the actual `window.opentreasury` surface.
+// Bridge access — typed per-method against the actual contract Request/Response
+// pairs. Each bridge accessor narrows `window.opentreasury` to exactly the
+// method it needs (no `any`, no broad `unknown` casts).
 // ---------------------------------------------------------------------------
 
-type BridgeFn = (req: unknown) => Promise<unknown>;
+type MethodBridge<Req, Res> = (req: Req) => Promise<Res>;
 
-interface LooseBridge {
+interface OpenTreasurySurface {
   readonly accounts?: {
-    readonly update?: BridgeFn;
-    readonly archive?: BridgeFn;
-    readonly unarchive?: BridgeFn;
+    readonly update?: MethodBridge<UpdateAccountRequest, UpdateAccountResponse>;
+    readonly archive?: MethodBridge<ArchiveAccountRequest, ArchiveAccountResponse>;
+    readonly unarchive?: MethodBridge<UnarchiveAccountRequest, UnarchiveAccountResponse>;
   };
   readonly categories?: {
-    readonly update?: BridgeFn;
-    readonly archive?: BridgeFn;
-    readonly unarchive?: BridgeFn;
+    readonly update?: MethodBridge<UpdateCategoryRequest, UpdateCategoryResponse>;
+    readonly archive?: MethodBridge<ArchiveCategoryRequest, ArchiveCategoryResponse>;
+    readonly unarchive?: MethodBridge<UnarchiveCategoryRequest, UnarchiveCategoryResponse>;
     readonly subcategory?: {
-      readonly create?: BridgeFn;
-      readonly update?: BridgeFn;
-      readonly archive?: BridgeFn;
-      readonly unarchive?: BridgeFn;
+      readonly create?: MethodBridge<CreateSubcategoryRequest, CreateSubcategoryResponse>;
+      readonly update?: MethodBridge<UpdateSubcategoryRequest, UpdateSubcategoryResponse>;
+      readonly archive?: MethodBridge<ArchiveSubcategoryRequest, ArchiveSubcategoryResponse>;
+      readonly unarchive?: MethodBridge<UnarchiveSubcategoryRequest, UnarchiveSubcategoryResponse>;
     };
   };
   readonly tags?: {
-    readonly update?: BridgeFn;
-    readonly archive?: BridgeFn;
-    readonly unarchive?: BridgeFn;
+    readonly update?: MethodBridge<UpdateTagRequest, UpdateTagResponse>;
+    readonly archive?: MethodBridge<ArchiveTagRequest, ArchiveTagResponse>;
+    readonly unarchive?: MethodBridge<UnarchiveTagRequest, UnarchiveTagResponse>;
   };
 }
 
-function bridge(): LooseBridge {
-  return ((window as unknown as { opentreasury?: LooseBridge }).opentreasury ?? {}) as LooseBridge;
+function surface(): OpenTreasurySurface {
+  const raw = (window as unknown as { opentreasury?: OpenTreasurySurface }).opentreasury;
+  return raw ?? {};
 }
 
+// Every mutation response is `{ ok: true, event } | { ok: false, error }`.
 interface ContractError {
   readonly code: string;
   readonly message: string;
-  readonly field?: string;
+  readonly field?: string | undefined;
 }
 
-type ContractResult =
-  | { readonly ok: true; readonly event: unknown }
+type MutationResponse<Ev> =
+  | { readonly ok: true; readonly event: Ev }
   | { readonly ok: false; readonly error: ContractError };
 
 /** Custom error carrying the contract error code so callers can branch on it. */
@@ -125,22 +165,25 @@ export class ConfigMutationError extends Error {
   }
 }
 
-async function invoke(
-  fn: BridgeFn | undefined,
+/**
+ * Invoke a typed bridge method. Narrows the discriminated-union response to
+ * the success branch on `ok: true` and throws a ConfigMutationError on
+ * `ok: false`. Each call site passes a bridge method whose signature already
+ * matches the contract Request/Response pair — no casts required.
+ */
+async function invokeTyped<Req, Ev>(
+  fn: MethodBridge<Req, MutationResponse<Ev>> | undefined,
   channel: string,
-  req: unknown,
-): Promise<{ readonly event: unknown }> {
+  req: Req,
+): Promise<Ev> {
   if (!fn) {
     throw new Error(`preload method "${channel}" is not exposed on window.opentreasury`);
   }
-  const result = (await fn(req)) as ContractResult;
-  if (!result || typeof result !== 'object' || !('ok' in result)) {
-    throw new Error(`unexpected response shape from "${channel}"`);
-  }
+  const result = await fn(req);
   if (!result.ok) {
     throw new ConfigMutationError(result.error);
   }
-  return { event: result.event };
+  return result.event;
 }
 
 // ---------------------------------------------------------------------------
@@ -148,15 +191,18 @@ async function invoke(
 // ---------------------------------------------------------------------------
 
 export async function updateAccount(id: string, changes: UpdateAccountChanges): Promise<void> {
-  await invoke(bridge().accounts?.update, 'accounts.update', { id, changes });
+  await invokeTyped(surface().accounts?.update, 'accounts.update', {
+    id,
+    changes,
+  } as UpdateAccountRequest);
 }
 
 export async function archiveAccount(id: string): Promise<void> {
-  await invoke(bridge().accounts?.archive, 'accounts.archive', { id });
+  await invokeTyped(surface().accounts?.archive, 'accounts.archive', { id });
 }
 
 export async function unarchiveAccount(id: string): Promise<void> {
-  await invoke(bridge().accounts?.unarchive, 'accounts.unarchive', { id });
+  await invokeTyped(surface().accounts?.unarchive, 'accounts.unarchive', { id });
 }
 
 // ---------------------------------------------------------------------------
@@ -164,15 +210,18 @@ export async function unarchiveAccount(id: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function updateCategory(id: string, changes: UpdateCategoryChanges): Promise<void> {
-  await invoke(bridge().categories?.update, 'categories.update', { id, changes });
+  await invokeTyped(surface().categories?.update, 'categories.update', {
+    id,
+    changes,
+  } as UpdateCategoryRequest);
 }
 
 export async function archiveCategory(id: string): Promise<void> {
-  await invoke(bridge().categories?.archive, 'categories.archive', { id });
+  await invokeTyped(surface().categories?.archive, 'categories.archive', { id });
 }
 
 export async function unarchiveCategory(id: string): Promise<void> {
-  await invoke(bridge().categories?.unarchive, 'categories.unarchive', { id });
+  await invokeTyped(surface().categories?.unarchive, 'categories.unarchive', { id });
 }
 
 // ---------------------------------------------------------------------------
@@ -180,15 +229,18 @@ export async function unarchiveCategory(id: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export async function updateTag(id: string, changes: UpdateTagChanges): Promise<void> {
-  await invoke(bridge().tags?.update, 'tags.update', { id, changes });
+  await invokeTyped(surface().tags?.update, 'tags.update', {
+    id,
+    changes,
+  } as UpdateTagRequest);
 }
 
 export async function archiveTag(id: string): Promise<void> {
-  await invoke(bridge().tags?.archive, 'tags.archive', { id });
+  await invokeTyped(surface().tags?.archive, 'tags.archive', { id });
 }
 
 export async function unarchiveTag(id: string): Promise<void> {
-  await invoke(bridge().tags?.unarchive, 'tags.unarchive', { id });
+  await invokeTyped(surface().tags?.unarchive, 'tags.unarchive', { id });
 }
 
 // ---------------------------------------------------------------------------
@@ -197,30 +249,21 @@ export async function unarchiveTag(id: string): Promise<void> {
 // `CategoryRecord.subcategories[]` from `categories:list`.
 // ---------------------------------------------------------------------------
 
-interface SubcategoryCreatedEventShape {
-  readonly id: string;
-  readonly parentCategoryId: string;
-  readonly name: string;
-  readonly color?: string;
-  readonly createdAt: string;
-}
-
 export async function createSubcategory(
   parentCategoryId: string,
   name: string,
 ): Promise<SubcategoryRecord> {
-  const { event } = await invoke(
-    bridge().categories?.subcategory?.create,
+  const event = await invokeTyped(
+    surface().categories?.subcategory?.create,
     'categories.subcategory.create',
-    { parentCategoryId, name },
+    { parentCategoryId, name } satisfies CreateSubcategoryRequest,
   );
-  const ev = event as SubcategoryCreatedEventShape;
   return {
-    id: ev.id,
-    parentCategoryId: ev.parentCategoryId,
-    name: ev.name,
-    createdAt: ev.createdAt,
-    ...(ev.color !== undefined ? { color: ev.color } : {}),
+    id: event.id,
+    parentCategoryId: event.parentCategoryId,
+    name: event.name,
+    createdAt: event.createdAt,
+    ...(event.color !== undefined ? { color: event.color } : {}),
   };
 }
 
@@ -229,23 +272,24 @@ export async function updateSubcategory(
   parentCategoryId: string,
   changes: UpdateSubcategoryChanges,
 ): Promise<void> {
-  await invoke(bridge().categories?.subcategory?.update, 'categories.subcategory.update', {
+  await invokeTyped(surface().categories?.subcategory?.update, 'categories.subcategory.update', {
     id,
     parentCategoryId,
     changes,
-  });
+  } as UpdateSubcategoryRequest);
 }
 
 export async function archiveSubcategory(id: string, parentCategoryId: string): Promise<void> {
-  await invoke(bridge().categories?.subcategory?.archive, 'categories.subcategory.archive', {
+  await invokeTyped(surface().categories?.subcategory?.archive, 'categories.subcategory.archive', {
     id,
     parentCategoryId,
   });
 }
 
 export async function unarchiveSubcategory(id: string, parentCategoryId: string): Promise<void> {
-  await invoke(bridge().categories?.subcategory?.unarchive, 'categories.subcategory.unarchive', {
-    id,
-    parentCategoryId,
-  });
+  await invokeTyped(
+    surface().categories?.subcategory?.unarchive,
+    'categories.subcategory.unarchive',
+    { id, parentCategoryId },
+  );
 }

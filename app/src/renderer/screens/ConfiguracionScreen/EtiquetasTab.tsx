@@ -8,10 +8,12 @@ import { AddTagModal, ArchiveConfirmModal } from '../../components/ConfigModals/
 import { listTags } from '../../services/tagsApi.js';
 import {
   archiveTag,
+  ConfigMutationError,
   isArchived,
   unarchiveTag,
   type ConfigTag,
 } from '../../services/configMutationsApi.js';
+import { mapConfigMutationErrorToMessage } from '../../components/ConfigModals/errorMap.js';
 import type { TagRecord } from '../../types/config.js';
 
 type State =
@@ -73,11 +75,21 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
 
   const handleUnarchive = useCallback(
     async (id: string) => {
-      await unarchiveTag(id);
-      await load();
-      onListChanged?.();
+      try {
+        await unarchiveTag(id);
+        await load();
+        onListChanged?.();
+      } catch (err) {
+        const message =
+          err instanceof ConfigMutationError
+            ? mapConfigMutationErrorToMessage(err, t)
+            : err instanceof Error
+              ? err.message
+              : t('configuracion.errors.submitFailed');
+        setState({ kind: 'error', message });
+      }
     },
-    [load, onListChanged],
+    [load, onListChanged, t],
   );
 
   const visibleTags =

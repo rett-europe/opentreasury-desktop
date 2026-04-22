@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
+import { ConfigMutationError } from '../../services/configMutationsApi.js';
+import { mapConfigMutationErrorToMessage } from './errorMap.js';
 import './ConfigModal.css';
 
 export type ArchiveEntity = 'cuentas' | 'categorias' | 'etiquetas' | 'subcategorias';
@@ -28,6 +30,7 @@ export function ArchiveConfirmModal({
 }: ArchiveConfirmModalProps): JSX.Element {
   const { t } = useTranslation('common');
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,7 +70,11 @@ export function ArchiveConfirmModal({
       await onConfirm();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('configuracion.delete.error.generic'));
+      if (err instanceof ConfigMutationError) {
+        setError(mapConfigMutationErrorToMessage(err, t));
+      } else {
+        setError(err instanceof Error ? err.message : t('configuracion.delete.error.generic'));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -77,13 +84,13 @@ export function ArchiveConfirmModal({
     <dialog
       ref={dialogRef}
       className="ot-config-modal"
-      aria-labelledby="ot-archive-modal-title"
+      aria-labelledby={titleId}
       role="dialog"
       aria-modal="true"
     >
       <div className="ot-config-modal__content">
         <header className="ot-config-modal__header">
-          <h2 id="ot-archive-modal-title" className="ot-config-modal__title">
+          <h2 id={titleId} className="ot-config-modal__title">
             {t(`configuracion.${entity}.deleteConfirm.archiveTitle`)}
           </h2>
           <button

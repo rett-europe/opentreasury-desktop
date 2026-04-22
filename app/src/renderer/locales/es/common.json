@@ -506,6 +506,10 @@
       "openingBalanceInvalid": "El saldo inicial debe ser un número válido.",
       "colorInvalid": "Ese color no es válido.",
       "schemaInvalid": "Algunos datos no son válidos.",
+      "notFound": "El elemento ya no existe. Actualiza la lista e inténtalo de nuevo.",
+      "alreadyArchived": "Este elemento ya estaba archivado.",
+      "notArchived": "Este elemento no está archivado.",
+      "internal": "Ocurrió un error interno. Inténtalo de nuevo.",
       "submitFailed": "No se pudo guardar. Inténtalo de nuevo."
     }
   },

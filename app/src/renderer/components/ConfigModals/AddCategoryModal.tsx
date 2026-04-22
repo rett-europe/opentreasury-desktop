@@ -98,12 +98,19 @@ export function AddCategoryModal({
     setSubmitting(true);
     try {
       if (mode === 'edit' && record) {
+        const trimmedName = name.trim();
         await updateCategory(record.id, {
-          name: name.trim(),
+          name: trimmedName,
           color: color ?? undefined,
           ...(kind !== null ? { kind } : {}),
         });
-        onSaved(record);
+        const updated: CategoryRecord = {
+          ...record,
+          name: trimmedName,
+          ...(color !== null ? { color } : {}),
+          ...(kind !== null ? { kind } : {}),
+        };
+        onSaved(updated);
         onClose();
         return;
       }

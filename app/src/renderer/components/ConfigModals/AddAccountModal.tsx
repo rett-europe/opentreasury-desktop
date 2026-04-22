@@ -127,7 +127,20 @@ export function AddAccountModal({
           isPaypal,
         };
         await updateAccount(record.id, changes);
-        onSaved(record);
+        const updated: AccountRecord = {
+          id: record.id,
+          name: changes.name,
+          currency: record.currency,
+          openingBalance: record.openingBalance,
+          createdAt: record.createdAt,
+          ...(changes.bankName !== undefined ? { bankName: changes.bankName } : {}),
+          ...(changes.label !== undefined ? { label: changes.label } : {}),
+          ...(changes.iban !== undefined ? { iban: changes.iban } : {}),
+          ...(changes.color !== undefined ? { color: changes.color } : {}),
+          ...(changes.isPaypal !== undefined ? { isPaypal: changes.isPaypal } : {}),
+          ...(record.archivedAt !== undefined ? { archivedAt: record.archivedAt } : {}),
+        };
+        onSaved(updated);
         onClose();
         return;
       }

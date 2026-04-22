@@ -9,6 +9,7 @@ import { listCategories } from '../../services/categoriesApi.js';
 import {
   archiveCategory,
   archiveSubcategory,
+  ConfigMutationError,
   createSubcategory,
   isArchived,
   unarchiveCategory,
@@ -17,6 +18,7 @@ import {
   type ConfigCategory,
   type SubcategoryRecord,
 } from '../../services/configMutationsApi.js';
+import { mapConfigMutationErrorToMessage } from '../../components/ConfigModals/errorMap.js';
 import type { CategoryKind, CategoryRecord } from '../../types/config.js';
 
 type State =
@@ -104,11 +106,21 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
 
   const handleUnarchive = useCallback(
     async (id: string) => {
-      await unarchiveCategory(id);
-      await load();
-      onListChanged?.();
+      try {
+        await unarchiveCategory(id);
+        await load();
+        onListChanged?.();
+      } catch (err) {
+        const message =
+          err instanceof ConfigMutationError
+            ? mapConfigMutationErrorToMessage(err, t)
+            : err instanceof Error
+              ? err.message
+              : t('configuracion.errors.submitFailed');
+        setState({ kind: 'error', message });
+      }
     },
-    [load, onListChanged],
+    [load, onListChanged, t],
   );
 
   const categories = useMemo(
@@ -202,10 +214,21 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
 
   const doSubUnarchive = useCallback(
     async (sub: SubcategoryRecord) => {
-      await unarchiveSubcategory(sub.id, sub.parentCategoryId);
-      await load();
+      setSubError(null);
+      try {
+        await unarchiveSubcategory(sub.id, sub.parentCategoryId);
+        await load();
+      } catch (err) {
+        const message =
+          err instanceof ConfigMutationError
+            ? mapConfigMutationErrorToMessage(err, t)
+            : err instanceof Error
+              ? err.message
+              : t('configuracion.errors.submitFailed');
+        setSubError(message);
+      }
     },
-    [load],
+    [load, t],
   );
 
   const selectedSubs = useMemo<readonly SubcategoryRecord[]>(

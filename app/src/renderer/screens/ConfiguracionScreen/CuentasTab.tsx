@@ -8,10 +8,12 @@ import { AddAccountModal, ArchiveConfirmModal } from '../../components/ConfigMod
 import { listAccounts } from '../../services/accountsApi.js';
 import {
   archiveAccount,
+  ConfigMutationError,
   isArchived,
   unarchiveAccount,
   type ConfigAccount,
 } from '../../services/configMutationsApi.js';
+import { mapConfigMutationErrorToMessage } from '../../components/ConfigModals/errorMap.js';
 import type { AccountRecord } from '../../types/config.js';
 
 type State =
@@ -85,11 +87,21 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
 
   const handleUnarchive = useCallback(
     async (id: string) => {
-      await unarchiveAccount(id);
-      await load();
-      onListChanged?.();
+      try {
+        await unarchiveAccount(id);
+        await load();
+        onListChanged?.();
+      } catch (err) {
+        const message =
+          err instanceof ConfigMutationError
+            ? mapConfigMutationErrorToMessage(err, t)
+            : err instanceof Error
+              ? err.message
+              : t('configuracion.errors.submitFailed');
+        setState({ kind: 'error', message });
+      }
     },
-    [load, onListChanged],
+    [load, onListChanged, t],
   );
 
   const fmtCurrency = new Intl.NumberFormat(i18n.language.startsWith('es') ? 'es-ES' : 'en-US', {

@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Tag as TagIcon } from 'lucide-react';
 import { createTag } from '../../services/tagsApi.js';
-import { updateTag } from '../../services/configMutationsApi.js';
+import { ConfigMutationError, updateTag } from '../../services/configMutationsApi.js';
 import type { CreateTagResponse, TagRecord } from '../../../shared/ipc-contracts/tags.js';
 import { ConfigModalShell } from './ConfigModalShell.js';
-import { mapConfigErrorToFieldKey } from './errorMap.js';
+import { mapConfigErrorToFieldKey, mapConfigMutationErrorToMessage } from './errorMap.js';
 import { CATEGORY_PALETTE } from './AddCategoryModal.js';
 
 export interface AddTagModalProps {
@@ -72,7 +72,7 @@ export function AddTagModal({
     try {
       if (mode === 'edit' && record) {
         await updateTag(record.id, { name: trimmed, color });
-        onSaved(record);
+        onSaved({ ...record, name: trimmed, color });
         onClose();
         return;
       }
@@ -89,7 +89,15 @@ export function AddTagModal({
       });
       onClose();
     } catch (err) {
-      setGeneralError(err instanceof Error ? err.message : t('configuracion.errors.submitFailed'));
+      if (err instanceof ConfigMutationError) {
+        const msg = mapConfigMutationErrorToMessage(err, t);
+        if (err.field === 'name') setError(msg);
+        else setGeneralError(msg);
+      } else {
+        setGeneralError(
+          err instanceof Error ? err.message : t('configuracion.errors.submitFailed'),
+        );
+      }
     } finally {
       setSubmitting(false);
     }

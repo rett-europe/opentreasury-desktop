@@ -187,10 +187,19 @@ grows.
 
 ## IPC service wrappers — mirror the contract shape exactly
 
+Confidence: **high** (reinforced by PR #4 round 2 — the round-1 wrapper
+violated this rule in the same PR that codified it).
+
 When wrapping a WI-* IPC channel in a renderer-side service layer, the wrapper
 signature MUST mirror the contract response shape exactly. Do not paper over
 ambiguity with `any` casts or `'field' in result` narrowing — those pass
 typecheck while hiding real integration bugs (see PR #4 aftermath).
+
+**Round-2 lesson — run the SKILL check on your own code before committing.**
+The PR that introduced this very section shipped with `BridgeFn = (req: unknown)
+=> Promise<unknown>` and a hand-rolled `ContractResult` cast. The reviewer bot
+caught it. Always re-read the skill entries that touch the files you changed
+before you push.
 
 WI-21 contract shape for every mutation:
 
