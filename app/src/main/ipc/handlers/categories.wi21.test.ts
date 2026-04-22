@@ -182,4 +182,55 @@ describe('subcategories:create / update / archive / unarchive', () => {
     expect(subs[0]!.name).toBe('Alpha-2');
     expect(subs[1]!.name).toBe('Beta');
   });
+
+  it('create rejects empty-string name at the schema boundary', async () => {
+    const deps = makeDeps();
+    const createCat = createCategoriesCreateHandler(deps);
+    const createSub = createSubcategoriesCreateHandler(deps);
+    const c = await createCat({ name: 'Padre' });
+    if (!c.ok) throw new Error('seed failed');
+    const resp = await createSub({ parentCategoryId: c.event.id, name: '' });
+    expect(resp.ok).toBe(false);
+    if (resp.ok) return;
+    expect(resp.error.code).toBe('SCHEMA_INVALID');
+  });
+
+  it('update rejects all-undefined changes payload via SCHEMA_INVALID', async () => {
+    const deps = makeDeps();
+    const createCat = createCategoriesCreateHandler(deps);
+    const createSub = createSubcategoriesCreateHandler(deps);
+    const updateSub = createSubcategoriesUpdateHandler(deps);
+    const c = await createCat({ name: 'Padre' });
+    if (!c.ok) throw new Error('seed failed');
+    const s = await createSub({ parentCategoryId: c.event.id, name: 'Sub' });
+    if (!s.ok) throw new Error('seed failed');
+    const resp = await updateSub({
+      id: s.event.id,
+      parentCategoryId: c.event.id,
+      changes: { color: undefined },
+    });
+    expect(resp.ok).toBe(false);
+    if (resp.ok) return;
+    expect(resp.error.code).toBe('SCHEMA_INVALID');
+  });
+
+  it('update drops whitespace-only color from subcategory change event', async () => {
+    const deps = makeDeps();
+    const createCat = createCategoriesCreateHandler(deps);
+    const createSub = createSubcategoriesCreateHandler(deps);
+    const updateSub = createSubcategoriesUpdateHandler(deps);
+    const c = await createCat({ name: 'Padre' });
+    if (!c.ok) throw new Error('seed failed');
+    const s = await createSub({ parentCategoryId: c.event.id, name: 'Sub', color: '#aaa' });
+    if (!s.ok) throw new Error('seed failed');
+    const resp = await updateSub({
+      id: s.event.id,
+      parentCategoryId: c.event.id,
+      changes: { name: 'Sub2', color: '   ' },
+    });
+    expect(resp.ok).toBe(true);
+    if (!resp.ok) return;
+    expect('color' in resp.event.changes).toBe(false);
+    expect(resp.event.changes.name).toBe('Sub2');
+  });
 });

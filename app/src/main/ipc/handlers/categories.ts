@@ -170,7 +170,18 @@ export function createCategoriesUpdateHandler(
         }
         normalised.name = trimmed;
       }
-      if (normalised.color !== undefined) normalised.color = normalised.color.trim();
+      if (normalised.color !== undefined) {
+        const trimmed = normalised.color.trim();
+        if (trimmed.length === 0) delete normalised.color;
+        else normalised.color = trimmed;
+      }
+
+      if (!Object.values(normalised).some((v) => v !== undefined)) {
+        return {
+          ok: false,
+          error: { code: 'SCHEMA_INVALID', message: 'changes must be non-empty' },
+        };
+      }
 
       if (normalised.name !== undefined) {
         const clash = existing.some(
@@ -406,7 +417,18 @@ export function createSubcategoriesUpdateHandler(
         }
         normalised.name = trimmed;
       }
-      if (normalised.color !== undefined) normalised.color = normalised.color.trim();
+      if (normalised.color !== undefined) {
+        const trimmed = normalised.color.trim();
+        if (trimmed.length === 0) delete normalised.color;
+        else normalised.color = trimmed;
+      }
+
+      if (!Object.values(normalised).some((v) => v !== undefined)) {
+        return {
+          ok: false,
+          error: { code: 'SCHEMA_INVALID', message: 'changes must be non-empty' },
+        };
+      }
 
       if (normalised.name !== undefined) {
         const clash = parent.subcategories.some(

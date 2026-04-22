@@ -186,10 +186,36 @@ export function createAccountsUpdateHandler(
         }
         normalised.name = trimmed;
       }
-      if (normalised.bankName !== undefined) normalised.bankName = normalised.bankName.trim();
-      if (normalised.label !== undefined) normalised.label = normalised.label.trim();
-      if (normalised.iban !== undefined) normalised.iban = normalised.iban.trim();
-      if (normalised.color !== undefined) normalised.color = normalised.color.trim();
+      if (normalised.bankName !== undefined) {
+        const trimmed = normalised.bankName.trim();
+        if (trimmed.length === 0) delete normalised.bankName;
+        else normalised.bankName = trimmed;
+      }
+      if (normalised.label !== undefined) {
+        const trimmed = normalised.label.trim();
+        if (trimmed.length === 0) delete normalised.label;
+        else normalised.label = trimmed;
+      }
+      if (normalised.iban !== undefined) {
+        const trimmed = normalised.iban.trim();
+        if (trimmed.length === 0) delete normalised.iban;
+        else normalised.iban = trimmed;
+      }
+      if (normalised.color !== undefined) {
+        const trimmed = normalised.color.trim();
+        if (trimmed.length === 0) delete normalised.color;
+        else normalised.color = trimmed;
+      }
+
+      // After normalisation, whitespace-only optional fields have been
+      // dropped. If nothing meaningful remains, reject — the event log
+      // must not contain no-op AccountUpdated events.
+      if (!Object.values(normalised).some((v) => v !== undefined)) {
+        return {
+          ok: false,
+          error: { code: 'SCHEMA_INVALID', message: 'changes must be non-empty' },
+        };
+      }
 
       if (normalised.name !== undefined) {
         const clash = existing.some(

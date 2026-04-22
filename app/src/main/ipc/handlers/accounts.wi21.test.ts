@@ -106,6 +106,53 @@ describe('accounts:update', () => {
     if (resp.ok) return;
     expect(resp.error.code).toBe('SCHEMA_INVALID');
   });
+
+  it('rejects all-undefined changes payload via SCHEMA_INVALID (no no-op events)', async () => {
+    const deps = makeDeps();
+    const create = createAccountsCreateHandler(deps);
+    const update = createAccountsUpdateHandler(deps);
+    const created = await create({ name: 'A1' });
+    if (!created.ok) throw new Error('seed failed');
+    const resp = await update({
+      id: created.event.id,
+      changes: { color: undefined, label: undefined },
+    });
+    expect(resp.ok).toBe(false);
+    if (resp.ok) return;
+    expect(resp.error.code).toBe('SCHEMA_INVALID');
+  });
+
+  it('drops whitespace-only optional strings instead of persisting empty values', async () => {
+    const deps = makeDeps();
+    const create = createAccountsCreateHandler(deps);
+    const update = createAccountsUpdateHandler(deps);
+    const created = await create({ name: 'A1', color: '#111' });
+    if (!created.ok) throw new Error('seed failed');
+    const resp = await update({
+      id: created.event.id,
+      changes: { label: 'keep', color: '   ' },
+    });
+    expect(resp.ok).toBe(true);
+    if (!resp.ok) return;
+    expect(resp.event.changes.color).toBeUndefined();
+    expect('color' in resp.event.changes).toBe(false);
+    expect(resp.event.changes.label).toBe('keep');
+  });
+
+  it('rejects when every optional string is whitespace-only (collapses to no-op)', async () => {
+    const deps = makeDeps();
+    const create = createAccountsCreateHandler(deps);
+    const update = createAccountsUpdateHandler(deps);
+    const created = await create({ name: 'A1' });
+    if (!created.ok) throw new Error('seed failed');
+    const resp = await update({
+      id: created.event.id,
+      changes: { color: '   ', label: '  ' },
+    });
+    expect(resp.ok).toBe(false);
+    if (resp.ok) return;
+    expect(resp.error.code).toBe('SCHEMA_INVALID');
+  });
 });
 
 describe('accounts:archive / unarchive', () => {

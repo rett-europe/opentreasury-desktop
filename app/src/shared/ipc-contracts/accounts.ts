@@ -46,7 +46,9 @@ export const accountChangesSchema = z
     color: z.string().optional(),
     isPaypal: z.boolean().optional(),
   })
-  .refine((c) => Object.keys(c).length > 0, { message: 'changes must be non-empty' });
+  .refine((c) => Object.values(c).some((v) => v !== undefined), {
+    message: 'changes must be non-empty',
+  });
 
 export type AccountChanges = z.infer<typeof accountChangesSchema>;
 

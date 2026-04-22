@@ -55,7 +55,9 @@ export const categoryChangesSchema = z
     color: z.string().optional(),
     kind: categoryKindSchema.optional(),
   })
-  .refine((c) => Object.keys(c).length > 0, { message: 'changes must be non-empty' });
+  .refine((c) => Object.values(c).some((v) => v !== undefined), {
+    message: 'changes must be non-empty',
+  });
 
 export type CategoryChanges = z.infer<typeof categoryChangesSchema>;
 
@@ -103,7 +105,9 @@ export const subcategoryChangesSchema = z
     name: z.string().min(1).optional(),
     color: z.string().optional(),
   })
-  .refine((c) => Object.keys(c).length > 0, { message: 'changes must be non-empty' });
+  .refine((c) => Object.values(c).some((v) => v !== undefined), {
+    message: 'changes must be non-empty',
+  });
 
 export type SubcategoryChanges = z.infer<typeof subcategoryChangesSchema>;
 
@@ -182,7 +186,7 @@ export type CreateCategoryRequest = z.infer<typeof createCategoryRequestSchema>;
 
 export const createSubcategoryRequestSchema = z.object({
   parentCategoryId: z.string().min(1),
-  name: z.string(),
+  name: z.string().min(1),
   color: z.string().optional(),
 });
 

@@ -104,4 +104,29 @@ describe('tags:update / archive / unarchive', () => {
     const all = await list({ includeArchived: true });
     expect(all.tags).toHaveLength(2);
   });
+
+  it('update rejects all-undefined changes payload', async () => {
+    const deps = makeDeps();
+    const create = createTagsCreateHandler(deps);
+    const update = createTagsUpdateHandler(deps);
+    const t = await create({ name: 'x' });
+    if (!t.ok) throw new Error('seed failed');
+    const resp = await update({ id: t.event.id, changes: { color: undefined } });
+    expect(resp.ok).toBe(false);
+    if (resp.ok) return;
+    expect(resp.error.code).toBe('SCHEMA_INVALID');
+  });
+
+  it('update drops whitespace-only color (never persisted as empty string)', async () => {
+    const deps = makeDeps();
+    const create = createTagsCreateHandler(deps);
+    const update = createTagsUpdateHandler(deps);
+    const t = await create({ name: 'x', color: '#112233' });
+    if (!t.ok) throw new Error('seed failed');
+    const resp = await update({ id: t.event.id, changes: { name: 'y', color: '   ' } });
+    expect(resp.ok).toBe(true);
+    if (!resp.ok) return;
+    expect('color' in resp.event.changes).toBe(false);
+    expect(resp.event.changes.name).toBe('y');
+  });
 });
