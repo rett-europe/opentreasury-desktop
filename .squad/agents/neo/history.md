@@ -211,3 +211,4 @@ Event-sourcing edit pattern: **Full payload snapshot (`tx.updated`)** — not fi
 
 - **WI-19 shipped:** Neo scoped, Pedro approved, Morpheus + Trinity delivered. All gates green (345/345 tests). TransactionDetailModal + NotesThread + import wizard mapping live on main. Contract deviations (noteId + id split, transactionsByReference projection) documented in decisions.md.
 - **WI-20 shipped:** Neo scoped, Pedro approved 4 decisions, Morpheus + Trinity delivered. All gates green (360/360 tests). Edit + delete + form refactor live on main. Decisions merged to decisions.md; inbox cleared.
+- **2026-04-22 — NEXT:** Link recommended **WI-22 Saldo** as next priority (primary). WI-23/24 runners-up. See decisions.md § "Link — WI-22 Recommendation (post-WI-21 merge)" for full spec. Polish pass scoped before WI-22. Awaiting Pedro confirmation.

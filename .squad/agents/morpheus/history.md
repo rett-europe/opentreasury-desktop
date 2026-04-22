@@ -996,3 +996,7 @@ All 122 import tests green · typecheck ✓ · lint ✓ · format:check ✓ · b
 **Worth noting for integration testing:** If you're testing the renderer against mock backend data, verify TransactionDetailModal modal width expectations (760px fixed). Tag selection UX now single-click (was Ctrl+click).
 
 See .squad/decisions.md § "2026-04-21: WI-20 Polish" for full decision log (table overflow pattern, modal width rationale, chip picker component spec).
+
+---
+
+**2026-04-22 — NEXT:** Link recommended **WI-22 Saldo** as next priority (primary). WI-23/24 runners-up. See decisions.md § "Link — WI-22 Recommendation (post-WI-21 merge)" for full spec. Query + property-test scope awaiting Neo tech spec. Awaiting Pedro confirmation.

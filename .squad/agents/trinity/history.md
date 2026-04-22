@@ -1192,3 +1192,7 @@ branch — you'll eat a teammate's unformatted WIP into your diff.
 - i18n leak pattern: non-create catch blocks (edit modal, archive dialog) must map `ConfigMutationError.code` to `configuracion.errors.<key>` the same way `applyServerError` already does for create. Raw `err.message` is server English and will show up in a Spanish UI. Added shared helper `mapConfigMutationErrorToMessage(err, t)`.
 - Own-skill lesson: `config-screen-pattern/SKILL.md` explicitly warned against loose `any` / `unknown` casts in IPC wrappers, and my round-1 `configMutationsApi.ts` violated that rule **in the same PR that introduced the rule**. New meta-lesson: **Always run the SKILL check on your own code before committing** — the skill hadn't been re-read after the wrapper was written. Skill confidence bumped from medium → high, with a self-referential note.
 - Contract re-export pattern: when a renderer service duplicates a contract type (`SubcategoryRecord`), re-export from the service module so call sites keep their single import path while the type source-of-truth stays in `app/src/shared/ipc-contracts/`.
+
+---
+
+**2026-04-22 — NEXT:** Link recommended **WI-22 Saldo** as next priority (primary). WI-23/24 runners-up. See decisions.md § "Link — WI-22 Recommendation (post-WI-21 merge)" for full spec. Polish pass (table scroll, date locale) scoped before WI-22. Awaiting Pedro confirmation.

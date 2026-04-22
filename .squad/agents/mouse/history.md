@@ -341,3 +341,7 @@ This 120px difference caused the modal to shrink when entering edit mode.
 **RULE:** Modal min-height must be set on the OUTER shell and be IDENTICAL for both view and edit modes. If inner content varies, use consistent min-height so the container doesn't reflow on toggle.
 
 **COMMIT:** see commit hash below
+
+---
+
+**2026-04-22 — NEXT:** Link recommended **WI-22 Saldo** as next priority (primary). WI-23/24 runners-up. See decisions.md § "Link — WI-22 Recommendation (post-WI-21 merge)" for full spec. Chart primitive decision (sparkline reuse vs new grouped-bar) deferred to Neo; locale polish (date formatting) flagged for pre-WI-22 pass. Awaiting Pedro confirmation.

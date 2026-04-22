@@ -178,3 +178,18 @@ Trinity fixed the visual regression on Movimientos (rows rendering above sticky 
 
 
 - **2026-04-21 — WI-21 recommendation:** After PR#3 shipped the Config screens renovation, the biggest product hole is that Cuentas/Categorías/Etiquetas are read+create only — no Edit, no Delete, no subcategories. Recommended WI-21 `Config CRUD Completion`: Morpheus owns the missing `*.updated` / `*.deleted` events (account, category, subcategory x4, tag) + IPC handlers; Trinity wires the edit/delete modals into the already-built screens; Switch reviews delete-cascade semantics. Explicitly OUT: usage counts (still blocked by configAccount↔tx accountId decoupling — needs its own WI), bulk ops, CSV export. Alternatives offered: Saldo screen implementation (still placeholder), bulk ops on Movements (Pedro flagged must-have 2026-04-19), or the configAccount id reconciliation that unblocks usage counts. Picked CRUD because it finishes the slice Pedro just opened rather than starting a new surface.
+
+### 2026-04-22 — WI-22 recommendation: Saldo screen (M1 closer)
+
+With WI-21 merged (PR #4, edae3e8), only one M1 exit-criterion surface remains unshipped: **Saldo**. All three canonical screens (Panel, Movements, Saldo) are a roadmap commitment and Saldo is still `<ComingSoonScreen />`. Recommended **WI-22 = Saldo** (PRD-002 + UX-004 already Accepted; no new event catalog; pure read-model work). Shipping it flips the Internal Alpha gate open and closes the M1 row.
+
+**Candidates ranked:**
+1. 🥇 WI-22 Saldo — user-facing, closes M1, all specs ready.
+2. 🥈 WI-23 configAccount/tx id unification — unblocks usage counts + hard-delete, but low user visibility; sequence after Saldo so Internal Alpha ships with visible value.
+3. 🥉 WI-24 Global search (⌘K) — prototype parity, but roadmap-slotted for M3; defer.
+
+**Pre-WI-22 polish pass (≤ half day):** Movements table horizontal scroll ~1350px (same table primitive Saldo will reuse), TransactionDetailModal date/locale polish (Intl formatting Saldo leans on), and the Pedro-deferred "header situation" (needs one-line clarification before I can route it). **Rolled INTO WI-22:** Intl formatter scaffolding, period-selector primitive. **Explicitly NOT in polish:** hard-delete and usage counts (blocked on WI-23).
+
+**Rationale for sequencing user-facing before platform:** Internal Alpha gate is a confidence moment; Pedro is the dogfooder; Saldo is the board-meeting surface treasurers ask for. Config plumbing cleanup can happen next with zero visible regression. Kept scope honest — resisted bundling bulk actions, CSV export, or global search into the Saldo slice.
+
+Recommendation written to `.squad/decisions/inbox/link-next-wi-recommendation.md`.
