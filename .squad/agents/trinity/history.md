@@ -1164,3 +1164,17 @@ abandons, Enter commits, autoFocus on the input.
 `prettier --write` on just my files dropped the count to 23; the residual
 8 are all Morpheus's domain. Never run `prettier --write .` on a shared
 branch — you'll eat a teammate's unformatted WIP into your diff.
+
+## Learnings - WI-21 PR#4 review-fix round (2026-04-22)
+
+**Preload subcategory path is `categories.subcategory.*`, not top-level.** Morpheus nested subcategory CRUD under the parent `categories` namespace on `window.opentreasury` (no top-level `subcategories`). There is also no `list` method: subcategories are inlined on `CategoryRecord.subcategories[]` from `categories:list`. Renderer code that assumed a separate list/namespace is a guaranteed runtime bug.
+
+**Every WI-21 IPC response is `{ ok: true, event } | { ok: false, error: { code, message } }`.** The renderer service layer MUST mirror that exactly and convert `ok:false` to a thrown error (I kept a typed `ConfigMutationError` carrying `code`/`field` for future per-code UX). Loose `as { account: X } | X` casts hide this bug — typecheck will not catch it. Update wrappers now return `Promise<void>`; callers reload via the parent `load()`. Only `createSubcategory` returns a synthesised record (the `SubcategoryCreated` event is rich enough).
+
+**`archivedAt?: string` is the canonical archive flag — there is no boolean `archived`.** `isArchived` must check `archivedAt !== undefined`. Dropped the speculative `archived?: boolean` from `ArchivableMeta` to stop future drift.
+
+**`includeArchived` must be threaded through the list calls.** Default list shape is active-only. A `showArchived` toggle that does not pass `{ includeArchived: true }` is cosmetic — the archived rows are never in the payload to begin with. Re-run `load()` on toggle change (effect dep).
+
+**Opening balance is immutable in edit mode.** Event-sourced semantics: genesis state anchors the balance history. The contract's `accountChangesSchema` deliberately omits `openingBalance`; the renderer must omit it from edit-mode `changes` and should visually signal the constraint (read-only input + hint).
+
+**Parallel-agent integration lesson.** When Morpheus and Trinity ship the two halves of a single WI in parallel (IPC contract + renderer), the renderer MUST be validated against the **actual** final preload shape — not the assumed/early-draft one. Typecheck/lint/tests can all pass while runtime is broken because the service layer used `any` casts and optional-chain runtime detection. Future WIs: add an explicit "renderer smoke pass against actual bridge" gate before opening a PR when two agents contribute to one feature.

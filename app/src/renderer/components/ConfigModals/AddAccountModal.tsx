@@ -125,10 +125,9 @@ export function AddAccountModal({
           iban: !isPaypal && iban.trim() ? iban.trim() : undefined,
           color,
           isPaypal,
-          ...(parsed !== undefined ? { openingBalance: parsed } : {}),
         };
-        const updated = await updateAccount(record.id, changes);
-        onSaved(updated);
+        await updateAccount(record.id, changes);
+        onSaved(record);
         onClose();
         return;
       }
@@ -340,7 +339,14 @@ export function AddAccountModal({
           onChange={(e) => setOpeningBalance(e.target.value)}
           aria-invalid={Boolean(errors.openingBalance)}
           aria-describedby={errors.openingBalance ? 'acc-opening-err' : undefined}
+          readOnly={mode === 'edit'}
+          disabled={mode === 'edit'}
         />
+        {mode === 'edit' ? (
+          <span className="ot-config-modal__field-hint">
+            {t('configuracion.cuentas.modal.openingBalanceImmutable')}
+          </span>
+        ) : null}
         {errors.openingBalance ? (
           <span id="acc-opening-err" className="ot-config-modal__field-error">
             {errors.openingBalance}

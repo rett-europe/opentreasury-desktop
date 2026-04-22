@@ -71,8 +71,8 @@ export function AddTagModal({
     setSubmitting(true);
     try {
       if (mode === 'edit' && record) {
-        const updated = await updateTag(record.id, { name: trimmed, color });
-        onSaved(updated);
+        await updateTag(record.id, { name: trimmed, color });
+        onSaved(record);
         onClose();
         return;
       }

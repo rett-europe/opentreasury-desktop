@@ -313,7 +313,8 @@
       "openingBalance": "Opening balance (€)",
       "modal": {
         "title": "New account",
-        "editTitle": "Edit account"
+        "editTitle": "Edit account",
+        "openingBalanceImmutable": "Opening balance can't be changed after account creation."
       },
       "actions": {
         "edit": "Edit",

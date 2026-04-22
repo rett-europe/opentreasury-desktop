@@ -313,7 +313,8 @@
       "openingBalance": "Saldo inicial (€)",
       "modal": {
         "title": "Nueva cuenta",
-        "editTitle": "Editar cuenta"
+        "editTitle": "Editar cuenta",
+        "openingBalanceImmutable": "El saldo inicial no puede modificarse después de crear la cuenta."
       },
       "actions": {
         "edit": "Editar",

@@ -11,7 +11,6 @@ import {
   archiveSubcategory,
   createSubcategory,
   isArchived,
-  listSubcategories,
   unarchiveCategory,
   unarchiveSubcategory,
   updateSubcategory,
@@ -62,7 +61,6 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [subs, setSubs] = useState<readonly SubcategoryRecord[]>([]);
   const [subAddName, setSubAddName] = useState('');
   const [subAddOpen, setSubAddOpen] = useState(false);
   const [subEditing, setSubEditing] = useState<SubcategoryRecord | null>(null);
@@ -73,36 +71,21 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const resp = await listCategories();
+      const resp = await listCategories({ includeArchived: showArchived });
       const cats = resp.categories as readonly ConfigCategory[];
       setState({ kind: 'loaded', categories: cats });
-      if (cats.length > 0 && !selectedId) {
-        setSelectedId(cats[0]?.id ?? null);
-      }
+      setSelectedId((prev) => {
+        if (prev && cats.some((c) => c.id === prev)) return prev;
+        return cats[0]?.id ?? null;
+      });
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : 'unknown' });
     }
-    // selectedId intentionally excluded — we only seed it once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => {
     void load();
   }, [load]);
-
-  const loadSubs = useCallback(async (parentId: string) => {
-    try {
-      const list = await listSubcategories(parentId);
-      setSubs(list);
-    } catch {
-      setSubs([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (selectedId) void loadSubs(selectedId);
-    else setSubs([]);
-  }, [selectedId, loadSubs]);
 
   const handleSaved = useCallback(
     (_saved: CategoryRecord) => {
@@ -182,13 +165,13 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
       await createSubcategory(selectedId, trimmed);
       setSubAddName('');
       setSubAddOpen(false);
-      await loadSubs(selectedId);
+      await load();
     } catch (err) {
       setSubError(err instanceof Error ? err.message : t('configuracion.errors.submitFailed'));
     } finally {
       setSubBusy(false);
     }
-  }, [selectedId, subAddName, loadSubs, t]);
+  }, [selectedId, subAddName, load, t]);
 
   const submitSubEdit = useCallback(async () => {
     if (!subEditing) return;
@@ -203,29 +186,33 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
       await updateSubcategory(subEditing.id, subEditing.parentCategoryId, { name: trimmed });
       setSubEditing(null);
       setSubEditName('');
-      await loadSubs(subEditing.parentCategoryId);
+      await load();
     } catch (err) {
       setSubError(err instanceof Error ? err.message : t('configuracion.errors.submitFailed'));
     } finally {
       setSubBusy(false);
     }
-  }, [subEditing, subEditName, loadSubs, t]);
+  }, [subEditing, subEditName, load, t]);
 
   const doSubArchive = useCallback(async () => {
     if (!subArchiveTarget) return;
     await archiveSubcategory(subArchiveTarget.id, subArchiveTarget.parentCategoryId);
-    await loadSubs(subArchiveTarget.parentCategoryId);
-  }, [subArchiveTarget, loadSubs]);
+    await load();
+  }, [subArchiveTarget, load]);
 
   const doSubUnarchive = useCallback(
     async (sub: SubcategoryRecord) => {
       await unarchiveSubcategory(sub.id, sub.parentCategoryId);
-      await loadSubs(sub.parentCategoryId);
+      await load();
     },
-    [loadSubs],
+    [load],
   );
 
-  const visibleSubs = subs.filter((s) => showArchived || !isArchived(s));
+  const selectedSubs = useMemo<readonly SubcategoryRecord[]>(
+    () => (selected?.subcategories ?? []) as readonly SubcategoryRecord[],
+    [selected],
+  );
+  const visibleSubs = selectedSubs.filter((s) => showArchived || !isArchived(s));
 
   return (
     <>

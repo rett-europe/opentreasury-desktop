@@ -57,12 +57,12 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const resp = await listAccounts();
+      const resp = await listAccounts({ includeArchived: showArchived });
       setState({ kind: 'loaded', accounts: resp.accounts as readonly ConfigAccount[] });
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : 'unknown' });
     }
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => {
     void load();

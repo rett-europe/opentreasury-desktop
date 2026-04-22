@@ -45,12 +45,12 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const resp = await listTags();
+      const resp = await listTags({ includeArchived: showArchived });
       setState({ kind: 'loaded', tags: resp.tags as readonly ConfigTag[] });
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : 'unknown' });
     }
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => {
     void load();
