@@ -65,6 +65,112 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 - **Dev-seed unification:** Migrated to deterministic PRNG. Year-range expansion (2025–2026) for Saldo YoY testing.
 
 All work validated: typecheck ✓, tests (436+) ✓, property tests ✓.
+## 2026-04-23 — WI-23 unify-projections plan (rev-2, Switch-approved with C1–C3)
+
+**Status:** DESIGN DOC. Switch approved the plan in `.squad/agents/switch/history.md` (2026-04-23) with three conditions (C1 MUST, C2 MUST, C3 STRONGLY RECOMMEND). Issue #18 acceptance requires the design doc merged before the implementation PR — this entry IS that merged doc. Scribe may mirror into `.squad/decisions.md` post-merge; `.squad/decisions/inbox/` is gitignored and doesn't propagate from a Copilot-agent session.
+
+### Problem (from issue #18)
+
+The read model runs two parallel account-projection streams with incompatible id schemes:
+- **Legacy enveloped** `account.created` / `category.created` / `tag.created` — populate `readModel.accounts` / `.categories` / `.tags`. Ids here are what `transaction.accountId` (and `categoryId` / `tagIds`) references.
+- **WI-15-lite flat** `AccountCreated` / `CategoryCreated` / `TagCreated` — populate `readModel.configAccounts` / `.configCategories` / `.configTags`. Ids are decoupled from anything transactions reference.
+
+Any left-join `transactions[].accountId ⋈ configAccounts[].id` yields zero matches today. That blocks (a) "N movimientos" usage columns on Config screens, (b) the migrate-then-delete flow Switch deferred in WI-21, and (c) prototype fidelity on Cuentas.
+
+### Design — option (b) from issue: fold both event types into one projection, migrate seed
+
+**PR #1 — core unification (this design doc is the gate).**
+
+1. **Schema grow** in `app/src/core/events/schemas.ts`:
+   - `configAccountCreatedEventSchema` gains required `sortOrder: z.number().int().nonnegative()`.
+   - `configCategoryCreatedEventSchema` gains required `sortOrder: z.number().int().nonnegative()`.
+   - `configTagCreatedEventSchema` gains required `sortOrder: z.number().int().nonnegative()`.
+   - The legacy `accountCreatedEventSchema` / `categoryCreatedEventSchema` / `tagCreatedEventSchema` stay declared (for test fixtures that reference the types) but are no longer accepted by the event-log loader — see boot-guard below.
+
+2. **Reducer collapse** in `app/src/core/query/reducers.ts`:
+   - Delete the three legacy `case 'account.created' | 'category.created' | 'tag.created'` branches.
+   - Extend the three `case 'AccountCreated' | 'CategoryCreated' | 'TagCreated'` branches to materialize `sortOrder` (required), and to produce records that are simultaneously usable as the old `Account` / `Category` / `Tag` AND the new `ConfigAccount` / `ConfigCategory` / `ConfigTag` — we achieve this by **deleting the legacy arrays from `ReadModel` entirely** and redirecting every consumer to the config arrays.
+
+3. **Boot-guard** in `app/src/core/eventLog/JsonFileEventLog.ts` (Neo D1 — non-negotiable):
+   - On load, the loader's `switch (type)` refuses events whose `type` is `account.created` / `category.created` / `tag.created` with a stable `LEGACY_EVENT_TYPE_REJECTED` error code. Error message names the offending type and points at `docs/security/security-requirements-v0.1.md` §"Schema migration policy" (C1).
+   - Also refuses `AccountCreated` / `CategoryCreated` / `TagCreated` events missing the now-required `sortOrder` field, via Zod parse failure — Neo D2, Switch C2 second half.
+
+4. **Handler auto-assignment** in `app/src/main/ipc/handlers/accounts.ts` / `categories.ts` / `tags.ts` (Neo D2):
+   - On Create, handler computes `sortOrder = max(existing.sortOrder ∪ {-1}) + 1` over active records of the same entity type (categories: globally; subcategories: per parent; tags: globally; accounts: globally).
+   - This is a main-process computation; renderer never supplies `sortOrder`. Keeps the append-only wire contract authoritative.
+
+5. **devSeed migration** in `app/src/main/devSeed.ts`:
+   - Accounts: replace `account.created` enveloped emit with `AccountCreated` flat emit. Assign `sortOrder` from the `ACCOUNTS[].sortOrder` constant already present.
+   - Categories / Tags: already emit flat `CategoryCreated` / `TagCreated` — add required `sortOrder` derived from array index.
+   - `fakeUlid(acc.key)` still produces the deterministic id that `transaction.accountId` references, so the transaction → account linkage survives the migration without changing any `tx.created` payload.
+
+6. **Consumer migration** — every legacy-array reader redirects:
+   - `app/src/core/query/queries.ts:37` (`getAccountBalances`) — map over `model.configAccounts` instead of `model.accounts`. `sortOrder` now lives on `ConfigAccount` (added by §1).
+   - `app/src/core/query/queries.ts:146` (`listAccounts`) — same switch. Preserve `sortOrder ASC, label ASC` sort; `label` becomes `name` on the config shape (or fall through to `name` when `label` is absent).
+   - `app/src/core/commands/createTransaction.ts:143` — `deps.readModel.accounts.some(...)` → `deps.readModel.configAccounts.some(...)`.
+   - `selectPanelSnapshot` — no direct reads of the three legacy arrays today (verified via grep on `readModel.accounts|.categories|.tags` — only the reducer itself, `getAccountBalances`, and `createTransaction` show up). Panel reads flow through the unified config selectors already.
+
+7. **ReadModel shape** in `app/src/core/query/types.ts`:
+   - Remove `accounts` / `categories` / `tags` from `ReadModel`. Remove `Account` / `Category` / `Tag` / `Subcategory` entity interfaces (no other consumers).
+   - `ConfigAccount` gains `sortOrder: number` (required). `ConfigCategory` gains `sortOrder: number` (required). `ConfigTag` gains `sortOrder: number` (required).
+
+8. **SECURITY.md precedent-lock (Switch C1 — MUST).**
+   - Append "Schema migration policy" section to `docs/security/security-requirements-v0.1.md`. Text below. Non-negotiable per Switch — without this, the boot-guard pattern silently becomes the default for every future config-schema change and turns into a 🔴 High-class data-loss UX failure the first time it hits real NGO data.
+
+**PR #1 NOT included:**
+- Usage-count selectors (`selectAccountUsage` / `selectCategoryDirectUsage` / `selectSubcategoryUsage` / `selectTagUsage`) and the `usage?` IPC sidecar — **PR #2**.
+- `selectAccountReferences` / `accounts:listReferences` — **PR #2 or PR #3** (Switch C3; my call, I'll ship in PR #2 alongside `selectAccountUsage` since the marginal cost is one array-map).
+- The `Cuentas` / `Categorías` / `Etiquetas` "N movimientos" column in the UI — **Trinity follow-up**, chained on PR #2's wire contract.
+- Hard-delete / migrate-then-delete — deferred to a Switch-owned follow-up ticket (WI-21 ruling).
+- Global search, bulk ops, CSV export — out of scope per issue.
+
+### Replay invariants (plan §10, Switch-approved, C2 extends the test set)
+
+Property tests in `app/src/core/query/reducers.test.ts` (or adjacent):
+- **I1 — ID continuity.** For every `ConfigAccount` / `ConfigCategory` / `ConfigTag` produced post-migration, there exists a `tx.created` event whose `accountId` / `categoryId` / `tagIds` references that id with the same ULID. No id drift across the pre/post reducer boundary.
+- **I2 — No orphan transactions.** `∀ tx. tx.accountId ∈ configAccounts[].id ∧ (tx.categoryId === null ∨ tx.categoryId ∈ configCategories[].id) ∧ (∀ t ∈ tx.tagIds. t ∈ configTags[].id)`. Built by folding the post-migration dev-seed stream.
+- **I3 (Switch C2) — Boot-guard refuses legacy event types.** Three micro-tests, one each for `account.created` / `category.created` / `tag.created`: construct a one-event NDJSON, assert the loader throws with `code === 'LEGACY_EVENT_TYPE_REJECTED'` and a message naming the type.
+- **I4 (Switch C2 extension) — Boot-guard refuses unified events missing `sortOrder`.** Three micro-tests, one each for `AccountCreated` / `CategoryCreated` / `TagCreated`: construct an event with all other required fields but no `sortOrder`, assert Zod parse failure on load.
+
+### Switch C1–C3 treatment
+
+- **C1 (MUST — SECURITY precedent-lock).** Landed in this PR. See text below.
+- **C2 (MUST — boot-guard tests).** Four micro-tests (I3 × 3 + I4) in the reducers/eventLog test suite. Landed in PR #1.
+- **C3 (STRONGLY RECOMMEND — `selectAccountReferences`).** I'm shipping it in PR #2 alongside `selectAccountUsage`. Dedicated `accounts:listReferences` IPC (not inlined into the `accounts:list` sidecar — Switch's O(N_transactions) vs O(N_entities) point is correct). Documented as known work: `selectCategoryRollupReferences` (direct + sub union) is ALSO needed eventually but deferred to the migrate-then-delete PR that actually consumes it.
+
+### SECURITY.md §"Schema migration policy" — draft text (C1)
+
+> ### Schema migration policy (added 2026-04-23, WI-23)
+>
+> The event log is the system of record. Its append-only contract is one of the few invariants this project does not negotiate away. Any PR that changes the shape of persisted events — renaming event types, making previously-optional fields required, collapsing two parallel projections into one — MUST include a forward-migration strategy for logs written before the change.
+>
+> **Acceptable forward-migration strategies (in order of preference):**
+>
+> 1. **Back-compat read.** The loader silently maps the old event shape into the new one on read. Old NDJSON files continue to replay cleanly.
+> 2. **Explicit one-shot rewrite.** A migration pass rewrites the NDJSON file in-place, producing a new log that conforms to the new shape. Original log tagged with a version suffix for rollback.
+> 3. **Boot-guard refusal.** The loader refuses to process logs containing old-shape events, requiring the user to manually export-then-reimport via an old build.
+>
+> **Strategy 3 is acceptable ONLY before the first real-user install.** After the Internal Alpha graduates to real NGO data, any PR that lands a Strategy 3 migration — "refuse to boot on old events" — is a 🔴 High-severity data-loss defect and must be rejected on security review. The reason: "`git checkout` an old tag, run the old binary, CSV-export, then migrate" is not a valid user workflow for treasury data under a 7-year retention obligation. It WILL result in real data loss from real NGOs.
+>
+> **Precedent: WI-23 (2026-04-23).** The unification of `account.created` / `category.created` / `tag.created` into `AccountCreated` / `CategoryCreated` / `TagCreated` used Strategy 3 because this predated the first real-user install. The `pre-wi23-log-compat` git tag provides a fully-functional pre-migration binary for any dogfood user that needs to CSV-export before wiping their events log. This precedent does NOT authorize Strategy 3 for any future migration.
+
+### Rollback
+
+PR #1 is a breaking change for any NDJSON log already written with the old event types. Rollback path: `git checkout pre-wi23-log-compat` (to be tagged by Pedro before merge), relaunch the app, CSV-export, reset, upgrade, re-import. Documented for the <10 dogfooders on Internal Alpha — none of whom carry real NGO data.
+
+### Durable learnings
+
+- **`.squad/decisions/inbox/` is gitignored in the Copilot-agent session context.** Design docs that need to ship with a PR belong in `agents/<name>/history.md` (committed, append-only, agent-owned) or in the PR description. Scribe's merge into `.squad/decisions.md` is a convenience on Pedro's local machine, not a correctness requirement for a coding-agent PR.
+- **Event-sourced projections with overlapping id spaces are a bug-farm.** When two event types produce two arrays that the consumers then cross-reference by id, and the two event types don't share an id space, every consumer that reads "the wrong one" silently works on empty data. The symptom is always "the count is zero and nobody knows why." The fix is not "join by a fallback key" — it's "delete one of the projections and migrate the emitters." WI-23 is exhibit A.
+- **`sortOrder` on Config entities is a required field, assigned by the handler not the user.** Making it optional with a default of 0 gives every newly-created account the same sortOrder as the first one, which silently breaks the intended ordering until the user manually reorders. Making it required with a handler-computed `max+1` means ordering is correct by default and the wire contract forces every writer to think about it. This is the pattern for every future "ordinal" field in the config schemas.
+- **Boot-guard refusal is a one-shot precedent lever, not a reusable migration pattern.** Using it once in dogfood is defensible. Using it twice sets the norm. The SECURITY precedent-lock note is how you spend the one shot without setting the norm.
+
+### PR plan
+
+- PR #1 (this design doc + SECURITY note) — docs-only. Opens now. Gate: Pedro tags `pre-wi23-log-compat` on `main` before approving.
+- PR #1b — implementation (schemas, reducer, boot-guard, devSeed, consumers, ReadModel shape, I1–I4 tests). Opens after PR #1 merges.
+- PR #2 — usage selectors + `accounts:listReferences` IPC + i18n keys for "N movimientos" column. Trinity's UI wiring chains on this.
+- PR #3 (Trinity) — "N movimientos" column rendering in Cuentas / Categorías / Etiquetas.
 
 ## 2026-04-23 — Trinity Saldo chart redesign: IPC contract extension (monthlyIncome[12] + monthlyExpense[12])
 
