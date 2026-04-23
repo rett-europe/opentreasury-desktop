@@ -2,6 +2,105 @@
 
 ## Active Decisions
 
+### 2026-04-23: Trinity — Saldo chart redesign (monthly income-vs-expense pivot, CY-only)
+
+**Date:** 2026-04-23  
+**Status:** ✅ SHIPPED (PR #17, `feat/saldo-redesign-per-category`)  
+**By:** Trinity (Frontend Dev)  
+**Requested by:** perocha (Pedro)
+
+## Decision: Replace Per-Category Grouped Chart with Monthly Income-vs-Expense
+
+**The redesign replaces the previous month-net YoY grouped-bar chart (current-year net vs prior-year net per month) with a new layout:**
+
+1. **Chart (top)** — Always-current-year **monthly income vs expense** as absolute bars.
+   - **12 monthly groups**, 2 bars per group: income (green) + expense (red), absolute (positive) values.
+   - Shown in both `compare` and `single` modes; chart is **mode-agnostic**.
+   - Chart always reflects the calendar year containing the request anchor, independent of period selection.
+   - Fed by new IPC fields `SaldoComparisonResponse.monthlyIncome[12]` and `.monthlyExpense[12]`.
+
+2. **Panels (bottom)** — Per-category detail, **mode-aware**.
+   - **Compare mode** (default): LY-vs-CY bars + delta + "vs {{year}}" sublabel per row.
+   - **Single mode**: type column (income/expense) + amount + % of total per row.
+   - Continue to be fed by `currentPeriod.netByCategory` / `priorPeriod.netByCategory`.
+
+**YoY comparison lives exclusively in the panels**. The chart only answers "how did each month of the selected year look in absolute terms?".
+
+### Context & Rationale (Pedro)
+
+Earlier spec shipped per-category grouped bars (CY vs LY per category). This duplicated information already rendered by the panels and hid the intuitive monthly pulse. Pedro's clarification: **"monthly income vs expense chart at top + per-category bars below; chart always current year (12 bars: income + expense); YoY handled by panels."**
+
+The redesign simplifies the mental model: the chart answers "when did income spike?" (scan horizontally by month), and the panels answer "which categories grew?" (scan vertically by category + compare-mode rows).
+
+### Scope of Changes (PR #17 extension — no new PR required)
+
+**Backend (Morpheus/Neo responsibility, but Trinity extends IPC contract):**
+- `app/src/shared/ipc-contracts/saldo.ts` — added `monthlyIncome` + `monthlyExpense` (length-12 non-negative number arrays).
+  - `monthlySeries` and `priorMonthlySeries` kept and marked `@deprecated` (lots of downstream invariant tests still rely on them; pruning is separate debt).
+- `app/src/core/query/saldo.ts` — computes the new fields by running `buildMonthlySeries` over a synthesized `{start: anchorYear-01-01, end: anchorYear-12-31}` range.
+
+**Frontend (Trinity):**
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.tsx` — rewritten state model (mode + year(s) persisted in `localStorage` `saldo.view.v2`), new `MonthlyChart` component renders 12 groups × 2 series.
+  - Mode selector + year pickers preserved (they now drive only the panels + KPI strip).
+  - `CategoryChart` component removed.
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.css` — added `.ot-saldo-controls`, `.ot-saldo-mode`, `.ot-saldo-year-picker` styles; capped `.ot-saldo-chart` at `max-width: 960px; margin-inline: auto` (per Mouse-saldo-chart-sizing.md).
+- i18n (`en/common.json`, `es/common.json`) — added `saldo.chart.monthlyTitle`, `.monthlySubtitle`, `.monthlyAriaLabel`, `.legend.income`, `.legend.expense`, `.months.{jan..dec}`. Removed compare/single chart-level keys.
+- Tests updated: `SaldoScreen.test.tsx` now asserts 12 monthly groups (not per-category).
+
+### Non-Goals (still true)
+
+- KPI strip unchanged (3 cards, deltas only in compare mode).
+- Period selector removed (was removed earlier).
+- Chart sizing (`height: 280px`, no `max-width` on `.ot-saldo-chart`) preserved from mouse-saldo-chart-sizing.md.
+
+### Validation
+
+- `npm run typecheck` ✅
+- `npm run lint` ✅ (max-warnings 0)
+- `npm test -- --run` ✅ — 468 passed / 9 skipped
+- `npx prettier --write` on every touched file ✅
+
+### Follow-up Debt (priority for Morpheus/Neo)
+
+1. **Backend contract cleanup PR**: drop `monthlySeries`, `priorMonthlySeries`, `currentProjectedTotal`, `isPartial`, `daysElapsed`, `daysInPeriod` from `SaldoComparisonResponse`.
+   - Touches: `app/src/shared/ipc-contracts/saldo.ts`, `app/src/main/ipc/handlers/saldo.ts`, `app/src/core/query/saldo.ts`, and their tests.
+2. **Available transaction years IPC**: today the year picker hard-codes the last 6 calendar years. A small `saldo:get-available-years` query (or extending `getSaldoComparison` with a `meta.years` array) would honour the spec's `min = earliest year in any transaction` rule.
+3. **Optional**: per-subcategory drill-down in the chart (out of scope — Pedro can prioritise if NGO admins ask).
+
+### IPC Contract Extension Summary
+
+**Before:**
+```ts
+type SaldoComparisonResponse = {
+  currentPeriod: TotalsAgg;
+  priorPeriod: TotalsAgg;
+  monthlySeries: MonthlyNet[];       // current-year monthly net
+  priorMonthlySeries: MonthlyNet[];  // prior-year monthly net
+  currentProjectedTotal: number;     // (deprecated)
+  isPartial: boolean;                // (deprecated)
+  daysElapsed: number;               // (deprecated)
+  daysInPeriod: number;              // (deprecated)
+};
+```
+
+**After:**
+```ts
+type SaldoComparisonResponse = {
+  currentPeriod: TotalsAgg;
+  priorPeriod: TotalsAgg;
+  monthlyIncome: number[];           // [12] CY absolute income per month
+  monthlyExpense: number[];          // [12] CY absolute expense per month
+  monthlySeries: MonthlyNet[];       // @deprecated — kept for backward compat with tests
+  priorMonthlySeries: MonthlyNet[];  // @deprecated — kept for backward compat with tests
+  currentProjectedTotal: number;     // @deprecated
+  isPartial: boolean;                // @deprecated
+  daysElapsed: number;               // @deprecated
+  daysInPeriod: number;              // @deprecated
+};
+```
+
+---
+
 ### 2026-04-21: WI-20 — Edit UX fixes (in-place swap, MovementsScreen wiring, width)
 
 # WI-20 Edit UX: In-Place Swap Pattern

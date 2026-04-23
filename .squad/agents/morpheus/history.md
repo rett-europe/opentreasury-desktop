@@ -43,6 +43,21 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-04-23 — Trinity Saldo chart redesign: IPC contract extension (monthlyIncome[12] + monthlyExpense[12])
+
+**Status:** Shipped on PR #17 (`feat/saldo-redesign-per-category`). Trinity pushed monthly income-vs-expense chart pivot. Backend contract extended; `monthlySeries`/`priorMonthlySeries` marked `@deprecated` for backward compat with tests. Follow-up: Morpheus/Neo drop deprecated fields in next contract-cleanup PR.
+
+**For Morpheus (backend owner):**
+- Extend `SaldoComparisonResponse` in `app/src/shared/ipc-contracts/saldo.ts` with `monthlyIncome: number[]` (length 12) and `monthlyExpense: number[]` (length 12).
+- In `app/src/core/query/saldo.ts`, compute both by running `buildMonthlySeries` over a synthesized year-range `{start: anchorYear-01-01, end: anchorYear-12-31}` (independent of requested period).
+- Keep existing `monthlySeries` + `priorMonthlySeries` for now (marked `@deprecated` in comments); drop in follow-up PR once Trinity's SaldoScreen test suite fully migrates.
+- Full debt list: drop `monthlySeries`, `priorMonthlySeries`, `currentProjectedTotal`, `isPartial`, `daysElapsed`, `daysInPeriod` in a separate "contract cleanup" PR (priority follow-up).
+
+**Durable lesson (generalized):**
+- When a frontend redesign touches the IPC contract, batch the contract changes with the frontend PR (don't split across repos).
+- Mark fields as `@deprecated` when tests/old code paths still depend on them; schedule cleanup debt explicitly.
+- Communicate contract extensions to backend owner immediately (this note) so they know what tests to update next.
+
 ## 2026-04-22T20:30:00Z — Dev-seed backfill for Saldo YoY validation
 
 **Status:** Shipped on `chore/dev-seed-2025-2026` (PR #13). Unblocks Pedro's visual validation of the Saldo screen (year-over-year chart + Ingresos/Gastos category panels).
