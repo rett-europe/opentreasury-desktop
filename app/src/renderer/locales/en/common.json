@@ -736,13 +736,17 @@
       },
       "taxonomy": {
         "heading": "Detected categories, subcategories and tags",
+        "hint": "Matched values will be attached to each transaction. Unmatched ones will import empty; you can create them later from Configuration.",
         "fields": {
           "categories": "Categories",
           "subcategories": "Subcategories",
           "tags": "Tags"
         },
-        "known": "Matched ({{count}}): {{names}}",
-        "unknown": "No match ({{count}}): {{names}} — rows will import without this value"
+        "cardTotals": "{{known}} matched · {{unknown}} unmatched",
+        "knownLabel": "Matched · {{count}}",
+        "unknownLabel": "Unmatched · {{count}}",
+        "andMore": "+{{count}} more",
+        "unknownNote": "Rows will import without this value."
       }
     },
     "confirm": {

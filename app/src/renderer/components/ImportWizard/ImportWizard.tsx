@@ -555,35 +555,95 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
               );
               if (!hasAny) return null;
               return (
-                <div className="ot-import-wizard__taxonomy-preview">
+                <section className="ot-import-wizard__taxonomy-preview">
                   <h3>{t('importWizard.dryRun.taxonomy.heading')}</h3>
-                  {fieldsToShow.map(({ field, data }) => {
-                    if (data.knownCount === 0 && data.unknownCount === 0) return null;
-                    return (
-                      <div key={field} className="ot-import-wizard__taxonomy-field">
-                        <div className="ot-import-wizard__taxonomy-field-label">
-                          {t(`importWizard.dryRun.taxonomy.fields.${field}`)}
-                        </div>
-                        {data.knownCount > 0 ? (
-                          <div className="ot-import-wizard__taxonomy-known">
-                            {t('importWizard.dryRun.taxonomy.known', {
-                              count: data.knownCount,
-                              names: data.known.join(', '),
-                            })}
-                          </div>
-                        ) : null}
-                        {data.unknownCount > 0 ? (
-                          <div className="ot-import-wizard__taxonomy-unknown">
-                            {t('importWizard.dryRun.taxonomy.unknown', {
-                              count: data.unknownCount,
-                              names: data.unknown.join(', '),
-                            })}
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
+                  <p className="ot-import-wizard__taxonomy-hint">
+                    {t('importWizard.dryRun.taxonomy.hint')}
+                  </p>
+                  <div className="ot-import-wizard__taxonomy-grid">
+                    {fieldsToShow.map(({ field, data }) => {
+                      if (data.knownCount === 0 && data.unknownCount === 0) return null;
+                      return (
+                        <article key={field} className="ot-import-wizard__taxonomy-card">
+                          <header className="ot-import-wizard__taxonomy-card-header">
+                            <span className="ot-import-wizard__taxonomy-card-title">
+                              {t(`importWizard.dryRun.taxonomy.fields.${field}`)}
+                            </span>
+                            <span className="ot-import-wizard__taxonomy-card-totals">
+                              {t('importWizard.dryRun.taxonomy.cardTotals', {
+                                known: data.knownCount,
+                                unknown: data.unknownCount,
+                              })}
+                            </span>
+                          </header>
+                          {data.knownCount > 0 ? (
+                            <div className="ot-import-wizard__taxonomy-group ot-import-wizard__taxonomy-group--known">
+                              <div className="ot-import-wizard__taxonomy-group-label">
+                                <span
+                                  className="ot-import-wizard__taxonomy-dot ot-import-wizard__taxonomy-dot--known"
+                                  aria-hidden="true"
+                                />
+                                {t('importWizard.dryRun.taxonomy.knownLabel', {
+                                  count: data.knownCount,
+                                })}
+                              </div>
+                              <ul className="ot-import-wizard__taxonomy-chips">
+                                {data.known.map((name) => (
+                                  <li
+                                    key={name}
+                                    className="ot-import-wizard__taxonomy-chip ot-import-wizard__taxonomy-chip--known"
+                                  >
+                                    {name}
+                                  </li>
+                                ))}
+                                {data.knownCount > data.known.length ? (
+                                  <li className="ot-import-wizard__taxonomy-chip ot-import-wizard__taxonomy-chip--more">
+                                    {t('importWizard.dryRun.taxonomy.andMore', {
+                                      count: data.knownCount - data.known.length,
+                                    })}
+                                  </li>
+                                ) : null}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {data.unknownCount > 0 ? (
+                            <div className="ot-import-wizard__taxonomy-group ot-import-wizard__taxonomy-group--unknown">
+                              <div className="ot-import-wizard__taxonomy-group-label">
+                                <span
+                                  className="ot-import-wizard__taxonomy-dot ot-import-wizard__taxonomy-dot--unknown"
+                                  aria-hidden="true"
+                                />
+                                {t('importWizard.dryRun.taxonomy.unknownLabel', {
+                                  count: data.unknownCount,
+                                })}
+                              </div>
+                              <ul className="ot-import-wizard__taxonomy-chips">
+                                {data.unknown.map((name) => (
+                                  <li
+                                    key={name}
+                                    className="ot-import-wizard__taxonomy-chip ot-import-wizard__taxonomy-chip--unknown"
+                                  >
+                                    {name}
+                                  </li>
+                                ))}
+                                {data.unknownCount > data.unknown.length ? (
+                                  <li className="ot-import-wizard__taxonomy-chip ot-import-wizard__taxonomy-chip--more">
+                                    {t('importWizard.dryRun.taxonomy.andMore', {
+                                      count: data.unknownCount - data.unknown.length,
+                                    })}
+                                  </li>
+                                ) : null}
+                              </ul>
+                              <p className="ot-import-wizard__taxonomy-group-note">
+                                {t('importWizard.dryRun.taxonomy.unknownNote')}
+                              </p>
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
               );
             })()}
             {samples.length > 0 ? (
