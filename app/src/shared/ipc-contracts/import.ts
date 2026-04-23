@@ -81,6 +81,7 @@ export const columnMappingSchema = z.object({
   amount: z.string().min(1),
   description: z.string().min(1),
   category: z.string().optional(),
+  subcategory: z.string().optional(),
   tag: z.string().optional(),
   reference: z.string().optional(),
   details: z.string().optional(),
@@ -129,6 +130,22 @@ const parseErrorSchema = z.object({
   offending: z.string().optional(),
 });
 
+/**
+ * Per-field slice of the dry-run taxonomy preview. `known` holds distinct
+ * names that resolved to an existing read-model entity; `unknown` holds
+ * distinct names that did not. Both are capped at
+ * TAXONOMY_PREVIEW_NAME_LIMIT in the handler so the response stays bounded
+ * on large files.
+ */
+const taxonomyFieldPreviewSchema = z.object({
+  knownCount: z.number().int().nonnegative(),
+  unknownCount: z.number().int().nonnegative(),
+  known: z.array(z.string()),
+  unknown: z.array(z.string()),
+});
+
+export const TAXONOMY_PREVIEW_NAME_LIMIT = 20 as const;
+
 export const dryRunSuccessResponseSchema = z.object({
   ok: z.literal(true),
   summary: z.object({
@@ -142,6 +159,17 @@ export const dryRunSuccessResponseSchema = z.object({
   errors: z.array(parseErrorSchema),
   inferredDateFormat: z.enum(['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD']),
   dateFormatAmbiguous: z.boolean(),
+  // Taxonomy preview — counts + sample names of category / subcategory / tag
+  // cells found in the import, split by whether they match an existing
+  // entity in the current read model. Unknown names are NOT auto-created by
+  // this handler; rows that reference them still import, but with the
+  // corresponding id dropped (null / omitted from tagIds). A follow-up will
+  // let the user promote unknowns to real entities from the dry-run step.
+  taxonomyPreview: z.object({
+    categories: taxonomyFieldPreviewSchema,
+    subcategories: taxonomyFieldPreviewSchema,
+    tags: taxonomyFieldPreviewSchema,
+  }),
 });
 
 export const dryRunErrorResponseSchema = z.object({

@@ -441,6 +441,9 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                         <option value="category">
                           {t('importWizard.mapColumns.fields.category')}
                         </option>
+                        <option value="subcategory">
+                          {t('importWizard.mapColumns.fields.subcategory')}
+                        </option>
                         <option value="tag">{t('importWizard.mapColumns.fields.tag')}</option>
                         <option value="reference">
                           {t('importWizard.mapColumns.fields.reference')}
@@ -463,7 +466,7 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
         );
       case 'dryRun': {
         if (!state.dryRunResult || !state.dryRunResult.ok) return null;
-        const { summary, samples, duplicates, errors } = state.dryRunResult;
+        const { summary, samples, duplicates, errors, taxonomyPreview } = state.dryRunResult;
         const validCount = state.importDuplicates
           ? summary.validRows
           : summary.validRows - summary.duplicateCount;
@@ -537,6 +540,52 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                 </>
               ) : null}
             </div>
+            {(() => {
+              if (!taxonomyPreview) return null;
+              const fieldsToShow: Array<{
+                field: 'categories' | 'subcategories' | 'tags';
+                data: typeof taxonomyPreview.categories;
+              }> = [
+                { field: 'categories', data: taxonomyPreview.categories },
+                { field: 'subcategories', data: taxonomyPreview.subcategories },
+                { field: 'tags', data: taxonomyPreview.tags },
+              ];
+              const hasAny = fieldsToShow.some(
+                (f) => f.data.knownCount > 0 || f.data.unknownCount > 0,
+              );
+              if (!hasAny) return null;
+              return (
+                <div className="ot-import-wizard__taxonomy-preview">
+                  <h3>{t('importWizard.dryRun.taxonomy.heading')}</h3>
+                  {fieldsToShow.map(({ field, data }) => {
+                    if (data.knownCount === 0 && data.unknownCount === 0) return null;
+                    return (
+                      <div key={field} className="ot-import-wizard__taxonomy-field">
+                        <div className="ot-import-wizard__taxonomy-field-label">
+                          {t(`importWizard.dryRun.taxonomy.fields.${field}`)}
+                        </div>
+                        {data.knownCount > 0 ? (
+                          <div className="ot-import-wizard__taxonomy-known">
+                            {t('importWizard.dryRun.taxonomy.known', {
+                              count: data.knownCount,
+                              names: data.known.join(', '),
+                            })}
+                          </div>
+                        ) : null}
+                        {data.unknownCount > 0 ? (
+                          <div className="ot-import-wizard__taxonomy-unknown">
+                            {t('importWizard.dryRun.taxonomy.unknown', {
+                              count: data.unknownCount,
+                              names: data.unknown.join(', '),
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
             {samples.length > 0 ? (
               <>
                 <h3>{t('importWizard.dryRun.previewHeading')}</h3>
