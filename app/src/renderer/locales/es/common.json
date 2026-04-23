@@ -736,13 +736,17 @@
       },
       "taxonomy": {
         "heading": "Categorías, subcategorías y etiquetas detectadas",
+        "hint": "Los valores reconocidos se asignarán a cada movimiento. Los no reconocidos se importarán vacíos; podrás crearlos después desde Configuración.",
         "fields": {
           "categories": "Categorías",
           "subcategories": "Subcategorías",
           "tags": "Etiquetas"
         },
-        "known": "Reconocidas ({{count}}): {{names}}",
-        "unknown": "Sin coincidencia ({{count}}): {{names}} — se importarán sin este valor"
+        "cardTotals": "{{known}} reconocidas · {{unknown}} sin coincidencia",
+        "knownLabel": "Reconocidas · {{count}}",
+        "unknownLabel": "Sin coincidencia · {{count}}",
+        "andMore": "+{{count}} más",
+        "unknownNote": "Se importarán sin este valor."
       }
     },
     "confirm": {
