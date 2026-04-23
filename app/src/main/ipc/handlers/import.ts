@@ -916,11 +916,20 @@ function parseRow(
   // Parse date
   const dateResult = parseDate(row.rawDate, dateFormat);
   if (!dateResult.success) {
-    errors.push({
+    const dateError: {
+      field: 'date' | 'amount' | 'description';
+      code: string;
+      raw?: string;
+      offending?: string;
+    } = {
       field: 'date',
-      code: dateResult.error || 'INVALID_DATE',
-      raw: String(row.rawDate ?? ''),
-    });
+      code: dateResult.errorCode || 'DATE_INVALID',
+    };
+    const rawDate = dateResult.errorRaw ?? (row.rawDate !== undefined ? String(row.rawDate) : '');
+    if (rawDate !== '') {
+      dateError.raw = rawDate;
+    }
+    errors.push(dateError);
   }
 
   // Parse amount

@@ -725,11 +725,11 @@
         "OUT_OF_RANGE": "Fuera de rango: «{{raw}}»",
         "PARSE_FAILED": "No se pudo analizar «{{raw}}»",
         "INVALID_AMOUNT": "Importe no válido",
-        "DATE_INVALID": "Fecha no válida",
+        "DATE_INVALID": "Fecha no válida: «{{raw}}»",
         "DATE_REQUIRED": "La fecha es obligatoria",
-        "DATE_INVALID_SERIAL": "Fecha de Excel no válida",
-        "DATE_OUT_OF_RANGE": "Fecha fuera de rango",
-        "DATE_INVALID_FORMAT": "Formato de fecha no válido",
+        "DATE_INVALID_SERIAL": "Fecha de Excel no válida: «{{raw}}»",
+        "DATE_OUT_OF_RANGE": "Fecha fuera de rango: «{{raw}}»",
+        "DATE_INVALID_FORMAT": "Formato de fecha no válido: «{{raw}}»",
         "REFERENCE_TOO_LONG": "Referencia demasiado larga (máx. 120 caracteres)",
         "DETAILS_TOO_LONG": "Detalles demasiado largos (máx. 1000 caracteres)"
       }
