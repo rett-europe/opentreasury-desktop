@@ -42,7 +42,7 @@ export const movementRecordSchema = z.object({
   id: z.string(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   type: movementTypeSchema,
-  amount: z.number().positive(),
+  amount: z.number().nonnegative(),
   currency: z.literal('EUR'),
   description: z.string(),
   accountId: z.string(),

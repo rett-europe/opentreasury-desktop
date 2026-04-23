@@ -2,34 +2,45 @@ import { describe, expect, it } from 'vitest';
 
 import { parseAmount } from './parser.js';
 
-describe('parseAmount — zero rejection', () => {
-  it('rejects numeric 0 as EMPTY', () => {
+// Zero-amount handling. Real bank exports occasionally include €0,00 rows
+// (fee waivers, informational entries, reversed transactions). The import
+// path must accept them so users don't have to scrub source files by hand.
+// Downstream event/response schemas use `z.number().nonnegative()` for
+// stored/read amounts; user-initiated create/update still rejects zero.
+describe('parseAmount — zero handling', () => {
+  it('accepts numeric 0', () => {
     const r = parseAmount(0);
-    expect(r.success).toBe(false);
-    expect(r.errorCode).toBe('EMPTY');
+    expect(r.success).toBe(true);
+    expect(r.amount).toBe(0);
+    expect(r.type).toBe('income');
   });
 
-  it('rejects string "0" as EMPTY', () => {
+  it('accepts string "0"', () => {
     const r = parseAmount('0');
-    expect(r.success).toBe(false);
-    expect(r.errorCode).toBe('EMPTY');
-    expect(r.errorRaw).toBe('0');
+    expect(r.success).toBe(true);
+    expect(r.amount).toBe(0);
   });
 
-  it('rejects Spanish-formatted "0,00" as EMPTY', () => {
+  it('accepts Spanish-formatted "0,00"', () => {
     const r = parseAmount('0,00');
-    expect(r.success).toBe(false);
-    expect(r.errorCode).toBe('EMPTY');
+    expect(r.success).toBe(true);
+    expect(r.amount).toBe(0);
   });
 
-  it('rejects "0,00 €" with currency suffix as EMPTY', () => {
+  it('accepts "0,00 €" with currency suffix', () => {
     const r = parseAmount('0,00 €');
-    expect(r.success).toBe(false);
-    expect(r.errorCode).toBe('EMPTY');
+    expect(r.success).toBe(true);
+    expect(r.amount).toBe(0);
   });
 
-  it('rejects accounting "(0,00)" as EMPTY', () => {
+  it('accepts accounting "(0,00)"', () => {
     const r = parseAmount('(0,00)');
+    expect(r.success).toBe(true);
+    expect(r.amount).toBe(0);
+  });
+
+  it('still rejects empty string as EMPTY', () => {
+    const r = parseAmount('');
     expect(r.success).toBe(false);
     expect(r.errorCode).toBe('EMPTY');
   });
