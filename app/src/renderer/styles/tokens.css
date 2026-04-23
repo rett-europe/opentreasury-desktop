@@ -63,12 +63,12 @@
 
   /* ── Semantic: Income ──────────────────────────────────────
    * Source: prototype/styles.css :root lines 16–17 */
-  --color-income-default: #4e8c5a; /* v0.3: muted sage green (was #2e7d32) */
+  --color-income-default: #5e8a66; /* v0.3: muted sage green (was #2e7d32) */
   --color-income-bg: #e8f5e9; /* v0.2: was #e4f4e7, now #e8f5e9 (prototype match) */
 
   /* ── Semantic: Expense ─────────────────────────────────────
    * Source: prototype/styles.css :root lines 18–19 */
-  --color-expense-default: #b35656; /* v0.3: muted terracotta (was #c62828) */
+  --color-expense-default: #a36868; /* v0.3: muted terracotta (was #c62828) */
   --color-expense-bg: #ffebee; /* v0.2: was #fbe4e4, now #ffebee (prototype match) */
 
   /* ── Semantic: Transfer ────────────────────────────────────

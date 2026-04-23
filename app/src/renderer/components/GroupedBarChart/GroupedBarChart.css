@@ -45,12 +45,33 @@
   width: 100%;
   height: 280px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .ot-grouped-bar-chart__svg {
   display: block;
   width: 100%;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ot-grouped-bar-chart__x-labels {
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  padding-top: 6px;
+}
+
+.ot-grouped-bar-chart__x-labels .ot-grouped-bar-chart__x-label {
+  flex: 1 1 0;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ot-grouped-bar-chart__divider {

@@ -247,18 +247,29 @@ export function GroupedBarChart({
                       />
                     );
                   })}
-                  <text
-                    x={gx + groupW / 2}
-                    y={VIEW_H - PAD_B + 20}
-                    textAnchor="middle"
-                    className="ot-grouped-bar-chart__x-label"
-                  >
-                    {s.label}
-                  </text>
                 </g>
               );
             })}
           </svg>
+
+          {/* HTML month labels — rendered outside the SVG so SVG scaling
+              (preserveAspectRatio="none") does not distort glyphs. Aligned
+              with groups using flex-based fractional spacing that mirrors the
+              viewBox geometry. */}
+          <div
+            className="ot-grouped-bar-chart__x-labels"
+            aria-hidden="true"
+            style={{
+              paddingLeft: `${(PAD_L / VIEW_W) * 100}%`,
+              paddingRight: `${(PAD_R / VIEW_W) * 100}%`,
+            }}
+          >
+            {series.map((s, i) => (
+              <span key={`label-${i}`} className="ot-grouped-bar-chart__x-label">
+                {s.label}
+              </span>
+            ))}
+          </div>
 
           {tooltipSeries
             ? (() => {
