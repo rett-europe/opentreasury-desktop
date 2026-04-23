@@ -144,7 +144,7 @@ export const recentTransactionSchema = z.object({
   id: z.string(),
   date: z.string(), // YYYY-MM-DD
   type: z.enum(['income', 'expense']),
-  amount: z.number().positive(),
+  amount: z.number().nonnegative(),
   currency: z.literal('EUR'),
   description: z.string(),
   accountId: z.string(),

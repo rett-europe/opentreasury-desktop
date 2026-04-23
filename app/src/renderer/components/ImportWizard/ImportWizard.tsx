@@ -424,8 +424,8 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                 </tr>
               </thead>
               <tbody>
-                {state.columnHeaders.map((col) => (
-                  <tr key={col}>
+                {state.columnHeaders.map((col, idx) => (
+                  <tr key={`${idx}-${col}`}>
                     <td>{col}</td>
                     <td>
                       <select

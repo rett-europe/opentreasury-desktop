@@ -23,7 +23,7 @@ export const transactionCreatedPayloadSchema = z.object({
   id: z.string().length(26), // ULID
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
   type: transactionTypeSchema,
-  amount: z.number().positive(), // Always positive; type determines sign
+  amount: z.number().nonnegative(), // >= 0 — bank exports occasionally include €0 rows. Sign carried by `type`.
   currency: z.literal('EUR'),
   description: z.string().max(500),
   accountId: z.string().length(26), // ULID
@@ -355,7 +355,7 @@ export const movementImportedEventSchema = z.object({
   id: z.string().length(26),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   movementType: z.enum(['income', 'expense']),
-  amount: z.number().positive(),
+  amount: z.number().nonnegative(),
   currency: z.literal('EUR'),
   description: z.string().max(500),
   accountId: z.string().length(26),
@@ -444,7 +444,7 @@ export const transactionUpdatedPayloadSchema = z.object({
   id: z.string().length(26), // ULID (transaction id — unchanged)
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   type: transactionTypeSchema,
-  amount: z.number().positive(),
+  amount: z.number().nonnegative(),
   currency: z.literal('EUR'),
   description: z.string().max(500),
   accountId: z.string().length(26), // ULID (immutable)

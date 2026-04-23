@@ -144,9 +144,11 @@ export function parseAmount(value: unknown): ParseAmountResult {
 
   // Handle numeric values directly (Excel might provide numbers)
   if (typeof value === 'number') {
-    if (!Number.isFinite(value) || value === 0) {
+    if (!Number.isFinite(value)) {
       return { success: false, errorCode: 'EMPTY' };
     }
+    // Zero is a legitimate bank-statement amount (e.g. €0,00 fee waiver,
+    // informational rows). Keep it; downstream schemas allow amount >= 0.
     const type = value < 0 ? 'expense' : 'income';
     return { success: true, amount: Math.abs(value), type };
   }
@@ -185,14 +187,6 @@ export function parseAmount(value: unknown): ParseAmountResult {
     finalValue = -finalValue;
   } else if (isCredit && finalValue < 0) {
     finalValue = -finalValue; // flip to positive
-  }
-
-  // Reject zero amounts — a movement of 0 is not meaningful and would fail
-  // downstream validation (event payload + read-side response schemas use
-  // `z.number().positive()`). Treat it as EMPTY for parity with the numeric
-  // branch above, so the row is reported as an error and never persisted.
-  if (finalValue === 0) {
-    return { success: false, errorCode: 'EMPTY', errorRaw: str };
   }
 
   // Determine income vs expense
