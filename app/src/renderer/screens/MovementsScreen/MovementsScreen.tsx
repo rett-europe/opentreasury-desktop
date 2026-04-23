@@ -455,6 +455,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
             className="ot-header-checkbox"
             checked={allVisibleSelected}
             onChange={toggleAllVisible}
+            onClick={(e) => e.stopPropagation()}
             aria-label={t('movements.columns.select')}
           />
         ),
@@ -467,6 +468,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
             className="ot-row-checkbox"
             checked={selected.has(m.id)}
             onChange={() => toggleRow(m.id)}
+            onClick={(e) => e.stopPropagation()}
             aria-label={t('movements.columns.select')}
           />
         ),
