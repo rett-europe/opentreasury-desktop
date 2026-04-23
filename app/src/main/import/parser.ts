@@ -187,6 +187,14 @@ export function parseAmount(value: unknown): ParseAmountResult {
     finalValue = -finalValue; // flip to positive
   }
 
+  // Reject zero amounts — a movement of 0 is not meaningful and would fail
+  // downstream validation (event payload + read-side response schemas use
+  // `z.number().positive()`). Treat it as EMPTY for parity with the numeric
+  // branch above, so the row is reported as an error and never persisted.
+  if (finalValue === 0) {
+    return { success: false, errorCode: 'EMPTY', errorRaw: str };
+  }
+
   // Determine income vs expense
   const type = finalValue < 0 ? 'expense' : 'income';
 
