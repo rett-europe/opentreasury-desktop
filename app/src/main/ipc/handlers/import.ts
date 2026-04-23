@@ -452,13 +452,37 @@ export function createDryRunHandler(
       const duplicates = validRows.filter((r) => r.isDuplicate);
       const errors = parsedRows.filter((r) => r.errors.length > 0);
 
-      const samples = validRows.slice(0, 5).map((r) => ({
-        rowIndex: r.rowIndex,
-        date: r.date!,
-        amount: r.amount!,
-        description: r.description!,
-        isDuplicate: r.isDuplicate ?? false,
-      }));
+      const samples = validRows.slice(0, 5).map((r) => {
+        // WI-19 + taxonomy — thread mapped optional fields through to the
+        // preview. For category/subcategory/tag we emit the RESOLVED display
+        // name so the row mirrors what will actually land on the transaction
+        // (unknowns drop silently and show as "—" in the table, matching the
+        // taxonomyPreview card above).
+        const knownCategory =
+          r.taxonomySeen.category && r.taxonomySeen.category.known
+            ? r.taxonomySeen.category.name
+            : null;
+        const knownSubcategory =
+          r.taxonomySeen.subcategory && r.taxonomySeen.subcategory.known
+            ? r.taxonomySeen.subcategory.name
+            : null;
+        const knownTagNames = r.taxonomySeen.tags
+          .filter((tg) => tg.known)
+          .map((tg) => tg.name)
+          .join(', ');
+        return {
+          rowIndex: r.rowIndex,
+          date: r.date!,
+          amount: r.amount!,
+          description: r.description!,
+          isDuplicate: r.isDuplicate ?? false,
+          reference: r.reference,
+          details: r.details,
+          category: knownCategory,
+          subcategory: knownSubcategory,
+          tag: knownTagNames,
+        };
+      });
 
       const duplicateList = duplicates.map((r) => ({
         rowIndex: r.rowIndex,

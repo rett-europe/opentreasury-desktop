@@ -112,6 +112,16 @@ const parsedRowSampleSchema = z.object({
   amount: z.number(),
   description: z.string(),
   isDuplicate: z.boolean(),
+  // WI-19 + taxonomy — optional preview fields so the final preview table can
+  // surface every mapped column, not just the four required ones. `category` /
+  // `subcategory` are the RESOLVED display names (null when the raw cell was
+  // empty or didn't match anything in the current read model). `tag` is the
+  // joined list of resolved tag names (empty string when none matched).
+  reference: z.string().nullable().optional(),
+  details: z.string().nullable().optional(),
+  category: z.string().nullable().optional(),
+  subcategory: z.string().nullable().optional(),
+  tag: z.string().optional(),
 });
 
 const duplicateRowSchema = z.object({
