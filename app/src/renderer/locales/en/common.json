@@ -725,11 +725,11 @@
         "OUT_OF_RANGE": "Out of range: \"{{raw}}\"",
         "PARSE_FAILED": "Could not parse \"{{raw}}\"",
         "INVALID_AMOUNT": "Invalid amount",
-        "DATE_INVALID": "Invalid date",
+        "DATE_INVALID": "Invalid date: \"{{raw}}\"",
         "DATE_REQUIRED": "Date is required",
-        "DATE_INVALID_SERIAL": "Invalid Excel date",
-        "DATE_OUT_OF_RANGE": "Date out of range",
-        "DATE_INVALID_FORMAT": "Invalid date format",
+        "DATE_INVALID_SERIAL": "Invalid Excel date: \"{{raw}}\"",
+        "DATE_OUT_OF_RANGE": "Date out of range: \"{{raw}}\"",
+        "DATE_INVALID_FORMAT": "Invalid date format: \"{{raw}}\"",
         "REFERENCE_TOO_LONG": "Reference too long (max 120 characters)",
         "DETAILS_TOO_LONG": "Details too long (max 1000 characters)"
       }

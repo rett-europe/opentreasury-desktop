@@ -8,7 +8,14 @@ import {
 export interface ParseDateResult {
   success: boolean;
   date?: string; // ISO 8601 YYYY-MM-DD
-  error?: string;
+  /**
+   * Stable error code (e.g. `DATE_INVALID_FORMAT`). Matches the i18n keys
+   * under `importWizard.dryRun.errorCodes.*` — renderer uses this directly
+   * to render a localized message. Same shape as amount parser's `errorCode`.
+   */
+  errorCode?: string;
+  /** Raw (trimmed) offending value so the localized message can show it. */
+  errorRaw?: string | undefined;
 }
 
 export interface ParseAmountResult {
@@ -38,28 +45,29 @@ export function parseDate(
   preferredFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD' = 'DD/MM/YYYY',
 ): ParseDateResult {
   if (value === null || value === undefined || value === '') {
-    return { success: false, error: 'Date is required' };
+    return { success: false, errorCode: 'DATE_REQUIRED' };
   }
 
   // Excel serial date (number): days since 1900-01-01
   if (typeof value === 'number') {
+    const rawNum = String(value);
     try {
       const msPerDay = 86400000;
       const excelEpoch = new Date(1900, 0, 1).getTime();
       const adjustedSerial = value - 2; // Excel has a leap year bug for 1900
       const date = new Date(excelEpoch + adjustedSerial * msPerDay);
       if (isNaN(date.getTime())) {
-        return { success: false, error: 'Invalid Excel date serial' };
+        return { success: false, errorCode: 'DATE_INVALID_SERIAL', errorRaw: rawNum };
       }
       return { success: true, date: formatIsoDate(date) };
     } catch {
-      return { success: false, error: 'Invalid Excel date serial' };
+      return { success: false, errorCode: 'DATE_INVALID_SERIAL', errorRaw: rawNum };
     }
   }
 
   const str = String(value).trim();
   if (!str) {
-    return { success: false, error: 'Date is required' };
+    return { success: false, errorCode: 'DATE_REQUIRED' };
   }
 
   // Try ISO format first (YYYY-MM-DD or YYYY/MM/DD)
@@ -70,7 +78,7 @@ export function parseDate(
     if (isValidDate(date)) {
       return { success: true, date: formatIsoDate(date) };
     }
-    return { success: false, error: 'Date out of range' };
+    return { success: false, errorCode: 'DATE_OUT_OF_RANGE', errorRaw: str };
   }
 
   // Try DD/MM/YYYY or MM/DD/YYYY with various separators
@@ -89,7 +97,7 @@ export function parseDate(
       // 2-digit year: assume 20xx if < 50, 19xx otherwise
       year = third < 50 ? 2000 + third : 1900 + third;
     } else {
-      return { success: false, error: 'Invalid date format' };
+      return { success: false, errorCode: 'DATE_INVALID_FORMAT', errorRaw: str };
     }
 
     if (preferredFormat === 'MM/DD/YYYY') {
@@ -101,17 +109,17 @@ export function parseDate(
     }
 
     if (month < 1 || month > 12 || day < 1 || day > 31) {
-      return { success: false, error: 'Date out of range' };
+      return { success: false, errorCode: 'DATE_OUT_OF_RANGE', errorRaw: str };
     }
 
     const date = new Date(year, month - 1, day);
     if (isValidDate(date) && date.getDate() === day) {
       return { success: true, date: formatIsoDate(date) };
     }
-    return { success: false, error: 'Date out of range' };
+    return { success: false, errorCode: 'DATE_OUT_OF_RANGE', errorRaw: str };
   }
 
-  return { success: false, error: 'Invalid date format' };
+  return { success: false, errorCode: 'DATE_INVALID_FORMAT', errorRaw: str };
 }
 
 /**
