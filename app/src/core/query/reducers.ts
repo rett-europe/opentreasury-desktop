@@ -1,6 +1,5 @@
 import type { DomainEvent } from '../events/schemas';
 import type {
-  Account,
   ConfigAccount,
   ConfigCategory,
   ConfigSubcategory,
@@ -17,15 +16,15 @@ import type {
 let _txList: Transaction[] = [];
 let _txByRef: Map<string, Transaction[]> = new Map();
 
-// In-memory read model state
+// In-memory read model state. WI-23 collapsed the duplicate legacy
+// account/category/tag projections; the perf rewrite (PR #45) keeps a
+// mutable `_txList` + reference index so tx.created / tx.updated /
+// tx.deleted are O(1) per event.
 const emptyReadModel = (): ReadModel => {
   _txList = [];
   _txByRef = new Map();
   return {
     transactions: _txList as readonly Transaction[],
-    accounts: [],
-    categories: [],
-    tags: [],
     configAccounts: [],
     configCategories: [],
     configTags: [],
@@ -93,59 +92,16 @@ export function applyEvent(event: DomainEvent): void {
     }
 
     case 'account.created':
-      readModel = {
-        ...readModel,
-        accounts: [
-          ...readModel.accounts,
-          {
-            id: event.payload.id,
-            bankName: event.payload.bankName,
-            bankNameShort: event.payload.bankNameShort,
-            accountLabel: event.payload.accountLabel,
-            color: event.payload.color,
-            sortOrder: event.payload.sortOrder,
-            isActive: event.payload.isActive,
-            createdAt: event.payload.createdAt,
-          },
-        ],
-      };
-      break;
-
     case 'category.created':
-      readModel = {
-        ...readModel,
-        categories: [
-          ...readModel.categories,
-          {
-            id: event.payload.id,
-            name: event.payload.name,
-            description: event.payload.description,
-            categoryType: event.payload.categoryType,
-            sortOrder: event.payload.sortOrder,
-            isActive: event.payload.isActive,
-            subcategories: event.payload.subcategories,
-            createdAt: event.payload.createdAt,
-          },
-        ],
-      };
+    case 'tag.created': {
+      // WI-23 — legacy event types are no longer accepted. The boot-guard
+      // in JsonFileEventLog.load() refuses logs containing these events;
+      // this reducer branch exists only so the discriminated-union type
+      // check in the switch stays exhaustive for any stale in-memory
+      // `DomainEvent` instance the compiler has not been told about.
+      // Runtime reachability is zero in a well-formed app.
       break;
-
-    case 'tag.created':
-      readModel = {
-        ...readModel,
-        tags: [
-          ...readModel.tags,
-          {
-            id: event.payload.id,
-            name: event.payload.name,
-            color: event.payload.color,
-            sortOrder: event.payload.sortOrder,
-            isActive: event.payload.isActive,
-            createdAt: event.payload.createdAt,
-          },
-        ],
-      };
-      break;
+    }
 
     case 'AccountCreated': {
       const next: ConfigAccount = {
@@ -153,6 +109,7 @@ export function applyEvent(event: DomainEvent): void {
         name: event.name,
         currency: event.currency,
         openingBalance: event.openingBalance,
+        sortOrder: event.sortOrder,
         createdAt: event.createdAt,
         ...(event.bankName !== undefined ? { bankName: event.bankName } : {}),
         ...(event.label !== undefined ? { label: event.label } : {}),
@@ -160,24 +117,8 @@ export function applyEvent(event: DomainEvent): void {
         ...(event.color !== undefined ? { color: event.color } : {}),
         ...(event.isPaypal !== undefined ? { isPaypal: event.isPaypal } : {}),
       };
-      // Also project into the legacy Account list so downstream consumers
-      // that look up accounts by id (movements/panel/edit modal label
-      // resolution) find the record. Config and legacy account stores
-      // coexist for historical reasons; this keeps them in sync without
-      // a broader refactor.
-      const legacyAccount: Account = {
-        id: event.id,
-        bankName: event.bankName ?? event.name,
-        bankNameShort: event.name,
-        accountLabel: event.label ?? event.name,
-        color: event.color ?? null,
-        sortOrder: readModel.accounts.length,
-        isActive: true,
-        createdAt: event.createdAt,
-      };
       readModel = {
         ...readModel,
-        accounts: [...readModel.accounts, legacyAccount],
         configAccounts: [...readModel.configAccounts, next],
       };
       break;
@@ -187,6 +128,7 @@ export function applyEvent(event: DomainEvent): void {
       const next: ConfigCategory = {
         id: event.id,
         name: event.name,
+        sortOrder: event.sortOrder,
         createdAt: event.createdAt,
         subcategories: [],
         ...(event.color !== undefined ? { color: event.color } : {}),
@@ -203,6 +145,7 @@ export function applyEvent(event: DomainEvent): void {
       const next: ConfigTag = {
         id: event.id,
         name: event.name,
+        sortOrder: event.sortOrder,
         createdAt: event.createdAt,
         ...(event.color !== undefined ? { color: event.color } : {}),
       };

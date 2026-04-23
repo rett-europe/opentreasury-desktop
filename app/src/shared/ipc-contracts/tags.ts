@@ -21,6 +21,8 @@ export const tagCreatedEventSchema = z.object({
   name: z.string().min(1),
   // PR#2 parity — optional for backward-compat.
   color: z.string().optional(),
+  // WI-23 — required; see core/events/schemas.ts.
+  sortOrder: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
 });
 
@@ -73,6 +75,8 @@ export const tagRecordSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   color: z.string().optional(),
+  // WI-23 — required on the wire record.
+  sortOrder: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
   archivedAt: z.string().datetime().optional(),
 });

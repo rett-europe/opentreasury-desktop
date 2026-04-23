@@ -43,25 +43,20 @@ class InMemoryEventLog implements EventLog {
 }
 
 function seedAccount(): void {
+  // WI-23 — seed the unified `AccountCreated` event so `transaction.accountId`
+  // resolves against a populated `configAccounts` projection (legacy
+  // `account.created` is refused by the loader boot-guard).
   replayEvents([
     {
-      id: ulid('EVTACC'),
-      type: 'account.created',
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
+      type: 'AccountCreated',
+      id: ACCOUNT_ID,
+      name: 'Main',
+      label: 'Main',
+      bankName: 'Test Bank',
+      currency: 'EUR',
+      openingBalance: 0,
+      sortOrder: 0,
       createdAt: '2026-04-19T10:00:00.000Z',
-      dekVersion: 0,
-      version: 1,
-      payload: {
-        id: ACCOUNT_ID,
-        bankName: 'Test Bank',
-        bankNameShort: 'TB',
-        accountLabel: 'Main',
-        color: null,
-        sortOrder: 0,
-        isActive: true,
-        createdAt: '2026-04-19T10:00:00.000Z',
-      },
     } as DomainEvent,
   ]);
 }

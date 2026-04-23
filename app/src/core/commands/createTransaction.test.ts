@@ -17,20 +17,26 @@ const TX_ID = ulid('TX01');
 function baseReadModel(): ReadModel {
   return {
     transactions: [],
-    accounts: [
+    // WI-23 — legacy `accounts/categories/tags` streams removed. Use the
+    // unified `configAccounts` projection; id matches `transaction.accountId`.
+    configAccounts: [
       {
         id: ACCOUNT_ID,
+        name: 'Caixa operativa',
+        label: 'Caixa operativa',
         bankName: 'Caixa',
-        bankNameShort: null,
-        accountLabel: 'Caixa operativa',
-        color: null,
+        currency: 'EUR',
+        openingBalance: 0,
         sortOrder: 0,
-        isActive: true,
         createdAt: '2026-01-01T00:00:00.000Z',
       },
     ],
-    categories: [],
-    tags: [],
+    configCategories: [],
+    configTags: [],
+    importMappings: [],
+    rowHashes: new Set<string>(),
+    notes: new Map(),
+    transactionsByReference: new Map(),
   };
 }
 

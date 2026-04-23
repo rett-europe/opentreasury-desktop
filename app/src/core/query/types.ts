@@ -28,42 +28,12 @@ export interface TransactionNote {
   readonly createdAt: string; // ISO 8601 UTC — creation timestamp, stable across edits
 }
 
-export interface Account {
-  readonly id: string; // ULID
-  readonly bankName: string;
-  readonly bankNameShort: string | null;
-  readonly accountLabel: string; // Display name
-  readonly color: string | null; // Hex color
-  readonly sortOrder: number;
-  readonly isActive: boolean;
-  readonly createdAt: string; // ISO 8601 UTC
-}
-
-export interface Subcategory {
-  readonly id: string; // ULID
-  readonly name: string;
-  readonly isActive: boolean;
-}
-
-export interface Category {
-  readonly id: string; // ULID
-  readonly name: string;
-  readonly description: string | null;
-  readonly categoryType: 'income' | 'expense';
-  readonly sortOrder: number;
-  readonly isActive: boolean;
-  readonly subcategories: readonly Subcategory[];
-  readonly createdAt: string; // ISO 8601 UTC
-}
-
-export interface Tag {
-  readonly id: string; // ULID
-  readonly name: string;
-  readonly color: string | null;
-  readonly sortOrder: number;
-  readonly isActive: boolean;
-  readonly createdAt: string; // ISO 8601 UTC
-}
+// WI-23 — The legacy `Account` / `Category` / `Tag` / `Subcategory` entity
+// interfaces (populated by the `account.created` / `category.created` /
+// `tag.created` event streams) were DELETED. All consumers now read from
+// `ConfigAccount` / `ConfigCategory` / `ConfigTag`. `transaction.accountId`
+// / `.categoryId` / `.tagIds` continue to reference the ids on the config
+// arrays — unchanged on the wire.
 
 export interface ConfigAccount {
   readonly id: string;
@@ -75,6 +45,8 @@ export interface ConfigAccount {
   readonly isPaypal?: boolean;
   readonly currency: 'EUR';
   readonly openingBalance: number;
+  // WI-23 — required. Handler-assigned `max(existing.sortOrder)+1` on create.
+  readonly sortOrder: number;
   readonly createdAt: string;
   // WI-21 — archive flag. ISO 8601 UTC when set; undefined = active.
   readonly archivedAt?: string;
@@ -99,6 +71,8 @@ export interface ConfigCategory {
   readonly name: string;
   readonly color?: string;
   readonly kind?: 'income' | 'expense';
+  // WI-23 — required. Handler-assigned.
+  readonly sortOrder: number;
   readonly createdAt: string;
   // WI-21 — archive flag + inlined subcategories. `subcategories` defaults
   // to an empty array on any ConfigCategory (backfilled at projection time
@@ -111,6 +85,8 @@ export interface ConfigTag {
   readonly id: string;
   readonly name: string;
   readonly color?: string;
+  // WI-23 — required. Handler-assigned.
+  readonly sortOrder: number;
   readonly createdAt: string;
   readonly archivedAt?: string;
 }
@@ -125,9 +101,6 @@ export interface ImportMapping {
 
 export interface ReadModel {
   readonly transactions: readonly Transaction[];
-  readonly accounts: readonly Account[];
-  readonly categories: readonly Category[];
-  readonly tags: readonly Tag[];
   readonly configAccounts: readonly ConfigAccount[];
   readonly configCategories: readonly ConfigCategory[];
   readonly configTags: readonly ConfigTag[];

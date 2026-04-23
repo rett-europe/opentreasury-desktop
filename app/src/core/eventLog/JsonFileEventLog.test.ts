@@ -1,5 +1,9 @@
 // WI-4′ unit tests — NDJSON append-only log.
 // Runs in vitest's node environment; uses real fs into a tmp dir per test.
+// WI-23 — fixtures migrated from the legacy `account.created` enveloped
+// event to the unified flat `AccountCreated` event (now required to carry
+// `sortOrder`). The loader's WI-23 boot-guard is exercised in a separate
+// file (`JsonFileEventLog.wi23.test.ts`).
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'node:fs';
@@ -10,25 +14,18 @@ import type { DomainEvent } from './EventLog';
 
 const ulid = (suffix: string): string => `01HZ${suffix.padEnd(22, '0')}`.slice(0, 26);
 
+let sortSeq = 0;
+
 function makeAccountEvent(idSuffix: string): DomainEvent {
   return {
+    type: 'AccountCreated',
     id: ulid(idSuffix),
-    type: 'account.created',
-    datasetId: ulid('DATA'),
-    actorDeviceId: ulid('DEV1'),
+    name: `Account-${idSuffix}`,
+    bankName: 'Test Bank',
+    currency: 'EUR',
+    openingBalance: 0,
+    sortOrder: sortSeq++,
     createdAt: '2026-04-19T10:00:00.000Z',
-    dekVersion: 0,
-    version: 1,
-    payload: {
-      id: ulid(idSuffix + 'A'),
-      bankName: 'Test Bank',
-      bankNameShort: 'TB',
-      accountLabel: 'Main',
-      color: null,
-      sortOrder: 0,
-      isActive: true,
-      createdAt: '2026-04-19T10:00:00.000Z',
-    },
   } as DomainEvent;
 }
 
@@ -37,6 +34,7 @@ describe('JsonFileEventLog', () => {
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ot-eventlog-'));
+    sortSeq = 0;
   });
 
   afterEach(async () => {
@@ -96,7 +94,7 @@ describe('JsonFileEventLog', () => {
     await log.append(e2);
 
     // Simulate a crash that wrote a partial third line (no trailing newline).
-    const partial = '{"id":"01HZPARTIAL","type":"account.created","datas';
+    const partial = '{"id":"01HZPARTIAL","type":"AccountCreated","name":"Par';
     await fs.appendFile(path.join(tmpDir, 'events.ndjson'), partial, 'utf8');
 
     const reopened = new JsonFileEventLog({ dir: tmpDir });

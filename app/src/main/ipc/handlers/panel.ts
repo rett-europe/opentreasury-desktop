@@ -28,15 +28,21 @@ import {
 export async function handleGetAccounts(
   _request: GetAccountsRequest,
 ): Promise<GetAccountsResponse> {
+  // WI-23 — read from unified `configAccounts` projection. Project into the
+  // legacy Panel wire shape (`bankName`, `bankNameShort`, `accountLabel`,
+  // `sortOrder`, `isActive`) to avoid forcing a renderer-side contract
+  // change. `bankNameShort` is not carried on `ConfigAccount` (only the
+  // legacy enveloped event had it) — we project it as null, which the
+  // Panel renderer already tolerates.
   return {
     accounts: coreGetAccounts().map((a) => ({
       id: a.id,
-      bankName: a.bankName,
-      bankNameShort: a.bankNameShort,
-      accountLabel: a.accountLabel,
-      color: a.color,
+      bankName: a.bankName ?? '',
+      bankNameShort: null,
+      accountLabel: a.label ?? a.name,
+      color: a.color ?? null,
       sortOrder: a.sortOrder,
-      isActive: a.isActive,
+      isActive: a.archivedAt === undefined,
       createdAt: a.createdAt,
     })),
   };

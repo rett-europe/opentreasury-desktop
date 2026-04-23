@@ -140,7 +140,7 @@ export function createTransaction(
     };
   }
 
-  const accountExists = deps.readModel.accounts.some((a) => a.id === input.accountId);
+  const accountExists = deps.readModel.configAccounts.some((a) => a.id === input.accountId);
   if (!accountExists) {
     return {
       ok: false,

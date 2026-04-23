@@ -16,6 +16,18 @@
 //   - M2 will persist the seen-set alongside the log for crash-recovery
 //     idempotency; for M1.5 this is sufficient (single-writer, local-only).
 //
+// WI-23 boot-guard:
+//   - Refuses three legacy event types that were unified away in WI-23
+//     (`account.created` / `category.created` / `tag.created`). See
+//     `docs/security/security-requirements-v0.1.md` §"Schema migration
+//     policy" for the Strategy-3 precedent. The error is `Error` with
+//     `code === 'LEGACY_EVENT_TYPE_REJECTED'` so callers (bootstrap) can
+//     detect and surface a user-facing "log needs migration" message.
+//   - Also Zod-validates the three unified event types
+//     (`AccountCreated` / `CategoryCreated` / `TagCreated`) so that an
+//     event missing the now-required `sortOrder` field fails fast at load
+//     instead of producing a silently-broken read model.
+//
 // No Electron imports here — the adapter is pure Node so it can be unit
 // tested in the `node` vitest environment without spinning up Electron
 // (ADR-002 §2.4 — core stays Electron-free; path resolution happens in
@@ -23,9 +35,25 @@
 
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
+import {
+  configAccountCreatedEventSchema,
+  configCategoryCreatedEventSchema,
+  configTagCreatedEventSchema,
+} from '../events/schemas';
 import type { DomainEvent, EventLog } from './EventLog';
 
 const EVENTS_FILENAME = 'events.ndjson';
+
+// WI-23 — boot-guard error code surfaced on refused legacy event types.
+// Re-exported so bootstrap / tests can pattern-match without string literals
+// drifting between producers and consumers.
+export const LEGACY_EVENT_TYPE_REJECTED = 'LEGACY_EVENT_TYPE_REJECTED';
+
+const LEGACY_EVENT_TYPES = new Set<string>([
+  'account.created',
+  'category.created',
+  'tag.created',
+]);
 
 export interface JsonFileEventLogOptions {
   /** Absolute directory path; the log file is `${dir}/events.ndjson`. */
@@ -132,6 +160,28 @@ export class JsonFileEventLog implements EventLog {
         continue;
       }
 
+      // WI-23 boot-guard: refuse logs containing legacy event types that
+      // were unified away. Throwing here is intentional — see the
+      // Strategy-3 precedent note in `security-requirements-v0.1.md`.
+      const parsedType = extractType(parsed);
+      if (parsedType !== null && LEGACY_EVENT_TYPES.has(parsedType)) {
+        throw makeLegacyRejectError(parsedType, i + 1, this.filePath);
+      }
+
+      // WI-23 boot-guard: validate unified config-Created events against
+      // the Zod schema so a log with `sortOrder` missing fails loudly at
+      // hydrate time instead of populating a broken read model.
+      if (parsedType === 'AccountCreated') {
+        const res = configAccountCreatedEventSchema.safeParse(parsed);
+        if (!res.success) throw makeSchemaRejectError('AccountCreated', res.error.message, i + 1);
+      } else if (parsedType === 'CategoryCreated') {
+        const res = configCategoryCreatedEventSchema.safeParse(parsed);
+        if (!res.success) throw makeSchemaRejectError('CategoryCreated', res.error.message, i + 1);
+      } else if (parsedType === 'TagCreated') {
+        const res = configTagCreatedEventSchema.safeParse(parsed);
+        if (!res.success) throw makeSchemaRejectError('TagCreated', res.error.message, i + 1);
+      }
+
       // Minimal shape check — DomainEvent schema validation is deferred to
       // the reducer layer. We only require an `id` string so the idempotency
       // set stays consistent.
@@ -172,4 +222,27 @@ function extractId(parsed: unknown): string | null {
   if (typeof parsed !== 'object' || parsed === null) return null;
   const maybe = (parsed as { id?: unknown }).id;
   return typeof maybe === 'string' && maybe.length > 0 ? maybe : null;
+}
+
+function extractType(parsed: unknown): string | null {
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const maybe = (parsed as { type?: unknown }).type;
+  return typeof maybe === 'string' ? maybe : null;
+}
+
+function makeLegacyRejectError(type: string, lineNumber: number, filePath: string): Error {
+  const err: Error & { code?: string } = new Error(
+    `[JsonFileEventLog] WI-23: legacy event type "${type}" at line ${lineNumber} of ${filePath} is no longer supported. ` +
+      `This log predates the unify-projections migration. See docs/security/security-requirements-v0.1.md §"Schema migration policy" for the migration path.`,
+  );
+  err.code = LEGACY_EVENT_TYPE_REJECTED;
+  return err;
+}
+
+function makeSchemaRejectError(type: string, message: string, lineNumber: number): Error {
+  const err: Error & { code?: string } = new Error(
+    `[JsonFileEventLog] WI-23: malformed "${type}" event at line ${lineNumber} — ${message}`,
+  );
+  err.code = 'UNIFIED_EVENT_SCHEMA_INVALID';
+  return err;
 }

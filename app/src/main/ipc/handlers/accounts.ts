@@ -107,12 +107,18 @@ export function createAccountsCreateHandler(
       const label = parsed.data.label?.trim();
       const iban = parsed.data.iban?.trim();
       const color = parsed.data.color?.trim();
+      // WI-23 — handler-assigned sortOrder. Place the new account at the end
+      // of the existing ordering (archived accounts count — there is no
+      // reason to re-use ordinals). Max across all (active + archived).
+      const maxSortOrder = existing.reduce<number>((acc, a) => Math.max(acc, a.sortOrder), -1);
+      const sortOrder = maxSortOrder + 1;
       const event: ConfigAccountCreatedEvent = {
         type: 'AccountCreated',
         id: deps.newId(),
         name,
         currency: 'EUR',
         openingBalance,
+        sortOrder,
         createdAt: deps.now().toISOString(),
         ...(bankName !== undefined && bankName.length > 0 ? { bankName } : {}),
         ...(label !== undefined && label.length > 0 ? { label } : {}),

@@ -82,10 +82,14 @@ export function createTagsCreateHandler(
       }
 
       const color = parsed.data.color?.trim();
+      // WI-23 — handler-assigned sortOrder, global across active + archived.
+      const maxSortOrder = existing.reduce<number>((acc, t) => Math.max(acc, t.sortOrder), -1);
+      const sortOrder = maxSortOrder + 1;
       const event: ConfigTagCreatedEvent = {
         type: 'TagCreated',
         id: deps.newId(),
         name,
+        sortOrder,
         createdAt: deps.now().toISOString(),
         ...(color !== undefined && color.length > 0 ? { color } : {}),
       };

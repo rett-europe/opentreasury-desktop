@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { applyEvent, getReadModel, resetReadModel } from './reducers';
 import { queryRecentTransactions, getMonthKPIs, getAccountBalances } from './queries';
 import { createTransaction } from '../commands/createTransaction';
-import type { DomainEvent, AccountCreatedEvent } from '../events/schemas';
+import type { DomainEvent, ConfigAccountCreatedEvent } from '../events/schemas';
 
 const ulid = (suffix: string) => `01HZ${suffix.padEnd(22, '0')}`;
 
@@ -10,25 +10,19 @@ const DATASET_ID = ulid('DATA');
 const DEVICE_ID = ulid('DEV1');
 const ACCOUNT_ID = ulid('ACC1');
 
-function seedAccountEvent(): AccountCreatedEvent {
+// WI-23 — seed emits the unified `AccountCreated` event (same id space as
+// `transaction.accountId`), replacing the legacy `account.created` envelope.
+function seedAccountEvent(): ConfigAccountCreatedEvent {
   return {
-    id: ulid('EVA1'),
-    type: 'account.created',
-    datasetId: DATASET_ID,
-    actorDeviceId: DEVICE_ID,
+    type: 'AccountCreated',
+    id: ACCOUNT_ID,
+    name: 'Caixa operativa',
+    label: 'Caixa operativa',
+    bankName: 'Caixa',
+    currency: 'EUR',
+    openingBalance: 0,
+    sortOrder: 0,
     createdAt: '2026-01-01T00:00:00.000Z',
-    dekVersion: 1,
-    version: 1,
-    payload: {
-      id: ACCOUNT_ID,
-      bankName: 'Caixa',
-      bankNameShort: null,
-      accountLabel: 'Caixa operativa',
-      color: null,
-      sortOrder: 0,
-      isActive: true,
-      createdAt: '2026-01-01T00:00:00.000Z',
-    },
   };
 }
 

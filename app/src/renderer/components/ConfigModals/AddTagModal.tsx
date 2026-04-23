@@ -84,6 +84,7 @@ export function AddTagModal({
       onSaved({
         id: resp.event.id,
         name: resp.event.name,
+        sortOrder: resp.event.sortOrder,
         createdAt: resp.event.createdAt,
         ...(resp.event.color !== undefined ? { color: resp.event.color } : {}),
       });

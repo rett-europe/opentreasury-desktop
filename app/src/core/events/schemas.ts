@@ -141,6 +141,11 @@ export const configAccountCreatedEventSchema = z.object({
   isPaypal: z.boolean().optional(),
   currency: z.literal('EUR'),
   openingBalance: z.number(),
+  // WI-23 — required. Assigned by the handler (max(existing.sortOrder)+1)
+  // or by dev-seed. Missing-`sortOrder` events are refused at boot by the
+  // JsonFileEventLog loader (see `docs/security/security-requirements-v0.1.md`
+  // §"Schema migration policy" — WI-23 Strategy 3 precedent).
+  sortOrder: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
 });
 
@@ -155,6 +160,9 @@ export const configCategoryCreatedEventSchema = z.object({
   // updated Categorías prototype. Optional on the wire so pre-existing
   // NDJSON events replay cleanly.
   kind: z.enum(['income', 'expense']).optional(),
+  // WI-23 — required. See configAccountCreatedEventSchema.sortOrder for
+  // migration policy; Strategy 3 boot-guard refuses old events lacking it.
+  sortOrder: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
 });
 
@@ -165,6 +173,8 @@ export const configTagCreatedEventSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   color: z.string().optional(),
+  // WI-23 — required. See configAccountCreatedEventSchema.sortOrder.
+  sortOrder: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
 });
 
