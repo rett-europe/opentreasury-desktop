@@ -31,6 +31,7 @@ import {
   lastMappingRequestSchema,
   type LastMappingResponse,
   type ColumnMapping,
+  TAXONOMY_PREVIEW_NAME_LIMIT,
 } from '../../../shared/ipc-contracts/import.js';
 import { computeRowHash } from '../../import/rowHash.js';
 import { detectDateFormat } from '../../import/dateFormat.js';
@@ -38,6 +39,12 @@ import { parseDate, parseAmount } from '../../import/parser.js';
 import { validateFilePath } from '../../import/pathGuard.js';
 import { detectHeaderRow } from '../../import/headerDetection.js';
 import { classifyRow } from '../../import/rowClassification.js';
+import {
+  buildTaxonomyIndex,
+  resolveRowTaxonomy,
+  TaxonomyPreviewCollector,
+  type TaxonomyIndex,
+} from '../../import/taxonomyResolver.js';
 import {
   stageFile as registerFileId,
   resolveFileId,
@@ -68,6 +75,19 @@ interface ParsedRow {
   // trim + empty→null + clamped to max length). Always present on valid rows.
   reference: string | null;
   details: string | null;
+  // Resolved taxonomy ids (null when unmapped, unknown, or parent-gated).
+  categoryId: string | null;
+  subcategoryId: string | null;
+  tagIds: readonly string[];
+  // Raw (trimmed) names that were seen in this row, with a `known` flag
+  // indicating whether each one resolved to an existing entity. Used by the
+  // dry-run taxonomy preview aggregator; empty when no taxonomy columns
+  // were mapped or all cells were blank.
+  taxonomySeen: {
+    category: { name: string; known: boolean } | null;
+    subcategory: { name: string; known: boolean } | null;
+    tags: ReadonlyArray<{ name: string; known: boolean }>;
+  };
   errors: Array<{
     field: 'date' | 'amount' | 'description';
     code: string;
@@ -408,10 +428,17 @@ export function createDryRunHandler(
 
       const retained = classified.filter((r) => r.classification !== 'skip');
 
+      // Build taxonomy lookup once for this call, then parse rows.
+      const taxonomyIndex = buildTaxonomyIndex(deps.getReadModel());
+      const taxonomyCollector = new TaxonomyPreviewCollector();
+
       // Parse all retained rows
       const parsedRows = retained.map(({ row }) =>
-        parseRow(row, accountId, columnMapping, dateFormatResult.format, deps.getReadModel),
+        parseRow(row, accountId, columnMapping, dateFormatResult.format, deps.getReadModel, taxonomyIndex),
       );
+      for (const pr of parsedRows) {
+        taxonomyCollector.ingest(pr.taxonomySeen);
+      }
 
       // Collect results
       const validRows = parsedRows.filter((r) => r.errors.length === 0);
@@ -457,6 +484,7 @@ export function createDryRunHandler(
         errors: errorList,
         inferredDateFormat: dateFormatResult.format,
         dateFormatAmbiguous: dateFormatResult.ambiguous,
+        taxonomyPreview: taxonomyCollector.snapshot(TAXONOMY_PREVIEW_NAME_LIMIT),
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -529,8 +557,9 @@ export function createCommitHandler(
 
       const retained = classified.filter((r) => r.classification !== 'skip');
 
+      const taxonomyIndex = buildTaxonomyIndex(deps.getReadModel());
       const parsedRows = retained.map(({ row }) =>
-        parseRow(row, accountId, columnMapping, dateFormatResult.format, deps.getReadModel),
+        parseRow(row, accountId, columnMapping, dateFormatResult.format, deps.getReadModel, taxonomyIndex),
       );
 
       const validRows = parsedRows.filter((r) => r.errors.length === 0);
@@ -555,9 +584,9 @@ export function createCommitHandler(
           currency: 'EUR',
           description: row.description!,
           accountId,
-          categoryId: null,
-          subcategoryId: null,
-          tagIds: [],
+          categoryId: row.categoryId,
+          subcategoryId: row.subcategoryId,
+          tagIds: [...row.tagIds],
           status: 'pending',
           createdAt: deps.now().toISOString(),
           rowHash: row.rowHash!,
@@ -667,6 +696,10 @@ interface RawRow {
   // WI-19 — optional per-row raw values for mappable free-text columns.
   rawReference: string;
   rawDetails: string;
+  // Taxonomy columns — optional, empty string when unmapped or blank cell.
+  rawCategory: string;
+  rawSubcategory: string;
+  rawTag: string;
 }
 
 interface LoadRowsResult {
@@ -753,6 +786,10 @@ function loadCsvRows(
     // WI-19 — optional reference/details column indices (-1 when unmapped).
     const referenceIdx = mapping.reference ? headers.indexOf(mapping.reference) : -1;
     const detailsIdx = mapping.details ? headers.indexOf(mapping.details) : -1;
+    // Taxonomy — optional category / subcategory / tag column indices.
+    const categoryIdx = mapping.category ? headers.indexOf(mapping.category) : -1;
+    const subcategoryIdx = mapping.subcategory ? headers.indexOf(mapping.subcategory) : -1;
+    const tagIdx = mapping.tag ? headers.indexOf(mapping.tag) : -1;
 
     if (dateIdx < 0 || amountIdx < 0 || descriptionIdx < 0) {
       return {
@@ -771,6 +808,9 @@ function loadCsvRows(
         rawDescription: r[descriptionIdx] ?? '',
         rawReference: referenceIdx >= 0 ? (r[referenceIdx] ?? '') : '',
         rawDetails: detailsIdx >= 0 ? (r[detailsIdx] ?? '') : '',
+        rawCategory: categoryIdx >= 0 ? (r[categoryIdx] ?? '') : '',
+        rawSubcategory: subcategoryIdx >= 0 ? (r[subcategoryIdx] ?? '') : '',
+        rawTag: tagIdx >= 0 ? (r[tagIdx] ?? '') : '',
       });
     }
 
@@ -845,6 +885,10 @@ async function loadXlsxRows(
     // WI-19 — optional reference/details column indices (-1 when unmapped).
     const referenceIdx = mapping.reference ? headers.indexOf(mapping.reference) : -1;
     const detailsIdx = mapping.details ? headers.indexOf(mapping.details) : -1;
+    // Taxonomy — optional category / subcategory / tag column indices.
+    const categoryIdx = mapping.category ? headers.indexOf(mapping.category) : -1;
+    const subcategoryIdx = mapping.subcategory ? headers.indexOf(mapping.subcategory) : -1;
+    const tagIdx = mapping.tag ? headers.indexOf(mapping.tag) : -1;
 
     if (dateIdx < 0 || amountIdx < 0 || descriptionIdx < 0) {
       return {
@@ -878,6 +922,10 @@ async function loadXlsxRows(
       // WI-19 — reference/details are only read when mapped. Unmapped → ''.
       const referenceCell = referenceIdx >= 0 ? row.getCell(referenceIdx + 1) : null;
       const detailsCell = detailsIdx >= 0 ? row.getCell(detailsIdx + 1) : null;
+      // Taxonomy cells — same pattern.
+      const categoryCell = categoryIdx >= 0 ? row.getCell(categoryIdx + 1) : null;
+      const subcategoryCell = subcategoryIdx >= 0 ? row.getCell(subcategoryIdx + 1) : null;
+      const tagCell = tagIdx >= 0 ? row.getCell(tagIdx + 1) : null;
 
       rows.push({
         rowIndex,
@@ -886,6 +934,9 @@ async function loadXlsxRows(
         rawDescription: sanitizeCell(descriptionCell.value),
         rawReference: referenceCell ? sanitizeCell(referenceCell.value) : '',
         rawDetails: detailsCell ? sanitizeCell(detailsCell.value) : '',
+        rawCategory: categoryCell ? sanitizeCell(categoryCell.value) : '',
+        rawSubcategory: subcategoryCell ? sanitizeCell(subcategoryCell.value) : '',
+        rawTag: tagCell ? sanitizeCell(tagCell.value) : '',
       });
     });
 
@@ -905,6 +956,7 @@ function parseRow(
   _mapping: ColumnMapping,
   dateFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD',
   getReadModel: () => ReadModel,
+  taxonomyIndex: TaxonomyIndex,
 ): ParsedRow {
   const errors: Array<{
     field: 'date' | 'amount' | 'description';
@@ -972,6 +1024,18 @@ function parseRow(
   const reference = normalizeFreeText(row.rawReference, 120);
   const details = normalizeFreeText(row.rawDetails, 1000);
 
+  // Resolve category / subcategory / tag names to read-model ids. Unknown
+  // names do NOT fail the row — they're dropped (null / omitted) and the
+  // dry-run preview reports them separately so the user can decide.
+  const resolved = resolveRowTaxonomy(
+    {
+      rawCategory: row.rawCategory,
+      rawSubcategory: row.rawSubcategory,
+      rawTag: row.rawTag,
+    },
+    taxonomyIndex,
+  );
+
   // If any field failed, return early
   if (errors.length > 0) {
     return {
@@ -984,6 +1048,10 @@ function parseRow(
       isDuplicate: undefined,
       reference,
       details,
+      categoryId: resolved.categoryId,
+      subcategoryId: resolved.subcategoryId,
+      tagIds: resolved.tagIds,
+      taxonomySeen: resolved.seen,
       errors,
     };
   }
@@ -1002,6 +1070,10 @@ function parseRow(
     isDuplicate,
     reference,
     details,
+    categoryId: resolved.categoryId,
+    subcategoryId: resolved.subcategoryId,
+    tagIds: resolved.tagIds,
+    taxonomySeen: resolved.seen,
     errors: [],
   };
 }

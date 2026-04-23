@@ -680,6 +680,7 @@
         "description": "Description",
         "category": "Category",
         "tag": "Tag",
+        "subcategory": "Subcategory",
         "reference": "Reference",
         "details": "Details",
         "ignore": "(Ignore)"
@@ -732,6 +733,16 @@
         "DATE_INVALID_FORMAT": "Invalid date format: \"{{raw}}\"",
         "REFERENCE_TOO_LONG": "Reference too long (max 120 characters)",
         "DETAILS_TOO_LONG": "Details too long (max 1000 characters)"
+      },
+      "taxonomy": {
+        "heading": "Detected categories, subcategories and tags",
+        "fields": {
+          "categories": "Categories",
+          "subcategories": "Subcategories",
+          "tags": "Tags"
+        },
+        "known": "Matched ({{count}}): {{names}}",
+        "unknown": "No match ({{count}}): {{names}} — rows will import without this value"
       }
     },
     "confirm": {

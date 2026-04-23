@@ -680,6 +680,7 @@
         "description": "Descripción",
         "category": "Categoría",
         "tag": "Etiqueta",
+        "subcategory": "Subcategoría",
         "reference": "Referencia",
         "details": "Detalles",
         "ignore": "(Ignorar)"
@@ -732,6 +733,16 @@
         "DATE_INVALID_FORMAT": "Formato de fecha no válido: «{{raw}}»",
         "REFERENCE_TOO_LONG": "Referencia demasiado larga (máx. 120 caracteres)",
         "DETAILS_TOO_LONG": "Detalles demasiado largos (máx. 1000 caracteres)"
+      },
+      "taxonomy": {
+        "heading": "Categorías, subcategorías y etiquetas detectadas",
+        "fields": {
+          "categories": "Categorías",
+          "subcategories": "Subcategorías",
+          "tags": "Etiquetas"
+        },
+        "known": "Reconocidas ({{count}}): {{names}}",
+        "unknown": "Sin coincidencia ({{count}}): {{names}} — se importarán sin este valor"
       }
     },
     "confirm": {
