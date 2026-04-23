@@ -719,51 +719,40 @@ export function buildDevSeedEvents(): DomainEvent[] {
     } as DomainEvent);
   }
 
-  // 2. Categories (with embedded subcategories)
+  // 2. Categories (WI-15-lite flat envelope → configCategories projection).
+  //    Each subcategory is a separate SubcategoryCreated event referencing
+  //    its parent by id. These are the events every post-PR#15 consumer
+  //    (Panel / Movements / Saldo / Configuración) reads through
+  //    `listCategories()` → `selectActiveCategories(configCategories)`.
   for (const cat of CATEGORIES) {
+    const catId = fakeUlid(cat.key);
+    const catIso = envelopeIso(envOrdinal++);
     events.push({
-      id: fakeUlid(`EVTCAT${cat.key}`),
-      type: 'category.created',
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      createdAt: envelopeIso(envOrdinal++),
-      dekVersion: 0,
-      version: 1,
-      payload: {
-        id: fakeUlid(cat.key),
-        name: cat.name,
-        description: null,
-        categoryType: cat.type,
-        sortOrder: 0,
-        isActive: true,
-        subcategories: cat.subs.map((name, i) => ({
-          id: fakeUlid(`${cat.key}S${i}`),
-          name,
-          isActive: true,
-        })),
-        createdAt: envelopeIso(envOrdinal),
-      },
+      type: 'CategoryCreated',
+      id: catId,
+      name: cat.name,
+      kind: cat.type,
+      createdAt: catIso,
     } as DomainEvent);
+    cat.subs.forEach((subName, i) => {
+      events.push({
+        type: 'SubcategoryCreated',
+        id: fakeUlid(`${cat.key}S${i}`),
+        parentCategoryId: catId,
+        name: subName,
+        createdAt: envelopeIso(envOrdinal++),
+      } as DomainEvent);
+    });
   }
 
-  // 3. Tags
+  // 3. Tags (WI-15-lite flat envelope → configTags projection).
   for (const tag of TAGS) {
     events.push({
-      id: fakeUlid(`EVTTAG${tag.key}`),
-      type: 'tag.created',
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
+      type: 'TagCreated',
+      id: fakeUlid(tag.key),
+      name: tag.name,
+      color: tag.color,
       createdAt: envelopeIso(envOrdinal++),
-      dekVersion: 0,
-      version: 1,
-      payload: {
-        id: fakeUlid(tag.key),
-        name: tag.name,
-        color: tag.color,
-        sortOrder: 0,
-        isActive: true,
-        createdAt: envelopeIso(envOrdinal),
-      },
     } as DomainEvent);
   }
 

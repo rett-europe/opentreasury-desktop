@@ -160,13 +160,13 @@ describe('getSaldoComparison — aggregation', () => {
     });
   });
 
-  it('buckets uncategorized transactions under categoryId=null with Spanish fallback name', () => {
+  it('buckets uncategorized transactions under categoryId=null with null name (renderer resolves via i18n)', () => {
     const model = makeModel([{ date: '2026-02-01', type: 'income', amount: 50, categoryId: null }]);
     const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
     const uncat = res.currentPeriod.netByCategory.find((r) => r.categoryId === null);
     expect(uncat).toEqual({
       categoryId: null,
-      categoryName: 'Sin categoría',
+      categoryName: null,
       income: 50,
       expense: 0,
     });
