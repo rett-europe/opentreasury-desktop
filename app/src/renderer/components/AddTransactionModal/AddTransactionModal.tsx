@@ -2,16 +2,20 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
+import { TransactionFormFields } from '../TransactionFormFields/index.js';
 import type { CreateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
-import './AddTransactionModal.css';
+// Reuse the detail modal's shell styling so Add and View/Edit look identical —
+// same width, padding, header/footer, summary strip. Field layout itself comes
+// from the shared <TransactionFormFields/> component.
+import '../TransactionDetailModal/TransactionDetailModal.css';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (input: CreateTransactionRequest) => Promise<void>;
-  accounts: Account[];
+  accounts: readonly Account[];
   categories?: readonly CategoryRecord[];
   tags?: readonly TagRecord[];
 }
@@ -22,12 +26,18 @@ interface FormErrors {
   amount?: string;
   description?: string;
   accountId?: string;
+  reference?: string;
+  details?: string;
+  [key: string]: string | undefined;
 }
 
 /**
- * Add Transaction Modal — WI-13.
- * Modal dialog for creating a new transaction. Fields match the prototype's
- * NewMovementForm (movimientos.jsx) and the WI-11 transaction command contract.
+ * Add Transaction Modal — "Nuevo movimiento" entry point.
+ *
+ * Visual parity with TransactionDetailModal's edit mode (WI-20 refactor):
+ * same dialog shell, same TransactionFormFields body, same footer buttons.
+ * The only visible differences are the title ("Nuevo movimiento") and the
+ * absence of the read-only summary strip (there's no existing tx to describe).
  *
  * Accessibility: native <dialog> with focus trap, Escape to close, ARIA labels.
  */
@@ -42,7 +52,7 @@ export function AddTransactionModal({
   const { t } = useTranslation('common');
   const dialogRef = useRef<HTMLDialogElement>(null);
 
-  // Form state — defaults match the prototype (today, approved status, EUR)
+  // Form state — defaults match the prototype (today, approved status, EUR).
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState('');
@@ -51,23 +61,25 @@ export function AddTransactionModal({
   const [categoryId, setCategoryId] = useState<string>('');
   const [subcategoryId, setSubcategoryId] = useState<string>('');
   const [tagIds, setTagIds] = useState<string[]>([]);
+  const [status, setStatus] = useState<'pending' | 'approved'>('approved');
+  const [reference, setReference] = useState('');
+  const [details, setDetails] = useState('');
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
 
-  // Auto-select first account when accounts change and no selection yet
+  // Auto-select first account when accounts change and no selection yet.
   useEffect(() => {
     if (accounts.length > 0 && !accountId) {
       setAccountId(accounts[0]!.id);
     }
   }, [accounts, accountId]);
 
-  // Manage <dialog> open/close state
+  // Manage <dialog> open/close state.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-
     if (isOpen && !dialog.open) {
       dialog.showModal();
     } else if (!isOpen && dialog.open) {
@@ -75,7 +87,7 @@ export function AddTransactionModal({
     }
   }, [isOpen]);
 
-  // Reset form when modal opens
+  // Reset form when modal opens.
   useEffect(() => {
     if (isOpen) {
       setDate(new Date().toISOString().slice(0, 10));
@@ -86,12 +98,15 @@ export function AddTransactionModal({
       setCategoryId('');
       setSubcategoryId('');
       setTagIds([]);
+      setStatus('approved');
+      setReference('');
+      setDetails('');
       setErrors({});
       setGeneralError(null);
     }
   }, [isOpen, accounts]);
 
-  // Close on Escape (native dialog behavior) + backdrop click
+  // Close on Escape (native dialog behavior) + backdrop click.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -141,9 +156,19 @@ export function AddTransactionModal({
       newErrors.accountId = t('movements.form.errors.accountNotFound');
     }
 
+    const trimmedRef = reference.trim();
+    if (trimmedRef.length > 120) {
+      newErrors.reference = t('movements.form.errors.referenceTooLong');
+    }
+
+    const trimmedDetails = details.trim();
+    if (trimmedDetails.length > 1000) {
+      newErrors.details = t('movements.form.errors.detailsTooLong');
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [date, type, amount, description, accountId, t]);
+  }, [date, type, amount, description, accountId, reference, details, t]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -167,7 +192,9 @@ export function AddTransactionModal({
           categoryId: categoryId || undefined,
           subcategoryId: subcategoryId || undefined,
           tagIds: tagIds.length > 0 ? tagIds : undefined,
-          status: 'approved',
+          status,
+          reference: reference.trim() || undefined,
+          details: details.trim() || undefined,
         };
 
         await onSubmit(input);
@@ -190,6 +217,9 @@ export function AddTransactionModal({
       categoryId,
       subcategoryId,
       tagIds,
+      status,
+      reference,
+      details,
       onSubmit,
       onClose,
       t,
@@ -197,190 +227,70 @@ export function AddTransactionModal({
   );
 
   return (
-    <dialog ref={dialogRef} className="ot-add-transaction-modal" aria-labelledby="modal-title">
-      <div className="ot-add-transaction-modal__content">
-        <header className="ot-add-transaction-modal__header">
-          <h2 id="modal-title" className="ot-add-transaction-modal__title">
+    <dialog
+      ref={dialogRef}
+      className="ot-transaction-detail-modal ot-transaction-detail-modal--edit"
+      aria-labelledby="ot-add-transaction-title"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="ot-transaction-detail-modal__content">
+        <header className="ot-transaction-detail-modal__header">
+          <h1 id="ot-add-transaction-title" className="ot-transaction-detail-modal__title">
             {t('movements.form.title')}
-          </h2>
-          <button
-            type="button"
-            className="ot-add-transaction-modal__close"
-            onClick={onClose}
-            aria-label={t('common.close')}
-          >
-            <X size={20} />
-          </button>
+          </h1>
+          <div className="ot-transaction-detail-modal__header-actions">
+            <button
+              type="button"
+              className="ot-transaction-detail-modal__close"
+              onClick={onClose}
+              aria-label={t('common.close')}
+            >
+              <X size={20} aria-hidden="true" />
+            </button>
+          </div>
         </header>
 
-        <form className="ot-add-transaction-modal__form" onSubmit={handleSubmit}>
-          {generalError && (
-            <div className="ot-add-transaction-modal__error" role="alert">
-              {generalError}
-            </div>
-          )}
-
-          <div className="ot-add-transaction-modal__row">
-            <div className="ot-add-transaction-modal__field">
-              <label htmlFor="tx-date" className="ot-add-transaction-modal__label">
-                {t('movements.form.fields.date')}
-              </label>
-              <input
-                id="tx-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="ot-add-transaction-modal__input"
-                aria-invalid={!!errors.date}
-                aria-describedby={errors.date ? 'error-date' : undefined}
-              />
-              {errors.date && (
-                <span id="error-date" className="ot-add-transaction-modal__field-error">
-                  {errors.date}
-                </span>
-              )}
-            </div>
-
-            <div className="ot-add-transaction-modal__field">
-              <label htmlFor="tx-type" className="ot-add-transaction-modal__label">
-                {t('movements.form.fields.type')}
-              </label>
-              <select
-                id="tx-type"
-                value={type}
-                onChange={(e) => setType(e.target.value as 'income' | 'expense')}
-                className="ot-add-transaction-modal__input"
-                aria-invalid={!!errors.type}
-                aria-describedby={errors.type ? 'error-type' : undefined}
-              >
-                <option value="income">{t('movements.filters.type.income')}</option>
-                <option value="expense">{t('movements.filters.type.expense')}</option>
-              </select>
-              {errors.type && (
-                <span id="error-type" className="ot-add-transaction-modal__field-error">
-                  {errors.type}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="ot-add-transaction-modal__row">
-            <div className="ot-add-transaction-modal__field">
-              <label htmlFor="tx-amount" className="ot-add-transaction-modal__label">
-                {t('movements.form.fields.amount')}
-              </label>
-              <input
-                id="tx-amount"
-                type="number"
-                step="0.01"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                className="ot-add-transaction-modal__input"
-                aria-invalid={!!errors.amount}
-                aria-describedby={errors.amount ? 'error-amount' : undefined}
-              />
-              {errors.amount && (
-                <span id="error-amount" className="ot-add-transaction-modal__field-error">
-                  {errors.amount}
-                </span>
-              )}
-            </div>
-
-            <div className="ot-add-transaction-modal__field">
-              <label htmlFor="tx-account" className="ot-add-transaction-modal__label">
-                {t('movements.form.fields.account')}
-              </label>
-              <select
-                id="tx-account"
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                className="ot-add-transaction-modal__input"
-                aria-invalid={!!errors.accountId}
-                aria-describedby={errors.accountId ? 'error-account' : undefined}
-              >
-                {accounts.map((acc) => (
-                  <option key={acc.id} value={acc.id}>
-                    {acc.accountLabel}
-                  </option>
-                ))}
-              </select>
-              {errors.accountId && (
-                <span id="error-account" className="ot-add-transaction-modal__field-error">
-                  {errors.accountId}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="ot-add-transaction-modal__field">
-            <label htmlFor="tx-description" className="ot-add-transaction-modal__label">
-              {t('movements.form.fields.description')}
-            </label>
-            <input
-              id="tx-description"
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t('movements.form.placeholders.description')}
-              maxLength={500}
-              className="ot-add-transaction-modal__input"
-              aria-invalid={!!errors.description}
-              aria-describedby={errors.description ? 'error-description' : undefined}
-            />
-            {errors.description && (
-              <span id="error-description" className="ot-add-transaction-modal__field-error">
-                {errors.description}
-              </span>
+        <form onSubmit={handleSubmit}>
+          <div className="ot-transaction-detail-modal__edit-body">
+            {generalError && (
+              <div className="ot-transaction-detail-modal__error" role="alert">
+                {generalError}
+              </div>
             )}
+            <TransactionFormFields
+              date={date}
+              onDateChange={setDate}
+              type={type}
+              onTypeChange={setType}
+              amount={amount}
+              onAmountChange={setAmount}
+              description={description}
+              onDescriptionChange={setDescription}
+              accountId={accountId}
+              onAccountIdChange={setAccountId}
+              categoryId={categoryId}
+              onCategoryIdChange={setCategoryId}
+              subcategoryId={subcategoryId}
+              onSubcategoryIdChange={setSubcategoryId}
+              tagIds={tagIds}
+              onTagIdsChange={setTagIds}
+              status={status}
+              onStatusChange={setStatus}
+              reference={reference}
+              onReferenceChange={setReference}
+              details={details}
+              onDetailsChange={setDetails}
+              accounts={accounts}
+              categories={categories}
+              tags={tags}
+              errors={errors}
+              mode="add"
+              currency="EUR"
+            />
           </div>
 
-          <div className="ot-add-transaction-modal__row">
-            <div className="ot-add-transaction-modal__field">
-              <label htmlFor="tx-category" className="ot-add-transaction-modal__label">
-                {t('movements.form.fields.category')}
-              </label>
-              <select
-                id="tx-category"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                className="ot-add-transaction-modal__input"
-              >
-                <option value="">{t('configuracion.categorias.none')}</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="ot-add-transaction-modal__field">
-              <label htmlFor="tx-tags" className="ot-add-transaction-modal__label">
-                {t('movements.form.fields.tags')}
-              </label>
-              <select
-                id="tx-tags"
-                multiple
-                value={tagIds}
-                onChange={(e) => {
-                  const opts = Array.from(e.target.selectedOptions).map((o) => o.value);
-                  setTagIds(opts);
-                }}
-                className="ot-add-transaction-modal__input"
-                size={Math.min(4, Math.max(2, tags.length))}
-              >
-                {tags.map((tg) => (
-                  <option key={tg.id} value={tg.id}>
-                    {tg.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <footer className="ot-add-transaction-modal__footer">
+          <footer className="ot-transaction-detail-modal__footer">
             <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
               {t('common.cancel')}
             </Button>

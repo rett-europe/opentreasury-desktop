@@ -1,5 +1,6 @@
 import type { DomainEvent } from '../events/schemas';
 import type {
+  Account,
   ConfigAccount,
   ConfigCategory,
   ConfigSubcategory,
@@ -144,8 +145,24 @@ export function applyEvent(event: DomainEvent): void {
         ...(event.color !== undefined ? { color: event.color } : {}),
         ...(event.isPaypal !== undefined ? { isPaypal: event.isPaypal } : {}),
       };
+      // Also project into the legacy Account list so downstream consumers
+      // that look up accounts by id (movements/panel/edit modal label
+      // resolution) find the record. Config and legacy account stores
+      // coexist for historical reasons; this keeps them in sync without
+      // a broader refactor.
+      const legacyAccount: Account = {
+        id: event.id,
+        bankName: event.bankName ?? event.name,
+        bankNameShort: event.name,
+        accountLabel: event.label ?? event.name,
+        color: event.color ?? null,
+        sortOrder: readModel.accounts.length,
+        isActive: true,
+        createdAt: event.createdAt,
+      };
       readModel = {
         ...readModel,
+        accounts: [...readModel.accounts, legacyAccount],
         configAccounts: [...readModel.configAccounts, next],
       };
       break;
