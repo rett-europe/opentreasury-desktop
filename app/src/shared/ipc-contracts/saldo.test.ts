@@ -64,6 +64,8 @@ describe('saldo IPC contract', () => {
       },
       monthlySeries: [],
       priorMonthlySeries: [],
+      monthlyIncome: Array(12).fill(0),
+      monthlyExpense: Array(12).fill(0),
       kpis: {
         netDelta: 0.25,
         incomeDelta: 0.25,
@@ -106,6 +108,8 @@ describe('saldo IPC contract', () => {
         { monthIso: '2025-01-01', netIncome: 80, netExpense: 20 },
         { monthIso: '2025-02-01', netIncome: 90, netExpense: 25 },
       ],
+      monthlyIncome: Array(12).fill(0),
+      monthlyExpense: Array(12).fill(0),
       kpis: {
         netDelta: 0.1,
         incomeDelta: 0.095,
@@ -143,6 +147,8 @@ describe('saldo IPC contract', () => {
       },
       monthlySeries: [],
       priorMonthlySeries: [],
+      monthlyIncome: Array(12).fill(0),
+      monthlyExpense: Array(12).fill(0),
       kpis: {
         netDelta: null,
         incomeDelta: null,
@@ -174,6 +180,8 @@ describe('saldo IPC contract', () => {
         netByCategory: [],
       },
       monthlySeries: [],
+      monthlyIncome: Array(12).fill(0),
+      monthlyExpense: Array(12).fill(0),
       kpis: {
         netDelta: null,
         incomeDelta: null,

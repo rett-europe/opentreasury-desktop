@@ -135,13 +135,25 @@ export type SaldoKpis = z.infer<typeof saldoKpisSchema>;
 export const saldoComparisonResponseSchema = z.object({
   currentPeriod: saldoCurrentPeriodSchema,
   priorPeriod: saldoPriorPeriodSchema,
+  /**
+   * @deprecated No longer consumed by the renderer (Saldo chart switched to
+   * the absolute monthly income-vs-expense view keyed on `monthlyIncome` /
+   * `monthlyExpense`). Retained so downstream invariant tests keep passing.
+   */
   monthlySeries: z.array(saldoMonthlyBucketSchema),
-  // Same shape as `monthlySeries` but keyed to the prior same-period-prior-year
-  // window (e.g. 12 buckets 2025-01-01…2025-12-01 when the current period is
-  // 2026 `ano`). Required — renderers get a predictable shape and can render a
-  // flat line when a period has no prior data (zero-filled buckets). Never
-  // projected (same rule as `monthlySeries`).
+  /**
+   * @deprecated See `monthlySeries`. YoY detail now lives in the per-category
+   * panels, not in the top chart.
+   */
   priorMonthlySeries: z.array(saldoMonthlyBucketSchema),
+  // Monthly absolute income / expense totals for the CALENDAR YEAR that
+  // contains the request anchor. Always 12 entries, index 0 = January. Values
+  // are non-negative (expenses expressed as positive numbers — the renderer
+  // applies the red colour treatment). Independent of `period` — the Saldo
+  // chart always shows the selected year, while the per-category panels carry
+  // the period-scoped YoY comparison.
+  monthlyIncome: z.array(z.number().nonnegative()).length(12),
+  monthlyExpense: z.array(z.number().nonnegative()).length(12),
   kpis: saldoKpisSchema,
 });
 export type SaldoComparisonResponse = z.infer<typeof saldoComparisonResponseSchema>;

@@ -12,11 +12,14 @@ vi.mock('../../services/saldoApi.js', () => ({
 
 import { getSaldoComparison } from '../../services/saldoApi.js';
 
+const CURRENT_YEAR = new Date().getFullYear();
+const PRIOR_YEAR = CURRENT_YEAR - 1;
+
 function makeResponse(overrides: Partial<SaldoComparisonResponse> = {}): SaldoComparisonResponse {
   return {
     currentPeriod: {
-      start: '2026-01-01',
-      end: '2026-12-31',
+      start: `${CURRENT_YEAR}-01-01`,
+      end: `${CURRENT_YEAR}-12-31`,
       totalIncome: 10000,
       totalExpense: 4000,
       netByCategory: [
@@ -30,8 +33,8 @@ function makeResponse(overrides: Partial<SaldoComparisonResponse> = {}): SaldoCo
       currentProjectedTotal: null,
     },
     priorPeriod: {
-      start: '2025-01-01',
-      end: '2025-12-31',
+      start: `${PRIOR_YEAR}-01-01`,
+      end: `${PRIOR_YEAR}-12-31`,
       totalIncome: 8000,
       totalExpense: 3500,
       netByCategory: [
@@ -40,23 +43,15 @@ function makeResponse(overrides: Partial<SaldoComparisonResponse> = {}): SaldoCo
         { categoryId: 'cat-c', categoryName: 'Eventos', income: 1500, expense: 800 },
       ],
     },
-    monthlySeries: [
-      { monthIso: '2026-01-01', netIncome: 1000, netExpense: 300 },
-      { monthIso: '2026-02-01', netIncome: 900, netExpense: 400 },
-    ],
-    priorMonthlySeries: [
-      { monthIso: '2025-01-01', netIncome: 800, netExpense: 200 },
-      { monthIso: '2025-02-01', netIncome: 700, netExpense: 350 },
-    ],
+    monthlySeries: [],
+    priorMonthlySeries: [],
+    monthlyIncome: Array.from({ length: 12 }, (_, i) => (i === 0 ? 1000 : i === 6 ? 2000 : 500)),
+    monthlyExpense: Array.from({ length: 12 }, (_, i) => (i === 3 ? 400 : 200)),
     kpis: {
       netDelta: 0.25,
       incomeDelta: 0.25,
       expenseDelta: 0.14,
-      biggestCategoryGrowth: {
-        categoryId: 'cat-a',
-        categoryName: 'Donaciones',
-        deltaPct: 0.33,
-      },
+      biggestCategoryGrowth: null,
     },
     ...overrides,
   };
@@ -73,6 +68,9 @@ function renderWithI18n(): ReturnType<typeof render> {
 describe('SaldoScreen', () => {
   beforeEach(() => {
     vi.mocked(getSaldoComparison).mockReset();
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('saldo.view.v2');
+    }
   });
 
   it('renders the loading state initially', () => {
@@ -84,7 +82,9 @@ describe('SaldoScreen', () => {
         }),
     );
     renderWithI18n();
-    expect(screen.getByRole('status').textContent ?? '').toMatch(/cargando|loading/i);
+    const statuses = screen.getAllByRole('status');
+    const loading = statuses.some((el) => /cargando|loading/i.test(el.textContent ?? ''));
+    expect(loading).toBe(true);
     resolve(makeResponse());
   });
 
@@ -98,85 +98,55 @@ describe('SaldoScreen', () => {
     expect(screen.getByTestId('saldo-kpi-income')).toBeDefined();
     expect(screen.getByTestId('saldo-kpi-expense')).toBeDefined();
 
-    // Old "biggest growth" card must no longer exist.
     expect(screen.queryByTestId('saldo-kpi-biggest-growth')).toBeNull();
 
-    // Income card shows 10k €, expense 4k €, net 6k €. Locale-agnostic: 'es'
-    // uses '10.000' and 'en' uses '10,000' — accept either thousands separator.
     expect(screen.getByTestId('saldo-kpi-income').textContent ?? '').toMatch(/10[.,]000/);
     expect(screen.getByTestId('saldo-kpi-expense').textContent ?? '').toMatch(/4[.,]000/);
     expect(screen.getByTestId('saldo-kpi-net').textContent ?? '').toMatch(/6[.,]000/);
 
-    // Net card should carry only the prior-year sublabel (no projection line
-    // per prototype).
-    expect(screen.getByTestId('saldo-kpi-net').textContent ?? '').toMatch(/2025.*4[.,]500/);
-  });
-
-  it('renders the year chip with "2025 vs 2026"', async () => {
-    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
-    renderWithI18n();
-    await waitFor(() => {
-      expect(screen.getByTestId('saldo-year-chip')).toBeDefined();
-    });
-    expect(screen.getByTestId('saldo-year-chip').textContent ?? '').toMatch(/2025.*vs.*2026/);
-  });
-
-  it('refetches with the new period when the selector changes', async () => {
-    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
-    renderWithI18n();
-
-    await waitFor(() => {
-      expect(vi.mocked(getSaldoComparison).mock.calls.length).toBeGreaterThanOrEqual(1);
-    });
-    expect(vi.mocked(getSaldoComparison).mock.calls[0]?.[0]?.period).toBe('ano');
-
-    fireEvent.click(screen.getByTestId('saldo-period-mes'));
-
-    await waitFor(() => {
-      const lastCall =
-        vi.mocked(getSaldoComparison).mock.calls[
-          vi.mocked(getSaldoComparison).mock.calls.length - 1
-        ];
-      expect(lastCall?.[0]?.period).toBe('mes');
-    });
-  });
-
-  it('renders the projected KPI sublabel when isPartial=true', async () => {
-    vi.mocked(getSaldoComparison).mockResolvedValue(
-      makeResponse({
-        currentPeriod: {
-          start: '2026-01-01',
-          end: '2026-12-31',
-          totalIncome: 3000,
-          totalExpense: 1000,
-          netByCategory: [
-            { categoryId: 'cat-a', categoryName: 'Donaciones', income: 3000, expense: 0 },
-            { categoryId: 'cat-b', categoryName: 'Oficina', income: 0, expense: 1000 },
-          ],
-          isPartial: true,
-          daysElapsed: 120,
-          daysInPeriod: 365,
-          currentProjectedTotal: { income: 9125, expense: 3041.67 },
-        },
-      }),
+    // Net card carries the prior-year sublabel in compare mode.
+    expect(screen.getByTestId('saldo-kpi-net').textContent ?? '').toMatch(
+      new RegExp(`${PRIOR_YEAR}.*4[.,]500`),
     );
-    renderWithI18n();
-    await waitFor(() => {
-      expect(screen.getByTestId('saldo-kpi-income')).toBeDefined();
-    });
-    // Income card shows both prior and projected sublabel segments.
-    const income = screen.getByTestId('saldo-kpi-income').textContent ?? '';
-    expect(income).toMatch(/2025/);
-    expect(income).toMatch(/proy\.?|proj\.?/i);
-    expect(income).toMatch(/9[.,]125/);
   });
 
-  it('renders the empty state when both periods are fully zero', async () => {
+  it('renders the mode segmented control with compare selected by default', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-mode-selector')).toBeDefined();
+    });
+    expect(screen.getByTestId('saldo-mode-compare').getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByTestId('saldo-mode-single').getAttribute('aria-checked')).toBe('false');
+    // Two year pickers in compare mode.
+    expect(screen.getByTestId('saldo-year-current')).toBeDefined();
+    expect(screen.getByTestId('saldo-year-prior')).toBeDefined();
+  });
+
+  it('switching to single mode hides delta chips and the prior-year picker', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-mode-single')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('saldo-mode-single'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('saldo-year-prior')).toBeNull();
+    });
+    // KPI delta chips must NOT be present in single mode.
+    expect(screen.queryByTestId('saldo-kpi-income-delta')).toBeNull();
+    expect(screen.queryByTestId('saldo-kpi-expense-delta')).toBeNull();
+    expect(screen.queryByTestId('saldo-kpi-net-delta')).toBeNull();
+    // Single picker is present.
+    expect(screen.getByTestId('saldo-year-current')).toBeDefined();
+  });
+
+  it('renders empty-year state when current year has no transactions', async () => {
     vi.mocked(getSaldoComparison).mockResolvedValue(
       makeResponse({
         currentPeriod: {
-          start: '2026-01-01',
-          end: '2026-12-31',
+          start: `${CURRENT_YEAR}-01-01`,
+          end: `${CURRENT_YEAR}-12-31`,
           totalIncome: 0,
           totalExpense: 0,
           netByCategory: [],
@@ -186,19 +156,11 @@ describe('SaldoScreen', () => {
           currentProjectedTotal: null,
         },
         priorPeriod: {
-          start: '2025-01-01',
-          end: '2025-12-31',
+          start: `${PRIOR_YEAR}-01-01`,
+          end: `${PRIOR_YEAR}-12-31`,
           totalIncome: 0,
           totalExpense: 0,
           netByCategory: [],
-        },
-        monthlySeries: [],
-        priorMonthlySeries: [],
-        kpis: {
-          netDelta: null,
-          incomeDelta: null,
-          expenseDelta: null,
-          biggestCategoryGrowth: null,
         },
       }),
     );
@@ -210,22 +172,44 @@ describe('SaldoScreen', () => {
       );
       expect(matched).toBe(true);
     });
-    expect(screen.queryByTestId('saldo-kpi-net')).toBeNull();
+    // KPI cards still rendered, but display zeros.
+    expect(screen.getByTestId('saldo-kpi-net').textContent ?? '').toMatch(/0[.,]00/);
   });
 
-  it('feeds the chart with both series (current + prior) — two groups, each exposing both values', async () => {
+  it('renders the monthly chart with 12 groups (income + expense series) and current year in the title', async () => {
     vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
     renderWithI18n();
     await waitFor(() => {
       expect(screen.getByTestId('gbc-group-0')).toBeDefined();
-      expect(screen.getByTestId('gbc-group-1')).toBeDefined();
     });
-    // Group 0: current net = 1000-300 = 700 (2026), prior net = 800-200 = 600 (2025).
-    const group0Label = screen.getByTestId('gbc-group-0').getAttribute('aria-label') ?? '';
-    expect(group0Label).toMatch(/2026/);
-    expect(group0Label).toMatch(/2025/);
-    expect(group0Label).toMatch(/700/);
-    expect(group0Label).toMatch(/600/);
+    // 12 monthly groups.
+    expect(screen.getByTestId('gbc-group-0')).toBeDefined();
+    expect(screen.getByTestId('gbc-group-11')).toBeDefined();
+    expect(screen.queryByTestId('gbc-group-12')).toBeNull();
+
+    // Title carries the current year.
+    const title = document.getElementById('saldo-chart-title');
+    expect(title?.textContent ?? '').toMatch(String(CURRENT_YEAR));
+
+    // January group reflects both income + expense amounts from the fixture.
+    const jan = screen.getByTestId('gbc-group-0').getAttribute('aria-label') ?? '';
+    expect(jan).toMatch(/1[.,]000/); // income 1000 in Jan
+    expect(jan).toMatch(/200/); // expense 200 in Jan
+  });
+
+  it('monthly chart stays rendered (always current year) after switching to single mode', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-mode-single')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('saldo-mode-single'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('saldo-year-prior')).toBeNull();
+    });
+    // Monthly chart still has its 12 groups in single mode.
+    expect(screen.getByTestId('gbc-group-0')).toBeDefined();
+    expect(screen.getByTestId('gbc-group-11')).toBeDefined();
   });
 
   it('routes categories into Ingresos vs Gastos panels (mixed category appears in both)', async () => {
@@ -237,60 +221,42 @@ describe('SaldoScreen', () => {
     });
     const income = screen.getByTestId('saldo-panel-income');
     const expense = screen.getByTestId('saldo-panel-expense');
-
-    // Donaciones only has income → income panel only.
     expect(within(income).getByText('Donaciones')).toBeDefined();
     expect(within(expense).queryByText('Donaciones')).toBeNull();
-
-    // Oficina only has expense → expense panel only.
     expect(within(expense).getByText('Oficina')).toBeDefined();
     expect(within(income).queryByText('Oficina')).toBeNull();
-
-    // Eventos is mixed → appears in both panels (prototype parity).
     expect(within(income).getByText('Eventos')).toBeDefined();
     expect(within(expense).getByText('Eventos')).toBeDefined();
   });
 
-  it('renders category delta with "vs 2025" sublabel (or "proy. vs 2025" when partial)', async () => {
+  it('compare mode panel shows category delta with "vs <priorYear>" sublabel', async () => {
     vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
     renderWithI18n();
     await waitFor(() => {
       expect(screen.getByTestId('saldo-row-income-cat-a')).toBeDefined();
     });
     const row = screen.getByTestId('saldo-row-income-cat-a');
-    // Donaciones: current 8000, prior 6000 → delta ≈ +33%.
     const delta = screen.getByTestId('saldo-row-income-cat-a-delta').textContent ?? '';
     expect(delta).toMatch(/↑/);
     expect(delta).toMatch(/33/);
-    // Default period (non-partial) uses "vs 2025" (no "proy.").
-    expect(row.textContent ?? '').toMatch(/vs\s*2025/);
+    expect(row.textContent ?? '').toMatch(new RegExp(`vs\\s*${PRIOR_YEAR}`));
   });
 
-  it('uses projected sublabel "proy. vs 2025" when the current period is partial', async () => {
-    vi.mocked(getSaldoComparison).mockResolvedValue(
-      makeResponse({
-        currentPeriod: {
-          start: '2026-01-01',
-          end: '2026-12-31',
-          totalIncome: 3000,
-          totalExpense: 1000,
-          netByCategory: [
-            { categoryId: 'cat-a', categoryName: 'Donaciones', income: 3000, expense: 0 },
-            { categoryId: 'cat-b', categoryName: 'Oficina', income: 0, expense: 1000 },
-          ],
-          isPartial: true,
-          daysElapsed: 120,
-          daysInPeriod: 365,
-          currentProjectedTotal: { income: 9125, expense: 3041.67 },
-        },
-      }),
-    );
+  it('single mode panel keeps the type column and shows % of total instead of delta', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
     renderWithI18n();
     await waitFor(() => {
-      expect(screen.getByTestId('saldo-row-income-cat-a')).toBeDefined();
+      expect(screen.getByTestId('saldo-mode-single')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('saldo-mode-single'));
+    await waitFor(() => {
+      const row = screen.queryByTestId('saldo-row-income-cat-a');
+      expect(row).not.toBeNull();
     });
     const row = screen.getByTestId('saldo-row-income-cat-a');
-    // Match either 'proy.' (es) or 'proj.' (en).
-    expect(row.textContent ?? '').toMatch(/pro[yj]\..*2025/i);
+    // Donaciones income (8000) of total income (10000) = 80%.
+    expect(row.textContent ?? '').toMatch(/80\s*%/);
+    // Type column is still rendered for a11y.
+    expect(row.textContent ?? '').toMatch(/ingreso|income/i);
   });
 });

@@ -347,6 +347,19 @@ export function getSaldoComparison(
   const monthlySeries = buildMonthlySeries(model, currentRange);
   const priorMonthlySeries = buildMonthlySeries(model, priorRange);
 
+  // New chart inputs (Saldo redesign, Pedro 2026-04): always 12 buckets of
+  // absolute income / expense for the CALENDAR YEAR that contains the anchor,
+  // independent of `period`. The renderer renders these verbatim; YoY lives
+  // in the per-category panels.
+  const anchorYear = parseUtcDate(request.anchor).getUTCFullYear();
+  const fullYearRange: PeriodRange = {
+    start: `${anchorYear}-01-01`,
+    end: `${anchorYear}-12-31`,
+  };
+  const fullYearBuckets = buildMonthlySeries(model, fullYearRange);
+  const monthlyIncome = fullYearBuckets.map((b) => b.netIncome);
+  const monthlyExpense = fullYearBuckets.map((b) => b.netExpense);
+
   const projection = computeProjection(
     currentRange,
     currentAgg.totalIncome,
@@ -397,6 +410,8 @@ export function getSaldoComparison(
     },
     monthlySeries,
     priorMonthlySeries,
+    monthlyIncome,
+    monthlyExpense,
     kpis: {
       netDelta: pctDelta(effectiveNet, priorNet),
       incomeDelta: pctDelta(effectiveIncome, priorIncome),

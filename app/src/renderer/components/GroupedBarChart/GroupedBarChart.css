@@ -43,12 +43,85 @@
 .ot-grouped-bar-chart__plot {
   position: relative;
   width: 100%;
+  height: 280px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .ot-grouped-bar-chart__svg {
   display: block;
   width: 100%;
-  height: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ot-grouped-bar-chart__x-labels {
+  display: flex;
+  width: 100%;
+  flex: 0 0 auto;
+  padding-top: 6px;
+}
+
+.ot-grouped-bar-chart__x-labels .ot-grouped-bar-chart__x-label {
+  flex: 1 1 0;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ot-grouped-bar-chart__divider {
+  stroke: var(--color-border-subtle);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+/* Per-category bars (income / expense × CY / LY). Color encodes type,
+   shade encodes year (CY = solid, LY = 60% opacity). */
+.ot-grouped-bar-chart__bar--income-cy {
+  fill: var(--color-income-default);
+}
+.ot-grouped-bar-chart__bar--income-ly {
+  fill: var(--color-income-default);
+  fill-opacity: 0.6;
+}
+.ot-grouped-bar-chart__bar--income-solo {
+  fill: var(--color-income-default);
+}
+.ot-grouped-bar-chart__bar--expense-cy {
+  fill: var(--color-expense-default);
+}
+.ot-grouped-bar-chart__bar--expense-ly {
+  fill: var(--color-expense-default);
+  fill-opacity: 0.6;
+}
+.ot-grouped-bar-chart__bar--expense-solo {
+  fill: var(--color-expense-default);
+}
+
+.ot-grouped-bar-chart__swatch--income-cy {
+  background: var(--color-income-default);
+}
+.ot-grouped-bar-chart__swatch--income-ly {
+  background: var(--color-income-default);
+  opacity: 0.6;
+}
+.ot-grouped-bar-chart__swatch--income-solo {
+  background: var(--color-income-default);
+}
+.ot-grouped-bar-chart__swatch--expense-cy {
+  background: var(--color-expense-default);
+}
+.ot-grouped-bar-chart__swatch--expense-ly {
+  background: var(--color-expense-default);
+  opacity: 0.6;
+}
+.ot-grouped-bar-chart__swatch--expense-solo {
+  background: var(--color-expense-default);
 }
 
 .ot-grouped-bar-chart__axis {

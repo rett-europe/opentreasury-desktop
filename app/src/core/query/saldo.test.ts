@@ -193,6 +193,50 @@ describe('getSaldoComparison — aggregation', () => {
     expect(mes.monthlySeries).toHaveLength(1);
   });
 
+  it('monthlyIncome / monthlyExpense: 12 buckets keyed to the anchor calendar year, split by type', () => {
+    const model = makeModel(
+      [
+        // 2026 — should appear in the chart arrays.
+        { date: '2026-01-15', type: 'income', amount: 300, categoryId: 'c1' },
+        { date: '2026-01-20', type: 'expense', amount: 50, categoryId: 'c2' },
+        { date: '2026-04-10', type: 'income', amount: 700, categoryId: 'c1' },
+        { date: '2026-04-25', type: 'expense', amount: 120, categoryId: 'c2' },
+        { date: '2026-12-31', type: 'income', amount: 40, categoryId: 'c1' },
+        // 2025 — must not leak into the 2026 chart arrays.
+        { date: '2025-04-10', type: 'income', amount: 999, categoryId: 'c1' },
+        { date: '2025-04-10', type: 'expense', amount: 999, categoryId: 'c2' },
+      ],
+      [
+        { id: 'c1', name: 'Donaciones' },
+        { id: 'c2', name: 'Gastos' },
+      ],
+    );
+
+    // Period = trim (Q2 2026) — the chart arrays are independent of period and
+    // cover the full calendar year 2026.
+    const res = runSaldo(model, 'trim', '2026-04-01', new Date('2027-01-10T00:00:00Z'));
+
+    expect(res.monthlyIncome).toHaveLength(12);
+    expect(res.monthlyExpense).toHaveLength(12);
+    // January (idx 0) → 300 / 50.
+    expect(res.monthlyIncome[0]).toBe(300);
+    expect(res.monthlyExpense[0]).toBe(50);
+    // April (idx 3) → 700 / 120.
+    expect(res.monthlyIncome[3]).toBe(700);
+    expect(res.monthlyExpense[3]).toBe(120);
+    // December (idx 11) → 40 / 0.
+    expect(res.monthlyIncome[11]).toBe(40);
+    expect(res.monthlyExpense[11]).toBe(0);
+    // Months with no activity are zero.
+    expect(res.monthlyIncome[5]).toBe(0);
+    expect(res.monthlyExpense[5]).toBe(0);
+    // Totals over the year match Σ of each array.
+    const sumIncome = res.monthlyIncome.reduce((s, v) => s + v, 0);
+    const sumExpense = res.monthlyExpense.reduce((s, v) => s + v, 0);
+    expect(sumIncome).toBe(1040);
+    expect(sumExpense).toBe(170);
+  });
+
   it('aggregation totals match a manual Movements-style sum (Saldo ≡ Movements invariant)', () => {
     const model = makeModel(
       Array.from({ length: 25 }, (_, i) => ({

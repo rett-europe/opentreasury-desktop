@@ -92,54 +92,29 @@
   },
   "saldo": {
     "title": "Balance",
-    "subtitle": "Compare income and expense against the prior year",
-    "cta": {
-      "export": "Export"
-    },
+    "subtitle": "Compare income and expense by category",
     "states": {
       "loading": "Loading balance…",
       "emptyBoth": {
-        "title": "No transactions in this period",
-        "body": "Record a transaction or widen the period to compare."
-      },
-      "emptyCurrent": {
-        "title": "No transactions in the current period",
-        "body": "There's no data yet in the current period to compare against the prior one."
-      },
-      "emptyPrior": {
-        "title": "No data for the prior period",
-        "body": "There were no transactions in the same period last year, so variation can't be calculated."
+        "title": "No transactions in this year",
+        "body": "Record a transaction or pick a different year to see data."
       },
       "error": {
-        "title": "Couldn't load the balance",
+        "title": "Couldn’t load the balance",
         "body": "Check the connection or try again.",
         "retry": "Try again"
       }
     },
-    "period": {
-      "label": "Period",
-      "srDescription": "Choose the granularity of the comparison",
-      "options": {
-        "year": "Year",
-        "quarter": "Quarter",
-        "month": "Month"
-      },
-      "srOption": {
-        "year": "Compare the current year with the full prior year",
-        "quarter": "Compare the current quarter with the same quarter of the prior year",
-        "month": "Compare the current month with the same month of the prior year"
-      },
-      "monthTooltip": "Comparing against the same month of the prior year",
-      "quarterTooltip": "Comparing against the same quarter of the prior year",
-      "yearTooltip": "Comparing against the full prior year"
+    "mode": {
+      "label": "Comparison mode",
+      "compare": "Compare years",
+      "single": "Single year"
     },
-    "account": {
-      "label": "Account",
-      "all": "All accounts",
-      "srDescription": "Filter the comparison to a single account"
-    },
-    "yearChip": {
-      "label": "{{priorYear}} vs {{currentYear}}"
+    "year": {
+      "currentLabel": "Current year",
+      "priorLabel": "Prior year",
+      "singleLabel": "Year",
+      "comparingNote": "Comparing {{currentYear}} with {{priorYear}}"
     },
     "kpi": {
       "income": {
@@ -153,7 +128,11 @@
       },
       "sublabel": {
         "priorOnly": "{{priorYear}}: {{priorValue}}",
-        "priorAndProjected": "{{priorYear}}: {{priorValue}} · proj. {{currentYear}}: {{projectedValue}}"
+        "singleIncomeCount_one": "{{count}} category with income",
+        "singleIncomeCount_other": "{{count}} categories with income",
+        "singleExpenseCount_one": "{{count}} category with expense",
+        "singleExpenseCount_other": "{{count}} categories with expense",
+        "singleYear": "Year {{year}}"
       },
       "delta": {
         "up": "increase",
@@ -162,19 +141,35 @@
         "noPrior": "no prior data"
       }
     },
-    "projection": {
-      "sublabel": "Projected",
-      "rowTooltip": "Total projected to period close"
-    },
     "chart": {
-      "monthlyNetTitle": "Monthly net balance",
-      "monthlyNetSubtitleYears": "Income − expense · {{priorYear}} vs {{currentYear}}",
-      "monthlyNetAriaLabel": "Bar chart of monthly net balance comparing {{priorYear}} with {{currentYear}}",
-      "dataTableCaption": "Monthly net balance: current period and prior period",
-      "emptyMonth": "No transactions"
+      "monthlyTitle": "Income vs Expense — {{year}}",
+      "monthlySubtitle": "Absolute values per month",
+      "monthlyAriaLabel": "Monthly income vs expense bar chart for {{year}}",
+      "legend": {
+        "income": "Income",
+        "expense": "Expense"
+      },
+      "months": {
+        "jan": "Jan",
+        "feb": "Feb",
+        "mar": "Mar",
+        "apr": "Apr",
+        "may": "May",
+        "jun": "Jun",
+        "jul": "Jul",
+        "aug": "Aug",
+        "sep": "Sep",
+        "oct": "Oct",
+        "nov": "Nov",
+        "dec": "Dec"
+      },
+      "otras": "Other",
+      "dataTableCaption": "Monthly income vs expense",
+      "emptyYear": "No transactions in the selected year"
     },
     "panel": {
       "subtitle": "Breakdown by category",
+      "subtitleSingle": "Per-category detail",
       "income": {
         "title": "Income",
         "totalLabel": "Total income {{year}}"
@@ -184,18 +179,20 @@
         "totalLabel": "Total expense {{year}}"
       },
       "columns": {
-        "category": "Category"
+        "category": "Category",
+        "type": "Type",
+        "amount": "Amount",
+        "share": "% of total"
       },
       "type": {
         "income": "income",
         "expense": "expense"
       },
       "row": {
-        "projectedVs": "proj. vs {{year}}",
         "vs": "vs {{year}}",
-        "barsAria": "Visual comparison: {{priorYear}} {{priorValue}}, current {{currentValue}}"
+        "barsAria": "Visual comparison: {{priorYear}} {{priorValue}}, current year {{currentValue}}"
       },
-      "empty": "No categories in this period",
+      "empty": "No categories in this year",
       "uncategorized": "Uncategorized"
     }
   },

@@ -92,23 +92,12 @@
   },
   "saldo": {
     "title": "Saldo",
-    "subtitle": "Compara ingresos y gastos frente al año anterior",
-    "cta": {
-      "export": "Exportar"
-    },
+    "subtitle": "Compara ingresos y gastos por categoría",
     "states": {
       "loading": "Cargando saldo…",
       "emptyBoth": {
-        "title": "Sin movimientos en este periodo",
-        "body": "Registra un movimiento o amplía el periodo para comparar."
-      },
-      "emptyCurrent": {
-        "title": "Sin movimientos en el periodo actual",
-        "body": "Aún no hay datos del periodo en curso para comparar con el anterior."
-      },
-      "emptyPrior": {
-        "title": "Sin datos del periodo anterior",
-        "body": "No había movimientos en el mismo periodo del año pasado, así que no se puede calcular la variación."
+        "title": "Sin movimientos en este año",
+        "body": "Registra un movimiento o cambia de año para ver datos."
       },
       "error": {
         "title": "No se pudo cargar el saldo",
@@ -116,30 +105,16 @@
         "retry": "Reintentar"
       }
     },
-    "period": {
-      "label": "Periodo",
-      "srDescription": "Elige el nivel de detalle de la comparación",
-      "options": {
-        "year": "Año",
-        "quarter": "Trimestre",
-        "month": "Mes"
-      },
-      "srOption": {
-        "year": "Comparar el año en curso con el año anterior completo",
-        "quarter": "Comparar el trimestre en curso con el mismo trimestre del año anterior",
-        "month": "Comparar el mes en curso con el mismo mes del año anterior"
-      },
-      "monthTooltip": "Comparando con el mismo mes del año anterior",
-      "quarterTooltip": "Comparando con el mismo trimestre del año anterior",
-      "yearTooltip": "Comparando con el año anterior completo"
+    "mode": {
+      "label": "Modo de comparación",
+      "compare": "Comparar años",
+      "single": "Un año"
     },
-    "account": {
-      "label": "Cuenta",
-      "all": "Todas las cuentas",
-      "srDescription": "Filtra la comparación por una cuenta concreta"
-    },
-    "yearChip": {
-      "label": "{{priorYear}} vs {{currentYear}}"
+    "year": {
+      "currentLabel": "Año actual",
+      "priorLabel": "Año anterior",
+      "singleLabel": "Año",
+      "comparingNote": "Comparando {{currentYear}} con {{priorYear}}"
     },
     "kpi": {
       "income": {
@@ -149,11 +124,15 @@
         "labelTotal": "GASTOS TOTALES"
       },
       "net": {
-        "labelTotal": "SALDO NETO"
+        "labelTotal": "BALANCE NETO"
       },
       "sublabel": {
         "priorOnly": "{{priorYear}}: {{priorValue}}",
-        "priorAndProjected": "{{priorYear}}: {{priorValue}} · proy. {{currentYear}}: {{projectedValue}}"
+        "singleIncomeCount_one": "{{count}} categoría con ingresos",
+        "singleIncomeCount_other": "{{count}} categorías con ingresos",
+        "singleExpenseCount_one": "{{count}} categoría con gastos",
+        "singleExpenseCount_other": "{{count}} categorías con gastos",
+        "singleYear": "Año {{year}}"
       },
       "delta": {
         "up": "aumento",
@@ -162,19 +141,35 @@
         "noPrior": "sin datos previos"
       }
     },
-    "projection": {
-      "sublabel": "Proyectado",
-      "rowTooltip": "Total proyectado al cierre del periodo"
-    },
     "chart": {
-      "monthlyNetTitle": "Saldo neto mensual",
-      "monthlyNetSubtitleYears": "Diferencia ingresos − gastos · {{priorYear}} vs {{currentYear}}",
-      "monthlyNetAriaLabel": "Gráfico de barras del saldo neto mensual comparando {{priorYear}} con {{currentYear}}",
-      "dataTableCaption": "Saldo neto por mes: periodo actual y periodo anterior",
-      "emptyMonth": "Sin movimientos"
+      "monthlyTitle": "Ingresos vs Gastos — {{year}}",
+      "monthlySubtitle": "Valores absolutos por mes",
+      "monthlyAriaLabel": "Gráfico de barras de ingresos vs gastos por mes para {{year}}",
+      "legend": {
+        "income": "Ingresos",
+        "expense": "Gastos"
+      },
+      "months": {
+        "jan": "Ene",
+        "feb": "Feb",
+        "mar": "Mar",
+        "apr": "Abr",
+        "may": "May",
+        "jun": "Jun",
+        "jul": "Jul",
+        "aug": "Ago",
+        "sep": "Sep",
+        "oct": "Oct",
+        "nov": "Nov",
+        "dec": "Dic"
+      },
+      "otras": "Otras",
+      "dataTableCaption": "Ingresos vs gastos por mes",
+      "emptyYear": "Sin movimientos en el año seleccionado"
     },
     "panel": {
       "subtitle": "Comparación por categoría",
+      "subtitleSingle": "Detalle por categoría",
       "income": {
         "title": "Ingresos",
         "totalLabel": "Total ingresos {{year}}"
@@ -184,18 +179,20 @@
         "totalLabel": "Total gastos {{year}}"
       },
       "columns": {
-        "category": "Categoría"
+        "category": "Categoría",
+        "type": "Tipo",
+        "amount": "Importe",
+        "share": "% del total"
       },
       "type": {
-        "income": "income",
-        "expense": "expense"
+        "income": "ingreso",
+        "expense": "gasto"
       },
       "row": {
-        "projectedVs": "proy. vs {{year}}",
         "vs": "vs {{year}}",
-        "barsAria": "Comparación visual: {{priorYear}} {{priorValue}}, periodo actual {{currentValue}}"
+        "barsAria": "Comparación visual: {{priorYear}} {{priorValue}}, año actual {{currentValue}}"
       },
-      "empty": "Sin categorías en este periodo",
+      "empty": "Sin categorías en este año",
       "uncategorized": "Sin categoría"
     }
   },
