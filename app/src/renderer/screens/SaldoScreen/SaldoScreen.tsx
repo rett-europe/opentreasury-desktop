@@ -27,7 +27,6 @@ import './SaldoScreen.css';
  */
 
 const VIEW_KEY = 'saldo.view.v2';
-const TOP_N = 8;
 
 type ViewMode = 'compare' | 'single';
 type ViewState = {
@@ -40,6 +39,8 @@ type YearData = {
   income: number;
   expense: number;
   netByCategory: ReadonlyArray<SaldoCategoryNet>;
+  monthlyIncome: ReadonlyArray<number>;
+  monthlyExpense: ReadonlyArray<number>;
 };
 
 type ScreenState =
@@ -101,6 +102,8 @@ function yearDataFromResponseCurrent(r: SaldoComparisonResponse): YearData {
     income: r.currentPeriod.totalIncome,
     expense: r.currentPeriod.totalExpense,
     netByCategory: r.currentPeriod.netByCategory,
+    monthlyIncome: r.monthlyIncome,
+    monthlyExpense: r.monthlyExpense,
   };
 }
 
@@ -109,8 +112,15 @@ function yearDataFromResponsePrior(r: SaldoComparisonResponse): YearData {
     income: r.priorPeriod.totalIncome,
     expense: r.priorPeriod.totalExpense,
     netByCategory: r.priorPeriod.netByCategory,
+    // The prior-year slot is only used by the panels / KPI strip (income +
+    // expense totals + netByCategory). The monthly chart only renders the
+    // currentYear, so zero-fill here — these arrays are never read.
+    monthlyIncome: ZERO_12,
+    monthlyExpense: ZERO_12,
   };
 }
+
+const ZERO_12: ReadonlyArray<number> = Object.freeze(Array.from({ length: 12 }, () => 0));
 
 export function SaldoScreen(): JSX.Element {
   const { t, i18n } = useTranslation('common');
@@ -406,13 +416,7 @@ function SaldoLoadedView({ view, current, prior, locale }: LoadedProps): JSX.Ele
   return (
     <>
       <KpiStrip view={view} current={current} prior={prior} locale={locale} />
-      <CategoryChart
-        view={view}
-        current={current}
-        prior={prior}
-        locale={locale}
-        isEmpty={isEmpty}
-      />
+      <MonthlyChart view={view} current={current} locale={locale} />
       {isEmpty ? null : (
         <CategoryPanels view={view} current={current} prior={prior} locale={locale} />
       )}
@@ -568,247 +572,82 @@ function KpiCard({
 }
 
 // ---------------------------------------------------------------------------
-// Per-category chart compute + render.
+// Monthly income-vs-expense chart (always current year).
+//
+// Pedro locked the chart scope to absolute monthly values for the selected
+// `currentYear` — regardless of mode. YoY comparison lives in the per-category
+// panels. 12 groups, 2 bars per group (income + expense); data comes straight
+// from the `monthlyIncome` / `monthlyExpense` arrays on the IPC response.
 // ---------------------------------------------------------------------------
-
-type CategoryRow = {
-  readonly key: string;
-  readonly name: string;
-  readonly type: 'income' | 'expense';
-  readonly cur: number; // absolute amount
-  readonly ly: number; // absolute amount; 0 in single mode
-};
 
 function keyFor(id: string | null): string {
   return id ?? '__uncategorized__';
 }
 
-/**
- * Reduce per-period category arrays into a single, classified, ranked list
- * of category rows ready for chart rendering.
- *
- * - One row per category: `type` is determined by which side (income vs
- *   expense) carries the bigger absolute amount in the current year, falling
- *   back to LY when the current year is empty for that category.
- * - `cur` / `ly` are the matching-side absolute amounts.
- * - Sorted by `|cur|` descending.
- * - Top-N kept; the rest are summed into a single `Otras` row, classified by
- *   the sign of its summed net.
- */
-function buildCategoryRows(
-  currentByCat: ReadonlyArray<SaldoCategoryNet>,
-  priorByCat: ReadonlyArray<SaldoCategoryNet> | undefined,
-  otrasLabel: string,
-): ReadonlyArray<CategoryRow> {
-  type Agg = {
-    name: string;
-    incomeCur: number;
-    expenseCur: number;
-    incomeLy: number;
-    expenseLy: number;
-  };
-  const agg = new Map<string, Agg>();
-  const ensure = (id: string | null, name: string): Agg => {
-    const k = keyFor(id);
-    let a = agg.get(k);
-    if (!a) {
-      a = { name, incomeCur: 0, expenseCur: 0, incomeLy: 0, expenseLy: 0 };
-      agg.set(k, a);
-    }
-    return a;
-  };
-  for (const r of currentByCat) {
-    const a = ensure(r.categoryId, r.categoryName);
-    a.incomeCur += r.income;
-    a.expenseCur += r.expense;
-  }
-  for (const r of priorByCat ?? []) {
-    const a = ensure(r.categoryId, r.categoryName);
-    a.incomeLy += r.income;
-    a.expenseLy += r.expense;
-  }
+const MONTH_KEYS = [
+  'jan',
+  'feb',
+  'mar',
+  'apr',
+  'may',
+  'jun',
+  'jul',
+  'aug',
+  'sep',
+  'oct',
+  'nov',
+  'dec',
+] as const;
 
-  const rows: CategoryRow[] = [];
-  for (const [k, a] of agg) {
-    const curIncome = a.incomeCur;
-    const curExpense = a.expenseCur;
-    const lyIncome = a.incomeLy;
-    const lyExpense = a.expenseLy;
-    // Classify by the dominant side; prefer current-year information.
-    const type: 'income' | 'expense' =
-      curIncome + curExpense > 0
-        ? curIncome >= curExpense
-          ? 'income'
-          : 'expense'
-        : lyIncome >= lyExpense
-          ? 'income'
-          : 'expense';
-    const cur = type === 'income' ? curIncome : curExpense;
-    const ly = type === 'income' ? lyIncome : lyExpense;
-    if (cur === 0 && ly === 0) continue;
-    rows.push({ key: k, name: a.name, type, cur, ly });
-  }
-
-  rows.sort((x, y) => {
-    const byCur = Math.abs(y.cur) - Math.abs(x.cur);
-    if (byCur !== 0) return byCur;
-    return Math.abs(y.ly) - Math.abs(x.ly);
-  });
-
-  if (rows.length <= TOP_N) return rows;
-  const head = rows.slice(0, TOP_N);
-  const tail = rows.slice(TOP_N);
-  const tailIncomeCur = tail.filter((r) => r.type === 'income').reduce((acc, r) => acc + r.cur, 0);
-  const tailExpenseCur = tail
-    .filter((r) => r.type === 'expense')
-    .reduce((acc, r) => acc + r.cur, 0);
-  const tailIncomeLy = tail.filter((r) => r.type === 'income').reduce((acc, r) => acc + r.ly, 0);
-  const tailExpenseLy = tail.filter((r) => r.type === 'expense').reduce((acc, r) => acc + r.ly, 0);
-  const otherType: 'income' | 'expense' =
-    tailIncomeCur + tailIncomeLy >= tailExpenseCur + tailExpenseLy ? 'income' : 'expense';
-  const otrasRow: CategoryRow = {
-    key: '__otras__',
-    name: otrasLabel,
-    type: otherType,
-    cur: otherType === 'income' ? tailIncomeCur : tailExpenseCur,
-    ly: otherType === 'income' ? tailIncomeLy : tailExpenseLy,
-  };
-  return [...head, otrasRow];
-}
-
-type CategoryChartProps = {
+type MonthlyChartProps = {
   readonly view: ViewState;
   readonly current: YearData;
-  readonly prior?: YearData | undefined;
   readonly locale: string;
-  readonly isEmpty: boolean;
 };
 
-function CategoryChart({ view, current, prior, locale, isEmpty }: CategoryChartProps): JSX.Element {
+function MonthlyChart({ view, current, locale }: MonthlyChartProps): JSX.Element {
   const { t } = useTranslation('common');
-  const compareMode = view.mode === 'compare' && prior !== undefined;
+  const year = view.currentYear;
 
-  const rows = useMemo(
-    () =>
-      buildCategoryRows(
-        current.netByCategory,
-        compareMode ? prior!.netByCategory : undefined,
-        t('saldo.chart.otras'),
-      ),
-    [current, prior, compareMode, t],
-  );
+  const series = MONTH_KEYS.map((key, i) => ({
+    label: t(`saldo.chart.months.${key}`),
+    values: [current.monthlyIncome[i] ?? 0, current.monthlyExpense[i] ?? 0],
+    barClassNames: [
+      'ot-grouped-bar-chart__bar--income-solo',
+      'ot-grouped-bar-chart__bar--expense-solo',
+    ],
+  }));
 
-  // Income first, then a divider, then expense.
-  const incomeRows = rows.filter((r) => r.type === 'income');
-  const expenseRows = rows.filter((r) => r.type === 'expense');
-  const ordered = [...incomeRows, ...expenseRows];
+  const legend = [
+    {
+      label: t('saldo.chart.legend.income'),
+      className: 'ot-grouped-bar-chart__swatch--income-solo',
+    },
+    {
+      label: t('saldo.chart.legend.expense'),
+      className: 'ot-grouped-bar-chart__swatch--expense-solo',
+    },
+  ];
 
-  const series = ordered.map((r, idx) => {
-    const isFirstExpense = idx === incomeRows.length && incomeRows.length > 0;
-    if (compareMode) {
-      const barClassNames =
-        r.type === 'income'
-          ? ['ot-grouped-bar-chart__bar--income-cy', 'ot-grouped-bar-chart__bar--income-ly']
-          : ['ot-grouped-bar-chart__bar--expense-cy', 'ot-grouped-bar-chart__bar--expense-ly'];
-      return {
-        label: r.name,
-        values: [r.cur, r.ly],
-        barClassNames,
-        dividerBefore: isFirstExpense,
-      };
-    }
-    const barClassNames =
-      r.type === 'income'
-        ? ['ot-grouped-bar-chart__bar--income-solo']
-        : ['ot-grouped-bar-chart__bar--expense-solo'];
-    return {
-      label: r.name,
-      values: [r.cur],
-      barClassNames,
-      dividerBefore: isFirstExpense,
-    };
-  });
-
-  const cy = view.currentYear;
-  const ly = view.priorYear ?? cy - 1;
-  const legend = compareMode
-    ? [
-        {
-          label: t('saldo.chart.legend.incomeYear', { year: cy }),
-          className: 'ot-grouped-bar-chart__swatch--income-cy',
-        },
-        {
-          label: t('saldo.chart.legend.incomeYear', { year: ly }),
-          className: 'ot-grouped-bar-chart__swatch--income-ly',
-        },
-        {
-          label: t('saldo.chart.legend.expenseYear', { year: cy }),
-          className: 'ot-grouped-bar-chart__swatch--expense-cy',
-        },
-        {
-          label: t('saldo.chart.legend.expenseYear', { year: ly }),
-          className: 'ot-grouped-bar-chart__swatch--expense-ly',
-        },
-      ]
-    : [
-        {
-          label: t('saldo.chart.legend.incomeYear', { year: cy }),
-          className: 'ot-grouped-bar-chart__swatch--income-solo',
-        },
-        {
-          label: t('saldo.chart.legend.expenseYear', { year: cy }),
-          className: 'ot-grouped-bar-chart__swatch--expense-solo',
-        },
-      ];
-
-  // The chart primitive shows one swatch per legend entry against per-bar
-  // values, but in this view a single category only carries the bars matching
-  // its type. Pass legend metadata for visual context only — series values
-  // map by index against the per-bar class names provided per group.
-  const chartLegend = compareMode ? legend.slice(0, 2) : legend.slice(0, 1);
-  // We expose the full 4/2-swatch legend separately above the chart for
-  // discoverability, but the primitive only needs per-group swatch info via
-  // barClassNames.
-
-  const chartTitle =
-    view.mode === 'compare'
-      ? t('saldo.chart.compareTitle')
-      : t('saldo.chart.singleTitle', { year: cy });
+  const isEmpty = series.every((s) => s.values.every((v) => v === 0));
 
   return (
     <section className="ot-saldo-chart" aria-labelledby="saldo-chart-title">
       <div className="ot-saldo-chart__header">
         <div>
           <h2 className="ot-saldo-chart__title" id="saldo-chart-title">
-            {chartTitle}
+            {t('saldo.chart.monthlyTitle', { year })}
           </h2>
-          <p className="ot-saldo-chart__subtitle">
-            {compareMode
-              ? t('saldo.chart.compareSubtitle', { currentYear: cy, priorYear: ly })
-              : t('saldo.chart.singleSubtitle', { year: cy })}
-          </p>
+          <p className="ot-saldo-chart__subtitle">{t('saldo.chart.monthlySubtitle')}</p>
         </div>
-      </div>
-      {/* Full legend (4 swatches in compare, 2 in single) for discoverability. */}
-      <div className="ot-grouped-bar-chart__legend" aria-hidden="true">
-        {legend.map((l, i) => (
-          <span key={`full-legend-${i}`} className="ot-grouped-bar-chart__legend-item">
-            <span className={`ot-grouped-bar-chart__swatch ${l.className}`} />
-            {l.label}
-          </span>
-        ))}
       </div>
       <GroupedBarChart
         series={series}
-        legend={chartLegend}
+        legend={legend}
         locale={locale}
-        ariaLabel={
-          compareMode
-            ? t('saldo.chart.compareAriaLabel', { currentYear: cy, priorYear: ly })
-            : t('saldo.chart.singleAriaLabel', { year: cy })
-        }
+        ariaLabel={t('saldo.chart.monthlyAriaLabel', { year })}
         dataTableCaption={t('saldo.chart.dataTableCaption')}
-        emptyLabel={isEmpty || ordered.length === 0 ? t('saldo.chart.emptyYear') : undefined}
+        emptyLabel={isEmpty ? t('saldo.chart.emptyYear') : undefined}
       />
     </section>
   );

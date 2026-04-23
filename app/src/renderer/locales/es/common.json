@@ -142,18 +142,29 @@
       }
     },
     "chart": {
-      "compareTitle": "Saldo por categoría",
-      "compareSubtitle": "{{currentYear}} vs {{priorYear}} · top 8 + Otras",
-      "compareAriaLabel": "Gráfico de barras por categoría comparando {{currentYear}} con {{priorYear}}",
-      "singleTitle": "Saldo por categoría · {{year}}",
-      "singleSubtitle": "Año {{year}} · top 8 + Otras",
-      "singleAriaLabel": "Gráfico de barras por categoría para {{year}}",
+      "monthlyTitle": "Ingresos vs Gastos — {{year}}",
+      "monthlySubtitle": "Valores absolutos por mes",
+      "monthlyAriaLabel": "Gráfico de barras de ingresos vs gastos por mes para {{year}}",
       "legend": {
-        "incomeYear": "Ingresos {{year}}",
-        "expenseYear": "Gastos {{year}}"
+        "income": "Ingresos",
+        "expense": "Gastos"
+      },
+      "months": {
+        "jan": "Ene",
+        "feb": "Feb",
+        "mar": "Mar",
+        "apr": "Abr",
+        "may": "May",
+        "jun": "Jun",
+        "jul": "Jul",
+        "aug": "Ago",
+        "sep": "Sep",
+        "oct": "Oct",
+        "nov": "Nov",
+        "dec": "Dic"
       },
       "otras": "Otras",
-      "dataTableCaption": "Saldo por categoría",
+      "dataTableCaption": "Ingresos vs gastos por mes",
       "emptyYear": "Sin movimientos en el año seleccionado"
     },
     "panel": {

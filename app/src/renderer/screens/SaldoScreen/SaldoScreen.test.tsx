@@ -45,6 +45,8 @@ function makeResponse(overrides: Partial<SaldoComparisonResponse> = {}): SaldoCo
     },
     monthlySeries: [],
     priorMonthlySeries: [],
+    monthlyIncome: Array.from({ length: 12 }, (_, i) => (i === 0 ? 1000 : i === 6 ? 2000 : 500)),
+    monthlyExpense: Array.from({ length: 12 }, (_, i) => (i === 3 ? 400 : 200)),
     kpis: {
       netDelta: 0.25,
       incomeDelta: 0.25,
@@ -174,16 +176,40 @@ describe('SaldoScreen', () => {
     expect(screen.getByTestId('saldo-kpi-net').textContent ?? '').toMatch(/0[.,]00/);
   });
 
-  it('feeds the chart with one group per category and renders Donaciones first', async () => {
+  it('renders the monthly chart with 12 groups (income + expense series) and current year in the title', async () => {
     vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
     renderWithI18n();
     await waitFor(() => {
       expect(screen.getByTestId('gbc-group-0')).toBeDefined();
     });
-    // Group 0 should be the highest-magnitude category (Donaciones, 8000).
-    const group0Label = screen.getByTestId('gbc-group-0').getAttribute('aria-label') ?? '';
-    expect(group0Label).toMatch(/Donaciones/);
-    expect(group0Label).toMatch(/8[.,]000/);
+    // 12 monthly groups.
+    expect(screen.getByTestId('gbc-group-0')).toBeDefined();
+    expect(screen.getByTestId('gbc-group-11')).toBeDefined();
+    expect(screen.queryByTestId('gbc-group-12')).toBeNull();
+
+    // Title carries the current year.
+    const title = document.getElementById('saldo-chart-title');
+    expect(title?.textContent ?? '').toMatch(String(CURRENT_YEAR));
+
+    // January group reflects both income + expense amounts from the fixture.
+    const jan = screen.getByTestId('gbc-group-0').getAttribute('aria-label') ?? '';
+    expect(jan).toMatch(/1[.,]000/); // income 1000 in Jan
+    expect(jan).toMatch(/200/); // expense 200 in Jan
+  });
+
+  it('monthly chart stays rendered (always current year) after switching to single mode', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-mode-single')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('saldo-mode-single'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('saldo-year-prior')).toBeNull();
+    });
+    // Monthly chart still has its 12 groups in single mode.
+    expect(screen.getByTestId('gbc-group-0')).toBeDefined();
+    expect(screen.getByTestId('gbc-group-11')).toBeDefined();
   });
 
   it('routes categories into Ingresos vs Gastos panels (mixed category appears in both)', async () => {

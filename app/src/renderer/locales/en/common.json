@@ -142,18 +142,29 @@
       }
     },
     "chart": {
-      "compareTitle": "Balance by category",
-      "compareSubtitle": "{{currentYear}} vs {{priorYear}} · top 8 + Other",
-      "compareAriaLabel": "Per-category bar chart comparing {{currentYear}} with {{priorYear}}",
-      "singleTitle": "Balance by category · {{year}}",
-      "singleSubtitle": "Year {{year}} · top 8 + Other",
-      "singleAriaLabel": "Per-category bar chart for {{year}}",
+      "monthlyTitle": "Income vs Expense — {{year}}",
+      "monthlySubtitle": "Absolute values per month",
+      "monthlyAriaLabel": "Monthly income vs expense bar chart for {{year}}",
       "legend": {
-        "incomeYear": "Income {{year}}",
-        "expenseYear": "Expense {{year}}"
+        "income": "Income",
+        "expense": "Expense"
+      },
+      "months": {
+        "jan": "Jan",
+        "feb": "Feb",
+        "mar": "Mar",
+        "apr": "Apr",
+        "may": "May",
+        "jun": "Jun",
+        "jul": "Jul",
+        "aug": "Aug",
+        "sep": "Sep",
+        "oct": "Oct",
+        "nov": "Nov",
+        "dec": "Dec"
       },
       "otras": "Other",
-      "dataTableCaption": "Balance by category",
+      "dataTableCaption": "Monthly income vs expense",
       "emptyYear": "No transactions in the selected year"
     },
     "panel": {
