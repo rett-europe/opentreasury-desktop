@@ -555,17 +555,19 @@ function KpiCard({
       <div className="ot-kpi__icon">{icon}</div>
       <div>
         <div className="ot-kpi__label">{label}</div>
-        <div className="ot-kpi__value">{value}</div>
+        <div className="ot-kpi__value-row">
+          <div className="ot-kpi__value">{value}</div>
+          {showDelta ? (
+            <div
+              className={`ot-saldo-row__delta ot-saldo-row__delta--${kind}`}
+              data-testid={`${testId}-delta`}
+            >
+              {kind === 'up' ? '↑ ' : kind === 'down' ? '↓ ' : ''}
+              {formatPct(delta as number, locale)}
+            </div>
+          ) : null}
+        </div>
         <div className="ot-kpi__sublabel">{sublabel}</div>
-        {showDelta ? (
-          <div
-            className={`ot-saldo-row__delta ot-saldo-row__delta--${kind}`}
-            data-testid={`${testId}-delta`}
-          >
-            {kind === 'up' ? '↑ ' : kind === 'down' ? '↓ ' : ''}
-            {formatPct(delta as number, locale)}
-          </div>
-        ) : null}
       </div>
     </div>
   );
