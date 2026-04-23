@@ -434,7 +434,14 @@ export function createDryRunHandler(
 
       // Parse all retained rows
       const parsedRows = retained.map(({ row }) =>
-        parseRow(row, accountId, columnMapping, dateFormatResult.format, deps.getReadModel, taxonomyIndex),
+        parseRow(
+          row,
+          accountId,
+          columnMapping,
+          dateFormatResult.format,
+          deps.getReadModel,
+          taxonomyIndex,
+        ),
       );
       for (const pr of parsedRows) {
         taxonomyCollector.ingest(pr.taxonomySeen);
@@ -559,7 +566,14 @@ export function createCommitHandler(
 
       const taxonomyIndex = buildTaxonomyIndex(deps.getReadModel());
       const parsedRows = retained.map(({ row }) =>
-        parseRow(row, accountId, columnMapping, dateFormatResult.format, deps.getReadModel, taxonomyIndex),
+        parseRow(
+          row,
+          accountId,
+          columnMapping,
+          dateFormatResult.format,
+          deps.getReadModel,
+          taxonomyIndex,
+        ),
       );
 
       const validRows = parsedRows.filter((r) => r.errors.length === 0);

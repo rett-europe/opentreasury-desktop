@@ -79,10 +79,7 @@ export interface ResolveRowOutput {
   };
 }
 
-export function resolveRowTaxonomy(
-  input: ResolveRowInput,
-  index: TaxonomyIndex,
-): ResolveRowOutput {
+export function resolveRowTaxonomy(input: ResolveRowInput, index: TaxonomyIndex): ResolveRowOutput {
   const categoryName = input.rawCategory.trim();
   const subcategoryName = input.rawSubcategory.trim();
   const rawTag = input.rawTag.trim();
