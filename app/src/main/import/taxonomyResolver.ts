@@ -159,15 +159,18 @@ export class TaxonomyPreviewCollector {
     for (const t of seen.tags) this.addTag(t.name, t.known);
   }
 
-  snapshot(limit: number): {
+  snapshot(
+    limit: number,
+    plan?: TaxonomyCreationPlan,
+  ): {
     categories: FieldPreview;
     subcategories: FieldPreview;
     tags: FieldPreview;
   } {
     return {
-      categories: finalize(this.fields.categories, limit),
-      subcategories: finalize(this.fields.subcategories, limit),
-      tags: finalize(this.fields.tags, limit),
+      categories: finalize(this.fields.categories, limit, plan?.categoryNames),
+      subcategories: finalize(this.fields.subcategories, limit, plan?.subcategoryNames),
+      tags: finalize(this.fields.tags, limit, undefined),
     };
   }
 }
@@ -182,6 +185,8 @@ interface FieldPreview {
   unknownCount: number;
   known: string[];
   unknown: string[];
+  willCreate: string[];
+  willCreateCount: number;
 }
 
 function makeFieldAgg(): FieldAgg {
@@ -195,11 +200,141 @@ function add(agg: FieldAgg, name: string, known: boolean): void {
   if (!bucket.has(key)) bucket.set(key, name);
 }
 
-function finalize(agg: FieldAgg, limit: number): FieldPreview {
+function finalize(agg: FieldAgg, limit: number, plannedKeys?: ReadonlySet<string>): FieldPreview {
+  // Names the planner decided to auto-create are a SUBSET of the unknown
+  // bucket (planner input == seen.unknown). We surface them separately so
+  // the renderer can paint a third "se creará" chip state without losing
+  // the ability to report any leftover unknown-won't-create names (e.g. a
+  // subcategory referenced with no parent category).
+  const willCreate: string[] = [];
+  if (plannedKeys && plannedKeys.size > 0) {
+    for (const [key, name] of agg.unknown) {
+      if (plannedKeys.has(key)) willCreate.push(name);
+    }
+  }
+  willCreate.sort((a, b) => a.localeCompare(b));
+
   return {
     knownCount: agg.known.size,
     unknownCount: agg.unknown.size,
     known: [...agg.known.values()].sort((a, b) => a.localeCompare(b)).slice(0, limit),
     unknown: [...agg.unknown.values()].sort((a, b) => a.localeCompare(b)).slice(0, limit),
+    willCreate: willCreate.slice(0, limit),
+    willCreateCount: willCreate.length,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Issue #22 — Auto-create unknown taxonomy entities on import
+// ---------------------------------------------------------------------------
+
+/**
+ * What the planner decided needs to be created. Stored as:
+ *   - `categoryNames`: lower-cased keys of unknown categories that qualify
+ *     for auto-creation (non-empty trimmed name).
+ *   - `subcategoryNames`: lower-cased keys of unknown subcategories where
+ *     the parent category is either already in the read model OR itself
+ *     part of this plan. Orphaned subcategories (no resolvable parent in
+ *     the same row) are intentionally omitted — they stay in the unknown
+ *     bucket and never get imported.
+ *   - `orderedCategories` / `orderedSubcategories`: display-cased names in
+ *     emit order, used by the commit handler to generate the right
+ *     sequence of CategoryCreated / SubcategoryCreated events. Parents
+ *     always come before children.
+ */
+export interface TaxonomyCreationPlan {
+  readonly categoryNames: ReadonlySet<string>;
+  readonly subcategoryNames: ReadonlySet<string>;
+  readonly orderedCategories: ReadonlyArray<{ name: string }>;
+  /**
+   * `parentKey` is the lower-cased name of the parent category, which is
+   * usable as a lookup into either the taxonomyIndex (for pre-existing
+   * parents) or the set of fresh ids the commit handler builds as it
+   * emits CategoryCreated events.
+   */
+  readonly orderedSubcategories: ReadonlyArray<{ parentKey: string; name: string }>;
+}
+
+export const EMPTY_TAXONOMY_PLAN: TaxonomyCreationPlan = {
+  categoryNames: new Set(),
+  subcategoryNames: new Set(),
+  orderedCategories: [],
+  orderedSubcategories: [],
+};
+
+export interface PlannerRowInput {
+  readonly rawCategory: string;
+  readonly rawSubcategory: string;
+}
+
+/**
+ * Walk the retained rows and decide which unknown category / subcategory
+ * names should be auto-created on commit.
+ *
+ * Deterministic output: categories sorted alphabetically, subcategories
+ * grouped by parent key in alphabetical order. Case-insensitive dedupe,
+ * first display-cased spelling preserved.
+ */
+export function planTaxonomyCreations(
+  rows: ReadonlyArray<PlannerRowInput>,
+  index: TaxonomyIndex,
+): TaxonomyCreationPlan {
+  const unknownCategories = new Map<string, string>();
+  const unknownSubsByParent = new Map<string, Map<string, string>>();
+
+  for (const row of rows) {
+    const catName = row.rawCategory.trim();
+    const subName = row.rawSubcategory.trim();
+
+    let catKey: string | null = null;
+    let catIsKnown = false;
+    if (catName !== '') {
+      catKey = normalize(catName);
+      catIsKnown = index.categoryByName.has(catKey);
+      if (!catIsKnown && !unknownCategories.has(catKey)) {
+        unknownCategories.set(catKey, catName);
+      }
+    }
+
+    if (subName !== '' && catKey !== null) {
+      const subKey = normalize(subName);
+      if (catIsKnown) {
+        const existingParentId = index.categoryByName.get(catKey)!;
+        const existingSubs = index.subcategoryByNameForCategory.get(existingParentId);
+        if (existingSubs?.has(subKey)) continue;
+      }
+      let subs = unknownSubsByParent.get(catKey);
+      if (!subs) {
+        subs = new Map();
+        unknownSubsByParent.set(catKey, subs);
+      }
+      if (!subs.has(subKey)) subs.set(subKey, subName);
+    }
+  }
+
+  const orderedCategories: Array<{ name: string }> = [...unknownCategories.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([, name]) => ({ name }));
+
+  const orderedSubcategories: Array<{ parentKey: string; name: string }> = [];
+  const sortedParents = [...unknownSubsByParent.keys()].sort((a, b) => a.localeCompare(b));
+  for (const parentKey of sortedParents) {
+    const subs = unknownSubsByParent.get(parentKey)!;
+    const sortedSubs = [...subs.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [, name] of sortedSubs) {
+      orderedSubcategories.push({ parentKey, name });
+    }
+  }
+
+  const subcategoryNames = new Set<string>();
+  for (const subs of unknownSubsByParent.values()) {
+    for (const key of subs.keys()) subcategoryNames.add(key);
+  }
+
+  return {
+    categoryNames: new Set(unknownCategories.keys()),
+    subcategoryNames,
+    orderedCategories,
+    orderedSubcategories,
   };
 }

@@ -102,6 +102,13 @@ export const dryRunRequestSchema = z.object({
   columnMapping: columnMappingSchema,
   importDuplicates: z.boolean().default(false),
   headerRow: z.number().int().min(1).max(20),
+  // Issue #22 — when true (default), unknown category / subcategory names
+  // referenced by retained rows are reported back under
+  // `taxonomyPreview.*.willCreate` so the wizard can show "se creará" chips,
+  // and the commit handler emits CategoryCreated / SubcategoryCreated events
+  // before the movement.imported events. Tags are intentionally excluded
+  // from auto-creation in this iteration (dogfood scope).
+  autoCreateUnknownTaxonomy: z.boolean().default(true),
 });
 
 export type DryRunRequest = z.infer<typeof dryRunRequestSchema>;
@@ -152,6 +159,13 @@ const taxonomyFieldPreviewSchema = z.object({
   unknownCount: z.number().int().nonnegative(),
   known: z.array(z.string()),
   unknown: z.array(z.string()),
+  // Issue #22 — distinct unknown names that WILL be auto-created on commit
+  // (subset of `unknown` when autoCreateUnknownTaxonomy is true). Stays
+  // empty when the toggle is off OR when the name can't be auto-created
+  // (e.g. a subcategory whose parent category is itself absent). Also
+  // bounded by TAXONOMY_PREVIEW_NAME_LIMIT.
+  willCreate: z.array(z.string()).default([]),
+  willCreateCount: z.number().int().nonnegative().default(0),
 });
 
 export const TAXONOMY_PREVIEW_NAME_LIMIT = 20 as const;
@@ -209,6 +223,12 @@ export const commitImportRequestSchema = z.object({
   importDuplicates: z.boolean().default(false),
   confirmed: z.literal(true),
   headerRow: z.number().int().min(1).max(20),
+  // Issue #22 — when true (default), unknown category / subcategory names
+  // encountered while importing get CategoryCreated / SubcategoryCreated
+  // events emitted BEFORE the batch's movement.imported events, so the new
+  // ids can be attached to the rows that referenced them. Must match the
+  // value the user confirmed on the dry-run step.
+  autoCreateUnknownTaxonomy: z.boolean().default(true),
 });
 
 export type CommitImportRequest = z.infer<typeof commitImportRequestSchema>;

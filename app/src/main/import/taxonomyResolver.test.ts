@@ -5,6 +5,7 @@ import {
   resolveRowTaxonomy,
   TaxonomyPreviewCollector,
   TAG_DELIMITER,
+  planTaxonomyCreations,
 } from './taxonomyResolver.js';
 
 // Minimal read-model builder. Only the three fields the resolver touches are
@@ -184,5 +185,110 @@ describe('TaxonomyPreviewCollector', () => {
     expect(snap.tags.knownCount).toBe(25);
     expect(snap.tags.known).toHaveLength(5);
     expect(snap.tags.known[0]).toBe('t00');
+  });
+
+  it('reports willCreate when a creation plan is passed to snapshot', () => {
+    const c = new TaxonomyPreviewCollector();
+    c.addCategory('Donativos', true);
+    c.addCategory('Alquiler', false);
+    c.addCategory('Material', false);
+    c.addSubcategory('Oficina', false);
+
+    const plan = {
+      categoryNames: new Set(['alquiler']),
+      subcategoryNames: new Set(['oficina']),
+      orderedCategories: [{ name: 'Alquiler' }],
+      orderedSubcategories: [{ parentKey: 'alquiler', name: 'Oficina' }],
+    };
+    const snap = c.snapshot(10, plan);
+    expect(snap.categories.willCreate).toEqual(['Alquiler']);
+    expect(snap.categories.willCreateCount).toBe(1);
+    // "Material" stayed in the unknown bucket but NOT in the plan → no chip.
+    expect(snap.categories.unknown).toContain('Material');
+    expect(snap.subcategories.willCreate).toEqual(['Oficina']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Issue #22 — planTaxonomyCreations
+// ---------------------------------------------------------------------------
+describe('planTaxonomyCreations', () => {
+  it('returns an empty plan when every category/subcategory is already known', () => {
+    const idx = buildTaxonomyIndex(
+      makeModel({
+        categories: [
+          { id: 'c1', name: 'Donativos', subcategories: [{ id: 's1', name: 'Particular' }] },
+        ],
+      }),
+    );
+    const plan = planTaxonomyCreations(
+      [
+        { rawCategory: 'Donativos', rawSubcategory: 'Particular' },
+        { rawCategory: 'DONATIVOS', rawSubcategory: 'particular' },
+      ],
+      idx,
+    );
+    expect(plan.orderedCategories).toEqual([]);
+    expect(plan.orderedSubcategories).toEqual([]);
+  });
+
+  it('dedupes case-insensitively and keeps the first display-cased spelling', () => {
+    const idx = buildTaxonomyIndex(makeModel({}));
+    const plan = planTaxonomyCreations(
+      [
+        { rawCategory: 'Alquiler', rawSubcategory: '' },
+        { rawCategory: 'alquiler', rawSubcategory: '' },
+        { rawCategory: 'ALQUILER', rawSubcategory: '' },
+      ],
+      idx,
+    );
+    expect(plan.orderedCategories).toEqual([{ name: 'Alquiler' }]);
+    expect(plan.categoryNames.has('alquiler')).toBe(true);
+  });
+
+  it('chains: creates a new parent category and a subcategory underneath it', () => {
+    const idx = buildTaxonomyIndex(makeModel({}));
+    const plan = planTaxonomyCreations([{ rawCategory: 'Viajes', rawSubcategory: 'Hoteles' }], idx);
+    expect(plan.orderedCategories).toEqual([{ name: 'Viajes' }]);
+    expect(plan.orderedSubcategories).toEqual([{ parentKey: 'viajes', name: 'Hoteles' }]);
+  });
+
+  it('creates a new subcategory under an existing category', () => {
+    const idx = buildTaxonomyIndex(
+      makeModel({
+        categories: [{ id: 'c-dona', name: 'Donativos', subcategories: [] }],
+      }),
+    );
+    const plan = planTaxonomyCreations(
+      [{ rawCategory: 'Donativos', rawSubcategory: 'Particular' }],
+      idx,
+    );
+    expect(plan.orderedCategories).toEqual([]);
+    expect(plan.orderedSubcategories).toEqual([{ parentKey: 'donativos', name: 'Particular' }]);
+  });
+
+  it('skips subcategories whose category cell is empty (no parent to attach to)', () => {
+    const idx = buildTaxonomyIndex(makeModel({}));
+    const plan = planTaxonomyCreations([{ rawCategory: '', rawSubcategory: 'Orphan' }], idx);
+    expect(plan.orderedSubcategories).toEqual([]);
+    expect(plan.subcategoryNames.size).toBe(0);
+  });
+
+  it('emits categories alphabetically and subcategories grouped by parent then alphabetically', () => {
+    const idx = buildTaxonomyIndex(makeModel({}));
+    const plan = planTaxonomyCreations(
+      [
+        { rawCategory: 'Zeta', rawSubcategory: 'alpha' },
+        { rawCategory: 'Alpha', rawSubcategory: 'zebra' },
+        { rawCategory: 'Alpha', rawSubcategory: 'mango' },
+      ],
+      idx,
+    );
+    expect(plan.orderedCategories.map((c) => c.name)).toEqual(['Alpha', 'Zeta']);
+    expect(plan.orderedSubcategories).toEqual([
+      { parentKey: 'alpha', name: 'mango' },
+      { parentKey: 'alpha', name: 'zebra' },
+      { parentKey: 'zeta', name: 'alpha' },
+    ]);
   });
 });

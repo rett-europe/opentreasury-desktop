@@ -18,6 +18,8 @@ import type { EventLog } from '../../../core/eventLog/index.js';
 import type {
   MovementImportedEvent,
   ImportMappingUpdatedEvent,
+  ConfigCategoryCreatedEvent,
+  ConfigSubcategoryCreatedEvent,
 } from '../../../core/events/schemas.js';
 import { applyEvent as coreApplyEvent } from '../../../core/query/reducers.js';
 import type { ReadModel } from '../../../core/query/types.js';
@@ -43,7 +45,10 @@ import {
   buildTaxonomyIndex,
   resolveRowTaxonomy,
   TaxonomyPreviewCollector,
+  planTaxonomyCreations,
+  EMPTY_TAXONOMY_PLAN,
   type TaxonomyIndex,
+  type TaxonomyCreationPlan,
 } from '../../import/taxonomyResolver.js';
 import {
   stageFile as registerFileId,
@@ -54,6 +59,29 @@ import { sanitizeCell } from '../../import/cellSanitizer.js';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB (pre-decompression)
 const MAX_ROW_COUNT = 100_000; // Row-count cap for zip-bomb mitigation
+
+/**
+ * Issue #22 — palette used for auto-created categories / subcategories.
+ * Mirrors the renderer's `CATEGORY_PALETTE` (AddCategoryModal.tsx) so
+ * import-created entities look consistent with manually-added ones. We
+ * duplicate the array here because the main process doesn't depend on
+ * renderer modules; if the palette ever changes, keep both in sync.
+ */
+const AUTO_CREATE_PALETTE: readonly string[] = [
+  '#6d4d8c',
+  '#2563eb',
+  '#059669',
+  '#dc2626',
+  '#ea580c',
+  '#ca8a04',
+  '#7c3aed',
+  '#0891b2',
+];
+
+function pickAutoCreatePaletteColor(index: number): string {
+  const palette = AUTO_CREATE_PALETTE;
+  return palette[index % palette.length]!;
+}
 
 export interface ImportHandlerDeps {
   readonly eventLog: EventLog;
@@ -387,7 +415,8 @@ export function createDryRunHandler(
         };
       }
 
-      const { fileId, sheetName, accountId, columnMapping, headerRow } = parsed.data;
+      const { fileId, sheetName, accountId, columnMapping, headerRow, autoCreateUnknownTaxonomy } =
+        parsed.data;
 
       // Resolve fileId to real path
       const filePath = resolveFileId(fileId);
@@ -432,6 +461,20 @@ export function createDryRunHandler(
       const taxonomyIndex = buildTaxonomyIndex(deps.getReadModel());
       const taxonomyCollector = new TaxonomyPreviewCollector();
 
+      // Issue #22 — when auto-create is on, precompute the creation plan so
+      // we can (a) flag willCreate chips on the preview, (b) upgrade sample
+      // rows to show the category/subcategory name even though it doesn't
+      // resolve yet in the read model.
+      const creationPlan: TaxonomyCreationPlan = autoCreateUnknownTaxonomy
+        ? planTaxonomyCreations(
+            retained.map(({ row }) => ({
+              rawCategory: row.rawCategory ?? '',
+              rawSubcategory: row.rawSubcategory ?? '',
+            })),
+            taxonomyIndex,
+          )
+        : EMPTY_TAXONOMY_PLAN;
+
       // Parse all retained rows
       const parsedRows = retained.map(({ row }) =>
         parseRow(
@@ -454,18 +497,31 @@ export function createDryRunHandler(
 
       const samples = validRows.slice(0, 5).map((r) => {
         // WI-19 + taxonomy — thread mapped optional fields through to the
-        // preview. For category/subcategory/tag we emit the RESOLVED display
-        // name so the row mirrors what will actually land on the transaction
-        // (unknowns drop silently and show as "—" in the table, matching the
-        // taxonomyPreview card above).
-        const knownCategory =
-          r.taxonomySeen.category && r.taxonomySeen.category.known
-            ? r.taxonomySeen.category.name
-            : null;
-        const knownSubcategory =
-          r.taxonomySeen.subcategory && r.taxonomySeen.subcategory.known
-            ? r.taxonomySeen.subcategory.name
-            : null;
+        // preview. For category/subcategory we show the RESOLVED display
+        // name when the row already matches the read model; when
+        // autoCreate is on AND the name is in the creation plan, we show
+        // the raw name so the user sees what will be created. Any other
+        // unknown stays null → "—" in the preview table.
+        let categoryDisplay: string | null = null;
+        if (r.taxonomySeen.category) {
+          if (r.taxonomySeen.category.known) {
+            categoryDisplay = r.taxonomySeen.category.name;
+          } else if (
+            creationPlan.categoryNames.has(r.taxonomySeen.category.name.trim().toLowerCase())
+          ) {
+            categoryDisplay = r.taxonomySeen.category.name;
+          }
+        }
+        let subcategoryDisplay: string | null = null;
+        if (r.taxonomySeen.subcategory) {
+          if (r.taxonomySeen.subcategory.known) {
+            subcategoryDisplay = r.taxonomySeen.subcategory.name;
+          } else if (
+            creationPlan.subcategoryNames.has(r.taxonomySeen.subcategory.name.trim().toLowerCase())
+          ) {
+            subcategoryDisplay = r.taxonomySeen.subcategory.name;
+          }
+        }
         const knownTagNames = r.taxonomySeen.tags
           .filter((tg) => tg.known)
           .map((tg) => tg.name)
@@ -478,8 +534,8 @@ export function createDryRunHandler(
           isDuplicate: r.isDuplicate ?? false,
           reference: r.reference,
           details: r.details,
-          category: knownCategory,
-          subcategory: knownSubcategory,
+          category: categoryDisplay,
+          subcategory: subcategoryDisplay,
           tag: knownTagNames,
         };
       });
@@ -515,7 +571,7 @@ export function createDryRunHandler(
         errors: errorList,
         inferredDateFormat: dateFormatResult.format,
         dateFormatAmbiguous: dateFormatResult.ambiguous,
-        taxonomyPreview: taxonomyCollector.snapshot(TAXONOMY_PREVIEW_NAME_LIMIT),
+        taxonomyPreview: taxonomyCollector.snapshot(TAXONOMY_PREVIEW_NAME_LIMIT, creationPlan),
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -546,8 +602,15 @@ export function createCommitHandler(
         };
       }
 
-      const { fileId, sheetName, accountId, columnMapping, importDuplicates, headerRow } =
-        parsed.data;
+      const {
+        fileId,
+        sheetName,
+        accountId,
+        columnMapping,
+        importDuplicates,
+        headerRow,
+        autoCreateUnknownTaxonomy,
+      } = parsed.data;
 
       // Resolve fileId to real path
       const filePath = resolveFileId(fileId);
@@ -588,7 +651,76 @@ export function createCommitHandler(
 
       const retained = classified.filter((r) => r.classification !== 'skip');
 
-      const taxonomyIndex = buildTaxonomyIndex(deps.getReadModel());
+      let taxonomyIndex = buildTaxonomyIndex(deps.getReadModel());
+
+      // Issue #22 — auto-create unknown categories / subcategories. We emit
+      // CategoryCreated then SubcategoryCreated events (append + apply) so
+      // the read-model grows BEFORE parseRow runs — at that point the
+      // rebuilt taxonomyIndex resolves the new names to the fresh ids.
+      // Tags intentionally skipped (dogfood scope; user said less urgent).
+      const createdTaxonomyEvents: (ConfigCategoryCreatedEvent | ConfigSubcategoryCreatedEvent)[] =
+        [];
+      if (autoCreateUnknownTaxonomy) {
+        const plan = planTaxonomyCreations(
+          retained.map(({ row }) => ({
+            rawCategory: row.rawCategory ?? '',
+            rawSubcategory: row.rawSubcategory ?? '',
+          })),
+          taxonomyIndex,
+        );
+
+        if (plan.orderedCategories.length > 0 || plan.orderedSubcategories.length > 0) {
+          const now = deps.now().toISOString();
+          // Map parent-key (lowercased category name) → fresh id we just
+          // minted in this commit. Subcategory parent lookups consult this
+          // first, then fall back to the rebuilt taxonomyIndex.
+          const freshCategoryIds = new Map<string, string>();
+
+          for (let i = 0; i < plan.orderedCategories.length; i++) {
+            const { name } = plan.orderedCategories[i]!;
+            const color = pickAutoCreatePaletteColor(i);
+            const event: ConfigCategoryCreatedEvent = {
+              type: 'CategoryCreated',
+              id: deps.newId(),
+              name,
+              color,
+              createdAt: now,
+            };
+            await deps.eventLog.append(event);
+            apply(event);
+            createdTaxonomyEvents.push(event);
+            freshCategoryIds.set(name.trim().toLowerCase(), event.id);
+          }
+
+          // Rebuild the index now categories exist, so subcategory parent
+          // lookups can find them AND so orphan-subcategory checks stay
+          // accurate.
+          taxonomyIndex = buildTaxonomyIndex(deps.getReadModel());
+
+          for (let i = 0; i < plan.orderedSubcategories.length; i++) {
+            const { parentKey, name } = plan.orderedSubcategories[i]!;
+            const parentId =
+              freshCategoryIds.get(parentKey) ?? taxonomyIndex.categoryByName.get(parentKey);
+            if (!parentId) continue; // safety net — parent not resolvable (shouldn't happen after plan)
+            const color = pickAutoCreatePaletteColor(i + plan.orderedCategories.length);
+            const event: ConfigSubcategoryCreatedEvent = {
+              type: 'SubcategoryCreated',
+              id: deps.newId(),
+              parentCategoryId: parentId,
+              name,
+              color,
+              createdAt: now,
+            };
+            await deps.eventLog.append(event);
+            apply(event);
+            createdTaxonomyEvents.push(event);
+          }
+
+          // Refresh one final time so parseRow below resolves everything.
+          taxonomyIndex = buildTaxonomyIndex(deps.getReadModel());
+        }
+      }
+
       const parsedRows = retained.map(({ row }) =>
         parseRow(
           row,

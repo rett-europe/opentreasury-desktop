@@ -7,6 +7,11 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { createStageFileHandler, createDryRunHandler, createCommitHandler } from './import';
 import type { EventLog, DomainEvent } from '../../../core/eventLog/EventLog';
+import type {
+  MovementImportedEvent,
+  ConfigCategoryCreatedEvent,
+  ConfigSubcategoryCreatedEvent,
+} from '../../../core/events/schemas';
 import { getReadModel, resetReadModel } from '../../../core/query/reducers';
 
 class InMemoryEventLog implements EventLog {
@@ -235,5 +240,140 @@ describe('commit — honors headerRow + junk rule', () => {
     // Event log: 5 movement.imported + 1 import.mapping.updated.
     const movementEvents = log.events.filter((e) => e.type === 'movement.imported');
     expect(movementEvents).toHaveLength(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Issue #22 — auto-create unknown categories / subcategories on commit
+// ---------------------------------------------------------------------------
+describe('commit — auto-create unknown taxonomy (issue #22)', () => {
+  const CSV_WITH_TAXONOMY = [
+    'Date,Amount,Description,Cat,Sub',
+    '15/03/2026,100.00,Salary,Ingresos,Nómina',
+    '16/03/2026,-25.50,Office supplies,Material,Papelería',
+    '17/03/2026,-40.00,Hotel,Material,Papelería',
+  ].join('\n');
+
+  it('emits CategoryCreated + SubcategoryCreated before movement.imported when flag is ON', async () => {
+    const stageHandle = createStageFileHandler({ getReadModel });
+    const filePath = writeCsv('taxonomy.csv', CSV_WITH_TAXONOMY);
+    const stageResp = await stageHandle({ filePath });
+    expect(stageResp.ok).toBe(true);
+    if (!stageResp.ok) return;
+
+    const log = new InMemoryEventLog();
+    const commitHandle = createCommitHandler({
+      eventLog: log,
+      getReadModel,
+      now: () => FIXED_NOW,
+      newId: idGen('E'),
+    });
+
+    const resp = await commitHandle({
+      fileId: stageResp.fileId,
+      sheetName: 'Sheet1',
+      accountId: 'acc_1',
+      columnMapping: {
+        date: 'Date',
+        amount: 'Amount',
+        description: 'Description',
+        category: 'Cat',
+        subcategory: 'Sub',
+      },
+      importDuplicates: false,
+      confirmed: true,
+      headerRow: stageResp.sheets[0]!.detectedHeaderRow,
+      autoCreateUnknownTaxonomy: true,
+    });
+
+    expect(resp.ok).toBe(true);
+    if (!resp.ok) return;
+    expect(resp.importedCount).toBe(3);
+
+    // Event log order: 2 CategoryCreated, 2 SubcategoryCreated (dedup
+    // across rows — "Material"/"Papelería" appears twice but creates
+    // once), then 3 movement.imported, then mapping.
+    const types = log.events.map((e) => e.type);
+    const firstMovementIdx = types.indexOf('movement.imported');
+    const lastTaxonomyIdx = Math.max(
+      types.lastIndexOf('CategoryCreated'),
+      types.lastIndexOf('SubcategoryCreated'),
+    );
+    expect(lastTaxonomyIdx).toBeLessThan(firstMovementIdx);
+
+    const categoriesCreated = log.events.filter(
+      (e): e is ConfigCategoryCreatedEvent => e.type === 'CategoryCreated',
+    );
+    expect(categoriesCreated).toHaveLength(2);
+    expect(categoriesCreated.map((e) => e.name).sort()).toEqual(['Ingresos', 'Material']);
+
+    const subcategoriesCreated = log.events.filter(
+      (e): e is ConfigSubcategoryCreatedEvent => e.type === 'SubcategoryCreated',
+    );
+    expect(subcategoriesCreated).toHaveLength(2);
+    expect(subcategoriesCreated.map((e) => e.name).sort()).toEqual(['Nómina', 'Papelería']);
+
+    // All movement events carry the freshly created category/subcategory
+    // ids (not null).
+    const movementEvents = log.events.filter(
+      (e): e is MovementImportedEvent => e.type === 'movement.imported',
+    );
+    for (const mv of movementEvents) {
+      expect(mv.categoryId).toBeTruthy();
+      expect(mv.subcategoryId).toBeTruthy();
+    }
+
+    // Subcategory parent ids must point at the categories we just created.
+    const createdCategoryIds = new Set(categoriesCreated.map((e) => e.id));
+    for (const sc of subcategoriesCreated) {
+      expect(createdCategoryIds.has(sc.parentCategoryId)).toBe(true);
+    }
+  });
+
+  it('does NOT create anything when flag is OFF (rows import with null taxonomy ids)', async () => {
+    const stageHandle = createStageFileHandler({ getReadModel });
+    const filePath = writeCsv('taxonomy.csv', CSV_WITH_TAXONOMY);
+    const stageResp = await stageHandle({ filePath });
+    expect(stageResp.ok).toBe(true);
+    if (!stageResp.ok) return;
+
+    const log = new InMemoryEventLog();
+    const commitHandle = createCommitHandler({
+      eventLog: log,
+      getReadModel,
+      now: () => FIXED_NOW,
+      newId: idGen('E'),
+    });
+
+    const resp = await commitHandle({
+      fileId: stageResp.fileId,
+      sheetName: 'Sheet1',
+      accountId: 'acc_1',
+      columnMapping: {
+        date: 'Date',
+        amount: 'Amount',
+        description: 'Description',
+        category: 'Cat',
+        subcategory: 'Sub',
+      },
+      importDuplicates: false,
+      confirmed: true,
+      headerRow: stageResp.sheets[0]!.detectedHeaderRow,
+      autoCreateUnknownTaxonomy: false,
+    });
+
+    expect(resp.ok).toBe(true);
+    if (!resp.ok) return;
+    expect(resp.importedCount).toBe(3);
+    expect(log.events.filter((e) => e.type === 'CategoryCreated')).toHaveLength(0);
+    expect(log.events.filter((e) => e.type === 'SubcategoryCreated')).toHaveLength(0);
+
+    const movementEvents = log.events.filter(
+      (e): e is MovementImportedEvent => e.type === 'movement.imported',
+    );
+    for (const mv of movementEvents) {
+      expect(mv.categoryId).toBeNull();
+      expect(mv.subcategoryId).toBeNull();
+    }
   });
 });
