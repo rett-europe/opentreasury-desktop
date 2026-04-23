@@ -32,6 +32,21 @@ npm run dev
 # → open http://localhost:5173
 ```
 
+### Dev modes: demo vs dogfood
+
+`npm run dev` starts with a demo seed (prototype-shaped accounts + 2025/2026 transactions) so the
+three canonical screens render real-looking data. For **dogfooding** — starting empty and entering
+your own data manually — use the dogfood scripts:
+
+| Command             | Data folder (`%APPDATA%\opentreasury\…`) | Seed? |
+| ------------------- | ---------------------------------------- | ----- |
+| `npm run dev`       | `dev-events\`                            | yes   |
+| `npm run dev:empty` | `my-data\`                               | no    |
+| `npm run dev:reset` | (wipes `my-data\`)                       | —     |
+
+The two folders are isolated — you can switch between demo and dogfood modes without losing either
+dataset. Under the hood: `OT_SEED=none` suppresses the seed, `OT_DATA_DIR=<name>` picks the folder.
+
 What you can click in the current build:
 
 - **Movements screen** (primary) — select a date range (preset chips: _This month_, _Last 30 days_,

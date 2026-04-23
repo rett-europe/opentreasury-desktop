@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "vite",
     "dev:electron": "vite",
+    "dev:empty": "cross-env OT_SEED=none OT_DATA_DIR=my-data vite",
+    "dev:reset": "cross-env OT_DATA_DIR=my-data node scripts/reset-dogfood-data.mjs",
     "build": "npm run typecheck && vite build",
     "build:main": "tsc -b app/src/main",
     "build:preload": "tsc -b app/src/preload",
@@ -48,6 +50,7 @@
     "@typescript-eslint/eslint-plugin": "^7.13.0",
     "@typescript-eslint/parser": "^7.13.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "cross-env": "^7.0.3",
     "electron": "^41.0.0",
     "electron-builder": "^26.0.0",
     "eslint": "^8.57.0",

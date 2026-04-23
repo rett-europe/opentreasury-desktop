@@ -40,13 +40,42 @@ export function getHydratedReadModel(): ReadModel {
 /**
  * Resolve the event-log directory under Electron's userData path.
  *
+ * The sub-directory name defaults to `dev-events` (the historical demo-seed
+ * location), but can be overridden via the `OT_DATA_DIR` env var. This lets
+ * contributors run the app against an isolated data folder (e.g. a personal
+ * dogfood sandbox) without wiping the demo seed — and lets them switch back
+ * and forth by only changing the launch command.
+ *
+ * The value is treated as a plain folder name, joined relative to the
+ * Electron userData path. Absolute paths and path separators are rejected to
+ * keep every dataset scoped under userData.
+ *
  * NOTE: app.getPath('userData') must be called AFTER app.whenReady() resolves
  * — before that the path can change (Electron initializes it as part of the
  * bootstrap sequence). initializeApp() is therefore only safe to invoke inside
  * the whenReady() callback in main/index.ts.
  */
 function resolveEventLogDir(): string {
-  return path.join(app.getPath('userData'), 'dev-events');
+  const override = process.env['OT_DATA_DIR']?.trim();
+  const subdir =
+    override && !/[\\/]/.test(override) && !path.isAbsolute(override) ? override : 'dev-events';
+  return path.join(app.getPath('userData'), subdir);
+}
+
+/**
+ * Decide whether to emit the prototype-shaped dev-seed when the event log is
+ * empty. Seeding is suppressed when:
+ *   - NODE_ENV === 'production' (existing behaviour), OR
+ *   - OT_SEED is set to 'none' / '0' / 'false' (case-insensitive).
+ *
+ * Any other value — including unset — keeps the original demo-seed behaviour
+ * so nothing changes for the default `npm run dev` workflow.
+ */
+function shouldSeed(): boolean {
+  if (process.env['NODE_ENV'] === 'production') return false;
+  const flag = process.env['OT_SEED']?.trim().toLowerCase();
+  if (flag === 'none' || flag === '0' || flag === 'false') return false;
+  return true;
 }
 
 /**
@@ -67,7 +96,7 @@ export async function initializeApp(): Promise<void> {
 
   let events = await log.load();
 
-  if (events.length === 0 && process.env['NODE_ENV'] !== 'production') {
+  if (events.length === 0 && shouldSeed()) {
     const seedEvents = buildDevSeedEvents();
     for (const evt of seedEvents) {
       await log.append(evt);
@@ -75,6 +104,9 @@ export async function initializeApp(): Promise<void> {
     events = await log.load();
     // eslint-disable-next-line no-console
     console.log(`[bootstrap] dev-seed wrote ${seedEvents.length} events to ${dir} (first run)`);
+  } else if (events.length === 0) {
+    // eslint-disable-next-line no-console
+    console.log(`[bootstrap] starting with empty event log at ${dir} (seed suppressed)`);
   }
 
   // Fold disk history into the in-memory read model. queries.ts reads from
