@@ -31,3 +31,13 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Local user data — event logs / backups must NEVER be committed.
+# The app stores these under %APPDATA%/opentreasury-desktop/ by default,
+# but guard against accidental copies landing inside the working tree.
+*.ndjson
+*.ndjson.bak
+events.jsonl
+events.jsonl.bak
+/dev-events/
+/my-data/
