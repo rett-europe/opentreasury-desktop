@@ -181,7 +181,7 @@ export function GroupedBarChart({
           <svg
             className="ot-grouped-bar-chart__svg"
             viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-            preserveAspectRatio="xMidYMid meet"
+            preserveAspectRatio="none"
             role="img"
             aria-label={ariaLabel}
             focusable="false"
