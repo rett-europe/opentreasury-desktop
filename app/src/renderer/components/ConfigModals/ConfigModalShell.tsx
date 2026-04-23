@@ -43,8 +43,25 @@ export function ConfigModalShell({
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (isOpen && !dialog.open) dialog.showModal();
-    else if (!isOpen && dialog.open) dialog.close();
+    if (isOpen && !dialog.open) {
+      dialog.showModal();
+      // React's `autoFocus` prop runs its `.focus()` call at mount, which
+      // is BEFORE `showModal()` is invoked from this effect — the dialog is
+      // still `display: none` at that point so the focus is dropped. After
+      // opening, explicitly move focus to the first enabled text/textarea
+      // input inside the form so the user can start typing straight away.
+      // (Radio-button palettes and footer buttons are intentionally skipped
+      // so the name field always wins.)
+      const firstField = dialog.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+        'input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([disabled]), textarea:not([disabled])',
+      );
+      firstField?.focus();
+      if (firstField instanceof HTMLInputElement && typeof firstField.select === 'function') {
+        firstField.select();
+      }
+    } else if (!isOpen && dialog.open) {
+      dialog.close();
+    }
   }, [isOpen]);
 
   useEffect(() => {
