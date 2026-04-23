@@ -33,14 +33,14 @@ import { getReadModel } from './reducers';
 // ----- Category-name resolution -----------------------------------------
 // Transactions carry a categoryId that references model.configCategories.
 // Archived categories still resolve (users shouldn't lose the label on
-// historical tx); deleted categories fall back to the "sin categoría" label
-// matching the null-bucket convention.
-const UNCATEGORIZED_LABEL = 'Sin categoría';
-
-function resolveCategoryName(categoryId: string | null, model: ReadModel): string {
-  if (categoryId === null) return UNCATEGORIZED_LABEL;
+// historical tx); deleted-or-null categories resolve to `null` so the
+// renderer can render a locale-appropriate label via i18n (see
+// `saldo.panel.uncategorized` in common.json). User-facing strings must
+// not live in the core/query layer.
+function resolveCategoryName(categoryId: string | null, model: ReadModel): string | null {
+  if (categoryId === null) return null;
   const c = model.configCategories.find((x) => x.id === categoryId);
-  return c?.name ?? UNCATEGORIZED_LABEL;
+  return c?.name ?? null;
 }
 
 // ----- Date helpers (UTC, inclusive) -------------------------------------
@@ -123,7 +123,7 @@ function shiftPriorYear(range: PeriodRange): PeriodRange {
 interface TotalsAgg {
   totalIncome: number;
   totalExpense: number;
-  byCategory: Map<string | null, { name: string; income: number; expense: number }>;
+  byCategory: Map<string | null, { name: string | null; income: number; expense: number }>;
 }
 
 function aggregateTotals(model: ReadModel, range: PeriodRange): TotalsAgg {
@@ -169,7 +169,10 @@ function toCategoryNetArray(agg: TotalsAgg): SaldoCategoryNet[] {
     const netA = a.income - a.expense;
     const netB = b.income - b.expense;
     if (netA !== netB) return netB - netA;
-    const nameCmp = a.categoryName.localeCompare(b.categoryName);
+    // null category names sort last (matches null categoryId tiebreak).
+    const nameA = a.categoryName ?? '\uffff';
+    const nameB = b.categoryName ?? '\uffff';
+    const nameCmp = nameA.localeCompare(nameB);
     if (nameCmp !== 0) return nameCmp;
     const idA = a.categoryId ?? '\uffff';
     const idB = b.categoryId ?? '\uffff';
@@ -284,14 +287,14 @@ function pctDelta(current: number, prior: number): number | null {
 function biggestCategoryGrowth(
   currentRows: readonly SaldoCategoryNet[],
   priorRows: readonly SaldoCategoryNet[],
-): { categoryId: string | null; categoryName: string; deltaPct: number } | null {
+): { categoryId: string | null; categoryName: string | null; deltaPct: number } | null {
   // Net-based pct growth per category. Only categories with non-zero prior
   // net have a computable pct; pick the largest positive deltaPct.
   const priorByKey = new Map<string, SaldoCategoryNet>();
   for (const r of priorRows) priorByKey.set(r.categoryId ?? '__null__', r);
   let best: {
     categoryId: string | null;
-    categoryName: string;
+    categoryName: string | null;
     deltaPct: number;
   } | null = null;
   for (const cur of currentRows) {

@@ -192,7 +192,8 @@
         "vs": "vs {{year}}",
         "barsAria": "Comparación visual: {{priorYear}} {{priorValue}}, año actual {{currentValue}}"
       },
-      "empty": "Sin categorías en este año"
+      "empty": "Sin categorías en este año",
+      "uncategorized": "Sin categoría"
     }
   },
   "movements": {

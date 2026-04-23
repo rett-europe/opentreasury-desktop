@@ -50,7 +50,10 @@ export type SaldoComparisonRequest = z.infer<typeof saldoComparisonRequestSchema
 // `net = income - expense`).
 export const saldoCategoryNetSchema = z.object({
   categoryId: z.string().nullable(),
-  categoryName: z.string(),
+  // `null` when the transaction's category is missing (deleted) or the
+  // bucket is the explicit uncategorized bucket (`categoryId === null`).
+  // The renderer resolves a locale-appropriate label via i18n.
+  categoryName: z.string().nullable(),
   income: z.number().nonnegative(),
   expense: z.number().nonnegative(),
 });
@@ -107,7 +110,7 @@ export type SaldoMonthlyBucket = z.infer<typeof saldoMonthlyBucketSchema>;
 // has a computable (prior != 0) pct growth.
 export const saldoBiggestCategoryGrowthSchema = z.object({
   categoryId: z.string().nullable(),
-  categoryName: z.string(),
+  categoryName: z.string().nullable(),
   deltaPct: z.number(),
 });
 export type SaldoBiggestCategoryGrowth = z.infer<typeof saldoBiggestCategoryGrowthSchema>;

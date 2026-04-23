@@ -716,7 +716,7 @@ function CategoryPanels({ view, current, prior, locale }: CategoryPanelsProps): 
 
 type PanelRow = {
   readonly id: string;
-  readonly name: string;
+  readonly name: string | null;
   readonly prior: number;
   readonly current: number;
   readonly delta: number | null;
@@ -727,7 +727,7 @@ function buildPanelRows(
   prior: ReadonlyArray<SaldoCategoryNet> | undefined,
   kind: 'income' | 'expense',
 ): PanelRow[] {
-  const map = new Map<string, { name: string; cur: number; prev: number }>();
+  const map = new Map<string, { name: string | null; cur: number; prev: number }>();
   const pick = (r: SaldoCategoryNet): number => (kind === 'income' ? r.income : r.expense);
 
   for (const r of current) {
@@ -753,7 +753,7 @@ function buildPanelRows(
   rows.sort((a, b) => {
     const byCur = Math.abs(b.current) - Math.abs(a.current);
     if (byCur !== 0) return byCur;
-    return a.name.localeCompare(b.name);
+    return (a.name ?? '\uffff').localeCompare(b.name ?? '\uffff');
   });
   return rows;
 }
@@ -875,7 +875,7 @@ function CompareRow({ row, kind, priorYear, locale }: CompareRowProps): JSX.Elem
         : formatPct(row.delta as number, locale);
   return (
     <div className="ot-saldo-row" data-testid={`saldo-row-${kind}-${row.id}`}>
-      <span className="ot-saldo-row__name">{row.name}</span>
+      <span className="ot-saldo-row__name">{row.name ?? t('saldo.panel.uncategorized')}</span>
       <span className="ot-saldo-row__type">{t(`saldo.panel.type.${kind}`)}</span>
       <span className="ot-saldo-row__prior">{fmt(row.prior)}</span>
       <div
