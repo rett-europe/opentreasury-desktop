@@ -43,15 +43,14 @@
 .ot-grouped-bar-chart__plot {
   position: relative;
   width: 100%;
-  max-height: 280px;
+  height: 280px;
+  overflow: hidden;
 }
 
 .ot-grouped-bar-chart__svg {
   display: block;
   width: 100%;
-  height: auto;
-  max-height: 100%;
-  object-fit: contain;
+  height: 100%;
 }
 
 .ot-grouped-bar-chart__divider {
