@@ -11,7 +11,7 @@ export type Ulid = string;
 /** Discriminator for the event log. One `type` per semantic action. */
 export type DomainEventType =
   | 'tx.created'
-  | 'tx.updated'
+  | 'tx.edited'
   | 'tx.deleted'
   | 'AccountCreated'
   | 'CategoryCreated';
