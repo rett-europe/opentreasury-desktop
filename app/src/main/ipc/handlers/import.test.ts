@@ -145,6 +145,44 @@ describe('dryRun — 2-of-3 junk rule', () => {
     expect(resp.errors[0]!.field).toBe('amount');
   });
 
+  it('threads mapped reference/details through the preview samples (BUG #4)', async () => {
+    const stageHandle = createStageFileHandler({ getReadModel });
+    const filePath = writeCsv(
+      'withrefs.csv',
+      [
+        'Date,Amount,Description,Ref,Notes',
+        '15/03/2026,100.00,Salary,INV-001,Monthly payroll',
+        '16/03/2026,-25.50,Groceries,,',
+      ].join('\n'),
+    );
+    const stageResp = await stageHandle({ filePath });
+    expect(stageResp.ok).toBe(true);
+    if (!stageResp.ok) return;
+
+    const dryRunHandle = createDryRunHandler({ getReadModel });
+    const resp = await dryRunHandle({
+      fileId: stageResp.fileId,
+      sheetName: 'Sheet1',
+      accountId: 'acc_1',
+      columnMapping: {
+        date: 'Date',
+        amount: 'Amount',
+        description: 'Description',
+        reference: 'Ref',
+        details: 'Notes',
+      },
+      importDuplicates: false,
+      headerRow: stageResp.sheets[0]!.detectedHeaderRow,
+    });
+
+    expect(resp.ok).toBe(true);
+    if (!resp.ok) return;
+    expect(resp.samples[0]!.reference).toBe('INV-001');
+    expect(resp.samples[0]!.details).toBe('Monthly payroll');
+    expect(resp.samples[1]!.reference).toBeNull();
+    expect(resp.samples[1]!.details).toBeNull();
+  });
+
   it('rejects a missing headerRow via schema validation', async () => {
     const dryRunHandle = createDryRunHandler({ getReadModel });
     const resp = await dryRunHandle({
