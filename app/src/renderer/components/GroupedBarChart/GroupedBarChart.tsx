@@ -41,10 +41,13 @@ export type GroupedBarChartProps = {
 };
 
 // SVG viewBox constants — responsive via CSS width: 100%.
-const VIEW_W = 600;
+// viewBox aspect (4:1) chosen to match typical rendered container aspect
+// (~280px tall × ~1100px wide), minimising anisotropic text distortion when
+// preserveAspectRatio="none" is used to fill the card on wide screens.
+const VIEW_W = 1200;
 const VIEW_H = 300;
-const PAD_L = 32;
-const PAD_R = 16;
+const PAD_L = 64;
+const PAD_R = 32;
 const PAD_T = 24;
 const PAD_B = 56;
 const CHART_W = VIEW_W - PAD_L - PAD_R;
