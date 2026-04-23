@@ -45,6 +45,7 @@ interface WizardState {
   lastMapping: ColumnMapping | null;
   dryRunResult: DryRunResponse | null;
   importDuplicates: boolean;
+  autoCreateUnknownTaxonomy: boolean;
   importedCount: number;
   skippedCount: number;
   error: string | null;
@@ -67,6 +68,7 @@ const INITIAL_STATE: WizardState = {
   lastMapping: null,
   dryRunResult: null,
   importDuplicates: false,
+  autoCreateUnknownTaxonomy: true,
   importedCount: 0,
   skippedCount: 0,
   error: null,
@@ -265,6 +267,7 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
         columnMapping: state.columnMapping as ColumnMapping,
         importDuplicates: state.importDuplicates,
         headerRow: state.headerRow,
+        autoCreateUnknownTaxonomy: state.autoCreateUnknownTaxonomy,
       });
       if (!resp.ok) {
         setState((s) => ({ ...s, error: t(`importWizard.errors.${resp.error.code}`) }));
@@ -291,6 +294,7 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
         importDuplicates: state.importDuplicates,
         confirmed: true,
         headerRow: state.headerRow,
+        autoCreateUnknownTaxonomy: state.autoCreateUnknownTaxonomy,
       });
       if (!resp.ok) {
         setState((s) => ({ ...s, error: t(`importWizard.errors.${resp.error.code}`) }));
@@ -560,9 +564,38 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                   <p className="ot-import-wizard__taxonomy-hint">
                     {t('importWizard.dryRun.taxonomy.hint')}
                   </p>
+                  <label className="ot-import-wizard__taxonomy-autocreate">
+                    <input
+                      type="checkbox"
+                      checked={state.autoCreateUnknownTaxonomy}
+                      disabled={loading}
+                      onChange={(e) => {
+                        const next = e.target.checked;
+                        setState((s) => ({ ...s, autoCreateUnknownTaxonomy: next }));
+                        // Re-run dry-run with the new flag so willCreate
+                        // chips update in place. Defer to the next tick so
+                        // React flushes state first.
+                        setTimeout(() => {
+                          void handleDryRun();
+                        }, 0);
+                      }}
+                    />
+                    <span>{t('importWizard.dryRun.taxonomy.autoCreateLabel')}</span>
+                  </label>
                   <div className="ot-import-wizard__taxonomy-grid">
                     {fieldsToShow.map(({ field, data }) => {
                       if (data.knownCount === 0 && data.unknownCount === 0) return null;
+                      // Split the unknown bucket into "will create" (part
+                      // of the server-side creation plan) and plain
+                      // "unknown" (won't be imported), so each gets its
+                      // own chip colour + badge.
+                      const willCreateKeys = new Set(
+                        (data.willCreate ?? []).map((n) => n.trim().toLowerCase()),
+                      );
+                      const leftoverUnknown = data.unknown.filter(
+                        (n) => !willCreateKeys.has(n.trim().toLowerCase()),
+                      );
+                      const leftoverUnknownCount = data.unknownCount - (data.willCreateCount ?? 0);
                       return (
                         <article key={field} className="ot-import-wizard__taxonomy-card">
                           <header className="ot-import-wizard__taxonomy-card-header">
@@ -606,7 +639,33 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                               </ul>
                             </div>
                           ) : null}
-                          {data.unknownCount > 0 ? (
+                          {(data.willCreateCount ?? 0) > 0 ? (
+                            <div className="ot-import-wizard__taxonomy-group ot-import-wizard__taxonomy-group--willcreate">
+                              <div className="ot-import-wizard__taxonomy-group-label">
+                                <span
+                                  className="ot-import-wizard__taxonomy-dot ot-import-wizard__taxonomy-dot--willcreate"
+                                  aria-hidden="true"
+                                />
+                                {t('importWizard.dryRun.taxonomy.willCreateLabel', {
+                                  count: data.willCreateCount ?? 0,
+                                })}
+                              </div>
+                              <ul className="ot-import-wizard__taxonomy-chips">
+                                {(data.willCreate ?? []).map((name) => (
+                                  <li
+                                    key={name}
+                                    className="ot-import-wizard__taxonomy-chip ot-import-wizard__taxonomy-chip--willcreate"
+                                  >
+                                    {name}
+                                  </li>
+                                ))}
+                              </ul>
+                              <p className="ot-import-wizard__taxonomy-group-note">
+                                {t('importWizard.dryRun.taxonomy.willCreateHint')}
+                              </p>
+                            </div>
+                          ) : null}
+                          {leftoverUnknownCount > 0 ? (
                             <div className="ot-import-wizard__taxonomy-group ot-import-wizard__taxonomy-group--unknown">
                               <div className="ot-import-wizard__taxonomy-group-label">
                                 <span
@@ -614,11 +673,11 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                                   aria-hidden="true"
                                 />
                                 {t('importWizard.dryRun.taxonomy.unknownLabel', {
-                                  count: data.unknownCount,
+                                  count: leftoverUnknownCount,
                                 })}
                               </div>
                               <ul className="ot-import-wizard__taxonomy-chips">
-                                {data.unknown.map((name) => (
+                                {leftoverUnknown.map((name) => (
                                   <li
                                     key={name}
                                     className="ot-import-wizard__taxonomy-chip ot-import-wizard__taxonomy-chip--unknown"
@@ -626,10 +685,10 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
                                     {name}
                                   </li>
                                 ))}
-                                {data.unknownCount > data.unknown.length ? (
+                                {leftoverUnknownCount > leftoverUnknown.length ? (
                                   <li className="ot-import-wizard__taxonomy-chip ot-import-wizard__taxonomy-chip--more">
                                     {t('importWizard.dryRun.taxonomy.andMore', {
-                                      count: data.unknownCount - data.unknown.length,
+                                      count: leftoverUnknownCount - leftoverUnknown.length,
                                     })}
                                   </li>
                                 ) : null}

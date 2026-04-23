@@ -737,6 +737,7 @@
       "taxonomy": {
         "heading": "Detected categories, subcategories and tags",
         "hint": "Matched values will be attached to each transaction. Unmatched ones will import empty; you can create them later from Configuration.",
+        "autoCreateLabel": "Automatically create new categories and subcategories",
         "fields": {
           "categories": "Categories",
           "subcategories": "Subcategories",
@@ -745,6 +746,8 @@
         "cardTotals": "{{known}} matched · {{unknown}} unmatched",
         "knownLabel": "Matched · {{count}}",
         "unknownLabel": "Unmatched · {{count}}",
+        "willCreateLabel": "Will be created · {{count}}",
+        "willCreateHint": "These will be created automatically on import.",
         "andMore": "+{{count}} more",
         "unknownNote": "Rows will import without this value."
       }

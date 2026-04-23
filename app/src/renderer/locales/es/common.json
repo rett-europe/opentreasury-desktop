@@ -737,6 +737,7 @@
       "taxonomy": {
         "heading": "Categorías, subcategorías y etiquetas detectadas",
         "hint": "Los valores reconocidos se asignarán a cada movimiento. Los no reconocidos se importarán vacíos; podrás crearlos después desde Configuración.",
+        "autoCreateLabel": "Crear automáticamente las categorías y subcategorías nuevas",
         "fields": {
           "categories": "Categorías",
           "subcategories": "Subcategorías",
@@ -745,6 +746,8 @@
         "cardTotals": "{{known}} reconocidas · {{unknown}} sin coincidencia",
         "knownLabel": "Reconocidas · {{count}}",
         "unknownLabel": "Sin coincidencia · {{count}}",
+        "willCreateLabel": "Se crearán · {{count}}",
+        "willCreateHint": "Se crearán automáticamente al importar.",
         "andMore": "+{{count}} más",
         "unknownNote": "Se importarán sin este valor."
       }
