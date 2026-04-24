@@ -23,6 +23,8 @@
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "e2e": "playwright test",
+    "perf:seed": "node scripts/perf-seed.mjs",
+    "perf:measure": "vite-node scripts/perf-measure.ts",
     "package": "electron-builder --config electron-builder.yml"
   },
   "dependencies": {
