@@ -601,6 +601,579 @@ Unblocks three deferred items at once:
 - Hard-delete path for config entities (migrate-then-delete)
 - Prototype fidelity on Cuentas (Movimientos column, accurate row counts)
 
+---
+
+## Decision: BulkClassifyModal sized independently of TransactionDetailModal
+
+**Date:** 2026-04-23
+**By:** Trinity (Frontend Dev)
+**Requested by:** Pedro
+**Status:** Proposed (CSS shipped on `fix/bulk-classify-modal-size`, awaiting Pedro merge)
+
+### Decision
+
+The bulk-classify modal (`BulkClassifyModal`) is sized independently of the transaction detail modal:
+
+- **Width:** `480px` (vs. detail modal's `760px`), with `max-width: 92vw` inherited from the shell for mobile safety.
+- **Edit-body min-height:** `0` (vs. detail modal's `520px`).
+
+Both overrides live in `BulkClassifyModal.css` scoped under `.ot-bulk-classify-modal`. The shared shell (`TransactionDetailModal.css`) is **not** modified — it remains the single source of truth for header / footer / focus / padding / backdrop styling.
+
+### Rationale
+
+The bulk-classify modal only contains a Category + Subcategory picker pair (and an optional self-scrolling failures panel). The 760×520 detail-modal footprint was correct for the full transaction edit form but oversized and visually clumsy here. Auto-sizing on a 480px frame fits the two pickers without horizontal cramping and keeps the dialog compact when there are no failures; the failures panel's existing `max-height: 200px; overflow-y: auto` keeps growth bounded when failures appear.
+
+### Pattern this establishes
+
+Future modals that reuse the detail-modal shell should follow the same approach:
+
+1. Render `ot-transaction-detail-modal` shell classes + a sibling marker class on the `<dialog>`.
+2. Import the child CSS **after** `TransactionDetailModal.css` in the .tsx (cascade wins at equal specificity).
+3. Scope sizing overrides (`width`, `min-height`, etc.) under the marker class. Do not fork the shell.
+
+A skill describing this pattern lives at `.squad/skills/modal-shell-overrides/SKILL.md`.
+
+### Files touched
+
+- `app/src/renderer/components/BulkClassifyModal/BulkClassifyModal.css` — added shell overrides at top of file; failures panel rules unchanged.
+
+### Verification
+
+- `npx vitest run app/src/renderer/components/BulkClassifyModal` → 4/4 passing.
+- `npm run typecheck` → clean.
+- `npx eslint app/src/renderer/components/BulkClassifyModal --max-warnings 0` → clean.
+
+---
+
+## Trinity — Polish Pre-WI-22 Decision Drop
+
+**Date:** 2026-04-22  
+**PR:** #5 (polish/pre-wi22-table-scroll-modal-locale)
+
+### Decisions / Patterns Established
+
+#### 1. Table horizontal-scroll fallback pattern (confirmed)
+
+For any screen using `table-layout: fixed; width: 100%` inside an `overflow-x: auto` container, **`min-width` on the table equal to the sum of column widths is mandatory** for horizontal scroll to actually trigger. Without it, the table just proportionally compresses columns and the container never overflows.
+
+Current usages:
+- `MovementsScreen.css` — `min-width: 1012px`
+- `PanelScreen.css` — `min-width: 832px`
+
+Saldo (WI-22) should adopt the same pattern. Extend `.squad/skills/data-table-truncation/SKILL.md` — the "Scroll Fallback Requires Unobstructed Ancestor Chain" section is already there but didn't spell out the `min-width` requirement. Updated.
+
+#### 2. Currency-formatting locale source
+
+**Rule:** Use the i18next locale (`i18n.language` mapped to `'es-ES'` / `'en-US'`), NOT `navigator.language`. Applies to both `Intl.NumberFormat` (currency + numbers) and `Intl.DateTimeFormat`. `dateFormat.ts` already does this via its `locale` parameter; currency formatters in components should do the same.
+
+#### 3. Follow-up: extract currency formatter helper
+
+**STATUS: DONE** — implemented on branch `chore/number-format-helper` (PR opened against `main`). Helper lives at `app/src/renderer/utils/numberFormat.ts` with `formatCurrency(amount, locale, currency = 'EUR')`. All three call sites (`AccountCard.tsx`, `KPIStrip.tsx`, `PanelScreen.tsx` recent-tx column) migrated to the helper with `locale` derived from `i18n.language`. Unit tests added at `numberFormat.test.ts`. Skill codified at `.squad/skills/intl-formatting/SKILL.md`.
+
+**Original recommendation:** before WI-22 Saldo lands, pull the currency formatter into `app/src/renderer/utils/numberFormat.ts` (alongside `dateFormat.ts`) and sweep remaining `navigator.language` call sites:
+- `AccountCard.tsx:43`
+- `KPIStrip.tsx:20`
+- `PanelScreen.tsx:285` (recent-tx amount column)
+
+Saldo will compute running balances and display amounts per account — reusing the helper avoids re-introducing the bug. Trivial 20-line helper + ~5 call-site migrations. **Assigning suggestion: whoever picks up WI-22 scaffolding does this first as a 10-minute pre-work commit.**
+
+#### 4. No design decisions required
+
+Both fixes were bugs, not redesigns. Mouse input not needed. View/edit parity on TransactionDetailModal verified still intact after WI-21 merges — no flicker, unified 760×520 shell.
+
+---
+
+## Trinity — Saldo redesign implementation notes
+
+**PR:** #17 — https://github.com/rett-europe/opentreasury-desktop/pull/17
+**Branch:** `feat/saldo-redesign-per-category`
+**Specs implemented:**
+- `.squad/decisions/inbox/niobe-saldo-redesign-spec.md`
+- `.squad/decisions/inbox/mouse-saldo-chart-sizing.md`
+- `.squad/decisions/inbox/copilot-directive-saldo-redesign.md`
+
+### Files changed
+
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.tsx` — rewritten. New state model (mode + year(s) persisted in `localStorage` `saldo.view.v2`), fetch helper that reuses adjacent prior data when CY/LY are consecutive (otherwise issues a second fetch), per-category chart compute (`buildCategoryRows`), per-mode KPI strip and category panels.
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.css` — added `.ot-saldo-controls`, `.ot-saldo-mode`, `.ot-saldo-year-picker` styles; capped `.ot-saldo-chart` at `max-width: 960px; margin-inline: auto`.
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.test.tsx` — updated to the new render. Old projection / period-selector tests dropped; added single-year-mode coverage and mode-toggle test.
+- `app/src/renderer/components/GroupedBarChart/GroupedBarChart.tsx` — extended in place: variable bar count per group, variable legend, optional per-bar `barClassNames`, optional `dividerBefore` (renders a vertical dashed separator between income and expense halves). Backward-compatible — all existing GroupedBarChart tests pass unchanged.
+- `app/src/renderer/components/GroupedBarChart/GroupedBarChart.css` — Mouse's sizing fix (`__plot { max-height: 280px }`, `__svg { max-height: 100%; object-fit: contain }`) + new bar/swatch class variants for income/expense × cy/ly/solo + divider style.
+- `app/src/renderer/locales/en/common.json`, `app/src/renderer/locales/es/common.json` — `saldo` block rewritten.
+
+### i18n keys added
+
+- `saldo.mode.{label,compare,single}`
+- `saldo.year.{currentLabel,priorLabel,singleLabel,comparingNote}`
+- `saldo.kpi.sublabel.{singleIncomeCount_one,singleIncomeCount_other,singleExpenseCount_one,singleExpenseCount_other,singleYear}`
+- `saldo.chart.{compareTitle,compareSubtitle,compareAriaLabel,singleTitle,singleSubtitle,singleAriaLabel,emptyYear,otras}`
+- `saldo.chart.legend.{incomeYear,expenseYear}`
+- `saldo.panel.{subtitleSingle}`, `saldo.panel.columns.{type,amount,share}`
+
+### i18n keys removed (verified unreferenced via grep before deletion)
+
+- `saldo.cta.export`
+- `saldo.period.*` (entire block)
+- `saldo.account.*`
+- `saldo.yearChip.label`
+- `saldo.kpi.sublabel.priorAndProjected`
+- `saldo.projection.{sublabel,rowTooltip}`
+- `saldo.chart.{monthlyNetTitle,monthlyNetSubtitleYears,monthlyNetAriaLabel,emptyMonth}`
+- `saldo.panel.row.projectedVs`
+- `saldo.states.{emptyCurrent,emptyPrior}`
+
+### Validation
+
+- `npm run typecheck` ✅
+- `npm run lint` ✅ (max-warnings 0)
+- `npm test -- --run` ✅ — 466 passed / 9 skipped
+- `npx prettier --write` on every touched file ✅
+- Renderer grep for `proyect|projected|projection|proj.|currentProjectedTotal` returns only the schema-required mock field in tests + the doc comment confirming absence.
+
+### Follow-up debt
+
+1. **Backend contract cleanup PR (priority for Morpheus/Neo)**: drop `monthlySeries`, `priorMonthlySeries`, `currentProjectedTotal`, `isPartial`, `daysElapsed`, `daysInPeriod` from `SaldoComparisonResponse` (and from the server compute path) — the renderer no longer reads them. Touches:
+   - `app/src/shared/ipc-contracts/saldo.ts`
+   - `app/src/main/ipc/handlers/saldo.ts`
+   - `app/src/core/query/saldo.ts`
+   - Tests that build mock responses (Saldo screen test will need its mock trimmed).
+2. **Available transaction years IPC**: today the year picker hard-codes the last 6 calendar years. A small `saldo:get-available-years` (or extending `getSaldoComparison` with a `meta.years` array) would let us honour the spec's `min = earliest year present in any transaction` rule.
+3. **Optional**: per-subcategory drill-down in the chart (explicitly out of scope — Pedro can prioritise if NGO admins ask).
+
+---
+
+## Morpheus — Saldo seed + i18n fix
+
+**PR:** https://github.com/rett-europe/opentreasury-desktop/pull/16
+**Branch:** `fix/saldo-categories-seed-i18n`
+**Date:** 2026-04
+**Requested by:** Pedro
+**Diagnosis reference:** `.squad/decisions/inbox/neo-saldo-3bug-diagnosis.md`
+
+### What changed
+
+#### Bug 1 — devSeed writes new config events
+- `app/src/main/devSeed.ts`: replaced the legacy `category.created` / `subcategory.created` / `tag.created` emissions (enveloped shape) with the new WI-15-lite flat events: `CategoryCreated`, one `SubcategoryCreated` per sub (references parent via `parentCategoryId`), `TagCreated`. Category `kind` (income|expense) is carried through from the seed.
+- Legacy reducer cases in `core/query/reducers.ts:98-115` were **not** removed per Neo's guidance — that is follow-up debt (see below).
+- `account.created` was left as-is: accounts render correctly on main, so that path is out of scope here.
+
+#### Bug 2 — Uncategorized label resolved client-side via i18n
+- `app/src/core/query/saldo.ts`: removed the hardcoded Spanish `UNCATEGORIZED_LABEL = 'Sin categoría'`. `resolveCategoryName` now returns `string | null`. `TotalsAgg.byCategory` name is `string | null`. Sort stability preserved (null names collate last).
+- `app/src/shared/ipc-contracts/saldo.ts`: `SaldoCategoryNet.categoryName` and `SaldoBiggestCategoryGrowth.categoryName` are now `z.string().nullable()`.
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.tsx`: `PanelRow.name` is `string | null`; rendering site resolves `null` via `t('saldo.panel.uncategorized')`; sort tiebreaker handles null.
+- `app/src/renderer/locales/en/common.json`: added `saldo.panel.uncategorized = "Uncategorized"`.
+- `app/src/renderer/locales/es/common.json`: added `saldo.panel.uncategorized = "Sin categoría"`.
+- `app/src/core/query/saldo.test.ts`: updated the uncategorized-bucket test to expect `categoryName: null` and retitled accordingly.
+
+### Validation gates
+
+All run from `app/`:
+- `npm run typecheck` ✅
+- `npm run lint` ✅ (0 warnings)
+- `npm test -- --run` ✅ (467 pass / 9 skipped / 0 fail)
+- `npx prettier --write` run on every touched file.
+
+Manual test (for reviewer): wipe `$env:APPDATA\opentreasury-desktop\dev-events`, `npm run dev:electron`, verify Dashboard/Movements show `Donaciones`/`Individuales` (not raw IDs) and Saldo panels show `Uncategorized` in EN, `Sin categoría` in ES.
+
+### Follow-up debt
+
+1. **Remove legacy reducer cases.** Delete the `category.created` / `subcategory.created` / `tag.created` cases from `app/src/core/query/reducers.ts:98-115` and the matching event schemas/types so nothing can silently dual-write to `readModel.categories` again. Also consider dropping the `readModel.categories` / `tags` slices entirely if no one reads them. **This is the most important follow-up** — without it the fix is brittle.
+2. **Audit `account.created` vs `AccountCreated`.** Same footgun latent; verify `listAccounts` only reads from `configAccounts` and remove the legacy path if unused.
+3. **Lint rule / audit:** user-facing Spanish or English string literals under `app/src/core/` should be forbidden. Grep audit at minimum; eslint rule ideally.
+4. **Bug 3 (chart heights)** remains open pending Cypher empirical capture — not this PR's scope.
+
+---
+
+## Neo — Diagnosis: 3 post-PR#15 bugs (Panel/Movements raw IDs, Saldo "Sin categoría", chart bar heights)
+
+**Date:** 2026-04 (post PR #15 merge)
+**Requested by:** Pedro
+**Scope:** Diagnosis only, no code changes. Trinity will implement.
+
+### TL;DR
+
+All three user-reported bugs share a **single root cause**: the dev seeder writes the **legacy** `category.created` / `tag.created` events, but every consumer in the current app (Panel, Movements, Saldo, Configuración) reads from the **new** `configCategories` / `configTags` projections, which are only populated by the new `CategoryCreated` / `TagCreated` config events. PR #15's name-lookup code is correct; the map it builds is just always empty because `listCategories()` returns `[]`.
+
+Bug 2's "Sin categoría" leak is a compound issue: the empty map forces every category to fall back to the hardcoded server-side Spanish label, *and* that label would still leak on null-category rows even after Bug 1 is fixed.
+
+Bug 3 is almost certainly a **user mis-reading**: the Saldo "Income vs Expense" chart is not an I/E chart — it's a **current-year-net vs prior-year-net** grouped bar chart. Needs empirical DOM verification before changing anything.
+
+### Bug 1 — Panel + Movements show raw IDs (`CATD0N00000000000000000000`, `CATD0NS10000…`)
+
+#### Root cause
+Two parallel, disconnected event families populate two different read-model slices:
+
+| Event type            | Reducer slice             | Reducer location                           | Emitted by                  |
+| --------------------- | ------------------------- | ------------------------------------------ | --------------------------- |
+| `category.created`    | `readModel.categories`    | `app/src/core/query/reducers.ts:98-115`    | **devSeed.ts** (line 726)   |
+| `CategoryCreated`     | `readModel.configCategories` | `app/src/core/query/reducers.ts:154-168`   | `categories:create` IPC handler only |
+
+The `categories:list` IPC handler reads **only** from `configCategories`:
+
+- `app/src/main/ipc/handlers/categories.ts:122-138` → `selectActiveCategories(model)`
+- `app/src/main/projections/config.ts:77-84` → `model.configCategories.filter(...)`
+
+Therefore, on a fresh dev-seeded dataset, `listCategories()` returns `{ categories: [] }`. PR #15's map builders in PanelScreen (`PanelScreen.tsx:173-180`) and MovementsScreen (`MovementsScreen.tsx:203-210`) produce empty maps. Both renderers then hit their fallback branch (`categoryNameById.get(id) ?? id`) at:
+
+- `PanelScreen.tsx:264-266` (category cell) and `PanelScreen.tsx:280-282` (subcategory cell)
+- `MovementsScreen.tsx:79-86` (`mapMovementRecord`)
+
+…which emits the raw ID. `fakeUlid('CATDON')` = `"CATD0N00000000000000000000"` and `fakeUlid('CATDONS1')` = `"CATD0NS10000000000000000000"`, matching exactly what the user sees.
+
+This same mismatch affects **tags** (`tag.created` vs `TagCreated` → `configTags`), so tag labels will also be broken wherever they're resolved through `listTags()`.
+
+The *names* in the seed are fine (`devSeed.ts:114` `name: 'Donaciones'`, etc.) — the names are written correctly; they're just written into a slice nobody reads.
+
+#### Exact file:line
+- **Source of the bad events:** `app/src/main/devSeed.ts:722-747` (categories) and `:749-768` (tags).
+- **Reducer proving the two paths are disjoint:** `app/src/core/query/reducers.ts:98` (legacy) vs `:154` (new).
+- **Read handler ignoring the legacy slice:** `app/src/main/ipc/handlers/categories.ts:133-136`.
+
+#### One-sentence fix
+Update `devSeed.ts` to emit the new `CategoryCreated` / `SubcategoryCreated` / `TagCreated` event shapes (flat envelope, no `payload` wrapper — see `core/events/schemas.ts:149-171`) so they hit `configCategories` / `configTags` and flow through `listCategories()` / `listTags()`.
+
+> *Alternative fix (rejected):* teach `selectActiveCategories` to merge legacy `categories` into the output. This re-introduces the dual-write model PR #15's author presumably wanted gone, and would re-break on the next config mutation. Fix the seed, not the projection.
+
+### Bug 2 — "Sin categoría" appears in EN Saldo screen
+
+#### Root cause (two coupled issues)
+
+**2a — Primary trigger:** Because Bug 1 leaves `configCategories` empty, the Saldo aggregation's name resolver can't find **any** category (not just null ones) and returns the Spanish fallback for all rows:
+
+- `app/src/core/query/saldo.ts:38` — `const UNCATEGORIZED_LABEL = 'Sin categoría';` (hardcoded Spanish).
+- `app/src/core/query/saldo.ts:40-44` — `resolveCategoryName` returns `UNCATEGORIZED_LABEL` whenever `configCategories.find(...)` misses, which right now is 100% of the time.
+
+That name then flows into every `SaldoCategoryNet.categoryName` the backend emits, which the renderer prints verbatim in the Ingresos/Gastos panel rows (`SaldoScreen.tsx:716` — `{row.name}`).
+
+**2b — Latent bug (independent of Bug 1):** Even after Bug 1 is fixed, genuinely uncategorized transactions (`categoryId: null`) will *still* render "Sin categoría" in the EN locale because the label is server-side and non-i18n'd. This is an architectural issue: **user-facing strings must not live in the backend**.
+
+**2c — User's description (chart vs panels):** The user says "Income-vs-Expense chart tooltip/legend shows 'Sin categoría'". The chart component itself (`GroupedBarChart.tsx:104-235`) does **not** contain the string — its legend is `[currentYear, priorYear]` (`SaldoScreen.tsx:438`) and its tooltip only renders `s.label` (month name). "Sin categoría" is appearing in the **category panels below the chart** (`SaldoScreen.tsx:713-717`) — user is probably conflating the two sections visually.
+
+#### Exact file:line
+- `app/src/core/query/saldo.ts:38` — hardcoded Spanish constant.
+- `app/src/core/query/saldo.ts:40-44` — fallback path returning it for both null and missing IDs.
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.tsx:501`, `:515`, `:716` — render path consuming `row.categoryName`.
+
+#### One-sentence fix
+Fix Bug 1 first (Trinity); then change the Saldo IPC to emit a sentinel (`categoryName: null`, or a stable token like `'__uncategorized__'`) and resolve the display label client-side via `t('saldo.panel.uncategorized')` — add matching keys to `app/src/renderer/locales/{en,es}/common.json`.
+
+### Bug 3 — Bar heights look wrong / not proportional to income & expense
+
+#### Root cause (almost certainly user mis-reading, not a bug)
+
+The chart the user is looking at is **NOT** an Income-vs-Expense chart. It is a **year-over-year net** chart:
+
+- `SaldoScreen.tsx:407-419` — builds `values = [curNet, priorNet]` where `curNet = cur.netIncome - cur.netExpense` and `priorNet` is the same formula on `priorSeries`.
+- `SaldoScreen.tsx:438` — legend is `[String(currentYear), String(priorYear)]` (e.g. `["2026", "2025"]`), not `["Income", "Expense"]`.
+- Chart itself (`GroupedBarChart.tsx:55-64`) uses one shared Y-axis with domain `[min(0, values), max(0, values)]`, which correctly supports negative net months (bars below the zero line) — this is mathematically sound for a YoY-net comparison.
+
+Consequences that explain the user's "heights look wrong" feel:
+1. A month with high income **and** high expense (e.g. Oct 2025 gala: 5,000 in + 4,800 out) nets ~200 and renders as a tiny bar, even though the underlying tx totals are large.
+2. 2026 months after April are zero-filled (future), so 2026's bars collapse to nothing for Jul-Dec, while 2025 shows real numbers for the same months → visually "lopsided" without being incorrect.
+3. Sign flips (expense-heavy months) yield bars below the zero line — easy to misread as "missing".
+
+I did **not** find a scale/data-mapping bug in the math. No hardcoded domain, no absolute-value hack, no separate-axis-per-series trick.
+
+#### Exact file:line
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.tsx:396-446` — MonthlyNetChart (compute + legend).
+- `app/src/renderer/components/GroupedBarChart/GroupedBarChart.tsx:52-64` — scale.
+
+#### One-sentence fix
+**Needs empirical data — suggest Cypher capture DOM bar heights and compare to `runQuery(getSaldo)` output before any code change**; if the math checks out, the real issue is UX/labelling (the subtitle says "netos" but the chart is easy to misread as I/E — consider swapping to stacked Income+Expense bars or relabelling clearly). Do *not* modify chart math until empirical data confirms a defect.
+
+### Recommended spawn order
+
+1. **Trinity — Bug 1 (seed rewrite).** Highest impact, unblocks everything else. Rewrite `devSeed.ts` category/subcategory/tag event emission to match `core/events/schemas.ts:149-171` (`CategoryCreated`, `SubcategoryCreated`, `TagCreated` — flat envelope, `parentCategoryId` for subcategories). Delete or ignore the legacy paths for seed. Verify by: fresh re-seed → `listCategories()` returns 8 categories with names, Panel + Movements columns render "Donaciones", "Individuales", etc.
+2. **Trinity — Bug 2 cleanup (after Bug 1 lands).** Replace the hardcoded Spanish `UNCATEGORIZED_LABEL` in `saldo.ts:38` with either `null` (preferred — let renderer pick the label) or a stable sentinel; add `saldo.panel.uncategorized` keys to both `locales/en/common.json` and `locales/es/common.json`; update `SaldoScreen.tsx` render sites (`:716` and the `buildPanelRows` name pickup at `:501` / `:515`) to resolve the sentinel via `t(...)`.
+3. **Cypher — Bug 3 empirical capture.** Before any code change: run `dev:electron` with seed, navigate to Saldo, capture (a) the `SaldoComparisonResponse.monthlySeries` + `.priorMonthlySeries` JSON, and (b) DOM values of `rect[height]` for the rendered bars. Compare. If the math matches, route back to Neo for a UX-level decision (relabel chart / rebuild as stacked I-vs-E). If the math doesn't match, hand to Trinity with the failing bucket.
+4. *(Parallel, optional)* **Switch** — audit if any other consumer (Importación, Configuración list views, Saldo biggest-growth callout) is reading `readModel.categories` (legacy) or assuming seed-populated `configCategories`. The legacy `category.created` reducer case should probably be deleted in a follow-up once the seed is corrected, to prevent anyone reintroducing dual-write.
+
+### Notes for future work (not in scope here)
+- The dual event families (`category.created` vs `CategoryCreated`, `tag.created` vs `TagCreated`, `account.created` vs `AccountCreated`) and their two read slices (`categories` + `configCategories`, etc.) are a latent footgun. Worth a dedicated cleanup WI after the above lands.
+- Any user-facing string living in `app/src/core/` (the saldo label here, possibly others) violates the backend/frontend separation — candidate for a lint rule or at minimum a follow-up grep audit.
+
+---
+
+## Niobe — Saldo Redesign Spec
+
+**Owner:** Niobe (UX) · **For:** Trinity (impl), Mouse (visual), Cypher (tests)
+**Source directive:** `.squad/decisions/inbox/copilot-directive-saldo-redesign.md`
+**Scope:** UX/IA only. No visual tokens, no implementation, no tests.
+**Drops:** All projection UI (badges, "proj. vs", dashed lines, projected KPI sublabels).
+
+### 1. Modes (the controller)
+
+Two modes. **No third "monthly trend" mode** — keeping the surface tight. (Pedro can add it later if NGO admins ask.)
+
+| Mode | Default? | Purpose |
+|---|---|---|
+| **Compare years** | ✅ default | Pick CY + LY. Per-category LY-vs-CY bars. |
+| **Single year** | — | Pick one year. Per-category single bar. No comparison. |
+
+**Control:** Segmented control (2 buttons) labelled `Comparar años` / `Un año`. Sits at the top-left of the Saldo header strip, **replacing the current `Period` (Año/Trim/Mes) selector**. The Año/Trim/Mes selector is **removed** — it confused the new "category × year" axis and the directive is year-centric. Granularity below year is out of scope for this WI.
+
+**Default state on first load:** `Compare years`, current year vs prior year (e.g. 2026 vs 2025).
+**Persistence:** Mode + selected year(s) persist in `localStorage` under `saldo.view.v2` (key bumped from any prior `saldo.view`). Survives reload, resets if the stored year is no longer in the available range (clamp to current year).
+
+### 2. Chart shape per mode
+
+Shared rules:
+- **X-axis:** category names. Sort: by **CY absolute net magnitude desc** (compare mode) or **selected-year absolute net magnitude desc** (single mode). Cap at **top 8 categories**; the rest collapse into a single `Otras` bucket (summed). 8 keeps labels legible at 1280–1920px without rotation.
+- **Y-axis:** **absolute amounts in EUR**, always ≥ 0. Income and expense bars share the same axis but are visually distinguished by **color** (income = positive/green family, expense = negative/red family — Mouse owns the palette). No signed/negative bars.
+- **Empty state:** when the selected year has zero transactions across all categories, render the existing `ot-grouped-bar-chart__empty` slot with `t('saldo.chart.emptyYear')`. When a single category has no value in one of the two compared years, render that bar at height 0 with the tooltip stating `Sin datos en {{year}}`.
+
+#### 2a. Compare years mode
+- **Bars per group:** 2 (CY then LY, left→right). Color encodes income/expense; **shade/opacity** encodes year (CY = solid, LY = 60% opacity, or whatever Mouse picks).
+- **Tooltip:** category name · row "Income/Expense" · CY value · LY value · delta (signed %, "—" if LY=0).
+- **Legend:** `Ingresos {{cy}}` · `Ingresos {{ly}}` · `Gastos {{cy}}` · `Gastos {{ly}}` (4 swatches).
+
+#### 2b. Single year mode
+- **Bars per group:** 1. Color encodes income/expense.
+- **Tooltip:** category name · type · value · `% del total {{year}}` (share of that year's income or expense total).
+- **Legend:** `Ingresos {{year}}` · `Gastos {{year}}` (2 swatches).
+
+### 3. Income vs Expense — one chart or two?
+
+**Decision: ONE chart, side-by-side.** Income categories first (sorted desc), then a thin visual divider, then expense categories (sorted desc). Color carries the type, position carries the sort.
+
+Justification: NGO admins compare "did this category grow vs last year" — that question is local to a category, not cross-type. Two charts would double the screen real estate and force a visual jump for the most common scan ("is anything alarming?"). One chart with clear color coding keeps the answer in a single sweep, and the divider prevents accidentally summing income+expense bars.
+
+### 4. Year picker mechanics
+
+- **Available years:** `min = earliest year present in any transaction.date in the read model; max = current calendar year (UTC). No future years.` If the read model is empty, picker shows only the current year (disabled state on the prior-year side).
+- **Compare mode:** two pickers — `Año actual` and `Año anterior`. `Año anterior` defaults to `currentYear − 1`, must be `< Año actual`, clamped to min. Swapping order is forbidden (UI prevents it; if user picks `currentYear` for prior, we silently bump prior to `currentYear − 1` and toast nothing).
+- **Single mode:** one picker — `Año`. Defaults to current year.
+- **Mode switch behavior:** when switching `Compare → Single`, carry the **CY** value into the single picker. When switching `Single → Compare`, that year becomes CY and prior becomes `CY − 1` (clamped).
+- **a11y:** native `<select>` with `<label for>`. `aria-describedby` points to a sibling text node explaining the comparison (e.g. "Comparing 2026 with 2025"). Keyboard: tab into select, arrows to change, Enter to commit. No custom combobox.
+
+### 5. KPI strip impact
+
+KPI strip stays above the chart. Three cards in both modes; the **3rd card and sublabels** change.
+
+#### Compare years mode (3 cards)
+1. `INGRESOS TOTALES` — value = CY income · sublabel `{{ly}}: {{lyValue}}` · delta chip = signed %.
+2. `GASTOS TOTALES` — value = CY expense · sublabel + delta same shape.
+3. `BALANCE NETO` — value = CY (income − expense) · sublabel + delta.
+
+No "projected" sublabels anywhere. No projection badge. The `kpis.*Delta` fields from the existing IPC response are reused **as-is** (they were already the YoY deltas we want; the projection-vs-raw branch in `getSaldoComparison` becomes raw-only once projection drops — that's a Trinity concern, not a renderer concern).
+
+#### Single year mode (3 cards)
+1. `INGRESOS TOTALES` — value = year income · sublabel `{{count}} categorías con ingresos` · **no delta chip**.
+2. `GASTOS TOTALES` — value = year expense · sublabel `{{count}} categorías con gastos` · no delta chip.
+3. `BALANCE NETO` — value = year (income − expense) · sublabel `Año {{year}}` · no delta chip.
+
+Rationale: the YoY delta is the only reason a delta chip exists; in single-year mode there's nothing to compare, so suppressing it (vs showing "—") is honest and reduces visual noise.
+
+### 6. Category panels below the chart
+
+Panels stay (they're the audit-trail / drill view). They reflect mode + year:
+
+- **Compare years:** unchanged structure (category · prior · bars · current · delta · sublabel) **but**:
+  - Drop the `proj. vs {{year}}` sublabel variant entirely.
+  - Sublabel becomes flat: `vs {{priorYear}}`.
+  - Drop the projected-current bar fill; the "current" bar uses the actual current value.
+- **Single year:** panel collapses to 4 columns: category · type · amount · `% del total`. No prior, no bars, no delta.
+
+**Acceptance:** panels always show the **same year(s)** the chart is showing — switching mode or year updates both atomically.
+
+### 7. Acceptance criteria (numbered, testable)
+
+1. **Given** the user opens Saldo for the first time, **when** the screen finishes loading, **then** the mode is `Compare years`, CY = current calendar year, LY = current − 1, and the chart shows per-category bars (not per-month).
+2. **Given** the user is in `Compare years` mode, **when** they switch to `Single year`, **then** the chart re-renders with one bar per category for the year that was previously CY, and the 3rd KPI card no longer shows a delta chip.
+3. **Given** the user reloads the app, **when** Saldo mounts, **then** the previously selected mode and year(s) are restored from `localStorage` (subject to clamping to the available range).
+4. **Given** there are more than 8 categories with non-zero activity in the selected year, **when** the chart renders, **then** exactly 8 named categories are shown plus a single `Otras` bar that sums the remainder.
+5. **Given** the user picks a `Año anterior` value ≥ `Año actual`, **when** the picker commits, **then** `Año anterior` is silently set to `Año actual − 1` and no error is shown.
+6. **Given** the renderer code, **when** Cypher greps for `proyect`, `projected`, `projection`, `proj.`, `currentProjectedTotal` in `SaldoScreen.tsx` and its child components, **then** zero matches are found in user-facing strings or render paths (the IPC field may still exist server-side; this AC is renderer-only).
+7. **Given** the selected year has zero transactions, **when** the chart renders, **then** the empty-state message `t('saldo.chart.emptyYear')` is shown and the KPI cards display `0,00 €` without delta chips.
+8. **Given** keyboard-only navigation, **when** the user tabs from the mode segmented control, **then** focus moves: mode → year picker(s) → chart (existing arrow-key group nav) → panel rows, in that DOM order.
+
+### 8. Out of scope (explicit — Trinity, do NOT build)
+
+- No per-subcategory drill-down in the chart.
+- No CSV/Excel export of the new chart.
+- No account filter changes (existing `account` selector stays as-is or is dropped per Trinity's call — not specified here).
+- No granularity below year (Trim/Mes selector is **removed**, not relocated).
+- No comparison of arbitrary year pairs beyond two adjacent picker selects (no multi-select, no 3-year view).
+- No chart type toggle (bars only — no line, no stacked, no donut).
+- No saving/sharing of named "views".
+- No backend contract changes in this WI; Trinity may add a `singleYear` request flag if convenient, but the renderer can also just ignore `priorPeriod` data when in single mode. Pick the simpler path.
+- No Mouse-side sizing tokens — Mouse owns chart density, font scale, breakpoints. This spec only says "top-8 cap keeps labels legible without rotation"; everything else visual is theirs.
+
+### 9. Open questions for Pedro (max 3)
+
+1. **`Otras` bucket — clickable to expand?** Default I picked: no (static label). Confirm, or do you want it to expand the chart in place to show all categories?
+2. **Panel "type" column in single-year mode** — do we keep the `ingreso/gasto` text column, or is the color of the amount (green/red) enough? Default: keep the text column for a11y / non-color users.
+3. **Backend simplification** — can Trinity drop `currentProjectedTotal`, `priorMonthlySeries`, `monthlySeries`, `isPartial`, `daysElapsed`, `daysInPeriod` from `SaldoComparisonResponse` in this WI, or do you want a follow-up PR for the contract cleanup so this PR stays renderer-only? Default I assume: follow-up PR; this WI ignores those fields in the renderer but doesn't touch the contract.
+
+---
+
+## Mouse — Saldo Chart Sizing Spec
+
+**Date:** 2026-04-23  
+**Requested by:** Pedro (perocha)  
+**Problem:** Chart and month-letter axis labels are oversized on large screens (1440p+), eating vertical space. Looks fine on smaller windows.
+
+### Diagnosis
+
+#### Root cause: SVG scales unbounded via `width: 100%; height: auto`
+
+**Offending rules:**
+
+1. **`GroupedBarChart.css` line 48–52:**
+   ```css
+   .ot-grouped-bar-chart__svg {
+     display: block;
+     width: 100%;
+     height: auto;
+   }
+   ```
+   The SVG has `viewBox="0 0 600 300"` (2:1 aspect) and scales to fill the full container width. On a 1600px+ content area, this means ~800px+ rendered height.
+
+2. **`GroupedBarChart.tsx` line 88:**
+   ```css
+   font-size: 11px
+   ```
+   The `<text>` element uses a **hardcoded 11px inside the viewBox**. Because the viewBox scales with container width, this 11px is relative to the viewBox coordinate system, not CSS pixels. On a wide viewport the rendered label can exceed 18–20px.
+
+3. **`SaldoScreen.css` line 244–254:**
+   ```css
+   .ot-saldo-chart {
+     display: flex;
+     flex-direction: column;
+     /* no max-height, no max-width, no aspect-ratio constraint */
+   }
+   ```
+   Container has no ceiling — SVG expands freely.
+
+### Proposed Fix
+
+#### 1. Cap the chart container height
+
+**Selector:** `.ot-saldo-chart`  
+**File:** `SaldoScreen.css`  
+**Rule:**
+```css
+.ot-saldo-chart {
+  max-width: 960px;            /* prevents chart from bloating on 4K monitors */
+}
+```
+**Rationale:** Matches the `compact` breakpoint (960px). Chart width shouldn't exceed typical content-area bounds.
+
+#### 2. Constrain the SVG wrapper with `max-height`
+
+**Selector:** `.ot-grouped-bar-chart__plot`  
+**File:** `GroupedBarChart.css`  
+**Rule:**
+```css
+.ot-grouped-bar-chart__plot {
+  max-height: 280px;           /* hard cap: prevents runaway height on wide viewports */
+}
+```
+**Rationale:** 280px is enough for readable bars + labels without dominating the screen on 1440p.
+
+#### 3. Let SVG fit within the constrained box
+
+**Selector:** `.ot-grouped-bar-chart__svg`  
+**File:** `GroupedBarChart.css`  
+**Change from:**
+```css
+.ot-grouped-bar-chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+```
+**Change to:**
+```css
+.ot-grouped-bar-chart__svg {
+  display: block;
+  width: 100%;
+  max-height: 100%;            /* respect parent's max-height */
+  object-fit: contain;         /* maintain aspect ratio within bounds */
+}
+```
+**Rationale:** SVG now respects the plot wrapper's max-height while keeping aspect ratio.
+
+#### 4. Use a CSS-pixel font-size for axis labels (not viewBox-relative)
+
+**Selector:** `.ot-grouped-bar-chart__x-label`  
+**File:** `GroupedBarChart.css`  
+**Add:**
+```css
+.ot-grouped-bar-chart__x-label {
+  fill: var(--color-text-muted);
+  font-size: var(--font-size-11);   /* 11px token; won't scale with viewBox */
+}
+```
+**AND in `GroupedBarChart.tsx` line 188–189, remove inline font-size** (let CSS class handle it):
+```tsx
+// Before:
+className="ot-grouped-bar-chart__x-label"
+// (no change needed — the class already exists; just remove any inline override)
+```
+**Wait — this won't work.** SVG `<text>` font-size inside a viewBox is always viewBox-relative. The proper fix is to use `transform: scale()` or set a `max-width` on the SVG so that the effective px-size is bounded.
+
+**Alternative (simpler, no viewBox hacking):** Keep the existing viewBox-relative approach but cap container width (step 1 + 2 do this implicitly). The label will never exceed ~15px rendered at 960px container width.
+
+**Recommendation:** Steps 1–3 already solve the oversized-label issue by capping container dimensions. No need to change SVG internals.
+
+### Token Additions
+
+**None required.** Existing tokens suffice:
+- `--font-size-11` already at 11px.
+- Use raw `280px` / `960px` as component-specific caps (not design-system tokens — these are layout constraints, not design primitives).
+
+### Responsive Behavior
+
+| Breakpoint | Behavior |
+|------------|----------|
+| **< 640px** | Chart width: 100% of parent. Height scales down naturally (2:1 aspect). Labels remain readable. No change needed. |
+| **640–1024px** | Chart width: 100%, capped by parent card. Max-height 280px kicks in ~640px+. Balanced. |
+| **> 1024px** | `max-width: 960px` + `max-height: 280px` prevents bloat. Chart stays compact. On ultra-wide screens, chart is left-aligned within the `.ot-saldo-chart` container. |
+
+#### Optional: center the chart on wide viewports
+
+If desired, add to `.ot-saldo-chart`:
+```css
+margin-inline: auto;           /* center when max-width kicks in */
+```
+
+### Summary of Changes
+
+| File | Selector | Change |
+|------|----------|--------|
+| `SaldoScreen.css` | `.ot-saldo-chart` | Add `max-width: 960px;` |
+| `GroupedBarChart.css` | `.ot-grouped-bar-chart__plot` | Add `max-height: 280px;` |
+| `GroupedBarChart.css` | `.ot-grouped-bar-chart__svg` | Add `max-height: 100%; object-fit: contain;` |
+
+### Out of Scope
+
+- Chart shape / bar grouping (Niobe)
+- Colors (established tokens)
+- SVG viewBox dimensions (would require coord recalc)
+- Tick density / label skipping (not needed after width cap)
+- Bar width constraints (already computed proportionally in TSX)
+
+**Status:** Ready for Trinity
+
+---
+
+## Copilot Directive — Saldo redesign
+
+**By:** Pedro (perocha) (via Copilot)  
+**Date:** 2026-04-23
+
+### What
+
+1. Drop YoY projection from Saldo entirely (was already half-removed; finish the job).
+2. Replace monthly-net YoY chart with per-category LY-vs-CY absolute totals (two bars per category: prior year, current year).
+3. Add single-year mode (year picker, no comparison) — switch between "Compare YoY" and "Single year".
+4. Fix oversized chart + huge month-letter labels on large screens — chart must scale down on big monitors but stay readable in small windows.
+
+### Why
+
+User request — captured for team memory
+
 **Why not first:** Platform work with low end-user visibility. Saldo is a user-facing win; this is a developer-facing win. Sequence it right after Saldo so Internal Alpha ships with visible value and then we clean the plumbing before the NGO pilot.
 
 #### 🥉 WI-24 — Global search (⌘K palette)

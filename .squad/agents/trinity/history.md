@@ -45,7 +45,25 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 
 **WI-20 Visual Bug Debugging:** When Pedro reports the same visual bug 3+ times across multiple rounds, STOP patching CSS. Read the screenshot. Consider that tests passing does not equal visually correct. If a modal/component has multiple modes (view/edit), they should render through the SAME structural scaffold — only cell contents should differ. If you find yourself writing mode-specific CSS classes or swapping between different component trees, you've already diverged. Add visual regression tests or snapshots that compare scaffold structure between modes, not just DOM presence checks.
 
+**Modal-shell override pattern (2026-04-25):** When a modal reuses TransactionDetailModal shell, scope sizing overrides (width, min-height) under a marker class. Do not fork the shell CSS. Pattern documented at `.squad/skills/modal-shell-overrides/SKILL.md`.
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+---
+
+## Historical Archive (Pre-2026-04-22)
+
+**Summary of WI-17, WI-18, WI-19, WI-20, WI-21 work (2026-04-19 — 2026-04-21):**
+
+- **WI-17 (CSV/XLSX import):** 6-step wizard (select account → upload → sheet → map → dry-run → progress). Native `<dialog>`, discriminated-union wizard state, multi-step i18n, Zod validation. 175 tests green. Merged to main commit a97d21e.
+- **WI-18 (Header-row detection, trailing-junk handling):** Auto-detect algorithm (scoring heuristic + user override stepper in wizard). "2-of-3 rule" for data validation (date + amount + description parseable). Morpheus implementation; Trinity consumed via IPC contract.
+- **WI-19 (Transaction extras: detail modal):** Add notes, reference, details fields to transaction detail modal. Expanded TransactionDetailModal shell to house new fields. All i18n keys added.
+- **WI-20 (Edit + delete transactions):** In-place swap pattern (click → edit mode in same dialog). Symmetric view/edit modal scaffolding. Discovered: don't patch CSS repeatedly — fix the scaffold structure. Visual regression debugging led to rule: same structural scaffold for view/edit, only cell contents differ.
+- **WI-21 (Config CRUD: accounts/categories/tags archive):** Full CRUD for config entities (create already done in WI-15-lite). Archive (soft-delete) pattern: events emit (payload soft-marked), projections filter isArchived = false. Delete copy drafted by Niobe. Strong typing per-method with `MethodBridge<Req,Res>` IPC pattern proven durable.
+- **Panel polish (WI-20 side work):** Verified all 7 UI items already correct (colors, grids, arrows, links) per Mouse's findings. No CSS changes needed.
+- **Polish pre-WI-22:** Table horizontal-scroll fallback (min-width = sum of column widths). Currency-formatter helper extracted. Locale sourcing fixed (i18n.language, not navigator.language).
+
+All work validated: typecheck ✓, lint ✓, tests ✓, build ✓.
 
 ## 2026-04-20 — WI-17 Import Wizard + Panel Polish
 

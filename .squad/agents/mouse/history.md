@@ -388,3 +388,24 @@ Each panel has:
 - **Low:** Per-category projection not available; use raw current values
 
 **SPEC LOCATION:** `.squad/decisions/inbox/mouse-saldo-redesign-spec.md`
+
+### 2026-04-23: SVG Chart Sizing Patterns for Responsive Design
+
+**Problem:** `GroupedBarChart` was scaling unbounded on large screens (1440p+) because SVG with `viewBox` + `width: 100%; height: auto` expands proportionally to container width with no ceiling.
+
+**Root cause findings:**
+1. SVG `<text>` font-size inside a viewBox is **viewBox-relative**, not CSS-pixel. An 11px label inside a 600×300 viewBox renders at ~18px when container scales to 1000px+.
+2. Container `.ot-saldo-chart` had no `max-width` or `max-height` — SVG grew indefinitely.
+3. `.ot-grouped-bar-chart__plot` wrapper had no height constraints.
+
+**Solution pattern (reusable for future charts):**
+1. **Cap container width:** `max-width: 960px` on chart card — matches compact breakpoint, prevents bloat on 4K.
+2. **Cap plot height:** `max-height: 280px` on the SVG wrapper — hard ceiling regardless of container width.
+3. **Contain SVG:** Add `max-height: 100%; object-fit: contain` to SVG element so it respects wrapper bounds while preserving aspect ratio.
+4. **Alternative (not used):** Use `clamp()` on SVG font-size via CSS custom properties, or CSS-only label elements positioned outside the SVG.
+
+**Why not modify viewBox?** ViewBox dimensions (600×300) establish the coordinate system for bar positions and label placement. Changing them requires recalculating all `x`, `y`, `width`, `height` attrs in TSX. Container constraints are simpler.
+
+**Token notes:** Used raw `280px` / `960px` as component-specific layout caps (not design tokens). These are viewport constraints, not design primitives. If we see this pattern repeat (3+ charts with same constraint), extract to `--ot-chart-max-height`.
+
+**SPEC LOCATION:** `.squad/decisions/inbox/mouse-saldo-chart-sizing.md`

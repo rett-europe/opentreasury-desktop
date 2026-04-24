@@ -1,0 +1,6 @@
+=== BUG #2 EVIDENCE: Hardcoded Spanish Strings ===
+
+Total categories in current period: 0
+Categories named "Sin categoría": 0
+
+CONCLUSION: No "Sin categoría" found in current saldo data.

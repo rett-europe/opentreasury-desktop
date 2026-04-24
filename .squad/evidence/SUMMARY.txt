@@ -1,0 +1,68 @@
+CYPHER — BUG EVIDENCE REPORT (PR #15 FOLLOW-UP)
+================================================
+
+Date:         2026-04-22 22:48 UTC
+Requested by: Pedro (perocha)
+Scope:        Evidence capture ONLY (no fixes)
+
+BUGS INVESTIGATED
+-----------------
+
+1. Panel + Movements screens: category/subcategory columns show raw ULID strings
+2. Saldo chart: "Sin categoría" text appears in EN locale  
+3. Saldo chart: bar heights not proportional to income/expense numbers
+
+RESULTS
+-------
+
+Bug #1: CODE CONFIRMED
+  - Fallback logic exists in Panel/Movements render functions
+  - If categoryNameById.get() returns undefined, raw ID is displayed
+  - Cannot confirm runtime behavior without seeded data
+  - Status: REPRODUCIBLE (code inspection), needs E2E for full confirmation
+
+Bug #2: ✅ CONFIRMED (100%)
+  - app/src/core/query/saldo.ts:38 hardcodes "const UNCATEGORIZED_LABEL = 'Sin categoría';"
+  - This string is NOT i18n'd
+  - Will appear in EN locale
+  - Status: READY TO FIX
+
+Bug #3: CANNOT CONFIRM
+  - Chart scaling math looks correct (scaleBar function computes proportional heights)
+  - May be data issue (NET vs separate income/expense bars) or visual perception
+  - Needs E2E screenshots + bar height dumps for diagnosis
+  - Status: INSUFFICIENT EVIDENCE
+
+DELIVERABLES
+------------
+
+Evidence files in .squad/evidence/:
+  - bug1-category-resolution.txt (unit test, empty model)
+  - bug2-grep-evidence.txt (grep context for hardcoded string) ← CONCLUSIVE
+  - bug2-hardcoded-spanish.txt (unit test, empty model)
+  - bug3-chart-data.txt (unit test, empty model)
+  - README.md (index of evidence files)
+
+Documentation:
+  - .squad/decisions/inbox/cypher-saldo-3bug-evidence.md (full summary with code citations)
+  - .squad/agents/cypher/history.md (updated with learnings)
+
+Test files:
+  - tests/e2e/evidence-pr15.spec.ts (E2E spec drafted but not executed)
+  - playwright.config.ts (created minimal config)
+
+RECOMMENDATIONS
+---------------
+
+1. Bug #2 is CONFIRMED → ready to fix. Replace UNCATEGORIZED_LABEL with i18n key.
+2. Bug #1 needs E2E test or manual verification with seeded data.
+3. Bug #3 requires visual evidence (screenshots + bar height extraction).
+
+NEXT STEPS
+----------
+
+Option A (Quick): Run app manually with `npm run dev:electron`, inspect screens, screenshot bugs.
+Option B (Rigorous): Execute E2E spec after `npm run build` to capture automated evidence.
+
+---
+Cypher, 2026-04-22
