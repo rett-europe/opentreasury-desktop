@@ -41,8 +41,12 @@ export function BulkActionsBar({
           {countLabel}
         </span>
         {/* Visually-hidden live region so screen readers announce the count
-         *  update as selections change without duplicating the visible pill. */}
-        <span className="ot-visually-hidden" aria-live="polite">
+         *  update as selections change without duplicating the visible pill.
+         *  `role="status"` gives the element an implicit `aria-live="polite"`
+         *  and an implicit `aria-atomic="true"`, so assistive tech re-reads
+         *  the full count on every change. It also makes the region
+         *  queryable via `getByRole('status')` in tests (WI-31c). */}
+        <span className="ot-visually-hidden" role="status">
           {countLabel}
         </span>
       </div>
