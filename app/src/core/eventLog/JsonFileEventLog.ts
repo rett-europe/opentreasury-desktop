@@ -70,6 +70,34 @@ export class JsonFileEventLog implements EventLog {
     this.seenIds.add(event.id);
   }
 
+  async appendBatch(events: readonly DomainEvent[]): Promise<void> {
+    if (!this.initialized) {
+      await this.ensureDir();
+      this.initialized = true;
+    }
+
+    // Filter out already-seen events (idempotent).
+    const newEvents = events.filter((e) => !this.seenIds.has(e.id));
+    if (newEvents.length === 0) return;
+
+    // Concatenate all lines into a single string so the write + fsync is
+    // one atomic OS-level operation. For small payloads (typical bulk-update
+    // batch) this guarantees all-or-nothing at the filesystem level.
+    const blob = newEvents.map((e) => JSON.stringify(e) + '\n').join('');
+
+    const handle = await fs.open(this.filePath, 'a');
+    try {
+      await handle.writeFile(blob, { encoding: 'utf8' });
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+
+    for (const e of newEvents) {
+      this.seenIds.add(e.id);
+    }
+  }
+
   async load(): Promise<DomainEvent[]> {
     await this.ensureDir();
     this.initialized = true;

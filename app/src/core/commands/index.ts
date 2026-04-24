@@ -5,3 +5,4 @@ export * from './createTransaction';
 export * from './transactionNote';
 export * from './updateTransaction';
 export * from './deleteTransaction';
+export * from './bulkUpdateTransactions';

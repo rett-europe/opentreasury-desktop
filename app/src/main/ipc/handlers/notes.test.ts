@@ -39,6 +39,12 @@ class InMemoryEventLog implements EventLog {
     this.events.push(event);
   }
 
+  async appendBatch(events: readonly DomainEvent[]): Promise<void> {
+    for (const event of events) {
+      await this.append(event);
+    }
+  }
+
   async load(): Promise<DomainEvent[]> {
     return [...this.events];
   }

@@ -10,6 +10,7 @@ import { z } from 'zod';
 export const IPC_TRANSACTION_CREATE = 'transaction:create';
 export const IPC_TRANSACTION_UPDATE = 'transaction:update';
 export const IPC_TRANSACTION_DELETE = 'transaction:delete';
+export const IPC_TRANSACTION_BULK_UPDATE = 'transaction:bulkUpdate';
 
 // ----------------------------------------------------------------------------
 // Event schema — mirrors core/events/schemas.ts transactionCreatedEventSchema.
@@ -145,6 +146,8 @@ const transactionUpdatedPayloadMirrorSchema = z.object({
   updatedAt: z.string().datetime(),
   reference: z.string().max(120).nullable().optional(),
   details: z.string().max(1000).nullable().optional(),
+  // WI-31a — Optional correlation id (ULID) for bulk-update grouping.
+  correlationId: z.string().length(26).optional(),
 });
 
 const transactionUpdatedEventMirrorSchema = z.object({
@@ -255,3 +258,51 @@ export const deleteTransactionResponseSchema = z.discriminatedUnion('ok', [
 ]);
 
 export type DeleteTransactionResponse = z.infer<typeof deleteTransactionResponseSchema>;
+
+// ============================================================================
+// WI-31a — Bulk Update Transaction
+// ============================================================================
+
+export const bulkUpdateTransactionRequestSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1),
+  categoryId: z.string().nullable().optional(),
+  subcategoryId: z.string().nullable().optional(),
+  tagIds: z.array(z.string()).optional(),
+  status: transactionStatusSchema.optional(),
+  correlationId: z.string().min(1),
+});
+
+export type BulkUpdateTransactionRequest = z.infer<typeof bulkUpdateTransactionRequestSchema>;
+
+// Dedicated code enum for bulk-update failures. Extends the single-update
+// codes with `EMPTY_IDS` (from the command) so the response schema accepts
+// every code the handler can emit — prevents Zod parse failures at the
+// `handlers.ts` response-validation gate (Blocker 1 from review).
+export const bulkUpdateFailureCodeSchema = z.enum([
+  ...updateTransactionValidationErrorCodeSchema.options,
+  'EMPTY_IDS',
+]);
+
+export type BulkUpdateFailureCode = z.infer<typeof bulkUpdateFailureCodeSchema>;
+
+export const bulkUpdateTransactionFailureSchema = z.object({
+  id: z.string(),
+  code: bulkUpdateFailureCodeSchema,
+  message: z.string(),
+});
+
+export type BulkUpdateTransactionFailure = z.infer<typeof bulkUpdateTransactionFailureSchema>;
+
+export const bulkUpdateTransactionResponseSchema = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    updatedCount: z.number().int().nonnegative(),
+    events: z.array(transactionUpdatedEventMirrorSchema),
+  }),
+  z.object({
+    ok: z.literal(false),
+    failures: z.array(bulkUpdateTransactionFailureSchema),
+  }),
+]);
+
+export type BulkUpdateTransactionResponse = z.infer<typeof bulkUpdateTransactionResponseSchema>;

@@ -31,9 +31,11 @@ import {
   IPC_TRANSACTION_CREATE,
   IPC_TRANSACTION_UPDATE,
   IPC_TRANSACTION_DELETE,
+  IPC_TRANSACTION_BULK_UPDATE,
   createTransactionResponseSchema,
   updateTransactionResponseSchema,
   deleteTransactionResponseSchema,
+  bulkUpdateTransactionResponseSchema,
 } from '../../shared/ipc-contracts/transaction.js';
 import {
   IPC_MOVEMENTS_LIST,
@@ -115,6 +117,7 @@ import {
   createTransactionCreateHandler,
   createTransactionUpdateHandler,
   createTransactionDeleteHandler,
+  createTransactionBulkUpdateHandler,
 } from './handlers/transaction.js';
 import { createMovementsListHandler } from './handlers/movements.js';
 import {
@@ -222,6 +225,7 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   const handleTransactionCreate = createTransactionCreateHandler(transactionDeps);
   const handleTransactionUpdate = createTransactionUpdateHandler(transactionDeps);
   const handleTransactionDelete = createTransactionDeleteHandler(transactionDeps);
+  const handleTransactionBulkUpdate = createTransactionBulkUpdateHandler(transactionDeps);
 
   ipcMain.handle(IPC_TRANSACTION_CREATE, async (_event, raw: unknown) => {
     const response = await handleTransactionCreate(raw);
@@ -239,6 +243,11 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_TRANSACTION_DELETE, async (_event, raw: unknown) => {
     const response = await handleTransactionDelete(raw);
     return deleteTransactionResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_TRANSACTION_BULK_UPDATE, async (_event, raw: unknown) => {
+    const response = await handleTransactionBulkUpdate(raw);
+    return bulkUpdateTransactionResponseSchema.parse(response);
   });
 
   const handleMovementsList = createMovementsListHandler({ getReadModel });

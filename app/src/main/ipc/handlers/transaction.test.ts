@@ -1,9 +1,10 @@
 // WI-12 — transaction:create handler integration tests.
+// WI-31a — transaction:bulkUpdate handler integration tests.
 // Uses an in-memory EventLog stub (dedupes by event.id, matches the
 // JsonFileEventLog contract) and a fresh reducer state per test.
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTransactionCreateHandler } from './transaction';
+import { createTransactionCreateHandler, createTransactionBulkUpdateHandler } from './transaction';
 import type { EventLog, DomainEvent } from '../../../core/eventLog/EventLog';
 import {
   applyEvent,
@@ -28,6 +29,12 @@ class InMemoryEventLog implements EventLog {
     if (this.seen.has(event.id)) return;
     this.seen.add(event.id);
     this.events.push(event);
+  }
+
+  async appendBatch(events: readonly DomainEvent[]): Promise<void> {
+    for (const event of events) {
+      await this.append(event);
+    }
   }
 
   async load(): Promise<DomainEvent[]> {
@@ -216,6 +223,9 @@ describe('transaction:create handler — unexpected errors', () => {
       async append() {
         throw new Error('disk on fire');
       },
+      async appendBatch() {
+        throw new Error('disk on fire');
+      },
       async load() {
         return [];
       },
@@ -234,5 +244,371 @@ describe('transaction:create handler — unexpected errors', () => {
     if (response.ok) return;
     expect(response.error.code).toBe('INTERNAL');
     expect(response.error.message).toContain('disk on fire');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WI-31a — transaction:bulkUpdate handler integration tests
+// ---------------------------------------------------------------------------
+
+const TX1_ID = ulid('TX01');
+const TX2_ID = ulid('TX02');
+const TX3_ID = ulid('TX03');
+const CORRELATION_ID = ulid('COR1');
+
+function seedTransactions(): void {
+  replayEvents([
+    {
+      id: ulid('EVTTX1'),
+      type: 'tx.created',
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      createdAt: '2026-04-20T10:00:00.000Z',
+      dekVersion: 0,
+      version: 1,
+      payload: {
+        id: TX1_ID,
+        date: '2026-04-20',
+        type: 'expense',
+        amount: 100,
+        currency: 'EUR',
+        description: 'Transaction 1',
+        accountId: ACCOUNT_ID,
+        categoryId: null,
+        subcategoryId: null,
+        tagIds: [],
+        status: 'approved',
+        createdAt: '2026-04-20T10:00:00.000Z',
+        reference: null,
+        details: null,
+      },
+    } as DomainEvent,
+    {
+      id: ulid('EVTTX2'),
+      type: 'tx.created',
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      createdAt: '2026-04-20T11:00:00.000Z',
+      dekVersion: 0,
+      version: 1,
+      payload: {
+        id: TX2_ID,
+        date: '2026-04-21',
+        type: 'income',
+        amount: 200,
+        currency: 'EUR',
+        description: 'Transaction 2',
+        accountId: ACCOUNT_ID,
+        categoryId: null,
+        subcategoryId: null,
+        tagIds: [],
+        status: 'pending',
+        createdAt: '2026-04-20T11:00:00.000Z',
+        reference: null,
+        details: null,
+      },
+    } as DomainEvent,
+    {
+      id: ulid('EVTTX3'),
+      type: 'tx.created',
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      createdAt: '2026-04-20T12:00:00.000Z',
+      dekVersion: 0,
+      version: 1,
+      payload: {
+        id: TX3_ID,
+        date: '2026-04-22',
+        type: 'expense',
+        amount: 50,
+        currency: 'EUR',
+        description: 'Transaction 3',
+        accountId: ACCOUNT_ID,
+        categoryId: null,
+        subcategoryId: null,
+        tagIds: [],
+        status: 'approved',
+        createdAt: '2026-04-20T12:00:00.000Z',
+        reference: null,
+        details: null,
+      },
+    } as DomainEvent,
+  ]);
+}
+
+const CAT_ID = ulid('CAT1');
+
+describe('transaction:bulkUpdate handler — happy path', () => {
+  beforeEach(() => {
+    resetReadModel();
+    seedAccount();
+    seedTransactions();
+  });
+
+  it('bulk-updates 3 transactions, appends events, applies reducer', async () => {
+    const eventLog = new InMemoryEventLog();
+    let evtCounter = 0;
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog,
+      getReadModel,
+      now: () => new Date('2026-04-24T12:00:00.000Z'),
+      newId: () => ulid(`BK${evtCounter++}`),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    const response = await handle({
+      ids: [TX1_ID, TX2_ID, TX3_ID],
+      categoryId: CAT_ID,
+      status: 'pending',
+      correlationId: CORRELATION_ID,
+    });
+
+    expect(response.ok).toBe(true);
+    if (!response.ok) return;
+    expect(response.updatedCount).toBe(3);
+    expect(response.events).toHaveLength(3);
+
+    // All events share the same correlationId
+    for (const event of response.events) {
+      expect(event.payload.correlationId).toBe(CORRELATION_ID);
+      expect(event.payload.categoryId).toBe(CAT_ID);
+      expect(event.payload.status).toBe('pending');
+    }
+
+    // Events were appended to the log
+    const stored = await eventLog.load();
+    expect(stored).toHaveLength(3);
+
+    // Reducer was applied — transactions updated in read model
+    const txs = getReadModel().transactions;
+    const tx1 = txs.find((t) => t.id === TX1_ID);
+    expect(tx1!.categoryId).toBe(CAT_ID);
+    expect(tx1!.status).toBe('pending');
+  });
+});
+
+describe('transaction:bulkUpdate handler — validation failures', () => {
+  beforeEach(() => {
+    resetReadModel();
+    seedAccount();
+    seedTransactions();
+  });
+
+  it('returns failures when one tx is unknown (all-or-nothing)', async () => {
+    const eventLog = new InMemoryEventLog();
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog,
+      getReadModel,
+      now: () => new Date('2026-04-24T12:00:00.000Z'),
+      newId: () => ulid('BK0'),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    const response = await handle({
+      ids: [TX1_ID, ulid('GHOST')],
+      categoryId: CAT_ID,
+      correlationId: CORRELATION_ID,
+    });
+
+    expect(response.ok).toBe(false);
+    if (response.ok) return;
+    expect(response.failures).toHaveLength(1);
+    expect(response.failures[0]!.code).toBe('TX_NOT_FOUND');
+
+    // No events appended
+    expect(await eventLog.load()).toHaveLength(0);
+  });
+
+  it('returns SCHEMA_INVALID for payloads that fail Zod at the boundary', async () => {
+    const eventLog = new InMemoryEventLog();
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog,
+      getReadModel,
+      now: () => new Date(),
+      newId: () => ulid('BK0'),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    // Missing correlationId
+    const response = await handle({ ids: [TX1_ID] });
+
+    expect(response.ok).toBe(false);
+    if (response.ok) return;
+    expect(response.failures[0]!.code).toBe('SCHEMA_INVALID');
+  });
+});
+
+describe('transaction:bulkUpdate handler — unexpected errors', () => {
+  beforeEach(() => {
+    resetReadModel();
+    seedAccount();
+    seedTransactions();
+  });
+
+  it('wraps EventLog throws as INTERNAL without escaping IPC', async () => {
+    const throwingLog: EventLog = {
+      async append() {
+        throw new Error('disk on fire');
+      },
+      async appendBatch() {
+        throw new Error('disk on fire');
+      },
+      async load() {
+        return [];
+      },
+    };
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog: throwingLog,
+      getReadModel,
+      now: () => new Date('2026-04-24T12:00:00.000Z'),
+      newId: () => ulid('BK0'),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    const response = await handle({
+      ids: [TX1_ID],
+      correlationId: CORRELATION_ID,
+    });
+
+    expect(response.ok).toBe(false);
+    if (response.ok) return;
+    expect(response.failures[0]!.code).toBe('INTERNAL');
+    expect(response.failures[0]!.message).toContain('disk on fire');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WI-31a — response-schema-parse tests
+// Ensures handler responses survive the `bulkUpdateTransactionResponseSchema.parse()`
+// gate in `handlers.ts` — catches drift between emitted codes and the Zod enum.
+// ---------------------------------------------------------------------------
+
+import { bulkUpdateTransactionResponseSchema } from '../../../shared/ipc-contracts/transaction';
+
+describe('transaction:bulkUpdate — response survives Zod response-schema parse', () => {
+  beforeEach(() => {
+    resetReadModel();
+    seedAccount();
+    seedTransactions();
+  });
+
+  it('happy-path response parses through bulkUpdateTransactionResponseSchema', async () => {
+    const eventLog = new InMemoryEventLog();
+    let evtCounter = 0;
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog,
+      getReadModel,
+      now: () => new Date('2026-04-24T12:00:00.000Z'),
+      newId: () => ulid(`RS${evtCounter++}`),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    const response = await handle({
+      ids: [TX1_ID],
+      categoryId: CAT_ID,
+      correlationId: CORRELATION_ID,
+    });
+
+    expect(() => bulkUpdateTransactionResponseSchema.parse(response)).not.toThrow();
+  });
+
+  it('EMPTY_IDS failure parses through bulkUpdateTransactionResponseSchema', () => {
+    // The request schema enforces ids.min(1) so EMPTY_IDS can only come
+    // from a direct command call. Simulate by constructing the response
+    // shape the handler would produce and parsing it.
+    const emptyIdsResponse = {
+      ok: false as const,
+      failures: [{ id: '', code: 'EMPTY_IDS', message: 'ids must be non-empty' }],
+    };
+    expect(() => bulkUpdateTransactionResponseSchema.parse(emptyIdsResponse)).not.toThrow();
+  });
+
+  it('SCHEMA_INVALID failure parses through bulkUpdateTransactionResponseSchema', async () => {
+    const eventLog = new InMemoryEventLog();
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog,
+      getReadModel,
+      now: () => new Date(),
+      newId: () => ulid('RS0'),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    // Missing correlationId triggers SCHEMA_INVALID
+    const response = await handle({ ids: [TX1_ID] });
+
+    expect(response.ok).toBe(false);
+    expect(() => bulkUpdateTransactionResponseSchema.parse(response)).not.toThrow();
+  });
+
+  it('INTERNAL failure parses through bulkUpdateTransactionResponseSchema', async () => {
+    const throwingLog: EventLog = {
+      async append() {
+        throw new Error('boom');
+      },
+      async appendBatch() {
+        throw new Error('boom');
+      },
+      async load() {
+        return [];
+      },
+    };
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog: throwingLog,
+      getReadModel,
+      now: () => new Date('2026-04-24T12:00:00.000Z'),
+      newId: () => ulid('RS0'),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    const response = await handle({
+      ids: [TX1_ID],
+      correlationId: CORRELATION_ID,
+    });
+
+    expect(response.ok).toBe(false);
+    expect(() => bulkUpdateTransactionResponseSchema.parse(response)).not.toThrow();
+  });
+
+  it('TX_NOT_FOUND failure parses through bulkUpdateTransactionResponseSchema', async () => {
+    const eventLog = new InMemoryEventLog();
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog,
+      getReadModel,
+      now: () => new Date(),
+      newId: () => ulid('RS0'),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    const response = await handle({
+      ids: [ulid('GHOST')],
+      correlationId: CORRELATION_ID,
+    });
+
+    expect(response.ok).toBe(false);
+    expect(() => bulkUpdateTransactionResponseSchema.parse(response)).not.toThrow();
   });
 });

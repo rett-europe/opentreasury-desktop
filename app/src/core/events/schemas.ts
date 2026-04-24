@@ -456,6 +456,10 @@ export const transactionUpdatedPayloadSchema = z.object({
   updatedAt: z.string().datetime(), // When the edit occurred
   reference: z.string().max(120).nullable().optional(),
   details: z.string().max(1000).nullable().optional(),
+  // WI-31a — Optional correlation id (ULID) grouping bulk-update events.
+  // Additive — reducers ignore it. Present only when the event was emitted
+  // by bulkUpdateTransactions; absent for single-tx updates.
+  correlationId: z.string().length(26).optional(),
 });
 
 export type TransactionUpdatedPayload = z.infer<typeof transactionUpdatedPayloadSchema>;
