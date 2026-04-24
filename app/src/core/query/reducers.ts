@@ -10,69 +10,84 @@ import type {
   TransactionNote,
 } from './types';
 
+// Internal mutable state — kept in sync with readModel for O(1) tx append /
+// index update. These are the exact same objects exposed via ReadModel
+// (cast to readonly) so callers always see the latest snapshot via
+// getReadModel() without copies.
+let _txList: Transaction[] = [];
+let _txByRef: Map<string, Transaction[]> = new Map();
+
 // In-memory read model state
-const emptyReadModel = (): ReadModel => ({
-  transactions: [],
-  accounts: [],
-  categories: [],
-  tags: [],
-  configAccounts: [],
-  configCategories: [],
-  configTags: [],
-  importMappings: [],
-  rowHashes: new Set(),
-  notes: new Map(),
-  transactionsByReference: new Map(),
-});
+const emptyReadModel = (): ReadModel => {
+  _txList = [];
+  _txByRef = new Map();
+  return {
+    transactions: _txList as readonly Transaction[],
+    accounts: [],
+    categories: [],
+    tags: [],
+    configAccounts: [],
+    configCategories: [],
+    configTags: [],
+    importMappings: [],
+    rowHashes: new Set(),
+    notes: new Map(),
+    transactionsByReference: _txByRef as ReadonlyMap<string, readonly Transaction[]>,
+  };
+};
 
 let readModel: ReadModel = emptyReadModel();
 
-// WI-19 — maintain the reference → transactions index alongside the main
-// transactions list. Exact-match, case-sensitive; trimmed/empty/null refs are
-// skipped so the index only contains user-supplied references.
-function indexByReference(
-  transactions: readonly Transaction[],
-): ReadonlyMap<string, readonly Transaction[]> {
-  const idx = new Map<string, Transaction[]>();
-  for (const tx of transactions) {
-    if (tx.reference === null) continue;
-    const key = tx.reference;
-    const bucket = idx.get(key);
-    if (bucket) bucket.push(tx);
-    else idx.set(key, [tx]);
-  }
-  // Freeze the inner arrays into readonly for the outer type.
-  return idx as unknown as ReadonlyMap<string, readonly Transaction[]>;
+// WI-19 — incremental reference index helpers (O(1) per event).
+// Exact-match, case-sensitive; null refs are skipped so the index only
+// contains user-supplied references.
+
+// Add one transaction to the reference index.
+function addToRefIndex(tx: Transaction): void {
+  if (tx.reference === null) return;
+  const bucket = _txByRef.get(tx.reference);
+  if (bucket) bucket.push(tx);
+  else _txByRef.set(tx.reference, [tx]);
+}
+
+// Remove one transaction from its reference bucket.
+// O(bucket size) which is negligibly small in practice.
+function removeFromRefIndex(txId: string, reference: string | null): void {
+  if (reference === null) return;
+  const bucket = _txByRef.get(reference);
+  if (!bucket) return;
+  const next = bucket.filter((t) => t.id !== txId);
+  if (next.length === 0) _txByRef.delete(reference);
+  else _txByRef.set(reference, next);
 }
 
 // Reducer: fold events into read model
 export function applyEvent(event: DomainEvent): void {
   switch (event.type) {
     case 'tx.created': {
-      const nextTransactions: readonly Transaction[] = [
-        ...readModel.transactions,
-        {
-          id: event.payload.id,
-          date: event.payload.date,
-          type: event.payload.type,
-          amount: event.payload.amount,
-          currency: event.payload.currency,
-          description: event.payload.description,
-          accountId: event.payload.accountId,
-          categoryId: event.payload.categoryId,
-          subcategoryId: event.payload.subcategoryId,
-          tagIds: event.payload.tagIds,
-          status: event.payload.status,
-          createdAt: event.payload.createdAt,
-          // WI-19 — backfill undefined → null for pre-WI-19 events.
-          reference: event.payload.reference ?? null,
-          details: event.payload.details ?? null,
-        },
-      ];
+      const newTx: Transaction = {
+        id: event.payload.id,
+        date: event.payload.date,
+        type: event.payload.type,
+        amount: event.payload.amount,
+        currency: event.payload.currency,
+        description: event.payload.description,
+        accountId: event.payload.accountId,
+        categoryId: event.payload.categoryId,
+        subcategoryId: event.payload.subcategoryId,
+        tagIds: event.payload.tagIds,
+        status: event.payload.status,
+        createdAt: event.payload.createdAt,
+        // WI-19 — backfill undefined → null for pre-WI-19 events.
+        reference: event.payload.reference ?? null,
+        details: event.payload.details ?? null,
+      };
+      _txList.push(newTx);
+      addToRefIndex(newTx);
       readModel = {
         ...readModel,
-        transactions: nextTransactions,
-        transactionsByReference: indexByReference(nextTransactions),
+        transactions: _txList as readonly Transaction[],
+        transactionsByReference: _txByRef as ReadonlyMap<string, readonly Transaction[]>,
       };
       break;
     }
@@ -400,31 +415,30 @@ export function applyEvent(event: DomainEvent): void {
     }
 
     case 'movement.imported': {
-      const nextTransactions: readonly Transaction[] = [
-        ...readModel.transactions,
-        {
-          id: event.id,
-          date: event.date,
-          type: event.movementType,
-          amount: event.amount,
-          currency: event.currency,
-          description: event.description,
-          accountId: event.accountId,
-          categoryId: event.categoryId,
-          subcategoryId: event.subcategoryId,
-          tagIds: event.tagIds,
-          status: event.status,
-          createdAt: event.createdAt,
-          // WI-19 — backfill undefined → null for pre-WI-19 events.
-          reference: event.reference ?? null,
-          details: event.details ?? null,
-        },
-      ];
+      const newTx: Transaction = {
+        id: event.id,
+        date: event.date,
+        type: event.movementType,
+        amount: event.amount,
+        currency: event.currency,
+        description: event.description,
+        accountId: event.accountId,
+        categoryId: event.categoryId,
+        subcategoryId: event.subcategoryId,
+        tagIds: event.tagIds,
+        status: event.status,
+        createdAt: event.createdAt,
+        // WI-19 — backfill undefined → null for pre-WI-19 events.
+        reference: event.reference ?? null,
+        details: event.details ?? null,
+      };
+      _txList.push(newTx);
+      addToRefIndex(newTx);
       readModel = {
         ...readModel,
-        transactions: nextTransactions,
+        transactions: _txList as readonly Transaction[],
         rowHashes: new Set([...readModel.rowHashes, event.rowHash]),
-        transactionsByReference: indexByReference(nextTransactions),
+        transactionsByReference: _txByRef as ReadonlyMap<string, readonly Transaction[]>,
       };
       break;
     }
@@ -506,10 +520,10 @@ export function applyEvent(event: DomainEvent): void {
 
     case 'tx.updated': {
       // Pattern A: Full-replacement payload. Find transaction by id, replace.
-      const idx = readModel.transactions.findIndex((tx) => tx.id === event.payload.id);
+      const idx = _txList.findIndex((tx) => tx.id === event.payload.id);
       if (idx >= 0) {
-        const nextTransactions = [...readModel.transactions];
-        nextTransactions[idx] = {
+        const oldTx = _txList[idx]!;
+        const updatedTx: Transaction = {
           id: event.payload.id,
           date: event.payload.date,
           type: event.payload.type,
@@ -525,10 +539,14 @@ export function applyEvent(event: DomainEvent): void {
           reference: event.payload.reference ?? null,
           details: event.payload.details ?? null,
         };
+        // Update the reference index incrementally: remove old ref, add new ref.
+        removeFromRefIndex(oldTx.id, oldTx.reference);
+        addToRefIndex(updatedTx);
+        _txList[idx] = updatedTx;
         readModel = {
           ...readModel,
-          transactions: nextTransactions,
-          transactionsByReference: indexByReference(nextTransactions),
+          transactions: _txList as readonly Transaction[],
+          transactionsByReference: _txByRef as ReadonlyMap<string, readonly Transaction[]>,
         };
       }
       break;
@@ -536,14 +554,18 @@ export function applyEvent(event: DomainEvent): void {
 
     case 'tx.deleted': {
       // Soft-delete: remove transaction from projection
-      const nextTransactions = readModel.transactions.filter((tx) => tx.id !== event.txId);
+      const delIdx = _txList.findIndex((tx) => tx.id === event.txId);
+      if (delIdx >= 0) {
+        removeFromRefIndex(_txList[delIdx]!.id, _txList[delIdx]!.reference);
+        _txList.splice(delIdx, 1);
+      }
       // Also clean up notes for this transaction
       const nextNotes = new Map(readModel.notes);
       nextNotes.delete(event.txId);
       readModel = {
         ...readModel,
-        transactions: nextTransactions,
-        transactionsByReference: indexByReference(nextTransactions),
+        transactions: _txList as readonly Transaction[],
+        transactionsByReference: _txByRef as ReadonlyMap<string, readonly Transaction[]>,
         notes: nextNotes,
       };
       break;
