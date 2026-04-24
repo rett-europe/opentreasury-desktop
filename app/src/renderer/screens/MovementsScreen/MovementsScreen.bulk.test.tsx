@@ -20,7 +20,7 @@
 //     mock with a fixed stub so assertions on the outgoing `correlationId`
 //     are exact.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { run as axeRun } from 'axe-core';
@@ -158,11 +158,18 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-async function renderScreen(): Promise<void> {
-  // Pin the language to ES so the assertions on the Spanish bar copy
-  // ("3 movimientos seleccionados") are stable regardless of the jsdom
-  // locale detector's default. English will assert elsewhere via regex.
+// Pin i18n to ES for the lifetime of this file, then restore — the i18n
+// singleton is shared by every other renderer test file in the same vitest
+// worker, so we must not leave it in ES (see review on #35).
+const originalLanguage = i18n.language;
+beforeAll(async () => {
   await i18n.changeLanguage('es');
+});
+afterAll(async () => {
+  await i18n.changeLanguage(originalLanguage);
+});
+
+async function renderScreen(): Promise<void> {
   render(
     <I18nextProvider i18n={i18n}>
       <MovementsScreen />
