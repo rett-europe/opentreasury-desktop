@@ -51,7 +51,7 @@ export function bulkUpdateTransactions(
   if (uniqueIds.length === 0) {
     return {
       ok: false,
-      failures: [{ id: '', code: 'EMPTY_IDS' as BulkUpdateErrorCode, message: 'ids must be non-empty' }],
+      failures: [{ id: '', code: 'EMPTY_IDS', message: 'ids must be non-empty' }],
     };
   }
 
@@ -101,7 +101,7 @@ export function bulkUpdateTransactions(
       datasetId: deps.datasetId,
       actorDeviceId: deps.actorDeviceId,
       createdAt: updatedAt,
-      dekVersion: deps.dekVersion ?? 1,
+      dekVersion: deps.dekVersion ?? 0,
       version: 1,
       payload,
     };
