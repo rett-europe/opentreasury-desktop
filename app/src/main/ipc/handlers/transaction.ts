@@ -331,12 +331,10 @@ export function createTransactionBulkUpdateHandler(
         };
       }
 
-      // Append all events in a single batch (one append per event,
-      // consistent with EventLog's single-event contract).
+      // Atomically append all events in a single write + fsync.
+      // If appendBatch fails, no events are persisted (all-or-nothing I/O).
       const before = (await deps.eventLog.load()).length;
-      for (const event of result.events) {
-        await deps.eventLog.append(event);
-      }
+      await deps.eventLog.appendBatch(result.events);
       const after = (await deps.eventLog.load()).length;
 
       // Apply reducer for newly-appended events

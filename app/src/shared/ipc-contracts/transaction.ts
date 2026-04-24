@@ -274,9 +274,20 @@ export const bulkUpdateTransactionRequestSchema = z.object({
 
 export type BulkUpdateTransactionRequest = z.infer<typeof bulkUpdateTransactionRequestSchema>;
 
+// Dedicated code enum for bulk-update failures. Extends the single-update
+// codes with `EMPTY_IDS` (from the command) so the response schema accepts
+// every code the handler can emit — prevents Zod parse failures at the
+// `handlers.ts` response-validation gate (Blocker 1 from review).
+export const bulkUpdateFailureCodeSchema = z.enum([
+  ...updateTransactionValidationErrorCodeSchema.options,
+  'EMPTY_IDS',
+]);
+
+export type BulkUpdateFailureCode = z.infer<typeof bulkUpdateFailureCodeSchema>;
+
 export const bulkUpdateTransactionFailureSchema = z.object({
   id: z.string(),
-  code: updateTransactionValidationErrorCodeSchema,
+  code: bulkUpdateFailureCodeSchema,
   message: z.string(),
 });
 

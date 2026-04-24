@@ -105,4 +105,52 @@ describe('JsonFileEventLog', () => {
     expect(loaded).toHaveLength(2);
     expect(loaded.map((e) => e.id)).toEqual([e1.id, e2.id]);
   });
+
+  // WI-31a — appendBatch tests
+  it('appendBatch writes multiple events atomically', async () => {
+    const log = new JsonFileEventLog({ dir: tmpDir });
+    const e1 = makeAccountEvent('B001');
+    const e2 = makeAccountEvent('B002');
+    const e3 = makeAccountEvent('B003');
+
+    await log.appendBatch([e1, e2, e3]);
+
+    const reopened = new JsonFileEventLog({ dir: tmpDir });
+    const loaded = await reopened.load();
+
+    expect(loaded).toHaveLength(3);
+    expect(loaded.map((e) => e.id)).toEqual([e1.id, e2.id, e3.id]);
+  });
+
+  it('appendBatch skips already-seen ids (idempotent)', async () => {
+    const log = new JsonFileEventLog({ dir: tmpDir });
+    const e1 = makeAccountEvent('C001');
+    const e2 = makeAccountEvent('C002');
+
+    await log.append(e1);
+    await log.appendBatch([e1, e2]); // e1 already seen
+
+    const loaded = await log.load();
+    expect(loaded).toHaveLength(2);
+    expect(loaded.map((e) => e.id)).toEqual([e1.id, e2.id]);
+  });
+
+  it('appendBatch is a no-op when all events are already seen', async () => {
+    const log = new JsonFileEventLog({ dir: tmpDir });
+    const e1 = makeAccountEvent('D001');
+
+    await log.append(e1);
+    await log.appendBatch([e1]);
+
+    const loaded = await log.load();
+    expect(loaded).toHaveLength(1);
+  });
+
+  it('appendBatch with empty array is a no-op', async () => {
+    const log = new JsonFileEventLog({ dir: tmpDir });
+    await log.appendBatch([]);
+
+    const loaded = await log.load();
+    expect(loaded).toHaveLength(0);
+  });
 });

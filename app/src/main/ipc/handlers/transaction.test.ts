@@ -1,4 +1,5 @@
 // WI-12 — transaction:create handler integration tests.
+// WI-31a — transaction:bulkUpdate handler integration tests.
 // Uses an in-memory EventLog stub (dedupes by event.id, matches the
 // JsonFileEventLog contract) and a fresh reducer state per test.
 
@@ -28,6 +29,12 @@ class InMemoryEventLog implements EventLog {
     if (this.seen.has(event.id)) return;
     this.seen.add(event.id);
     this.events.push(event);
+  }
+
+  async appendBatch(events: readonly DomainEvent[]): Promise<void> {
+    for (const event of events) {
+      await this.append(event);
+    }
   }
 
   async load(): Promise<DomainEvent[]> {
@@ -214,6 +221,9 @@ describe('transaction:create handler — unexpected errors', () => {
   it('wraps EventLog throws as INTERNAL without escaping IPC', async () => {
     const throwingLog: EventLog = {
       async append() {
+        throw new Error('disk on fire');
+      },
+      async appendBatch() {
         throw new Error('disk on fire');
       },
       async load() {
@@ -449,6 +459,9 @@ describe('transaction:bulkUpdate handler — unexpected errors', () => {
       async append() {
         throw new Error('disk on fire');
       },
+      async appendBatch() {
+        throw new Error('disk on fire');
+      },
       async load() {
         return [];
       },
@@ -473,5 +486,129 @@ describe('transaction:bulkUpdate handler — unexpected errors', () => {
     if (response.ok) return;
     expect(response.failures[0]!.code).toBe('INTERNAL');
     expect(response.failures[0]!.message).toContain('disk on fire');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WI-31a — response-schema-parse tests
+// Ensures handler responses survive the `bulkUpdateTransactionResponseSchema.parse()`
+// gate in `handlers.ts` — catches drift between emitted codes and the Zod enum.
+// ---------------------------------------------------------------------------
+
+import { bulkUpdateTransactionResponseSchema } from '../../../shared/ipc-contracts/transaction';
+
+describe('transaction:bulkUpdate — response survives Zod response-schema parse', () => {
+  beforeEach(() => {
+    resetReadModel();
+    seedAccount();
+    seedTransactions();
+  });
+
+  it('happy-path response parses through bulkUpdateTransactionResponseSchema', async () => {
+    const eventLog = new InMemoryEventLog();
+    let evtCounter = 0;
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog,
+      getReadModel,
+      now: () => new Date('2026-04-24T12:00:00.000Z'),
+      newId: () => ulid(`RS${evtCounter++}`),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    const response = await handle({
+      ids: [TX1_ID],
+      categoryId: CAT_ID,
+      correlationId: CORRELATION_ID,
+    });
+
+    expect(() => bulkUpdateTransactionResponseSchema.parse(response)).not.toThrow();
+  });
+
+  it('EMPTY_IDS failure parses through bulkUpdateTransactionResponseSchema', () => {
+    // The request schema enforces ids.min(1) so EMPTY_IDS can only come
+    // from a direct command call. Simulate by constructing the response
+    // shape the handler would produce and parsing it.
+    const emptyIdsResponse = {
+      ok: false as const,
+      failures: [{ id: '', code: 'EMPTY_IDS', message: 'ids must be non-empty' }],
+    };
+    expect(() => bulkUpdateTransactionResponseSchema.parse(emptyIdsResponse)).not.toThrow();
+  });
+
+  it('SCHEMA_INVALID failure parses through bulkUpdateTransactionResponseSchema', async () => {
+    const eventLog = new InMemoryEventLog();
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog,
+      getReadModel,
+      now: () => new Date(),
+      newId: () => ulid('RS0'),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    // Missing correlationId triggers SCHEMA_INVALID
+    const response = await handle({ ids: [TX1_ID] });
+
+    expect(response.ok).toBe(false);
+    expect(() => bulkUpdateTransactionResponseSchema.parse(response)).not.toThrow();
+  });
+
+  it('INTERNAL failure parses through bulkUpdateTransactionResponseSchema', async () => {
+    const throwingLog: EventLog = {
+      async append() {
+        throw new Error('boom');
+      },
+      async appendBatch() {
+        throw new Error('boom');
+      },
+      async load() {
+        return [];
+      },
+    };
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog: throwingLog,
+      getReadModel,
+      now: () => new Date('2026-04-24T12:00:00.000Z'),
+      newId: () => ulid('RS0'),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    const response = await handle({
+      ids: [TX1_ID],
+      correlationId: CORRELATION_ID,
+    });
+
+    expect(response.ok).toBe(false);
+    expect(() => bulkUpdateTransactionResponseSchema.parse(response)).not.toThrow();
+  });
+
+  it('TX_NOT_FOUND failure parses through bulkUpdateTransactionResponseSchema', async () => {
+    const eventLog = new InMemoryEventLog();
+
+    const handle = createTransactionBulkUpdateHandler({
+      eventLog,
+      getReadModel,
+      now: () => new Date(),
+      newId: () => ulid('RS0'),
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      applyEvent,
+    });
+
+    const response = await handle({
+      ids: [ulid('GHOST')],
+      correlationId: CORRELATION_ID,
+    });
+
+    expect(response.ok).toBe(false);
+    expect(() => bulkUpdateTransactionResponseSchema.parse(response)).not.toThrow();
   });
 });
