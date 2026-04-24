@@ -81,9 +81,9 @@ export function bulkUpdateTransactions(
       currency: 'EUR',
       description: existing.description,
       accountId: existing.accountId,
-      categoryId: input.categoryId !== undefined ? input.categoryId ?? null : existing.categoryId,
+      categoryId: input.categoryId !== undefined ? (input.categoryId ?? null) : existing.categoryId,
       subcategoryId:
-        input.subcategoryId !== undefined ? input.subcategoryId ?? null : existing.subcategoryId,
+        input.subcategoryId !== undefined ? (input.subcategoryId ?? null) : existing.subcategoryId,
       tagIds: input.tagIds !== undefined ? [...input.tagIds] : [...existing.tagIds],
       status: (input.status ?? existing.status) as TransactionStatus,
       createdAt: existing.createdAt,
