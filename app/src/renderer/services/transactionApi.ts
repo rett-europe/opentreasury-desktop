@@ -6,6 +6,8 @@
 // the renderer does NOT re-validate — it just surfaces the typed result.
 
 import type {
+  BulkUpdateTransactionRequest,
+  BulkUpdateTransactionResponse,
   CreateTransactionRequest,
   CreateTransactionResponse,
   UpdateTransactionRequest,
@@ -51,4 +53,19 @@ export async function deleteTransaction(
   input: DeleteTransactionRequest,
 ): Promise<DeleteTransactionResponse> {
   return window.opentreasury.transaction.delete(input);
+}
+
+/**
+ * Bulk-update multiple transactions (WI-31a/WI-31b). Applies the same
+ * partial patch to N transactions in a single IPC round-trip and emits
+ * one `tx.updated` event per row sharing a `correlationId`.
+ *
+ * Resolves with discriminated-union result:
+ *  - `{ ok: true, updatedCount, events }` on full success.
+ *  - `{ ok: false, failures }` on validation failure (zero events applied).
+ */
+export async function bulkUpdateTransactions(
+  input: BulkUpdateTransactionRequest,
+): Promise<BulkUpdateTransactionResponse> {
+  return window.opentreasury.transaction.bulkUpdate(input);
 }

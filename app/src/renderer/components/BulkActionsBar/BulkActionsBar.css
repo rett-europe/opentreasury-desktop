@@ -1,0 +1,46 @@
+/* BulkActionsBar — WI-31b.
+ * Rounded card between the page header and the filter bar, mirrors the
+ * visual treatment of `.ot-filter-bar` (same border, radius, surface) so
+ * it feels like part of the same stack. Left cluster hosts a count pill,
+ * right cluster hosts the primary + ghost action buttons.
+ */
+
+.ot-bulk-actions-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-7);
+  background: var(--color-brand-surface, var(--color-surface-primary));
+  border: 1px solid var(--color-brand-primary);
+  border-radius: var(--radius-lg);
+}
+
+.ot-bulk-actions-bar__left {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ot-bulk-actions-bar__count {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-brand-primary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.ot-bulk-actions-bar__right {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}

@@ -9,8 +9,11 @@ import { Table } from '../../components/Table/index.js';
 import type { TableColumn, SortDirection } from '../../components/Table/index.js';
 import { AddTransactionModal } from '../../components/AddTransactionModal/index.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
+import { BulkActionsBar } from '../../components/BulkActionsBar/index.js';
+import { BulkClassifyModal } from '../../components/BulkClassifyModal/index.js';
 import { listMovements } from '../../services/movementsApi.js';
 import {
+  bulkUpdateTransactions,
   createTransaction,
   updateTransaction,
   deleteTransaction,
@@ -186,6 +189,23 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
   // across filter changes; the header "select-all" only toggles the rows that
   // are currently visible (matched by the active filters).
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+
+  // WI-31b — bulk-classify modal state. The BulkActionsBar opens it with the
+  // current selection; on success we clear `selected` and re-run loadAll()
+  // (same invalidation pattern as the detail modal's onUpdate).
+  const [isBulkClassifyOpen, setIsBulkClassifyOpen] = useState(false);
+
+  const clearSelection = useCallback(() => {
+    setSelected(new Set());
+  }, []);
+
+  const openBulkClassify = useCallback(() => {
+    setIsBulkClassifyOpen(true);
+  }, []);
+
+  const closeBulkClassify = useCallback(() => {
+    setIsBulkClassifyOpen(false);
+  }, []);
 
   const loadAll = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -632,6 +652,27 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         accounts={accounts}
         categories={categories}
         tags={tags}
+      />
+
+      <BulkActionsBar
+        selectedCount={selected.size}
+        onClassify={openBulkClassify}
+        onCancel={clearSelection}
+      />
+
+      <BulkClassifyModal
+        isOpen={isBulkClassifyOpen}
+        onClose={closeBulkClassify}
+        selectedIds={Array.from(selected)}
+        categories={categories}
+        onBulkUpdate={bulkUpdateTransactions}
+        onSuccess={async () => {
+          // Clear selection + re-run panel/movements queries so the new
+          // labels (and the Panel totals, once Panel subscribes to tx.updated)
+          // show up immediately. Matches the detail-modal onUpdate pattern.
+          clearSelection();
+          await loadAll();
+        }}
       />
 
       <div className="ot-filter-bar" role="group" aria-label={t('movements.filters.aria-label')}>
