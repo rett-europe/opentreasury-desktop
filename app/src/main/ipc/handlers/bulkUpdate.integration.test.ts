@@ -61,13 +61,7 @@ const CAT2_ID = ulid('CAT2'); // untouched, exists for realism
 const SUB1_ID = ulid('SUB1'); // target subcategory for the bulk update
 const SUB2_ID = ulid('SUB2');
 
-const TX_IDS = [
-  ulid('TX01'),
-  ulid('TX02'),
-  ulid('TX03'),
-  ulid('TX04'),
-  ulid('TX05'),
-] as const;
+const TX_IDS = [ulid('TX01'), ulid('TX02'), ulid('TX03'), ulid('TX04'), ulid('TX05')] as const;
 
 // ---------------------------------------------------------------------------
 // Seed — 1 account + 2 categories + 2 subcategories + 5 transactions.
