@@ -1,7 +1,26 @@
 /* BulkClassifyModal — WI-31b.
- * Reuses the detail-modal shell; this file only adds the failure-panel
- * styles that are specific to the bulk-classify workflow.
+ * Reuses the detail-modal shell; this file overrides shell sizing to fit
+ * the bulk-classify form (Category + Subcategory only) and styles the
+ * failure-panel that is specific to the bulk-classify workflow.
+ *
+ * Cascade note: this stylesheet is imported AFTER TransactionDetailModal.css
+ * (see BulkClassifyModal.tsx), so these overrides win at equal specificity.
  */
+
+/* Narrow the shell — the detail modal is sized for a full edit form (760px);
+ * the bulk-classify modal only needs to fit two CategoryPickerRows pickers
+ * and the footer buttons. */
+.ot-bulk-classify-modal {
+  width: 560px;
+}
+
+/* Drop the 520px min-height reserved for the detail edit body, but keep a
+ * modest floor so the two pickers + footer have breathing room when both
+ * pickers are populated. The failures panel self-scrolls (max-height: 200px)
+ * so the dialog still grows naturally only when failures appear. */
+.ot-bulk-classify-modal .ot-transaction-detail-modal__edit-body {
+  min-height: 220px;
+}
 
 .ot-bulk-classify-modal__failures {
   margin-top: var(--space-4);

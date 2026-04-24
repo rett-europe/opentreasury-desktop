@@ -1355,3 +1355,17 @@ Mouse's spec (`.squad/decisions/inbox/mouse-saldo-redesign-spec.md`) drove a ful
 - **Chart vs panels separation**: the Saldo redesign now has two levels of aggregation with DIFFERENT scopes. The chart is chart-only-current-year — always 12 bars × 2 series (income + expense) regardless of compare/single mode. The per-category panels below keep their mode-awareness (LY-vs-CY deltas in compare, % of total in single). This split respects Pedro's "YoY lives in the panels" rule and avoids redundant info. The top-level `SaldoLoadedView` just passes `view` (mode + years) down — the chart ignores `mode` entirely, the panels key off it.
 - **Backend per-year slice**: `monthlyIncome` / `monthlyExpense` are derived from `buildMonthlySeries` over a synthesised full-calendar-year range `${anchorYear}-01-01 → 12-31`, independent of `period`. This keeps the chart stable when the user eventually cycles periods; we don't need to re-derive it renderer-side from partial monthly buckets.
 - **GroupedBarChart contract reuse**: the primitive already supports per-bar `barClassNames` and per-legend-item `className` swatches. No primitive changes were needed — just new legend entries + per-group bar classes (`--income-solo` / `--expense-solo`) + 12 groups. Also kept Mouse's sizing fix (`.__plot { height: 280px }`, no `max-width` on `.ot-saldo-chart`).
+
+
+## Learnings — 2026-04-23 — Narrowing a shared modal shell from a child component
+
+When a small modal (e.g. `BulkClassifyModal`) reuses the same dialog shell as a larger one (`TransactionDetailModal`: width 760px, edit-body min-height 520px), do **not** fork the shell. Instead:
+
+1. The child renders the shell classes plus a sibling marker class (`ot-bulk-classify-modal`) on the `<dialog>` element.
+2. The child's CSS is imported **after** the shell CSS in the child .tsx — so equal-specificity rules win the cascade. (Confirmed pattern in this repo.)
+3. In the child CSS, scope overrides under the marker class:
+   - `.ot-bulk-classify-modal { width: 480px; }` (keep `max-width: 92vw` from the shell)
+   - `.ot-bulk-classify-modal .ot-transaction-detail-modal__edit-body { min-height: 0; }` to drop the reserved tall body and let the dialog auto-size.
+4. Self-scrolling internal panels (failures list `max-height: 200px; overflow-y: auto`) keep growth bounded when content appears.
+
+Result: shell stays single-source-of-truth for header/footer/focus/padding tokens; only sizing is per-modal. Surgical CSS-only diff, no .tsx churn.
