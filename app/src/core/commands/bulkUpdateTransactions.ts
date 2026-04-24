@@ -12,10 +12,10 @@ import type { UpdateValidationErrorCode } from './updateTransaction';
 
 export interface BulkUpdateInput {
   readonly ids: readonly string[];
-  readonly categoryId?: string | null;
-  readonly subcategoryId?: string | null;
-  readonly tagIds?: readonly string[];
-  readonly status?: 'pending' | 'approved';
+  readonly categoryId?: string | null | undefined;
+  readonly subcategoryId?: string | null | undefined;
+  readonly tagIds?: readonly string[] | undefined;
+  readonly status?: 'pending' | 'approved' | undefined;
   readonly correlationId: string;
 }
 
