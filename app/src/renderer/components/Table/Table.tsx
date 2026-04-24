@@ -33,7 +33,7 @@ export interface TableProps<T> {
   /**
    * Enable row virtualisation. The wrapping div becomes a scroll container;
    * only rows near the visible viewport are mounted. Recommended for datasets
-   * with ≥500 rows. Requires the container to have a bounded height — pass
+   * with ≥100 rows. Requires the container to have a bounded height — pass
    * `containerStyle` or set height via an ancestor CSS rule.
    */
   readonly virtualise?: boolean;
@@ -233,9 +233,11 @@ export function Table<T>({
                   />
                 </tr>
               )}
-              {virtualItems.map((virtualItem) =>
-                renderRow(rows[virtualItem.index]!, virtualItem.index),
-              )}
+              {virtualItems.map((virtualItem) => {
+                const row = rows[virtualItem.index];
+                if (row === undefined) return null;
+                return renderRow(row, virtualItem.index);
+              })}
               {paddingBottom > 0 && (
                 <tr aria-hidden="true">
                   <td
