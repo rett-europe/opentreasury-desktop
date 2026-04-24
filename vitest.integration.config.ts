@@ -17,7 +17,6 @@ export default defineConfig({
     include: ['app/src/**/*.integration.test.ts', 'app/src/**/*.integration.test.tsx'],
     environment: 'node',
     globals: false,
-    css: true,
     setupFiles: ['app/src/renderer/test-setup.ts'],
   },
 });
