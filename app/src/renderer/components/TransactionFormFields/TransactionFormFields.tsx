@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { TagChipPicker } from '../TagChipPicker/index.js';
+import { CategoryPickerRows } from '../CategoryPickerRows/index.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import './TransactionFormFields.css';
@@ -124,7 +125,11 @@ export function TransactionFormFields({
             <select
               id="tx-category"
               value={categoryId}
-              onChange={(e) => onCategoryIdChange(e.target.value)}
+              onChange={(e) => {
+                onCategoryIdChange(e.target.value);
+                // Clear subcategory so it never belongs to a stale parent.
+                if (subcategoryId) onSubcategoryIdChange('');
+              }}
               className="ot-tx-fields__input"
               disabled={readonly}
             >
@@ -149,12 +154,12 @@ export function TransactionFormFields({
               value={subcategoryId}
               onChange={(e) => onSubcategoryIdChange(e.target.value)}
               className="ot-tx-fields__input"
-              disabled={readonly}
+              disabled={readonly || !categoryId}
             >
               <option value="">{t('transactionDetail.fields.none')}</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
+              {(categories.find((c) => c.id === categoryId)?.subcategories ?? []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </select>
@@ -378,48 +383,16 @@ export function TransactionFormFields({
         )}
       </div>
 
-      {/* Row 3: Category / Subcategory */}
-      <div className="ot-tx-fields__row">
-        <div className="ot-tx-fields__field">
-          <label htmlFor="tx-category" className="ot-tx-fields__label">
-            {t('transactionDetail.fields.category')}
-          </label>
-          <select
-            id="tx-category"
-            value={categoryId}
-            onChange={(e) => onCategoryIdChange(e.target.value)}
-            className="ot-tx-fields__input"
-            disabled={readonly}
-          >
-            <option value="">{t('transactionDetail.fields.none')}</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="ot-tx-fields__field">
-          <label htmlFor="tx-subcategory" className="ot-tx-fields__label">
-            {t('transactionDetail.fields.subcategory')}
-          </label>
-          <select
-            id="tx-subcategory"
-            value={subcategoryId}
-            onChange={(e) => onSubcategoryIdChange(e.target.value)}
-            className="ot-tx-fields__input"
-            disabled={readonly}
-          >
-            <option value="">{t('transactionDetail.fields.none')}</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      {/* Row 3: Category / Subcategory — shared with bulk-classify modal */}
+      <CategoryPickerRows
+        categoryId={categoryId}
+        onCategoryIdChange={onCategoryIdChange}
+        subcategoryId={subcategoryId}
+        onSubcategoryIdChange={onSubcategoryIdChange}
+        categories={categories}
+        disabled={readonly}
+        layout="pair"
+      />
 
       {/* Row 4: Tags / Status */}
       <div className="ot-tx-fields__row">

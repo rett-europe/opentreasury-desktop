@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
 import { MovementsScreen } from './MovementsScreen.js';
@@ -14,6 +14,9 @@ vi.mock('../../services/movementsApi.js', () => ({
 
 vi.mock('../../services/transactionApi.js', () => ({
   createTransaction: vi.fn(),
+  updateTransaction: vi.fn(),
+  deleteTransaction: vi.fn(),
+  bulkUpdateTransactions: vi.fn(),
 }));
 
 vi.mock('../../services/panelApi.js', () => ({
@@ -122,5 +125,45 @@ describe('MovementsScreen', () => {
     // Check that IPC was called
     expect(getAccounts).toHaveBeenCalled();
     expect(listMovements).toHaveBeenCalled();
+  });
+
+  it('WI-31b: hides the bulk-actions bar until a row is selected', async () => {
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.queryByRole('table')).not.toBeNull();
+    });
+    // No region before anything is selected.
+    expect(screen.queryByRole('region', { name: /bulk actions|acciones en lote/i })).toBeNull();
+
+    // Click the first row checkbox (not the header one). There are N row
+    // checkboxes plus 1 header checkbox, all with the same aria-label.
+    const checkboxes = screen
+      .getAllByRole('checkbox')
+      .filter((cb) => cb.classList.contains('ot-row-checkbox'));
+    expect(checkboxes.length).toBeGreaterThan(0);
+    fireEvent.click(checkboxes[0]!);
+
+    // Bar should now be visible.
+    expect(screen.getByRole('region', { name: /bulk actions|acciones en lote/i })).not.toBeNull();
+  });
+
+  it('WI-31b: Cancel button in the bulk bar clears selection without opening a modal', async () => {
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.queryByRole('table')).not.toBeNull();
+    });
+    const rowCb = screen
+      .getAllByRole('checkbox')
+      .find((cb) => cb.classList.contains('ot-row-checkbox'))!;
+    fireEvent.click(rowCb);
+
+    const region = screen.getByRole('region', { name: /bulk actions|acciones en lote/i });
+    const cancelBtn = region.querySelector('button')!; // first button is the ghost Cancel
+    fireEvent.click(cancelBtn);
+
+    // Bar hides again.
+    expect(screen.queryByRole('region', { name: /bulk actions|acciones en lote/i })).toBeNull();
+    // No classify modal was opened.
+    expect(screen.queryByRole('heading', { name: /Classify|Clasificar/i })).toBeNull();
   });
 });

@@ -280,6 +280,24 @@
       "uncategorizedOnly": "Only uncategorized",
       "clear": "Clear filters"
     },
+    "bulk": {
+      "aria": "Bulk actions",
+      "selectedCount_one": "{{count}} transaction selected",
+      "selectedCount_other": "{{count}} transactions selected",
+      "cancel": "Cancel",
+      "apply": "Apply",
+      "classify": {
+        "cta": "Classify…",
+        "title_one": "Classify {{count}} transaction",
+        "title_other": "Classify {{count}} transactions"
+      },
+      "success_one": "Updated {{count}} transaction.",
+      "success_other": "Updated {{count}} transactions.",
+      "failures": {
+        "heading_one": "{{count}} update failed",
+        "heading_other": "{{count}} updates failed"
+      }
+    },
     "range": {
       "from": "From",
       "to": "To",

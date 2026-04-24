@@ -280,6 +280,24 @@
       "uncategorizedOnly": "Solo sin categorizar",
       "clear": "Limpiar filtros"
     },
+    "bulk": {
+      "aria": "Acciones en lote",
+      "selectedCount_one": "{{count}} movimiento seleccionado",
+      "selectedCount_other": "{{count}} movimientos seleccionados",
+      "cancel": "Cancelar",
+      "apply": "Aplicar",
+      "classify": {
+        "cta": "Clasificar…",
+        "title_one": "Clasificar {{count}} movimiento",
+        "title_other": "Clasificar {{count}} movimientos"
+      },
+      "success_one": "Se actualizó {{count}} movimiento.",
+      "success_other": "Se actualizaron {{count}} movimientos.",
+      "failures": {
+        "heading_one": "{{count}} actualización falló",
+        "heading_other": "{{count}} actualizaciones fallaron"
+      }
+    },
     "range": {
       "from": "Desde",
       "to": "Hasta",
