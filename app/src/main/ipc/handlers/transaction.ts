@@ -20,6 +20,8 @@ import {
   deleteTransaction,
   type DeleteTransactionInput,
   type DeleteValidationErrorCode,
+  bulkUpdateTransactions,
+  type BulkUpdateInput,
 } from '../../../core/commands/index.js';
 import type { EventLog } from '../../../core/eventLog/index.js';
 import { applyEvent } from '../../../core/query/reducers.js';
@@ -31,6 +33,8 @@ import {
   type UpdateTransactionResponse,
   deleteTransactionRequestSchema,
   type DeleteTransactionResponse,
+  bulkUpdateTransactionRequestSchema,
+  type BulkUpdateTransactionResponse,
 } from '../../../shared/ipc-contracts/transaction.js';
 
 export interface TransactionCreateHandlerDeps {
@@ -257,6 +261,102 @@ export function createTransactionDeleteHandler(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return { ok: false, error: { code: 'INTERNAL', message } };
+    }
+  };
+}
+
+// WI-31a — Bulk Update Transaction Handler
+export interface TransactionBulkUpdateHandlerDeps {
+  readonly eventLog: EventLog;
+  readonly getReadModel: () => ReadModel;
+  readonly now: () => Date;
+  readonly newId: () => string;
+  readonly datasetId: string;
+  readonly actorDeviceId: string;
+  readonly dekVersion?: number;
+  readonly applyEvent?: typeof applyEvent;
+}
+
+export function createTransactionBulkUpdateHandler(
+  deps: TransactionBulkUpdateHandlerDeps,
+): (raw: unknown) => Promise<BulkUpdateTransactionResponse> {
+  const apply = deps.applyEvent ?? applyEvent;
+
+  return async function handleTransactionBulkUpdate(
+    raw: unknown,
+  ): Promise<BulkUpdateTransactionResponse> {
+    try {
+      const parsed = bulkUpdateTransactionRequestSchema.safeParse(raw);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          failures: [
+            {
+              id: '',
+              code: 'SCHEMA_INVALID',
+              message: parsed.error.issues
+                .map((i) => `${i.path.join('.')}: ${i.message}`)
+                .join('; '),
+            },
+          ],
+        };
+      }
+
+      const input: BulkUpdateInput = {
+        ids: parsed.data.ids,
+        categoryId: parsed.data.categoryId,
+        subcategoryId: parsed.data.subcategoryId,
+        tagIds: parsed.data.tagIds,
+        status: parsed.data.status,
+        correlationId: parsed.data.correlationId,
+      };
+
+      const result = bulkUpdateTransactions(input, {
+        now: deps.now,
+        newId: deps.newId,
+        readModel: deps.getReadModel(),
+        datasetId: deps.datasetId,
+        actorDeviceId: deps.actorDeviceId,
+        dekVersion: deps.dekVersion ?? 0,
+      });
+
+      if (!result.ok) {
+        return {
+          ok: false,
+          failures: result.failures.map((f) => ({
+            id: f.id,
+            code: f.code,
+            message: f.message,
+          })),
+        };
+      }
+
+      // Append all events in a single batch (one append per event,
+      // consistent with EventLog's single-event contract).
+      const before = (await deps.eventLog.load()).length;
+      for (const event of result.events) {
+        await deps.eventLog.append(event);
+      }
+      const after = (await deps.eventLog.load()).length;
+
+      // Apply reducer for newly-appended events
+      if (after > before) {
+        for (const event of result.events) {
+          apply(event);
+        }
+      }
+
+      return {
+        ok: true,
+        updatedCount: result.events.length,
+        events: result.events,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        ok: false,
+        failures: [{ id: '', code: 'INTERNAL', message }],
+      };
     }
   };
 }

@@ -28,12 +28,15 @@ import {
   IPC_TRANSACTION_CREATE,
   IPC_TRANSACTION_UPDATE,
   IPC_TRANSACTION_DELETE,
+  IPC_TRANSACTION_BULK_UPDATE,
   type CreateTransactionRequest,
   type CreateTransactionResponse,
   type UpdateTransactionRequest,
   type UpdateTransactionResponse,
   type DeleteTransactionRequest,
   type DeleteTransactionResponse,
+  type BulkUpdateTransactionRequest,
+  type BulkUpdateTransactionResponse,
 } from '../shared/ipc-contracts/transaction.js';
 import {
   IPC_MOVEMENTS_LIST,
@@ -173,6 +176,9 @@ const api = {
     },
     delete: (req: DeleteTransactionRequest): Promise<DeleteTransactionResponse> => {
       return ipcRenderer.invoke(IPC_TRANSACTION_DELETE, req);
+    },
+    bulkUpdate: (req: BulkUpdateTransactionRequest): Promise<BulkUpdateTransactionResponse> => {
+      return ipcRenderer.invoke(IPC_TRANSACTION_BULK_UPDATE, req);
     },
     note: {
       add: (req: AddNoteRequest): Promise<AddNoteResponse> => {
