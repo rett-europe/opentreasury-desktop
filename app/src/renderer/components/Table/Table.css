@@ -11,6 +11,15 @@
   overflow: visible;
 }
 
+/* Row-virtualisation mode. The wrapper becomes its own scroll container so
+ * only the visible window of rows is mounted in the DOM. The parent must
+ * supply a bounded height (via containerStyle on <Table> or an ancestor CSS
+ * rule) for the scrollbar to appear. The sticky thead/tfoot remain sticky
+ * within this new scroll context. */
+.ot-table-wrap--virtual {
+  overflow: auto;
+}
+
 .ot-table {
   width: 100%;
   /* `separate` (not `collapse`) is REQUIRED for border-radius on table cells.

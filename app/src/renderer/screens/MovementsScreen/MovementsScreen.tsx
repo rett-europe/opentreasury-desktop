@@ -159,6 +159,14 @@ export interface MovementsScreenProps {
   readonly configRevision?: number;
 }
 
+/**
+ * Row count above which the table switches to virtual rendering.
+ * Below this threshold every row is mounted; above it only the visible window
+ * is mounted. Keeps unit tests (small mock datasets) in non-virtual mode
+ * while still virtualising realistic 5 k-row datasets.
+ */
+const VIRTUAL_ROW_THRESHOLD = 100;
+
 export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {}): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
@@ -893,6 +901,12 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
                 sortBy={sortBy}
                 sortDirection={sortDir}
                 onSort={handleSort}
+                virtualise={sortedRows.length >= VIRTUAL_ROW_THRESHOLD}
+                containerStyle={
+                  sortedRows.length >= VIRTUAL_ROW_THRESHOLD
+                    ? { maxHeight: 'calc(100vh - 440px)', minHeight: '300px' }
+                    : undefined
+                }
                 onRowClick={(row) => {
                   // Convert Movement to RecentTransaction for the detail modal
                   const tx: RecentTransaction = {
