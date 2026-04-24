@@ -199,11 +199,7 @@ export function BulkClassifyModal({
             </div>
 
             {failures && failures.length > 0 && (
-              <section
-                className="ot-bulk-classify-modal__failures"
-                role="alert"
-                aria-live="polite"
-              >
+              <section className="ot-bulk-classify-modal__failures" role="alert" aria-live="polite">
                 <h2 className="ot-bulk-classify-modal__failures-heading">
                   {t('movements.bulk.failures.heading', { count: failures.length })}
                 </h2>

@@ -14,11 +14,7 @@ function renderBar(props: Partial<React.ComponentProps<typeof BulkActionsBar>> =
     onCancel,
     ...render(
       <I18nextProvider i18n={i18n}>
-        <BulkActionsBar
-          selectedCount={selectedCount}
-          onClassify={onClassify}
-          onCancel={onCancel}
-        />
+        <BulkActionsBar selectedCount={selectedCount} onClassify={onClassify} onCancel={onCancel} />
       </I18nextProvider>,
     ),
   };

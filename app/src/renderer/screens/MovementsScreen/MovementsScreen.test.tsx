@@ -133,9 +133,7 @@ describe('MovementsScreen', () => {
       expect(screen.queryByRole('table')).not.toBeNull();
     });
     // No region before anything is selected.
-    expect(
-      screen.queryByRole('region', { name: /bulk actions|acciones en lote/i }),
-    ).toBeNull();
+    expect(screen.queryByRole('region', { name: /bulk actions|acciones en lote/i })).toBeNull();
 
     // Click the first row checkbox (not the header one). There are N row
     // checkboxes plus 1 header checkbox, all with the same aria-label.
@@ -146,9 +144,7 @@ describe('MovementsScreen', () => {
     fireEvent.click(checkboxes[0]!);
 
     // Bar should now be visible.
-    expect(
-      screen.getByRole('region', { name: /bulk actions|acciones en lote/i }),
-    ).not.toBeNull();
+    expect(screen.getByRole('region', { name: /bulk actions|acciones en lote/i })).not.toBeNull();
   });
 
   it('WI-31b: Cancel button in the bulk bar clears selection without opening a modal', async () => {
@@ -166,12 +162,8 @@ describe('MovementsScreen', () => {
     fireEvent.click(cancelBtn);
 
     // Bar hides again.
-    expect(
-      screen.queryByRole('region', { name: /bulk actions|acciones en lote/i }),
-    ).toBeNull();
+    expect(screen.queryByRole('region', { name: /bulk actions|acciones en lote/i })).toBeNull();
     // No classify modal was opened.
-    expect(
-      screen.queryByRole('heading', { name: /Classify|Clasificar/i }),
-    ).toBeNull();
+    expect(screen.queryByRole('heading', { name: /Classify|Clasificar/i })).toBeNull();
   });
 });

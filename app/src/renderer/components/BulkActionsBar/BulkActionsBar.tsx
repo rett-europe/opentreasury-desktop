@@ -35,11 +35,7 @@ export function BulkActionsBar({
   const countLabel = t('movements.bulk.selectedCount', { count: selectedCount });
 
   return (
-    <div
-      role="region"
-      aria-label={t('movements.bulk.aria')}
-      className="ot-bulk-actions-bar"
-    >
+    <div role="region" aria-label={t('movements.bulk.aria')} className="ot-bulk-actions-bar">
       <div className="ot-bulk-actions-bar__left">
         <span className="ot-bulk-actions-bar__count" aria-hidden="true">
           {countLabel}

@@ -46,9 +46,7 @@ const categories: CategoryRecord[] = [
 ];
 
 function renderModal(opts: {
-  onBulkUpdate: (
-    input: BulkUpdateTransactionRequest,
-  ) => Promise<BulkUpdateTransactionResponse>;
+  onBulkUpdate: (input: BulkUpdateTransactionRequest) => Promise<BulkUpdateTransactionResponse>;
   onSuccess?: () => void;
   onClose?: () => void;
   selectedIds?: string[];
@@ -64,7 +62,9 @@ function renderModal(opts: {
         <BulkClassifyModal
           isOpen={true}
           onClose={onClose}
-          selectedIds={opts.selectedIds ?? ['01HTX10000000000000000TX01', '01HTX20000000000000000TX02']}
+          selectedIds={
+            opts.selectedIds ?? ['01HTX10000000000000000TX01', '01HTX20000000000000000TX02']
+          }
           categories={categories}
           onBulkUpdate={opts.onBulkUpdate}
           onSuccess={onSuccess}
@@ -109,9 +109,7 @@ describe('BulkClassifyModal', () => {
   it('renders failures and keeps the modal open when the IPC returns ok=false', async () => {
     const onBulkUpdate = vi.fn().mockResolvedValue({
       ok: false,
-      failures: [
-        { id: 'bad-1', code: 'TX_NOT_FOUND', message: 'Transaction not found' },
-      ],
+      failures: [{ id: 'bad-1', code: 'TX_NOT_FOUND', message: 'Transaction not found' }],
     } as BulkUpdateTransactionResponse);
 
     const { onSuccess, onClose } = renderModal({ onBulkUpdate });
