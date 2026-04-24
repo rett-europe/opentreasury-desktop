@@ -34,6 +34,43 @@ jobs:
       - name: Unit tests
         run: npm run test
 
-      # TODO: add integration + e2e jobs once the scaffold is runnable (post npm install).
+      # TODO: add integration tests job once the scaffold is runnable (post npm install).
       # TODO: add the i18n missing-key coverage check from PRD-009 implementation.
       # TODO: add `electronegativity` check for Electron hardening (ADR-001 C7).
+
+  e2e-perf:
+    name: e2e · perf gate (main only)
+    runs-on: ubuntu-latest
+    # Gate on main pushes only — PRs can be flakier on shared GH runners.
+    # Revisit after a week of data; tighten to PR-blocking if stable.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: quality
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # Install Playwright's Chromium + all system-level deps (libgtk, libgbm,
+      # etc.) that Electron also needs to run on a headless Linux runner.
+      - name: Install Playwright system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Seed perf data
+        run: npm run perf:seed -- --count=5000 --dir=perf-events
+
+      # xvfb-run provides a virtual framebuffer so Electron can open a window
+      # on a headless Linux runner.
+      - name: Run e2e tests
+        run: xvfb-run --auto-servernum npm run e2e
