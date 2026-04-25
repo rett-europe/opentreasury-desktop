@@ -159,6 +159,10 @@ undo/redo). Spec is authoritative reference for Trinity's WI-15 implementation p
 2. How important is 1-click preset switching? (Informs menu vs. visible chips decision.)
 3. Viewport size priority: 1366×768 laptops (need vertical savings) or 1920×1080+ desktops (can afford scope bar)?
 
+## 2026-04-28 — Movements Date Filter Final Implementation (PR #57)
+
+**Layout decision finalized:** Option A (Dedicated Scope Bar) selected and shipped. Seven preset chips + Personalizado custom-range popover + active-range pill in dedicated `.ot-scope-bar` above `.ot-filter-bar`. Visual treatment: Calm Scope (weight contrast + container isolation via muted slicing filter colors) rather than initial Anchored Band spec. Decision consolidated to decisions.md. Recipe placed in `globals.css` per prototype-parity rule; reusable across Panel, Saldo, and future screens requiring period scope.
+
 **Handoff:** Proposal document created at `.squad/decisions/inbox/niobe-movements-date-filter-layout.md`. Awaiting Pedro's verdict before Trinity implementation.
 
 - **Two-step category selector:** Category dropdown shows only parent categories; selecting a category reveals a second dropdown for subcategories (if any exist). This is clearer than a single combo-select with indented tree structure for non-technical users.

@@ -443,3 +443,7 @@ Each panel has:
 4. **Prototype-parity rule applies** — All recipes go in `globals.css`, not component CSS. Component CSS imported after globals would shadow token updates.
 
 **SPEC LOCATION:** `.squad/decisions/inbox/mouse-movements-date-filter-visual.md`
+
+## 2026-04-28 — Movements Filter Visual Treatment Final State (PR #57)
+
+**Visual spec pivoted from Anchored Band → Calm Scope** (weight contrast, no full-width tint). Scope bar background: --color-brand-surface for subtle tint separation. Slicing filters recede via muted text colors (--color-text-muted) and subtle borders (--color-border-subtle). No new tokens required. Calm Scope achieves hierarchy via typography + container isolation rather than spatial tinting; cleaner, lighter implementation than Anchored Band while maintaining clear visual precedence. Treatment consolidated to decisions.md. Pattern is reusable for Panel period scope, Saldo time range picker.

@@ -49,6 +49,12 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 
 **Scope Bar recipe placement (2026-04-28, PR #57):** When adding new shared UI patterns like `.ot-scope-bar` (the date-filter band), the recipe MUST go in `globals.css`, not in component CSS files (MovementsScreen.css). This follows the prototype-parity rule: component CSS imported after globals wins every cascade conflict and silently shadows token updates. The `.ot-scope-bar` class defines the full-width tinted container (`--color-brand-surface` bg, `--color-divider` bottom border) that anchors above `.ot-filter-bar`. When a scope bar precedes a filter bar, the filter bar gets `.ot-scope-bar + .ot-filter-bar` modifier to remove its top border and round only bottom corners.
 
+## 2026-04-28 — PR #57 + #58 Shipped
+
+- **PR #57 (joint two-row filter bar):** Date scope chips + active-range pill moved into dedicated scope bar above slicing filters. Reuses `.ot-scope-bar` recipe (globals.css) — pattern is now reusable across Panel, Saldo. Visual treatment: Calm Scope (weight contrast, no full-width tint) post-review update from Mouse's Anchored Band spec.
+- **PR #58 (transaction detail bugs):** Fixed 3 bugs on dev-empty: (1) DatosScreen "See transactions" CTA now navigates via onNavigateToMovements prop, (2) description tooltip shows reference + details, (3) reference/details threaded through Movement type, mapMovementRecord, row→tx conversion, and main-process movements:list handler. i18n keys movements.tooltip.reference/.details added (EN/ES parity).
+- **Layout/visual decision pivot finalized:** Niobe Option A (Dedicated Scope Bar) locked; Mouse pivoted from Anchored Band to Calm Scope (weight over tint). Decision inbox entries consolidated into decisions.md §"2026-04-28: Movements Filter UI."
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
 ---
