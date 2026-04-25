@@ -36,7 +36,10 @@ export function App(): JSX.Element {
       ) : isConfigRoute ? (
         <ConfiguracionScreen onConfigChanged={bumpConfigRevision} initialTab={route} />
       ) : route === 'datos' ? (
-        <DatosScreen onImportComplete={bumpConfigRevision} />
+        <DatosScreen
+          onImportComplete={bumpConfigRevision}
+          onNavigateToMovements={() => setRoute('movements')}
+        />
       ) : (
         <SaldoScreen />
       )}

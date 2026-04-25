@@ -9,6 +9,7 @@ import './DatosScreen.css';
 
 export interface DatosScreenProps {
   readonly onImportComplete?: (() => void) | undefined;
+  readonly onNavigateToMovements?: (() => void) | undefined;
 }
 
 /**
@@ -16,13 +17,17 @@ export interface DatosScreenProps {
  * Promoted out of Configuración tabs after WI-17 review (see decision
  * `trinity-datos-top-level-route.md`). Export is deferred.
  */
-export function DatosScreen({ onImportComplete }: DatosScreenProps): JSX.Element {
+export function DatosScreen({
+  onImportComplete,
+  onNavigateToMovements,
+}: DatosScreenProps): JSX.Element {
   const { t } = useTranslation('common');
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const handleComplete = () => {
     setWizardOpen(false);
     onImportComplete?.();
+    onNavigateToMovements?.();
   };
 
   return (

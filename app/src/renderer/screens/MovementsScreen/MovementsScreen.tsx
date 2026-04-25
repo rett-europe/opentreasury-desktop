@@ -108,6 +108,8 @@ function mapMovementRecord(
     subcategory: subcategoryName,
     tags: record.tagIds ?? [],
     status: record.status,
+    reference: record.reference ?? null,
+    details: record.details ?? null,
   };
 }
 
@@ -568,7 +570,16 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         id: 'description',
         header: t('movements.columns.observations'),
         sortable: true,
-        render: (m) => <span title={m.description}>{m.description}</span>,
+        render: (m) => {
+          const tooltipParts: string[] = [m.description];
+          if (m.reference) {
+            tooltipParts.push(`${t('movements.tooltip.reference')}: ${m.reference}`);
+          }
+          if (m.details) {
+            tooltipParts.push(`${t('movements.tooltip.details')}: ${m.details}`);
+          }
+          return <span title={tooltipParts.join('\n')}>{m.description}</span>;
+        },
       },
       {
         id: 'category',
@@ -1093,8 +1104,8 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
                     subcategoryId: row.subcategory ?? null,
                     tagIds: row.tags.slice(),
                     status: row.status === 'rejected' ? 'pending' : row.status,
-                    reference: undefined,
-                    details: undefined,
+                    reference: row.reference ?? undefined,
+                    details: row.details ?? undefined,
                     createdAt: new Date().toISOString(),
                   };
                   setSelectedTx(tx);
