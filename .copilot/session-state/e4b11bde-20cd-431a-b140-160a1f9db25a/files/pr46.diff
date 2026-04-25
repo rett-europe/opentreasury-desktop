@@ -1,0 +1,376 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 84a2538..dd6cd49 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -34,6 +34,43 @@ jobs:
+       - name: Unit tests
+         run: npm run test
+ 
+-      # TODO: add integration + e2e jobs once the scaffold is runnable (post npm install).
++      # TODO: add integration tests job once the scaffold is runnable (post npm install).
+       # TODO: add the i18n missing-key coverage check from PRD-009 implementation.
+       # TODO: add `electronegativity` check for Electron hardening (ADR-001 C7).
++
++  e2e-perf:
++    name: e2e ┬╖ perf gate (main only)
++    runs-on: ubuntu-latest
++    # Gate on main pushes only ΓÇö PRs can be flakier on shared GH runners.
++    # Revisit after a week of data; tighten to PR-blocking if stable.
++    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
++    needs: quality
++    permissions:
++      contents: read
++    steps:
++      - uses: actions/checkout@v4
++
++      - name: Setup Node
++        uses: actions/setup-node@v4
++        with:
++          node-version: '20'
++          cache: 'npm'
++
++      - name: Install
++        run: npm ci
++
++      - name: Build
++        run: npm run build
++
++      # Install Playwright's Chromium + all system-level deps (libgtk, libgbm,
++      # etc.) that Electron also needs to run on a headless Linux runner.
++      - name: Install Playwright system dependencies
++        run: npx playwright install --with-deps chromium
++
++      - name: Seed perf data
++        run: npm run perf:seed -- --count=5000 --dir=perf-events
++
++      # xvfb-run provides a virtual framebuffer so Electron can open a window
++      # on a headless Linux runner.
++      - name: Run e2e tests
++        run: xvfb-run --auto-servernum npm run e2e
+diff --git a/docs/perf/playwright-gate.md b/docs/perf/playwright-gate.md
+new file mode 100644
+index 0000000..2d85a71
+--- /dev/null
++++ b/docs/perf/playwright-gate.md
+@@ -0,0 +1,135 @@
++# Playwright perf-budget gate ΓÇö MovementsScreen
++
++> **Issue:** #39-c ┬╖ **Owner:** Cypher ┬╖ **Priority:** P0
++
++## What this gate does
++
++A Playwright test (`tests/e2e/movements-perf.spec.ts`) launches the real Electron
++binary against a seeded 5 000-transaction dataset and measures how long it takes
++for the first data row to become visible in the Movements screen after clicking
++the nav item.
++
++The test runs **3 independent Electron launches** and asserts that the **median
++mount time is Γëñ 500 ms**.  Using the median rather than the minimum absorbs
++single-run cold-start noise without hiding a genuine regression across all runs.
++
++CI only triggers this job on **pushes to `main`** (not on PRs) ΓÇö see *Revisiting
++the gate* below.
++
++---
++
++## Budget rationale
++
++| Threshold | Reasoning |
++|-----------|-----------|
++| **500 ms** | Starting point calibrated to the post-virtualisation (#39-a) expected median. Once stable, tune to `observed_median ├ù 1.5` to give a safety margin without flaking on cold runners. |
++| 3 runs | Enough for a stable median on CI runners; keeps the job under ~5 min. |
++
++The 500 ms budget is intentionally conservative for the first landing.  After a
++week of data from real CI runs, adjust it to `median ├ù 1.5` so it gates genuine
++regressions while remaining flake-resistant on slow runners.
++
++**Why not P50 across more runs?**  Each run spawns a full Electron process, which
++takes 3ΓÇô10 s per launch on CI.  Three runs keep the job manageable; more runs can
++be added if the variance turns out to be high.
++
++---
++
++## How to reproduce locally
++
++```bash
++# 1. Build the app (renderer + main + preload).
++npm run build
++
++# 2. Install Playwright (only needed once).
++npx playwright install
++
++# 3. Seed 5 000 synthetic transactions.
++npm run perf:seed -- --count=5000 --dir=perf-events
++
++# 4. Run the perf spec only.
++npx playwright test movements-perf
++
++# Run the full e2e suite (smoke + perf):
++npm run e2e
++```
++
++---
++
++## Debugging a CI failure
++
++### 1 ΓÇö Read the median and individual run times
++
++The test prints each run time and the median to stdout:
++
++```
++[perf] run 1/3: 312 ms
++[perf] run 2/3: 289 ms
++[perf] run 3/3: 418 ms
++[perf] times=[289, 312, 418] ms  median=312 ms  budget=500 ms
++```
++
++If the median exceeds 500 ms, look for **all three runs** being slow (genuine
++regression) versus **one outlier** inflating the median (runner flakiness).
++
++### 2 ΓÇö Check for a renderer regression
++
++The #1 suspect is a change that un-virtualises the Movements table or forces a
++full DOM re-render.  Confirm by:
++
++```bash
++# Local measurement with React DevTools Profiler:
++npm run dev
++# Open DevTools ΓåÆ Profiler ΓåÆ record ΓåÆ click Movimientos
++```
++
++Check `Table.tsx` ΓÇö the `virtualise` prop must be `true` for the Movements
++table (see `MovementsScreen.tsx`).
++
++### 3 ΓÇö Check for a data-layer regression
++
++Run the data-layer harness to isolate main-process cost:
++
++```bash
++npm run perf:measure -- --sizes=5000 --trials=5
++```
++
++Expected at 5 000 rows (post #39-b fix): **Γëñ 80 ms** total main-process cost
++(`load` + `replayEvents` + `movements:list` + `zod.parse`).
++
++### 4 ΓÇö Check the seed
++
++Confirm the perf-events dataset exists and has the right size:
++
++```bash
++# Linux / macOS
++ls -lh ~/.config/opentreasury-desktop/perf-events/events.ndjson
++
++# Windows
++dir %APPDATA%\opentreasury-desktop\perf-events\events.ndjson
++```
++
++A 5 000-transaction seed (+ reference data) is ~3.5 MiB.
++
++---
++
++## Revisiting the gate
++
++After ΓëÑ 1 week of stable data on `main`:
++
++1. Collect the median values logged by CI runs.
++2. Compute `p75 ├ù 1.5` from the collected medians.
++3. Update `BUDGET_MS` in `tests/e2e/movements-perf.spec.ts`.
++4. If variance is low (all runs within ┬▒20 ms of the median), change the CI
++   `if:` condition to also fire on PRs ΓÇö edit `.github/workflows/ci.yml` and
++   remove the `github.event_name == 'push'` guard.
++
++---
++
++## Related
++
++- `tests/e2e/movements-perf.spec.ts` ΓÇö the gate itself
++- `playwright.config.ts` ΓÇö Playwright project config (timeout, retries)
++- `scripts/perf-seed.mjs` ΓÇö deterministic 5 k-transaction seed
++- `docs/perf/movements-investigation-2026-04-24.md` ΓÇö root-cause analysis
++- Issue #39-a (virtualisation) ΓÇö prerequisite for the budget to be meetable
+diff --git a/playwright.config.ts b/playwright.config.ts
+new file mode 100644
+index 0000000..c138c11
+--- /dev/null
++++ b/playwright.config.ts
+@@ -0,0 +1,36 @@
++import { defineConfig } from '@playwright/test';
++
++/**
++ * Playwright configuration for Electron end-to-end tests.
++ *
++ * Tests live in `tests/e2e/`. Each spec launches its own Electron instance
++ * via `_electron.launch({ args: ['dist/main/index.js'] })`.
++ *
++ * Prerequisites:
++ *   npm run build          ΓÇö produces dist/main/index.js + dist/renderer/
++ *   npm run build:preload  ΓÇö produces dist/preload/index.cjs
++ *   (vite build already covers all three via vite-plugin-electron)
++ *
++ * OT_DATA_DIR override:
++ *   Each spec passes `OT_DATA_DIR` in its own `electron.launch` env block so
++ *   different tests can target different datasets (e.g. perf-events vs the
++ *   default dev-events). The config does not set a global default; see each
++ *   spec for details.
++ *
++ * See docs/perf/playwright-gate.md for the perf-budget rationale.
++ */
++export default defineConfig({
++  testDir: './tests/e2e',
++
++  // Electron startup + IPC bootstrap can be slow on cold CI runners.
++  timeout: 120_000,
++
++  // Electron tests spawn a full OS process per run; concurrency buys nothing
++  // and makes timing measurements noisier.
++  fullyParallel: false,
++
++  // One retry on CI absorbs cold-start flakiness without hiding real regressions.
++  retries: process.env['CI'] ? 1 : 0,
++
++  reporter: [['list'], ['html', { open: 'never' }]],
++});
+diff --git a/tests/e2e/movements-perf.spec.ts b/tests/e2e/movements-perf.spec.ts
+new file mode 100644
+index 0000000..538abc5
+--- /dev/null
++++ b/tests/e2e/movements-perf.spec.ts
+@@ -0,0 +1,118 @@
++import { test, expect, _electron as electron } from '@playwright/test';
++import { spawnSync } from 'node:child_process';
++import * as path from 'node:path';
++
++// ---------------------------------------------------------------------------
++// Constants
++// ---------------------------------------------------------------------------
++
++/** Perf-budget threshold in milliseconds (median across RUNS launches). */
++const BUDGET_MS = 500;
++
++/** Number of independent Electron launches to use for the median.
++ * Must be ODD so that `times[Math.floor(times.length / 2)]` is the true middle value. */
++const RUNS = 3;
++
++/** Plain sub-folder name passed to OT_DATA_DIR (must be non-path, non-absolute). */
++const DATA_DIR = 'perf-events';
++
++// ---------------------------------------------------------------------------
++// Selectors
++// ---------------------------------------------------------------------------
++
++/**
++ * Movements nav button ΓÇö 2nd item in the primary (first) AppShell nav section.
++ * Identified by DOM position to stay stable across i18n locales:
++ *   Section 0 (shell.sections.main): panel | movements | balance
++ */
++const MOVEMENTS_NAV_BTN = '.ot-shell__sidebar > div:first-child > ul > li:nth-child(2) > button';
++
++/**
++ * First visible data row in the table.
++ * The virtualised Table component renders padding rows with aria-hidden="true";
++ * actual data rows do not carry that attribute.
++ */
++const FIRST_DATA_ROW = 'table.ot-table tbody tr:not([aria-hidden="true"])';
++
++// ---------------------------------------------------------------------------
++// Suite
++// ---------------------------------------------------------------------------
++
++test.describe('MovementsScreen mount perf budget', () => {
++  /**
++   * Seed 5 000 synthetic transactions into the perf-events folder before the
++   * suite runs.  The seed script is deterministic (mulberry32 PRNG) so
++   * re-running produces byte-identical output ΓÇö stable across retries.
++   */
++  test.beforeAll(() => {
++    const result = spawnSync(
++      'node',
++      [path.join('scripts', 'perf-seed.mjs'), '--count=5000', `--dir=${DATA_DIR}`],
++      { stdio: 'inherit' },
++    );
++    if (result.status !== 0) {
++      throw new Error(`perf:seed failed with exit code ${String(result.status)}`);
++    }
++  });
++
++  test(`MovementsScreen mounts in Γëñ ${BUDGET_MS} ms (median of ${RUNS} runs)`, async () => {
++    const times: number[] = [];
++
++    for (let run = 0; run < RUNS; run++) {
++      // Each run launches a fresh Electron process against the seeded dataset.
++      const app = await electron.launch({
++        args: [path.join('dist', 'main', 'index.js')],
++        env: {
++          ...process.env,
++          // Point the bootstrap at the pre-seeded perf dataset.
++          OT_DATA_DIR: DATA_DIR,
++          // Suppress the dev-seed auto-write so the event log stays exactly
++          // what perf:seed wrote (avoids a slow append on first launch).
++          OT_SEED: 'none',
++        },
++      });
++
++      try {
++        const page = await app.firstWindow();
++        await page.waitForLoadState('domcontentloaded');
++
++        // Wait for the app shell nav to be present before measuring.
++        await page.waitForSelector('.ot-shell__sidebar', { state: 'visible' });
++
++        // ΓöÇΓöÇ Measure: nav click ΓåÆ first data row visible ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++        const t0 = Date.now();
++        await page.click(MOVEMENTS_NAV_BTN);
++        // Generous absolute timeout so the assertion is on the median, not on
++        // a single slow run.  Budget enforcement is at the median level below.
++        await page.waitForSelector(FIRST_DATA_ROW, {
++          state: 'visible',
++          timeout: BUDGET_MS * 10,
++        });
++        const elapsed = Date.now() - t0;
++        // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++
++        times.push(elapsed);
++        // eslint-disable-next-line no-console
++        console.log(`[perf] run ${run + 1}/${RUNS}: ${elapsed} ms`);
++      } finally {
++        await app.close();
++      }
++    }
++
++    times.sort((a, b) => a - b);
++    const median = times[Math.floor(times.length / 2)] as number;
++
++    // eslint-disable-next-line no-console
++    console.log(
++      `[perf] times=[${times.join(', ')}] ms  ` + `median=${median} ms  budget=${BUDGET_MS} ms`,
++    );
++
++    expect(
++      median,
++      `MovementsScreen median mount time ${median} ms exceeds ` +
++        `${BUDGET_MS} ms budget.\n` +
++        `Run times: [${times.join(', ')}] ms\n` +
++        `See docs/perf/playwright-gate.md for debug steps.`,
++    ).toBeLessThanOrEqual(BUDGET_MS);
++  });
++});
+diff --git a/tests/e2e/smoke.spec.ts b/tests/e2e/smoke.spec.ts
+index 6c4a8cf..393a325 100644
+--- a/tests/e2e/smoke.spec.ts
++++ b/tests/e2e/smoke.spec.ts
+@@ -1,11 +1,9 @@
+ import { test, expect, _electron as electron } from '@playwright/test';
+ 
+-// Scaffold smoke test ΓÇö verifies the Electron app boots and opens a window.
+-// Deliberately minimal: no feature assertions yet. Real flows arrive with feature PRs.
+-//
+-// TODO: wire this once `npm install` + `vite build` + `tsc -b` have been run at least once.
+-// Skipped until the main bundle exists at dist/main/index.js.
+-test.skip('app launches and opens a window', async () => {
++// Smoke test ΓÇö verifies the Electron app boots and opens a window.
++// Deliberately minimal: no feature assertions. Real flows live in feature specs.
++// Requires `npm run build` first (dist/main/index.js must exist).
++test('app launches and opens a window', async () => {
+   const app = await electron.launch({ args: ['dist/main/index.js'] });
+   const window = await app.firstWindow();
+   await expect(window).toBeTruthy();
