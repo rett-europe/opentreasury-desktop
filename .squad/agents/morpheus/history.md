@@ -1237,59 +1237,52 @@ Applied to `totalIncome` and `totalExpense` independently. Per-category rows and
 # Project Context
 
 - **Owner:** Pedro (perocha)
-- **Project:** OpenTreasury Desktop — Electron-based treasury management for NGOs. Desktop version of the cloud-based rett-europe/opentreasury, designed to work without complex cloud setup.
-- **Stack:** Electron (frontend), rest TBD. Reference app: Angular 19 + Python FastAPI + Cosmos DB + Entra ID on Azure.
+- **Project:** OpenTreasury Desktop — Electron-based treasury management for NGOs.
+- **Stack:** Electron (frontend), React+TS, event-sourced NDJSON log with read-model projections.
 - **Created:** 2026-04-19
 
-## Key Reference
+## Current Status
 
-The cloud version's backend (Python FastAPI) features:
-- Cosmos DB NoSQL containers: transactions (partitioned by YYYY-MM), categories, reference_data (tags + bank accounts), audit_log
-- RBAC: Admin (full read/write), Viewer (read-only)
-- Soft deletes — financial data never permanently lost
-- Audit trail on all changes (7-year TTL in cloud)
-- Excel/CSV import and export endpoints
-- Transaction CRUD with category/subcategory/tag associations
-- Multi-account support
+**Recent work:** WI-23 projection unification (PR #26 review phase — Neo CHANGES_REQUESTED due to perf-seed.mjs:183 half-migration; Cypher assigned fix).
 
-The desktop version needs equivalent functionality with local persistence (no cloud DB).
+**Shipped:** WI-11 through WI-22 complete; WI-15-lite config CRUD (accounts/categories/tags/subcategories), WI-17 import security hardening, WI-18 header detection, WI-19 reference + notes, WI-20 amount parsing, WI-21 config CRUD, WI-22 saldo aggregation.
 
-## Core Context
+**Key learnings:** See `history-archive.md` for early-phase decisions (architecture, IPC patterns, boot-guard design). Current active learnings below.
 
-**WI-17 Orientation (2026-04-20):** Generic column-mapping importer spec frozen in `.squad/decisions.md` under "WI-17 v2 — Generic Column-Mapping Importer". Neo's spec (IPC contracts, SHA-256 row-hash dedup, 6-step flow), Niobe's UX flow (EN/ES/WCAG), and Mouse's panel-polish audit all merged to decisions. Key handoff: You'll implement `import/stage-file`, `import/preview`, `import/commit` IPC handlers + file parsing (XLSX via SheetJS, CSV via papaparse), row-hash dedup logic, and `movement.imported` event + `import.mapping.updated` event. See decisions.md §"WI-17 v2" for full frozen spec (work decomposition WI-17.1 through WI-17.4).
+## Recent Learnings
 
-Event-sourced core on NDJSON log + `JsonFileEventLog`. Two event shapes coexist in the same log:
-- **Enveloped** (WI-11/WI-12 transactions, legacy Panel dev-seed): `{ id, type, datasetId, actorDeviceId, createdAt, dekVersion, version, payload }`.
-- **Flat** (WI-15-lite config — `AccountCreated`/`CategoryCreated`/`TagCreated`): `{ type, id, …fields, createdAt }`.
-Reducers switch on `type`; `JsonFileEventLog` only requires a string `id`. Consolidation is a future WI.
+### Stalled-@copilot-PR rebase pattern (2026-04-25)
 
-IPC contracts live in `app/src/shared/ipc-contracts/`. Invariant across all channels: **nothing throws across IPC** — validation failures return `{ ok: false, error: { code, message, field? } }`. IDs are 26-char Crockford base32 ULIDs from `main/ids.ts#newUlid`. Uniqueness on config entities is case-insensitive + trimmed.
+When @copilot's PR sits unconflict-resolved over a moving main, the cleanest takeover is a straight `git rebase origin/main` from the worktree — *not* a merge. Reasoning: PR #26 had 5 commits (1 already-upstream baseline, 1 feat, 1 chore checkpoint, 1 nit, 1 docs). The rebase auto-dropped the already-upstream commit, fast-forwarded 3, and conflicted on exactly one (reducers.ts). A merge would have produced a fatter history with the same conflict. Force-push with `--force-with-lease origin <local>:<remote-pr-branch>` lands cleanly on the existing PR — no new PR needed, no lockout, comments preserved.
 
-Shipped so far: WI-11 (event log + crypto), WI-12 (transaction:create + movements:list), WI-15-lite (accounts/categories/tags create+list, event-sourced, EUR-only, no `type` on categories). Read model has two parallel projection streams: legacy (`accounts`/`categories`/`tags` from enveloped seed events) and new (`configAccounts`/`configCategories`/`configTags` from flat WI-15 events). `selectPanelSnapshot` unchanged; `accounts:list` etc. return only user-created config entities.
+### Perf rewrite × projection rewrite — the typecheck-immediately rule
 
-Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (CSV/XLSX import with row-hash dedup + bank-specific parsers per Pedro Q5), full WI-15 (edit/archive/delete/subcategorías + stream consolidation).
+PR #45 (mutable `_txList`/`_txByRef` state) and PR #26 (delete legacy accounts/categories/tags projections) overlapped on `reducers.ts::emptyReadModel` and case `'AccountCreated'`. Git's 3-way merge auto-merged the latter into a *syntactically* valid hybrid that still referenced `readModel.accounts` and the deleted `Account` type. Lesson: after `git rebase --continue` on a conflict that crosses a structural-rewrite × semantic-deletion boundary, always run `tsc --noEmit` before declaring victory. The compiler catches the stale references the merge driver can't.
 
-## Cross-Agent Learning (2026-04-22)
+### Boot-guard rebase fallout is concentrated in test fixtures
 
-**From Trinity (WI-21 config CRUD):** Strong typing per-method with `MethodBridge<Req,Res>` is a durable IPC pattern. Trinity's PR #4 renderer fixes relied on the strongly-typed bridges — when Morpheus diverged from the spec (e.g., nested subcategory path), TypeScript surface-area tests immediately flagged it without needing manual e2e testing. Future IPC work in WI-22+ should use the same strongly-typed bridge pattern rather than generic request/response wrappers. Applied to all config mutation channels in WI-21; validated in practice by PR #4's catch rate.
+WI-23's `JsonFileEventLog.load()` boot-guard refuses legacy `*.created` events and unified `*Created` events lacking `sortOrder`. After rebasing onto a main that landed PR #27 (auto-create unknown taxonomy in import) and PR #36 (bulk-update integration test), exactly two files needed alignment: `import.ts` (production code emitting `CategoryCreated` without `sortOrder`) and `bulkUpdate.integration.test.ts` (test seeding legacy `account.created` to disk). Pattern for the next Strategy-3 schema migration: grep for *every* call site emitting the migrated event type after merge, not just the originally-touched ones.
 
-**WI-22 Saldo shipped (2026-04-22):** PR #7 merged with backend (S1–S3 complete: IPC contract, aggregation query, projection logic, handler). 436 tests pass. On-demand aggregation <5ms at 1k events. Property test (Cypher) verified all 8 invariants (I8: Saldo ≡ Movements holds). Skill drafted: `read-model-aggregation` (reusable pattern for future queries). Trinity S5 (SaldoScreen) unblocked; Niobe i18n (PR #9) merged with 72 ES/EN keys locked.
+### sortOrder assignment convention is local-monotonic, not global
 
-## Learnings
+The handler convention is `max(existing.sortOrder ∪ {-1}) + 1` per call. When a single batch creates N events (e.g. import auto-create), compute the baseline once and increment a local counter — do *not* reload from `getReadModel()` between events in the same batch (you'd just re-read the value you applied a microtask ago, and the cost is O(N²) in the `configCategories` array length).
 
-**Strong typing for IPC methods (MethodBridge<Req,Res> pattern):** Strongly-typed bridges per-method (not generic wrappers) catch contract drift immediately. Trinity's PR #4 renderer fixes relied on this — when Morpheus diverged from spec (nested subcategory paths), TypeScript surface-area tests flagged it without e2e testing. Use this pattern for all config mutations (WI-21+). Validated in practice: 100% catch rate for contract mismatches.
+### Renderer wrappers were untouched — IPC seam was clean already
 
-**Deterministic PRNG for dev seeds:** Use seeded PRNG (mulberry32 with constant seed) so re-running seed produces byte-identical events. Enables property testing + reproducible debugging. Applied to SaldoScreen YoY validation.
+I'd budgeted time to update `window.opentreasury.{accounts,categories,tags}.*` service wrappers, but @copilot's original PR #26 had already plumbed `sortOrder` through `AddAccountModal`/`AddCategoryModal`/`AddTagModal` and the wire schemas. The takeover ended up being purely backend rebase + 2 file fixups + push. Total LoC delta from the takeover: ~25 lines across 3 files.
 
-**Contract extension pattern:** When frontend redesign touches IPC contract, batch changes in same PR (don't split). Mark old fields `@deprecated` if tests still depend; schedule cleanup debt explicitly. Communicate extensions to backend owner immediately.
+## 2026-04-25 — WI-23 PR #26 Review Context & Follow-ups
 
-**Bug diagnosis workflow:** Dual-write footgun in dev-seeder (legacy `category.created` vs new `CategoryCreated` events). Root cause: two disjoint reducer slices + read handlers reading only one. Fix pattern: seed writes to the new event shape; delete legacy reducers in follow-up (cleanup debt). Applies to legacy `tag.created` / `account.created` too.
+**Neo's verdict:** CHANGES_REQUESTED. Blocker: `scripts/perf-seed.mjs:183` still emits legacy `account.created` envelope. Categories/tags already migrated to flat shape; perf-seed is half-converted. Post-merge, boot-guard would reject on app boot, breaking perf gate.
 
-<!-- Append new learnings below. Each entry is something lasting about the project. -->
+**Reviewer Rejection Lockout:** Original author (@copilot) and conflict-resolver (Morpheus via takeover) both excluded from fix. **Cypher assigned** to fix + add smoke check.
+
+**Implications for Morpheus:** When PR #26 merges (after Cypher's fix), the legacy `account.created`/`category.created`/`tag.created` no-op block in `reducers.ts` (retained in takeover per PR #45 conflict resolution) becomes runtime-unreachable. Track follow-up: handler test fixtures still use legacy events directly (fine for this PR — scoped out). Consider deprecation roadmap for the no-op block and `assertNever` refactor when test fixtures sweep completes. Not a blocker; cleanliness for future refactoring.
+
+**Rollback anchor:** Tag `pre-wi23-log-compat` on `main` immediately before merge of revised PR. Users hitting `LEGACY_EVENT_TYPE_REJECTED` post-update can walkback.
 
 ---
 
-## Historical Archive (Pre-2026-04-22)
 
 **Summary of WI-11, WI-12, WI-15-lite, WI-17, WI-21 work (2026-04-19 — 2026-04-21):**
 
@@ -2381,3 +2374,14 @@ Applied to `totalIncome` and `totalExpense` independently. Per-category rows and
 ### 2026-04-25 — WI-23 PR #26 takeover (rebase + ready-for-review)
 
 Took over stalled PR #26 from @copilot. Rebased onto current main, resolved single conflict in reducers.ts (perf-rewrite PR #45 vs projection-rewrite PR #26), added two rebase-fallout fixes (import.ts CategoryCreated sortOrder, bulkUpdate test fixture). All gates green (547/0 pass/fail). Ready-for-review; chained follow-ups (PR #2 Switch C3, PR #3 Trinity "N movimientos") deferred per PR #26 description. Skill written: .squad/skills/copilot-pr-takeover/SKILL.md. See .squad/decisions.md §"2026-04-25: Neo PR #46..." for full details.
+
+## 2026-04-25 — PR #26 Review Context & Follow-ups (WI-23 Projection Unification)
+
+**Context:** Neo reviewed PR #26, issued CHANGES_REQUESTED. Blocker: `scripts/perf-seed.mjs:183` still emits legacy `account.created` envelope. Categories/tags already migrated to flat shape; perf-seed is half-converted. Post-merge, boot-guard would reject on app boot, breaking perf gate.
+
+**Reviewer Rejection Lockout enforced:** Original author (@copilot) and conflict-resolver (Morpheus via takeover) both excluded from fix. **Cypher assigned** to fix + add smoke check.
+
+**Implication for Morpheus:** When PR #26 merges (after Cypher's fix), the legacy `account.created`/`category.created`/`tag.created` no-op block in `reducers.ts` (retained in takeover per PR #45 conflict resolution) becomes runtime-unreachable. Track follow-up: handler test fixtures still use legacy events directly (fine for this PR — scoped out). Consider deprecation roadmap for the no-op block and `assertNever` refactor when test fixtures sweep completes. Not a blocker; cleanliness for future refactoring.
+
+**Rollback anchor:** Tag `pre-wi23-log-compat` on `main` immediately before merge. Users hitting `LEGACY_EVENT_TYPE_REJECTED` post-update can walkback.
+
