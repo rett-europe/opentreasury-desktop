@@ -696,26 +696,22 @@ export function buildDevSeedEvents(): DomainEvent[] {
   const events: DomainEvent[] = [];
   let envOrdinal = 0;
 
-  // 1. Accounts
+  // 1. Accounts — WI-23: emit unified flat `AccountCreated` events (same
+  //    shape user-created accounts use via the Cuentas screen). The id
+  //    matches `fakeUlid(acc.key)` so `transaction.accountId` continues to
+  //    resolve against the same ULIDs.
   for (const acc of ACCOUNTS) {
     events.push({
-      id: fakeUlid(`EVTACC${acc.key}`),
-      type: 'account.created',
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
+      type: 'AccountCreated',
+      id: fakeUlid(acc.key),
+      name: acc.label,
+      bankName: acc.bankName,
+      label: acc.label,
+      color: acc.color,
+      currency: 'EUR',
+      openingBalance: 0,
+      sortOrder: acc.sortOrder,
       createdAt: envelopeIso(envOrdinal++),
-      dekVersion: 0,
-      version: 1,
-      payload: {
-        id: fakeUlid(acc.key),
-        bankName: acc.bankName,
-        bankNameShort: acc.bankNameShort,
-        accountLabel: acc.label,
-        color: acc.color,
-        sortOrder: acc.sortOrder,
-        isActive: true,
-        createdAt: envelopeIso(envOrdinal),
-      },
     } as DomainEvent);
   }
 
@@ -724,7 +720,7 @@ export function buildDevSeedEvents(): DomainEvent[] {
   //    its parent by id. These are the events every post-PR#15 consumer
   //    (Panel / Movements / Saldo / Configuración) reads through
   //    `listCategories()` → `selectActiveCategories(configCategories)`.
-  for (const cat of CATEGORIES) {
+  CATEGORIES.forEach((cat, catIdx) => {
     const catId = fakeUlid(cat.key);
     const catIso = envelopeIso(envOrdinal++);
     events.push({
@@ -732,6 +728,7 @@ export function buildDevSeedEvents(): DomainEvent[] {
       id: catId,
       name: cat.name,
       kind: cat.type,
+      sortOrder: catIdx,
       createdAt: catIso,
     } as DomainEvent);
     cat.subs.forEach((subName, i) => {
@@ -743,18 +740,19 @@ export function buildDevSeedEvents(): DomainEvent[] {
         createdAt: envelopeIso(envOrdinal++),
       } as DomainEvent);
     });
-  }
+  });
 
   // 3. Tags (WI-15-lite flat envelope → configTags projection).
-  for (const tag of TAGS) {
+  TAGS.forEach((tag, tagIdx) => {
     events.push({
       type: 'TagCreated',
       id: fakeUlid(tag.key),
       name: tag.name,
       color: tag.color,
+      sortOrder: tagIdx,
       createdAt: envelopeIso(envOrdinal++),
     } as DomainEvent);
-  }
+  });
 
   // 4. Transactions — merge curated + backfill, then sort ascending by (date, id)
   //    so envelope createdAt is monotonic (good hygiene; reducers don't require it).

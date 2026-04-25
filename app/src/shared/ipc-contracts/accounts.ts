@@ -32,6 +32,8 @@ export const accountCreatedEventSchema = z.object({
   isPaypal: z.boolean().optional(),
   currency: z.literal('EUR'),
   openingBalance: z.number(),
+  // WI-23 — required on every new event; see core/events/schemas.ts.
+  sortOrder: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
 });
 
@@ -94,6 +96,8 @@ export const accountRecordSchema = z.object({
   isPaypal: z.boolean().optional(),
   currency: z.literal('EUR'),
   openingBalance: z.number(),
+  // WI-23 — required (list response projection always includes it).
+  sortOrder: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
   // WI-21 — present on archived accounts; undefined for active ones.
   archivedAt: z.string().datetime().optional(),

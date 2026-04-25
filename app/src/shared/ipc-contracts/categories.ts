@@ -44,6 +44,8 @@ export const categoryCreatedEventSchema = z.object({
   name: z.string().min(1),
   color: z.string().optional(),
   kind: categoryKindSchema.optional(),
+  // WI-23 — required; see core/events/schemas.ts.
+  sortOrder: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
 });
 
@@ -162,6 +164,8 @@ export const categoryRecordSchema = z.object({
   name: z.string().min(1),
   color: z.string().optional(),
   kind: categoryKindSchema.optional(),
+  // WI-23 — required on the wire record (projection always supplies it).
+  sortOrder: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
   archivedAt: z.string().datetime().optional(),
   // Inlined subcategory tree. Always populated by the projection (may be

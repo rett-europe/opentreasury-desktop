@@ -676,6 +676,15 @@ export function createCommitHandler(
           // first, then fall back to the rebuilt taxonomyIndex.
           const freshCategoryIds = new Map<string, string>();
 
+          // WI-23 — `sortOrder` is required on `CategoryCreated`. Match the
+          // `accounts:create` / `categories:create` handler convention:
+          // assign `max(existing.sortOrder)+1` per new event so multiple
+          // imports in one batch get monotonically increasing ordinals.
+          let nextCategorySortOrder =
+            deps
+              .getReadModel()
+              .configCategories.reduce((max, c) => (c.sortOrder > max ? c.sortOrder : max), -1) + 1;
+
           for (let i = 0; i < plan.orderedCategories.length; i++) {
             const { name } = plan.orderedCategories[i]!;
             const color = pickAutoCreatePaletteColor(i);
@@ -684,6 +693,7 @@ export function createCommitHandler(
               id: deps.newId(),
               name,
               color,
+              sortOrder: nextCategorySortOrder++,
               createdAt: now,
             };
             await deps.eventLog.append(event);

@@ -95,9 +95,7 @@ export function Table<T>({
   const totalVirtualSize = virtualise ? rowVirtualizer.getTotalSize() : 0;
   const firstItem = virtualItems && virtualItems.length > 0 ? virtualItems[0] : null;
   const lastItem =
-    virtualItems && virtualItems.length > 0
-      ? virtualItems[virtualItems.length - 1]
-      : null;
+    virtualItems && virtualItems.length > 0 ? virtualItems[virtualItems.length - 1] : null;
   const paddingTop = firstItem ? firstItem.start : 0;
   const paddingBottom = lastItem ? totalVirtualSize - lastItem.end : 0;
 

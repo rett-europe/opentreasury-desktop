@@ -13,8 +13,8 @@ export type DomainEventType =
   | 'tx.created'
   | 'tx.edited'
   | 'tx.deleted'
-  | 'account.created'
-  | 'category.created';
+  | 'AccountCreated'
+  | 'CategoryCreated';
 
 export interface DomainEventBase {
   readonly id: Ulid;

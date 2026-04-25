@@ -45,6 +45,7 @@ export function selectAccounts(model: ReadModel): AccountRecord[] {
     name: a.name,
     currency: a.currency,
     openingBalance: a.openingBalance,
+    sortOrder: a.sortOrder,
     createdAt: a.createdAt,
     ...(a.bankName !== undefined ? { bankName: a.bankName } : {}),
     ...(a.label !== undefined ? { label: a.label } : {}),
@@ -63,6 +64,7 @@ export function selectCategories(model: ReadModel): CategoryRecord[] {
   return model.configCategories.map((c) => ({
     id: c.id,
     name: c.name,
+    sortOrder: c.sortOrder,
     createdAt: c.createdAt,
     subcategories: c.subcategories.map(projectSubcategory),
     ...(c.color !== undefined ? { color: c.color } : {}),
@@ -87,6 +89,7 @@ export function selectTags(model: ReadModel): TagRecord[] {
   return model.configTags.map((t) => ({
     id: t.id,
     name: t.name,
+    sortOrder: t.sortOrder,
     createdAt: t.createdAt,
     ...(t.color !== undefined ? { color: t.color } : {}),
     ...(t.archivedAt !== undefined ? { archivedAt: t.archivedAt } : {}),

@@ -177,4 +177,17 @@ describe('accounts:list', () => {
     expect(resp.accounts[1]!.name).toBe('A2');
     expect(resp.accounts[1]!.bankName).toBe('Banco');
   });
+
+  // WI-23 — Neo D2: sortOrder is handler-assigned (max+1), never user-supplied.
+  it('auto-assigns sortOrder = max(existing.sortOrder)+1 starting at 0', async () => {
+    const { handle } = makeHandler();
+    const r1 = await handle({ name: 'A1' });
+    const r2 = await handle({ name: 'A2' });
+    const r3 = await handle({ name: 'A3' });
+    expect(r1.ok && r1.event.sortOrder).toBe(0);
+    expect(r2.ok && r2.event.sortOrder).toBe(1);
+    expect(r3.ok && r3.event.sortOrder).toBe(2);
+    const list = await createAccountsListHandler({ getReadModel })();
+    expect(list.accounts.map((a) => a.sortOrder)).toEqual([0, 1, 2]);
+  });
 });

@@ -1,5 +1,13 @@
-import type { Transaction, Account } from './types';
+import type { Transaction, ConfigAccount } from './types';
 import { getReadModel } from './reducers';
+
+// WI-23 — `Account` entity has been removed from the read model. The Panel
+// screen wire contract still uses the legacy shape (`accountLabel`,
+// `bankNameShort`, `isActive`) so we provide a projection adapter at the
+// IPC-handler layer (main/ipc/handlers/panel.ts). This file now returns
+// `ConfigAccount` directly; projection to the Panel wire shape happens
+// in the handler. Displays that need the label fall back to
+// `label ?? name` — see main/projections/config.ts for the canonical rule.
 
 // Query 1: Get recent transactions (sorted DESC by createdAt)
 export function queryRecentTransactions(limit = 10): Transaction[] {
@@ -18,6 +26,14 @@ export interface AccountBalance {
   readonly net: number;
 }
 
+function accountDisplayLabel(a: ConfigAccount): string {
+  // WI-23 — the legacy `Account.accountLabel` is equivalent to
+  // `ConfigAccount.label ?? ConfigAccount.name`. The Panel card renderer
+  // relies on this exact fallback; change it here only if the projection
+  // adapter in main/ipc/handlers/panel.ts is updated in lockstep.
+  return a.label ?? a.name;
+}
+
 export function getAccountBalances(): AccountBalance[] {
   const model = getReadModel();
 
@@ -34,11 +50,11 @@ export function getAccountBalances(): AccountBalance[] {
 
   // Include every known account, even with zero activity — Panel renders one
   // card per account regardless of transaction volume.
-  const result: AccountBalance[] = model.accounts.map((account: Account) => {
+  const result: AccountBalance[] = model.configAccounts.map((account: ConfigAccount) => {
     const { income, expense } = balanceMap.get(account.id) ?? { income: 0, expense: 0 };
     return {
       accountId: account.id,
-      accountLabel: account.accountLabel,
+      accountLabel: accountDisplayLabel(account),
       income: Math.round(income * 100) / 100,
       expense: Math.round(expense * 100) / 100,
       net: Math.round((income - expense) * 100) / 100,
@@ -141,12 +157,12 @@ export function getAccountSparklines(accountId: string): AccountSparkline {
 }
 
 // Query 5: Get all accounts (sorted by sortOrder, then label)
-export function getAccounts(): Account[] {
+export function getAccounts(): ConfigAccount[] {
   const model = getReadModel();
-  return [...model.accounts].sort((a, b) => {
+  return [...model.configAccounts].sort((a, b) => {
     if (a.sortOrder !== b.sortOrder) {
       return a.sortOrder - b.sortOrder;
     }
-    return a.accountLabel.localeCompare(b.accountLabel);
+    return accountDisplayLabel(a).localeCompare(accountDisplayLabel(b));
   });
 }

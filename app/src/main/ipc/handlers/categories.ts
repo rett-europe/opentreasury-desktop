@@ -100,10 +100,16 @@ export function createCategoriesCreateHandler(
 
       const color = parsed.data.color?.trim();
       const kind = parsed.data.kind;
+      // WI-23 — handler-assigned sortOrder. Categories globally ordered
+      // across income + expense (Trinity renders two filtered lists that
+      // each stay sorted by the global sortOrder).
+      const maxSortOrder = existing.reduce<number>((acc, c) => Math.max(acc, c.sortOrder), -1);
+      const sortOrder = maxSortOrder + 1;
       const event: ConfigCategoryCreatedEvent = {
         type: 'CategoryCreated',
         id: deps.newId(),
         name,
+        sortOrder,
         createdAt: deps.now().toISOString(),
         ...(color !== undefined && color.length > 0 ? { color } : {}),
         ...(kind !== undefined ? { kind } : {}),

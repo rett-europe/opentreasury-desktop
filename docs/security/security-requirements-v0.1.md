@@ -435,3 +435,31 @@ Numbered as in v0.1 for traceability. Entries retained with RESOLVED annotations
 ---
 
 *End of Security Requirements v0.2 — accepted 2026-04-19. Next: Morpheus/Trinity implement against `crypto-spec.md` §11 checklist.*
+
+---
+
+## Schema migration policy (added 2026-04-23, WI-23)
+
+> **Status:** Normative. Added as a precondition for WI-23 unification (issue #18). Enforced on every PR that changes persisted event shapes.
+> **Authority:** Switch (Security Engineer). Non-negotiable per C1 of the WI-23 plan review.
+
+The event log is the system of record. Its append-only contract is one of the few invariants this project does not negotiate away. Any PR that changes the shape of persisted events — renaming event types, making previously-optional fields required, collapsing two parallel projections into one — MUST include a forward-migration strategy for logs written before the change.
+
+**Acceptable forward-migration strategies (in order of preference):**
+
+1. **Back-compat read.** The loader silently maps the old event shape into the new one on read. Old NDJSON files continue to replay cleanly. Preferred for every migration after the Internal Alpha graduates to real-user data.
+2. **Explicit one-shot rewrite.** A migration pass rewrites the NDJSON file in-place, producing a new log that conforms to the new shape. Original log tagged with a version suffix for rollback. Acceptable for schema changes that can't be expressed as a back-compat read (e.g., merging two events into one, splitting one event into two).
+3. **Boot-guard refusal.** The loader refuses to process logs containing old-shape events, requiring the user to manually export-then-reimport via an old build.
+
+**Strategy 3 is acceptable ONLY before the first real-user install.** After the Internal Alpha graduates to real NGO data, any PR that lands a Strategy 3 migration — "refuse to boot on old events" — is a 🔴 High-severity data-loss defect and must be rejected on security review. The reason: "`git checkout` an old tag, run the old binary, CSV-export, then migrate" is not a valid user workflow for treasury data under a 7-year retention obligation. It WILL result in real data loss from real NGOs.
+
+**Precedent — WI-23 (2026-04-23).** The unification of `account.created` / `category.created` / `tag.created` into `AccountCreated` / `CategoryCreated` / `TagCreated` used Strategy 3 because this predated the first real-user install. The `pre-wi23-log-compat` git tag provides a fully-functional pre-migration binary for any dogfood user that needs to CSV-export before wiping their events log. **This precedent does NOT authorize Strategy 3 for any future migration.** The next PR that proposes a boot-guard refusal must demonstrate, on security review, that the installed base is still zero real-user installs — and if it is, must add its own precedent note to this section.
+
+**Review checklist for any event-schema-changing PR:**
+
+- [ ] Which forward-migration strategy (1 / 2 / 3) does this PR use?
+- [ ] If Strategy 3: is the installed base still zero real-user installs? Who verified?
+- [ ] If Strategy 2: is the rollback tag created and is the rewrite idempotent?
+- [ ] If Strategy 1: does the reducer (or a compatibility layer above it) have a test fixture of the old event shape that replays cleanly?
+- [ ] Does the PR update this section with its precedent entry?
+
