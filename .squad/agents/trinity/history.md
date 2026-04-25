@@ -47,6 +47,8 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 
 **Modal-shell override pattern (2026-04-25):** When a modal reuses TransactionDetailModal shell, scope sizing overrides (width, min-height) under a marker class. Do not fork the shell CSS. Pattern documented at `.squad/skills/modal-shell-overrides/SKILL.md`.
 
+**Scope Bar recipe placement (2026-04-28, PR #57):** When adding new shared UI patterns like `.ot-scope-bar` (the date-filter band), the recipe MUST go in `globals.css`, not in component CSS files (MovementsScreen.css). This follows the prototype-parity rule: component CSS imported after globals wins every cascade conflict and silently shadows token updates. The `.ot-scope-bar` class defines the full-width tinted container (`--color-brand-surface` bg, `--color-divider` bottom border) that anchors above `.ot-filter-bar`. When a scope bar precedes a filter bar, the filter bar gets `.ot-scope-bar + .ot-filter-bar` modifier to remove its top border and round only bottom corners.
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
 ---
