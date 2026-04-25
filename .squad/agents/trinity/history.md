@@ -1391,3 +1391,9 @@ Result: shell stays single-source-of-truth for header/footer/focus/padding token
 ### 2026-04-25 — Batch coordination: PR #46 merged, PR #26 rebased
 
 Coordinated batch (Neo perf-gate review, Cypher verification + merge, Morpheus PR #26 takeover). PR #46 squash-merged post-Neo-CHANGES-REQUESTED review. PR #26 rebased and ready; Trinity may be needed for chained "N movimientos" column work (PR #3, depends on PR #26 + Switch PR #2). See .squad/decisions.md §"2026-04-25: Neo PR #46..." and .squad/orchestration-log/2026-04-25T13-34-06Z-*.md for batch context.
+
+## Learnings — 2026-04-25 — Movements date-filter recon
+- DateRangePicker (presets + custom from/to + Pill) already exists at app/src/renderer/components/DateRangePicker/ but is NOT wired anywhere yet. The new Movements filter should consume it directly — no need to design a fresh component.
+- IPC contract movements:list already accepts dateFrom/dateTo (YYYY-MM-DD). Main handler in app/src/main/ipc/handlers/movements.ts already filters by string-compare. No backend work needed for date range — only renderer.
+- Current Movements filter is fully client-side (client filters MonthFilter 1..12 on m.date.slice(5,7)). Backend round-trip on filter change is a deliberate future option but not required.
+- DateRange shape (Date|Date) lives in renderer/types/movement.ts; conversion to YYYY-MM-DD wire format must happen at the IPC boundary (use Date.toISOString().slice(0,10), as DateRangePicker.toInputValue already does).

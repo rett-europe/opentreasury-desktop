@@ -268,3 +268,18 @@ Wrote `.squad/decisions/inbox/niobe-saldo-redesign-spec.md` for the Saldo redesi
 7. **Picker UX rule established** — when the user picks an invalid prior year (≥ current), silently clamp instead of erroring. NGO admins under time pressure shouldn't fight a form; the comparison is meaningless either way.
 
 Three open questions sent to Pedro (Otras drill, panel type column in single mode, contract cleanup scope). Spec is ~140 lines, 8 testable ACs, explicit out-of-scope list for Trinity.
+
+### 2026-04-25 — Movements date filter UX spec
+
+Replaced the "Todos los meses + 12 month names" dropdown with a 7-chip preset row + Personalizado popover. Spec at .squad/decisions/inbox/niobe-movements-date-filter-ux.md.
+
+## Learnings
+
+1. **"Mes pasado" beats "Últimos 30 días" for finance UIs.** Calendar-anchored ranges match how treasurers think (monthly closing = full calendar month, not a rolling 30-day window). Mixing both in the same filter creates ambiguity ("which one did I pick last time?"); pick one metaphor and commit.
+2. **"Últimos 3 meses" replaces "Trimestre actual/pasado".** Spanish NGOs don't universally close on Q1/Q2/Q3/Q4 — calendar quarters force a mental model that doesn't match grant cycles. Rolling 3-month covers the intent without the Q1-or-Q2 question.
+3. **Default-empty made sense for a 13-option dropdown; it does NOT make sense for 7 visible chips.** With a visible default chip, the cost of a wrong guess is one click; the cost of empty-on-load is a mandatory click on every screen entry. Pedro's original "starts empty" rule was a workaround for a bad dropdown — when the dropdown dies, the rule should die with it. Flagged this revisit explicitly so Pedro can ratify or override.
+4. **Native <input type="date"> over custom dual-calendar popover.** A11y for free, keyboard for free, OS-familiar, zero new component surface. NGO admins use the control 2-3 times a session; investing in a richer picker is bad ROI vs. shipping. Reuse the same call for any future date-range need (Saldo period override, import dry-run filter, etc.).
+5. **Chip ria-label should resolve the range, not just the label.** "Mes pasado, seleccionado, del 1 al 31 de marzo de 2026" — screen-reader users get the actual window, sighted users see the short label. Pattern reusable for any preset-chip group where the underlying value is computed (Saldo period chips already do label-only; consider upgrading on next pass).
+6. **Slider verdict logged as a NO.** Future date/range UI questions: before reaching for a slider, check (a) is the domain bounded and known? (b) is day-level precision required? If yes to (b), slider loses every time to chips + inputs. Document this so we don't relitigate.
+
+**Next:** Await Pedro on 2 open Qs (fiscal year alignment, localStorage persistence). Trinity can start scaffolding chips against the spec; the two open Qs don't block the chip row, only the year-preset semantics + persistence wiring.
