@@ -4,7 +4,8 @@ import { defineConfig } from '@playwright/test';
  * Playwright configuration for Electron end-to-end tests.
  *
  * Tests live in `tests/e2e/`. Each spec launches its own Electron instance
- * via `_electron.launch({ args: ['dist/main/index.js'] })`.
+ * via `_electron.launch({ args: ['.'] })` so Electron picks up our
+ * package.json (name → opentreasury-desktop) and resolves userData correctly.
  *
  * Prerequisites:
  *   npm run build          — produces dist/main/index.js + dist/renderer/
@@ -22,12 +23,15 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: './tests/e2e',
 
-  // Electron startup + IPC bootstrap can be slow on cold CI runners.
-  timeout: 120_000,
+  // Three Electron cold-launches at ~40 s each requires headroom well above
+  // 120 s.  240 s gives a full third launch plus margin for slow CI runners.
+  timeout: 240_000,
 
   // Electron tests spawn a full OS process per run; concurrency buys nothing
-  // and makes timing measurements noisier.
+  // and makes timing measurements noisier.  workers: 1 makes this explicit at
+  // the config level and protects against a second project being added later.
   fullyParallel: false,
+  workers: 1,
 
   // One retry on CI absorbs cold-start flakiness without hiding real regressions.
   retries: process.env['CI'] ? 1 : 0,

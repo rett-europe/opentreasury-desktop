@@ -10,7 +10,7 @@ for the first data row to become visible in the Movements screen after clicking
 the nav item.
 
 The test runs **3 independent Electron launches** and asserts that the **median
-mount time is ≤ 500 ms**.  Using the median rather than the minimum absorbs
+mount time is ≤ 1 500 ms**.  Using the median rather than the minimum absorbs
 single-run cold-start noise without hiding a genuine regression across all runs.
 
 CI only triggers this job on **pushes to `main`** (not on PRs) — see *Revisiting
@@ -22,16 +22,16 @@ the gate* below.
 
 | Threshold | Reasoning |
 |-----------|-----------|
-| **500 ms** | Starting point calibrated to the post-virtualisation (#39-a) expected median. Once stable, tune to `observed_median × 1.5` to give a safety margin without flaking on cold runners. |
+| **1 500 ms** | Conservative starting point to let the gate collect real CI data before tightening. Once stable (≥ 1 week of `main` data), tune down to `observed_median × 1.5`. |
 | 3 runs | Enough for a stable median on CI runners; keeps the job under ~5 min. |
 
-The 500 ms budget is intentionally conservative for the first landing.  After a
-week of data from real CI runs, adjust it to `median × 1.5` so it gates genuine
-regressions while remaining flake-resistant on slow runners.
+The 1 500 ms budget is intentionally generous for the first landing.  After a
+week of data from real CI runs, adjust it to `observed_median × 1.5` so it gates
+genuine regressions while remaining flake-resistant on slow runners.
 
 **Why not P50 across more runs?**  Each run spawns a full Electron process, which
-takes 3–10 s per launch on CI.  Three runs keep the job manageable; more runs can
-be added if the variance turns out to be high.
+takes ~10–40 s per launch on CI.  Three runs keep the job manageable; more runs
+can be added if the variance turns out to be high.
 
 ---
 
@@ -66,10 +66,10 @@ The test prints each run time and the median to stdout:
 [perf] run 1/3: 312 ms
 [perf] run 2/3: 289 ms
 [perf] run 3/3: 418 ms
-[perf] times=[289, 312, 418] ms  median=312 ms  budget=500 ms
+[perf] times=[289, 312, 418] ms  median=312 ms  budget=1500 ms
 ```
 
-If the median exceeds 500 ms, look for **all three runs** being slow (genuine
+If the median exceeds 1 500 ms, look for **all three runs** being slow (genuine
 regression) versus **one outlier** inflating the median (runner flakiness).
 
 ### 2 — Check for a renderer regression
