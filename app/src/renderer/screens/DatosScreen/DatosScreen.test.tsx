@@ -29,7 +29,9 @@ describe('DatosScreen', () => {
     );
 
     // Open the wizard.
-    const openCta = screen.getAllByRole('button').find((b) => /import|importar/i.test(b.textContent ?? ''));
+    const openCta = screen
+      .getAllByRole('button')
+      .find((b) => /import|importar/i.test(b.textContent ?? ''));
     expect(openCta).toBeDefined();
     fireEvent.click(openCta!);
 
@@ -47,7 +49,9 @@ describe('DatosScreen', () => {
       </I18nextProvider>,
     );
 
-    const openCta = screen.getAllByRole('button').find((b) => /import|importar/i.test(b.textContent ?? ''));
+    const openCta = screen
+      .getAllByRole('button')
+      .find((b) => /import|importar/i.test(b.textContent ?? ''));
     fireEvent.click(openCta!);
 
     expect(() => fireEvent.click(screen.getByTestId('mock-complete'))).not.toThrow();
