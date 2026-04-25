@@ -114,6 +114,10 @@ Wave 1 UX COMPLETE. Acceptance criteria sections in each spec give you testable 
 - `.squad/decisions/inbox/cypher-saldo-3bug-evidence.md` (comprehensive summary)
 - `tests/e2e/evidence-pr15.spec.ts` (E2E spec drafted but not executed)
 
+### 2026-04-25 — PR #46 verification + merge (post-Neo-review)
+
+Verified @copilot's fix commit 91d3fc3 addressed all 3 of Neo's CHANGES_REQUESTED items. Ran gate locally on Windows: 418ms median vs 1500ms budget (3.6× headroom). Approved + squash-merged via `gh pr merge --squash --delete-branch --auto`. Umbrella #39 closed. Reviewer Rejection Lockout honoured. See `.squad/decisions.md` §"2026-04-25: Neo PR #46..." for full details. Skill written: `.squad/skills/perf-gate-verification/SKILL.md`.
+
 **Test infrastructure gaps identified:**
 - E2E tests require `npm run build` first (dist/main/index.js must exist).
 - No `playwright.config.ts` existed; created minimal config.
@@ -124,3 +128,36 @@ Wave 1 UX COMPLETE. Acceptance criteria sections in each spec give you testable 
 - `npm run build` — builds main + renderer bundles (4.3s + 5.7s).
 - `npm test -- evidence-pr15` — runs unit tests matching pattern.
 - Grep for literals: `Get-Content <file> | Select-String -Pattern "<text>" -Context 2,2`
+
+
+### 2026-04-25 — PR #46 perf-budget gate verified (commit 91d3fc3, post-Neo-review)
+
+**Task:** Verify @copilot's revision commit fixes Neo's 3 CHANGES_REQUESTED items on the Playwright perf-budget gate. Reviewer Rejection Lockout in effect — independent verification required.
+
+**What I checked in the diff:**
+1. `args: ['.']` (was `['dist/main/index.js']`) at `tests/e2e/movements-perf.spec.ts:73` — correct, makes `app.getName()` resolve to `opentreasury-desktop`.
+2. `BUDGET_MS = 1500` at spec L12 — matches Neo's ask.
+3. `timeout: 240_000` at `playwright.config.ts:27` — plus explicit `workers: 1`.
+4. Selector audit:
+   - `nav[aria-label="Primary"]` matches `AppShell.tsx:182`.
+   - `table.ot-table tbody tr:not([aria-hidden="true"])` correctly excludes the virtualised padding spacers in `Table.tsx` (lines 229, 242 carry aria-hidden=true; data rows do not).
+
+**Local gate run (Windows, 5000-tx seed):**
+`npx playwright test tests/e2e/movements-perf.spec.ts --reporter=list`
+- run 1: 353 ms, run 2: 461 ms, run 3: 418 ms
+- **median = 418 ms** vs budget 1500 ms (3.6× headroom)
+- 1 passed in 35.8 s, no timeouts, seed wrote 5044 events to %APPDATA%\opentreasury-desktop\perf-events\events.ndjson
+
+**Outcome:** Approved + auto-merged via `gh pr merge 46 --squash --delete-branch --auto`. No corrections pushed — fix commit was complete. Umbrella #39 already closed.
+
+**Pattern (now lives at `.squad/skills/perf-gate-verification/SKILL.md`):**
+- The Electron-launch gotcha (`args: ['.']` vs `['dist/main/index.js']`) is a real foot-gun: tests fail as "selector not found" not "perf regression," misleading the reader. Always launch via package.json `main`.
+- For cold Electron launches, global Playwright `timeout` must cover RUNS × worst-case cold-start. `240_000` for 3 runs is the right ballpark.
+- Day-1 budget should be `observed_median × 2`. Tighten to `× 1.5` after one week of CI data.
+- Verification ≠ reading the diff — always run the gate locally and capture all three timings + median for future calibration.
+
+**Commands that worked:**
+- `git fetch origin <branch> && git checkout <branch> && git pull`
+- `npm run build` (~12 s) — required before E2E since main bundle must exist.
+- `npx playwright test tests/e2e/movements-perf.spec.ts --reporter=list`
+- `gh pr review 46 --approve --body-file <f>` then `gh pr merge 46 --squash --delete-branch --auto`
