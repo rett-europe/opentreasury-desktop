@@ -273,3 +273,33 @@ Reviewed Morpheus's rebase of @copilot's stalled WI-23 PR.
 3. **GitHub's `mergeable: CONFLICTING` flag goes stale fast.** `git merge-tree origin/main HEAD` was the source of truth — it showed a clean auto-merge in `.squad/agents/morpheus/history.md` only. Don't let the API flag block the verdict; verify locally.
 4. **Reviewer Rejection Lockout — Cypher routing rationale.** Author was originally @copilot, taken over by Morpheus → both locked. Trinity owns frontend/data-layer, less natural fit for a backend seed script. Cypher owns CI/test infrastructure and the perf-gate seam — best fit. Worth establishing as the default routing pattern: schema-migration PR fallout → tester/CI owner.
 5. **Reducer no-op branches are tolerable bridge debt.** Morpheus's decision to retain the three legacy `case` branches as a no-op (rather than deleting them and letting `assertNever` hard-fail) is correct given the test suite still seeds via `applyEvent()` with legacy types. Tracked as out-of-scope follow-up — sweep tests, then remove the no-op and re-enable exhaustiveness. Don't approve PRs that introduce *new* no-op fallthroughs without an exit plan.
+
+
+---
+
+## 2026-04-25 · PR #26 final verdict — APPROVED & MERGED
+
+**Context:** Earlier CHANGES_REQUESTED on PR #26 cited two blockers:
+1. `scripts/perf-seed.mjs:183` still emitted the legacy `account.created` envelope post-WI-23 (would throw `LEGACY_EVENT_TYPE_REJECTED` on first run).
+2. The perf gate was `main only` — wouldn't catch perf-seed schema regressions on PR branches.
+
+Cypher (Reviewer Rejection Lockout, routed agent) pushed `bc11c1f` (fix) and `1013e47` (docs/skill).
+
+**Verification performed:**
+- `gh pr view` — head `1013e471`, reviewDecision was `CHANGES_REQUESTED` (my prior review).
+- Pulled `scripts/perf-seed.mjs` at `bc11c1f` and grep'd for `'account.created'` / `'category.created'` / `'tag.created'` / `payload:` — **zero matches**. All four emitters flat: `AccountCreated` / `CategoryCreated` / `SubcategoryCreated` / `TagCreated`, all carrying `sortOrder`.
+- Pulled `app/src/core/eventLog/event-log-smoke.test.ts` at `bc11c1f` — 147 lines, real `JsonFileEventLog.load()` import (not a stub), runs `npm run perf:seed -- --count=100`, asserts >=143 events, asserts `sortOrder` on every Account/Category/Tag created event, and hand-crafts a legacy envelope to assert `load()` rejects it. Lives under default vitest discovery path → fires on every PR via `ci.yml`'s `npm run test` step.
+- CI run **24933631988** on merge sha `317f61d` — green (lint · typecheck · format · unit tests, 2m02s). The `e2e · perf gate (main only)` job correctly skipped on PR; smoke test backstops it.
+
+**Verdict: APPROVE.** Both blockers resolved at the right level, and the gate that would catch this class of regression on future PRs is in place.
+
+**Actions taken:**
+- `gh pr review 26 --approve` ✓
+- `gh pr merge 26 --squash --delete-branch` → squash sha `66987de` ✓
+- Issue #18 did **not** auto-close (PR body referenced #18 but lacked a `Closes` keyword). Closed manually with `gh issue close 18 --reason completed` and a comment naming the squash sha ✓
+- Wrote `.squad/decisions/inbox/neo-pr26-final.md`
+- Coordinator cleanup (best effort): `git worktree remove C:\rettx\opentreasury-desktop-18 && git branch -D squad/18-wi23-projections`
+
+**Lockout state:** Cypher's lockout is cleared by virtue of the ship. Free for future routing.
+
+**Lesson logged for future reviews:** when approving an issue-resolving PR, always check that the body uses a `Closes #N` / `Fixes #N` keyword before merge — saves a manual `gh issue close` step.
