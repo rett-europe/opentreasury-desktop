@@ -2,10 +2,10 @@
 // Issue #39 — Phase 1 perf harness.
 //
 // Writes an NDJSON event log containing:
-//   - 5  account.created   events
-//   - 8  CategoryCreated   events (flat WI-15-lite envelope)
+//   - 5  AccountCreated    events (WI-23 unified flat envelope)
+//   - 8  CategoryCreated   events (WI-23 unified flat envelope)
 //   - 24 SubcategoryCreated events
-//   - 6  TagCreated        events
+//   - 6  TagCreated        events (WI-23 unified flat envelope)
 //   - N  tx.created        events (configurable; default 2500)
 //
 // Output format mirrors `app/src/main/devSeed.ts` exactly so the file can be
@@ -179,23 +179,16 @@ let envOrdinal = 0;
 
 for (const acc of ACCOUNTS) {
   events.push({
-    id: fakeUlid(`EVTACC${acc.key}`),
-    type: 'account.created',
-    datasetId: DATASET_ID,
-    actorDeviceId: DEVICE_ID,
+    type: 'AccountCreated',
+    id: fakeUlid(acc.key),
+    name: acc.label,
+    bankName: acc.bankName,
+    label: acc.label,
+    color: 'oklch(0.72 0.11 265)',
+    currency: 'EUR',
+    openingBalance: 0,
+    sortOrder: ACCOUNTS.indexOf(acc),
     createdAt: envelopeIso(envOrdinal++),
-    dekVersion: 0,
-    version: 1,
-    payload: {
-      id: fakeUlid(acc.key),
-      bankName: acc.bankName,
-      bankNameShort: acc.bankNameShort,
-      accountLabel: acc.label,
-      color: 'oklch(0.72 0.11 265)',
-      sortOrder: ACCOUNTS.indexOf(acc),
-      isActive: true,
-      createdAt: envelopeIso(envOrdinal),
-    },
   });
 }
 
@@ -206,6 +199,7 @@ for (const cat of CATEGORIES) {
     id: catId,
     name: cat.name,
     kind: cat.type,
+    sortOrder: CATEGORIES.indexOf(cat),
     createdAt: envelopeIso(envOrdinal++),
   });
   cat.subs.forEach((subName, i) => {
@@ -225,6 +219,7 @@ for (const tag of TAGS) {
     id: fakeUlid(tag.key),
     name: tag.name,
     color: tag.color,
+    sortOrder: TAGS.indexOf(tag),
     createdAt: envelopeIso(envOrdinal++),
   });
 }
