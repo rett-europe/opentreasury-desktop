@@ -44,6 +44,13 @@ export interface Movement {
    */
   readonly tags: readonly string[];
   readonly status: MovementStatus;
+  /**
+   * WI-19 — optional bank reference / extra details. Surfaced in the
+   * description column tooltip and in the TransactionDetailModal. May be
+   * absent (legacy rows) or `null` when the import didn't map them.
+   */
+  readonly reference?: string | null;
+  readonly details?: string | null;
 }
 
 export interface DateRange {

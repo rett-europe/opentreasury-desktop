@@ -53,6 +53,8 @@ export function createMovementsListHandler(
       tagIds: [...tx.tagIds],
       status: tx.status,
       createdAt: tx.createdAt,
+      reference: tx.reference,
+      details: tx.details,
     }));
   };
 }

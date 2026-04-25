@@ -231,6 +231,10 @@
       "status": "Estado",
       "amount": "Importe"
     },
+    "tooltip": {
+      "reference": "Ref",
+      "details": "Detalles"
+    },
     "status": {
       "pending": "Pendiente",
       "approved": "Aprobado",

@@ -231,6 +231,10 @@
       "status": "Status",
       "amount": "Amount"
     },
+    "tooltip": {
+      "reference": "Ref",
+      "details": "Details"
+    },
     "status": {
       "pending": "Pending",
       "approved": "Approved",

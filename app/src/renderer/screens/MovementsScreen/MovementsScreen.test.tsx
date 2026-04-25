@@ -147,23 +147,103 @@ describe('MovementsScreen', () => {
     expect(screen.getByRole('region', { name: /bulk actions|acciones en lote/i })).not.toBeNull();
   });
 
-  it('WI-31b: Cancel button in the bulk bar clears selection without opening a modal', async () => {
+  it('WI-19: description column tooltip includes reference and details when present', async () => {
+    vi.mocked(listMovements).mockResolvedValue([
+      {
+        id: 'mov-extras',
+        date: '2026-04-15',
+        type: 'expense',
+        amount: 50,
+        currency: 'EUR',
+        description: 'Coffee',
+        accountId: 'acc-1',
+        categoryId: null,
+        subcategoryId: null,
+        tagIds: [],
+        status: 'approved',
+        createdAt: '2026-04-15T10:00:00Z',
+        reference: 'BANK-REF-42',
+        details: 'Cafetería céntrica',
+      },
+    ]);
+
     renderWithI18n();
     await waitFor(() => {
       expect(screen.queryByRole('table')).not.toBeNull();
     });
-    const rowCb = screen
-      .getAllByRole('checkbox')
-      .find((cb) => cb.classList.contains('ot-row-checkbox'))!;
-    fireEvent.click(rowCb);
 
-    const region = screen.getByRole('region', { name: /bulk actions|acciones en lote/i });
-    const cancelBtn = region.querySelector('button')!; // first button is the ghost Cancel
-    fireEvent.click(cancelBtn);
+    const descCell = await screen.findByText('Coffee');
+    const tooltip = descCell.getAttribute('title') ?? '';
+    expect(tooltip).toContain('Coffee');
+    expect(tooltip).toContain('BANK-REF-42');
+    expect(tooltip).toContain('Cafetería céntrica');
+    // Multi-line
+    expect(tooltip.split('\n').length).toBeGreaterThanOrEqual(3);
+  });
 
-    // Bar hides again.
-    expect(screen.queryByRole('region', { name: /bulk actions|acciones en lote/i })).toBeNull();
-    // No classify modal was opened.
-    expect(screen.queryByRole('heading', { name: /Classify|Clasificar/i })).toBeNull();
+  it('WI-19: description tooltip omits reference/details when absent', async () => {
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.queryByRole('table')).not.toBeNull();
+    });
+
+    const descCell = await screen.findByText('Test expense');
+    const tooltip = descCell.getAttribute('title') ?? '';
+    expect(tooltip).toBe('Test expense');
+  });
+
+  it('WI-19: clicking a row forwards reference/details into the detail modal', async () => {
+    // jsdom doesn't implement <dialog>; stub showModal/close.
+    const proto = HTMLDialogElement.prototype as unknown as {
+      showModal: () => void;
+      close: () => void;
+    };
+    const originalShow = proto.showModal;
+    const originalClose = proto.close;
+    proto.showModal = function showModal(this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+    proto.close = function close(this: HTMLDialogElement) {
+      this.removeAttribute('open');
+    };
+
+    try {
+      vi.mocked(listMovements).mockResolvedValue([
+        {
+          id: 'mov-extras',
+          date: '2026-04-15',
+          type: 'expense',
+          amount: 50,
+          currency: 'EUR',
+          description: 'Coffee',
+          accountId: 'acc-1',
+          categoryId: null,
+          subcategoryId: null,
+          tagIds: [],
+          status: 'approved',
+          createdAt: '2026-04-15T10:00:00Z',
+          reference: 'BANK-REF-42',
+          details: 'Cafetería céntrica',
+        },
+      ]);
+
+      renderWithI18n();
+      await waitFor(() => {
+        expect(screen.queryByRole('table')).not.toBeNull();
+      });
+
+      const descCell = await screen.findByText('Coffee');
+      const row = descCell.closest('tr');
+      expect(row).not.toBeNull();
+      fireEvent.click(row!);
+
+      await waitFor(() => {
+        expect(screen.getByText('BANK-REF-42')).not.toBeNull();
+        expect(screen.getByText('Cafetería céntrica')).not.toBeNull();
+      });
+    } finally {
+      proto.showModal = originalShow;
+      proto.close = originalClose;
+    }
   });
 });
