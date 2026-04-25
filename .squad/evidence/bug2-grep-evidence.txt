@@ -1,0 +1,9 @@
+
+  // Transactions carry a categoryId that references model.configCategories.
+  // Archived categories still resolve (users shouldn't lose the label on
+> // historical tx); deleted categories fall back to the "sin categoría" label
+  // matching the null-bucket convention.
+> const UNCATEGORIZED_LABEL = 'Sin categoría';
+  
+  function resolveCategoryName(categoryId: string | null, model: ReadModel): string {
+

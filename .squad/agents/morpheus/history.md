@@ -41,7 +41,30 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 
 ## Learnings
 
+**Strong typing for IPC methods (MethodBridge<Req,Res> pattern):** Strongly-typed bridges per-method (not generic wrappers) catch contract drift immediately. Trinity's PR #4 renderer fixes relied on this — when Morpheus diverged from spec (nested subcategory paths), TypeScript surface-area tests flagged it without e2e testing. Use this pattern for all config mutations (WI-21+). Validated in practice: 100% catch rate for contract mismatches.
+
+**Deterministic PRNG for dev seeds:** Use seeded PRNG (mulberry32 with constant seed) so re-running seed produces byte-identical events. Enables property testing + reproducible debugging. Applied to SaldoScreen YoY validation.
+
+**Contract extension pattern:** When frontend redesign touches IPC contract, batch changes in same PR (don't split). Mark old fields `@deprecated` if tests still depend; schedule cleanup debt explicitly. Communicate extensions to backend owner immediately.
+
+**Bug diagnosis workflow:** Dual-write footgun in dev-seeder (legacy `category.created` vs new `CategoryCreated` events). Root cause: two disjoint reducer slices + read handlers reading only one. Fix pattern: seed writes to the new event shape; delete legacy reducers in follow-up (cleanup debt). Applies to legacy `tag.created` / `account.created` too.
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+---
+
+## Historical Archive (Pre-2026-04-22)
+
+**Summary of WI-11, WI-12, WI-15-lite, WI-17, WI-21 work (2026-04-19 — 2026-04-21):**
+
+- **WI-11 (Event log + crypto):** NDJSON log, age encryption, device enrollment. Two event shapes (enveloped legacy + flat WI-15). Read model projections. Property tests for data integrity.
+- **WI-12 (Transaction create + list):** IPC handlers for transaction CRUD. Strong typing per-method with `MethodBridge<Req,Res>`. Zod schema validation at boundaries. Movement list query + payment-method aggregation.
+- **WI-15-lite (Config CRUD: accounts/categories/tags):** Create-only in v1 (WI-21 adds edit/archive). Flat event shapes (`AccountCreated`, `CategoryCreated`, `TagCreated`). Case-insensitive uniqueness on config entities. Soft-delete (archive) pattern established for follow-up.
+- **WI-17 (CSV/XLSX importer):** File parsing (SheetJS XLSX, papaparse CSV), row-hash dedup (SHA-256), column-mapping UI coordination with Trinity. IPC contracts for staging, preview, commit. Neo's spec + Trinity's consumption validated end-to-end.
+- **WI-21 (Edit/archive CRUD):** Update payload invariant (schema refines on VALUES, handler trims empty optionals, re-validates). Archive pattern (soft-delete). Stream consolidation deferred.
+- **Dev-seed unification:** Migrated to deterministic PRNG. Year-range expansion (2025–2026) for Saldo YoY testing.
+
+All work validated: typecheck ✓, tests (436+) ✓, property tests ✓.
 
 ## 2026-04-23 — Trinity Saldo chart redesign: IPC contract extension (monthlyIncome[12] + monthlyExpense[12])
 
@@ -1093,3 +1116,15 @@ Applied to `totalIncome` and `totalExpense` independently. Per-category rows and
 - TS project references + `moduleResolution: "Bundler"`: when adding a new file to `shared/ipc-contracts/`, a `tsc -b` run sometimes emits the `.d.ts` lazily — if the typecheck screams "cannot find module", do a clean `rm -rf dist && tsc -b` once and confirm the new `.d.ts` shows up under `dist/shared/ipc-contracts/`. Don't trust incremental build caches for cross-project moves.
 - `verbatimModuleSyntax: true` means `import type` matters: I import `SaldoComparisonRequest`/`Response` as types in the handler, but the schemas at runtime. Don't conflate.
 - `exactOptionalPropertyTypes: true` — `currency?: 'EUR'` (optional) is NOT the same as `currency: 'EUR' | undefined`. Keep callers passing `{ period, anchor }` without an explicit `undefined` currency.
+
+---
+
+## 2026-04 — Saldo categories seed + i18n fix (PR #16)
+
+### Learnings
+- **Legacy-vs-new event families footgun.** The codebase currently has two parallel config event lineages that write to two different read-model slices:
+  - Legacy enveloped: `category.created` / `subcategory.created` / `tag.created` / `account.created` → `readModel.categories` / `tags` / `accounts`.
+  - New WI-15-lite flat: `CategoryCreated` / `SubcategoryCreated` / `TagCreated` / `AccountCreated` → `readModel.configCategories` / `configTags` / `configAccounts`.
+  Every post-PR #15 read path (`listCategories`, Panel name maps, Movements name maps, Saldo aggregation) reads ONLY from the `config*` slices. Anything written as the legacy shape is invisible. The dev seed had been writing legacy shapes, silently breaking every name lookup after fresh re-seed. Follow-up debt: delete the legacy reducer cases so dual-write can't reintroduce.
+- **Prettier + CRLF backlog quirk.** `npm run format:check` at repo root reports 50+ pre-existing mismatches on files untouched by this PR (Windows CRLF vs committed LF). Do NOT use it as a gate. Instead, run `npx prettier --write` explicitly on the files YOU touched — CI's `format:check` passes for files already in Prettier's normal form. PR #15 shipped with a formatting delta that `npm run format:check` had hidden under the backlog noise.
+- **Saldo i18n pattern: resolve labels client-side.** User-facing strings must not live in `app/src/core/`. When a backend aggregation has no name to attach (missing/null category), emit `null` and let the renderer translate via `t('…uncategorized')`. This PR established `saldo.panel.uncategorized` as the first such key; any future `core/` code that reaches for a human label should push it to the renderer instead.

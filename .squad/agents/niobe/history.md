@@ -254,3 +254,17 @@ Kept the legacy `balance.*` stub untouched (still wired to `ComingSoonScreen`); 
 Three microcopy calls flagged for Pedro (`.squad/decisions/inbox/niobe-wi22-copy-locked.md`): lead-KPI label "Variación neta" vs "Balance neto"; 4th-KPI label "Mayor crecimiento" vs "Categoría con mayor subida"; dropped-category sublabel "Sin movimientos este periodo" vs "Categoría dada de baja". Shipping my calls; Pedro can flip with a one-liner.
 
 Gates: typecheck ✅ · lint ✅ · format:check on my 2 JSONs ✅ (45 pre-existing warnings in unrelated files left alone per charter) · 425 tests pass.
+
+### 2026-04-23 — Saldo redesign spec drafted (post-PR #16)
+
+Wrote `.squad/decisions/inbox/niobe-saldo-redesign-spec.md` for the Saldo redesign directive. Key learnings:
+
+1. **Saldo data shape recap** — `SaldoComparisonResponse` already carries per-category nets for both current and prior periods (`netByCategory`), so the new per-category LY-vs-CY chart needs **zero** new IPC fields. The monthly series + projection fields become dead weight in the renderer and should be cleaned up in a follow-up contract PR (flagged as Q3 to Pedro).
+2. **Drop projection completely from the renderer** — that means the `proj. vs {{year}}` sublabel, the projected-current bar fill in panels, the `Projected` badge, and any projected-vs-raw branching in KPIs. Backend `currentProjectedTotal` / `isPartial` / `daysElapsed` stay until the contract cleanup PR.
+3. **UX pattern: 2 modes, segmented control, no third "monthly" mode** — kept the surface tight. The Año/Trim/Mes period selector is **removed** (not relocated) because the new axis is category × year, and sub-year granularity confused the picture. If Pedro wants monthly trend back later it's an additive WI.
+4. **One chart > two charts for income+expense** — color encodes type, position encodes sort, divider separates the two halves. NGO admins scan "did this category grow YoY", which is a category-local question; one chart answers it in one sweep.
+5. **Top-N cap = 8 categories + `Otras`** — chosen to keep x-axis labels legible at 1280–1920px without rotation. This is a UX decision feeding into Mouse's sizing work.
+6. **Persistence under `saldo.view.v2`** — bumped the localStorage key to invalidate any prior period-mode state cleanly.
+7. **Picker UX rule established** — when the user picks an invalid prior year (≥ current), silently clamp instead of erroring. NGO admins under time pressure shouldn't fight a form; the comparison is meaningless either way.
+
+Three open questions sent to Pedro (Otras drill, panel type column in single mode, contract cleanup scope). Spec is ~140 lines, 8 testable ACs, explicit out-of-scope list for Trinity.

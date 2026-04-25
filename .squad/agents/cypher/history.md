@@ -84,3 +84,43 @@ Wave 1 UX COMPLETE. Acceptance criteria sections in each spec give you testable 
 **Gotcha (lint):** `import fc from 'fast-check'` triggers `import/no-named-as-default-member` at max-warnings 0. Use `import * as fc from 'fast-check'`.
 
 **fast-check added as devDependency ^4.7.0.** No other scaffolding touched.
+
+### 2026-04-22 — Bug evidence capture (PR #15 follow-up, 3 bugs)
+
+**Task:** Investigate 3 reported bugs WITHOUT fixing them. Gather evidence (screenshots, code citations, data dumps).
+
+**Reported bugs:**
+1. Panel + Movements screens: category/subcategory columns show raw ULID strings instead of human names.
+2. Saldo chart: "Sin categoría" text appears in EN locale (should be i18n'd).
+3. Saldo chart: bar heights not proportional to income/expense numbers.
+
+**Approach taken:**
+- Playwright for Electron IS set up (`@playwright/test` in devDeps, `tests/e2e/smoke.spec.ts` exists).
+- However, unit-level evidence was faster and sufficient for bugs #1 and #2.
+- Created `app/src/core/query/evidence-pr15.test.ts` to query seeded data and dump category resolution + saldo chart data.
+- **Limitation discovered:** Unit tests run against empty read model (bootstrap seeds only happen in main process at runtime).
+- Pivoted to **code evidence** (grep + line citations) instead of runtime data dumps.
+
+**Outcomes:**
+- **Bug #2 CONFIRMED (100%):** `app/src/core/query/saldo.ts:38` hardcodes `const UNCATEGORIZED_LABEL = 'Sin categoría';` (not i18n'd). Grep evidence saved to `.squad/evidence/bug2-grep-evidence.txt`.
+- **Bug #1 CODE CONFIRMED:** Fallback logic in Panel/Movements screens (`categoryNameById.get(row.categoryId) ?? row.categoryId`) will display raw IDs if lookup fails. Cannot confirm runtime behavior without E2E or manual test with seeded data.
+- **Bug #3 CANNOT CONFIRM:** Chart scaling math looks correct (`scaleBar` function computes proportional heights). May be a data issue (NET vs separate income/expense bars) or visual perception. Needs E2E screenshots + bar height dumps.
+
+**Evidence deliverables:**
+- `.squad/evidence/bug1-category-resolution.txt` (unit test, empty model)
+- `.squad/evidence/bug2-hardcoded-spanish.txt` (unit test, empty model)
+- `.squad/evidence/bug2-grep-evidence.txt` (grep context for hardcoded string)
+- `.squad/evidence/bug3-chart-data.txt` (unit test, empty model)
+- `.squad/decisions/inbox/cypher-saldo-3bug-evidence.md` (comprehensive summary)
+- `tests/e2e/evidence-pr15.spec.ts` (E2E spec drafted but not executed)
+
+**Test infrastructure gaps identified:**
+- E2E tests require `npm run build` first (dist/main/index.js must exist).
+- No `playwright.config.ts` existed; created minimal config.
+- Unit tests cannot access seeded data (bootstrap happens in main process, not test environment).
+- For future bug repros: E2E with Playwright-for-Electron is the right tool, but requires built app + longer setup time.
+
+**Commands that worked:**
+- `npm run build` — builds main + renderer bundles (4.3s + 5.7s).
+- `npm test -- evidence-pr15` — runs unit tests matching pattern.
+- Grep for literals: `Get-Content <file> | Select-String -Pattern "<text>" -Context 2,2`

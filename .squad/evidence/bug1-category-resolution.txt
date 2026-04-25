@@ -1,0 +1,9 @@
+=== BUG #1 EVIDENCE: Category Name Resolution ===
+Total categories in model: 0
+Total transactions in model: 0
+
+Sample transactions with categoryId:
+
+CONCLUSION:
+If categories show "<NOT FOUND: CATD0N...>" or raw IDs, the lookup is failing.
+Expected: category names like "Donations", "Personnel", etc. should be found.

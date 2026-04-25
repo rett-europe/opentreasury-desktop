@@ -220,3 +220,28 @@ Event-sourcing edit pattern: **Full payload snapshot (`tx.updated`)** — not fi
 - **server-derived-fields vs "per-category rows are never projected" is a latent conflict.** The prototype's per-category "↑ 39 % proy. vs 2025" delta is a projection applied at category granularity, which we explicitly excluded from server computation in thin-spec §5. The renderer can derive it from exposed daysInPeriod/daysElapsed, which is numerically identical but policy-soft. Next time I write a projection-bearing contract I'll state up front whether derived-on-client is permitted for sub-totals, instead of leaving it implicit.
 - **Additive amendments beat restructuring when a PR is still in flight.** PR #11 hadn't merged, so we could add priorMonthlySeries without a breaking change; a new optional (or required-but-ignored-by-old-renderers) field rode cleanly through. Value: preserves Trinity's in-flight work, keeps property-test invariants intact (just extended with a symmetric one), and costs Morpheus one extra uildMonthlySeries call plus two tests.
 - **Always extend property-test invariants alongside the schema.** Adding priorMonthlySeries without adding Σ buckets ≡ priorPeriod totals would leave a silent gap. Invariants are cheap to add and catch aggregation drift immediately — shipping a schema field without its matching invariant is technical debt.
+
+---
+
+## Learnings — 2026-04-22 — post-PR#15 triage (Panel/Movements raw IDs + Saldo "Sin categoría" + chart heights)
+
+**Files inspected:**
+- `app/src/renderer/screens/PanelScreen/PanelScreen.tsx` (full)
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.tsx` (mapMovementRecord + loadAll)
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.tsx` (MonthlyNetChart, CategoryPanels, buildPanelRows)
+- `app/src/renderer/components/GroupedBarChart/GroupedBarChart.tsx` (full — scale + tooltip)
+- `app/src/main/devSeed.ts` (category/tag/tx event emission, lines 720-815)
+- `app/src/main/ipc/handlers/categories.ts` (list + CRUD)
+- `app/src/main/projections/config.ts` (selectActiveCategories)
+- `app/src/core/query/reducers.ts` (both event families)
+- `app/src/core/query/saldo.ts` (UNCATEGORIZED_LABEL, resolveCategoryName, buildMonthlySeries)
+- `app/src/core/events/schemas.ts` (event type literals)
+- `app/src/shared/ipc-contracts/saldo.ts` (monthly bucket schema)
+
+**Key things learned:**
+1. **Dual event families, one project.** There are TWO parallel event families for config entities: legacy `category.created`/`tag.created`/`account.created` (populate `readModel.categories`/`.tags`/`.accounts`) and new `CategoryCreated`/`TagCreated`/`AccountCreated` (populate `readModel.configCategories`/`.configTags`/`.configAccounts`). The IPC `*:list` handlers read **only** from the `config*` slices. devSeed.ts still emits the legacy shapes → all dev sessions get empty `listCategories()`/`listTags()`. This is the single point cause behind both Bug 1 and Bug 2's presentation. Anyone wiring new features off `listCategories()` will hit this until the seed is rewritten.
+2. **The Saldo "chart" is NOT Income-vs-Expense.** `MonthlyNetChart` (SaldoScreen.tsx:396) renders currentYear-NET vs priorYear-NET as a 2-bar YoY group — not an I/E breakdown. `curNet = netIncome - netExpense` (single signed number). The legend is `[currentYear, priorYear]` string years. Can easily be misread as I/E. The chart math is correct (shared y-axis, supports negatives). If users expect I/E, that's a UX/product decision, not a math bug.
+3. **Server-emitted display strings.** `app/src/core/query/saldo.ts:38` hardcodes `'Sin categoría'` and emits it on every null or unresolved category. This violates the backend-has-no-UI-strings boundary and leaks Spanish into EN. Any i18n bug in Saldo category rows traces to this single constant. Future: worth a lint rule forbidding user-facing strings in `app/src/core/**`.
+4. **GroupedBarChart internals** (reusable context): SVG 600x300 viewBox, shared y domain `[min(0,v), max(0,v)]`, zero-line rendered, tabIndex per group for keyboard nav, tooltip built from `s.label` + `legend[0]`/`legend[1]` + formatted values. Not Recharts/visx — hand-rolled SVG. Height of each `rect` comes from `scaleBar(v)` which maps value → y/height about the zero line.
+5. **Name-lookup pattern across screens.** PR #15's pattern — build `categoryNameById`/`subcategoryNameById` Map from `listCategories()` and fallback to raw ID — appears in PanelScreen.tsx:173-180 and MovementsScreen.tsx:203-213 (via `mapMovementRecord`). Consistent pattern; both use the same fallback-to-ID rule. Future reviewers: check any new list screen uses the same shape.
+

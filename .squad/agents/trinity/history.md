@@ -45,7 +45,25 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 
 **WI-20 Visual Bug Debugging:** When Pedro reports the same visual bug 3+ times across multiple rounds, STOP patching CSS. Read the screenshot. Consider that tests passing does not equal visually correct. If a modal/component has multiple modes (view/edit), they should render through the SAME structural scaffold — only cell contents should differ. If you find yourself writing mode-specific CSS classes or swapping between different component trees, you've already diverged. Add visual regression tests or snapshots that compare scaffold structure between modes, not just DOM presence checks.
 
+**Modal-shell override pattern (2026-04-25):** When a modal reuses TransactionDetailModal shell, scope sizing overrides (width, min-height) under a marker class. Do not fork the shell CSS. Pattern documented at `.squad/skills/modal-shell-overrides/SKILL.md`.
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+---
+
+## Historical Archive (Pre-2026-04-22)
+
+**Summary of WI-17, WI-18, WI-19, WI-20, WI-21 work (2026-04-19 — 2026-04-21):**
+
+- **WI-17 (CSV/XLSX import):** 6-step wizard (select account → upload → sheet → map → dry-run → progress). Native `<dialog>`, discriminated-union wizard state, multi-step i18n, Zod validation. 175 tests green. Merged to main commit a97d21e.
+- **WI-18 (Header-row detection, trailing-junk handling):** Auto-detect algorithm (scoring heuristic + user override stepper in wizard). "2-of-3 rule" for data validation (date + amount + description parseable). Morpheus implementation; Trinity consumed via IPC contract.
+- **WI-19 (Transaction extras: detail modal):** Add notes, reference, details fields to transaction detail modal. Expanded TransactionDetailModal shell to house new fields. All i18n keys added.
+- **WI-20 (Edit + delete transactions):** In-place swap pattern (click → edit mode in same dialog). Symmetric view/edit modal scaffolding. Discovered: don't patch CSS repeatedly — fix the scaffold structure. Visual regression debugging led to rule: same structural scaffold for view/edit, only cell contents differ.
+- **WI-21 (Config CRUD: accounts/categories/tags archive):** Full CRUD for config entities (create already done in WI-15-lite). Archive (soft-delete) pattern: events emit (payload soft-marked), projections filter isArchived = false. Delete copy drafted by Niobe. Strong typing per-method with `MethodBridge<Req,Res>` IPC pattern proven durable.
+- **Panel polish (WI-20 side work):** Verified all 7 UI items already correct (colors, grids, arrows, links) per Mouse's findings. No CSS changes needed.
+- **Polish pre-WI-22:** Table horizontal-scroll fallback (min-width = sum of column widths). Currency-formatter helper extracted. Locale sourcing fixed (i18n.language, not navigator.language).
+
+All work validated: typecheck ✓, lint ✓, tests ✓, build ✓.
 
 ## 2026-04-20 — WI-17 Import Wizard + Panel Polish
 
@@ -1355,3 +1373,17 @@ Mouse's spec (`.squad/decisions/inbox/mouse-saldo-redesign-spec.md`) drove a ful
 - **Chart vs panels separation**: the Saldo redesign now has two levels of aggregation with DIFFERENT scopes. The chart is chart-only-current-year — always 12 bars × 2 series (income + expense) regardless of compare/single mode. The per-category panels below keep their mode-awareness (LY-vs-CY deltas in compare, % of total in single). This split respects Pedro's "YoY lives in the panels" rule and avoids redundant info. The top-level `SaldoLoadedView` just passes `view` (mode + years) down — the chart ignores `mode` entirely, the panels key off it.
 - **Backend per-year slice**: `monthlyIncome` / `monthlyExpense` are derived from `buildMonthlySeries` over a synthesised full-calendar-year range `${anchorYear}-01-01 → 12-31`, independent of `period`. This keeps the chart stable when the user eventually cycles periods; we don't need to re-derive it renderer-side from partial monthly buckets.
 - **GroupedBarChart contract reuse**: the primitive already supports per-bar `barClassNames` and per-legend-item `className` swatches. No primitive changes were needed — just new legend entries + per-group bar classes (`--income-solo` / `--expense-solo`) + 12 groups. Also kept Mouse's sizing fix (`.__plot { height: 280px }`, no `max-width` on `.ot-saldo-chart`).
+
+
+## Learnings — 2026-04-23 — Narrowing a shared modal shell from a child component
+
+When a small modal (e.g. `BulkClassifyModal`) reuses the same dialog shell as a larger one (`TransactionDetailModal`: width 760px, edit-body min-height 520px), do **not** fork the shell. Instead:
+
+1. The child renders the shell classes plus a sibling marker class (`ot-bulk-classify-modal`) on the `<dialog>` element.
+2. The child's CSS is imported **after** the shell CSS in the child .tsx — so equal-specificity rules win the cascade. (Confirmed pattern in this repo.)
+3. In the child CSS, scope overrides under the marker class:
+   - `.ot-bulk-classify-modal { width: 480px; }` (keep `max-width: 92vw` from the shell)
+   - `.ot-bulk-classify-modal .ot-transaction-detail-modal__edit-body { min-height: 0; }` to drop the reserved tall body and let the dialog auto-size.
+4. Self-scrolling internal panels (failures list `max-height: 200px; overflow-y: auto`) keep growth bounded when content appears.
+
+Result: shell stays single-source-of-truth for header/footer/focus/padding tokens; only sizing is per-modal. Surgical CSS-only diff, no .tsx churn.
