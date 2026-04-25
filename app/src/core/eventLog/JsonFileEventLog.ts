@@ -164,6 +164,21 @@ export class JsonFileEventLog implements EventLog {
         throw makeLegacyRejectError(parsedType, i + 1, this.filePath);
       }
 
+      // WI-23 legacy backfill: inject sortOrder for pre-WI-23 events that lack it.
+      // Must run BEFORE schema validation (Zod has no awareness of optional-with-
+      // default-via-side-effect). Uses a global counter starting at 0 so all
+      // config-created events across types receive sequential sortOrder values.
+      if (
+        (parsedType === 'AccountCreated' ||
+          parsedType === 'CategoryCreated' ||
+          parsedType === 'TagCreated') &&
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        !('sortOrder' in parsed)
+      ) {
+        (parsed as { sortOrder?: number }).sortOrder = events.length;
+      }
+
       // WI-23 boot-guard: validate unified config-Created events against
       // the Zod schema so a log with `sortOrder` missing fails loudly at
       // hydrate time instead of populating a broken read model.

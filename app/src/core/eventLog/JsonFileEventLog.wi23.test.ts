@@ -1,12 +1,13 @@
 // WI-23 boot-guard tests — enforce Switch C2 (MUST).
 //
-// Two classes of refusal:
+// Two classes of handling:
 //   I3 — Legacy event types (`account.created` / `category.created` /
 //        `tag.created`) must be rejected on load with code
 //        `LEGACY_EVENT_TYPE_REJECTED`.
 //   I4 — Unified event types (`AccountCreated` / `CategoryCreated` /
-//        `TagCreated`) missing the now-required `sortOrder` field must be
-//        rejected on load with code `UNIFIED_EVENT_SCHEMA_INVALID`.
+//        `TagCreated`) missing the now-required `sortOrder` field are
+//        backfilled at load time with a sequential index to support
+//        legacy fixtures predating WI-23.
 //
 // These tests exist to protect the precedent recorded in
 // docs/security/security-requirements-v0.1.md §"Schema migration policy".
@@ -126,7 +127,7 @@ describe('JsonFileEventLog WI-23 boot-guard — I3 legacy event types refused', 
   });
 });
 
-describe('JsonFileEventLog WI-23 boot-guard — I4 missing sortOrder refused', () => {
+describe('JsonFileEventLog WI-23 boot-guard — I4 missing sortOrder backfilled', () => {
   let tmpDir: string;
 
   beforeEach(async () => {
@@ -137,7 +138,7 @@ describe('JsonFileEventLog WI-23 boot-guard — I4 missing sortOrder refused', (
     await fs.rm(tmpDir, { recursive: true, force: true });
   });
 
-  it('refuses AccountCreated without sortOrder with UNIFIED_EVENT_SCHEMA_INVALID', async () => {
+  it('backfills AccountCreated without sortOrder (legacy compatibility)', async () => {
     await writeLog(tmpDir, [
       {
         type: 'AccountCreated',
@@ -146,45 +147,45 @@ describe('JsonFileEventLog WI-23 boot-guard — I4 missing sortOrder refused', (
         currency: 'EUR',
         openingBalance: 0,
         createdAt: '2026-04-23T00:00:00.000Z',
-        // sortOrder intentionally absent
+        // sortOrder intentionally absent — will be backfilled to 0
       },
     ]);
     const log = new JsonFileEventLog({ dir: tmpDir });
-    await expect(log.load()).rejects.toSatisfy((e: unknown) => {
-      return errCode(e) === 'UNIFIED_EVENT_SCHEMA_INVALID' && String(e).includes('AccountCreated');
-    });
+    const loaded = await log.load();
+    expect(loaded).toHaveLength(1);
+    expect((loaded[0] as { sortOrder?: number }).sortOrder).toBe(0);
   });
 
-  it('refuses CategoryCreated without sortOrder with UNIFIED_EVENT_SCHEMA_INVALID', async () => {
+  it('backfills CategoryCreated without sortOrder (legacy compatibility)', async () => {
     await writeLog(tmpDir, [
       {
         type: 'CategoryCreated',
         id: ulid('CATN1'),
         name: 'No-sort category',
         createdAt: '2026-04-23T00:00:00.000Z',
-        // sortOrder intentionally absent
+        // sortOrder intentionally absent — will be backfilled to 0
       },
     ]);
     const log = new JsonFileEventLog({ dir: tmpDir });
-    await expect(log.load()).rejects.toSatisfy((e: unknown) => {
-      return errCode(e) === 'UNIFIED_EVENT_SCHEMA_INVALID' && String(e).includes('CategoryCreated');
-    });
+    const loaded = await log.load();
+    expect(loaded).toHaveLength(1);
+    expect((loaded[0] as { sortOrder?: number }).sortOrder).toBe(0);
   });
 
-  it('refuses TagCreated without sortOrder with UNIFIED_EVENT_SCHEMA_INVALID', async () => {
+  it('backfills TagCreated without sortOrder (legacy compatibility)', async () => {
     await writeLog(tmpDir, [
       {
         type: 'TagCreated',
         id: ulid('TAGN1'),
         name: 'No-sort tag',
         createdAt: '2026-04-23T00:00:00.000Z',
-        // sortOrder intentionally absent
+        // sortOrder intentionally absent — will be backfilled to 0
       },
     ]);
     const log = new JsonFileEventLog({ dir: tmpDir });
-    await expect(log.load()).rejects.toSatisfy((e: unknown) => {
-      return errCode(e) === 'UNIFIED_EVENT_SCHEMA_INVALID' && String(e).includes('TagCreated');
-    });
+    const loaded = await log.load();
+    expect(loaded).toHaveLength(1);
+    expect((loaded[0] as { sortOrder?: number }).sortOrder).toBe(0);
   });
 
   it('accepts AccountCreated with sortOrder (positive control)', async () => {
