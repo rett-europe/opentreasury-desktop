@@ -165,6 +165,20 @@ Frontend uses native `<input type="date">` pair in DateRangePicker v0.1. No cryp
 - **WI-5:** Crypto wiring (Morpheus + Switch) — DEK from keychain, event decrypt
   - Follow crypto-spec §11 implementation checklist
   - Coordinate IPC error surfaces with error-copy-catalog.md strings
+
+## 2026-04-25 — PR #26 Security Review (WI-23 Projection Unification)
+
+**Verdict:** APPROVED ✅ — No security blockers.
+
+**Findings:**
+- **Dual-layer validation (Defense-in-Depth):** IPC layer + boot-layer `JsonFileEventLog.load()` Zod validation. Both reject legacy events unilaterally.
+- **Schema Migration Policy v0.1:** Documented, provides precedent-lock for future event shape changes. Fallback: boot-guard throws `LEGACY_EVENT_TYPE_REJECTED` → operator can rollback.
+- **No new IPC surface, no data leakage vectors.**
+
+**Non-blocking:** Handler tests still seed legacy events (acceptable — boot-guard only validates disk NDJSON, not in-memory test objects). Track follow-up sweep.
+
+**Summary:** Architecture + threat model sound. Schema migration policy locked. Ready for merge (pending Cypher's perf-seed fix per Neo).
+
 - **WI-6:** Wire real core/query into IPC handlers (replace mocks)
 
 **How it unblocks you:**
