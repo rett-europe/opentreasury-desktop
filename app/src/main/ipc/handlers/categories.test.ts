@@ -153,10 +153,13 @@ describe('categories:usage', () => {
     return `01HZ${suffix.padEnd(22, '0')}`;
   }
 
-  function txEvent(id: string, payload: {
-    categoryId: string | null;
-    subcategoryId: string | null;
-  }): DomainEvent {
+  function txEvent(
+    id: string,
+    payload: {
+      categoryId: string | null;
+      subcategoryId: string | null;
+    },
+  ): DomainEvent {
     return {
       type: 'tx.created',
       id: ulid(id),

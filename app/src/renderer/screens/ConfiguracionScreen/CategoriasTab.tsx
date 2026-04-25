@@ -383,9 +383,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                     // issue #52 — real counters from the read model. `subs`
                     // is the count of *active* subcategories on this category;
                     // `moves` is the total transactions referencing it.
-                    const activeSubs = (c.subcategories ?? []).filter(
-                      (s) => !isArchived(s),
-                    ).length;
+                    const activeSubs = (c.subcategories ?? []).filter((s) => !isArchived(s)).length;
                     const rowUsage = usage.get(c.id) ?? ZERO_USAGE;
                     return (
                       <li
