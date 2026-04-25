@@ -49,11 +49,7 @@ const EVENTS_FILENAME = 'events.ndjson';
 // drifting between producers and consumers.
 export const LEGACY_EVENT_TYPE_REJECTED = 'LEGACY_EVENT_TYPE_REJECTED';
 
-const LEGACY_EVENT_TYPES = new Set<string>([
-  'account.created',
-  'category.created',
-  'tag.created',
-]);
+const LEGACY_EVENT_TYPES = new Set<string>(['account.created', 'category.created', 'tag.created']);
 
 export interface JsonFileEventLogOptions {
   /** Absolute directory path; the log file is `${dir}/events.ndjson`. */

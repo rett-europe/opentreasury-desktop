@@ -124,12 +124,42 @@ const ACCOUNTS = [
 ];
 
 const CATEGORIES = [
-  { key: 'CATACT', name: 'Actividades', type: 'expense', subs: ['Talleres', 'Terapias', 'Formación'] },
-  { key: 'CATADM', name: 'Administrativo', type: 'expense', subs: ['Material oficina', 'Servicios profesionales', 'Seguros', 'Comisiones'] },
-  { key: 'CATCUO', name: 'Cuotas', type: 'income', subs: ['Cuota Socio Anual', 'Cuota Socio Mensual', 'Cuota Familia'] },
-  { key: 'CATDON', name: 'Donaciones', type: 'income', subs: ['Individuales', 'Empresas', 'Anónimas'] },
-  { key: 'CATEVT', name: 'Eventos', type: 'income', subs: ['Galas benéficas', 'Mercadillos', 'Carreras solidarias', 'Charlas'] },
-  { key: 'CATGAS', name: 'Gastos', type: 'expense', subs: ['Alquiler', 'Suministros', 'Transporte', 'Comunicación', 'Comisiones'] },
+  {
+    key: 'CATACT',
+    name: 'Actividades',
+    type: 'expense',
+    subs: ['Talleres', 'Terapias', 'Formación'],
+  },
+  {
+    key: 'CATADM',
+    name: 'Administrativo',
+    type: 'expense',
+    subs: ['Material oficina', 'Servicios profesionales', 'Seguros', 'Comisiones'],
+  },
+  {
+    key: 'CATCUO',
+    name: 'Cuotas',
+    type: 'income',
+    subs: ['Cuota Socio Anual', 'Cuota Socio Mensual', 'Cuota Familia'],
+  },
+  {
+    key: 'CATDON',
+    name: 'Donaciones',
+    type: 'income',
+    subs: ['Individuales', 'Empresas', 'Anónimas'],
+  },
+  {
+    key: 'CATEVT',
+    name: 'Eventos',
+    type: 'income',
+    subs: ['Galas benéficas', 'Mercadillos', 'Carreras solidarias', 'Charlas'],
+  },
+  {
+    key: 'CATGAS',
+    name: 'Gastos',
+    type: 'expense',
+    subs: ['Alquiler', 'Suministros', 'Transporte', 'Comunicación', 'Comisiones'],
+  },
   { key: 'CATSUB', name: 'Subvenciones', type: 'income', subs: ['Públicas', 'Privadas'] },
   { key: 'CATTEA', name: 'Teaming', type: 'income', subs: ['Teaming'] },
 ];
@@ -211,11 +241,23 @@ function randomDateIso() {
 }
 
 const DESCRIPTIONS = [
-  'Donante', 'Cuota socio', 'Cuota familia', 'Subvención pública',
-  'Donación corporativa', 'Recaudación gala', 'Recaudación mercadillo',
-  'Pago taller', 'Pago terapia', 'Recibo alquiler', 'Recibo suministros',
-  'Envío postal', 'Compra material oficina', 'Servicio imprenta',
-  'Seguro RC', 'Comisión mantenimiento', 'Teaming mensual',
+  'Donante',
+  'Cuota socio',
+  'Cuota familia',
+  'Subvención pública',
+  'Donación corporativa',
+  'Recaudación gala',
+  'Recaudación mercadillo',
+  'Pago taller',
+  'Pago terapia',
+  'Recibo alquiler',
+  'Recibo suministros',
+  'Envío postal',
+  'Compra material oficina',
+  'Servicio imprenta',
+  'Seguro RC',
+  'Comisión mantenimiento',
+  'Teaming mensual',
 ];
 
 for (let i = 0; i < count; i++) {

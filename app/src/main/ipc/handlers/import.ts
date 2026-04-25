@@ -681,10 +681,9 @@ export function createCommitHandler(
           // assign `max(existing.sortOrder)+1` per new event so multiple
           // imports in one batch get monotonically increasing ordinals.
           let nextCategorySortOrder =
-            deps.getReadModel().configCategories.reduce(
-              (max, c) => (c.sortOrder > max ? c.sortOrder : max),
-              -1,
-            ) + 1;
+            deps
+              .getReadModel()
+              .configCategories.reduce((max, c) => (c.sortOrder > max ? c.sortOrder : max), -1) + 1;
 
           for (let i = 0; i < plan.orderedCategories.length; i++) {
             const { name } = plan.orderedCategories[i]!;
