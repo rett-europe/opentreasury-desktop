@@ -124,3 +124,42 @@ Wave 1 UX COMPLETE. Acceptance criteria sections in each spec give you testable 
 - `npm run build` — builds main + renderer bundles (4.3s + 5.7s).
 - `npm test -- evidence-pr15` — runs unit tests matching pattern.
 - Grep for literals: `Get-Content <file> | Select-String -Pattern "<text>" -Context 2,2`
+
+### 2026-04-23 — WI-23 perf-seed unification + load-replay smoke gate (commit bc11c1f, PR #26 fix)
+
+**Context:** Neo rejected PR #26 — `scripts/perf-seed.mjs:183` emitted legacy `account.created` envelope post-WI-23 unification. Boot-guard would refuse with `LEGACY_EVENT_TYPE_REJECTED`. CI missed it because perf gate runs on `main` only.
+
+**Fix applied:**
+1. **Unified all config event envelopes in perf-seed:**
+   - `account.created` (nested payload) → `AccountCreated` (flat WI-23 shape with `sortOrder`)
+   - Added missing `sortOrder` to `CategoryCreated` and `TagCreated` events
+   - All config events now match `devSeed.ts` canonical shape
+
+2. **Created permanent load-replay smoke gate:**
+   - `app/src/core/eventLog/event-log-smoke.test.ts` (5 test cases)
+   - Runs `npm run perf:seed --count=100`, loads output through `JsonFileEventLog.load()`
+   - Fails if boot-guard rejects any event (catches legacy types)
+   - Validates all `AccountCreated`/`CategoryCreated`/`TagCreated` events have `sortOrder`
+   - Explicitly tests legacy event rejection (negative case)
+   - **Runs on every PR** (part of `npm test`), so future schema migrations fail the PR gate, not main
+
+**Outcome:**
+- All 552 tests pass (+5 new smoke tests)
+- Lint + format clean
+- `npm run perf:seed` produces 144 valid events that load cleanly through boot-guard
+- Pattern is reusable: any future schema migration that adds required fields to event types should add a similar load-replay test
+
+**Pattern (event schema migration gates):**
+1. When adding required fields to event types (e.g., `sortOrder` in WI-23), update ALL event producers:
+   - Main seeder (`devSeed.ts`)
+   - Perf seeder (`scripts/perf-seed.mjs`)
+   - IPC handlers that emit those event types
+2. Add a load-replay smoke test that:
+   - Generates seed data (use small N for speed: 100 tx is plenty)
+   - Loads through the actual EventLog implementation (catches Zod validation failures)
+   - Validates the new required fields are present
+   - Runs on PR branches (not just `main`)
+3. If the schema change is breaking (legacy events should be refused), add boot-guard validation:
+   - Explicit rejection in `JsonFileEventLog.load()` with a custom error code
+   - Negative test case that verifies legacy events ARE rejected
+
