@@ -85,6 +85,28 @@ export function selectActiveCategories(model: ReadModel): CategoryRecord[] {
     }));
 }
 
+// issue #52 — per-category usage aggregate over the movements read model.
+//   • transactionCount: movements whose `categoryId` matches.
+//   • classifiedCount:  movements with BOTH `categoryId` AND `subcategoryId`
+//     set (fully classified to subcategory).
+// Single O(N) pass over `model.transactions`; emits one record per category
+// referenced by at least one transaction. Categories with no movements are
+// absent from the result (renderer treats absence as zero — keeps the wire
+// payload small for empty datasets).
+export function selectCategoryUsage(
+  model: ReadModel,
+): { categoryId: string; transactionCount: number; classifiedCount: number }[] {
+  const tally = new Map<string, { transactionCount: number; classifiedCount: number }>();
+  for (const tx of model.transactions) {
+    if (tx.categoryId === null) continue;
+    const entry = tally.get(tx.categoryId) ?? { transactionCount: 0, classifiedCount: 0 };
+    entry.transactionCount += 1;
+    if (tx.subcategoryId !== null) entry.classifiedCount += 1;
+    tally.set(tx.categoryId, entry);
+  }
+  return Array.from(tally, ([categoryId, counts]) => ({ categoryId, ...counts }));
+}
+
 export function selectTags(model: ReadModel): TagRecord[] {
   return model.configTags.map((t) => ({
     id: t.id,

@@ -30,6 +30,7 @@ import {
   updateSubcategoryRequestSchema,
   type ArchiveCategoryResponse,
   type ArchiveSubcategoryResponse,
+  type CategoriesUsageResponse,
   type CategoryRecord,
   type CreateCategoryResponse,
   type CreateSubcategoryResponse,
@@ -38,7 +39,11 @@ import {
   type UpdateCategoryResponse,
   type UpdateSubcategoryResponse,
 } from '../../../shared/ipc-contracts/categories.js';
-import { selectActiveCategories, selectCategories } from '../../projections/config.js';
+import {
+  selectActiveCategories,
+  selectCategories,
+  selectCategoryUsage,
+} from '../../projections/config.js';
 
 export interface CategoriesHandlerDeps {
   readonly eventLog: EventLog;
@@ -140,6 +145,17 @@ export function createCategoriesListHandler(
     return {
       categories: includeArchived ? selectCategories(model) : selectActiveCategories(model),
     };
+  };
+}
+
+// issue #52 — per-category usage counters (transaction count + classified
+// count). Read-only; no event-log activity. Computed on demand from the
+// in-memory read model (single O(N) pass over `model.transactions`).
+export function createCategoriesUsageHandler(
+  deps: Pick<CategoriesHandlerDeps, 'getReadModel'>,
+): () => Promise<CategoriesUsageResponse> {
+  return async function handleCategoriesUsage(): Promise<CategoriesUsageResponse> {
+    return { usage: selectCategoryUsage(deps.getReadModel()) };
   };
 }
 

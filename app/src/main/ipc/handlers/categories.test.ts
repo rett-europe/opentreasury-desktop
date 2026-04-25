@@ -1,9 +1,13 @@
 // WI-15-lite — categories:create + categories:list handler tests.
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createCategoriesCreateHandler, createCategoriesListHandler } from './categories';
+import {
+  createCategoriesCreateHandler,
+  createCategoriesListHandler,
+  createCategoriesUsageHandler,
+} from './categories';
 import type { EventLog, DomainEvent } from '../../../core/eventLog/EventLog';
-import { getReadModel, resetReadModel } from '../../../core/query/reducers';
+import { applyEvent, getReadModel, resetReadModel } from '../../../core/query/reducers';
 
 class InMemoryEventLog implements EventLog {
   readonly events: DomainEvent[] = [];
@@ -138,5 +142,74 @@ describe('categories:list', () => {
     const resp = await list();
     expect(resp.categories).toHaveLength(2);
     expect(resp.categories[1]!.color).toBe('#0f0');
+  });
+});
+
+// issue #52 — usage counters per category over the movements read model.
+describe('categories:usage', () => {
+  beforeEach(() => resetReadModel());
+
+  function ulid(suffix: string): string {
+    return `01HZ${suffix.padEnd(22, '0')}`;
+  }
+
+  function txEvent(id: string, payload: {
+    categoryId: string | null;
+    subcategoryId: string | null;
+  }): DomainEvent {
+    return {
+      type: 'tx.created',
+      id: ulid(id),
+      datasetId: ulid('DATA'),
+      actorDeviceId: ulid('DEV1'),
+      occurredAt: '2026-04-20T12:00:00.000Z',
+      schemaVersion: 1,
+      dekVersion: 0,
+      payload: {
+        id: ulid('T' + id),
+        date: '2026-04-20',
+        type: 'expense',
+        amount: 10,
+        currency: 'EUR',
+        description: '',
+        accountId: ulid('ACC1'),
+        categoryId: payload.categoryId,
+        subcategoryId: payload.subcategoryId,
+        tagIds: [],
+        status: 'approved',
+        createdAt: '2026-04-20T12:00:00.000Z',
+      },
+    } as unknown as DomainEvent;
+  }
+
+  it('returns empty usage when there are no transactions', async () => {
+    const handle = createCategoriesUsageHandler({ getReadModel });
+    const resp = await handle();
+    expect(resp.usage).toEqual([]);
+  });
+
+  it('counts transactions and classified subset per category', async () => {
+    const C1 = ulid('CAT1');
+    const C2 = ulid('CAT2');
+    const S1 = ulid('SUB1');
+    applyEvent(txEvent('1', { categoryId: C1, subcategoryId: S1 }));
+    applyEvent(txEvent('2', { categoryId: C1, subcategoryId: S1 }));
+    applyEvent(txEvent('3', { categoryId: C1, subcategoryId: null }));
+    applyEvent(txEvent('4', { categoryId: C2, subcategoryId: null }));
+    applyEvent(txEvent('5', { categoryId: null, subcategoryId: null }));
+
+    const handle = createCategoriesUsageHandler({ getReadModel });
+    const resp = await handle();
+    expect(resp.usage).toContainEqual({
+      categoryId: C1,
+      transactionCount: 3,
+      classifiedCount: 2,
+    });
+    expect(resp.usage).toContainEqual({
+      categoryId: C2,
+      transactionCount: 1,
+      classifiedCount: 0,
+    });
+    expect(resp.usage).toHaveLength(2);
   });
 });

@@ -29,6 +29,7 @@ export const IPC_CATEGORIES_LIST = 'categories:list';
 export const IPC_CATEGORIES_UPDATE = 'categories:update';
 export const IPC_CATEGORIES_ARCHIVE = 'categories:archive';
 export const IPC_CATEGORIES_UNARCHIVE = 'categories:unarchive';
+export const IPC_CATEGORIES_USAGE = 'categories:usage';
 export const IPC_SUBCATEGORIES_CREATE = 'subcategories:create';
 export const IPC_SUBCATEGORIES_UPDATE = 'subcategories:update';
 export const IPC_SUBCATEGORIES_ARCHIVE = 'subcategories:archive';
@@ -254,6 +255,36 @@ export const categoriesListResponseSchema = z.object({
 export type CategoriesListResponse = z.infer<typeof categoriesListResponseSchema>;
 
 export type ListCategoriesResponse = CategoriesListResponse;
+
+// ============================================================================
+// Usage counters — issue #52
+// ============================================================================
+//
+// Per-category aggregate computed over the movements read model.
+//   • transactionCount — total movements whose `categoryId` matches.
+//   • classifiedCount  — movements with BOTH `categoryId` AND `subcategoryId`
+//     set (i.e. fully classified down to subcategory).
+// Kept on a dedicated IPC (rather than inlined on `CategoryRecord`) to avoid
+// turning the cheap `categories:list` into an O(N·M) join. Renderers fetch
+// once on mount and merge by `categoryId` client-side.
+
+export const categoryUsageRecordSchema = z.object({
+  categoryId: z.string().min(1),
+  transactionCount: z.number().int().nonnegative(),
+  classifiedCount: z.number().int().nonnegative(),
+});
+
+export type CategoryUsageRecord = z.infer<typeof categoryUsageRecordSchema>;
+
+export const categoriesUsageRequestSchema = z.object({}).optional();
+
+export type CategoriesUsageRequest = z.infer<typeof categoriesUsageRequestSchema>;
+
+export const categoriesUsageResponseSchema = z.object({
+  usage: z.array(categoryUsageRecordSchema),
+});
+
+export type CategoriesUsageResponse = z.infer<typeof categoriesUsageResponseSchema>;
 
 // ============================================================================
 // WI-21 — Update / Archive / Unarchive (category)
