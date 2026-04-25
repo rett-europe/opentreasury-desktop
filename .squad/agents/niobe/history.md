@@ -108,6 +108,59 @@ undo/redo). Spec is authoritative reference for Trinity's WI-15 implementation p
 
 - **Dropdown refresh:** The web app uses a `ReferenceDataService` that caches accounts/categories/tags globally and invalidates on CRUD operations. When a user creates a new category in Configuración, the service refetches, and any open dropdowns (e.g., in Add Transaction modal) get the updated list. Trinity should implement a similar invalidation mechanism (IPC event or React context).
 
+### 2026-04-26 — WI-57 Movements Date Filter Layout Separation
+
+**Context:** PR #57 shipped the locked date-filter spec with 8 preset chips (Este mes | Mes pasado | Últimos 3m | Este año | Año pasado | Últimos 12m | Personalizado | Todo) currently rendering INLINE inside the same `ot-filter-bar` row as the existing attribute filters (Cuenta / Tipo / Categoría / search). Pedro flagged that the period filters need visual separation from the slicing filters.
+
+**Problem analysis:** The date filter is a **top-level temporal scope** that governs the entire dataset ("show me April"), while the other filters are **slicing filters** that refine within scope (account, type, category). Current single-row layout dilutes this hierarchy and makes 8 chips overwhelming.
+
+**Proposal delivered:** Five distinct layout options with full pros/cons/implementation cost analysis:
+
+1. **Option A: Dedicated Scope Bar (Separate Row Above)** — Date chips in a full-width band above the attribute filter bar. Recommended option.
+   - **Pros:** Visual primacy for temporal scope, clear hierarchy, 1-click presets, cross-screen consistency ready.
+   - **Cons:** Vertical space cost (~60px), potential redundancy (label + chips + pill).
+   - **Cost:** M (Medium) — new `.ot-scope-bar` CSS, move JSX out of filter bar, test wrap.
+
+2. **Option B: Scope Pill in Page Header** — Date scope as a compact button next to "Movimientos" title, opens dropdown.
+   - **Pros:** Mimics Panel pattern, compact, mental model alignment (period = session context).
+   - **Cons:** Hidden affordance, 2-click for presets, dropdown complexity, pill placement ambiguity.
+   - **Cost:** L (Large) — new `<Popover>` primitive or styled `<select>`.
+
+3. **Option C: Single Date Button + Inline Menu** — Date button inside filter bar opens popover with chips.
+   - **Pros:** No new bars, condensed, still inline.
+   - **Cons:** Loses hierarchy signal, 2-click for presets, popover nesting for Personalizado.
+   - **Cost:** M (Medium) — new `<Popover>` primitive, vertical chip menu.
+
+4. **Option D: Two-Row Filter Bar** — `.ot-filter-bar` becomes two-row flex (date top, slicing bottom).
+   - **Pros:** Grouped but separated, compact, 8 chips visible.
+   - **Cons:** Ambiguous hierarchy (looks like overflow, not deliberate separation), visual weight, wrap edge case.
+   - **Cost:** S (Small) — `.ot-filter-bar--two-row` modifier, row wrappers.
+
+5. **Option E: Left Rail Date Selector** — Vertical list of radio buttons in left column next to table.
+   - **Pros:** Spatial separation, vertical breathing room, table-adjacent context.
+   - **Cons:** Viewport width cost (burns ~180px, table would scroll on 1366px), unusual pattern, mobile collapse, Personalizado UX awkward.
+   - **Cost:** L (Large) — new layout grid, responsive collapse.
+
+**Recommendation:** **Option A (Dedicated Scope Bar)** with **Option D (Two-Row Filter Bar)** as runner-up. Rationale:
+- Hierarchy matches mental model (period governs, slicing refines).
+- All 8 chips visible = 1-click presets (critical for finance app where users jump between "this month," "last month," "this year").
+- Vertical cost (~60px) is acceptable given virtualized table.
+- Cross-screen consistency ready (Panel, Saldo, reports can reuse `.ot-scope-bar` pattern).
+
+**Key learning:** **1-click preset switching is a UX priority for finance apps.** Hiding presets behind menus (Options B/C) reduces visual clutter but adds interaction friction. For temporal navigation—a high-frequency operation—visible chips outweigh the space cost. This is distinct from account/category dropdowns (infrequent changes, many options) where menus are appropriate.
+
+**Visual hierarchy guidance for Mouse:** Date scope must be visually PRIMARY relative to slicing filters. Suggested treatments:
+- **Option A:** Scope bar uses stronger tint (`var(--color-brand-surface)` at 16% vs. 10%), date chips use brand primary active state.
+- **Option D:** Top row gets subtle separator (border or darker bg), or date chips use bolder active state vs. slicing filters' muted state.
+- **Options B/C:** Date button more prominent than slicing dropdowns (larger size, leading icon, brand tint even when closed).
+
+**Open questions flagged for Pedro:**
+1. Does PanelScreen's month button ever become interactive? If yes, should it adopt the same pattern?
+2. How important is 1-click preset switching? (Informs menu vs. visible chips decision.)
+3. Viewport size priority: 1366×768 laptops (need vertical savings) or 1920×1080+ desktops (can afford scope bar)?
+
+**Handoff:** Proposal document created at `.squad/decisions/inbox/niobe-movements-date-filter-layout.md`. Awaiting Pedro's verdict before Trinity implementation.
+
 - **Two-step category selector:** Category dropdown shows only parent categories; selecting a category reveals a second dropdown for subcategories (if any exist). This is clearer than a single combo-select with indented tree structure for non-technical users.
 
 - **Tag multi-select:** Tags use a chip input (type to filter + click to add). The desktop prototype doesn't show this yet, but the web app does. Note for Trinity: consider a simple multi-select dropdown for v1 (defer chip-input to v1.1 unless it's already in the component library).

@@ -710,284 +710,292 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         }}
       />
 
-      <div
-        className="ot-scope-bar"
-        role="group"
-        aria-label={t('movements.filters.dateRange.label')}
-      >
-        <span className="ot-filter-bar__date-label" id="ot-date-filter-label">
-          <Calendar size={14} aria-hidden="true" />
-          {t('movements.filters.dateRange.label')}
-        </span>
+      <div className="ot-filter-bar">
         <div
-          className="ot-filter-bar__date-chips"
-          role="radiogroup"
-          aria-labelledby="ot-date-filter-label"
+          className="ot-filter-bar__row ot-filter-bar__row--scope"
+          role="group"
+          aria-label={t('movements.filters.dateRange.label')}
         >
-          {DATE_PRESET_IDS.map((id) => {
-            const checked = dateFilter.kind === 'preset' && dateFilter.id === id;
-            return (
+          <span className="ot-filter-bar__date-label" id="ot-date-filter-label">
+            <Calendar size={14} aria-hidden="true" />
+            {t('movements.filters.dateRange.label')}
+          </span>
+          <div
+            className="ot-filter-bar__date-chips"
+            role="radiogroup"
+            aria-labelledby="ot-date-filter-label"
+          >
+            {DATE_PRESET_IDS.map((id) => {
+              const checked = dateFilter.kind === 'preset' && dateFilter.id === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={checked}
+                  className={
+                    checked
+                      ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                      : 'ot-filter-bar__chip'
+                  }
+                  onClick={() => {
+                    setDateFilter({ kind: 'preset', id });
+                    setIsCustomOpen(false);
+                  }}
+                >
+                  {t(`movements.filters.dateRange.presets.${id}`)}
+                </button>
+              );
+            })}
+            <div className="ot-filter-bar__date-custom-anchor">
               <button
-                key={id}
                 type="button"
                 role="radio"
-                aria-checked={checked}
+                aria-checked={dateFilter.kind === 'custom'}
+                aria-haspopup="dialog"
+                aria-expanded={isCustomOpen}
                 className={
-                  checked
+                  dateFilter.kind === 'custom' || isCustomOpen
                     ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
                     : 'ot-filter-bar__chip'
                 }
                 onClick={() => {
-                  setDateFilter({ kind: 'preset', id });
-                  setIsCustomOpen(false);
+                  setIsCustomOpen((open) => {
+                    if (!open) {
+                      // Seed inputs from current resolved range so the popover
+                      // opens with sensible defaults.
+                      const seed = resolveDateFilter(dateFilter) ?? getPresetRange('this-month');
+                      setCustomDraftFrom(seed.from);
+                      setCustomDraftTo(seed.to);
+                    }
+                    return !open;
+                  });
                 }}
               >
-                {t(`movements.filters.dateRange.presets.${id}`)}
+                {t('movements.filters.dateRange.presets.custom')}
               </button>
-            );
-          })}
-          <div className="ot-filter-bar__date-custom-anchor">
+              {isCustomOpen ? (
+                <div
+                  role="dialog"
+                  aria-label={t('movements.filters.dateRange.presets.custom')}
+                  className="ot-filter-bar__date-popover"
+                >
+                  <label className="ot-filter-bar__date-field">
+                    <span>{t('movements.filters.dateRange.customFrom')}</span>
+                    <input
+                      type="date"
+                      value={customDraftFrom}
+                      onChange={(e) => setCustomDraftFrom(e.target.value)}
+                    />
+                  </label>
+                  <label className="ot-filter-bar__date-field">
+                    <span>{t('movements.filters.dateRange.customTo')}</span>
+                    <input
+                      type="date"
+                      value={customDraftTo}
+                      onChange={(e) => setCustomDraftTo(e.target.value)}
+                      aria-invalid={
+                        customDraftFrom && customDraftTo && customDraftTo < customDraftFrom
+                          ? true
+                          : undefined
+                      }
+                    />
+                  </label>
+                  {customDraftFrom && customDraftTo && customDraftTo < customDraftFrom ? (
+                    <p className="ot-filter-bar__date-error" role="alert">
+                      {t('movements.filters.dateRange.invalidRange')}
+                    </p>
+                  ) : null}
+                  <div className="ot-filter-bar__date-actions">
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        if (!customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom) {
+                          return;
+                        }
+                        setDateFilter({
+                          kind: 'custom',
+                          from: customDraftFrom,
+                          to: customDraftTo,
+                        });
+                        setIsCustomOpen(false);
+                      }}
+                      disabled={
+                        !customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom
+                      }
+                    >
+                      {t('movements.filters.dateRange.apply')}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
             <button
               type="button"
               role="radio"
-              aria-checked={dateFilter.kind === 'custom'}
-              aria-haspopup="dialog"
-              aria-expanded={isCustomOpen}
+              aria-checked={dateFilter.kind === 'all'}
               className={
-                dateFilter.kind === 'custom' || isCustomOpen
+                dateFilter.kind === 'all'
                   ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
                   : 'ot-filter-bar__chip'
               }
               onClick={() => {
-                setIsCustomOpen((open) => {
-                  if (!open) {
-                    // Seed inputs from current resolved range so the popover
-                    // opens with sensible defaults.
-                    const seed = resolveDateFilter(dateFilter) ?? getPresetRange('this-month');
-                    setCustomDraftFrom(seed.from);
-                    setCustomDraftTo(seed.to);
-                  }
-                  return !open;
-                });
+                setDateFilter({ kind: 'all' });
+                setIsCustomOpen(false);
               }}
             >
-              {t('movements.filters.dateRange.presets.custom')}
+              {t('movements.filters.dateRange.presets.all')}
             </button>
-            {isCustomOpen ? (
-              <div
-                role="dialog"
-                aria-label={t('movements.filters.dateRange.presets.custom')}
-                className="ot-filter-bar__date-popover"
-              >
-                <label className="ot-filter-bar__date-field">
-                  <span>{t('movements.filters.dateRange.customFrom')}</span>
-                  <input
-                    type="date"
-                    value={customDraftFrom}
-                    onChange={(e) => setCustomDraftFrom(e.target.value)}
-                  />
-                </label>
-                <label className="ot-filter-bar__date-field">
-                  <span>{t('movements.filters.dateRange.customTo')}</span>
-                  <input
-                    type="date"
-                    value={customDraftTo}
-                    onChange={(e) => setCustomDraftTo(e.target.value)}
-                    aria-invalid={
-                      customDraftFrom && customDraftTo && customDraftTo < customDraftFrom
-                        ? true
-                        : undefined
-                    }
-                  />
-                </label>
-                {customDraftFrom && customDraftTo && customDraftTo < customDraftFrom ? (
-                  <p className="ot-filter-bar__date-error" role="alert">
-                    {t('movements.filters.dateRange.invalidRange')}
-                  </p>
-                ) : null}
-                <div className="ot-filter-bar__date-actions">
-                  <Button
-                    variant="primary"
-                    onClick={() => {
-                      if (!customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom) {
-                        return;
-                      }
-                      setDateFilter({
-                        kind: 'custom',
-                        from: customDraftFrom,
-                        to: customDraftTo,
-                      });
-                      setIsCustomOpen(false);
-                    }}
-                    disabled={!customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom}
-                  >
-                    {t('movements.filters.dateRange.apply')}
-                  </Button>
-                </div>
-              </div>
-            ) : null}
           </div>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={dateFilter.kind === 'all'}
-            className={
-              dateFilter.kind === 'all'
-                ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                : 'ot-filter-bar__chip'
-            }
-            onClick={() => {
-              setDateFilter({ kind: 'all' });
-              setIsCustomOpen(false);
-            }}
-          >
-            {t('movements.filters.dateRange.presets.all')}
-          </button>
+
+          {(() => {
+            const range = resolveDateFilter(dateFilter);
+            if (range == null || isDefaultDateFilter) return null;
+            return (
+              <span className="ot-movements__date-pill">
+                <Calendar size={14} aria-hidden="true" />
+                <span>{formatDateRange(range.from, range.to, locale)}</span>
+                <button
+                  type="button"
+                  className="ot-movements__date-pill-clear"
+                  onClick={() => {
+                    setDateFilter(DEFAULT_MOVEMENTS_DATE_FILTER);
+                    setIsCustomOpen(false);
+                  }}
+                  aria-label={t('movements.filters.dateRange.clear')}
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </span>
+            );
+          })()}
         </div>
 
-        {(() => {
-          const range = resolveDateFilter(dateFilter);
-          if (range == null || isDefaultDateFilter) return null;
-          return (
-            <span className="ot-movements__date-pill">
-              <Calendar size={14} aria-hidden="true" />
-              <span>{formatDateRange(range.from, range.to, locale)}</span>
-              <button
-                type="button"
-                className="ot-movements__date-pill-clear"
-                onClick={() => {
-                  setDateFilter(DEFAULT_MOVEMENTS_DATE_FILTER);
-                  setIsCustomOpen(false);
-                }}
-                aria-label={t('movements.filters.dateRange.clear')}
-              >
-                <X size={12} aria-hidden="true" />
-              </button>
-            </span>
-          );
-        })()}
-      </div>
-
-      <div className="ot-filter-bar" role="group" aria-label={t('movements.filters.aria-label')}>
         <div
-          className="ot-filter-bar__chips"
-          role="tablist"
-          aria-label={t('movements.filters.type.label')}
+          className="ot-filter-bar__row ot-filter-bar__row--filters"
+          role="group"
+          aria-label={t('movements.filters.aria-label')}
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={typeFilter === 'all'}
-            className={
-              typeFilter === 'all'
-                ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                : 'ot-filter-bar__chip'
-            }
-            onClick={() => setTypeFilter('all')}
+          <div
+            className="ot-filter-bar__chips"
+            role="tablist"
+            aria-label={t('movements.filters.type.label')}
           >
-            {t('movements.filters.type.all')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={typeFilter === 'income'}
-            className={
-              typeFilter === 'income'
-                ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                : 'ot-filter-bar__chip'
-            }
-            onClick={() => setTypeFilter('income')}
-          >
-            {t('movements.filters.type.income')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={typeFilter === 'expense'}
-            className={
-              typeFilter === 'expense'
-                ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                : 'ot-filter-bar__chip'
-            }
-            onClick={() => setTypeFilter('expense')}
-          >
-            {t('movements.filters.type.expense')}
-          </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={typeFilter === 'all'}
+              className={
+                typeFilter === 'all'
+                  ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                  : 'ot-filter-bar__chip'
+              }
+              onClick={() => setTypeFilter('all')}
+            >
+              {t('movements.filters.type.all')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={typeFilter === 'income'}
+              className={
+                typeFilter === 'income'
+                  ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                  : 'ot-filter-bar__chip'
+              }
+              onClick={() => setTypeFilter('income')}
+            >
+              {t('movements.filters.type.income')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={typeFilter === 'expense'}
+              className={
+                typeFilter === 'expense'
+                  ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                  : 'ot-filter-bar__chip'
+              }
+              onClick={() => setTypeFilter('expense')}
+            >
+              {t('movements.filters.type.expense')}
+            </button>
+          </div>
+
+          <label className="ot-filter-bar__input">
+            <Landmark size={14} aria-hidden="true" />
+            <span className="ot-visually-hidden">{t('movements.filters.account.label')}</span>
+            <select
+              value={accountFilter}
+              onChange={(e) => setAccountFilter(e.target.value)}
+              aria-label={t('movements.filters.account.label')}
+            >
+              <option value="all">{t('movements.filters.account.all')}</option>
+              {accountOptions.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="ot-filter-bar__input">
+            <FolderOpen size={14} aria-hidden="true" />
+            <span className="ot-visually-hidden">{t('movements.filters.category.label')}</span>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              aria-label={t('movements.filters.category.label')}
+            >
+              <option value="all">{t('movements.filters.category.all')}</option>
+              {categoryOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="ot-filter-bar__input ot-filter-bar__input--amount">
+            <span className="ot-filter-bar__prefix">{t('movements.filters.amountMin')}</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="0"
+              value={minAmount}
+              onChange={(e) => setMinAmount(e.target.value)}
+              aria-label={t('movements.filters.amountMin')}
+            />
+          </label>
+
+          <label className="ot-filter-bar__input ot-filter-bar__input--amount">
+            <span className="ot-filter-bar__prefix">{t('movements.filters.amountMax')}</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="∞"
+              value={maxAmount}
+              onChange={(e) => setMaxAmount(e.target.value)}
+              aria-label={t('movements.filters.amountMax')}
+            />
+          </label>
+
+          <label className="ot-filter-bar__checkbox">
+            <input
+              type="checkbox"
+              checked={uncategorizedOnly}
+              onChange={(e) => setUncategorizedOnly(e.target.checked)}
+            />
+            {t('movements.filters.uncategorizedOnly')}
+          </label>
+
+          {hasActiveFilters ? (
+            <button type="button" className="ot-filter-bar__clear" onClick={clearFilters}>
+              <X size={14} aria-hidden="true" />
+              {t('movements.filters.clear')}
+            </button>
+          ) : null}
         </div>
-
-        <label className="ot-filter-bar__input">
-          <Landmark size={14} aria-hidden="true" />
-          <span className="ot-visually-hidden">{t('movements.filters.account.label')}</span>
-          <select
-            value={accountFilter}
-            onChange={(e) => setAccountFilter(e.target.value)}
-            aria-label={t('movements.filters.account.label')}
-          >
-            <option value="all">{t('movements.filters.account.all')}</option>
-            {accountOptions.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="ot-filter-bar__input">
-          <FolderOpen size={14} aria-hidden="true" />
-          <span className="ot-visually-hidden">{t('movements.filters.category.label')}</span>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            aria-label={t('movements.filters.category.label')}
-          >
-            <option value="all">{t('movements.filters.category.all')}</option>
-            {categoryOptions.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="ot-filter-bar__input ot-filter-bar__input--amount">
-          <span className="ot-filter-bar__prefix">{t('movements.filters.amountMin')}</span>
-          <input
-            type="number"
-            inputMode="decimal"
-            placeholder="0"
-            value={minAmount}
-            onChange={(e) => setMinAmount(e.target.value)}
-            aria-label={t('movements.filters.amountMin')}
-          />
-        </label>
-
-        <label className="ot-filter-bar__input ot-filter-bar__input--amount">
-          <span className="ot-filter-bar__prefix">{t('movements.filters.amountMax')}</span>
-          <input
-            type="number"
-            inputMode="decimal"
-            placeholder="∞"
-            value={maxAmount}
-            onChange={(e) => setMaxAmount(e.target.value)}
-            aria-label={t('movements.filters.amountMax')}
-          />
-        </label>
-
-        <label className="ot-filter-bar__checkbox">
-          <input
-            type="checkbox"
-            checked={uncategorizedOnly}
-            onChange={(e) => setUncategorizedOnly(e.target.checked)}
-          />
-          {t('movements.filters.uncategorizedOnly')}
-        </label>
-
-        {hasActiveFilters ? (
-          <button type="button" className="ot-filter-bar__clear" onClick={clearFilters}>
-            <X size={14} aria-hidden="true" />
-            {t('movements.filters.clear')}
-          </button>
-        ) : null}
       </div>
 
       {state.kind === 'loading' ? (

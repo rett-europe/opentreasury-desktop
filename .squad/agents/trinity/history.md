@@ -1412,3 +1412,6 @@ Coordinated batch (Neo perf-gate review, Cypher verification + merge, Morpheus P
 
 ## Learnings — 2026-04-25 — Movements scroll regression fix (PR #57)
 - Scroll-containment recipe for tables under AppShell: parent screen container is a flex column with `height: 100%; min-height: 0`; siblings (page header, scope band, filter bar, totals) get `flex-shrink: 0`; the table-container alone gets `flex: 1 1 auto; min-height: 0; overflow: auto` so `.ot-table thead { position: sticky; top: 0 }` anchors to it. Without min-height: 0 the flex children refuse to shrink below content height and the inner scroll never engages — the page-level scrollport takes over and drags the thead with everything else.
+
+## Learnings — 2026-04-28 — Joint two-row filter bar (PR #57)
+- Pedro's final call: scope chips and slicing filters live in ONE .ot-filter-bar container as two .ot-filter-bar__row children (--scope, --filters). Supersedes the Anchored Band pattern (separate .ot-scope-bar with --color-brand-surface tint and rounded-top-only border). Hierarchy now from row order +  + [char]34 + 'Período:' + [char]34 +  semibold label, not spatial separation. flex-shrink:0 inheritance preserved (single child of .ot-movements).

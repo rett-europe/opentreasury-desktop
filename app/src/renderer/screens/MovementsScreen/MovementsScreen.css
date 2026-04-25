@@ -24,7 +24,7 @@
   min-height: 0;
 }
 
-/* Lock every direct child of `.ot-movements` (page header, scope band,
+/* Lock every direct child of `.ot-movements` (page header, joint
  * filter bar, totals strip, bulk actions, error/loading shells, modals)
  * at its natural height. Only `.ot-movements__table-container` opts back
  * into flex growth + scrolling below. */
@@ -133,24 +133,27 @@
 }
 
 /* ──────────────────────────────────────────────────────────────
- * Filter bar — prototype-parity (prototype/styles.css .filter-bar).
- * Single horizontal row, purple-tinted borders, wraps on narrow
- * viewports. No card shell; lives on the page background.
- * When preceded by .ot-scope-bar, rounds only the bottom corners.
+ * Filter bar — joint two-row layout (Niobe Option D + Mouse "Calm
+ * Scope", 2026-04-28). Single container holds:
+ *   row 1 (--scope):   temporal scope chips + active-range pill
+ *   row 2 (--filters): slicing filters (cuenta/tipo/cat/sub/tags…)
+ * Hierarchy comes from row order + weight contrast, not from a
+ * tinted band. No card shell; lives on the page background.
  * ────────────────────────────────────────────────────────────── */
 .ot-filter-bar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-4);
-  padding: var(--space-6) var(--space-7);
+  padding: var(--space-5) var(--space-7);
   background: var(--color-surface-primary);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
 }
-.ot-scope-bar + .ot-filter-bar {
-  border-top: none;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+.ot-filter-bar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
 }
 
 /* Segmented chip group (Todos / Ingresos / Gastos) lives in the shared
@@ -270,8 +273,9 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-12);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-semibold);
   user-select: none;
 }
 .ot-filter-bar__date-chips {

@@ -116,22 +116,6 @@ a:hover {
   border: 0;
 }
 
-/* Scope Bar — temporal scope controls (date range) above slicing filters.
- * Full-width tinted band communicating that the period is a top-level scope
- * rather than a peer attribute filter. Uses Anchored Band visual treatment
- * (Mouse spec, 2026-04-28) + Dedicated Scope Bar layout (Niobe spec, 2026-04-26). */
-.ot-scope-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-7);
-  background: var(--color-brand-surface);
-  border-bottom: 1px solid var(--color-divider);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  position: relative;
-  flex-wrap: wrap;
-}
-
 /* ═══════════════════════════════════════════════════════════
    Prototype-parity recipes — shared across screens.
    Source: prototype/styles.css .page-header / .section-label /
