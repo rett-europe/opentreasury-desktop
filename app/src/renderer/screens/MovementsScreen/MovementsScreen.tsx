@@ -710,6 +710,164 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         }}
       />
 
+      <div
+        className="ot-scope-bar"
+        role="group"
+        aria-label={t('movements.filters.dateRange.label')}
+      >
+        <span className="ot-filter-bar__date-label" id="ot-date-filter-label">
+          <Calendar size={14} aria-hidden="true" />
+          {t('movements.filters.dateRange.label')}
+        </span>
+        <div
+          className="ot-filter-bar__date-chips"
+          role="radiogroup"
+          aria-labelledby="ot-date-filter-label"
+        >
+          {DATE_PRESET_IDS.map((id) => {
+            const checked = dateFilter.kind === 'preset' && dateFilter.id === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={checked}
+                className={
+                  checked
+                    ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                    : 'ot-filter-bar__chip'
+                }
+                onClick={() => {
+                  setDateFilter({ kind: 'preset', id });
+                  setIsCustomOpen(false);
+                }}
+              >
+                {t(`movements.filters.dateRange.presets.${id}`)}
+              </button>
+            );
+          })}
+          <div className="ot-filter-bar__date-custom-anchor">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={dateFilter.kind === 'custom'}
+              aria-haspopup="dialog"
+              aria-expanded={isCustomOpen}
+              className={
+                dateFilter.kind === 'custom' || isCustomOpen
+                  ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                  : 'ot-filter-bar__chip'
+              }
+              onClick={() => {
+                setIsCustomOpen((open) => {
+                  if (!open) {
+                    // Seed inputs from current resolved range so the popover
+                    // opens with sensible defaults.
+                    const seed = resolveDateFilter(dateFilter) ?? getPresetRange('this-month');
+                    setCustomDraftFrom(seed.from);
+                    setCustomDraftTo(seed.to);
+                  }
+                  return !open;
+                });
+              }}
+            >
+              {t('movements.filters.dateRange.presets.custom')}
+            </button>
+            {isCustomOpen ? (
+              <div
+                role="dialog"
+                aria-label={t('movements.filters.dateRange.presets.custom')}
+                className="ot-filter-bar__date-popover"
+              >
+                <label className="ot-filter-bar__date-field">
+                  <span>{t('movements.filters.dateRange.customFrom')}</span>
+                  <input
+                    type="date"
+                    value={customDraftFrom}
+                    onChange={(e) => setCustomDraftFrom(e.target.value)}
+                  />
+                </label>
+                <label className="ot-filter-bar__date-field">
+                  <span>{t('movements.filters.dateRange.customTo')}</span>
+                  <input
+                    type="date"
+                    value={customDraftTo}
+                    onChange={(e) => setCustomDraftTo(e.target.value)}
+                    aria-invalid={
+                      customDraftFrom && customDraftTo && customDraftTo < customDraftFrom
+                        ? true
+                        : undefined
+                    }
+                  />
+                </label>
+                {customDraftFrom && customDraftTo && customDraftTo < customDraftFrom ? (
+                  <p className="ot-filter-bar__date-error" role="alert">
+                    {t('movements.filters.dateRange.invalidRange')}
+                  </p>
+                ) : null}
+                <div className="ot-filter-bar__date-actions">
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      if (!customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom) {
+                        return;
+                      }
+                      setDateFilter({
+                        kind: 'custom',
+                        from: customDraftFrom,
+                        to: customDraftTo,
+                      });
+                      setIsCustomOpen(false);
+                    }}
+                    disabled={!customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom}
+                  >
+                    {t('movements.filters.dateRange.apply')}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={dateFilter.kind === 'all'}
+            className={
+              dateFilter.kind === 'all'
+                ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                : 'ot-filter-bar__chip'
+            }
+            onClick={() => {
+              setDateFilter({ kind: 'all' });
+              setIsCustomOpen(false);
+            }}
+          >
+            {t('movements.filters.dateRange.presets.all')}
+          </button>
+        </div>
+
+        {(() => {
+          const range = resolveDateFilter(dateFilter);
+          if (range == null || isDefaultDateFilter) return null;
+          return (
+            <span className="ot-movements__date-pill">
+              <Calendar size={14} aria-hidden="true" />
+              <span>{formatDateRange(range.from, range.to, locale)}</span>
+              <button
+                type="button"
+                className="ot-movements__date-pill-clear"
+                onClick={() => {
+                  setDateFilter(DEFAULT_MOVEMENTS_DATE_FILTER);
+                  setIsCustomOpen(false);
+                }}
+                aria-label={t('movements.filters.dateRange.clear')}
+              >
+                <X size={12} aria-hidden="true" />
+              </button>
+            </span>
+          );
+        })()}
+      </div>
+
       <div className="ot-filter-bar" role="group" aria-label={t('movements.filters.aria-label')}>
         <div
           className="ot-filter-bar__chips"
@@ -791,140 +949,6 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
           </select>
         </label>
 
-        <div className="ot-filter-bar__date-group">
-          <span className="ot-filter-bar__date-label" id="ot-date-filter-label">
-            <Calendar size={14} aria-hidden="true" />
-            {t('movements.filters.dateRange.label')}
-          </span>
-          <div
-            className="ot-filter-bar__date-chips"
-            role="radiogroup"
-            aria-labelledby="ot-date-filter-label"
-          >
-            {DATE_PRESET_IDS.map((id) => {
-              const checked = dateFilter.kind === 'preset' && dateFilter.id === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  role="radio"
-                  aria-checked={checked}
-                  className={
-                    checked
-                      ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                      : 'ot-filter-bar__chip'
-                  }
-                  onClick={() => {
-                    setDateFilter({ kind: 'preset', id });
-                    setIsCustomOpen(false);
-                  }}
-                >
-                  {t(`movements.filters.dateRange.presets.${id}`)}
-                </button>
-              );
-            })}
-            <div className="ot-filter-bar__date-custom-anchor">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={dateFilter.kind === 'custom'}
-                aria-haspopup="dialog"
-                aria-expanded={isCustomOpen}
-                className={
-                  dateFilter.kind === 'custom' || isCustomOpen
-                    ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                    : 'ot-filter-bar__chip'
-                }
-                onClick={() => {
-                  setIsCustomOpen((open) => {
-                    if (!open) {
-                      // Seed inputs from current resolved range so the popover
-                      // opens with sensible defaults.
-                      const seed = resolveDateFilter(dateFilter) ?? getPresetRange('this-month');
-                      setCustomDraftFrom(seed.from);
-                      setCustomDraftTo(seed.to);
-                    }
-                    return !open;
-                  });
-                }}
-              >
-                {t('movements.filters.dateRange.presets.custom')}
-              </button>
-              {isCustomOpen ? (
-                <div
-                  role="dialog"
-                  aria-label={t('movements.filters.dateRange.presets.custom')}
-                  className="ot-filter-bar__date-popover"
-                >
-                  <label className="ot-filter-bar__date-field">
-                    <span>{t('movements.filters.dateRange.customFrom')}</span>
-                    <input
-                      type="date"
-                      value={customDraftFrom}
-                      onChange={(e) => setCustomDraftFrom(e.target.value)}
-                    />
-                  </label>
-                  <label className="ot-filter-bar__date-field">
-                    <span>{t('movements.filters.dateRange.customTo')}</span>
-                    <input
-                      type="date"
-                      value={customDraftTo}
-                      onChange={(e) => setCustomDraftTo(e.target.value)}
-                      aria-invalid={
-                        customDraftFrom && customDraftTo && customDraftTo < customDraftFrom
-                          ? true
-                          : undefined
-                      }
-                    />
-                  </label>
-                  {customDraftFrom && customDraftTo && customDraftTo < customDraftFrom ? (
-                    <p className="ot-filter-bar__date-error" role="alert">
-                      {t('movements.filters.dateRange.invalidRange')}
-                    </p>
-                  ) : null}
-                  <div className="ot-filter-bar__date-actions">
-                    <Button
-                      variant="primary"
-                      onClick={() => {
-                        if (!customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom) {
-                          return;
-                        }
-                        setDateFilter({
-                          kind: 'custom',
-                          from: customDraftFrom,
-                          to: customDraftTo,
-                        });
-                        setIsCustomOpen(false);
-                      }}
-                      disabled={
-                        !customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom
-                      }
-                    >
-                      {t('movements.filters.dateRange.apply')}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={dateFilter.kind === 'all'}
-              className={
-                dateFilter.kind === 'all'
-                  ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                  : 'ot-filter-bar__chip'
-              }
-              onClick={() => {
-                setDateFilter({ kind: 'all' });
-                setIsCustomOpen(false);
-              }}
-            >
-              {t('movements.filters.dateRange.presets.all')}
-            </button>
-          </div>
-        </div>
-
         <label className="ot-filter-bar__input ot-filter-bar__input--amount">
           <span className="ot-filter-bar__prefix">{t('movements.filters.amountMin')}</span>
           <input
@@ -965,30 +989,6 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
           </button>
         ) : null}
       </div>
-
-      {(() => {
-        const range = resolveDateFilter(dateFilter);
-        if (range == null || isDefaultDateFilter) return null;
-        return (
-          <div className="ot-movements__date-pill-row">
-            <span className="ot-movements__date-pill">
-              <Calendar size={14} aria-hidden="true" />
-              <span>{formatDateRange(range.from, range.to, locale)}</span>
-              <button
-                type="button"
-                className="ot-movements__date-pill-clear"
-                onClick={() => {
-                  setDateFilter(DEFAULT_MOVEMENTS_DATE_FILTER);
-                  setIsCustomOpen(false);
-                }}
-                aria-label={t('movements.filters.dateRange.clear')}
-              >
-                <X size={12} aria-hidden="true" />
-              </button>
-            </span>
-          </div>
-        );
-      })()}
 
       {state.kind === 'loading' ? (
         <Card padding="lg">

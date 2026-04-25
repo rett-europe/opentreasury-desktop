@@ -115,6 +115,7 @@
  * Filter bar — prototype-parity (prototype/styles.css .filter-bar).
  * Single horizontal row, purple-tinted borders, wraps on narrow
  * viewports. No card shell; lives on the page background.
+ * When preceded by .ot-scope-bar, rounds only the bottom corners.
  * ────────────────────────────────────────────────────────────── */
 .ot-filter-bar {
   display: flex;
@@ -125,6 +126,10 @@
   background: var(--color-surface-primary);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-lg);
+}
+.ot-scope-bar + .ot-filter-bar {
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 /* Segmented chip group (Todos / Ingresos / Gastos) lives in the shared
@@ -302,20 +307,19 @@
   justify-content: flex-end;
 }
 
-.ot-movements__date-pill-row {
-  display: flex;
-  margin-top: calc(-1 * var(--space-3, 8px));
-  margin-bottom: var(--space-2, 4px);
-}
+/* Active date-range pill — now lives INSIDE the scope bar (right-aligned).
+ * No longer needs the negative margin hack since it's inline with the chips. */
 .ot-movements__date-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
   border-radius: var(--radius-pill, 999px);
-  background: var(--color-brand-surface, rgba(155, 114, 207, 0.12));
+  background: var(--color-surface-primary);
   color: var(--color-text-primary);
   font-size: var(--font-size-12);
+  margin-left: auto;
+  border: 1px solid var(--color-border-default);
 }
 .ot-movements__date-pill-clear {
   display: inline-flex;
