@@ -2,6 +2,104 @@
 
 ## Active Decisions
 
+### 2026-04-25: WI-23 Legacy Event Backfill Policy
+
+**Date:** 2026-04-25  
+**Author:** Morpheus (Backend Dev)  
+**Status:** ✅ SHIPPED (PR #50, WI-23 legacy backfill)  
+**Related:** PR #26 (WI-23 unify projections)
+
+## Context
+
+WI-23 (PR #26) made `sortOrder` required on `AccountCreated`, `CategoryCreated`, `SubcategoryCreated`, and `TagCreated` events. Existing on-disk `events.ndjson` files predate WI-23 and lack `sortOrder`, causing boot-guard rejection and making the app unbootable for anyone with pre-WI-23 data.
+
+### Root Cause
+- `JsonFileEventLog.load()` validates config events with strict Zod schemas
+- Pre-WI-23 events missing `sortOrder` trigger validation failure
+- Cypher's smoke gate (PR #26) tested freshly-seeded data only — didn't catch this because the seeder was rewritten in the same PR
+
+## Decision
+
+**Schema migrations MUST include a backfill path for existing on-disk data.**
+
+When adding required fields to existing event types:
+1. Make the field `.optional()` in the Zod schema
+2. Add a migration/backfill step in `JsonFileEventLog.load()` to assign defaults when missing
+3. Document the backfill logic inline with comments (e.g., `// WI-23 legacy backfill`)
+4. New event writes MUST always include the field (handlers remain strict)
+5. Smoke gate MUST test both fresh-seeded data AND legacy fixtures (pre-migration shape)
+
+## Rationale
+
+**Why backfill instead of reject?**
+- Rejecting breaks the app for existing users (unacceptable UX)
+- Event log is append-only — we can't rewrite on-disk data
+- Backfill at load time is non-destructive and preserves user data
+
+**Why make schemas optional?**
+- Allows Zod validation to pass for legacy events
+- New writes remain strict (handlers enforce required fields at write time)
+- Clear signal that the field is required going forward but tolerated on legacy reads
+
+**Why document inline?**
+- Future maintainers understand why a field is optional in the schema but required in practice
+- Backfill logic is co-located with validation logic for discoverability
+
+## Implementation (WI-23 Legacy Backfill)
+
+**Fix approach (PR #50):**
+1. Made `sortOrder` `.optional()` in event schemas (with inline comments)
+2. Added backfill step in `JsonFileEventLog.load()`:
+   - Tracks per-entity-type counters (`AccountCreated`, `CategoryCreated`, `SubcategoryCreated`, `TagCreated`)
+   - Assigns sequential indexes (0, 1, 2...) to events missing `sortOrder`
+   - Preserves existing user ordering by order-of-appearance
+3. Updated WI-23 boot-guard tests to validate backfill instead of rejection
+
+**Data safety:**
+- No data destruction — only adds missing field at load time
+- Does not modify on-disk `events.ndjson` (append-only contract preserved)
+- Independent counters per entity type
+- Preserves user's existing ordering
+
+**Testing:**
+- ✅ All 556 tests pass
+- ✅ `npm run dev:empty` boots successfully (2372 events loaded)
+- ✅ Lint + format checks pass
+
+## Ordering: Backfill Before Validation
+
+**Key lesson:** Backfill must run BEFORE Zod validation, not after.
+
+Zod has no awareness of "optional-with-default-via-side-effect" patterns. When a schema marks a field as required, Zod validation fails immediately if the field is missing, even if application logic intends to inject a default value afterward. For WI-23 legacy backfill, this meant pre-WI-23 events without `sortOrder` were being rejected during validation before the backfill logic could run.
+
+**Implementation:** In `JsonFileEventLog.load()`, the backfill step runs immediately after parsing each line, injecting `sortOrder` for legacy events. Only after backfill does Zod schema validation run, ensuring it operates on well-formed events.
+
+**Principle:** Side-effect defaults must be applied to the data structure before validation, not as a post-validation transform. Schema validators enforce contracts on the data as-is; they don't negotiate.
+
+## Process Improvement
+
+**Gap identified:** PR #26's smoke gate only tested freshly-seeded data, missing the legacy fixture case.
+
+**Companion fix (Cypher/PR #51):** Extended smoke gate to test both fresh-seeded data and legacy fixtures. After PR #50 merge, discovered that Morpheus had already included the necessary test cases (coordinated convergence, not a conflict).
+
+See `.squad/skills/event-schema-migration-gate/SKILL.md` for the full pattern.
+
+## Future Work
+
+When migrating other event types:
+- [ ] Follow the backfill pattern from WI-23
+- [ ] Add both positive (fresh seed) and negative (legacy fixture) smoke tests
+- [ ] Document why fields are optional in schemas (inline comments)
+
+## References
+
+- PR #26: WI-23 unify projections (introduced breaking change)
+- PR #50: WI-23 legacy backfill (this fix)
+- `.squad/skills/event-schema-migration-gate/SKILL.md`: smoke gate pattern
+- `docs/security/security-requirements-v0.1.md` §"Schema migration policy": Strategy 3 precedent
+
+---
+
 ### 2026-04-23: Trinity — Saldo chart redesign (monthly income-vs-expense pivot, CY-only)
 
 **Date:** 2026-04-23  
