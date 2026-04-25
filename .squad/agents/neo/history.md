@@ -189,6 +189,10 @@ Event-sourcing edit pattern: **Full payload snapshot (`tx.updated`)** — not fi
 
 ### Four decisions for Pedro
 
+### 2026-04-25 — PR #50 + #53 merge train (architecture review, merged)
+
+PR #50 (Morpheus WI-23 legacy backfill) + PR #53 (categories usage counter) approved for main merge. PR #50 addressed boot-guard rejection via backfill at load time (sortOrder injection before Zod validation). PR #53 adds categories:usage IPC + selector with O(N) sweep + memoization. Both patches + tests verified green. Orchestration log + merge-train summary logged to `.squad/orchestration-log/` and `.squad/log/`.
+
 1. Include delete in WI-20? (Rec: Yes)
 2. Account immutability OK? (Rec: Yes)
 3. Add "New transaction" to MovementsScreen header? (Rec: Yes)

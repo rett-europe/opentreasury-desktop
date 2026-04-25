@@ -181,6 +181,10 @@ Frontend uses native `<input type="date">` pair in DateRangePicker v0.1. No cryp
 
 - **WI-6:** Wire real core/query into IPC handlers (replace mocks)
 
+### 2026-04-25 — PR #50 + #53 merge train (security review, merged)
+
+PR #50 (Morpheus WI-23 legacy backfill) + PR #53 (categories usage counter) approved for main merge. PR #53 security review: IPC boundary tight, Zod validation on both request/response, zero PII, no new native deps, AEAD contract untouched. Both patches + tests verified green. Orchestration log + merge-train summary logged to `.squad/orchestration-log/` and `.squad/log/`.
+
 **How it unblocks you:**
 - Panel MVP proves the event-sourced read path (no mutations) — lower crypto surface than Movements
 - Core queries are read-only (no DEK writes, no rotation logic) — simpler review surface than WI-5 full cycle

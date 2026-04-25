@@ -232,3 +232,7 @@ Verified @copilot's fix commit 91d3fc3 addressed all 3 of Neo's CHANGES_REQUESTE
 **Outcome:** Branch deleted. No update to `.squad/skills/event-schema-migration-gate/SKILL.md` needed — the skill already documents the two-path pattern (fresh seed + legacy fixtures) that PR #50 implemented.
 
 **Learning:** When working on test coverage for coordinated work (Morpheus fixing, me validating), check main frequently during rebase. This wasn't a conflict — it was convergence.
+
+### 2026-04-25 — PR #51 + #50 reconciliation (test coordination, merged)
+
+PR #51 (wi23-legacy-fixture-gate tests) closed as redundant — PR #50 already included both test cases I was proposing (fresh seed + legacy fixture smoke gate). Morpheus and I converged on the same solution independently. Branch deleted. Orchestration log + merge-train summary logged to `.squad/orchestration-log/` and `.squad/log/`.
