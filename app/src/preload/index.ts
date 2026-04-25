@@ -66,6 +66,7 @@ import {
   IPC_CATEGORIES_UPDATE,
   IPC_CATEGORIES_ARCHIVE,
   IPC_CATEGORIES_UNARCHIVE,
+  IPC_CATEGORIES_USAGE,
   IPC_SUBCATEGORIES_CREATE,
   IPC_SUBCATEGORIES_UPDATE,
   IPC_SUBCATEGORIES_ARCHIVE,
@@ -74,6 +75,7 @@ import {
   type CreateCategoryResponse,
   type CategoriesListRequest,
   type CategoriesListResponse,
+  type CategoriesUsageResponse,
   type UpdateCategoryRequest,
   type UpdateCategoryResponse,
   type ArchiveCategoryRequest,
@@ -223,6 +225,9 @@ const api = {
     },
     list: (req?: CategoriesListRequest): Promise<CategoriesListResponse> => {
       return ipcRenderer.invoke(IPC_CATEGORIES_LIST, req ?? {});
+    },
+    usage: (): Promise<CategoriesUsageResponse> => {
+      return ipcRenderer.invoke(IPC_CATEGORIES_USAGE);
     },
     update: (req: UpdateCategoryRequest): Promise<UpdateCategoryResponse> => {
       return ipcRenderer.invoke(IPC_CATEGORIES_UPDATE, req);

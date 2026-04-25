@@ -5,7 +5,7 @@ import { Plus, Folder, Search, Edit, Archive, RotateCcw, Check, X as XIcon } fro
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
 import { AddCategoryModal, ArchiveConfirmModal } from '../../components/ConfigModals/index.js';
-import { listCategories } from '../../services/categoriesApi.js';
+import { listCategories, getCategoriesUsage } from '../../services/categoriesApi.js';
 import {
   archiveCategory,
   archiveSubcategory,
@@ -28,6 +28,13 @@ type State =
 
 type KindFilter = 'all' | CategoryKind;
 
+interface CategoryUsage {
+  readonly transactionCount: number;
+  readonly classifiedCount: number;
+}
+
+const ZERO_USAGE: CategoryUsage = { transactionCount: 0, classifiedCount: 0 };
+
 export interface CategoriasTabProps {
   readonly onListChanged?: (() => void) | undefined;
 }
@@ -49,8 +56,9 @@ export interface CategoriasTabProps {
  *     "+ Añadir subcategoría a {name}" ghost footer (disabled until
  *     SubcategoryAdded events land).
  *
- * Subcategory and usage counts are shown as 0 — the data model does not yet
- * track them. Wiring them is a follow-up event slice.
+ * issue #52 — subcategory & usage counters now reflect real data: subcategory
+ * count comes from `CategoryRecord.subcategories` (active only); transaction
+ * and classified counters come from the `categories:usage` IPC.
  */
 export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Element {
   const { t } = useTranslation('common');
@@ -69,13 +77,28 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
   const [subEditName, setSubEditName] = useState('');
   const [subError, setSubError] = useState<string | null>(null);
   const [subBusy, setSubBusy] = useState(false);
+  // issue #52 — per-category usage counters keyed by categoryId. Populated
+  // alongside listCategories so the master rows and detail header reflect
+  // real transaction / classified totals instead of placeholder zeros.
+  const [usage, setUsage] = useState<ReadonlyMap<string, CategoryUsage>>(() => new Map());
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const resp = await listCategories({ includeArchived: showArchived });
+      const [resp, usageResp] = await Promise.all([
+        listCategories({ includeArchived: showArchived }),
+        getCategoriesUsage(),
+      ]);
       const cats = resp.categories as readonly ConfigCategory[];
       setState({ kind: 'loaded', categories: cats });
+      setUsage(
+        new Map(
+          usageResp.usage.map((u) => [
+            u.categoryId,
+            { transactionCount: u.transactionCount, classifiedCount: u.classifiedCount },
+          ]),
+        ),
+      );
       setSelectedId((prev) => {
         if (prev && cats.some((c) => c.id === prev)) return prev;
         return cats[0]?.id ?? null;
@@ -357,6 +380,11 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                     const active = selected?.id === c.id;
                     const swatch = c.color || 'var(--color-brand-primary)';
                     const archived = isArchived(c);
+                    // issue #52 — real counters from the read model. `subs`
+                    // is the count of *active* subcategories on this category;
+                    // `moves` is the total transactions referencing it.
+                    const activeSubs = (c.subcategories ?? []).filter((s) => !isArchived(s)).length;
+                    const rowUsage = usage.get(c.id) ?? ZERO_USAGE;
                     return (
                       <li
                         key={c.id}
@@ -390,9 +418,9 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                             </span>
                             <span className="ot-config__list-row-sub">
                               {t('configuracion.categorias.master.rowSub', {
-                                subs: 0,
-                                moves: 0,
-                                count: 0,
+                                subs: activeSubs,
+                                moves: rowUsage.transactionCount,
+                                count: rowUsage.transactionCount,
                               })}
                             </span>
                           </span>
@@ -462,8 +490,8 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                       <div className="ot-config__md-sub">
                         {t('configuracion.categorias.detail.sub', {
                           subs: visibleSubs.length,
-                          moves: 0,
-                          count: visibleSubs.length,
+                          moves: (usage.get(selected.id) ?? ZERO_USAGE).classifiedCount,
+                          count: (usage.get(selected.id) ?? ZERO_USAGE).classifiedCount,
                         })}
                       </div>
                     </div>

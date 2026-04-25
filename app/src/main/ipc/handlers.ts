@@ -59,12 +59,14 @@ import {
   IPC_CATEGORIES_UPDATE,
   IPC_CATEGORIES_ARCHIVE,
   IPC_CATEGORIES_UNARCHIVE,
+  IPC_CATEGORIES_USAGE,
   IPC_SUBCATEGORIES_CREATE,
   IPC_SUBCATEGORIES_UPDATE,
   IPC_SUBCATEGORIES_ARCHIVE,
   IPC_SUBCATEGORIES_UNARCHIVE,
   createCategoryResponseSchema,
   categoriesListResponseSchema,
+  categoriesUsageResponseSchema,
   updateCategoryResponseSchema,
   archiveCategoryResponseSchema,
   unarchiveCategoryResponseSchema,
@@ -133,6 +135,7 @@ import {
   createCategoriesUpdateHandler,
   createCategoriesArchiveHandler,
   createCategoriesUnarchiveHandler,
+  createCategoriesUsageHandler,
   createSubcategoriesCreateHandler,
   createSubcategoriesUpdateHandler,
   createSubcategoriesArchiveHandler,
@@ -293,6 +296,7 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
 
   const handleCategoriesCreate = createCategoriesCreateHandler(configDeps);
   const handleCategoriesList = createCategoriesListHandler({ getReadModel });
+  const handleCategoriesUsage = createCategoriesUsageHandler({ getReadModel });
   const handleCategoriesUpdate = createCategoriesUpdateHandler(configDeps);
   const handleCategoriesArchive = createCategoriesArchiveHandler(configDeps);
   const handleCategoriesUnarchive = createCategoriesUnarchiveHandler(configDeps);
@@ -307,6 +311,10 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_CATEGORIES_LIST, async (_event, raw: unknown) => {
     const response = await handleCategoriesList(raw);
     return categoriesListResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_CATEGORIES_USAGE, async () => {
+    const response = await handleCategoriesUsage();
+    return categoriesUsageResponseSchema.parse(response);
   });
   ipcMain.handle(IPC_CATEGORIES_UPDATE, async (_event, raw: unknown) => {
     const response = await handleCategoriesUpdate(raw);
