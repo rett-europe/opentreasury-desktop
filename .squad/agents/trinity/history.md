@@ -1387,3 +1387,7 @@ When a small modal (e.g. `BulkClassifyModal`) reuses the same dialog shell as a 
 4. Self-scrolling internal panels (failures list `max-height: 200px; overflow-y: auto`) keep growth bounded when content appears.
 
 Result: shell stays single-source-of-truth for header/footer/focus/padding tokens; only sizing is per-modal. Surgical CSS-only diff, no .tsx churn.
+
+### 2026-04-25 — Batch coordination: PR #46 merged, PR #26 rebased
+
+Coordinated batch (Neo perf-gate review, Cypher verification + merge, Morpheus PR #26 takeover). PR #46 squash-merged post-Neo-CHANGES-REQUESTED review. PR #26 rebased and ready; Trinity may be needed for chained "N movimientos" column work (PR #3, depends on PR #26 + Switch PR #2). See .squad/decisions.md §"2026-04-25: Neo PR #46..." and .squad/orchestration-log/2026-04-25T13-34-06Z-*.md for batch context.

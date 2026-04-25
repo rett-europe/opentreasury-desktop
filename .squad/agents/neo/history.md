@@ -154,6 +154,10 @@ The web app's bank-specific alias tables (`import_constants.py`) work for 90% of
 
 **Transaction detail view is a prerequisite for notes UI.** MovementsScreen currently has no row-click handler — it's a list view only. Notes thread needs a container to live in (detail modal or inline expand). Modal is simpler; inline expand is slicker but more complex. Recommended modal for M1.5.
 
+### 2026-04-25 — PR #46 Playwright perf-gate review
+
+Reviewed PR #46 perf-budget gate; identified blocker (Electron launch arg prevents userData resolution), two calibration issues (timeout 240s, budget 1500ms). All issues empirically validated. Cypher verified fix commit and merged. See `.squad/decisions.md` §"2026-04-25: Neo PR #46 code review..." for full details. Skill written: `.squad/skills/perf-gate-verification/SKILL.md`.
+
 **Null normalization simplifies queries.** Storing empty strings vs NULL creates two representations of "absent". Normalizing to NULL (trim + empty→null) keeps queries simple (`WHERE field IS NOT NULL`). Applied to both `reference` and `details` fields.
 
 ## 2026-04-21 — WI-20 scope: Transaction Manual Add + Edit
