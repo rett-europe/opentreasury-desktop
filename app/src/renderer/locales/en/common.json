@@ -271,9 +271,23 @@
         "label": "Category",
         "all": "All categories"
       },
-      "month": {
-        "label": "Month",
-        "all": "All months"
+      "dateRange": {
+        "label": "Period",
+        "presets": {
+          "this-month": "This month",
+          "last-month": "Last month",
+          "last-3-months": "Last 3 months",
+          "this-year": "Year to date",
+          "last-year": "Last year",
+          "last-12-months": "Last 12 months",
+          "custom": "Custom",
+          "all": "All time"
+        },
+        "customFrom": "From",
+        "customTo": "To",
+        "apply": "Apply",
+        "invalidRange": "End date must be on or after the start date.",
+        "clear": "Clear"
       },
       "amountMin": "min €",
       "amountMax": "max €",

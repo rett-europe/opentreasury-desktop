@@ -230,6 +230,113 @@
   box-shadow: var(--shadow-focus);
 }
 
+/* Date-range filter — chips group with a custom-range popover anchored
+ * to the "Personalizado" chip. Lives inline in the filter bar; the
+ * popover is absolutely positioned so it never inflates bar height.
+ * ────────────────────────────────────────────────────────────── */
+.ot-filter-bar__date-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.ot-filter-bar__date-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-12);
+  user-select: none;
+}
+.ot-filter-bar__date-chips {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ot-filter-bar__date-custom-anchor {
+  position: relative;
+  display: inline-flex;
+}
+.ot-filter-bar__date-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.12));
+}
+.ot-filter-bar__date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-12);
+  color: var(--color-text-secondary);
+}
+.ot-filter-bar__date-field input {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm, 4px);
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: var(--font-size-13);
+  color: var(--color-text-primary);
+  background: var(--color-surface-primary);
+}
+.ot-filter-bar__date-field input[aria-invalid='true'] {
+  border-color: var(--color-status-danger, #c0392b);
+}
+.ot-filter-bar__date-error {
+  color: var(--color-status-danger, #c0392b);
+  font-size: var(--font-size-12);
+  margin: 0;
+}
+.ot-filter-bar__date-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ot-movements__date-pill-row {
+  display: flex;
+  margin-top: calc(-1 * var(--space-3, 8px));
+  margin-bottom: var(--space-2, 4px);
+}
+.ot-movements__date-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--color-brand-surface, rgba(155, 114, 207, 0.12));
+  color: var(--color-text-primary);
+  font-size: var(--font-size-12);
+}
+.ot-movements__date-pill-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 50%;
+}
+.ot-movements__date-pill-clear:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+.ot-movements__date-pill-clear:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
 .ot-visually-hidden {
   position: absolute;
   width: 1px;
