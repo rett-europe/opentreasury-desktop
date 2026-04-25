@@ -5977,3 +5977,94 @@ Dev seed backfilled with ~200 synthetic transactions (Jan 2025 → Apr 2026) for
 
 **PR:** #13 chore(devseed): backfill 2025+2026 transactions for saldo validation (commit b0f6d29, HEAD).
 
+
+---
+
+## 2026-04-25: Neo PR #46 code review + Cypher verification + Morpheus WI-23 takeover
+
+**Date:** 2026-04-25  
+**Status:** ✅ PR #46 MERGED (perf gate); PR #26 REBASED & READY-FOR-REVIEW (WI-23)  
+**Agents:** Neo (reviewer), Cypher (verification + merge), Morpheus (takeover + rebase)
+
+### Neo's PR #46 Review: Playwright Perf-Budget Gate
+
+**Verdict:** CHANGES_REQUESTED (one blocker + two calibration issues)
+
+**Blocker identified:** Electron launch arg rgs: ['dist/main/index.js'] prevents pp.getName() from reading package.json, so userData resolves to %APPDATA%\Electron instead of %APPDATA%\opentreasury-desktop. Perf:seed writes to the latter, so app always boots with zero events. Gate times out before measuring.
+
+**Fix:** rgs: ['.'] (reads package.json correctly).
+
+**Secondary findings:**
+1. Playwright global 	imeout: 120_000 marginal for 3 cold Electron launches on Windows; need 240_000.
+2. BUDGET_MS = 500 too tight; observed 700–750 ms; recommend 1500 with week-long tuning.
+
+**Empirical validation:** All issues reproduced locally. Fixed spec produced real timings (698ms, 754ms runs 1–2 on Windows dev).
+
+### Cypher's PR #46 Verification + Merge
+
+**Verdict:** ✅ APPROVED → gh pr merge --squash --delete-branch --auto
+
+Verified all three fixes in commit 91d3fc3:
+- ✅ rgs: ['.'] at spec:73
+- ✅ BUDGET_MS = 1500 at spec:12
+- ✅ 	imeout: 240_000 at playwright.config.ts:27
+- ✅ Selector pattern (	r:not([aria-hidden="true"])) matches virtualised row layout
+
+**Local gate run (Windows, 5000-tx seed):**
+- 353 ms / 461 ms / 418 ms → **median 418 ms** vs 1500 ms budget (3.6× headroom)
+
+**Reviewer Rejection Lockout:** @copilot locked out from declaring own fix sufficient. Cypher (independent) verified, approved, and merged.
+
+**Umbrella #39 closed** (all three sub-issues #40, #44, #46 complete).
+
+**Next:** After ~1 week CI data, tighten budget to median × 1.5 via follow-up PR.
+
+### Morpheus's PR #26 WI-23 Takeover (Rebase + Ready)
+
+**Source:** Stalled PR #26 (copilot/issue-18-work-on, author @copilot, opened 2026-04-23). Pedro authorized takeover.
+
+**Outcome:** Rebased onto current main, single conflict resolved, two rebase-fallout fixes, all gates green, marked ready-for-review.
+
+**Conflict (reducers.ts):** Semantic collision between perf-rewrite (PR #45: mutable _txList, _txByRef state) and projection-rewrite (PR #26: delete legacy ccounts/categories/	ags arrays).
+
+**Resolution:** Kept both refactors' wins. mptyReadModel() now initializes perf state but omits legacy fields.
+
+**Rebase fallout (mechanical fixes):**
+1. import.ts (PR #27): CategoryCreated events missing sortOrder. Added computation: max(existing.sortOrder ∪ {-1}) + 1.
+2. ulkUpdate.integration.test.ts (PR #36): Seed fixture had legacy ccount.created. Swapped for unified AccountCreated + added sortOrder to all CategoryCreated seeds.
+
+**Gates at merge time:**
+- 
+pm run typecheck ✓
+- 
+pm run lint ✓ (--max-warnings 0)
+- itest run → **547 passed / 9 skipped / 0 failed**
+
+**Architectural shape (preserved from @copilot's design):**
+1. One stream per config domain; AccountCreated / CategoryCreated / TagCreated canonical.
+2. sortOrder required on every unified *Created event (handler-assigned, Zod-validated at IPC boundary).
+3. Boot-guard: JsonFileEventLog.load() rejects legacy *.created events.
+4. Single ID space: transaction references use same ULIDs as config; legacy entity types + read-model arrays deleted.
+5. Wire-contract compatible: Panel adapter projects configAccounts → legacy shape via label ?? name.
+
+**IPC contract surface:** All renderer-facing changes already included; config modals plumb sortOrder correctly. No Trinity needed for this merge.
+
+**Follow-ups (deferred, per PR #26 description):**
+- Switch C3: selectAccountReferences selector + ccounts:listReferences IPC + i18n (PR #2).
+- Trinity: "N movimientos" column on Cuentas/Categorías/Etiquetas (PR #3, chained on #2).
+
+**Skills written:**
+- .squad/skills/perf-gate-verification/SKILL.md (Cypher) — Electron+Playwright pattern, launch-arg gotcha, budget calibration.
+- .squad/skills/copilot-pr-takeover/SKILL.md (Morpheus) — rebase conflict resolution, semantic-break detection, rebase-fallout alignment.
+
+### Constraint: Branch Protection on Main
+
+**Effective:** 2026-04-25 (discovered during this batch)
+
+Main branch now rejects direct pushes. All updates must land via:
+1. gh pr create (on a new branch)
+2. gh pr merge --squash --delete-branch
+
+**Context:** Attempted direct push of fix/bulk-classify-modal-size FF; rejected. Created PR #47 (bulk-modal sizing) as workaround and squash-merged as intended.
+
+This affects all future main-side changes. Update CI/CD and development workflows accordingly.
