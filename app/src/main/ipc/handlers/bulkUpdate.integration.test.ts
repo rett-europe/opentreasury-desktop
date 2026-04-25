@@ -72,24 +72,18 @@ const TX_IDS = [ulid('TX01'), ulid('TX02'), ulid('TX03'), ulid('TX04'), ulid('TX
 function buildSeedEvents(): DomainEvent[] {
   const events: DomainEvent[] = [];
 
+  // WI-23 — unified account stream. The legacy `account.created` envelope
+  // is rejected by the boot-guard; this seed uses the flat `AccountCreated`
+  // event and the same `accountId` is what `tx.created` references.
   events.push({
-    id: ulid('EVACC'),
-    type: 'account.created',
-    datasetId: DATASET_ID,
-    actorDeviceId: DEVICE_ID,
+    type: 'AccountCreated',
+    id: ACCOUNT_ID,
+    name: 'Integration Bank',
+    label: 'Main',
+    currency: 'EUR',
+    openingBalance: 0,
+    sortOrder: 0,
     createdAt: '2026-04-20T09:00:00.000Z',
-    dekVersion: 0,
-    version: 1,
-    payload: {
-      id: ACCOUNT_ID,
-      bankName: 'Integration Bank',
-      bankNameShort: 'IB',
-      accountLabel: 'Main',
-      color: null,
-      sortOrder: 0,
-      isActive: true,
-      createdAt: '2026-04-20T09:00:00.000Z',
-    },
   } as DomainEvent);
 
   // Config categories use the WI-15-lite flat envelope (see `devSeed.ts`).
@@ -98,6 +92,7 @@ function buildSeedEvents(): DomainEvent[] {
     id: CAT1_ID,
     name: 'Payroll',
     kind: 'expense',
+    sortOrder: 0,
     createdAt: '2026-04-20T09:05:00.000Z',
   } as DomainEvent);
   events.push({
@@ -105,6 +100,7 @@ function buildSeedEvents(): DomainEvent[] {
     id: CAT2_ID,
     name: 'Donations',
     kind: 'income',
+    sortOrder: 1,
     createdAt: '2026-04-20T09:06:00.000Z',
   } as DomainEvent);
   events.push({
