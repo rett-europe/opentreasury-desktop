@@ -2,11 +2,18 @@
 
 **Owner:** Cypher (Tester)  
 **Created:** 2026-04-23  
-**Last Updated:** 2026-04-23  
+**Last Updated:** 2026-04-25  
+**Confidence Level:** High (validated in production — near-miss + real regression caught)  
 
 ## Purpose
 
 Prevent event schema migrations from silently breaking event producers (seed scripts, IPC handlers) by adding load-replay smoke tests that run on every PR.
+
+**Critical Refinement (2026-04-25):** The gate must cover **BOTH** fresh-seed and legacy-fixture paths:
+- Fresh seed: validates newly-written events conform to schema (e.g., include `sortOrder`)
+- Legacy fixtures: validates pre-existing events (written before schema changes) load correctly via backfill logic
+
+Pedro's real on-disk data exposed this gap: the original PR #26 smoke gate only tested fresh perf-seed output, missing pre-WI-23 events without `sortOrder`. This led to a production-class regression that was caught post-merge.
 
 ## When to Use
 
@@ -35,6 +42,11 @@ Create a test that:
 2. Loads through the actual `EventLog` implementation (exercises boot-guard + Zod validation)
 3. Validates the new required fields are present
 4. Runs on PR branches (not just `main`)
+
+**NEW (2026-04-25): Also test legacy fixtures explicitly:**
+5. Hand-craft a fixture file with pre-migration events (e.g., events WITHOUT `sortOrder` for WI-23)
+6. Assert load succeeds and backfill logic populates the missing fields
+7. Prevents regressions if backfill is removed or breaks
 
 **Test structure:**
 ```typescript
@@ -94,6 +106,43 @@ describe('Event log load-replay smoke', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(typeof (evt as any).sortOrder).toBe('number');
     }
+  });
+
+  // NEW (2026-04-25): Test legacy fixtures explicitly
+  it('should load and backfill pre-WI-23 legacy fixtures (events without sortOrder)', async () => {
+    const legacyFixtureDir = join(process.cwd(), '.test-legacy-fixture-' + Date.now());
+    await fs.mkdir(legacyFixtureDir, { recursive: true });
+
+    const fixtureFile = join(legacyFixtureDir, 'events.ndjson');
+    const legacyEvents = [
+      {
+        type: 'AccountCreated',
+        id: '01234567890123456789acc001',
+        name: 'Legacy Bank A - Checking',
+        currency: 'EUR',
+        openingBalance: 1000.0,
+        createdAt: '2025-01-15T10:00:00.000Z',
+        // NO sortOrder — pre-WI-23 shape
+      },
+      // ... more legacy events
+    ];
+
+    await fs.writeFile(
+      fixtureFile,
+      legacyEvents.map((e) => JSON.stringify(e)).join('\n') + '\n',
+      'utf8',
+    );
+
+    const log = new JsonFileEventLog({ dir: legacyFixtureDir });
+    const events = await log.load();
+
+    // Assert backfill populated sortOrder
+    for (const evt of events) {
+      expect(evt).toHaveProperty('sortOrder');
+      expect(typeof (evt as any).sortOrder).toBe('number');
+    }
+
+    await fs.rm(legacyFixtureDir, { recursive: true, force: true });
   });
 });
 ```
@@ -188,6 +237,16 @@ This catches:
 - Missing required fields (e.g., forgot `sortOrder`)
 - Boot-guard rules (e.g., legacy type rejection)
 
+**Why test BOTH fresh-seed AND legacy fixtures? (2026-04-25 refinement)**  
+Fresh seed only validates new writes. Legacy fixtures validate backward compatibility (backfill logic). Pedro's real on-disk data had pre-WI-23 events without `sortOrder` — the original smoke gate (PR #26) missed this because it only tested fresh perf-seed output.
+
+**Pattern:** For any schema migration that adds required fields:
+1. Add fresh-seed test (validates new writes conform)
+2. Add legacy-fixture test (validates backfill populates missing fields on old data)
+3. Both run on every PR via `npm test`
+
+This two-path approach catches BOTH producer bugs (fresh seed) AND backfill regressions (legacy fixtures).
+
 **Why small seed count (100 tx)?**  
 Boot-guard + Zod validation happens event-by-event. 100 tx + 44 ref-data (144 total) is enough to exercise all event types. Larger counts just add redundant overhead (~4s vs ~30s+).
 
@@ -224,7 +283,8 @@ When migrating event schemas:
 - [ ] Update IPC handlers that emit those event types
 - [ ] Add boot-guard validation if breaking (reject legacy events)
 - [ ] Add load-replay smoke test in `app/src/core/eventLog/*.test.ts`:
-  - [ ] Positive case: load seed, validate new required fields
+  - [ ] Positive case (fresh seed): load seed, validate new required fields
+  - [ ] **NEW:** Positive case (legacy fixture): load pre-migration events, validate backfill works
   - [ ] Negative case (if breaking): verify legacy events rejected
 - [ ] Run `npm test` locally — smoke test should pass
 - [ ] Run `npm run perf:seed` locally — events should load cleanly

@@ -215,3 +215,37 @@ Verified @copilot's fix commit 91d3fc3 addressed all 3 of Neo's CHANGES_REQUESTE
 - `npm run build` (~12 s) — required before E2E since main bundle must exist.
 - `npx playwright test tests/e2e/movements-perf.spec.ts --reporter=list`
 - `gh pr review 46 --approve --body-file <f>` then `gh pr merge 46 --squash --delete-branch --auto`
+
+### 2026-04-25 — WI-23 legacy fixture gate (PR #51, draft)
+
+**Assigned:** Extend the PR #26 smoke gate to cover pre-WI-23 legacy event fixtures. Pedro's `npm run dev:empty` hit a regression: his on-disk data had pre-WI-23 events without `sortOrder`, and the app failed to load them.
+
+**Root cause:** My original smoke gate (PR #26) only tested fresh perf-seed output, which always includes `sortOrder`. It didn't cover pre-existing on-disk events written before WI-23 added the `sortOrder` requirement. This was a production-class regression that my gate missed.
+
+**Fix applied (PR #51, draft):**
+1. Added 2 new test cases to `event-log-smoke.test.ts`:
+   - `should load and backfill pre-WI-23 legacy fixtures (events without sortOrder)` — hand-crafted fixture with 2 AccountCreated, 1 CategoryCreated, 1 TagCreated events WITHOUT sortOrder. Asserts load succeeds and backfill populates missing fields.
+   - `should reject old enveloped shape (nested payload) even with sortOrder` — validates legacy dotted type names (e.g., `account.created`) are refused, even if sortOrder is present.
+
+2. **Test status on current main:** The legacy fixture test **FAILS** (expected) because Morpheus's backfill logic hasn't merged yet. The test proves the gap exists. Once Morpheus's PR #50 (`fix/wi23-legacy-event-backfill`) merges, the test will go green.
+
+3. Updated `.squad/skills/event-schema-migration-gate/SKILL.md`:
+   - Bumped confidence level to **High** (validated in production — near-miss + real regression caught)
+   - Added critical refinement: gates must cover **BOTH** fresh-seed and legacy-fixture paths
+   - Updated pattern to include explicit legacy fixture tests for any schema migration that adds required fields
+
+**Honest assessment — the miss:**
+- My PR #26 smoke gate worked as designed: it validated fresh perf-seed output. But the design was incomplete — it didn't exercise the backfill path for pre-existing data.
+- I assumed "test the seeder" was sufficient. I was wrong. Schema migrations have TWO failure modes:
+  1. New writes missing required fields (fresh seed catches this) ✅
+  2. Old reads failing backfill logic (legacy fixtures catch this) ❌ — I missed this
+
+- Pedro's real on-disk data exposed the gap. The skill is now refined: **always test BOTH paths** for schema migrations.
+
+**Value:**
+- The incident validates the pattern AND exposes a refinement: schema migration gates need dual coverage (fresh + legacy).
+- PR #51 closes the gap. Future schema migrations that touch config events will fail CI if they break backward compatibility.
+- The skill now documents this two-path pattern so future Testers don't repeat my mistake.
+
+**PR status:** Draft #51 opened, blocked on Morpheus's PR #50 (backfill). Once #50 merges, #51's tests will go green and it can merge.
+
