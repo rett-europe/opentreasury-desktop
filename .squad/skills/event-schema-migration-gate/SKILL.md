@@ -2,7 +2,8 @@
 
 **Owner:** Cypher (Tester)  
 **Created:** 2026-04-23  
-**Last Updated:** 2026-04-23  
+**Last Updated:** 2026-04-25  
+**Confidence:** High (validated by WI-23 backfill implementation, PR #50)
 
 ## Purpose
 
@@ -160,33 +161,55 @@ If using the default vitest config (`include: ['app/src/**/*.test.ts']`), the te
 - `category.created` → `CategoryCreated` (flat, with `sortOrder`)
 - `tag.created` → `TagCreated` (flat, with `sortOrder`)
 
-**Applied pattern:**
-1. Updated `devSeed.ts` to emit unified shapes (already done in WI-23)
+**Applied pattern (PR #26 + PR #50):**
+1. Updated `devSeed.ts` to emit unified shapes (PR #26)
 2. Updated `perf-seed.mjs` to emit unified shapes (PR #26 fix)
-3. Added `event-log-smoke.test.ts` with 5 test cases:
-   - Load-replay validation
-   - `sortOrder` validation for each config event type
-   - Legacy event rejection test
-4. Boot-guard already present in `JsonFileEventLog.ts` (lines 19-52)
+3. Added `event-log-smoke.test.ts` with 7 test cases (PR #26 + PR #50):
+   - Load-replay validation (fresh seed)
+   - `sortOrder` validation for each config event type (fresh seed)
+   - Legacy event rejection test (dotted type names)
+   - **Legacy fixture backfill validation (pre-WI-23 events without sortOrder)** — added in PR #50
+   - **Enveloped shape rejection (guards against regression)** — added in PR #50
+4. Boot-guard present in `JsonFileEventLog.ts` with backfill logic (PR #50)
+
+**Critical refinement discovered (PR #50):**
+The original PR #26 smoke gate only tested **fresh-seed** output (which always included `sortOrder`). It **missed** pre-existing on-disk data. Pedro's real data exposed this gap when the app wouldn't boot. PR #50 added:
+- Legacy fixture test with hand-crafted pre-WI-23 events (no `sortOrder`)
+- Backfill logic in `JsonFileEventLog.load()` to populate missing fields
+- Enveloped-shape rejection test to prevent re-introduction of old format
+
+**Pattern refinement:** Schema migration gates MUST cover **both paths**:
+1. **Fresh writes** (validate new producers emit correct shape)
+2. **Legacy reads** (validate backfill logic handles pre-existing data)
 
 **Outcome:**
-- All 552 tests pass (+5 new)
-- Future PRs that change config event schemas will fail if they forget to update seeders
-- Boot-guard exercised on every PR (not just when manually running the app)
+- All 556 tests pass (7 smoke tests + backfill validation)
+- Future PRs that change config event schemas will fail if they:
+  - Forget to update seeders (fresh-seed path)
+  - Break backfill logic (legacy-fixture path)
+  - Re-introduce old enveloped shapes (boot-guard regression)
+- Boot-guard + backfill exercised on every PR (not just when manually running the app)
 
 ## Key Learnings
 
 **Why load-replay, not just unit-test the schema?**  
-Unit tests of Zod schemas don't catch producer bugs. Load-replay exercises the full path:
+Unit tests of Zod schemas don't catch producer bugs OR backfill bugs. Load-replay exercises the full path:
 1. Seed script generates events
 2. Events written to NDJSON
-3. `JsonFileEventLog.load()` reads + validates (boot-guard + Zod)
+3. `JsonFileEventLog.load()` reads + validates (boot-guard + Zod + backfill)
 4. Events populate read model
 
 This catches:
 - Producer emitting wrong shape (e.g., nested payload when flat expected)
 - Missing required fields (e.g., forgot `sortOrder`)
 - Boot-guard rules (e.g., legacy type rejection)
+- **Backfill logic bugs (e.g., missing sortOrder not populated at load time)**
+
+**Two-path testing is mandatory:**
+- **Fresh-seed path:** Tests that new writes are correct (perf-seed or dev-seed)
+- **Legacy-fixture path:** Tests that old reads are handled (hand-crafted pre-migration events)
+
+WI-23 proved this: the fresh-seed test passed but the app failed on real data because there was no legacy-fixture coverage.
 
 **Why small seed count (100 tx)?**  
 Boot-guard + Zod validation happens event-by-event. 100 tx + 44 ref-data (144 total) is enough to exercise all event types. Larger counts just add redundant overhead (~4s vs ~30s+).
@@ -198,6 +221,9 @@ Per instructions, `/tmp` is forbidden. Use `join(process.cwd(), '.test-seed-' + 
 Rare (test framework guarantees `afterAll` runs). If it does fail, `.test-seed-*` dirs are gitignored and cleaned on next test run (new timestamp).
 
 ## Antipatterns
+
+**❌ Only test fresh-seed output, skip legacy fixtures**  
+The WI-23 near-miss: smoke gate passed on fresh perf-seed, but real on-disk data (pre-WI-23 events) failed to load. Always add a legacy-fixture test with hand-crafted pre-migration events.
 
 **❌ Only update the Zod schema, forget the producers**  
 Producers won't fail at compile-time. Runtime Zod validation will fail, but only when the event is loaded (too late).
@@ -224,7 +250,8 @@ When migrating event schemas:
 - [ ] Update IPC handlers that emit those event types
 - [ ] Add boot-guard validation if breaking (reject legacy events)
 - [ ] Add load-replay smoke test in `app/src/core/eventLog/*.test.ts`:
-  - [ ] Positive case: load seed, validate new required fields
+  - [ ] **Positive case (fresh seed):** load perf-seed output, validate new required fields
+  - [ ] **Positive case (legacy fixtures):** load hand-crafted pre-migration events, validate backfill
   - [ ] Negative case (if breaking): verify legacy events rejected
 - [ ] Run `npm test` locally — smoke test should pass
 - [ ] Run `npm run perf:seed` locally — events should load cleanly
@@ -232,7 +259,8 @@ When migrating event schemas:
 
 ## References
 
-- Decision: `.squad/decisions/inbox/cypher-pr26-load-replay-gate.md`
-- Test implementation: `app/src/core/eventLog/event-log-smoke.test.ts`
-- Boot-guard: `app/src/core/eventLog/JsonFileEventLog.ts` lines 19-52
+- Original pattern: `.squad/decisions/inbox/cypher-pr26-load-replay-gate.md` (PR #26)
+- Refinement: PR #50 (WI-23 legacy backfill — added legacy-fixture test path)
+- Test implementation: `app/src/core/eventLog/event-log-smoke.test.ts` (7 test cases)
+- Boot-guard + backfill: `app/src/core/eventLog/JsonFileEventLog.ts`
 - WI-23 schema migration policy: `docs/security/security-requirements-v0.1.md` §"Schema migration policy" Strategy 3

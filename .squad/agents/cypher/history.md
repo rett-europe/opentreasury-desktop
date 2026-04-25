@@ -215,3 +215,20 @@ Verified @copilot's fix commit 91d3fc3 addressed all 3 of Neo's CHANGES_REQUESTE
 - `npm run build` (~12 s) — required before E2E since main bundle must exist.
 - `npx playwright test tests/e2e/movements-perf.spec.ts --reporter=list`
 - `gh pr review 46 --approve --body-file <f>` then `gh pr merge 46 --squash --delete-branch --auto`
+
+### 2026-04-25 — PR #51 resolution (WI-23 legacy fixture gate)
+
+**Context:** PR #51 (`test/wi23-legacy-fixture-gate`) added two test cases to `event-log-smoke.test.ts`: (1) legacy-fixture backfill validation, (2) enveloped-shape rejection test. Morpheus's PR #50 (WI-23 legacy backfill) was merged to main between when I drafted #51 and when Pedro requested rebase.
+
+**Conflict analysis:**
+- Main (post-#50): Contains all 7 tests including BOTH of my additions from #51
+- My branch: Same 7 tests with minor comment wording variation (no functional diff)
+- Diff: 4-line comment change only
+
+**Resolution:** Closed PR #51 as subsumed by #50. Morpheus's PR already included the tests I added (likely coordinated since we were both working on the WI-23 legacy compatibility gap). No merge needed — main already has all coverage.
+
+**Validation:** Ran `npx vitest run --pool=forks --poolOptions.forks.singleFork=true app/src/core/eventLog/event-log-smoke.test.ts` on main — all 7 tests pass (1284ms).
+
+**Outcome:** Branch deleted. No update to `.squad/skills/event-schema-migration-gate/SKILL.md` needed — the skill already documents the two-path pattern (fresh seed + legacy fixtures) that PR #50 implemented.
+
+**Learning:** When working on test coverage for coordinated work (Morpheus fixing, me validating), check main frequently during rebase. This wasn't a conflict — it was convergence.
