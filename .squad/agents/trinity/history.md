@@ -47,6 +47,8 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 
 **Modal-shell override pattern (2026-04-25):** When a modal reuses TransactionDetailModal shell, scope sizing overrides (width, min-height) under a marker class. Do not fork the shell CSS. Pattern documented at `.squad/skills/modal-shell-overrides/SKILL.md`.
 
+**Scope Bar recipe placement (2026-04-28, PR #57):** When adding new shared UI patterns like `.ot-scope-bar` (the date-filter band), the recipe MUST go in `globals.css`, not in component CSS files (MovementsScreen.css). This follows the prototype-parity rule: component CSS imported after globals wins every cascade conflict and silently shadows token updates. The `.ot-scope-bar` class defines the full-width tinted container (`--color-brand-surface` bg, `--color-divider` bottom border) that anchors above `.ot-filter-bar`. When a scope bar precedes a filter bar, the filter bar gets `.ot-scope-bar + .ot-filter-bar` modifier to remove its top border and round only bottom corners.
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
 ---
@@ -1391,3 +1393,25 @@ Result: shell stays single-source-of-truth for header/footer/focus/padding token
 ### 2026-04-25 — Batch coordination: PR #46 merged, PR #26 rebased
 
 Coordinated batch (Neo perf-gate review, Cypher verification + merge, Morpheus PR #26 takeover). PR #46 squash-merged post-Neo-CHANGES-REQUESTED review. PR #26 rebased and ready; Trinity may be needed for chained "N movimientos" column work (PR #3, depends on PR #26 + Switch PR #2). See .squad/decisions.md §"2026-04-25: Neo PR #46..." and .squad/orchestration-log/2026-04-25T13-34-06Z-*.md for batch context.
+
+## Learnings — 2026-04-25 — Movements date-filter recon
+- DateRangePicker (presets + custom from/to + Pill) already exists at app/src/renderer/components/DateRangePicker/ but is NOT wired anywhere yet. The new Movements filter should consume it directly — no need to design a fresh component.
+- IPC contract movements:list already accepts dateFrom/dateTo (YYYY-MM-DD). Main handler in app/src/main/ipc/handlers/movements.ts already filters by string-compare. No backend work needed for date range — only renderer.
+- Current Movements filter is fully client-side (client filters MonthFilter 1..12 on m.date.slice(5,7)). Backend round-trip on filter change is a deliberate future option but not required.
+- DateRange shape (Date|Date) lives in renderer/types/movement.ts; conversion to YYYY-MM-DD wire format must happen at the IPC boundary (use Date.toISOString().slice(0,10), as DateRangePicker.toInputValue already does).
+
+
+## Learnings — 2026-04-25 — Movements date-filter impl (PR #57)
+- Did NOT consume DateRangePicker component in the end. Reason: its onChange API only emits a DateRange — there's no signal for which preset was clicked, so wiring our 8-chip + active-id requirement through it required either a useRef side-effect hack or comparing returned ranges for equality. Both fragile. Rolled chips ourselves using existing ot-filter-bar__chip styles + a small popover with two native date inputs (mirrors DateRangePicker's custom UI). DateRangePicker remains unused; future feature can reuse it as-is or we should consider extending its props with a per-preset id callback before adopting elsewhere.
+- Timezone-safe preset factories live in utils/datePresets.ts as one pure fn per preset + getPresetRange dispatcher with injectable today — tests pin REF=2026-04-25 and lock semantics. last12Months uses setUTCFullYear which collapses Feb 29 → Mar 1 in non-leap years (then +1 day → Mar 2). Documented that as the intentional convention in tests.
+- Filter state shape is the locked union; matchesDateFilter compares lexicographically against tx.date (YYYY-MM-DD). resolveDateFilter returns null for kind=all so the matcher short-circuits to true. Both helpers accept injectable today for tests.
+- Persistence: zod-guarded loadPersistedDateFilter; persistDateFilter explicitly drops kind=custom (no opt-in flag — Pedro's call). Storage key opentreasury:movements:dateFilter.
+- Tests: needed vi.useFakeTimers({ toFake: ['Date'] }) + setSystemTime to 2026-04-20 in MovementsScreen.test.tsx beforeEach so the default this-month range deterministically contains the mock movements (otherwise existing assertions about the table rendering would flake outside April 2026). Only Date is faked so async/promise flows still resolve normally. localStorage is cleared in before/afterEach.
+- Custom-popover dialog uses aria-label = i18n preset label "Personalizado"/"Custom"; tests scope findByRole('dialog', { name: /Personalizado|Custom/i }) to avoid colliding with TransactionDetailModal's <dialog role="dialog"> which is in the DOM (closed) at all times.
+- Lint/format/typecheck all clean. 590 passing, 9 skipped (pre-existing).
+
+## Learnings — 2026-04-25 — Movements scroll regression fix (PR #57)
+- Scroll-containment recipe for tables under AppShell: parent screen container is a flex column with `height: 100%; min-height: 0`; siblings (page header, scope band, filter bar, totals) get `flex-shrink: 0`; the table-container alone gets `flex: 1 1 auto; min-height: 0; overflow: auto` so `.ot-table thead { position: sticky; top: 0 }` anchors to it. Without min-height: 0 the flex children refuse to shrink below content height and the inner scroll never engages — the page-level scrollport takes over and drags the thead with everything else.
+
+## Learnings — 2026-04-28 — Joint two-row filter bar (PR #57)
+- Pedro's final call: scope chips and slicing filters live in ONE .ot-filter-bar container as two .ot-filter-bar__row children (--scope, --filters). Supersedes the Anchored Band pattern (separate .ot-scope-bar with --color-brand-surface tint and rounded-top-only border). Hierarchy now from row order +  + [char]34 + 'Período:' + [char]34 +  semibold label, not spatial separation. flex-shrink:0 inheritance preserved (single child of .ot-movements).

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
 import { MovementsScreen } from './MovementsScreen.js';
 import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
+import { MOVEMENTS_DATE_FILTER_STORAGE_KEY } from '../../utils/movementsDateFilter.js';
 
 // Mock the API modules
 vi.mock('../../services/movementsApi.js', () => ({
@@ -80,8 +81,20 @@ function renderWithI18n(): ReturnType<typeof render> {
 
 describe('MovementsScreen', () => {
   beforeEach(() => {
+    // Pin the clock so the default "this month" filter has a deterministic
+    // window: 2026-04-01 → 2026-04-20. mockMovements (2026-04-14, -15) fall
+    // inside this range so existing assertions about the table rendering
+    // continue to hold. Only Date is faked so async test flows still run.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-04-20T12:00:00Z'));
+    localStorage.clear();
     vi.mocked(getAccounts).mockResolvedValue({ accounts: mockAccounts });
     vi.mocked(listMovements).mockResolvedValue(mockMovements);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    localStorage.clear();
   });
 
   it('renders the prototype-parity filter bar on mount', async () => {
@@ -165,5 +178,90 @@ describe('MovementsScreen', () => {
     expect(screen.queryByRole('region', { name: /bulk actions|acciones en lote/i })).toBeNull();
     // No classify modal was opened.
     expect(screen.queryByRole('heading', { name: /Classify|Clasificar/i })).toBeNull();
+  });
+
+  // ── Date-range filter ────────────────────────────────────────────────
+  it('date filter: defaults to "Este mes" preset (selected radio)', async () => {
+    renderWithI18n();
+    await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
+    const thisMonthChip = screen.getByRole('radio', { name: /^Este mes$|^This month$/i });
+    expect(thisMonthChip.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('date filter: clicking "Año pasado" filters out all rows in this-month range', async () => {
+    renderWithI18n();
+    await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
+    fireEvent.click(screen.getByRole('radio', { name: /^Año pasado$|^Last year$/i }));
+    // Pill appears for non-default range.
+    await waitFor(() => {
+      // No table because no mock rows are in 2025-01-01..2025-12-31.
+      expect(screen.queryByRole('table')).toBeNull();
+    });
+  });
+
+  it('date filter: clicking "Todo" disables the date filter and shows the table', async () => {
+    renderWithI18n();
+    await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
+    fireEvent.click(screen.getByRole('radio', { name: /^Año pasado$|^Last year$/i }));
+    await waitFor(() => expect(screen.queryByRole('table')).toBeNull());
+    fireEvent.click(screen.getByRole('radio', { name: /^Todo$|^All time$/i }));
+    await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
+  });
+
+  it('date filter: persists preset selection across mounts (via localStorage)', async () => {
+    const { unmount } = renderWithI18n();
+    await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
+    fireEvent.click(screen.getByRole('radio', { name: /^Año pasado$|^Last year$/i }));
+    await waitFor(() => {
+      expect(localStorage.getItem(MOVEMENTS_DATE_FILTER_STORAGE_KEY)).not.toBeNull();
+    });
+    expect(JSON.parse(localStorage.getItem(MOVEMENTS_DATE_FILTER_STORAGE_KEY)!)).toEqual({
+      kind: 'preset',
+      id: 'last-year',
+    });
+    unmount();
+    renderWithI18n();
+    await waitFor(() => {
+      const chip = screen.getByRole('radio', { name: /^Año pasado$|^Last year$/i });
+      expect(chip.getAttribute('aria-checked')).toBe('true');
+    });
+  });
+
+  it('date filter: custom range applies and is NOT persisted', async () => {
+    renderWithI18n();
+    await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
+    // Open the popover.
+    fireEvent.click(screen.getByRole('radio', { name: /^Personalizado$|^Custom$/i }));
+    const dialog = await screen.findByRole('dialog', {
+      name: /Personalizado|Custom/i,
+    });
+    const fromInput = dialog.querySelectorAll('input[type="date"]')[0] as HTMLInputElement;
+    const toInput = dialog.querySelectorAll('input[type="date"]')[1] as HTMLInputElement;
+    fireEvent.change(fromInput, { target: { value: '2026-04-14' } });
+    fireEvent.change(toInput, { target: { value: '2026-04-14' } });
+    const applyBtn = Array.from(dialog.querySelectorAll('button')).find((b) =>
+      /Aplicar|Apply/i.test(b.textContent ?? ''),
+    )!;
+    fireEvent.click(applyBtn);
+
+    // Custom is intentionally not persisted to localStorage.
+    expect(localStorage.getItem(MOVEMENTS_DATE_FILTER_STORAGE_KEY)).toBeNull();
+    // Pill appears showing the active custom range.
+    await waitFor(() => {
+      expect(document.querySelector('.ot-movements__date-pill')).not.toBeNull();
+    });
+  });
+
+  it('date filter: Clear filters resets to "Este mes" (not "Todo")', async () => {
+    renderWithI18n();
+    await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
+    fireEvent.click(screen.getByRole('radio', { name: /^Todo$|^All time$/i }));
+    // Find the "Limpiar filtros" button (filter-bar level) and click it.
+    const clearBtn = screen.getByRole('button', { name: /Limpiar filtros|Clear filters/i });
+    fireEvent.click(clearBtn);
+    await waitFor(() => {
+      const chip = screen.getByRole('radio', { name: /^Este mes$|^This month$/i });
+      expect(chip.getAttribute('aria-checked')).toBe('true');
+    });
   });
 });

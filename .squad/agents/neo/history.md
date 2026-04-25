@@ -307,3 +307,20 @@ Cypher (Reviewer Rejection Lockout, routed agent) pushed `bc11c1f` (fix) and `10
 **Lockout state:** Cypher's lockout is cleared by virtue of the ship. Free for future routing.
 
 **Lesson logged for future reviews:** when approving an issue-resolving PR, always check that the body uses a `Closes #N` / `Fixes #N` keyword before merge — saves a manual `gh issue close` step.
+
+
+## Learnings — 2026-04-25 — Movements date-filter proposal
+
+**Trigger:** Pedro called the existing 'Todos los meses' filter useless.
+
+**Diagnosis:** `MovementsScreen.tsx:191` `monthFilter: 1..12 | 'all'` is a calendar-month-of-year picker with **no year** — conflates 2024-Mar with 2026-Mar. Genuinely broken on a multi-year ledger.
+
+**Key architectural finding:** The IPC contract `movements:list` (`shared/ipc-contracts/movements.ts:19-26`) already accepts `dateFrom` / `dateTo` as YYYY-MM-DD strings, and `main/ipc/handlers/movements.ts:27-32` already filters by them. **Backend is ready.** Trinity can ship the new filter UI as a frontend-only change — no Morpheus work required for v1. Filter today is purely client-side over the entire loaded set; new design moves it to the IPC request, which also unblocks future pagination/limit usage.
+
+**Decision sketch:** Discriminated union `{ kind: 'preset', id: DatePresetId } | { kind: 'custom', from, to } | { kind: 'all' }`. Presets: This month / Last month / Last quarter / This year / Last year / Last 12 months / All time. Calendar-quarter semantics (not trailing-90d) because Pedro's mental model is accounting, not metrics dashboards. Custom = two date inputs, no slider — slider needs fixed domain (which evaporates once filtering moves to IPC) and is imprecise for accounting use.
+
+**Rule of thumb (generalizable):** Before designing UX for a filter, **check whether the IPC/projection already supports the underlying query**. Half the time the backend is already permissive and the work is purely UX/state. Saves a Morpheus round-trip.
+
+**Niobe charter rule observed but softened:** "Movements list starts empty until user picks a range" — current code violates this anyway (loads everything). Recommended default = 'This month' rather than empty, flagged to Pedro as Q1.
+
+**Files touched:** `.squad/decisions/inbox/neo-movements-date-filter.md` (proposal). No code changes by me — Trinity owns implementation.

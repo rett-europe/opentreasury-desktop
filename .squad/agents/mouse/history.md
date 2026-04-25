@@ -409,3 +409,37 @@ Each panel has:
 **Token notes:** Used raw `280px` / `960px` as component-specific layout caps (not design tokens). These are viewport constraints, not design primitives. If we see this pattern repeat (3+ charts with same constraint), extract to `--ot-chart-max-height`.
 
 **SPEC LOCATION:** `.squad/decisions/inbox/mouse-saldo-chart-sizing.md`
+
+### 2026-04-28: Date Scope vs Slicing Filters — Visual Hierarchy Proposal (Mouse)
+
+**TASK:** Pedro flagged that PR #57's date filter chips are visually peer to slicing filters (Cuenta/Tipo/Categoría/etc.), but they represent fundamentally different hierarchy levels:
+- **Date scope** = temporal boundary (WHAT data loads)
+- **Slicing filters** = refinement within scope (HOW data displays)
+
+**FOUR TREATMENTS PROPOSED:**
+
+1. **Calm Scope** — Weight contrast. Scope chips stay semibold/contained, slicing filters recede via muted colors and lighter borders. Cost: S.
+
+2. **Segmented Authority** — True segmented control with visible dividers and heavier borders for scope; ghost borders for slicing filters. Cost: M.
+
+3. **Quiet Elevation** — Scope container gets `--shadow-card` and `--color-surface-raised`; reads as "floating above" slicing filters. Cost: S.
+
+4. **Anchored Band** — Full-width tinted band (`--color-brand-surface`) for date scope above the slicing filter bar. Two-tier toolbar pattern. Cost: M–L.
+
+**PRIMARY RECOMMENDATION: Anchored Band**
+- Maximum hierarchy clarity via spatial separation
+- Familiar analytics dashboard pattern (Holded, Notion, Airtable)
+- No new tokens needed (reuses `--color-brand-surface`, `--color-divider`)
+- Works with any Niobe layout direction
+
+**FALLBACK: Calm Scope**
+- If single-row layout required, achieves hierarchy via weight/color contrast
+- Minimal implementation cost
+
+**KEY LEARNINGS:**
+1. **Scope vs filter hierarchy** — Temporal controls are NOT peer filters. They define the data universe; filters slice within it. Visual treatment must reflect this asymmetry.
+2. **Two-tier toolbar pattern** — Common in finance/analytics apps. Users scan top-to-bottom, temporal before categorical. Niobe should consider this layout family.
+3. **Token reuse over invention** — All four treatments achieved hierarchy using existing tokens. `--color-brand-surface` + `--color-divider` + typography weight is sufficient contrast vocabulary.
+4. **Prototype-parity rule applies** — All recipes go in `globals.css`, not component CSS. Component CSS imported after globals would shadow token updates.
+
+**SPEC LOCATION:** `.squad/decisions/inbox/mouse-movements-date-filter-visual.md`

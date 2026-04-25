@@ -39,6 +39,27 @@ export function formatDateTime(iso: string, locale: string): string {
 }
 
 /**
+ * Format an ISO date range (YYYY-MM-DD ... YYYY-MM-DD) to a single locale-
+ * aware string used by the Movements date-filter pill, e.g. "1 abr – 25 abr 2026".
+ *
+ * If the formatToParts API is unavailable or the inputs are malformed,
+ * falls back to "{from} – {to}".
+ */
+export function formatDateRange(from: string, to: string, locale: string): string {
+  try {
+    const fromDate = new Date(`${from}T00:00:00Z`);
+    const toDate = new Date(`${to}T00:00:00Z`);
+    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
+      return `${from} – ${to}`;
+    }
+    const fmt = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
+    return `${fmt.format(fromDate)} – ${fmt.format(toDate)}`;
+  } catch {
+    return `${from} – ${to}`;
+  }
+}
+
+/**
  * Format YYYY-MM month string to locale-aware month + year display.
  * @param monthStr - Month string in YYYY-MM format
  * @param locale - BCP 47 language tag (e.g., 'es-ES', 'en-US')

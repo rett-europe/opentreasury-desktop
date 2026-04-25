@@ -108,6 +108,59 @@ undo/redo). Spec is authoritative reference for Trinity's WI-15 implementation p
 
 - **Dropdown refresh:** The web app uses a `ReferenceDataService` that caches accounts/categories/tags globally and invalidates on CRUD operations. When a user creates a new category in Configuración, the service refetches, and any open dropdowns (e.g., in Add Transaction modal) get the updated list. Trinity should implement a similar invalidation mechanism (IPC event or React context).
 
+### 2026-04-26 — WI-57 Movements Date Filter Layout Separation
+
+**Context:** PR #57 shipped the locked date-filter spec with 8 preset chips (Este mes | Mes pasado | Últimos 3m | Este año | Año pasado | Últimos 12m | Personalizado | Todo) currently rendering INLINE inside the same `ot-filter-bar` row as the existing attribute filters (Cuenta / Tipo / Categoría / search). Pedro flagged that the period filters need visual separation from the slicing filters.
+
+**Problem analysis:** The date filter is a **top-level temporal scope** that governs the entire dataset ("show me April"), while the other filters are **slicing filters** that refine within scope (account, type, category). Current single-row layout dilutes this hierarchy and makes 8 chips overwhelming.
+
+**Proposal delivered:** Five distinct layout options with full pros/cons/implementation cost analysis:
+
+1. **Option A: Dedicated Scope Bar (Separate Row Above)** — Date chips in a full-width band above the attribute filter bar. Recommended option.
+   - **Pros:** Visual primacy for temporal scope, clear hierarchy, 1-click presets, cross-screen consistency ready.
+   - **Cons:** Vertical space cost (~60px), potential redundancy (label + chips + pill).
+   - **Cost:** M (Medium) — new `.ot-scope-bar` CSS, move JSX out of filter bar, test wrap.
+
+2. **Option B: Scope Pill in Page Header** — Date scope as a compact button next to "Movimientos" title, opens dropdown.
+   - **Pros:** Mimics Panel pattern, compact, mental model alignment (period = session context).
+   - **Cons:** Hidden affordance, 2-click for presets, dropdown complexity, pill placement ambiguity.
+   - **Cost:** L (Large) — new `<Popover>` primitive or styled `<select>`.
+
+3. **Option C: Single Date Button + Inline Menu** — Date button inside filter bar opens popover with chips.
+   - **Pros:** No new bars, condensed, still inline.
+   - **Cons:** Loses hierarchy signal, 2-click for presets, popover nesting for Personalizado.
+   - **Cost:** M (Medium) — new `<Popover>` primitive, vertical chip menu.
+
+4. **Option D: Two-Row Filter Bar** — `.ot-filter-bar` becomes two-row flex (date top, slicing bottom).
+   - **Pros:** Grouped but separated, compact, 8 chips visible.
+   - **Cons:** Ambiguous hierarchy (looks like overflow, not deliberate separation), visual weight, wrap edge case.
+   - **Cost:** S (Small) — `.ot-filter-bar--two-row` modifier, row wrappers.
+
+5. **Option E: Left Rail Date Selector** — Vertical list of radio buttons in left column next to table.
+   - **Pros:** Spatial separation, vertical breathing room, table-adjacent context.
+   - **Cons:** Viewport width cost (burns ~180px, table would scroll on 1366px), unusual pattern, mobile collapse, Personalizado UX awkward.
+   - **Cost:** L (Large) — new layout grid, responsive collapse.
+
+**Recommendation:** **Option A (Dedicated Scope Bar)** with **Option D (Two-Row Filter Bar)** as runner-up. Rationale:
+- Hierarchy matches mental model (period governs, slicing refines).
+- All 8 chips visible = 1-click presets (critical for finance app where users jump between "this month," "last month," "this year").
+- Vertical cost (~60px) is acceptable given virtualized table.
+- Cross-screen consistency ready (Panel, Saldo, reports can reuse `.ot-scope-bar` pattern).
+
+**Key learning:** **1-click preset switching is a UX priority for finance apps.** Hiding presets behind menus (Options B/C) reduces visual clutter but adds interaction friction. For temporal navigation—a high-frequency operation—visible chips outweigh the space cost. This is distinct from account/category dropdowns (infrequent changes, many options) where menus are appropriate.
+
+**Visual hierarchy guidance for Mouse:** Date scope must be visually PRIMARY relative to slicing filters. Suggested treatments:
+- **Option A:** Scope bar uses stronger tint (`var(--color-brand-surface)` at 16% vs. 10%), date chips use brand primary active state.
+- **Option D:** Top row gets subtle separator (border or darker bg), or date chips use bolder active state vs. slicing filters' muted state.
+- **Options B/C:** Date button more prominent than slicing dropdowns (larger size, leading icon, brand tint even when closed).
+
+**Open questions flagged for Pedro:**
+1. Does PanelScreen's month button ever become interactive? If yes, should it adopt the same pattern?
+2. How important is 1-click preset switching? (Informs menu vs. visible chips decision.)
+3. Viewport size priority: 1366×768 laptops (need vertical savings) or 1920×1080+ desktops (can afford scope bar)?
+
+**Handoff:** Proposal document created at `.squad/decisions/inbox/niobe-movements-date-filter-layout.md`. Awaiting Pedro's verdict before Trinity implementation.
+
 - **Two-step category selector:** Category dropdown shows only parent categories; selecting a category reveals a second dropdown for subcategories (if any exist). This is clearer than a single combo-select with indented tree structure for non-technical users.
 
 - **Tag multi-select:** Tags use a chip input (type to filter + click to add). The desktop prototype doesn't show this yet, but the web app does. Note for Trinity: consider a simple multi-select dropdown for v1 (defer chip-input to v1.1 unless it's already in the component library).
@@ -268,3 +321,18 @@ Wrote `.squad/decisions/inbox/niobe-saldo-redesign-spec.md` for the Saldo redesi
 7. **Picker UX rule established** — when the user picks an invalid prior year (≥ current), silently clamp instead of erroring. NGO admins under time pressure shouldn't fight a form; the comparison is meaningless either way.
 
 Three open questions sent to Pedro (Otras drill, panel type column in single mode, contract cleanup scope). Spec is ~140 lines, 8 testable ACs, explicit out-of-scope list for Trinity.
+
+### 2026-04-25 — Movements date filter UX spec
+
+Replaced the "Todos los meses + 12 month names" dropdown with a 7-chip preset row + Personalizado popover. Spec at .squad/decisions/inbox/niobe-movements-date-filter-ux.md.
+
+## Learnings
+
+1. **"Mes pasado" beats "Últimos 30 días" for finance UIs.** Calendar-anchored ranges match how treasurers think (monthly closing = full calendar month, not a rolling 30-day window). Mixing both in the same filter creates ambiguity ("which one did I pick last time?"); pick one metaphor and commit.
+2. **"Últimos 3 meses" replaces "Trimestre actual/pasado".** Spanish NGOs don't universally close on Q1/Q2/Q3/Q4 — calendar quarters force a mental model that doesn't match grant cycles. Rolling 3-month covers the intent without the Q1-or-Q2 question.
+3. **Default-empty made sense for a 13-option dropdown; it does NOT make sense for 7 visible chips.** With a visible default chip, the cost of a wrong guess is one click; the cost of empty-on-load is a mandatory click on every screen entry. Pedro's original "starts empty" rule was a workaround for a bad dropdown — when the dropdown dies, the rule should die with it. Flagged this revisit explicitly so Pedro can ratify or override.
+4. **Native <input type="date"> over custom dual-calendar popover.** A11y for free, keyboard for free, OS-familiar, zero new component surface. NGO admins use the control 2-3 times a session; investing in a richer picker is bad ROI vs. shipping. Reuse the same call for any future date-range need (Saldo period override, import dry-run filter, etc.).
+5. **Chip ria-label should resolve the range, not just the label.** "Mes pasado, seleccionado, del 1 al 31 de marzo de 2026" — screen-reader users get the actual window, sighted users see the short label. Pattern reusable for any preset-chip group where the underlying value is computed (Saldo period chips already do label-only; consider upgrading on next pass).
+6. **Slider verdict logged as a NO.** Future date/range UI questions: before reaching for a slider, check (a) is the domain bounded and known? (b) is day-level precision required? If yes to (b), slider loses every time to chips + inputs. Document this so we don't relitigate.
+
+**Next:** Await Pedro on 2 open Qs (fiscal year alignment, localStorage persistence). Trinity can start scaffolding chips against the spec; the two open Qs don't block the chip row, only the year-preset semantics + persistence wiring.

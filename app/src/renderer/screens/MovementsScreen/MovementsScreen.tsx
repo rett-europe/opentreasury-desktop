@@ -29,6 +29,16 @@ import type {
 import type { Account, RecentTransaction } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import type { Movement, MovementStatus, MovementTotals } from '../../types/movement.js';
+import { DATE_PRESET_IDS, getPresetRange } from '../../utils/datePresets.js';
+import {
+  DEFAULT_MOVEMENTS_DATE_FILTER,
+  loadPersistedDateFilter,
+  matchesDateFilter,
+  type MovementsDateFilter,
+  persistDateFilter,
+  resolveDateFilter,
+} from '../../utils/movementsDateFilter.js';
+import { formatDateRange } from '../../utils/dateFormat.js';
 import './MovementsScreen.css';
 
 /**
@@ -64,7 +74,6 @@ type SortColumn =
   | 'amount';
 
 type TypeFilter = 'all' | 'income' | 'expense';
-type MonthFilter = 'all' | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 
 /**
  * Map MovementRecord (ID-based wire shape from IPC) to Movement (label-based
@@ -188,7 +197,15 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [monthFilter, setMonthFilter] = useState<MonthFilter>('all');
+  const [dateFilter, setDateFilterState] = useState<MovementsDateFilter>(() =>
+    loadPersistedDateFilter(),
+  );
+  // Open state for the custom-range popover. Independent of dateFilter so the
+  // user can preview the popover without losing the active filter until Apply.
+  const [isCustomOpen, setIsCustomOpen] = useState(false);
+  // Local draft state for the two custom date inputs. Reset on popover open.
+  const [customDraftFrom, setCustomDraftFrom] = useState<string>('');
+  const [customDraftTo, setCustomDraftTo] = useState<string>('');
   const [minAmount, setMinAmount] = useState<string>('');
   const [maxAmount, setMaxAmount] = useState<string>('');
   const [uncategorizedOnly, setUncategorizedOnly] = useState(false);
@@ -328,6 +345,14 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     }
     return out;
   }, [monthFmt]);
+  // Suppress unused-warning while monthNames stays around for future ref.
+  void monthNames;
+
+  // Persist preset/all selections (custom is intentionally dropped).
+  const setDateFilter = useCallback((next: MovementsDateFilter) => {
+    setDateFilterState(next);
+    persistDateFilter(next);
+  }, []);
 
   const filteredRows = useMemo(() => {
     const minN = minAmount.trim() === '' ? null : Number(minAmount);
@@ -336,10 +361,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
       if (typeFilter !== 'all' && m.type !== typeFilter) return false;
       if (accountFilter !== 'all' && m.account !== accountFilter) return false;
       if (categoryFilter !== 'all' && m.category !== categoryFilter) return false;
-      if (monthFilter !== 'all') {
-        const mo = Number(m.date.slice(5, 7));
-        if (mo !== monthFilter) return false;
-      }
+      if (!matchesDateFilter(m, dateFilter)) return false;
       if (minN != null && !Number.isNaN(minN) && m.amount < minN) return false;
       if (maxN != null && !Number.isNaN(maxN) && m.amount > maxN) return false;
       if (uncategorizedOnly) {
@@ -354,17 +376,21 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     typeFilter,
     accountFilter,
     categoryFilter,
-    monthFilter,
+    dateFilter,
     minAmount,
     maxAmount,
     uncategorizedOnly,
   ]);
 
+  // The default date filter (this-month) is always "active" but doesn't
+  // count as user-applied. Anything else does.
+  const isDefaultDateFilter = dateFilter.kind === 'preset' && dateFilter.id === 'this-month';
+
   const hasActiveFilters =
     typeFilter !== 'all' ||
     accountFilter !== 'all' ||
     categoryFilter !== 'all' ||
-    monthFilter !== 'all' ||
+    !isDefaultDateFilter ||
     minAmount.trim() !== '' ||
     maxAmount.trim() !== '' ||
     uncategorizedOnly;
@@ -373,11 +399,12 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     setTypeFilter('all');
     setAccountFilter('all');
     setCategoryFilter('all');
-    setMonthFilter('all');
+    setDateFilter(DEFAULT_MOVEMENTS_DATE_FILTER);
+    setIsCustomOpen(false);
     setMinAmount('');
     setMaxAmount('');
     setUncategorizedOnly(false);
-  }, []);
+  }, [setDateFilter]);
 
   const sortedRows = useMemo(
     () => sortRows(filteredRows, sortBy, sortDir),
@@ -683,147 +710,292 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         }}
       />
 
-      <div className="ot-filter-bar" role="group" aria-label={t('movements.filters.aria-label')}>
+      <div className="ot-filter-bar">
         <div
-          className="ot-filter-bar__chips"
-          role="tablist"
-          aria-label={t('movements.filters.type.label')}
+          className="ot-filter-bar__row ot-filter-bar__row--scope"
+          role="group"
+          aria-label={t('movements.filters.dateRange.label')}
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={typeFilter === 'all'}
-            className={
-              typeFilter === 'all'
-                ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                : 'ot-filter-bar__chip'
-            }
-            onClick={() => setTypeFilter('all')}
+          <span className="ot-filter-bar__date-label" id="ot-date-filter-label">
+            <Calendar size={14} aria-hidden="true" />
+            {t('movements.filters.dateRange.label')}
+          </span>
+          <div
+            className="ot-filter-bar__date-chips"
+            role="radiogroup"
+            aria-labelledby="ot-date-filter-label"
           >
-            {t('movements.filters.type.all')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={typeFilter === 'income'}
-            className={
-              typeFilter === 'income'
-                ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                : 'ot-filter-bar__chip'
-            }
-            onClick={() => setTypeFilter('income')}
-          >
-            {t('movements.filters.type.income')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={typeFilter === 'expense'}
-            className={
-              typeFilter === 'expense'
-                ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                : 'ot-filter-bar__chip'
-            }
-            onClick={() => setTypeFilter('expense')}
-          >
-            {t('movements.filters.type.expense')}
-          </button>
+            {DATE_PRESET_IDS.map((id) => {
+              const checked = dateFilter.kind === 'preset' && dateFilter.id === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={checked}
+                  className={
+                    checked
+                      ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                      : 'ot-filter-bar__chip'
+                  }
+                  onClick={() => {
+                    setDateFilter({ kind: 'preset', id });
+                    setIsCustomOpen(false);
+                  }}
+                >
+                  {t(`movements.filters.dateRange.presets.${id}`)}
+                </button>
+              );
+            })}
+            <div className="ot-filter-bar__date-custom-anchor">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={dateFilter.kind === 'custom'}
+                aria-haspopup="dialog"
+                aria-expanded={isCustomOpen}
+                className={
+                  dateFilter.kind === 'custom' || isCustomOpen
+                    ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                    : 'ot-filter-bar__chip'
+                }
+                onClick={() => {
+                  setIsCustomOpen((open) => {
+                    if (!open) {
+                      // Seed inputs from current resolved range so the popover
+                      // opens with sensible defaults.
+                      const seed = resolveDateFilter(dateFilter) ?? getPresetRange('this-month');
+                      setCustomDraftFrom(seed.from);
+                      setCustomDraftTo(seed.to);
+                    }
+                    return !open;
+                  });
+                }}
+              >
+                {t('movements.filters.dateRange.presets.custom')}
+              </button>
+              {isCustomOpen ? (
+                <div
+                  role="dialog"
+                  aria-label={t('movements.filters.dateRange.presets.custom')}
+                  className="ot-filter-bar__date-popover"
+                >
+                  <label className="ot-filter-bar__date-field">
+                    <span>{t('movements.filters.dateRange.customFrom')}</span>
+                    <input
+                      type="date"
+                      value={customDraftFrom}
+                      onChange={(e) => setCustomDraftFrom(e.target.value)}
+                    />
+                  </label>
+                  <label className="ot-filter-bar__date-field">
+                    <span>{t('movements.filters.dateRange.customTo')}</span>
+                    <input
+                      type="date"
+                      value={customDraftTo}
+                      onChange={(e) => setCustomDraftTo(e.target.value)}
+                      aria-invalid={
+                        customDraftFrom && customDraftTo && customDraftTo < customDraftFrom
+                          ? true
+                          : undefined
+                      }
+                    />
+                  </label>
+                  {customDraftFrom && customDraftTo && customDraftTo < customDraftFrom ? (
+                    <p className="ot-filter-bar__date-error" role="alert">
+                      {t('movements.filters.dateRange.invalidRange')}
+                    </p>
+                  ) : null}
+                  <div className="ot-filter-bar__date-actions">
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        if (!customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom) {
+                          return;
+                        }
+                        setDateFilter({
+                          kind: 'custom',
+                          from: customDraftFrom,
+                          to: customDraftTo,
+                        });
+                        setIsCustomOpen(false);
+                      }}
+                      disabled={
+                        !customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom
+                      }
+                    >
+                      {t('movements.filters.dateRange.apply')}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={dateFilter.kind === 'all'}
+              className={
+                dateFilter.kind === 'all'
+                  ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                  : 'ot-filter-bar__chip'
+              }
+              onClick={() => {
+                setDateFilter({ kind: 'all' });
+                setIsCustomOpen(false);
+              }}
+            >
+              {t('movements.filters.dateRange.presets.all')}
+            </button>
+          </div>
+
+          {(() => {
+            const range = resolveDateFilter(dateFilter);
+            if (range == null || isDefaultDateFilter) return null;
+            return (
+              <span className="ot-movements__date-pill">
+                <Calendar size={14} aria-hidden="true" />
+                <span>{formatDateRange(range.from, range.to, locale)}</span>
+                <button
+                  type="button"
+                  className="ot-movements__date-pill-clear"
+                  onClick={() => {
+                    setDateFilter(DEFAULT_MOVEMENTS_DATE_FILTER);
+                    setIsCustomOpen(false);
+                  }}
+                  aria-label={t('movements.filters.dateRange.clear')}
+                >
+                  <X size={12} aria-hidden="true" />
+                </button>
+              </span>
+            );
+          })()}
         </div>
 
-        <label className="ot-filter-bar__input">
-          <Landmark size={14} aria-hidden="true" />
-          <span className="ot-visually-hidden">{t('movements.filters.account.label')}</span>
-          <select
-            value={accountFilter}
-            onChange={(e) => setAccountFilter(e.target.value)}
-            aria-label={t('movements.filters.account.label')}
+        <div
+          className="ot-filter-bar__row ot-filter-bar__row--filters"
+          role="group"
+          aria-label={t('movements.filters.aria-label')}
+        >
+          <div
+            className="ot-filter-bar__chips"
+            role="tablist"
+            aria-label={t('movements.filters.type.label')}
           >
-            <option value="all">{t('movements.filters.account.all')}</option>
-            {accountOptions.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-        </label>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={typeFilter === 'all'}
+              className={
+                typeFilter === 'all'
+                  ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                  : 'ot-filter-bar__chip'
+              }
+              onClick={() => setTypeFilter('all')}
+            >
+              {t('movements.filters.type.all')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={typeFilter === 'income'}
+              className={
+                typeFilter === 'income'
+                  ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                  : 'ot-filter-bar__chip'
+              }
+              onClick={() => setTypeFilter('income')}
+            >
+              {t('movements.filters.type.income')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={typeFilter === 'expense'}
+              className={
+                typeFilter === 'expense'
+                  ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
+                  : 'ot-filter-bar__chip'
+              }
+              onClick={() => setTypeFilter('expense')}
+            >
+              {t('movements.filters.type.expense')}
+            </button>
+          </div>
 
-        <label className="ot-filter-bar__input">
-          <FolderOpen size={14} aria-hidden="true" />
-          <span className="ot-visually-hidden">{t('movements.filters.category.label')}</span>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            aria-label={t('movements.filters.category.label')}
-          >
-            <option value="all">{t('movements.filters.category.all')}</option>
-            {categoryOptions.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="ot-filter-bar__input">
+            <Landmark size={14} aria-hidden="true" />
+            <span className="ot-visually-hidden">{t('movements.filters.account.label')}</span>
+            <select
+              value={accountFilter}
+              onChange={(e) => setAccountFilter(e.target.value)}
+              aria-label={t('movements.filters.account.label')}
+            >
+              <option value="all">{t('movements.filters.account.all')}</option>
+              {accountOptions.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="ot-filter-bar__input">
-          <Calendar size={14} aria-hidden="true" />
-          <span className="ot-visually-hidden">{t('movements.filters.month.label')}</span>
-          <select
-            value={monthFilter === 'all' ? 'all' : String(monthFilter)}
-            onChange={(e) =>
-              setMonthFilter(
-                e.target.value === 'all' ? 'all' : (Number(e.target.value) as MonthFilter),
-              )
-            }
-            aria-label={t('movements.filters.month.label')}
-          >
-            <option value="all">{t('movements.filters.month.all')}</option>
-            {monthNames.map((m, i) => (
-              <option key={i} value={i + 1}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="ot-filter-bar__input">
+            <FolderOpen size={14} aria-hidden="true" />
+            <span className="ot-visually-hidden">{t('movements.filters.category.label')}</span>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              aria-label={t('movements.filters.category.label')}
+            >
+              <option value="all">{t('movements.filters.category.all')}</option>
+              {categoryOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label className="ot-filter-bar__input ot-filter-bar__input--amount">
-          <span className="ot-filter-bar__prefix">{t('movements.filters.amountMin')}</span>
-          <input
-            type="number"
-            inputMode="decimal"
-            placeholder="0"
-            value={minAmount}
-            onChange={(e) => setMinAmount(e.target.value)}
-            aria-label={t('movements.filters.amountMin')}
-          />
-        </label>
+          <label className="ot-filter-bar__input ot-filter-bar__input--amount">
+            <span className="ot-filter-bar__prefix">{t('movements.filters.amountMin')}</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="0"
+              value={minAmount}
+              onChange={(e) => setMinAmount(e.target.value)}
+              aria-label={t('movements.filters.amountMin')}
+            />
+          </label>
 
-        <label className="ot-filter-bar__input ot-filter-bar__input--amount">
-          <span className="ot-filter-bar__prefix">{t('movements.filters.amountMax')}</span>
-          <input
-            type="number"
-            inputMode="decimal"
-            placeholder="∞"
-            value={maxAmount}
-            onChange={(e) => setMaxAmount(e.target.value)}
-            aria-label={t('movements.filters.amountMax')}
-          />
-        </label>
+          <label className="ot-filter-bar__input ot-filter-bar__input--amount">
+            <span className="ot-filter-bar__prefix">{t('movements.filters.amountMax')}</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              placeholder="∞"
+              value={maxAmount}
+              onChange={(e) => setMaxAmount(e.target.value)}
+              aria-label={t('movements.filters.amountMax')}
+            />
+          </label>
 
-        <label className="ot-filter-bar__checkbox">
-          <input
-            type="checkbox"
-            checked={uncategorizedOnly}
-            onChange={(e) => setUncategorizedOnly(e.target.checked)}
-          />
-          {t('movements.filters.uncategorizedOnly')}
-        </label>
+          <label className="ot-filter-bar__checkbox">
+            <input
+              type="checkbox"
+              checked={uncategorizedOnly}
+              onChange={(e) => setUncategorizedOnly(e.target.checked)}
+            />
+            {t('movements.filters.uncategorizedOnly')}
+          </label>
 
-        {hasActiveFilters ? (
-          <button type="button" className="ot-filter-bar__clear" onClick={clearFilters}>
-            <X size={14} aria-hidden="true" />
-            {t('movements.filters.clear')}
-          </button>
-        ) : null}
+          {hasActiveFilters ? (
+            <button type="button" className="ot-filter-bar__clear" onClick={clearFilters}>
+              <X size={14} aria-hidden="true" />
+              {t('movements.filters.clear')}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {state.kind === 'loading' ? (

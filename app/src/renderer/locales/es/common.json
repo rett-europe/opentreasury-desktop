@@ -271,9 +271,23 @@
         "label": "Categoría",
         "all": "Todas las categorías"
       },
-      "month": {
-        "label": "Mes",
-        "all": "Todos los meses"
+      "dateRange": {
+        "label": "Período",
+        "presets": {
+          "this-month": "Este mes",
+          "last-month": "Mes pasado",
+          "last-3-months": "Últimos 3 meses",
+          "this-year": "Este año",
+          "last-year": "Año pasado",
+          "last-12-months": "Últimos 12 meses",
+          "custom": "Personalizado",
+          "all": "Todo"
+        },
+        "customFrom": "Desde",
+        "customTo": "Hasta",
+        "apply": "Aplicar",
+        "invalidRange": "La fecha final debe ser posterior o igual a la inicial.",
+        "clear": "Limpiar"
       },
       "amountMin": "min €",
       "amountMax": "max €",
