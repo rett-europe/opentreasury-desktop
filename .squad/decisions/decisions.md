@@ -1007,6 +1007,57 @@ Panels stay (they're the audit-trail / drill view). They reflect mode + year:
 
 ---
 
+## PR #26 Review — Neo Verdict (WI-23 Projection Unification)
+
+**Date:** 2026-04-25  
+**PR:** #26 — `WI-23: unify account/category/tag projections with transaction ID space`  
+**Head:** `copilot/issue-18-work-on` @ `d927ecb`  
+**Verdict:** ⛔ **CHANGES_REQUESTED**  
+**Reviewer:** Neo (Lead/Architecture)  
+**Revise:** **Cypher** (Reviewer Rejection Lockout — not @copilot, not Morpheus)  
+
+### What's right
+
+- **Architecture:** Legacy `accounts` / `categories` / `tags` arrays and `Account`/`Category`/`Tag`/`Subcategory` interfaces cleanly removed from `core/query/types.ts` and `core/query/reducers.ts`. Every runtime consumer reads exclusively from `configAccounts`/`configCategories`/`configTags`. Wire contract preserved via `label ?? name` for `accountLabel`.
+- **PR #45 conflict resolution:** Correct. Morpheus retained mutable `_txList` + `_txByRef` reference index while collapsing legacy `account.created`/`category.created`/`tag.created` cases into single defensive no-op block (runtime-unreachable behind boot-guard).
+- **Rebase fallout:** All unified-event emitters carry required `sortOrder`:
+  - `accounts.ts:111`, `categories.ts:104`, `tags.ts:86` — `max(existing.sortOrder)+1`
+  - `import.ts:683` — Morpheus's fix, monotonic across batch
+  - `devSeed.ts:705/727/748` — `sortOrder` from array index
+- **Boot-guard:** `JsonFileEventLog.load()` correctly throws `LEGACY_EVENT_TYPE_REJECTED` on legacy types and Zod-validates unified shapes. Schema-migration policy in `security-requirements-v0.1.md` is precedent-lock.
+- **Mergeable flag (`CONFLICTING/DIRTY`)** is stale — `git merge-tree origin/main HEAD` produces clean tree (only `.squad/agents/morpheus/history.md` auto-merges).
+
+### Blocking defect
+
+**`scripts/perf-seed.mjs:183` still emits legacy `type: 'account.created'`** with enveloped payload shape. Categories and tags already migrated to flat `CategoryCreated` / `TagCreated`; file is half-converted.
+
+**Consequence post-merge:**
+1. `npm run perf:seed` writes `events.ndjson` containing 3–N `account.created` lines.
+2. App boot calls `JsonFileEventLog.load()` on file.
+3. Boot-guard throws `LEGACY_EVENT_TYPE_REJECTED` → app refuses to start, perf gate breaks.
+
+Not caught by CI: `e2e · perf gate (main only)` job is `if: github.ref == 'refs/heads/main'` (SKIPPED on PR). Defect surfaces post-merge.
+
+### Required fix (Cypher)
+
+1. In `scripts/perf-seed.mjs`, replace `for (const acc of ACCOUNTS)` block emitting `'account.created'` with flat `AccountCreated` shape from `devSeed.ts:703–716` — include new required `sortOrder: ACCOUNTS.indexOf(acc)`. Preserve id (`fakeUlid(acc.key)`) so seeded `transaction.accountId` refs resolve.
+2. Add smoke step in `scripts/perf-measure.ts` or npm wrapper: run `JsonFileEventLog.load()` on freshly-seeded NDJSON, assert no throw. Next schema migration that misses a seeder fails on PR branch, not main.
+3. Re-run `npm run perf:seed && npm test` locally; capture NDJSON line counts in PR description.
+
+### Non-blocking observations
+
+- Handler tests (`movements.test.ts`, `notes.test.ts`, `transaction.test.ts`, `bulkUpdate.integration.test.ts`, `reducers.test.ts`) still construct legacy events; pass because reducer's no-op is retained. Fine for this PR (Morpheus scoped them out); track follow-up sweep to unified shape (owner TBD).
+- `app/src/core/events.ts` stale skeleton (already addressed in commit `dd08924`). No action.
+- `Table.tsx` + most `perf-seed.mjs` changes pure prettier reformat — not scope creep.
+
+### Operational note
+
+PR description's "Rollback anchor" stands: tag `pre-wi23-log-compat` on `main` immediately before merge. If users hit `LEGACY_EVENT_TYPE_REJECTED` post-update, need deterministic walkback target.
+
+---
+
+---
+
 ## Mouse — Saldo Chart Sizing Spec
 
 **Date:** 2026-04-23  

@@ -114,6 +114,22 @@ Wave 1 UX COMPLETE. Acceptance criteria sections in each spec give you testable 
 - `.squad/decisions/inbox/cypher-saldo-3bug-evidence.md` (comprehensive summary)
 - `tests/e2e/evidence-pr15.spec.ts` (E2E spec drafted but not executed)
 
+## 2026-04-25 — PR #26 Fix Assignment (WI-23 Projection Unification)
+
+**Assigned:** Fix `scripts/perf-seed.mjs:183` legacy `account.created` envelope + add load-replay smoke check.
+
+**Blocker context:** Neo's review identified that perf-seed script is half-migrated. Categories and tags already use flat `CategoryCreated` / `TagCreated`, but accounts still emit legacy enveloped shape. Post-merge, boot-guard would reject these on app boot, breaking perf gate.
+
+**Required work:**
+1. Replace `for (const acc of ACCOUNTS)` block with flat `AccountCreated` shape (per `devSeed.ts:703–716`)
+2. Include new `sortOrder: ACCOUNTS.indexOf(acc)`, preserve id
+3. Add smoke step to `perf-measure.ts` — `JsonFileEventLog.load()` on seeded NDJSON, assert no throw
+4. Re-run `npm run perf:seed && npm test` locally
+
+**Reviewer Rejection Lockout enforced:** This fix routed to Cypher (not @copilot per original PR author, not Morpheus per conflict-resolver exclusion).
+
+**Status:** Awaiting implementation.
+
 ### 2026-04-25 — PR #46 verification + merge (post-Neo-review)
 
 Verified @copilot's fix commit 91d3fc3 addressed all 3 of Neo's CHANGES_REQUESTED items. Ran gate locally on Windows: 418ms median vs 1500ms budget (3.6× headroom). Approved + squash-merged via `gh pr merge --squash --delete-branch --auto`. Umbrella #39 closed. Reviewer Rejection Lockout honoured. See `.squad/decisions.md` §"2026-04-25: Neo PR #46..." for full details. Skill written: `.squad/skills/perf-gate-verification/SKILL.md`.

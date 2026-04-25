@@ -2381,3 +2381,14 @@ Applied to `totalIncome` and `totalExpense` independently. Per-category rows and
 ### 2026-04-25 — WI-23 PR #26 takeover (rebase + ready-for-review)
 
 Took over stalled PR #26 from @copilot. Rebased onto current main, resolved single conflict in reducers.ts (perf-rewrite PR #45 vs projection-rewrite PR #26), added two rebase-fallout fixes (import.ts CategoryCreated sortOrder, bulkUpdate test fixture). All gates green (547/0 pass/fail). Ready-for-review; chained follow-ups (PR #2 Switch C3, PR #3 Trinity "N movimientos") deferred per PR #26 description. Skill written: .squad/skills/copilot-pr-takeover/SKILL.md. See .squad/decisions.md §"2026-04-25: Neo PR #46..." for full details.
+
+## 2026-04-25 — PR #26 Review Context & Follow-ups (WI-23 Projection Unification)
+
+**Context:** Neo reviewed PR #26, issued CHANGES_REQUESTED. Blocker: `scripts/perf-seed.mjs:183` still emits legacy `account.created` envelope. Categories/tags already migrated to flat shape; perf-seed is half-converted. Post-merge, boot-guard would reject on app boot, breaking perf gate.
+
+**Reviewer Rejection Lockout enforced:** Original author (@copilot) and conflict-resolver (Morpheus via takeover) both excluded from fix. **Cypher assigned** to fix + add smoke check.
+
+**Implication for Morpheus:** When PR #26 merges (after Cypher's fix), the legacy `account.created`/`category.created`/`tag.created` no-op block in `reducers.ts` (retained in takeover per PR #45 conflict resolution) becomes runtime-unreachable. Track follow-up: handler test fixtures still use legacy events directly (fine for this PR — scoped out). Consider deprecation roadmap for the no-op block and `assertNever` refactor when test fixtures sweep completes. Not a blocker; cleanliness for future refactoring.
+
+**Rollback anchor:** Tag `pre-wi23-log-compat` on `main` immediately before merge. Users hitting `LEGACY_EVENT_TYPE_REJECTED` post-update can walkback.
+

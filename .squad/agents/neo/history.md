@@ -160,6 +160,14 @@ Reviewed PR #46 perf-budget gate; identified blocker (Electron launch arg preven
 
 **Null normalization simplifies queries.** Storing empty strings vs NULL creates two representations of "absent". Normalizing to NULL (trim + empty→null) keeps queries simple (`WHERE field IS NOT NULL`). Applied to both `reference` and `details` fields.
 
+## 2026-04-25 — PR #26 Review (WI-23 Projection Unification)
+
+**Verdict:** CHANGES_REQUESTED — `scripts/perf-seed.mjs:183` still emits legacy `account.created` envelope. Architecture sound; schema migration policy locked; boot-guard correct. Blocker is half-migrated perf-seed script.
+
+**Routing:** Cypher assigned to fix (Reviewer Rejection Lockout enforced — not @copilot, not Morpheus).
+
+**Follow-ups:** Handler test fixtures still use legacy event shapes (fine for this PR; Morpheus scoped out). Track separate sweep to unified shapes (owner TBD). Rollback anchor tag `pre-wi23-log-compat` required on main before merge.
+
 ## 2026-04-21 — WI-20 scope: Transaction Manual Add + Edit
 
 **Status:** Scope doc delivered at `.squad/decisions/inbox/neo-wi-20-scope.md`. Awaiting Pedro sign-off.
@@ -249,3 +257,19 @@ Event-sourcing edit pattern: **Full payload snapshot (`tx.updated`)** — not fi
 4. **GroupedBarChart internals** (reusable context): SVG 600x300 viewBox, shared y domain `[min(0,v), max(0,v)]`, zero-line rendered, tabIndex per group for keyboard nav, tooltip built from `s.label` + `legend[0]`/`legend[1]` + formatted values. Not Recharts/visx — hand-rolled SVG. Height of each `rect` comes from `scaleBar(v)` which maps value → y/height about the zero line.
 5. **Name-lookup pattern across screens.** PR #15's pattern — build `categoryNameById`/`subcategoryNameById` Map from `listCategories()` and fallback to raw ID — appears in PanelScreen.tsx:173-180 and MovementsScreen.tsx:203-213 (via `mapMovementRecord`). Consistent pattern; both use the same fallback-to-ID rule. Future reviewers: check any new list screen uses the same shape.
 
+
+## 2026-04-25 — PR #26 review (WI-23 unify projections) → CHANGES_REQUESTED, → Cypher
+
+Reviewed Morpheus's rebase of @copilot's stalled WI-23 PR.
+
+**Architecture verdict: sound.** Legacy `accounts`/`categories`/`tags` arrays and the `Account`/`Category`/`Tag`/`Subcategory` interfaces are cleanly removed; all consumers (queries, panel adapter, createTransaction existence check) now read from the `configAccounts`/`configCategories`/`configTags` projections. PR #45's perf state pattern (`_txList` + `_txByRef` reference index) was correctly preserved during the conflict resolution in `reducers.ts`. All unified-event emitters carry the new required `sortOrder`: `accounts.ts`, `categories.ts`, `tags.ts`, `import.ts` (Morpheus's fix), `devSeed.ts`. Boot-guard (`LEGACY_EVENT_TYPE_REJECTED` + Zod-validation of unified shapes) is correctly wired into `JsonFileEventLog.load()`.
+
+**One blocking defect** `scripts/perf-seed.mjs:183` still emits `type: 'account.created'` (legacy enveloped). The file is half-converted — categories and tags are flat `CategoryCreated`/`TagCreated`, but accounts weren't migrated. After merge, `npm run perf:seed` writes an `events.ndjson` that the new boot-guard refuses, breaking app boot and PR #46's perf-budget gate. **CI didn't catch this** because the perf gate is `main only` (`if: github.ref == 'refs/heads/main'`) and SKIPPED on PR branches.
+
+**Lasting lessons**
+
+1. **"Main only" CI gates are blind spots for schema-migration PRs.** Whenever a PR introduces a boot-guard or invariant that loads NDJSON, the review must verify *every* event-emitting script is aligned — not just the production code paths. The perf-budget gate's defence isn't enough because it runs after the breaking change has merged. Going forward, when reviewing schema-migration PRs, grep emitters explicitly for the legacy `type:` literal and the flat `type:` literal both, and treat any half-conversion as a merge-block.
+2. **Boot-guard requires a load-replay smoke test on every seeder.** I asked Cypher to add one in `perf-measure.ts` or its wrapper. This pattern (`seed → load → assert no throw`) should become standard for every schema-migration PR and a permanent CI line item.
+3. **GitHub's `mergeable: CONFLICTING` flag goes stale fast.** `git merge-tree origin/main HEAD` was the source of truth — it showed a clean auto-merge in `.squad/agents/morpheus/history.md` only. Don't let the API flag block the verdict; verify locally.
+4. **Reviewer Rejection Lockout — Cypher routing rationale.** Author was originally @copilot, taken over by Morpheus → both locked. Trinity owns frontend/data-layer, less natural fit for a backend seed script. Cypher owns CI/test infrastructure and the perf-gate seam — best fit. Worth establishing as the default routing pattern: schema-migration PR fallout → tester/CI owner.
+5. **Reducer no-op branches are tolerable bridge debt.** Morpheus's decision to retain the three legacy `case` branches as a no-op (rather than deleting them and letting `assertNever` hard-fail) is correct given the test suite still seeds via `applyEvent()` with legacy types. Tracked as out-of-scope follow-up — sweep tests, then remove the no-op and re-enable exhaustiveness. Don't approve PRs that introduce *new* no-op fallthroughs without an exit plan.
