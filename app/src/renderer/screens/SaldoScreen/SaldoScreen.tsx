@@ -1229,7 +1229,7 @@ function CategoryPanel({
             aria-hidden="true"
           >
             <span>{t('saldo.panel.columns.category')}</span>
-            <span className="ot-saldo-panel__col--right">{view.priorYear}</span>
+            <span>{view.priorYear}</span>
             <span>{view.currentYear}</span>
             <span className="ot-saldo-panel__col--right">Δ</span>
           </div>
@@ -1376,12 +1376,6 @@ function CompareRow({
         </div>
       </div>
       <div className="ot-saldo-row__current-cell">
-        <div className="ot-saldo-row__bar-track">
-          <div
-            className="ot-saldo-row__bar-fill ot-saldo-row__bar-fill--current"
-            style={{ width: `${currentPct}%` }}
-          />
-        </div>
         <span
           className="ot-saldo-row__current"
           data-testid={`saldo-row-${kind}-${row.id}-current-value`}
@@ -1389,6 +1383,12 @@ function CompareRow({
           {reversedSignPrefix(row.currentReversed, kind)}
           {fmt(row.current)}
         </span>
+        <div className="ot-saldo-row__bar-track">
+          <div
+            className="ot-saldo-row__bar-fill ot-saldo-row__bar-fill--current"
+            style={{ width: `${currentPct}%` }}
+          />
+        </div>
       </div>
       <span
         className={`ot-saldo-row__delta ot-saldo-row__delta--${deltaKind}`}
@@ -1543,6 +1543,13 @@ function CompareSubRow({
         </div>
       </div>
       <div className="ot-saldo-subrow__current-cell">
+        <span
+          className="ot-saldo-subrow__current"
+          data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-current-value`}
+        >
+          {reversedSignPrefix(sub.currentReversed, kind)}
+          {fmt(sub.current)}
+        </span>
         <div className="ot-saldo-subrow__bar-track">
           <div
             className="ot-saldo-subrow__bar-fill ot-saldo-subrow__bar-fill--current"
@@ -1554,13 +1561,6 @@ function CompareSubRow({
             }
           />
         </div>
-        <span
-          className="ot-saldo-subrow__current"
-          data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-current-value`}
-        >
-          {reversedSignPrefix(sub.currentReversed, kind)}
-          {fmt(sub.current)}
-        </span>
       </div>
       <span
         className={`ot-saldo-subrow__delta ot-saldo-subrow__delta--${deltaKind}`}
@@ -1568,9 +1568,6 @@ function CompareSubRow({
       >
         {deltaKind === 'up' ? '↑ ' : deltaKind === 'down' ? '↓ ' : ''}
         {deltaText}
-      </span>
-      <span className="ot-saldo-subrow__delta-sublabel">
-        {t('saldo.panel.row.vs', { year: priorYear })}
       </span>
     </div>
   );

@@ -122,13 +122,17 @@
   border-bottom: 1px solid var(--color-divider);
 }
 .ot-saldo-panel__columns--compare {
-  /* Per Pedro 2026-04-26 dogfood: each year owns a single cell containing
-   * value-text + bar (side-by-side, prototype-aligned). Header row collapses
-   * to 4 columns: category | 2025 | 2026 | Δ. Year header label inside its
-   * cell is right-aligned for the prior year (sits over the value, on the
-   * inside-edge of the bar) and left-aligned for the current year (sits over
-   * the bar's anchor, with the value to its right). See ux-004a-amendment-2. */
-  grid-template-columns: 1fr auto auto auto;
+  /* Per Pedro 2026-04-26 dogfood (v2): year-cell internal layout switched
+   * from horizontal mirror (text|bar / bar|text) to a vertical stack
+   * (value-text on top, bar below, both anchored left). Header columns
+   * therefore use the SAME grid template as the rows so the year labels
+   * sit directly above their respective value+bar stacks. See
+   * ux-004a-amendment-2 §5 (v2). */
+  grid-template-columns:
+    1fr
+    calc(var(--saldo-col-prior, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3))
+    calc(var(--saldo-col-current, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3))
+    var(--saldo-col-delta, max-content);
 }
 .ot-saldo-panel__columns--single {
   grid-template-columns: 1fr auto auto;
@@ -173,11 +177,11 @@
   border-bottom: 0;
 }
 .ot-saldo-row--compare {
-  /* Amendment 2 (Pedro 2026-04-26 dogfood — per `ingresos_gastos.png`): bars
-   * pivot from a stacked single column (prior over current) to per-year
-   * columns. Each year cell contains its own value-text + horizontal bar
-   * side-by-side, mirroring across the column gutter so the bars "face"
-   * each other. Row template:
+  /* Amendment 2 v2 (Pedro 2026-04-26 dogfood follow-up): the per-year cell
+   * is a vertical STACK — value-text on top, horizontal bar below, both
+   * left-anchored. Both year cells use the same internal layout (no mirror).
+   * The header columns reuse this same outer template so year labels sit
+   * directly above their value+bar stacks. Row template:
    *   name (1fr) | prior-cell | current-cell | Δ-col
    * Year-cell width = widest formatted text in the panel (carried by
    * `--saldo-col-prior` / `--saldo-col-current` from CategoryPanel) + a
@@ -186,12 +190,8 @@
    * (tests, stories) sane. */
   grid-template-columns:
     1fr
-    calc(
-      var(--saldo-col-prior, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3)
-    )
-    calc(
-      var(--saldo-col-current, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3)
-    )
+    calc(var(--saldo-col-prior, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3))
+    calc(var(--saldo-col-current, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3))
     var(--saldo-col-delta, max-content);
 }
 .ot-saldo-row--single {
@@ -201,21 +201,19 @@
     );
 }
 
-/* Per-year compound cells. The inner grid pins value-text to the panel-shared
- * text width (`--saldo-col-*`) so values across rows align vertically; the
- * remaining space is the bar track. Prior cell: text then bar. Current cell:
- * bar then text — produces the prototype's facing/mirror silhouette. */
-.ot-saldo-row__prior-cell {
-  display: grid;
-  grid-template-columns: var(--saldo-col-prior, max-content) 1fr;
-  align-items: center;
-  gap: var(--space-3);
-}
+/* Per-year compound cells. Vertical stack: value-text on top (left-aligned,
+ * sitting under the year header), bar-track below (left-anchored at fixed
+ * `--saldo-bar-min` width). Both year cells use the SAME inner layout — no
+ * mirror — so reading flow is uniform across the row. See
+ * ux-004a-amendment-2 §2 (v2). */
+.ot-saldo-row__prior-cell,
 .ot-saldo-row__current-cell {
   display: grid;
-  grid-template-columns: 1fr var(--saldo-col-current, max-content);
-  align-items: center;
-  gap: var(--space-3);
+  grid-template-columns: 1fr;
+  grid-auto-rows: auto;
+  justify-items: start;
+  align-content: center;
+  row-gap: 4px;
 }
 
 .ot-saldo-row__name {
@@ -228,7 +226,7 @@
 }
 
 .ot-saldo-row__prior {
-  text-align: right;
+  text-align: left;
   font-size: var(--font-size-14);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
@@ -241,6 +239,7 @@
 }
 .ot-saldo-row__bar-track {
   position: relative;
+  width: var(--saldo-bar-min, 8rem);
   height: 6px;
   border-radius: var(--radius-pill);
   background: var(--color-surface-secondary);
@@ -269,7 +268,7 @@
 }
 
 .ot-saldo-row__current {
-  text-align: right;
+  text-align: left;
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
