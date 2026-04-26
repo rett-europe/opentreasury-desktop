@@ -6278,3 +6278,107 @@ Main branch now rejects direct pushes. All updates must land via:
 **Context:** Attempted direct push of fix/bulk-classify-modal-size FF; rejected. Created PR #47 (bulk-modal sizing) as workaround and squash-merged as intended.
 
 This affects all future main-side changes. Update CI/CD and development workflows accordingly.
+
+---
+
+---
+
+## 2026-04-29 Batch — Wave 2 Closure, Issue #67 Fan-out, CI Hardening
+
+> Merged from .squad/decisions/inbox/ notes: neo-pr-63-62-verdict, neo-pr-63-rereview-verdict, switch-68-remediation, trinity-70-grid-fix, niobe-67-wib, morpheus-67-projection, cypher-prettier-hardening.
+
+### 2026-04-29: PR #62 + #63 Architectural Verdicts (Neo)
+
+**PR #62 (Cypher test plan):** APPROVED. 50+ scenarios across 7 categories; all 15 ACs mapped; all 6 Pedro locks have explicit test coverage matrix; tests properly `test.skip()`'d (no false greens); zero production code touched. Minor: prettier on 2 markdown files. Note: error-code reconciliation deferred (test plan used `SPLIT_SUM_MISMATCH` etc.; actual codes `SUM_MISMATCH` / `INVALID_SPLIT_COUNT` / `SCHEMA_INVALID`).
+
+**PR #63 (Morpheus backend):** REQUEST_CHANGES round 1 — CI typecheck failure (`TX_HAS_ACTIVE_SPLITS` missing from `updateTransactionValidationErrorCodeSchema`) + zero unit tests. Architecture PASS (all 6 locks enforced, additive events, correct reducer projection, `MovementRecord` carries `hasSplits`/`splitCount` not full children, scope discipline). Morpheus strict-locked → assigned Cypher.
+
+**PR #63 re-review:** Both blockers resolved. 30 substantive unit tests across 3 files covering FR3/FR12/FR13/FR14/FR15. New blocker: prettier on 5 files (CI `format:check` red). Strict-lockout does NOT apply to a fresh prettier-only fix. After fix → APPROVED, merged.
+
+**Wave 2 dispatch plan (post-merge):** Trinity (split editor + badge + bulk-skip toast), Mouse (visual polish on split rows), Cypher (wire e2e skeletons, reconcile error codes).
+
+### 2026-04-29: PR #68 Remediation — Three Contract Violations (Switch)
+
+Trinity's Wave 2 split-UI PR violated three contracts; Trinity strict-locked; Switch remediated (commit aa695fe).
+
+| ID | Violation | Fix |
+|---|---|---|
+| CV-1 | `SplitTransactionModal.css` shadowed Mouse's globals.css recipes (155 lines redefining `.ot-split-modal`, `.ot-split-row__*`, `.ot-split-delta`) | DELETED file + removed import |
+| CV-2 | `MovementsScreen.tsx:642` used `.ot-badge .ot-badge--split .ot-badge--clickable` (wrong class) | Replaced with `.ot-split-parent-badge` (Mouse's globals.css:495–507 — brand surface, pill radius) |
+| CV-3 | `.ot-split-parent` (3px left-border + brand tint) defined but Table had no per-row class hook | Added optional `getRowClassName?: (row: T) => string \| undefined` prop to `Table`; wired in `MovementsScreen` via `rawRecordById.get(m.id)?.hasSplits`; new test |
+
+**Validation:** typecheck/lint/79 test files clean. Merged.
+
+**Locked rules:**
+
+1. **globals.css owns recipes; component CSS may only shadow design tokens.** Redefining `.ot-*` classes in component CSS creates shadow conflicts.
+2. **Table extensibility pattern:** `getRowClassName` is the canonical hook for per-row custom classes; reuse for `.ot-archived-row`, `.ot-flagged-row`, etc.
+3. **Rebase hygiene:** Always check upstream merges before fixing integration; use `--force-with-lease`.
+
+### 2026-04-29: PR #70 Grid Fix — Approach B Separate Grids (Trinity, round 3)
+
+WI-A (issue #67) cascaded through three agents under strict-lockout (Mouse R1 → Switch R2 → Trinity R3). Final fix: **two independent grids** for compare-mode (5 cols) vs single-mode (3 cols), via BEM modifiers.
+
+**CSS classes:**
+
+- `.ot-saldo-panel__columns--compare` → `grid-template-columns: 1fr auto auto auto auto;`
+- `.ot-saldo-panel__columns--single`  → `grid-template-columns: 1fr auto auto;`
+- `.ot-saldo-row--compare`  → `grid-template-columns: 1fr auto 1fr auto auto;` (explicit `grid-column` placements scoped here)
+- `.ot-saldo-row--single`   → `grid-template-columns: 1fr auto auto;` (auto-place across 3 cols, no explicit placement)
+
+**Why earlier rounds failed:**
+
+- R1 Mouse: 4-col single header but rows still 5 cols → compare wrap.
+- R2 Switch (Approach A unified 5-col grid): single-mode header auto-placed cols 1-2-3 while `SingleRow` had explicit `grid-column: 4/5` → misalignment.
+
+**Locked rule:** When two view modes have fundamentally different column counts, prefer **BEM modifiers + separate grid definitions** over a unified grid fighting auto-placement. APPROVED & merged.
+
+### 2026-04-29: WI-B Subcategory Drill-Down — Locked Interaction Model (Niobe, PR #71)
+
+Spec: `docs/ux/specs/ux-004a-saldo-subcategory-drilldown.md`.
+
+**Locks:**
+
+1. **Option A — Global toggle** ("Mostrar subcategorías") in Saldo header. (Pedro: "let's go with A) for now".) Rejected B (per-row chevrons — per-row state) and C (always-on — clutter).
+2. **Top-N when expanded:** Recursive "top-8 + Otras subcategorías" per category; sort by current-period `abs(income or expense)` descending; "Otras" tooltip lists first 3 names.
+3. **Visual treatment** (recommended to Mouse): 16px indent (1 nesting level); 8px half-height bars (vs 16px parent); no new colour primitives; parent row unchanged.
+4. **Empty / single-subcat categories:** Render parent only — no degenerate nested row.
+5. **Compare mode interaction:** Full 2×2 (CY/LY × cat/subcat); LY subcategory delta = `—` when LY had no data; reuse existing ±3% delta-classification helper.
+
+**Projection extension required (§11):** Add optional `saldoSubcategoryNetSchema` array on `SaldoCategoryNet`. Backwards compatible — existing pre-WI-B renderer ignores field.
+
+**Hand-off plan:** Morpheus (projection) → Mouse (CSS) → Trinity (wiring + tests). All §12 open questions resolved (1–9).
+
+### 2026-04-29: WI-B Saldo Projection Extension (Morpheus, PR #72)
+
+**Contract change** (`app/src/shared/ipc-contracts/saldo.ts`): added `saldoSubcategoryNetSchema` (`subcategoryId`, `subcategoryName`, `income`, `expense`); extended `saldoCategoryNetSchema` with optional `subcategories` array (always populated by projection — "optional" is type-level affordance only).
+
+**Projection logic** (`app/src/core/query/saldo.ts`):
+
+1. Nested `bySubcategory` map inside each `byCategory` entry.
+2. `resolveSubcategoryName()` mirrors `resolveCategoryName()` — archived names retained, deleted/missing → `null`.
+3. `toCategoryNetArray()` builds + sorts `subcategories`: `abs(income - expense)` desc; excludes zero-amount subcats; always populated array (may be empty).
+
+**Lock — null subcategoryId handling:** Transactions with `subcategoryId === null` ARE included as a `{ subcategoryId: null, subcategoryName: null, income, expense }` entry. Reason: preserves sum invariant `sum(subcategories[].income) === category.income`. Renderer treats null as "Sin subcategoría" via i18n.
+
+**Tests:** 10 unit + 2 fast-check property (120 runs each); 636 total passing.
+
+**Deviations from spec §11:** None. Merged after coordinator inline prettier fix.
+
+### 2026-04-29: Prettier Hardening — Three-Layer Fix (Cypher, PRs #73 + #74)
+
+CI `format:check` recurringly red (PR #63, #68). Two-PR delivery:
+
+| Layer | Description | PR | Status |
+|---|---|---|---|
+| **A** | `.gitattributes` `* text=auto eol=lf` line-ending normalization | #74 | Shipped (last in train) — eliminated ~58 Windows CRLF false positives |
+| **B** | husky + lint-staged pre-commit hook (`npx lint-staged`) + 5 file fixes | #73 | Shipped — mechanical guard before commit lands |
+| **C** | Agent spawn template `format:check` validation | N/A | NOT added — would be redundant with B + CI; adds friction for manual commits |
+
+**Locked rules:**
+
+1. **Pre-commit hooks are mandatory** for format/lint — don't rely on discipline or CI catch.
+2. **Windows dev environment divergence is real** — always set `.gitattributes` line-ending policy in new repos. Prettier + Windows without `.gitattributes` = pain; this pattern recurs without Layer A.
+3. **Two-PR strategy** kept review sane despite mechanical changes: #73 unblocks CI immediately; #74 has no CI impact (repo already LF) and no rush.
+
+CI step ordering left as-is: lint → `format:check` → tests → build. Pre-commit hook is the upstream guard; CI is the backstop.

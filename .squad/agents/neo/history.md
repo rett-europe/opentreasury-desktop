@@ -328,3 +328,11 @@ Cypher (Reviewer Rejection Lockout, routed agent) pushed `bc11c1f` (fix) and `10
 ## Wave 1 Completion — 2026-04-29
 
 SPEC-023 Rev 3 (Split Transactions) architectural review complete. PR #60 merged (SPEC + UX spec). Wave 1 fan-out approved: PR #62 (Cypher tests) + PR #63 (Morpheus backend) both awaiting architectural review. Both PRs unblock Wave 2 (Trinity modal + list integration). Architectural corrections finalized (B1-B3: in-memory read model + NDJSON + M2-deferred crypto). Integration seam map provided (5 files, 20+ touchpoints). Pedro's 6 lock questions all answered and spec-locked.
+
+## 2026-04-29: Wave 2 reviews + Issue #67 cascade (Scribe summary)
+
+- **PR #62:** APPROVED. **PR #63:** R1 REQUEST_CHANGES (typecheck + zero tests); re-review REQUEST_CHANGES (prettier on 5 files, fresh assignment — no lockout); merged after Cypher fix.
+- **PR #68:** REQUEST_CHANGES on three CVs (CV-1 shadow CSS, CV-2 wrong badge class, CV-3 missing row-class application). Trinity strict-locked → Switch remediated (commit aa695fe) → APPROVED & merged.
+- **PR #70 (WI-A) cascade:** R1 Mouse REJECTED (compare wrap), R2 Switch REJECTED (single-mode misalignment under Approach A), R3 Trinity APPROVED (Approach B — separate grids via BEM modifiers). Three-way strict-lockout documented.
+- **WI-B chain:** PR #71 (Niobe spec) → PR #72 (Morpheus projection, merged after coordinator inline prettier fix) → Mouse + Trinity in flight on parallel worktrees.
+- **CI hardening:** PR #73 (husky + lint-staged) + PR #74 (gitattributes eol=lf) merged.

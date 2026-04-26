@@ -1455,3 +1455,11 @@ Split Transactions (SPEC-023 Wave 2): Awaiting PR #63 (Morpheus IPC contract for
 
 PR #68 marked ready for review. All tests green. Spanish + English i18n parity maintained.
 
+
+## 2026-04-29: Wave 2 + Issue #67 Fan-out (Scribe summary)
+
+- **PR #68 (Wave 2 split UI):** REQUEST_CHANGES by Neo on three CVs; you were strict-locked. Switch remediated (CV-1 deleted shadow CSS, CV-2 fixed badge to `.ot-split-parent-badge`, CV-3 added `getRowClassName` to `Table`). Lockout lifted on merge.
+- **PR #70 (issue #67 WI-A) round 3:** APPROVED & merged. Approach B — separate grids via BEM modifiers `.ot-saldo-row--compare` (5 cols) / `--single` (3 cols) closed a three-way strict-lockout cascade (Mouse R1 → Switch R2 → you R3). Locked rule: prefer BEM modifiers over unified grids fighting auto-placement when modes have different column counts.
+- **PR #72 (Morpheus) merged:** `SaldoCategoryNet.subcategories[]` now available; `null` subcategoryId entries included to preserve sum invariants.
+- **WI-B UI wiring** in flight on `squad/67-wib-ui-wiring` (parallel with Mouse's recipes branch). Toggle state, recursive top-8 + Otras, AC1–AC16 tests.
+- **CI hardening:** husky + lint-staged pre-commit hook live (PR #73); `.gitattributes eol=lf` (PR #74) — Windows CRLF false positives gone.

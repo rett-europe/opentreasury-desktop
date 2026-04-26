@@ -476,3 +476,11 @@ Split Transactions (SPEC-023 Wave 2): Awaiting split UI surfaces (split editor m
 - Split modal follows TransactionDetailModal pattern: `::backdrop` + `--shadow-dialog` + `--radius-lg` + `max-height: 88vh`.
 - Scrollable child area uses `max-height: 56vh` (roughly 2/3 of modal height), leaving room for header + delta footer.
 - No new tokens introduced — all colours, spacing, radii from existing palette.
+
+## 2026-04-29: Wave 2 + Issue #67 Fan-out (Scribe summary)
+
+- **PR #65 merged:** Dashboard date filter polish + transaction-row account color chip.
+- **PR #66 merged:** Split visual recipes in globals.css (`.ot-split-parent`, `.ot-split-parent-badge`, modal recipes). Trinity #68 rebased onto this; Switch's CV-1/CV-2 fixes consume your recipes.
+- **PR #70 (WI-A) round 1 REJECTED:** Removed type captions but left rows at 5 cols while reducing single header to 3 → compare wrap. Strict-locked from #70. Switch attempted Approach A (also rejected), Trinity closed with Approach B (BEM modifiers).
+- **WI-B UI recipes** in flight on `squad/67-wib-ui-recipes`: 16px nested-row indent, 8px half-height bars, "Otras subcategorías" italic, toggle-control recipe.
+- **Locked rule reinforced:** globals.css owns `.ot-*` recipes; component CSS may only shadow design tokens.

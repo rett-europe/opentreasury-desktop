@@ -2441,3 +2441,9 @@ otes pattern (Map + Set for O(1) lookups)
 
 **Next:** Trinity (Wave 2) can start split editor modal + UI once PR #63 is merged.
 
+
+## 2026-04-29: Wave 2 + WI-B Projection (Scribe summary)
+
+- **PR #63 (split backend):** Two REQUEST_CHANGES rounds before merge — round 1 (CI typecheck on `TX_HAS_ACTIVE_SPLITS` + zero unit tests; you strict-locked, Cypher fixed in 855c78f + 30 unit tests), round 2 (prettier on 5 files; reassignable — strict-lockout doesn't apply to fresh prettier-only fix). Final state: all 6 Pedro locks enforced, additive events, `MovementRecord` carries `hasSplits`/`splitCount`.
+- **PR #72 (WI-B projection) merged after coordinator inline prettier fix:** `saldoSubcategoryNetSchema` + nested `bySubcategory` map; sort by abs(net) desc; `null` subcategoryId preserved as a subcategory entry to maintain sum invariants. 10 unit + 2 fast-check property tests (120 runs each).
+- **Note:** `effectiveAmounts()` duplicated in `queries.ts` and `saldo.ts` — Neo flagged for shared-utility extraction (non-blocking).
