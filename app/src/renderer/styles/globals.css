@@ -733,7 +733,7 @@ a:hover {
    * minimums, 1:3 prior:current ratio, panel adapts to viewport width.
    * See `.ot-saldo-row--compare` for the full rationale. */
   grid-template-columns:
-    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6)), 1fr)
+    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6) + var(--space-6)), 1fr)
     minmax(var(--saldo-col-prior, 0), 1fr)
     minmax(var(--saldo-col-current, 0), 3fr)
     var(--saldo-col-delta, max-content);

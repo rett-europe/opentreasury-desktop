@@ -138,7 +138,7 @@
    * stay aligned above their value+bar stacks (alignment recipe from
    * iter 4 — see `.squad/skills/grid-header-row-alignment`). */
   grid-template-columns:
-    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6)), 1fr)
+    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6) + var(--space-6)), 1fr)
     minmax(var(--saldo-col-prior, 0), 1fr)
     minmax(var(--saldo-col-current, 0), 3fr)
     var(--saldo-col-delta, max-content);
@@ -199,7 +199,7 @@
    * panel, so every row in a panel collapses to the same computed
    * column widths and the bars stay aligned across rows. */
   grid-template-columns:
-    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6)), 1fr)
+    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6) + var(--space-6)), 1fr)
     minmax(var(--saldo-col-prior, 0), 1fr)
     minmax(var(--saldo-col-current, 0), 3fr)
     var(--saldo-col-delta, max-content);
