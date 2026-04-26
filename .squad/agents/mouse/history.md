@@ -33,6 +33,29 @@ PR #91 `mouse/saldo-prototype-layout` commit `1d3fcb7`: Saldo compare-mode now r
 ### 2026-04-26: Pairing Rule — Separate Visual Judgment from Code Interpretation
 After PR #91 Saldo Iteration 3 (mouse/saldo-prototype-layout, commit b41f973): **always pair with Trinity on UI work.** Mouse owns visual judgment / prototype fidelity; Trinity owns .tsx/.css. PR #91 went 3 iterations because a single agent (Mouse) was answering both "is this what the prototype shows?" AND "is the React tree correct?" — independent questions requiring independent judgment. Default pattern: Mouse drafts visual spec + reviews against prototype; Trinity implements and ships code. This rule is now locked in decisions.md under Process / Pairing.
 
+### 2026-04-26: PR #98 Insights Scaffold Complete — Empty State Shell Ready for Component Build
+
+**Context:** First of 4-PR Insights M4 train. Implemented foundation per ux-005-insights-final-spec.md §8 Phase 1.
+
+**What shipped:**
+- ✅ `InsightsScreen/` folder with empty-state placeholder (ChartLine icon, centered card, user-friendly copy)
+- ✅ Added `'insights'` to Route union, nav entry (after Balance), wired in App.tsx
+- ✅ i18n keys: `shell.nav.insights` (ES: "Análisis", EN: "Insights") + `insights.*` namespace
+- ✅ All smoke tests green (typecheck, lint, 654 tests)
+
+**Design decisions:**
+1. **Empty state pattern:** Reused `.ot-p-card` + `.ot-page-header` from globals.css (consistent with Saldo/Panel)
+2. **Icon choice:** ChartLine (lucide-react) matches spec §3.1 — sparkline-style, not pie/donut
+3. **Copy tone:** Friendly prompt to tag transactions, not "coming soon" generic message
+4. **Centered layout:** `max-width: 540px; margin: auto` — follows existing empty-state pattern from Movements
+
+**Reusable patterns confirmed:**
+- Nav entry insertion is additive-only (zero conflicts)
+- Routing chain in App.tsx follows `route === 'X' ? <XScreen /> :` pattern
+- i18n keys follow `{section}.{key}` flat namespace (no deep nesting)
+
+**Ready for PR #99:** DonutChart + SegmentedToggle components (2-day effort per spec §8).
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
 ## 2026-04-19 — Team Context Update (from Scribe)

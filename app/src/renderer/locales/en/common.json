@@ -21,6 +21,7 @@
       "panel": "Dashboard",
       "movements": "Transactions",
       "balance": "Balance",
+      "insights": "Insights",
       "datos": "Data",
       "configuracion": "Settings",
       "cuentas": "Accounts",
@@ -890,6 +891,14 @@
       "SUM_MISMATCH": "Amounts do not sum to the total.",
       "SCHEMA_INVALID": "Split data is not valid.",
       "INTERNAL": "Something went wrong. Please try again."
+    }
+  },
+  "insights": {
+    "title": "Insights",
+    "subtitle": "Tag-based analysis — campaigns, projects and events across categories",
+    "empty": {
+      "title": "No data for Insights yet",
+      "body": "Tag your transactions to see analysis of campaigns and projects that cross categories."
     }
   }
 }

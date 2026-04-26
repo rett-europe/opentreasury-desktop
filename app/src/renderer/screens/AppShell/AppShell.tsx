@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeftRight,
+  ChartLine,
   FolderOpen,
   Landmark,
   LayoutDashboard,
@@ -23,6 +24,7 @@ export type Route =
   | 'panel'
   | 'movements'
   | 'balance'
+  | 'insights'
   | 'datos'
   | 'cuentas'
   | 'categorias'
@@ -58,6 +60,7 @@ const NAV_SECTIONS: readonly NavSection[] = [
       { id: 'panel', labelKey: 'shell.nav.panel', icon: <LayoutDashboard size={18} /> },
       { id: 'movements', labelKey: 'shell.nav.movements', icon: <ArrowLeftRight size={18} /> },
       { id: 'balance', labelKey: 'shell.nav.balance', icon: <Scale size={18} /> },
+      { id: 'insights', labelKey: 'shell.nav.insights', icon: <ChartLine size={18} /> },
     ],
   },
   {

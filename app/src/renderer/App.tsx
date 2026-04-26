@@ -3,6 +3,7 @@ import { AppShell } from './screens/AppShell/index.js';
 import type { Route } from './screens/AppShell/index.js';
 import { ConfiguracionScreen } from './screens/ConfiguracionScreen/index.js';
 import { DatosScreen } from './screens/DatosScreen/index.js';
+import { InsightsScreen } from './screens/InsightsScreen/index.js';
 import { MovementsScreen } from './screens/MovementsScreen/index.js';
 import { PanelScreen } from './screens/PanelScreen/index.js';
 import { SaldoScreen } from './screens/SaldoScreen/index.js';
@@ -33,6 +34,8 @@ export function App(): JSX.Element {
         <MovementsScreen configRevision={configRevision} />
       ) : route === 'panel' ? (
         <PanelScreen />
+      ) : route === 'insights' ? (
+        <InsightsScreen />
       ) : isConfigRoute ? (
         <ConfiguracionScreen onConfigChanged={bumpConfigRevision} initialTab={route} />
       ) : route === 'datos' ? (
