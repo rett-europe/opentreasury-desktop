@@ -122,7 +122,13 @@
   border-bottom: 1px solid var(--color-divider);
 }
 .ot-saldo-panel__columns--compare {
-  grid-template-columns: 1fr auto auto auto auto;
+  /* Per Pedro 2026-04-26 dogfood: each year owns a single cell containing
+   * value-text + bar (side-by-side, prototype-aligned). Header row collapses
+   * to 4 columns: category | 2025 | 2026 | Δ. Year header label inside its
+   * cell is right-aligned for the prior year (sits over the value, on the
+   * inside-edge of the bar) and left-aligned for the current year (sits over
+   * the bar's anchor, with the value to its right). See ux-004a-amendment-2. */
+  grid-template-columns: 1fr auto auto auto;
 }
 .ot-saldo-panel__columns--single {
   grid-template-columns: 1fr auto auto;
@@ -167,15 +173,25 @@
   border-bottom: 0;
 }
 .ot-saldo-row--compare {
-  /* Issue #78 follow-up — the prior / current / delta column widths come from
-   * panel-level CSS custom properties (computed once per panel render in
-   * `CategoryPanel`) so every row + subrow in the panel uses the SAME column
-   * widths. This anchors the `1fr` bars column at an identical x-coord across
-   * rows, which is what makes the two-bar groups line up across categories.
-   * Falls back to `max-content` if a row is rendered outside the panel grid
-   * scope (e.g. tests, isolated stories). */
+  /* Amendment 2 (Pedro 2026-04-26 dogfood — per `ingresos_gastos.png`): bars
+   * pivot from a stacked single column (prior over current) to per-year
+   * columns. Each year cell contains its own value-text + horizontal bar
+   * side-by-side, mirroring across the column gutter so the bars "face"
+   * each other. Row template:
+   *   name (1fr) | prior-cell | current-cell | Δ-col
+   * Year-cell width = widest formatted text in the panel (carried by
+   * `--saldo-col-prior` / `--saldo-col-current` from CategoryPanel) + a
+   * minimum bar track width (`--saldo-bar-min`) + intra-cell gap. The
+   * fallback (`max-content` text + min bar width) keeps isolated rendering
+   * (tests, stories) sane. */
   grid-template-columns:
-    1fr var(--saldo-col-prior, max-content) 1fr var(--saldo-col-current, max-content)
+    1fr
+    calc(
+      var(--saldo-col-prior, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3)
+    )
+    calc(
+      var(--saldo-col-current, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3)
+    )
     var(--saldo-col-delta, max-content);
 }
 .ot-saldo-row--single {
@@ -183,6 +199,23 @@
       --saldo-col-delta,
       max-content
     );
+}
+
+/* Per-year compound cells. The inner grid pins value-text to the panel-shared
+ * text width (`--saldo-col-*`) so values across rows align vertically; the
+ * remaining space is the bar track. Prior cell: text then bar. Current cell:
+ * bar then text — produces the prototype's facing/mirror silhouette. */
+.ot-saldo-row__prior-cell {
+  display: grid;
+  grid-template-columns: var(--saldo-col-prior, max-content) 1fr;
+  align-items: center;
+  gap: var(--space-3);
+}
+.ot-saldo-row__current-cell {
+  display: grid;
+  grid-template-columns: 1fr var(--saldo-col-current, max-content);
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .ot-saldo-row__name {
@@ -200,18 +233,11 @@
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
 }
-.ot-saldo-row--compare .ot-saldo-row__prior {
-  grid-column: 2 / 3;
-}
 
 .ot-saldo-row__bars {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 80px;
-}
-.ot-saldo-row--compare .ot-saldo-row__bars {
-  grid-column: 3 / 4;
+  /* Legacy stacked-bars wrapper retained as a no-op for any external
+   * consumer that still selects on it; current TSX no longer renders it. */
+  display: contents;
 }
 .ot-saldo-row__bar-track {
   position: relative;
@@ -219,6 +245,7 @@
   border-radius: var(--radius-pill);
   background: var(--color-surface-secondary);
   overflow: hidden;
+  min-width: 0;
 }
 .ot-saldo-row__bar-fill {
   position: absolute;
@@ -247,9 +274,6 @@
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
 }
-.ot-saldo-row--compare .ot-saldo-row__current {
-  grid-column: 4 / 5;
-}
 .ot-saldo-panel--income .ot-saldo-row__current {
   color: var(--color-income-default);
 }
@@ -264,7 +288,7 @@
   font-variant-numeric: tabular-nums;
 }
 .ot-saldo-row--compare .ot-saldo-row__delta {
-  grid-column: 5 / 6;
+  grid-column: 4 / 5;
 }
 .ot-saldo-row__delta--up {
   color: var(--color-income-default);
@@ -283,7 +307,7 @@
   color: var(--color-text-muted);
 }
 .ot-saldo-row--compare .ot-saldo-row__delta-sublabel {
-  grid-column: 5 / 6;
+  grid-column: 4 / 5;
 }
 
 /* ── Chart section ──────────────────────────────────────────── */

@@ -718,12 +718,17 @@ a:hover {
   border-bottom: 0;
 }
 .ot-saldo-subrow--compare {
-  /* Issue #78 follow-up — share the panel-level column widths defined on
-   * `.ot-saldo-panel__rows` so subrows align with each other (and with the
-   * parent rows) at the bars column. See the matching recipe in
-   * SaldoScreen.css for the row-level grid template. */
+  /* Amendment 2 (Pedro 2026-04-26): per-year cell layout, mirroring the
+   * parent row recipe in SaldoScreen.css. See `.ot-saldo-row--compare` for
+   * the rationale and column-width derivation. */
   grid-template-columns:
-    1fr var(--saldo-col-prior, max-content) 1fr var(--saldo-col-current, max-content)
+    1fr
+    calc(
+      var(--saldo-col-prior, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3)
+    )
+    calc(
+      var(--saldo-col-current, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3)
+    )
     var(--saldo-col-delta, max-content);
 }
 .ot-saldo-subrow--single {
@@ -731,6 +736,22 @@ a:hover {
       --saldo-col-delta,
       max-content
     );
+}
+
+/* Per-year compound cells for subrows — same recipe as parent rows but at
+ * the smaller subrow text scale. Bars inherit the half-height treatment
+ * defined further down. */
+.ot-saldo-subrow__prior-cell {
+  display: grid;
+  grid-template-columns: var(--saldo-col-prior, max-content) 1fr;
+  align-items: center;
+  gap: var(--space-3);
+}
+.ot-saldo-subrow__current-cell {
+  display: grid;
+  grid-template-columns: 1fr var(--saldo-col-current, max-content);
+  align-items: center;
+  gap: var(--space-3);
 }
 
 /* Visual close-out: extra breathing room after the last subrow
@@ -757,18 +778,11 @@ a:hover {
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
 }
-.ot-saldo-subrow--compare .ot-saldo-subrow__prior {
-  grid-column: 2 / 3;
-}
 
 .ot-saldo-subrow__bars {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 80px;
-}
-.ot-saldo-subrow--compare .ot-saldo-subrow__bars {
-  grid-column: 3 / 4;
+  /* Legacy stacked-bars wrapper retained as a no-op for any external
+   * consumer that still selects on it; current TSX no longer renders it. */
+  display: contents;
 }
 /* Half-height bar track — ~70% of the parent .ot-saldo-row__bar-track
  * (6px → 4px). Same pill radius keeps the silhouette consistent. */
@@ -778,6 +792,7 @@ a:hover {
   border-radius: var(--radius-pill);
   background: var(--color-surface-secondary);
   overflow: hidden;
+  min-width: 0;
 }
 .ot-saldo-subrow__bar-fill {
   position: absolute;
@@ -807,9 +822,6 @@ a:hover {
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
 }
-.ot-saldo-subrow--compare .ot-saldo-subrow__current {
-  grid-column: 4 / 5;
-}
 .ot-saldo-panel--income .ot-saldo-subrow__current {
   color: var(--color-income-default);
 }
@@ -824,7 +836,7 @@ a:hover {
   font-variant-numeric: tabular-nums;
 }
 .ot-saldo-subrow--compare .ot-saldo-subrow__delta {
-  grid-column: 5 / 6;
+  grid-column: 4 / 5;
 }
 .ot-saldo-subrow__delta--up {
   color: var(--color-income-default);
