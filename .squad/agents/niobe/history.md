@@ -22,6 +22,20 @@ A prototype exists in `/prototype/` with React-based JSX components.
 
 ## Learnings
 
+### 2026-05-02 — Pedro's mockup-driven iteration style (Insights A1)
+
+**Key learning: Pedro specs via pixel-level mockups, not prose requirements.**
+
+When Pedro wants to communicate a feature vision, he creates concrete PNG mockups (`insights_idea.png`, `insights_idea_2.png`) rather than writing lengthy requirements documents. These mockups are the source of truth — my job is to:
+
+1. **Interpret the mockup faithfully** — extract layout, component hierarchy, data fields, and interaction patterns directly from the visual
+2. **Write the spec as a translation** — the spec should codify what the mockup shows, not invent new patterns
+3. **Flag ambiguities as open questions** — where the mockup doesn't specify (e.g., edge cases, empty states, responsive behavior), ask Pedro rather than assume
+
+The Insights v1 spec (ux-005a) described a "small-multiples YoY grid" pattern based on my interpretation of Pedro's directive text. Pedro's mockups revealed a completely different vision: tag-centric landing with horizontal card row, in-section drilldown with donut charts, and a tag combiner for intersection analysis. The mockup supersedes the prose interpretation.
+
+**Process adjustment:** When Pedro shares mockups, treat them as the authoritative design source. The spec's job is to make the mockup implementable (responsive breakpoints, data fields, CSS recipes, component contracts), not to reimagine the design.
+
 ### 2026-04-27 — Saldo iter 8 re-diagnosis (iter 7 REJECTED)
 
 **Critical lesson learned: Diagnosing visual bugs without looking at the screenshot is malpractice.**
