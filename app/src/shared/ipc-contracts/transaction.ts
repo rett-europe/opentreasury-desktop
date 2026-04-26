@@ -104,6 +104,7 @@ export const transactionValidationErrorCodeSchema = z.enum([
   'DESCRIPTION_EMPTY',
   'TYPE_INVALID',
   'TX_NOT_FOUND',
+  'TX_HAS_ACTIVE_SPLITS', // SPEC-023 FR14 — reject parent amount edit when splits exist
   'SCHEMA_INVALID',
   'INTERNAL',
 ]);
@@ -298,6 +299,8 @@ export const bulkUpdateTransactionResponseSchema = z.discriminatedUnion('ok', [
     ok: z.literal(true),
     updatedCount: z.number().int().nonnegative(),
     events: z.array(transactionUpdatedEventMirrorSchema),
+    // SPEC-023 FR15 — count of split parents skipped in bulk update.
+    skippedSplitParentCount: z.number().int().nonnegative(),
   }),
   z.object({
     ok: z.literal(false),
