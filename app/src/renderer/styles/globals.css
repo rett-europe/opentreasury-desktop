@@ -726,20 +726,23 @@ a:hover {
    * communicates nesting; see amendment 1 follow-up section. */
   border-left: 0;
   border-bottom: 0;
+  /* Bug B (iter 9): allow subrow grid to shrink with panel. */
+  min-width: 0;
 }
 .ot-saldo-subrow--compare {
-  /* Iter 8: single --space-6 indent budget (matches header + parent row). */
+  /* Iter 9 (Bug B): mirrors header + parent row template — all minimums 0
+   * so subrows shrink with the panel. */
   grid-template-columns:
-    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6)), 1fr)
-    minmax(var(--saldo-col-prior, 0), 1fr)
-    minmax(var(--saldo-col-current, 0), 3fr)
-    var(--saldo-col-delta, max-content);
+    minmax(0, calc(var(--saldo-col-name, max-content) + var(--space-6)))
+    minmax(0, 1fr)
+    minmax(0, 3fr)
+    minmax(0, var(--saldo-col-delta, max-content));
 }
 .ot-saldo-subrow--single {
-  grid-template-columns: 1fr var(--saldo-col-current, max-content) var(
-      --saldo-col-delta,
-      max-content
-    );
+  grid-template-columns:
+    1fr
+    minmax(0, var(--saldo-col-current, max-content))
+    minmax(0, var(--saldo-col-delta, max-content));
 }
 
 /* Per-year compound cells for subrows — iter 4 (Pedro 2026-04-26 dogfood
@@ -771,6 +774,10 @@ a:hover {
   /* Iter 6: 16px subcategory indent (spec §16.2) lives here, not on
    * the subrow grid container. See `.ot-saldo-subrow` above. */
   padding-left: var(--space-6);
+  /* Bug B (iter 9): graceful text truncation. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ot-saldo-subrow--compare .ot-saldo-subrow__name {
   grid-column: 1 / 2;
@@ -781,6 +788,9 @@ a:hover {
   font-size: var(--font-size-12);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ot-saldo-subrow__bars {
@@ -828,6 +838,9 @@ a:hover {
   font-size: var(--font-size-13);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ot-saldo-panel--income .ot-saldo-subrow__current {
   color: var(--color-income-default);
@@ -841,6 +854,9 @@ a:hover {
   font-size: var(--font-size-12);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ot-saldo-subrow--compare .ot-saldo-subrow__delta {
   grid-column: 4 / 5;

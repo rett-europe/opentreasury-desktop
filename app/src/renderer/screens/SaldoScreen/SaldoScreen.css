@@ -123,6 +123,8 @@
      across header and row grids — the root cause of the alignment drift. */
   padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--color-divider);
+  /* Bug B (iter 9): allow header grid to shrink below content in flex. */
+  min-width: 0;
 }
 .ot-saldo-panel__columns > * {
   font-size: var(--font-size-11);
@@ -132,14 +134,16 @@
   color: var(--color-text-muted);
 }
 .ot-saldo-panel__columns--compare {
-  /* Iter 8 (Bug A + B fix): single --space-6 in name column minimum is
-   * sufficient for the subcategory indent budget. The second was added in
-   * iter 7 but inflated the floor and worsened Bug B (panel resize). */
+  /* Iter 9 (Bug B): all track minimums are 0 so the grid can shrink with
+   * the panel at narrow viewports. Name and delta are content-capped
+   * (definite max); prior and current are flex tracks (1fr / 3fr) that
+   * absorb remaining space for the bar visualisations. Header and row
+   * templates are identical ⇒ Bug A alignment preserved. */
   grid-template-columns:
-    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6)), 1fr)
-    minmax(var(--saldo-col-prior, 0), 1fr)
-    minmax(var(--saldo-col-current, 0), 3fr)
-    var(--saldo-col-delta, max-content);
+    minmax(0, calc(var(--saldo-col-name, max-content) + var(--space-6)))
+    minmax(0, 1fr)
+    minmax(0, 3fr)
+    minmax(0, var(--saldo-col-delta, max-content));
 }
 .ot-saldo-panel__columns--single {
   grid-template-columns: 1fr auto auto;
@@ -167,6 +171,9 @@
   row-gap: 2px;
   align-items: center;
   padding: var(--space-5) 0;
+  /* Bug B (iter 9): allow row grid to shrink below min-content in the
+   * panel's flex-direction:column layout. */
+  min-width: 0;
 }
 
 /* Pedro F5 (#78 follow-up): category separator lives on the `role=group`
@@ -184,18 +191,19 @@
   border-bottom: 0;
 }
 .ot-saldo-row--compare {
-  /* Iter 8: single --space-6 indent budget (matches header + subrow). */
+  /* Iter 9 (Bug B): mirrors header template — all minimums 0 so rows
+   * shrink with the panel. See .ot-saldo-panel__columns--compare. */
   grid-template-columns:
-    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6)), 1fr)
-    minmax(var(--saldo-col-prior, 0), 1fr)
-    minmax(var(--saldo-col-current, 0), 3fr)
-    var(--saldo-col-delta, max-content);
+    minmax(0, calc(var(--saldo-col-name, max-content) + var(--space-6)))
+    minmax(0, 1fr)
+    minmax(0, 3fr)
+    minmax(0, var(--saldo-col-delta, max-content));
 }
 .ot-saldo-row--single {
-  grid-template-columns: 1fr var(--saldo-col-current, max-content) var(
-      --saldo-col-delta,
-      max-content
-    );
+  grid-template-columns:
+    1fr
+    minmax(0, var(--saldo-col-current, max-content))
+    minmax(0, var(--saldo-col-delta, max-content));
 }
 
 /* Per-year compound cells. Iter 4 (Pedro 2026-04-26 dogfood iter 3 reject):
@@ -219,6 +227,10 @@
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
+  /* Bug B (iter 9): graceful text truncation when panel is narrow. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ot-saldo-row--compare .ot-saldo-row__name {
   grid-column: 1 / 2;
@@ -229,6 +241,9 @@
   font-size: var(--font-size-13);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ot-saldo-row__bars {
@@ -274,6 +289,9 @@
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ot-saldo-panel--income .ot-saldo-row__current {
   color: var(--color-income-default);
@@ -287,6 +305,9 @@
   font-size: var(--font-size-13);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ot-saldo-row--compare .ot-saldo-row__delta {
   grid-column: 4 / 5;
