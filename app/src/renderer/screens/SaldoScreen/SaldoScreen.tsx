@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calculator, ChevronDown, ChevronUp, TrendingDown, TrendingUp } from 'lucide-react';
 
@@ -247,7 +248,6 @@ export function SaldoScreen(): JSX.Element {
           onCurrentChange={onCurrentYearChange}
           onPriorChange={onPriorYearChange}
         />
-        <SubcategoryToggle on={showSubcategories} onChange={setShowSubcategories} />
       </div>
 
       {state.kind === 'loading' ? (
@@ -275,6 +275,7 @@ export function SaldoScreen(): JSX.Element {
           prior={state.prior}
           locale={locale}
           showSubcategories={showSubcategories}
+          onShowSubcategoriesChange={setShowSubcategories}
         />
       ) : null}
     </div>
@@ -288,9 +289,16 @@ export function SaldoScreen(): JSX.Element {
 type SubcategoryToggleProps = {
   readonly on: boolean;
   readonly onChange: (next: boolean) => void;
+  /**
+   * Per amendment §2.2, the toggle now renders **inside each panel** with a
+   * shared boolean state. Callers must provide a panel kind so the rendered
+   * pill gets a unique testid (`saldo-subcategories-toggle-${kind}`) and the
+   * `--inline` modifier wired up by Mouse's CSS recipe.
+   */
+  readonly kind: 'income' | 'expense';
 };
 
-function SubcategoryToggle({ on, onChange }: SubcategoryToggleProps): JSX.Element {
+function SubcategoryToggle({ on, onChange, kind }: SubcategoryToggleProps): JSX.Element {
   const { t } = useTranslation('common');
   const ariaLabel = on
     ? t('saldo.subcategories.toggleAriaOpen')
@@ -298,10 +306,10 @@ function SubcategoryToggle({ on, onChange }: SubcategoryToggleProps): JSX.Elemen
   return (
     <button
       type="button"
-      className="ot-saldo-toggle-subcategories"
+      className="ot-saldo-toggle-subcategories ot-saldo-toggle-subcategories--inline"
       aria-pressed={on}
       aria-label={ariaLabel}
-      data-testid="saldo-subcategories-toggle"
+      data-testid={`saldo-subcategories-toggle-${kind}`}
       onClick={() => onChange(!on)}
     >
       <span className="ot-saldo-toggle-subcategories__label">
@@ -452,6 +460,7 @@ type LoadedProps = {
   readonly prior?: YearData | undefined;
   readonly locale: string;
   readonly showSubcategories: boolean;
+  readonly onShowSubcategoriesChange: (next: boolean) => void;
 };
 
 function SaldoLoadedView({
@@ -460,6 +469,7 @@ function SaldoLoadedView({
   prior,
   locale,
   showSubcategories,
+  onShowSubcategoriesChange,
 }: LoadedProps): JSX.Element {
   const { t } = useTranslation('common');
   const isEmpty = current.income === 0 && current.expense === 0;
@@ -500,6 +510,7 @@ function SaldoLoadedView({
           prior={prior}
           locale={locale}
           showSubcategories={showSubcategories}
+          onShowSubcategoriesChange={onShowSubcategoriesChange}
         />
       )}
       {isEmpty ? (
@@ -747,6 +758,7 @@ type CategoryPanelsProps = {
   readonly prior?: YearData | undefined;
   readonly locale: string;
   readonly showSubcategories: boolean;
+  readonly onShowSubcategoriesChange: (next: boolean) => void;
 };
 
 function CategoryPanels({
@@ -755,6 +767,7 @@ function CategoryPanels({
   prior,
   locale,
   showSubcategories,
+  onShowSubcategoriesChange,
 }: CategoryPanelsProps): JSX.Element {
   const { t } = useTranslation('common');
   const compareMode = view.mode === 'compare' && prior !== undefined;
@@ -789,6 +802,7 @@ function CategoryPanels({
         view={view}
         locale={locale}
         showSubcategories={showSubcategories}
+        onShowSubcategoriesChange={onShowSubcategoriesChange}
       />
       <CategoryPanel
         kind="expense"
@@ -800,6 +814,7 @@ function CategoryPanels({
         view={view}
         locale={locale}
         showSubcategories={showSubcategories}
+        onShowSubcategoriesChange={onShowSubcategoriesChange}
       />
     </div>
   );
@@ -828,7 +843,7 @@ type PanelRow = {
   readonly meaningfulSubcount: number;
 };
 
-const SUBCATEGORY_TOP_N = 8;
+const SUBCATEGORY_TOP_N = 5;
 
 function subKeyFor(id: string | null): string {
   return id ?? '__uncategorized_sub__';
@@ -980,6 +995,7 @@ type CategoryPanelProps = {
   readonly view: ViewState;
   readonly locale: string;
   readonly showSubcategories: boolean;
+  readonly onShowSubcategoriesChange: (next: boolean) => void;
 };
 
 function CategoryPanel({
@@ -992,6 +1008,7 @@ function CategoryPanel({
   view,
   locale,
   showSubcategories,
+  onShowSubcategoriesChange,
 }: CategoryPanelProps): JSX.Element {
   const { t } = useTranslation('common');
   const compareMode = view.mode === 'compare' && view.priorYear !== undefined;
@@ -1003,6 +1020,25 @@ function CategoryPanel({
   // categories render parent-only — no degenerate nested rows.
   const shouldRenderSubrows = (row: PanelRow): boolean =>
     showSubcategories && row.meaningfulSubcount >= 2 && row.subRows.length > 0;
+
+  // Amendment §3.1: shared per-panel scale. Bars in a panel scale against a
+  // single denominator computed from all visible rows AND visible subrows.
+  // This restores cross-row alignment when the toggle is ON. Clamp to ≥1 to
+  // avoid division-by-zero for empty panels (defensive — early-return below
+  // handles the empty case visually).
+  const panelMaxAbs = useMemo(() => {
+    let maxAbs = 1;
+    for (const row of rows) {
+      maxAbs = Math.max(maxAbs, Math.abs(row.prior), Math.abs(row.current));
+      if (shouldRenderSubrows(row)) {
+        for (const sub of row.subRows) {
+          maxAbs = Math.max(maxAbs, Math.abs(sub.prior), Math.abs(sub.current));
+        }
+      }
+    }
+    return maxAbs;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, showSubcategories]);
 
   return (
     <section
@@ -1039,6 +1075,11 @@ function CategoryPanel({
             <span className="ot-saldo-panel__col--right">{view.currentYear}</span>
             <span className="ot-saldo-panel__col--right">Δ</span>
           </div>
+          <SubcategoryToggle
+            on={showSubcategories}
+            onChange={onShowSubcategoriesChange}
+            kind={kind}
+          />
           <div className="ot-saldo-panel__rows">
             {rows.map((row) => (
               <div key={row.id} role="group">
@@ -1047,6 +1088,7 @@ function CategoryPanel({
                   kind={kind}
                   priorYear={view.priorYear ?? view.currentYear - 1}
                   locale={locale}
+                  panelMaxAbs={panelMaxAbs}
                   ariaExpanded={row.meaningfulSubcount >= 2 ? showSubcategories : undefined}
                 />
                 {shouldRenderSubrows(row)
@@ -1058,6 +1100,7 @@ function CategoryPanel({
                         kind={kind}
                         priorYear={view.priorYear ?? view.currentYear - 1}
                         locale={locale}
+                        panelMaxAbs={panelMaxAbs}
                       />
                     ))
                   : null}
@@ -1075,6 +1118,11 @@ function CategoryPanel({
             <span className="ot-saldo-panel__col--right">{t('saldo.panel.columns.amount')}</span>
             <span className="ot-saldo-panel__col--right">{t('saldo.panel.columns.share')}</span>
           </div>
+          <SubcategoryToggle
+            on={showSubcategories}
+            onChange={onShowSubcategoriesChange}
+            kind={kind}
+          />
           <div className="ot-saldo-panel__rows">
             {rows.map((row) => (
               <div key={row.id} role="group">
@@ -1111,15 +1159,24 @@ type CompareRowProps = {
   readonly kind: 'income' | 'expense';
   readonly priorYear: number;
   readonly locale: string;
+  readonly panelMaxAbs: number;
   readonly ariaExpanded?: boolean | undefined;
 };
 
-function CompareRow({ row, kind, priorYear, locale, ariaExpanded }: CompareRowProps): JSX.Element {
+function CompareRow({
+  row,
+  kind,
+  priorYear,
+  locale,
+  panelMaxAbs,
+  ariaExpanded,
+}: CompareRowProps): JSX.Element {
   const { t } = useTranslation('common');
   const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
-  const maxVal = Math.max(row.prior, row.current, 1);
-  const priorPct = (row.prior / maxVal) * 100;
-  const currentPct = (row.current / maxVal) * 100;
+  // Amendment §3.1: scale against the panel-shared denominator instead of the
+  // per-row max. `panelMaxAbs` is clamped to ≥1 by the caller.
+  const priorPct = (Math.abs(row.prior) / panelMaxAbs) * 100;
+  const currentPct = (Math.abs(row.current) / panelMaxAbs) * 100;
   const deltaKind = classifyDelta(row.delta);
   const deltaText =
     deltaKind === 'noPrior'
@@ -1220,14 +1277,22 @@ type CompareSubRowProps = {
   readonly kind: 'income' | 'expense';
   readonly priorYear: number;
   readonly locale: string;
+  readonly panelMaxAbs: number;
 };
 
-function CompareSubRow({ sub, parent, kind, priorYear, locale }: CompareSubRowProps): JSX.Element {
+function CompareSubRow({
+  sub,
+  parent,
+  kind,
+  priorYear,
+  locale,
+  panelMaxAbs,
+}: CompareSubRowProps): JSX.Element {
   const { t } = useTranslation('common');
   const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
-  const maxVal = Math.max(sub.prior, sub.current, 1);
-  const priorPct = (sub.prior / maxVal) * 100;
-  const currentPct = (sub.current / maxVal) * 100;
+  // Amendment §3.1: shared per-panel scale. `panelMaxAbs` is clamped to ≥1.
+  const priorPct = (Math.abs(sub.prior) / panelMaxAbs) * 100;
+  const currentPct = (Math.abs(sub.current) / panelMaxAbs) * 100;
   const deltaKind = classifyDelta(sub.delta);
   const deltaText =
     deltaKind === 'noPrior'
@@ -1281,13 +1346,23 @@ function CompareSubRow({ sub, parent, kind, priorYear, locale }: CompareSubRowPr
         <div className="ot-saldo-subrow__bar-track">
           <div
             className="ot-saldo-subrow__bar-fill ot-saldo-subrow__bar-fill--prior"
-            style={{ width: `${priorPct}%` }}
+            style={
+              {
+                width: `${priorPct}%`,
+                '--saldo-subrow-bar-pct': `${priorPct}%`,
+              } as React.CSSProperties
+            }
           />
         </div>
         <div className="ot-saldo-subrow__bar-track">
           <div
             className="ot-saldo-subrow__bar-fill ot-saldo-subrow__bar-fill--current"
-            style={{ width: `${currentPct}%` }}
+            style={
+              {
+                width: `${currentPct}%`,
+                '--saldo-subrow-bar-pct': `${currentPct}%`,
+              } as React.CSSProperties
+            }
           />
         </div>
       </div>
