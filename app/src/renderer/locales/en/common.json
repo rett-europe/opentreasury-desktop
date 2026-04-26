@@ -57,6 +57,10 @@
     "search": {
       "placeholder": "Search transactions, categories, accounts…"
     },
+    "sidebar": {
+      "collapse": "Collapse navigation",
+      "expand": "Expand navigation"
+    },
     "brand": "OpenTreasury"
   },
   "panel": {

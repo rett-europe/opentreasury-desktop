@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -53,6 +53,24 @@ interface NavSection {
  * entry point. Datos is its own section with Importación (upload). The old
  * single "configuracion" route is gone.
  */
+/**
+ * localStorage key for the user-controlled sidebar collapse preference.
+ * v0.1 stand-in until the preload/main user-prefs bridge exists (mirrors the
+ * pattern in `useTheme.ts`). Auto-collapse at ≤960px stays purely CSS-driven.
+ */
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'opentreasury.sidebar.collapsed';
+
+function readStoredSidebarCollapsed(): boolean {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return false;
+  }
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 const NAV_SECTIONS: readonly NavSection[] = [
   {
     labelKey: 'shell.sections.main',
@@ -90,18 +108,60 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps):
 
   const activeLang = i18n.language.startsWith('es') ? 'es' : 'en';
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(readStoredSidebarCollapsed);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+        try {
+          window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, next ? 'true' : 'false');
+        } catch {
+          /* swallow — quotas / private mode */
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  // Cross-tab sync (mirrors useTheme behavior loosely): if another tab toggles
+  // the preference, reflect it here so the shell stays consistent.
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onStorage = (event: StorageEvent): void => {
+      if (event.key !== SIDEBAR_COLLAPSED_STORAGE_KEY) return;
+      setSidebarCollapsed(event.newValue === 'true');
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  const sidebarToggleLabel = t(
+    sidebarCollapsed ? 'shell.sidebar.expand' : 'shell.sidebar.collapse',
+  );
+
   return (
-    <div className="ot-shell">
+    <div className="ot-shell" data-sidebar-collapsed={sidebarCollapsed ? 'true' : undefined}>
       {/* ── Topbar ────────────────────────────────────────── */}
       <header className="ot-shell__topbar" role="banner">
-        <span className="ot-shell__brand">
+        <button
+          type="button"
+          className="ot-shell__brand"
+          onClick={toggleSidebar}
+          aria-expanded={!sidebarCollapsed}
+          aria-controls="ot-shell-sidebar"
+          aria-label={sidebarToggleLabel satisfies string}
+          title={sidebarToggleLabel satisfies string}
+        >
           <span className="ot-shell__brand-mark" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2 L22 12 L12 22 L2 12 Z" />
             </svg>
           </span>
-          <span>{t('shell.brand')}</span>
-        </span>
+          <span className="ot-shell__brand-name">{t('shell.brand')}</span>
+        </button>
 
         <span className="ot-shell__divider-v" aria-hidden="true" />
         <span className="ot-shell__tenant">Demo NGO</span>
@@ -182,7 +242,7 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps):
       </header>
 
       {/* ── Sidebar ───────────────────────────────────────── */}
-      <nav className="ot-shell__sidebar" aria-label="Primary">
+      <nav className="ot-shell__sidebar" id="ot-shell-sidebar" aria-label="Primary">
         {NAV_SECTIONS.map((section) => (
           <div key={section.labelKey}>
             <div className="ot-shell__nav-section-label">{t(section.labelKey)}</div>

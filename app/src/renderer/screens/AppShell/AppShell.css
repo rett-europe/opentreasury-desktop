@@ -17,6 +17,29 @@
   overflow: hidden;
   background: var(--color-surface-app);
   color: var(--color-text-primary);
+  /* Smooth user-driven collapse/expand. The 960px auto-collapse breakpoint
+   * also benefits, matching the consistency requested in #95 (scope §3). */
+  transition: grid-template-columns var(--motion-duration-base) var(--motion-easing-standard);
+}
+
+/*
+ * Collapsed-sidebar state. Two triggers compose: (a) viewport ≤960px (auto)
+ * and (b) `data-sidebar-collapsed="true"` on the shell root, set by the
+ * brand-button toggle in AppShell.tsx. Both reuse the same rules so the
+ * collapsed look is identical regardless of trigger.
+ */
+.ot-shell[data-sidebar-collapsed='true'] {
+  grid-template-columns: 64px 1fr;
+}
+.ot-shell[data-sidebar-collapsed='true'] .ot-shell__nav-label,
+.ot-shell[data-sidebar-collapsed='true'] .ot-shell__nav-section-label,
+.ot-shell[data-sidebar-collapsed='true'] .ot-shell__user-meta,
+.ot-shell[data-sidebar-collapsed='true'] .ot-shell__user-logout,
+.ot-shell[data-sidebar-collapsed='true'] .ot-shell__search,
+.ot-shell[data-sidebar-collapsed='true'] .ot-shell__tenant,
+.ot-shell[data-sidebar-collapsed='true'] .ot-shell__divider-v,
+.ot-shell[data-sidebar-collapsed='true'] .ot-shell__brand-name {
+  display: none;
 }
 
 @media (max-width: 960px) {
@@ -29,8 +52,15 @@
   .ot-shell__user-logout,
   .ot-shell__search,
   .ot-shell__tenant,
-  .ot-shell__divider-v {
+  .ot-shell__divider-v,
+  .ot-shell__brand-name {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ot-shell {
+    transition: none;
   }
 }
 
@@ -58,6 +88,23 @@
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-16);
   color: var(--color-text-primary);
+  /* Reset native button chrome — the brand area is a click-target for the
+   * sidebar collapse/expand toggle (issue #95). */
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: background var(--motion-duration-fast) var(--motion-easing-standard);
+}
+.ot-shell__brand:hover {
+  background: var(--color-row-hover);
+}
+.ot-shell__brand:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 .ot-shell__brand-mark {
   width: 22px;
