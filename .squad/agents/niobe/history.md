@@ -22,6 +22,20 @@ A prototype exists in `/prototype/` with React-based JSX components.
 
 ## Learnings
 
+### 2026-05-02 — Prototype critique authority (Insights Final Spec)
+
+**Key learning: When Pedro says "challenge everything," exercise design authority — don't just translate.**
+
+The Insights final spec required me to critique Pedro's prototype (`insights.jsx`), not just codify it. This is a different mode than mockup-translation: I made opinionated KEEP/REJECT/MODIFY calls on 10 specific elements. Key decisions I locked down:
+
+1. **Retired the YoY small-multiples grid** (UX-005a) — the mockup defines a campaign-performance pattern, not yearly comparison. VerticalBarTile component is NOT needed.
+2. **Corrected segmented toggle semantics** — it's a display mode selector, not a sort selector. Sorting stays by volume.
+3. **Removed inline transaction table** — drilldown shows aggregates only; link to Movimientos for detail.
+4. **Fixed donut slice color logic** — reject hardcoded palette; use category-ID hash for consistency.
+5. **Specified tag combiner as searchable dropdown** — not native select; follows app patterns.
+
+The prototype-as-inspiration directive gave me license to be opinionated. Future prototypes should get the same critical treatment: identify what's worth keeping, what conflicts with system conventions, and what's missing.
+
 ### 2026-05-02 — Pedro's mockup-driven iteration style (Insights A1)
 
 **Key learning: Pedro specs via pixel-level mockups, not prose requirements.**
