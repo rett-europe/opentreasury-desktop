@@ -100,6 +100,8 @@ function toReadModel(txs: readonly GenTx[], categoryIds: readonly string[]): Rea
     rowHashes: new Set(),
     notes: new Map(),
     transactionsByReference: new Map(),
+    splits: new Map(),
+    splitParentIds: new Set(),
   };
 }
 

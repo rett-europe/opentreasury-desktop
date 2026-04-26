@@ -44,6 +44,8 @@ function makeModel(
     rowHashes: new Set(),
     notes: new Map(),
     transactionsByReference: new Map(),
+    splits: new Map(),
+    splitParentIds: new Set(),
   };
 }
 
