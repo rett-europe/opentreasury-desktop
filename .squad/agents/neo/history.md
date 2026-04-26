@@ -324,3 +324,7 @@ Cypher (Reviewer Rejection Lockout, routed agent) pushed `bc11c1f` (fix) and `10
 **Niobe charter rule observed but softened:** "Movements list starts empty until user picks a range" — current code violates this anyway (loads everything). Recommended default = 'This month' rather than empty, flagged to Pedro as Q1.
 
 **Files touched:** `.squad/decisions/inbox/neo-movements-date-filter.md` (proposal). No code changes by me — Trinity owns implementation.
+
+## Wave 1 Completion — 2026-04-29
+
+SPEC-023 Rev 3 (Split Transactions) architectural review complete. PR #60 merged (SPEC + UX spec). Wave 1 fan-out approved: PR #62 (Cypher tests) + PR #63 (Morpheus backend) both awaiting architectural review. Both PRs unblock Wave 2 (Trinity modal + list integration). Architectural corrections finalized (B1-B3: in-memory read model + NDJSON + M2-deferred crypto). Integration seam map provided (5 files, 20+ touchpoints). Pedro's 6 lock questions all answered and spec-locked.

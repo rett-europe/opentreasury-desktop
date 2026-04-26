@@ -41,14 +41,14 @@
  *
  * Panel table columns (7 columns, no select/status/tags like MovementsScreen):
  *   type:         32px  (arrow icon)
- *   date:        100px  (dd MMM yyyy)
+ *   date:        115px  (dd MMM yyyy — wider for es-ES medium dates)
  *   account:     120px  (pill truncates)
  *   description: flex   (takes remaining space)
  *   category:    120px  (badge or text)
  *   subcategory: 120px  (text or dash)
  *   amount:      100px  (currency)
  *   ────────────────────
- *   Fixed cols:   592px  (description flexes to fill remaining ~468px)
+ *   Fixed cols:   607px  (description flexes to fill remaining ~453px)
  * ══════════════════════════════════════════════════════════════════════════ */
 
 /* Enable fixed-layout table + horizontal scroll fallback.
@@ -56,11 +56,11 @@
  * `min-width` keeps the table at a readable intrinsic size so that on narrow
  * viewports the card's `overflow-x: auto` produces a real horizontal scroll
  * instead of silently compressing columns (description shrinking below its
- * 240px min). Total = 32+100+120+240+120+120+100 = 832px. */
+ * 240px min). Total = 32+115+120+240+120+120+100 = 847px. */
 .ot-panel-recent .ot-table {
   table-layout: fixed;
   width: 100%;
-  min-width: 832px;
+  min-width: 847px;
 }
 
 /* Apply ellipsis truncation to all cells by default */
@@ -78,11 +78,11 @@
   text-overflow: clip;
 }
 
-/* Column 2: date (100px) */
+/* Column 2: date (115px — accommodates es-ES dateStyle:'medium' e.g. "21 sept 2026") */
 .ot-panel-recent .ot-table th:nth-child(2),
 .ot-panel-recent .ot-table td:nth-child(2) {
-  width: 100px;
-  max-width: 100px;
+  width: 115px;
+  max-width: 115px;
 }
 
 /* Column 3: account (120px) */

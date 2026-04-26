@@ -2,6 +2,53 @@
 
 ## Active Decisions
 
+### 2026-04-29: SPEC-023 Rev 3 Approval — Split Transactions Architecture Locked
+
+**Date:** 2026-04-29  
+**Status:** ✅ APPROVED & MERGED (PR #60)  
+**Agents:** Neo (architectural review), Niobe (spec author), Pedro (lock answers)  
+**Spec:** docs/specs/023-split-transactions.md + docs/ux/specs/ux-007-split-transactions.md  
+
+## Architectural Foundation
+
+### Corrections to Initial Spec (B1–B3)
+
+1. **No SQLite read model.** Splits stored in-memory `ReadonlyMap<string, readonly TransactionSplit[]>` (keyed by parentTxId), same pattern as notes.
+2. **No individual .enc files.** Split events appended as NDJSON to single `events.ndjson` log. AEAD deferred to M2.
+3. **No normative crypto in M1.** §8 Security Considerations clarifies encryption is M2-target. Split events follow same plaintext storage as all other events.
+
+### Integration Seam Map (B4)
+
+Five files updated by Morpheus (Wave 1):
+- `app/src/core/events/schemas.ts` — `transactionSplitEventSchema`, `transactionSplitRemovedEventSchema`
+- `app/src/core/query/types.ts` — `TransactionSplit` interface + `ReadModel` extensions
+- `app/src/core/query/reducers.ts` — `applyEvent` cases for `tx.split`, `tx.split.removed`
+- `app/src/shared/ipc-contracts/transaction-splits.ts` — 3 IPC channel contracts
+- `app/src/main/ipc/handlers/transaction-splits.ts` — command handlers + aggregation query updates (5 touchpoints)
+
+## Pedro's 6 Lock Questions (Normative Decisions)
+
+| # | Question | Answer | Spec Section |
+|---|----------|--------|--------------|
+| 1 | Integer cents in split payloads? | **YES** — `amountCents: z.number().int().positive()`. Sets precedent; only splits use cents in M1. | FR4, §6.1, §6.2 |
+| 2 | Edit parent amount after split? | **REJECT** — error code `TX_HAS_ACTIVE_SPLITS`. Disabled amount field + tooltip. | FR14, §6.4.5 |
+| 3 | Bulk update on split parents? | **SKIP** — skip split parents entirely, report count in response. | FR15, §6.4.5 |
+| 4 | Target milestone? | **M1** — splits independent of M2 crypto. Mature read-model pattern (WI-22/WI-23). | Header |
+| 5 | CSV export shape? | **ONE ROW PER CHILD** — parent envelope not exported separately. Reconciliation-friendly. | §6.6 |
+| 6 | Split comment length? | **500 CHARS** — parent `details` remains 1000. Line-item style for children. | §6.5, FR4 |
+
+## Wave 1 Deliverables (Parallel Dispatch)
+
+- **Morpheus (PR #63):** Backend IPC contracts, events, reducers, handlers, aggregation wiring
+- **Cypher (PR #62):** Anticipatory test plan (50+ scenarios) + skeletons (skipped, awaiting IPC)
+- **Neo:** Architectural sign-off complete
+
+## Wave 2 Unblock Condition
+
+Trinity awaits PR #63 merge to implement split editor modal + list badge + aggregation UI.
+
+---
+
 ### 2026-04-28: Movements Filter UI — Joint Two-Row Bar with Calm Scope
 
 **Date:** 2026-04-28  

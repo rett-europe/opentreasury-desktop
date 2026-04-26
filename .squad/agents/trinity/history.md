@@ -1421,3 +1421,7 @@ Coordinated batch (Neo perf-gate review, Cypher verification + merge, Morpheus P
 
 ## Learnings — 2026-04-28 — Joint two-row filter bar (PR #57)
 - Pedro's final call: scope chips and slicing filters live in ONE .ot-filter-bar container as two .ot-filter-bar__row children (--scope, --filters). Supersedes the Anchored Band pattern (separate .ot-scope-bar with --color-brand-surface tint and rounded-top-only border). Hierarchy now from row order +  + [char]34 + 'Período:' + [char]34 +  semibold label, not spatial separation. flex-shrink:0 inheritance preserved (single child of .ot-movements).
+
+## Wave 2 Awaiting — 2026-04-29
+
+Split Transactions (SPEC-023 Wave 2): Awaiting PR #63 (Morpheus IPC contract for split mutations + MovementRecord hasSplits/splitCount fields) merge. Once landed, implement split editor modal, list badge, aggregation wiring. PR #62 (Cypher tests) will unskip in parallel.
