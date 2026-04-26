@@ -1,6 +1,6 @@
 # ARCH-005a — Per-label YoY projection / IPC mini-spec (#69)
 
-> **Status:** DRAFT v0.1 — *spec only, M2-prep, not for implementation until Niobe & Pedro sign off* · **Owner:** Morpheus (data / projection / IPC) · **Date:** 2026-04-26
+> **Status:** v1.0 (graduated) — *implementation reference for M4; Niobe (UX) & Pedro (PM) signed off 2026-04-26* · **Owner:** Morpheus (data / projection / IPC) · **Date:** 2026-04-26
 > **Tracks:** GitHub issue #69 (`priority:v1`) — inaugural view of the `Análisis / Insights` section, scheduled for **M4**.
 > **Pairs with:** [UX-005 — Insights section IA](../../ux/specs/ux-005-insights-section-ia.md) · [UX-005a — Per-label YoY sketch](../../ux/specs/ux-005a-label-yoy-sketch.md)
 > **Precedent:** [`app/src/shared/ipc-contracts/saldo.ts`](../../../app/src/shared/ipc-contracts/saldo.ts) (contract style) · [`app/src/core/query/saldo.ts`](../../../app/src/core/query/saldo.ts) (projection style) · [`app/src/shared/ipc-contracts/tags.ts`](../../../app/src/shared/ipc-contracts/tags.ts) (label model)
@@ -42,7 +42,7 @@ export const insightsLabelYoYRequestSchema = z.object({
   //  - contiguous (no gaps); spec rejects [2023, 2025]
   //  - between 1 and 5 entries inclusive
   // The CURRENT calendar year MAY be present; if it is, it is treated as the
-  // YTD bucket (see §3 and Open Q1).
+  // YTD bucket — `windowEnd` clamps to today inclusive (see §3).
   // Default surface choice (spec for renderer): last 3 full calendar years +
   // current YTD (4 entries). User can extend to the full 5 (5 entries, still
   // including the YTD year). 1-year requests are technically valid but
@@ -58,8 +58,10 @@ export const insightsLabelYoYRequestSchema = z.object({
 
   // Min number of transactions a label needs in the FULL window (sum across
   // all years in `years`) to qualify for the grid. Pedro-locked default = 3.
-  // Labels below the threshold are excluded entirely (NOT rolled into
-  // `Otras`) to avoid the long-tail-dominates-Otras trap UX-005a §Q3 flagged.
+  // Labels below the threshold are DROPPED ENTIRELY from the response — they
+  // do NOT appear as their own row AND they are NOT folded into `Otras`
+  // (Pedro lock 2026-04-26, M-Q3). The `excluded.belowMinTxCount` counter
+  // is retained for diagnostics only; there is no footer surface for it.
   minTxCount: z.number().int().min(1).max(100).optional().default(3),
 
   // Top-N rule. Pedro-locked default = 8 + `Otras` bucket. The server
@@ -104,9 +106,11 @@ export const insightsLabelYoYByYearSchema = z.object({
   // Number of DISTINCT transactions that contributed to this (label, year)
   // tile. A multi-label transaction counts once per label-tile (see §3).
   txCount: z.number().int().nonnegative(),
-  // True when `year === currentCalendarYear(server-tz)` AND the year is not
-  // yet complete. The renderer uses this to apply the YTD hatched-bar
-  // treatment (UX-005a §Q4). NEVER projected — Saldo precedent.
+  // True when `year === currentCalendarYear` AND the year is not yet complete
+  // (i.e. `windowEnd < ${year}-12-31`). The renderer uses this to apply the
+  // YTD hatched-bar treatment (UX-005a §Q4). NEVER projected — Saldo
+  // precedent. Year is computed from the date-only `tx.date` field; no
+  // timezone math (Pedro lock 2026-04-26, M-Q1).
   isYtd: z.boolean(),
 });
 export type InsightsLabelYoYByYear = z.infer<typeof insightsLabelYoYByYearSchema>;
@@ -155,17 +159,19 @@ export const insightsLabelYoYResponseSchema = z.object({
   // present, is ALWAYS last regardless of its own magnitude (so the
   // renderer doesn't have to special-case sort).
   rows: z.array(insightsLabelYoYRowSchema),
-  // Counts for the section-level footer (UX-005a §Q6: "Etiquetas
-  // inactivas" footer). NOT included in `rows`.
+  // Diagnostic counts. NOT surfaced in the grid footer (Pedro lock
+  // 2026-04-26, M-Q3: sub-threshold labels do not appear in the response
+  // at all and there is no footer count). `inactiveCount` and
+  // `belowMinTxCount` exist for QA / telemetry only.
   excluded: z.object({
     // Labels that exist but had zero transactions in the entire window.
     inactiveCount: z.number().int().nonnegative(),
-    // Labels that had transactions but failed `minTxCount`. Their tx
-    // counts are NOT folded into `Otras` (see §1.2 minTxCount note).
+    // Labels that had transactions but failed `minTxCount`. Dropped
+    // entirely — NOT folded into `Otras`, NOT shown in the grid.
     belowMinTxCount: z.number().int().nonnegative(),
-    // Labels that qualified but lost the Top-N cut and ARE folded into
-    // `Otras` (so the renderer can phrase the `Otras` tooltip honestly:
-    // "Resto de N etiquetas").
+    // Labels that qualified (passed `minTxCount`) but lost the Top-N cut
+    // and ARE folded into `Otras` (so the renderer can phrase the `Otras`
+    // tooltip honestly: "Resto de N etiquetas").
     foldedIntoOtras: z.number().int().nonnegative(),
   }),
   // Diagnostic: the wall-clock window the server actually used. Useful for
@@ -212,14 +218,14 @@ Run on demand against the hydrated read model — no new events, no materialized
 Pseudo-prose (NOT a code commitment):
 
 1. **Validate request.** Zod-parse → reject with `SCHEMA_INVALID`. Apply defaults (`minTxCount=3`, `topN=8`, `includeArchived=true`). Verify `years` is contiguous → reject `YEARS_NOT_CONTIGUOUS`.
-2. **Resolve window boundaries.** `windowStart = ${min(years)}-01-01`, `windowEnd = ${max(years)}-12-31`. If the current calendar year is in `years`, set `windowEnd` to today (server tz; see Open Q1) — this is the YTD partial-year case.
+2. **Resolve window boundaries.** `windowStart = ${min(years)}-01-01`, `windowEnd = ${max(years)}-12-31`. If the current calendar year is in `years`, set `windowEnd` to today **inclusive** — this is the YTD partial-year case (Pedro lock 2026-04-26, M-Q2: YTD = `Jan 1 → today inclusive`, moves daily, mirrors Saldo's `daysElapsed` precedent).
 3. **Build label index.** Walk `model.tags` (read model). Capture `labelId → { name, archived }`. Skip archived labels iff `includeArchived === false`.
 4. **Filter transactions.** Single pass over `model.transactions`. Drop tx where:
    - `tx.date < windowStart || tx.date > windowEnd`
    - `accountId` is set AND `tx.accountId !== accountId`
    - `tx.tagIds.length === 0` (no labels → no contribution to *any* tile)
 5. **Aggregate into a `(labelId, year) → { incomeCents, expenseCents, txCount, txIdSet }` map.** For each surviving tx:
-   - Resolve `year = year(tx.date)` (server tz, see Open Q1).
+   - Resolve `year = txDate.getFullYear()` (or equivalent). `tx.date` is a date-only field (no time component, no timezone) so year bucketing is a pure calendar-field read — no TZ math, no DST edge cases (Pedro lock 2026-04-26, M-Q1).
    - For EACH `labelId` in `tx.tagIds` (the multi-label rule):
      - If amount > 0 → `incomeCents += amount`, else `expenseCents += -amount`.
      - `txCount += 1`. (Same tx counted in DIFFERENT label tiles, but only ONCE per (label, year) tile thanks to `txIdSet`-dedup against split rows or duplicate tag refs on a single tx.)
@@ -228,7 +234,7 @@ Pseudo-prose (NOT a code commitment):
    - Build the positional `byYear[]` array, padding zero entries for years with no contribution.
    - Compute `netCents = incomeCents - expenseCents`, `isYtd = (year === currentYear) && (windowEnd < ${year}-12-31)`.
    - Compute `windowTxCount = sum(byYear[].txCount)`, `windowNetCentsAbs = sum(|byYear[].netCents|)`.
-7. **Apply `minTxCount` filter.** Drop rows where `windowTxCount < minTxCount`. Bump `excluded.belowMinTxCount`.
+7. **Apply `minTxCount` filter.** Drop rows where `windowTxCount < minTxCount`. Bump `excluded.belowMinTxCount`. Dropped rows are gone — they do NOT appear in `rows`, they are NOT folded into the synthetic `Otras` bucket in step 8, and there is no footer surface that exposes them to the user (Pedro lock 2026-04-26, M-Q3). The counter is diagnostic only.
 8. **Top-N selection.** Sort surviving rows by `windowNetCentsAbs` desc. Take the first `topN`. The remainder folds into a single synthetic `Otras` row:
    - `labelId = null`, `labelName = "Otras"`, `archived = false`.
    - Fold `byYear` element-wise (sum cents, sum txCount, OR `isYtd`).
@@ -258,14 +264,19 @@ The M4 implementation MUST add a perf assertion in tests (`docs/perf/` precedent
 
 ## 5. Open questions for Pedro / Niobe
 
-The questions Pedro's lock did NOT cover, surfaced here so they're answered before M4 opens (not during):
+Three of the original six questions remain open and must be answered before M4 opens (not during). The other three were resolved at v1.0 graduation — see the **Resolved questions log** below.
 
-1. **Year-boundary timezone.** "Year 2025" = `2025-01-01..2025-12-31` in *which* timezone? Saldo uses UTC inclusive day-count for projection (`saldo.ts` comment §Locked semantics) but bucket boundaries are taken from the user-supplied anchor date as-is. For YoY, a transaction on `2024-12-31T23:30:00+01:00` (Madrid) is in 2024 locally and 2025 in UTC — different bucket, different bar. **Recommendation: server tz = the OS local tz the desktop app is running in** (Madrid in practice for our user). Needs explicit Pedro confirmation because it's the kind of decision people only notice when the chart "looks wrong" in January.
-2. **YTD definition for the partial-year bar.** Pedro locked "3 full calendar years + current YTD". Is "YTD" = `Jan 1 → today inclusive` (server tz, today's date)? Or `Jan 1 → end of last fully-closed month` (a more stable comparison that doesn't move daily)? **Recommendation: today inclusive** (matches Saldo's `daysElapsed` semantic), but confirm with Niobe because it interacts with the YTD bar visual treatment.
-3. **Account scope when `accountId` is omitted.** Two reasonable defaults: (a) all non-archived accounts (current spec assumption, matches Saldo), or (b) all accounts including archived (for historical fidelity in a multi-year window where an account may have been archived mid-window). **Recommendation: (a) — non-archived only —** with a follow-up enhancement to optionally include archived accounts via an explicit flag. UX-005 §4 says Insights does NOT inherit Saldo's filters; this is the place to lock the *default*.
-4. **`Otras` interaction with `minTxCount`.** Spec says labels failing `minTxCount` are dropped, NOT folded into `Otras` (rationale: avoid the long-tail-dominates-Otras trap from UX-005a §Q3). Confirm this is what Pedro meant — alternative reading is "include in Otras but not as top-N candidates".
-5. **`labelId === null` collision.** We use `null` for the synthetic `Otras` bucket. Do any pre-existing tx events carry an explicit `null` tagId from older imports that we'd accidentally bucket as `Otras`? Quick read-model audit needed at M4 open. (Saldo has the same convention for `categoryId === null` and survives, so likely fine.)
-6. **Multi-currency.** v1 assumes EUR-only (mirroring `saldo.ts`). When (if) the app gains multi-currency, this contract needs a `currency` discriminator on each `byYear` entry, not just the top-level request — flagging now so the v1 contract doesn't pretend the question doesn't exist.
+1. **Account scope when `accountId` is omitted.** Two reasonable defaults: (a) all non-archived accounts (current spec assumption, matches Saldo), or (b) all accounts including archived (for historical fidelity in a multi-year window where an account may have been archived mid-window). **Recommendation: (a) — non-archived only —** with a follow-up enhancement to optionally include archived accounts via an explicit flag. UX-005 §4 says Insights does NOT inherit Saldo's filters; this is the place to lock the *default*.
+2. **`labelId === null` collision.** We use `null` for the synthetic `Otras` bucket. Do any pre-existing tx events carry an explicit `null` tagId from older imports that we'd accidentally bucket as `Otras`? Quick read-model audit needed at M4 open. (Saldo has the same convention for `categoryId === null` and survives, so likely fine.)
+3. **Multi-currency.** v1 assumes EUR-only (mirroring `saldo.ts`). When (if) the app gains multi-currency, this contract needs a `currency` discriminator on each `byYear` entry, not just the top-level request — flagging now so the v1 contract doesn't pretend the question doesn't exist.
+
+### Resolved questions log
+
+| # | Question | Answer | Resolved on | Resolved by |
+|---|---|---|---|---|
+| M-Q1 | Year-boundary timezone — which TZ defines "year 2025"? | **N/A.** `tx.date` is a date-only field (no time component, no timezone). Year bucketing is a pure `txDate.getFullYear()` (or equivalent) read on the date-only field — no TZ math, no DST edge cases. | 2026-04-26 | Pedro (PM) |
+| M-Q2 | YTD definition for the partial-year bar — `Jan 1 → today inclusive`, or `Jan 1 → end of last fully-closed month`? | **`Jan 1 → today inclusive.`** Window moves daily. Mirrors Saldo's `daysElapsed` precedent. | 2026-04-26 | Pedro (PM) |
+| M-Q3 | `Otras` interaction with `minTxCount` — drop sub-threshold labels, or fold them into `Otras`? | **Drop entirely** from the grid AND from `Otras`. Pedro's UX-005a Q3 answer (min 3 tx) is the floor — labels below it do not appear in the response at all. No footer count surfaces them either. | 2026-04-26 | Pedro (PM) |
 
 ## 6. Cross-references & status
 
@@ -278,4 +289,4 @@ The questions Pedro's lock did NOT cover, surfaced here so they're answered befo
 
 ---
 
-**Status: DRAFT.** This spec graduates to v1.0 when **both** Niobe (UX) and Pedro (PM) sign off on §5's open questions. Until then, it is not an implementation reference.
+**Status: v1.0 (graduated).** Both **Niobe (UX)** and **Pedro (PM)** signed off on **2026-04-26**. The three graduation questions (M-Q1 timezone, M-Q2 YTD definition, M-Q3 sub-threshold drop semantics) are folded into the normative text above and logged in §5's Resolved questions table. The three remaining open questions in §5 (account-scope default, `labelId === null` collision audit, multi-currency forward-compat) do NOT block v1.0 — they are scheduled to be answered at M4 open, not during. This spec is now an implementation reference for M4.
