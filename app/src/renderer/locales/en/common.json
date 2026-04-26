@@ -899,6 +899,36 @@
     "empty": {
       "title": "No data for Insights yet",
       "body": "Tag your transactions to see analysis of campaigns and projects that cross categories."
+    },
+    "kpi": {
+      "activeTags": "ACTIVE TAGS",
+      "activeTagsSublabel": "of {{total}} total",
+      "totalIncome": "TAGGED INCOME",
+      "totalIncomeSublabel": "all tags combined",
+      "totalExpense": "TAGGED EXPENSE",
+      "totalExpenseSublabel": "all tags combined",
+      "netTotal": "NET",
+      "netTotalSublabel": "tagged balance",
+      "movementCount": "# TRANSACTIONS",
+      "movementCountSublabel": "tagged transactions"
+    },
+    "sectionLabel": {
+      "tags": "TAGS / CAMPAIGNS"
+    },
+    "displayMode": {
+      "volume": "Volume",
+      "net": "Net",
+      "count": "# Txn",
+      "ariaLabel": "Display mode"
+    },
+    "footnote": {
+      "multiLabel": "ⓘ When a transaction has multiple tags, it counts in each. Sum may exceed total."
+    },
+    "states": {
+      "loading": "Loading insights…",
+      "error": "Couldn't load data. Please try again.",
+      "emptyTags": "No tags have transactions in this period.",
+      "emptyTagsBody": "Tag your transactions to see analysis here."
     }
   }
 }

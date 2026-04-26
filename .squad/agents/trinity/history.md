@@ -1628,3 +1628,113 @@ clean. iter 5's responsive width + 1:3 prior:current ratio preserved
   worked example. Second confirmation of this bug class.
 - `.squad/skills/responsive-panel-width/SKILL.md` — created from
   iter 5's recipe, kept intact by this fix.
+
+---
+
+## 2026-05-02 · PR #101 · InsightsScreen Landing Layout (Mocked IPC)
+
+**Context:** Paired with Mouse on Insights M4 implementation. Mouse builds IPC handler + TagCard (PR #100), I build the landing screen layout (this PR). Spec: UX-005 final §3.
+
+**What I shipped:**
+- InsightsScreen landing page with full responsive layout
+- KPI strip (3 cards: Active Tags, Tagged Income, Tagged Expense) with proper tone modifiers
+- Tag card grid with auto-fill responsive pattern (260px min → horizontal scroll <600px)
+- Placeholder TagCard component matching spec anatomy (will swap to Mouse's after #100 lands)
+- Display mode toggle (Volumen / Neto / # Mov) controlling metrics shown on cards
+- Multi-label overlap footnote at bottom per Niobe's spec
+- Loading, error, and empty states with proper i18n
+- Mocked insightsApi.ts against type-perfect contract (swaps to real IPC after Mouse merges)
+- Full test coverage (5 tests, all passing)
+
+**Technical decisions:**
+1. **Mocked IPC strategy:** Created `insightsApi.ts` returning Rett-flavored fixture data matching `insights.ts` schema. Marked with TODO to swap to real IPC once Mouse's handler lands. This unblocks parallel work.
+2. **Responsive grid pattern:** Applied Saldo expertise — `auto-fill minmax(260px, 1fr)` with `min-width: 0` on containers. No container queries needed; auto-fill handles breakpoints naturally. Horizontal scroll at <600px with snap-to-card.
+3. **KPI __sublabel addition:** Added `.ot-kpi__sublabel` and `.ot-kpi__content` to globals.css for secondary text under KPI values. Followed existing __delta pattern but sized at 12px for sublabel vs 11px for delta.
+4. **TagCard placeholder:** Built minimal component matching spec shape (color dot, name, badge, metrics, sparkline, footer). Will be replaced by Mouse's real component after rebase.
+5. **Display mode semantics:** Toggle changes *presentation* (which metrics show), NOT sort order. Sorting stays by volume desc per spec. Volumen shows all 3, Neto shows net hero, # Mov shows count hero.
+
+**Responsive rigour (per my Saldo skills):**
+- ✅ KPI strip: 3-col → 1-col at 720px (existing globals.css pattern)
+- ✅ Tag cards: `minmax(0, 1fr)` in auto-fill prevents overflow at narrow widths
+- ✅ Card content: `min-width: 0` on name for ellipsis truncation at 24ch
+- ✅ Horizontal scroll: `scroll-snap-type: x mandatory` for smooth mobile UX
+- ✅ No hardcoded breakpoints for card count — auto-fill adapts to viewport
+
+**i18n:**
+- Added 20+ keys to es/en locales (kpi labels, display mode options, footnote, states)
+- Followed existing `insights.*` namespace from Mouse's PR #98
+
+**Tests:**
+- `InsightsScreen.test.tsx`: 5 tests covering loading/error/empty/loaded states + display mode switching
+- All passing ✅
+- Used vitest `toBeDefined()` instead of jest-dom `toBeInTheDocument()` (not available in vitest setup)
+
+**Spec compliance:**
+- ✅ UX-005 §3.2 component tree — exact match
+- ✅ §3.3 props & data — KPI strip values correct
+- ✅ §3.4 responsive behavior — breakpoints as specified
+- ✅ §3.5 reusable components — used existing `.ot-kpi-strip`, `.ot-section-label`, `SegmentedToggle`
+- ✅ §6.2 IPC contract — mocked against exact schema
+
+**Files changed:**
+- `app/src/renderer/screens/InsightsScreen/InsightsScreen.tsx` (363 lines, full implementation)
+- `app/src/renderer/screens/InsightsScreen/InsightsScreen.css` (211 lines, responsive layout)
+- `app/src/renderer/screens/InsightsScreen/InsightsScreen.test.tsx` (117 lines, 5 tests)
+- `app/src/renderer/services/insightsApi.ts` (104 lines, mock implementation)
+- `app/src/renderer/styles/globals.css` (+8 lines, added `.ot-kpi__sublabel` and `.ot-kpi__content`)
+- `app/src/renderer/locales/{es,en}/common.json` (+20 keys each)
+
+**PR:** #101 (draft, depends on Mouse #100)
+
+## 2026-04-26 — PR #101 finalized: Insights landing with real IPC + TagCard
+
+**Branch:** squad/insights-landing-trinity  
+**PR:** #101 (ready for review)  
+**Status:** Complete — rebased on main (4b36ef5), integrated Mouse's PR #102 deliverables
+
+### What shipped
+
+1. **InsightsScreen landing layout** — KPI strip + SegmentedToggle + tag card grid + footnote
+2. **Real IPC integration** — swapped mock in insightsApi.ts to window.opentreasury.insights.landingSummary()
+3. **Mouse's TagCard** — replaced placeholder with real component from pp/src/renderer/components/TagCard
+   - Props mapping: converted cents→EUR (ingresosCents / 100), display modes (olumen/
+eto/mov)
+   - Handled xactOptionalPropertyTypes for optional color prop via conditional spread
+4. **Tests passing** — 5/5 in InsightsScreen.test.tsx, all states covered (loading/error/empty/loaded/display-mode)
+5. **Quality gates** — typecheck ✅, lint ✅, tests ✅
+
+### Integration pattern
+
+**Rebase approach:** Cherry-picked Trinity's screen commit (66292c8) from original PR branch to avoid conflicts with Mouse's TagCard changes. Skipped intermediate commit (ba1aacd) that duplicated Mouse's work. Clean rebase on main (4b36ef5 = Mouse's PR #102).
+
+**Type handling:** xactOptionalPropertyTypes required conditional prop spread for color:
+\\\	sx
+{...(tag.color ? { color: tag.color } : {})}
+\\\
+This avoids passing color: undefined which strict TypeScript rejects when the type is color?: string (not color?: string | undefined).
+
+### Files changed
+
+- pp/src/renderer/services/insightsApi.ts — removed 80-line mock fixture, replaced with 1-line real IPC call
+- pp/src/renderer/screens/InsightsScreen/InsightsScreen.tsx — import TagCard, map display modes, convert cents→EUR, remove 115-line placeholder component
+
+### Commit
+
+\\\
+feat(insights): wire landing screen to real IPC handler + TagCard
+
+- Replace mock IPC in insightsApi.ts with real window.opentreasury.insights.landingSummary() call
+- Replace placeholder TagCard with Mouse's real component from app/src/renderer/components/TagCard
+- Convert cents to euros when passing kpis to TagCard (ingresosCents/100, etc.)
+- Update display mode values from 'volume'/'net'/'count' to 'volumen'/'neto'/'mov' per TagCard API
+- Handle optional color prop correctly for exactOptionalPropertyTypes
+- All tests passing (5/5), typecheck clean, lint clean
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+\\\
+
+### PR URL
+
+https://github.com/rett-europe/opentreasury-desktop/pull/101
+
+---

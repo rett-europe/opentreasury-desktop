@@ -899,6 +899,36 @@
     "empty": {
       "title": "Aún no hay datos para Insights",
       "body": "Asigna etiquetas a tus movimientos para ver análisis de campañas y proyectos que cruzan categorías."
+    },
+    "kpi": {
+      "activeTags": "ETIQUETAS ACTIVAS",
+      "activeTagsSublabel": "de {{total}} totales",
+      "totalIncome": "INGRESOS ETIQUETADOS",
+      "totalIncomeSublabel": "acumulado todas las etiquetas",
+      "totalExpense": "GASTOS ETIQUETADOS",
+      "totalExpenseSublabel": "acumulado todas las etiquetas",
+      "netTotal": "NETO",
+      "netTotalSublabel": "balance etiquetado",
+      "movementCount": "# MOVIMIENTOS",
+      "movementCountSublabel": "transacciones etiquetadas"
+    },
+    "sectionLabel": {
+      "tags": "ETIQUETAS / CAMPAÑAS"
+    },
+    "displayMode": {
+      "volume": "Volumen",
+      "net": "Neto",
+      "count": "# Mov.",
+      "ariaLabel": "Modo de visualización"
+    },
+    "footnote": {
+      "multiLabel": "ⓘ Cuando una transacción tiene varias etiquetas, se cuenta en cada una. La suma puede superar el total."
+    },
+    "states": {
+      "loading": "Cargando análisis…",
+      "error": "No se pudieron cargar los datos. Inténtalo de nuevo.",
+      "emptyTags": "No hay etiquetas con movimientos en este período.",
+      "emptyTagsBody": "Asigna etiquetas a tus movimientos para ver análisis aquí."
     }
   }
 }
