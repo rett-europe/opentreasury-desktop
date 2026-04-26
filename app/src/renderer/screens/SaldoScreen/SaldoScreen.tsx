@@ -10,7 +10,6 @@ import { getSaldoComparison } from '../../services/saldoApi.js';
 import type {
   SaldoCategoryNet,
   SaldoComparisonResponse,
-  SaldoSubcategoryNet,
 } from '../../../shared/ipc-contracts/saldo.js';
 import { formatCurrency } from '../../utils/numberFormat.js';
 import './SaldoScreen.css';
@@ -553,6 +552,15 @@ function formatPct(delta: number, locale: string): string {
   }).format(delta);
 }
 
+// Issue #78 — explicit sign prefix for category/subcategory rows whose signed
+// net opposes the panel's intrinsic kind (refund-heavy expense → "+",
+// negative-net income → "−"). Returns '' when not reversed so the existing
+// magnitude-only label is preserved for the common case.
+function reversedSignPrefix(reversed: boolean, kind: 'income' | 'expense'): string {
+  if (!reversed) return '';
+  return kind === 'expense' ? '+' : '\u2212';
+}
+
 function KpiStrip({ view, current, prior, locale }: KpiStripProps): JSX.Element {
   const { t } = useTranslation('common');
   const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
@@ -829,6 +837,12 @@ type SubPanelRow = {
   readonly isOtras: boolean;
   readonly otrasNames: ReadonlyArray<string>;
   readonly otrasCount: number;
+  // Issue #78 — sign-reversed indicators: true when the row was bucketed by
+  // intrinsic kind but its signed net (income − expense) opposes the panel's
+  // expected sign (e.g. refund-heavy expense category with positive net).
+  // Renderer prepends an explicit "+" / "−" prefix on the value label.
+  readonly currentReversed: boolean;
+  readonly priorReversed: boolean;
 };
 
 type PanelRow = {
@@ -841,7 +855,35 @@ type PanelRow = {
   // Original record count of distinct subcategories with non-zero contribution.
   // Used for the E1/E2 "render parent only" rule (UX-004a §4.3).
   readonly meaningfulSubcount: number;
+  // Issue #78 — see SubPanelRow for semantics.
+  readonly currentReversed: boolean;
+  readonly priorReversed: boolean;
 };
+
+// Issue #78 — bucketing helper. A record is placed on `side` if its intrinsic
+// `kind` matches `side`; otherwise (legacy / null kind) we fall back to the
+// pre-#78 net-sign behaviour (gross income/expense > 0). When kind matches,
+// the magnitude is |income − expense| and `reversed` flags whether the signed
+// net opposes the panel's expected sign — refund-heavy expense (net > 0) or
+// negative-net income (net < 0).
+type Bucketed = { value: number; reversed: boolean };
+
+function bucketValue(
+  r: { income: number; expense: number; kind?: 'income' | 'expense' | null | undefined },
+  side: 'income' | 'expense',
+): Bucketed | null {
+  if (r.kind == null) {
+    const pick = side === 'income' ? r.income : r.expense;
+    if (pick <= 0) return null;
+    return { value: pick, reversed: false };
+  }
+  if (r.kind !== side) return null;
+  const net = r.income - r.expense;
+  const value = Math.abs(net);
+  if (value <= 0) return null;
+  const reversed = side === 'income' ? net < 0 : net > 0;
+  return { value, reversed };
+}
 
 const SUBCATEGORY_TOP_N = 5;
 
@@ -856,28 +898,58 @@ function buildSubcategoryRows(
 ): { rows: SubPanelRow[]; meaningfulCount: number } {
   const cur = currentParent?.subcategories ?? [];
   const prev = priorParent?.subcategories ?? [];
-  const pick = (r: SaldoSubcategoryNet): number => (kind === 'income' ? r.income : r.expense);
 
-  const map = new Map<string, { name: string | null; cur: number; prev: number }>();
+  const map = new Map<
+    string,
+    { name: string | null; cur: number; prev: number; curRev: boolean; prevRev: boolean }
+  >();
   for (const r of cur) {
-    if (pick(r) <= 0) continue;
-    map.set(subKeyFor(r.subcategoryId), { name: r.subcategoryName, cur: pick(r), prev: 0 });
+    const b = bucketValue(r, kind);
+    if (b === null) continue;
+    map.set(subKeyFor(r.subcategoryId), {
+      name: r.subcategoryName,
+      cur: b.value,
+      prev: 0,
+      curRev: b.reversed,
+      prevRev: false,
+    });
   }
   for (const r of prev) {
-    if (pick(r) <= 0) continue;
+    const b = bucketValue(r, kind);
+    if (b === null) continue;
     const k = subKeyFor(r.subcategoryId);
     const existing = map.get(k);
     if (existing) {
-      map.set(k, { ...existing, prev: pick(r) });
+      map.set(k, { ...existing, prev: b.value, prevRev: b.reversed });
     } else {
-      map.set(k, { name: r.subcategoryName, cur: 0, prev: pick(r) });
+      map.set(k, {
+        name: r.subcategoryName,
+        cur: 0,
+        prev: b.value,
+        curRev: false,
+        prevRev: b.reversed,
+      });
     }
   }
 
-  type Entry = { id: string; name: string | null; prior: number; current: number };
+  type Entry = {
+    id: string;
+    name: string | null;
+    prior: number;
+    current: number;
+    curRev: boolean;
+    prevRev: boolean;
+  };
   const all: Entry[] = [];
   for (const [id, v] of map) {
-    all.push({ id, name: v.name, prior: v.prev, current: v.cur });
+    all.push({
+      id,
+      name: v.name,
+      prior: v.prev,
+      current: v.cur,
+      curRev: v.curRev,
+      prevRev: v.prevRev,
+    });
   }
   all.sort((a, b) => {
     const byCur = Math.abs(b.current) - Math.abs(a.current);
@@ -896,6 +968,8 @@ function buildSubcategoryRows(
     isOtras: false,
     otrasNames: [],
     otrasCount: 0,
+    currentReversed: e.curRev,
+    priorReversed: e.prevRev,
   });
 
   if (all.length <= SUBCATEGORY_TOP_N) {
@@ -922,6 +996,9 @@ function buildSubcategoryRows(
     isOtras: true,
     otrasNames,
     otrasCount: rest.length,
+    // Otras is a rollup; sign-reversal isn't meaningful for the aggregate.
+    currentReversed: false,
+    priorReversed: false,
   });
   return { rows: top, meaningfulCount };
 }
@@ -937,29 +1014,41 @@ function buildPanelRows(
       name: string | null;
       cur: number;
       prev: number;
+      curRev: boolean;
+      prevRev: boolean;
       curRec?: SaldoCategoryNet;
       prevRec?: SaldoCategoryNet;
     }
   >();
-  const pick = (r: SaldoCategoryNet): number => (kind === 'income' ? r.income : r.expense);
 
   for (const r of current) {
-    if (pick(r) <= 0) continue;
+    const b = bucketValue(r, kind);
+    if (b === null) continue;
     map.set(keyFor(r.categoryId), {
       name: r.categoryName,
-      cur: pick(r),
+      cur: b.value,
       prev: 0,
+      curRev: b.reversed,
+      prevRev: false,
       curRec: r,
     });
   }
   for (const r of prior ?? []) {
-    if (pick(r) <= 0) continue;
+    const b = bucketValue(r, kind);
+    if (b === null) continue;
     const k = keyFor(r.categoryId);
     const existing = map.get(k);
     if (existing) {
-      map.set(k, { ...existing, prev: pick(r), prevRec: r });
+      map.set(k, { ...existing, prev: b.value, prevRev: b.reversed, prevRec: r });
     } else {
-      map.set(k, { name: r.categoryName, cur: 0, prev: pick(r), prevRec: r });
+      map.set(k, {
+        name: r.categoryName,
+        cur: 0,
+        prev: b.value,
+        curRev: false,
+        prevRev: b.reversed,
+        prevRec: r,
+      });
     }
   }
 
@@ -975,6 +1064,8 @@ function buildPanelRows(
       delta,
       subRows,
       meaningfulSubcount: meaningfulCount,
+      currentReversed: v.curRev,
+      priorReversed: v.prevRev,
     });
   }
   rows.sort((a, b) => {
@@ -1191,7 +1282,10 @@ function CompareRow({
       {...(ariaExpanded === undefined ? {} : { 'aria-expanded': ariaExpanded })}
     >
       <span className="ot-saldo-row__name">{row.name ?? t('saldo.panel.uncategorized')}</span>
-      <span className="ot-saldo-row__prior">{fmt(row.prior)}</span>
+      <span className="ot-saldo-row__prior" data-testid={`saldo-row-${kind}-${row.id}-prior-value`}>
+        {reversedSignPrefix(row.priorReversed, kind)}
+        {fmt(row.prior)}
+      </span>
       <div
         className="ot-saldo-row__bars"
         role="img"
@@ -1214,7 +1308,13 @@ function CompareRow({
           />
         </div>
       </div>
-      <span className="ot-saldo-row__current">{fmt(row.current)}</span>
+      <span
+        className="ot-saldo-row__current"
+        data-testid={`saldo-row-${kind}-${row.id}-current-value`}
+      >
+        {reversedSignPrefix(row.currentReversed, kind)}
+        {fmt(row.current)}
+      </span>
       <span
         className={`ot-saldo-row__delta ot-saldo-row__delta--${deltaKind}`}
         data-testid={`saldo-row-${kind}-${row.id}-delta`}
@@ -1253,7 +1353,13 @@ function SingleRow({
       {...(ariaExpanded === undefined ? {} : { 'aria-expanded': ariaExpanded })}
     >
       <span className="ot-saldo-row__name">{row.name}</span>
-      <span className="ot-saldo-row__current">{fmt(row.current)}</span>
+      <span
+        className="ot-saldo-row__current"
+        data-testid={`saldo-row-${kind}-${row.id}-current-value`}
+      >
+        {reversedSignPrefix(row.currentReversed, kind)}
+        {fmt(row.current)}
+      </span>
       <span className="ot-saldo-row__delta">
         {new Intl.NumberFormat(locale, {
           style: 'percent',
@@ -1333,7 +1439,13 @@ function CompareSubRow({
       {...(tooltip ? { title: tooltip } : {})}
     >
       <span className={nameClass}>{subName}</span>
-      <span className="ot-saldo-subrow__prior">{fmt(sub.prior)}</span>
+      <span
+        className="ot-saldo-subrow__prior"
+        data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-prior-value`}
+      >
+        {reversedSignPrefix(sub.priorReversed, kind)}
+        {fmt(sub.prior)}
+      </span>
       <div
         className="ot-saldo-subrow__bars"
         role="img"
@@ -1366,7 +1478,13 @@ function CompareSubRow({
           />
         </div>
       </div>
-      <span className="ot-saldo-subrow__current">{fmt(sub.current)}</span>
+      <span
+        className="ot-saldo-subrow__current"
+        data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-current-value`}
+      >
+        {reversedSignPrefix(sub.currentReversed, kind)}
+        {fmt(sub.current)}
+      </span>
       <span
         className={`ot-saldo-subrow__delta ot-saldo-subrow__delta--${deltaKind}`}
         data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-delta`}
@@ -1435,7 +1553,13 @@ function SingleSubRow({
       {...(tooltip ? { title: tooltip } : {})}
     >
       <span className={nameClass}>{subName}</span>
-      <span className="ot-saldo-subrow__current">{fmt(sub.current)}</span>
+      <span
+        className="ot-saldo-subrow__current"
+        data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-current-value`}
+      >
+        {reversedSignPrefix(sub.currentReversed, kind)}
+        {fmt(sub.current)}
+      </span>
       <span className="ot-saldo-subrow__delta">
         {new Intl.NumberFormat(locale, {
           style: 'percent',
