@@ -7,6 +7,7 @@ import type {
   ReadModel,
   Transaction,
   TransactionNote,
+  TransactionSplit,
 } from './types';
 
 // Internal mutable state — kept in sync with readModel for O(1) tx append /
@@ -32,6 +33,8 @@ const emptyReadModel = (): ReadModel => {
     rowHashes: new Set(),
     notes: new Map(),
     transactionsByReference: _txByRef as ReadonlyMap<string, readonly Transaction[]>,
+    splits: new Map(),
+    splitParentIds: new Set(),
   };
 };
 
@@ -461,6 +464,37 @@ export function applyEvent(event: DomainEvent): void {
       break;
     }
 
+    case 'tx.split': {
+      // SPEC-023 — populate splits map + splitParentIds set. Idempotent by
+      // replacement: subsequent tx.split events for same parentTxId replace
+      // the entire splits array (no per-row diffing).
+      const rows: TransactionSplit[] = event.splits.map((s) => ({
+        splitId: s.splitId,
+        parentTxId: event.parentTxId,
+        amountCents: s.amountCents,
+        categoryId: s.categoryId ?? null,
+        subcategoryId: s.subcategoryId ?? null,
+        comment: s.comment ?? null,
+        sortOrder: s.sortOrder,
+      }));
+      const nextSplits = new Map(readModel.splits);
+      nextSplits.set(event.parentTxId, rows);
+      const nextSplitParentIds = new Set(readModel.splitParentIds);
+      nextSplitParentIds.add(event.parentTxId);
+      readModel = { ...readModel, splits: nextSplits, splitParentIds: nextSplitParentIds };
+      break;
+    }
+
+    case 'tx.split.removed': {
+      // SPEC-023 — clear splits entry and remove from splitParentIds.
+      const nextSplits = new Map(readModel.splits);
+      nextSplits.delete(event.parentTxId);
+      const nextSplitParentIds = new Set(readModel.splitParentIds);
+      nextSplitParentIds.delete(event.parentTxId);
+      readModel = { ...readModel, splits: nextSplits, splitParentIds: nextSplitParentIds };
+      break;
+    }
+
     case 'tx.updated': {
       // Pattern A: Full-replacement payload. Find transaction by id, replace.
       const idx = _txList.findIndex((tx) => tx.id === event.payload.id);
@@ -505,11 +539,20 @@ export function applyEvent(event: DomainEvent): void {
       // Also clean up notes for this transaction
       const nextNotes = new Map(readModel.notes);
       nextNotes.delete(event.txId);
+      // SPEC-023 FR12 — Clear splits for the deleted transaction
+      const nextSplits = new Map(readModel.splits);
+      const nextSplitParentIds = new Set(readModel.splitParentIds);
+      if (nextSplitParentIds.has(event.txId)) {
+        nextSplits.delete(event.txId);
+        nextSplitParentIds.delete(event.txId);
+      }
       readModel = {
         ...readModel,
         transactions: _txList as readonly Transaction[],
         transactionsByReference: _txByRef as ReadonlyMap<string, readonly Transaction[]>,
         notes: nextNotes,
+        splits: nextSplits,
+        splitParentIds: nextSplitParentIds,
       };
       break;
     }
