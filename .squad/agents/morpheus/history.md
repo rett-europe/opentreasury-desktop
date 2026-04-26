@@ -2385,3 +2385,59 @@ Took over stalled PR #26 from @copilot. Rebased onto current main, resolved sing
 
 **Rollback anchor:** Tag `pre-wi23-log-compat` on `main` immediately before merge. Users hitting `LEGACY_EVENT_TYPE_REJECTED` post-update can walkback.
 
+
+## 2026-04-29 — SPEC-023 Split Transactions backend (Wave 1)
+
+**Status:** PR #63 open for review. Backend implementation complete.
+
+**Scope:** Event types, read-model projections, IPC contracts, handlers for transaction splitting. No UI/visual components — Trinity will deliver those in Wave 2.
+
+**Event payload shape:**
+- 	x.split (flat wire, no envelope): { type, id, parentTxId, splits: [{ splitId, amountCents, categoryId, subcategoryId, comment, sortOrder }], createdAt }
+- 	x.split.removed: { type, id, parentTxId, removedAt }
+- Integer cents (mountCents) eliminate float drift in sum invariant (FR3)
+
+**Reducer projection pattern:**
+- ReadModel.splits: ReadonlyMap<string, readonly TransactionSplit[]> — keyed by parentTxId
+- ReadModel.splitParentIds: ReadonlySet<string> — O(1) hasSplits check
+- Matches the existing 
+otes pattern (Map + Set for O(1) lookups)
+
+**Validation rules:**
+- Sum constraint (FR3): sum(amountCents) === Math.round(parent.amount * 100) — integer comparison, no tolerance
+- Parent amount lock (FR14): 	ransaction:update rejects amount changes when splits exist (TX_HAS_ACTIVE_SPLITS error code)
+- Bulk update skip (FR15): 	ransaction:bulkUpdate filters split parents entirely, reports skippedSplitParentCount
+
+**Integer cents convention:**
+- Split children use mountCents: number (e.g., 30000 = €300.00)
+- Parent amounts remain floats (pre-existing) — no migration
+- UI converts at edge via Intl.NumberFormat
+- Sets precedent for future migration, but ONLY split children use integer cents for now
+
+**Key file paths:**
+- Event schemas: pp/src/core/events/schemas.ts (lines 497–549)
+- Read-model types: pp/src/core/query/types.ts (TransactionSplit interface, ReadModel.splits/splitParentIds)
+- Reducer cases: pp/src/core/query/reducers.ts (lines 467–498 for tx.split, tx.split.removed, tx.deleted extension)
+- Aggregation helper: pp/src/core/query/queries.ts (effectiveAmounts), pp/src/core/query/saldo.ts (duplicate effectiveAmounts)
+- IPC contracts: pp/src/shared/ipc-contracts/transaction-splits.ts (3 channels), movements.ts (hasSplits/splitCount), 	ransaction.ts (TX_HAS_ACTIVE_SPLITS, skippedSplitParentCount)
+- Handlers: pp/src/main/ipc/handlers/transaction-splits.ts, movements.ts (populate hasSplits/splitCount), 	ransaction.ts (FR14/FR15 logic)
+
+**Pedro's 6 lock answers (all honored):**
+1. ✅ Integer cents in split child amounts
+2. ✅ Reject parent amount edit when split exists
+3. ✅ Bulk update skips split parents
+4. ✅ M1 milestone (no crypto)
+5. ✅ CSV export: one row per child (documented in contract §6.6)
+6. ✅ 500-char child comment limit (validated at IPC boundary)
+
+**Commits (7 incremental):**
+1. Add tx.split/tx.split.removed event schemas
+2. Add read-model splits projection
+3. Update aggregations to use split amounts
+4. Add IPC contracts for split operations
+5. Extend movements and transaction IPC contracts
+6. Add IPC handlers for split operations
+7. Extend transaction update/bulk handlers for splits
+
+**Next:** Trinity (Wave 2) can start split editor modal + UI once PR #63 is merged.
+
