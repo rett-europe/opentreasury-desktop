@@ -451,3 +451,28 @@ Each panel has:
 ## Wave 2 Awaiting — 2026-04-29
 
 Split Transactions (SPEC-023 Wave 2): Awaiting split UI surfaces (split editor modal + child rows + parent badge) once Trinity lands integration from PR #63 (Morpheus backend IPC contract + MovementRecord extensions).
+
+### 2026-04-29: Split Transactions Visual Recipes (SPEC-023, PR #66)
+
+**TASK:** Wave 2 visual polish for split transactions. Authored all CSS in globals.css for Trinity's class-name contract.
+
+## Learnings
+
+### Row-State Accent Pattern
+- **Left-border accent:** 3px solid using `--color-brand-primary-muted` for subtle parent-row differentiation. Avoids screaming colour while still being visible.
+- **Background tint:** `color-mix(in oklch, var(--color-brand-surface) 40%, transparent)` — keeps it lighter than hover state. Hover bumps to 55%.
+- **Rule:** Row state accents should always be lighter than `--color-row-hover` to avoid competing with interactive feedback.
+
+### Delta State Colour Ramp
+- **Over-allocation (positive):** `--color-expense-default` / `--color-expense-bg` — red-ish. Over-allocation is a recoverable error, maps to danger.
+- **Under-allocation (negative):** `--color-warning-default` / `--color-warning-bg` — amber. Under-allocation needs attention but isn't wrong yet.
+- **Balanced:** `--color-status-approved` / `--color-status-approved-bg` — green. User's success signal.
+- **Rule:** This 3-state ramp (danger / warning / success) is reusable for any balance-validation indicator.
+
+### Badge Visual Weight
+- Split parent badge (`.ot-split-parent-badge`) deliberately matches `.ot-account-pill` styling (same font-size-11, radius-pill, brand-surface bg). Keeps badges from competing visually in the same table row.
+
+### Modal Recipe Consistency
+- Split modal follows TransactionDetailModal pattern: `::backdrop` + `--shadow-dialog` + `--radius-lg` + `max-height: 88vh`.
+- Scrollable child area uses `max-height: 56vh` (roughly 2/3 of modal height), leaving room for header + delta footer.
+- No new tokens introduced — all colours, spacing, radii from existing palette.
