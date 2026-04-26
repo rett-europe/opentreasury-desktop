@@ -22,6 +22,47 @@ A prototype exists in `/prototype/` with React-based JSX components.
 
 ## Learnings
 
+### 2026-04-27 — Saldo iter 8 re-diagnosis (iter 7 REJECTED)
+
+**Critical lesson learned: Diagnosing visual bugs without looking at the screenshot is malpractice.**
+
+My iter 7 spec was based on code analysis without carefully examining Pedro's annotated screenshot. The spec was implemented, but both bugs persisted because I misidentified the root causes.
+
+**Bug A — Header/value misalignment (STILL PRESENT in categories-only view):**
+- Iter 7 diagnosis: Assumed subcategory padding was the cause.
+- Iter 7 fix: Added `+ var(--space-6)` to all grid templates.
+- Reality: The misalignment occurs WITHOUT subcategories expanded. Screenshot shows header "2025"/"2026" labels left of where row values start. This means the header and row grids are computing different column widths despite having identical `grid-template-columns` declarations.
+
+The grids ARE NOT siblings — header (`ot-saldo-panel__columns--compare`) and rows (`ot-saldo-row--compare` inside `ot-saldo-panel__rows`) are separate grid containers. Each runs its own grid algorithm. With `1fr` fractional units, "free space" is computed independently per container. If header content (short text) and row content (value+bar flexbox divs) have different intrinsic sizes, the `1fr` distribution differs.
+
+**Root cause cannot be definitively determined from static code analysis.** Iter 8 spec instructs Trinity to use DevTools Grid inspector to verify column width differences before implementing.
+
+**Bug B — Panels stop resizing (now in SMALL windows, not large):**
+- Iter 7 diagnosis: Panels stopped at large viewports due to fixed AppShell padding.
+- Iter 7 fix: Changed padding to `clamp(var(--space-7), 3vw, var(--space-10))`.
+- Reality: Pedro now reports small-window resize failure. The issue flipped direction.
+
+Root cause is the `minmax(X, 1fr)` column templates where X is computed from actual text widths. Long category names and formatted values create large minimums. Sum of all column minimums (~476px) exceeds available panel width at narrow viewports.
+
+**Key takeaways for future visual bug specs:**
+1. **VIEW THE SCREENSHOT FIRST** — annotated visual evidence > code assumptions
+2. **Trace actual DOM structure** — header and rows are independent grids, not siblings
+3. **Understand `1fr` behavior** — distributes free space AFTER minimums are satisfied, computed per-container
+4. **When static analysis is inconclusive, mandate runtime DevTools investigation** before implementation
+5. **Test at multiple viewport sizes** — bugs can manifest differently at different widths
+
+Spec for iter 8 is in `.squad/decisions/inbox/niobe-saldo-iter8-spec.md`. Unlike iter 7, this spec acknowledges uncertainty and requires Trinity to verify root causes in DevTools before implementing fixes.
+
+### 2026-04-27 — Saldo iter 7 alignment spec (SUPERSEDED BY ITER 8)
+
+Diagnosed two CSS bugs in the Saldo compare-mode panels (iter 6 rejected by Pedro):
+
+**Bug A — Header/bar misalignment when subcategories expand:** The subcategory name has 20px left-padding (`.ot-saldo-subrow__name { padding-left: var(--space-6); }` in globals.css:776) to create the indent, but the shared grid column template only accounts for the text width in `ch` units, not the padding. When subcategories are shown, their name column is 20px wider than the header and category rows, which shifts the year columns out of alignment. The fix: all three grid siblings (header `.ot-saldo-panel__columns--compare`, category row `.ot-saldo-row--compare`, subcategory row `.ot-saldo-subrow--compare`) must add a second `+ var(--space-6)` to the first column's minmax formula to reserve space for the indent padding. This ensures pixel-perfect column alignment across all three elements per the `grid-header-row-alignment` skill recipe.
+
+**Bug B — Panels stop resizing above 1430px:** The `.ot-shell__main` container has fixed 32px horizontal padding (`var(--space-10)` on each side, AppShell.css:345). The Saldo panels use `grid-template-columns: 1fr 1fr` which should distribute space evenly, but the fixed padding caps their growth at wider viewports. The fix: reduce the horizontal padding from 32px to 20px (or make it responsive with `clamp(var(--space-7), 3vw, var(--space-10))`) to free up horizontal space for the panels to continue expanding with the viewport.
+
+Both bugs stem from a mismatch between intrinsic content sizing and the grid layout system. The spec in `.squad/decisions/inbox/niobe-saldo-iter7-spec.md` provides exact line numbers, before/after CSS changes, and acceptance criteria for Mouse to execute without re-investigation.
+
 ### 2026-04-20 — WI-21 Delete/Edit i18n copy drafted
 
 **WI-22 Saldo shipped (2026-04-22):** i18n namespace `saldo.*` (72 keys ES/EN parity) merged to main in PR #9. Locked 3 microcopy decisions for Pedro (KPI labels, dropped-category sublabel). Projection badge, same-month-prior-year tooltip, data-table captions all spec'd. Pattern: numeric formatting stays OUT of i18n values; component calls `formatCurrency` / `Intl.NumberFormat` / `Intl.DateTimeFormat`. All gates green: typecheck ✅, lint ✅, format ✅, test ✅.

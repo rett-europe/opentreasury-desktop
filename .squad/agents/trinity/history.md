@@ -1169,6 +1169,21 @@ look-alike.
 - Shell sidebar nav icon for Categorías → `FolderOpen` (unchanged — that
   one is a route affordance, not a content type)
 
+## Learnings — Saldo iter 8–10 (PR #91, 2026-04-26–27)
+
+**Grid containers and CSS unit resolution.** The `ch` unit in `grid-template-columns` values resolves relative to the **grid container's own font-size**, not the cells' font-sizes. In iter 8, the header grid had `font-size: var(--font-size-11)` (11px) while rows inherited ~16px. A `14ch` column minimum computed to ~84px in the header but ~112px in the rows. All three grids (header, category rows, subrows) had byte-identical `grid-template-columns` values, but their `ch` resolutions differed → `1fr` distributions differed → columns drifted. **Fix:** Move font-size/letter-spacing/text-transform from the grid container to its children. Rule: never apply presentation properties (font-size, line-height, text-transform) to a grid container that computes layout-critical CSS variables in `ch` units.
+
+**Responsive grid shrinking requires layered constraints.** Allowing panels to shrink while protecting critical content (amounts) needs four layers:
+
+1. **Outer grid:** `minmax(0, 1fr)` so the grid allocation itself flexes.
+2. **Inner containers:** `min-width: 0` to allow flex/grid items to shrink below their content minimum. Exception: compound cells (prior/current cells with amount + bar) must NOT have `min-width: 0` — their content minimum (amount text) must propagate to the grid track.
+3. **Track minimums:** Use `min-content` for amounts (never truncate), `0` for truncatable content (names, delta). In iter 9, all minimums were `0` → amounts truncated at 400px. In iter 10, amounts got `min-content` minimums → grid shrinking stopped at the amount text width → bars became the shrinking axis.
+4. **Media query breakpoints:** Override `fr` ratios at viewport thresholds. Iter 10 added `@media (max-width: 1200px)` to swap bar ratio from `1:3` (prior:current) to `1:1` for legibility at narrow widths.
+
+**Verify shrink order at extreme viewports.** Test at 400px to confirm: amounts readable, bars shrunk to minimum legible size (bars are the "flex" axis), names may truncate. If amounts truncate, the `min-content` minimum isn't working (check for `min-width: 0` on the compound cell or a naked `minmax(0, ...)` on the amount track). If bars don't shrink, the outer grid or panels are missing `min-width: 0` or the track has a `min-content` minimum when it should be `0`.
+
+**Bar ratio as a responsive parameter.** Bars in a "prior vs current" comparison don't shrink equally at all widths. Above 1200px, a 1:3 ratio (prior takes 1x, current takes 3x) makes the current-year column visually dominant. Below 1200px with limited horizontal space, both bars must shrink proportionally → 1:1 ratio ensures both are readable. This isn't a fixed design preference — it's a viewport-dependent constraint that must be locked in a media query.
+
 **`inline-flex` on stacked title+sub bites.** Round 3 set both
 `.ot-config__md-title` and `.ot-config__md-sub` to `display:
 inline-flex`. Two inline-level boxes inside a plain `<div>` will

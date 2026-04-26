@@ -1,6 +1,6 @@
 # Responsive panel width (Saldo recipe)
 
-**Confidence:** high — validated through iter 10.
+**Confidence:** MEDIUM — validated through iters 9-10, media query refinement adds responsive bar-ratio axis.
 
 ## Problem
 
