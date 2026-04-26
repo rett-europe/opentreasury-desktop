@@ -1,4 +1,4 @@
-import type { Transaction, ConfigAccount } from './types';
+import type { Transaction, ConfigAccount, ReadModel } from './types';
 import { getReadModel } from './reducers';
 
 // WI-23 — `Account` entity has been removed from the read model. The Panel
@@ -8,6 +8,26 @@ import { getReadModel } from './reducers';
 // `ConfigAccount` directly; projection to the Panel wire shape happens
 // in the handler. Displays that need the label fall back to
 // `label ?? name` — see main/projections/config.ts for the canonical rule.
+
+// SPEC-023 — effectiveAmounts helper: returns the amounts to use for
+// aggregation. If the transaction has active splits, returns split amounts
+// (converted from cents to EUR). Otherwise, returns the parent's single
+// amount with its category. This normalises split children (integer cents)
+// to EUR floats for downstream aggregations.
+function effectiveAmounts(
+  tx: Transaction,
+  model: ReadModel,
+): readonly { amount: number; categoryId: string | null; subcategoryId: string | null }[] {
+  if (model.splitParentIds.has(tx.id)) {
+    const splits = model.splits.get(tx.id) ?? [];
+    return splits.map((s) => ({
+      amount: s.amountCents / 100, // cents → EUR for aggregation
+      categoryId: s.categoryId,
+      subcategoryId: s.subcategoryId,
+    }));
+  }
+  return [{ amount: tx.amount, categoryId: tx.categoryId, subcategoryId: tx.subcategoryId }];
+}
 
 // Query 1: Get recent transactions (sorted DESC by createdAt)
 export function queryRecentTransactions(limit = 10): Transaction[] {
@@ -39,13 +59,16 @@ export function getAccountBalances(): AccountBalance[] {
 
   const balanceMap = new Map<string, { income: number; expense: number }>();
   for (const tx of model.transactions) {
-    const entry = balanceMap.get(tx.accountId) ?? { income: 0, expense: 0 };
-    if (tx.type === 'income') {
-      entry.income += tx.amount;
-    } else {
-      entry.expense += tx.amount;
+    const amounts = effectiveAmounts(tx, model);
+    for (const ea of amounts) {
+      const entry = balanceMap.get(tx.accountId) ?? { income: 0, expense: 0 };
+      if (tx.type === 'income') {
+        entry.income += ea.amount;
+      } else {
+        entry.expense += ea.amount;
+      }
+      balanceMap.set(tx.accountId, entry);
     }
-    balanceMap.set(tx.accountId, entry);
   }
 
   // Include every known account, even with zero activity — Panel renders one
@@ -82,10 +105,13 @@ export function getMonthKPIs(yearMonth: string): MonthKPIs {
 
   for (const tx of model.transactions) {
     if (tx.date.startsWith(yearMonth)) {
-      if (tx.type === 'income') {
-        income += tx.amount;
-      } else {
-        expense += tx.amount;
+      const amounts = effectiveAmounts(tx, model);
+      for (const ea of amounts) {
+        if (tx.type === 'income') {
+          income += ea.amount;
+        } else {
+          expense += ea.amount;
+        }
       }
       count += 1;
     }
@@ -133,10 +159,13 @@ export function getAccountSparklines(accountId: string): AccountSparkline {
       const txMonth = tx.date.substring(0, 7); // YYYY-MM
       if (bucketMap.has(txMonth)) {
         const bucket = bucketMap.get(txMonth)!;
-        if (tx.type === 'income') {
-          bucket.income += tx.amount;
-        } else {
-          bucket.expense += tx.amount;
+        const amounts = effectiveAmounts(tx, model);
+        for (const ea of amounts) {
+          if (tx.type === 'income') {
+            bucket.income += ea.amount;
+          } else {
+            bucket.expense += ea.amount;
+          }
         }
       }
     }

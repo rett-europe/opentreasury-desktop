@@ -27,7 +27,7 @@ import type {
   SaldoMonthlyBucket,
   SaldoPeriod,
 } from '../../shared/ipc-contracts/saldo';
-import type { ReadModel } from './types';
+import type { ReadModel, Transaction } from './types';
 import { getReadModel } from './reducers';
 
 // ----- Category-name resolution -----------------------------------------
@@ -41,6 +41,26 @@ function resolveCategoryName(categoryId: string | null, model: ReadModel): strin
   if (categoryId === null) return null;
   const c = model.configCategories.find((x) => x.id === categoryId);
   return c?.name ?? null;
+}
+
+// SPEC-023 — effectiveAmounts helper: returns the amounts to use for
+// aggregation. If the transaction has active splits, returns split amounts
+// (converted from cents to EUR). Otherwise, returns the parent's single
+// amount with its category. This normalises split children (integer cents)
+// to EUR floats for downstream aggregations.
+function effectiveAmounts(
+  tx: Transaction,
+  model: ReadModel,
+): readonly { amount: number; categoryId: string | null; subcategoryId: string | null }[] {
+  if (model.splitParentIds.has(tx.id)) {
+    const splits = model.splits.get(tx.id) ?? [];
+    return splits.map((s) => ({
+      amount: s.amountCents / 100, // cents → EUR for aggregation
+      categoryId: s.categoryId,
+      subcategoryId: s.subcategoryId,
+    }));
+  }
+  return [{ amount: tx.amount, categoryId: tx.categoryId, subcategoryId: tx.subcategoryId }];
 }
 
 // ----- Date helpers (UTC, inclusive) -------------------------------------
@@ -135,19 +155,22 @@ function aggregateTotals(model: ReadModel, range: PeriodRange): TotalsAgg {
   for (const tx of model.transactions) {
     // date is YYYY-MM-DD — lexical compare is safe against inclusive bounds.
     if (tx.date < range.start || tx.date > range.end) continue;
-    if (tx.type === 'income') agg.totalIncome += tx.amount;
-    else agg.totalExpense += tx.amount;
-    const key = tx.categoryId;
-    const existing = agg.byCategory.get(key);
-    if (existing) {
-      if (tx.type === 'income') existing.income += tx.amount;
-      else existing.expense += tx.amount;
-    } else {
-      agg.byCategory.set(key, {
-        name: resolveCategoryName(key, model),
-        income: tx.type === 'income' ? tx.amount : 0,
-        expense: tx.type === 'expense' ? tx.amount : 0,
-      });
+    const amounts = effectiveAmounts(tx, model);
+    for (const ea of amounts) {
+      if (tx.type === 'income') agg.totalIncome += ea.amount;
+      else agg.totalExpense += ea.amount;
+      const key = ea.categoryId;
+      const existing = agg.byCategory.get(key);
+      if (existing) {
+        if (tx.type === 'income') existing.income += ea.amount;
+        else existing.expense += ea.amount;
+      } else {
+        agg.byCategory.set(key, {
+          name: resolveCategoryName(key, model),
+          income: tx.type === 'income' ? ea.amount : 0,
+          expense: tx.type === 'expense' ? ea.amount : 0,
+        });
+      }
     }
   }
   return agg;
@@ -213,8 +236,11 @@ function buildMonthlySeries(model: ReadModel, range: PeriodRange): SaldoMonthlyB
     const prefix = tx.date.substring(0, 7);
     const bucket = byPrefix.get(prefix);
     if (!bucket) continue;
-    if (tx.type === 'income') bucket.netIncome += tx.amount;
-    else bucket.netExpense += tx.amount;
+    const amounts = effectiveAmounts(tx, model);
+    for (const ea of amounts) {
+      if (tx.type === 'income') bucket.netIncome += ea.amount;
+      else bucket.netExpense += ea.amount;
+    }
   }
 
   for (const b of buckets) {
