@@ -730,12 +730,12 @@ a:hover {
   min-width: 0;
 }
 .ot-saldo-subrow--compare {
-  /* Iter 9 (Bug B): mirrors header + parent row template — all minimums 0
-   * so subrows shrink with the panel. */
+  /* Iter 10: mirrors header + parent row template — prior/current
+   * min-content protects amounts. See .ot-saldo-panel__columns--compare. */
   grid-template-columns:
     minmax(0, calc(var(--saldo-col-name, max-content) + var(--space-6)))
-    minmax(0, 1fr)
-    minmax(0, 3fr)
+    minmax(min-content, 1fr)
+    minmax(min-content, 3fr)
     minmax(0, var(--saldo-col-delta, max-content));
 }
 .ot-saldo-subrow--single {
@@ -743,6 +743,16 @@ a:hover {
     1fr
     minmax(0, var(--saldo-col-current, max-content))
     minmax(0, var(--saldo-col-delta, max-content));
+}
+/* Iter 10: 1:1 bar ratio at narrow widths for subrows. */
+@media (max-width: 1200px) {
+  .ot-saldo-subrow--compare {
+    grid-template-columns:
+      minmax(0, calc(var(--saldo-col-name, max-content) + var(--space-6)))
+      minmax(min-content, 1fr)
+      minmax(min-content, 1fr)
+      minmax(0, var(--saldo-col-delta, max-content));
+  }
 }
 
 /* Per-year compound cells for subrows — iter 4 (Pedro 2026-04-26 dogfood
@@ -755,7 +765,7 @@ a:hover {
   flex-direction: column;
   align-items: stretch;
   row-gap: var(--space-2);
-  min-width: 0;
+  /* Iter 10: removed min-width:0 so amount text min-content propagates. */
 }
 
 /* Visual close-out: extra breathing room after the last subrow
@@ -788,8 +798,7 @@ a:hover {
   font-size: var(--font-size-12);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Iter 10: removed overflow/ellipsis — amounts always readable. */
   white-space: nowrap;
 }
 
@@ -838,8 +847,7 @@ a:hover {
   font-size: var(--font-size-13);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Iter 10: removed overflow/ellipsis — amounts always readable. */
   white-space: nowrap;
 }
 .ot-saldo-panel--income .ot-saldo-subrow__current {
