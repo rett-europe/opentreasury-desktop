@@ -1494,3 +1494,103 @@ window.opentreasury.tags.{create,list,update,archive,unarchive}
 - Once Morpheus's preload + handlers land, delete `notWired()` path in `configMutationsApi.ts`.
 - When usage counts available, swap `configuracion.delete.usage.unknown` for `withCount` key.
 - Move renderer-local subcategory type to `@/shared/ipc-contracts/`.
+
+---
+
+## DIRECTIVE: Saldo category placement follows intrinsic kind (not net sign)
+
+**Author:** Pedro (via Copilot)
+**Date:** 2026-04-26
+**Status:** Active — locked rule
+
+### Rule
+
+Category placement on the Saldo screen (income vs expense panel) MUST follow the category's intrinsic `kind` (income/expense), NOT the period's net sign. A category typed as "expense" with refunds making net positive still belongs on the expense side (rendered with a `+` sign on its bar where applicable). Same rule for income categories with reversals. Subcategories follow their parent category's `kind`, never their own subcategory net.
+
+### Why
+
+Dogfood feedback — "Gastos" (an expense category) ended up on the income side after refunds; visually misleading. User-provided rule for team memory.
+
+---
+
+## Decision: Issue #78 Saldo polish wave — F1/F2/F3 fan-out
+
+**Date:** 2026-04-26
+**Status:** Shipped (PRs #79, #80, #81, #82, #83 merged; issue #78 closed)
+**Related:** UX-004a + amendment 1 (`docs/ux/specs/ux-004a-saldo-subcategory-drilldown-amendment-1.md`)
+
+### F1 — Toggle placement (Niobe spec, Mouse CSS, Trinity TSX)
+
+- **Decision (Niobe):** per-panel inline toggle pill in the column-header strip, single shared `showSubcategories` state. Rejected: single in-panel toggle (asymmetric); per-category chevrons (contradicts 2026-04-26 locked decision).
+- **Class contract:** reuse `.ot-saldo-toggle-subcategories`, add `--inline` modifier.
+- **Mouse CSS:** `.ot-saldo-toggle-subcategories--inline` — `padding: var(--space-2) var(--space-4)`, `font-size: var(--font-size-12)`, resting `--color-text-muted`, pressed `--color-brand-primary`. Base recipe untouched.
+- **Trinity TSX:** `<SubcategoryToggle>` removed from `.ot-saldo-controls`; rendered inside each `<CategoryPanel>` as a sibling of `.ot-saldo-panel__columns`. Old testid `saldo-subcategories-toggle` retired → split into `saldo-subcategories-toggle-income` / `-expense`. Single `aria-live` announce node retained.
+
+### F2 — Crowding & misalignment (Niobe spec, Mouse CSS, Trinity TSX)
+
+- **Shared per-panel bar scale.** Replace per-row `Math.max(prior, current, 1)` with single `panelMaxAbs` computed across all visible rows AND subrows. Threaded into `CompareRow` / `CompareSubRow`. Single mode unaffected (no bars).
+- **Density cap.** `SUBCATEGORY_TOP_N` 8 → 5 + Otras when toggle ON.
+- **Mouse CSS rhythm:** 2px left guide on `.ot-saldo-subrow` (uses `--color-divider`, sits outside box, preserves 16px content indent); `.ot-saldo-subrow:last-child` `padding-bottom: --space-5 → --space-6`.
+- **CSS variable contract:** subrow bars carry both `width: ${pct}%` and `--saldo-subrow-bar-pct: ${pct}%` inline.
+
+### F3 — Bucket by intrinsic kind (Morpheus projection, Trinity UI)
+
+- **Morpheus (PR #80):** `SaldoCategoryNet` and `SaldoSubcategoryNet` carry optional `kind: 'income' | 'expense' | null` (optional at wire level for back-compat). `aggregateTotals` reads `ConfigCategory.kind` once at bucket-creation; `toCategoryNetArray` propagates `kind` to every row + subcategory. Sort: income → expense → null bucket, then `abs(net) desc`, name asc, id asc. Sum invariants preserved. Legacy fallback: rows with no `kind` (and uncategorized bucket) use net-sign classification.
+- **Trinity (PR #83):** `buildPanelRows` / `buildSubcategoryRows` route every record through `bucketValue(r, side)`. If `r.kind != null` → include only when `r.kind === side`; magnitude = `|income − expense|`; `reversed = true` when sign opposes panel direction. If `r.kind == null` → legacy `pick(r) > 0` rule on gross income/expense (no sign reversal). `reversedSignPrefix(reversed, kind)` adds `+` (expense panel) or `−` U+2212 (income panel) prefix on reversed-sign value labels.
+- **Out of scope (this wave):** no IPC channel changes, no migration; single-mode `share = row.current / totalForShare` denominator drift accepted.
+
+### Test deltas
+
+- Morpheus: 5 new projection tests (refund-heavy expense, negative-net income, subcategory inheritance, legacy fallback, bucket order).
+- Trinity #82: SaldoScreen tests cover toggle relocation, panelMaxAbs, top-5 + Otras.
+- Trinity #83: 3 new SaldoScreen tests (refund-heavy expense → expense panel `+` prefix; negative-net income → income panel `−` prefix; legacy null-kind buckets into both panels with no prefix).
+
+### Follow-ups
+
+- Issue #78 closed. Issue #69 (WI-C YoY) labeled `priority:v1` — next saldo work.
+- Once Pedro back-fills `kind` on legacy categories, the projection's net-sign fallback ceases to fire.
+
+---
+
+## Decision: WI-B (#67) Saldo subcategory drilldown — Trinity wiring contract
+
+**Author:** Trinity
+**Date:** 2026-04-26
+**Status:** Shipped (PR #67/#77)
+**Spec:** `docs/ux/specs/ux-004a-saldo-subcategory-drilldown.md`
+
+### Wiring summary
+
+- Local `useState<boolean>(false)` for `showSubcategories` on `SaldoScreen`. Default OFF; resets on unmount (no v1 persistence).
+- `<SubcategoryToggle>` button initially in `.ot-saldo-controls` header (later relocated by #82).
+- `aria-live="polite"` announce region above KPI strip with category-count message (UX-004a §7).
+- `buildSubcategoryRows()` applies top-N + Otras rule per `(parent, kind)`, sorted by current-period `abs(pick)` desc, stable name tie-break. Suppresses Otras when aggregate is zero (E5).
+- `buildPanelRows()` attaches `subRows` and `meaningfulSubcount`; E1/E2 — categories with `meaningfulSubcount < 2` render parent-only even when toggle ON.
+- `<CompareSubRow>` and `<SingleSubRow>` mirror parent row layout 1:1 in both grid modes.
+- i18n keys under `saldo.subcategories.*` (flat, no `ux.` prefix — matches existing codebase). Pluralisation via i18next `_one`/`_other` (no ICU plugin in app).
+- Renderer never reads subcategories from disk; all data via schema-validated `saldo:get-comparison` IPC. Handles `subcategories === undefined` gracefully.
+
+### Class-name contract (paired with Mouse — confirmed by PR #75 / Switch rename pass)
+
+Toggle: `.ot-saldo-toggle-subcategories` (+ `__label`, `__icon`).
+Announce: `.ot-saldo-subcategories-announce`.
+Subrows: `.ot-saldo-subrow` (+ `--compare`, `--single`); `.ot-saldo-subrow__name`, `__name--otras` (italic), `__prior`, `__current`, `__bars`, `__bar-track`, `__bar-fill` (+ `--prior`, `--current`), `__delta` (+ `--up`/`--down`/`--flat`/`--noPrior`), `__delta-sublabel`.
+
+---
+
+## Decision: PR #75 Round 2 — CSS class-name realignment (Switch)
+
+**Author:** Switch
+**Date:** 2026-04-26
+**Status:** Shipped (PR #75 round 2; Mouse strict-locked, Switch took over)
+**Branch:** `squad/67-wib-ui-recipes`
+
+### Changes (CSS only — `app/src/renderer/styles/globals.css`)
+
+1. Toggle pill rename: `.ot-saldo-header__subtoggle` → `.ot-saldo-toggle-subcategories` (incl. `__icon`/`__label` and all `:hover` / `:focus-visible` / `[aria-pressed]` / `[disabled]` variants). Matches Trinity's TSX.
+2. Otras italic rescope: `.ot-saldo-subrow--otras .ot-saldo-subrow__name` → `.ot-saldo-subrow__name--otras` (Trinity applies `--otras` exclusively on `__name`; descendant selector was dead).
+3. Added missing recipes: `.ot-saldo-subrow__delta-sublabel` (small, muted, right-aligned caption); `.ot-saldo-subcategories-announce` (sr-only aria-live region, mirrors `.ot-sr-only`).
+
+Validation: lint ✅ · typecheck ✅ · format:check ✅ · 637 passed / 9 skipped.
+
+Convention reinforced: globals.css owns prototype-parity recipes; no SaldoScreen.css touched; no new tokens.

@@ -336,3 +336,17 @@ SPEC-023 Rev 3 (Split Transactions) architectural review complete. PR #60 merged
 - **PR #70 (WI-A) cascade:** R1 Mouse REJECTED (compare wrap), R2 Switch REJECTED (single-mode misalignment under Approach A), R3 Trinity APPROVED (Approach B — separate grids via BEM modifiers). Three-way strict-lockout documented.
 - **WI-B chain:** PR #71 (Niobe spec) → PR #72 (Morpheus projection, merged after coordinator inline prettier fix) → Mouse + Trinity in flight on parallel worktrees.
 - **CI hardening:** PR #73 (husky + lint-staged) + PR #74 (gitattributes eol=lf) merged.
+
+## 2026-04-26 — Issue #78 Saldo Polish Wave (Scribe summary)
+
+Pedro dogfood pass on WI-B (#67) → 3 polish needs fanned out to four agents; all PRs merged, issue #78 closed.
+
+- **Niobe (PR #79):** spec amendment 1 to UX-004a. F1 = per-panel inline toggle pill, single shared state. F2 = shared `panelMaxAbs`, density cap 8 → 5 + Otras, 2px left guide, last-subrow padding bump.
+- **Morpheus (PR #80):** F3 projection — added optional `kind: 'income' | 'expense' | null` on `SaldoCategoryNet`/`SaldoSubcategoryNet`, populated from `ConfigCategory.kind`. Bucket-then-magnitude sort. Legacy net-sign fallback for null-kind rows. 5 new tests. Sum invariants preserved.
+- **Mouse (PR #81):** CSS — `.ot-saldo-toggle-subcategories--inline` modifier, 2px parent guide via `--color-divider`, last-subrow padding `--space-5 → --space-6`. Globals.css only.
+- **Trinity (PR #82):** F1+F2 wiring — toggle relocated inside each `<CategoryPanel>`, testids split (`-income`/`-expense`), `panelMaxAbs` lifted, `SUBCATEGORY_TOP_N` 8 → 5, `--saldo-subrow-bar-pct` exposed inline.
+- **Trinity (PR #83):** F3 UI — `buildPanelRows` filters by `row.kind === side` with net-sign legacy fallback; `+`/`−` (U+2212) prefix on reversed-sign value labels via `reversedSignPrefix`. 3 new tests.
+
+**Locked directive (Pedro):** Saldo category placement follows `category.kind` (intrinsic type), NOT period net sign. Subcategories follow their parent's `kind`, never their own subcategory net. Logged in `.squad/decisions.md`.
+
+**Next:** Issue #69 (WI-C YoY) labeled `priority:v1` — next saldo work.
