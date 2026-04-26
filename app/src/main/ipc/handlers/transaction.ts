@@ -161,6 +161,23 @@ export function createTransactionUpdateHandler(
         details: parsed.data.details,
       };
 
+      // SPEC-023 FR14 — reject parent amount edit when splits exist.
+      const model = deps.getReadModel();
+      const existingTx = model.transactions.find((t) => t.id === input.id);
+      if (existingTx && model.splitParentIds.has(input.id)) {
+        // Check if amount is being changed
+        if (Math.abs(existingTx.amount - input.amount) > 0.001) {
+          return {
+            ok: false,
+            error: {
+              code: 'TX_HAS_ACTIVE_SPLITS',
+              message: 'Cannot change amount on a transaction with active splits. Remove splits first.',
+              field: 'amount',
+            },
+          };
+        }
+      }
+
       const result = updateTransaction(input, {
         now: deps.now,
         newId: deps.newId,
@@ -311,14 +328,22 @@ export function createTransactionBulkUpdateHandler(
         correlationId: parsed.data.correlationId,
       };
 
-      const result = bulkUpdateTransactions(input, {
-        now: deps.now,
-        newId: deps.newId,
-        readModel: deps.getReadModel(),
-        datasetId: deps.datasetId,
-        actorDeviceId: deps.actorDeviceId,
-        dekVersion: deps.dekVersion ?? 0,
-      });
+      // SPEC-023 FR15 — skip split parents entirely in bulk operations.
+      const model = deps.getReadModel();
+      const filteredIds = input.ids.filter((id) => !model.splitParentIds.has(id));
+      const skippedSplitParentCount = input.ids.length - filteredIds.length;
+
+      const result = bulkUpdateTransactions(
+        { ...input, ids: filteredIds },
+        {
+          now: deps.now,
+          newId: deps.newId,
+          readModel: deps.getReadModel(),
+          datasetId: deps.datasetId,
+          actorDeviceId: deps.actorDeviceId,
+          dekVersion: deps.dekVersion ?? 0,
+        },
+      );
 
       if (!result.ok) {
         return {
@@ -348,6 +373,7 @@ export function createTransactionBulkUpdateHandler(
         ok: true,
         updatedCount: result.events.length,
         events: result.events,
+        skippedSplitParentCount,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
