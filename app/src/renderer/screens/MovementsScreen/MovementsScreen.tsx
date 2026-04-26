@@ -501,6 +501,15 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     return 'ot-badge ot-badge--approved';
   };
 
+  // Map account display label → per-account oklch color for pill tinting.
+  const accountColorByLabel = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of accounts) {
+      if (a.color) map.set(a.accountLabel, a.color);
+    }
+    return map;
+  }, [accounts]);
+
   const columns: readonly TableColumn<Movement>[] = useMemo(
     () => [
       {
@@ -559,12 +568,26 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         id: 'account',
         header: t('movements.columns.account'),
         sortable: true,
-        render: (m) => (
-          <span className="ot-account-pill" title={m.account}>
-            <span className="ot-account-pill__dot" aria-hidden="true" />
-            {m.account}
-          </span>
-        ),
+        render: (m) => {
+          const color = accountColorByLabel.get(m.account) ?? 'var(--color-brand-primary)';
+          return (
+            <span
+              className="ot-account-pill"
+              title={m.account}
+              style={{
+                background: `color-mix(in oklch, ${color} 18%, transparent)`,
+                color: 'var(--color-text-primary)',
+              }}
+            >
+              <span
+                className="ot-account-pill__dot"
+                aria-hidden="true"
+                style={{ background: color }}
+              />
+              {m.account}
+            </span>
+          );
+        },
       },
       {
         id: 'description',
@@ -668,6 +691,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
       statusLabel,
       allVisibleSelected,
       toggleAllVisible,
+      accountColorByLabel,
     ],
   );
 
