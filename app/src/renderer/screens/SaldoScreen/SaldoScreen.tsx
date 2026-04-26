@@ -809,7 +809,10 @@ function CategoryPanel({
         </div>
       ) : compareMode ? (
         <>
-          <div className="ot-saldo-panel__columns" aria-hidden="true">
+          <div
+            className="ot-saldo-panel__columns ot-saldo-panel__columns--compare"
+            aria-hidden="true"
+          >
             <span>{t('saldo.panel.columns.category')}</span>
             <span className="ot-saldo-panel__col--right">{view.priorYear}</span>
             <span />
@@ -830,9 +833,11 @@ function CategoryPanel({
         </>
       ) : (
         <>
-          <div className="ot-saldo-panel__columns" aria-hidden="true">
+          <div
+            className="ot-saldo-panel__columns ot-saldo-panel__columns--single"
+            aria-hidden="true"
+          >
             <span>{t('saldo.panel.columns.category')}</span>
-            <span>{t('saldo.panel.columns.type')}</span>
             <span className="ot-saldo-panel__col--right">{t('saldo.panel.columns.amount')}</span>
             <span className="ot-saldo-panel__col--right">{t('saldo.panel.columns.share')}</span>
           </div>
@@ -874,9 +879,8 @@ function CompareRow({ row, kind, priorYear, locale }: CompareRowProps): JSX.Elem
         ? formatPct(0, locale)
         : formatPct(row.delta as number, locale);
   return (
-    <div className="ot-saldo-row" data-testid={`saldo-row-${kind}-${row.id}`}>
+    <div className="ot-saldo-row ot-saldo-row--compare" data-testid={`saldo-row-${kind}-${row.id}`}>
       <span className="ot-saldo-row__name">{row.name ?? t('saldo.panel.uncategorized')}</span>
-      <span className="ot-saldo-row__type">{t(`saldo.panel.type.${kind}`)}</span>
       <span className="ot-saldo-row__prior">{fmt(row.prior)}</span>
       <div
         className="ot-saldo-row__bars"
@@ -923,13 +927,11 @@ type SingleRowProps = {
 };
 
 function SingleRow({ row, kind, totalForShare, locale }: SingleRowProps): JSX.Element {
-  const { t } = useTranslation('common');
   const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
   const share = totalForShare > 0 ? row.current / totalForShare : 0;
   return (
-    <div className="ot-saldo-row" data-testid={`saldo-row-${kind}-${row.id}`}>
+    <div className="ot-saldo-row ot-saldo-row--single" data-testid={`saldo-row-${kind}-${row.id}`}>
       <span className="ot-saldo-row__name">{row.name}</span>
-      <span className="ot-saldo-row__type">{t(`saldo.panel.type.${kind}`)}</span>
       <span className="ot-saldo-row__current">{fmt(row.current)}</span>
       <span className="ot-saldo-row__delta">
         {new Intl.NumberFormat(locale, {

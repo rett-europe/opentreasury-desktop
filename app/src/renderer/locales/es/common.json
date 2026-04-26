@@ -180,13 +180,8 @@
       },
       "columns": {
         "category": "Categoría",
-        "type": "Tipo",
         "amount": "Importe",
         "share": "% del total"
-      },
-      "type": {
-        "income": "ingreso",
-        "expense": "gasto"
       },
       "row": {
         "vs": "vs {{year}}",

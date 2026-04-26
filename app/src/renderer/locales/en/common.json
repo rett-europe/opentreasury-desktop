@@ -180,13 +180,8 @@
       },
       "columns": {
         "category": "Category",
-        "type": "Type",
         "amount": "Amount",
         "share": "% of total"
-      },
-      "type": {
-        "income": "income",
-        "expense": "expense"
       },
       "row": {
         "vs": "vs {{year}}",

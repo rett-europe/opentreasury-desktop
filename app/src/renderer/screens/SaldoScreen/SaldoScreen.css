@@ -111,7 +111,6 @@
 
 .ot-saldo-panel__columns {
   display: grid;
-  grid-template-columns: 1fr auto auto auto auto;
   gap: var(--space-3) var(--space-6);
   align-items: center;
   font-size: var(--font-size-11);
@@ -121,6 +120,12 @@
   color: var(--color-text-muted);
   padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--color-divider);
+}
+.ot-saldo-panel__columns--compare {
+  grid-template-columns: 1fr auto auto auto auto;
+}
+.ot-saldo-panel__columns--single {
+  grid-template-columns: 1fr auto auto;
 }
 .ot-saldo-panel__col--right {
   text-align: right;
@@ -141,7 +146,6 @@
 /* ── Panel row (category breakdown) ─────────────────────────── */
 .ot-saldo-row {
   display: grid;
-  grid-template-columns: 1fr auto 1fr auto auto;
   column-gap: var(--space-6);
   row-gap: 2px;
   align-items: center;
@@ -151,34 +155,40 @@
 .ot-saldo-row:last-child {
   border-bottom: 0;
 }
+.ot-saldo-row--compare {
+  grid-template-columns: 1fr auto 1fr auto auto;
+}
+.ot-saldo-row--single {
+  grid-template-columns: 1fr auto auto;
+}
 
 .ot-saldo-row__name {
-  grid-column: 1 / 2;
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
 }
-.ot-saldo-row__type {
+.ot-saldo-row--compare .ot-saldo-row__name {
   grid-column: 1 / 2;
-  grid-row: 2 / 3;
-  font-size: var(--font-size-11);
-  color: var(--color-text-muted);
 }
 
 .ot-saldo-row__prior {
-  grid-column: 2 / 3;
   text-align: right;
   font-size: var(--font-size-14);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
 }
+.ot-saldo-row--compare .ot-saldo-row__prior {
+  grid-column: 2 / 3;
+}
 
 .ot-saldo-row__bars {
-  grid-column: 3 / 4;
   display: flex;
   flex-direction: column;
   gap: 3px;
   min-width: 80px;
+}
+.ot-saldo-row--compare .ot-saldo-row__bars {
+  grid-column: 3 / 4;
 }
 .ot-saldo-row__bar-track {
   position: relative;
@@ -209,11 +219,13 @@
 }
 
 .ot-saldo-row__current {
-  grid-column: 4 / 5;
   text-align: right;
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
+}
+.ot-saldo-row--compare .ot-saldo-row__current {
+  grid-column: 4 / 5;
 }
 .ot-saldo-panel--income .ot-saldo-row__current {
   color: var(--color-income-default);
@@ -223,11 +235,13 @@
 }
 
 .ot-saldo-row__delta {
-  grid-column: 5 / 6;
   text-align: right;
   font-size: var(--font-size-13);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
+}
+.ot-saldo-row--compare .ot-saldo-row__delta {
+  grid-column: 5 / 6;
 }
 .ot-saldo-row__delta--up {
   color: var(--color-income-default);
@@ -240,11 +254,13 @@
   color: var(--color-text-muted);
 }
 .ot-saldo-row__delta-sublabel {
-  grid-column: 5 / 6;
   grid-row: 2 / 3;
   text-align: right;
   font-size: var(--font-size-11);
   color: var(--color-text-muted);
+}
+.ot-saldo-row--compare .ot-saldo-row__delta-sublabel {
+  grid-column: 5 / 6;
 }
 
 /* ── Chart section ──────────────────────────────────────────── */
