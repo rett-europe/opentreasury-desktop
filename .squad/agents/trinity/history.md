@@ -1490,3 +1490,43 @@ Pedro re-opened Saldo after #78 closed. Three rounds of feedback, all merged int
 **Locked rule (Pedro, #87):** When two CSS cues combine to over-signal (e.g., left guide + category separator forming a box), drop the weaker cue rather than tuning both — for row nesting, prefer indentation over borders.
 
 **Mechanic:** `gh pr review --approve` is blocked on owner-authored PRs; use `gh pr review --comment "APPROVE: ..."` so the signal is grep-able.
+## 2026-05-01 — PR #91 iter 6: header-vs-bar alignment when subcategories shown
+
+**Context:** Pedro approved iter 5 (responsive panel width + 1:3 ratio) but
+flagged: "when subcategories are shown, because the text of subcategories
+comes in, the header is not aligned with the bars anymore... that's the
+only minor issue."
+
+**Diagnosis:** `.ot-saldo-subrow` had `padding-left: var(--space-6)` on
+the grid container itself (the 16px subcategory indent from spec §16.2).
+That shrank the sub-row's inner grid by 16px relative to the header and
+parent rows. All three are independent grid containers using the same
+template (`minmax(var(--saldo-col-*), Nfr)`), so a smaller outer width
+made the sub-row's `1fr` tracks resolve narrower → the prior/current
+bars and the Δ column drifted left of the matching header labels. With
+category-only view (no sub-rows visible) the header + parent rows had
+identical outer widths and everything aligned — exactly what Pedro saw.
+
+**Fix (surgical CSS-only):**
+1. Remove `padding-left` from `.ot-saldo-subrow` container.
+2. Apply the 16px indent on `.ot-saldo-subrow__name` (the name cell)
+   instead, so the indent is purely intra-cell and the grid container
+   stays full-width.
+3. Bake the indent budget into the shared name-column min on header,
+   parent row, and sub-row:
+   `minmax(calc(var(--saldo-col-name, max-content) + var(--space-6)), 1fr)`
+   This guarantees no row ever needs to expand the name track to fit
+   its name+padding, so all three grids resolve to identical column
+   widths regardless of which rows are visible.
+
+**Verification:** lint clean, typecheck clean, 654 tests green, format
+clean. iter 5's responsive width + 1:3 prior:current ratio preserved
+(the rule shape didn't change, only the name-column min grew by 16px).
+
+**Skill updates:**
+- `.squad/skills/grid-header-row-alignment/SKILL.md` — bumped to
+  HIGH confidence, added the **identical outer width on every grid
+  container** rule with the sub-row indent gotcha as the canonical
+  worked example. Second confirmation of this bug class.
+- `.squad/skills/responsive-panel-width/SKILL.md` — created from
+  iter 5's recipe, kept intact by this fix.

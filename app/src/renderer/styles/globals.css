@@ -708,8 +708,18 @@ a:hover {
   row-gap: 2px;
   align-items: center;
   padding: var(--space-3) 0;
-  padding-left: var(--space-6); /* 16px indent — spec §16.2 */
-  /* Parent-grouping guide removed (Pedro dogfood, post-#85): the 2px
+  /* Iter 6 (Pedro 2026-04-26 dogfood follow-up): the 16px subcategory
+   * indent (spec §16.2) lives on the `__name` cell — see below — NOT
+   * the grid container. Container-level `padding-left` shrank the
+   * subrow's inner grid by 16px relative to the parent row + header,
+   * so the `1fr` year tracks resolved to slightly narrower widths and
+   * the bars drifted left of the `2025` / `2026` header labels.
+   * Indenting the name cell instead keeps every grid container in the
+   * panel at the SAME inner width, so all rows + header share one
+   * column geometry. (Recipe captured in
+   * `.squad/skills/grid-header-row-alignment/SKILL.md`.)
+   *
+   * Parent-grouping guide removed (Pedro dogfood, post-#85): the 2px
    * left rule from amendment 1 §3.3 combined with the [role="group"]
    * wrapper's category-separator border-bottom (above + below) to
    * fake a box around expanded subgroups. Indentation alone now
@@ -723,7 +733,7 @@ a:hover {
    * minimums, 1:3 prior:current ratio, panel adapts to viewport width.
    * See `.ot-saldo-row--compare` for the full rationale. */
   grid-template-columns:
-    minmax(var(--saldo-col-name, max-content), 1fr)
+    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6)), 1fr)
     minmax(var(--saldo-col-prior, 0), 1fr)
     minmax(var(--saldo-col-current, 0), 3fr)
     var(--saldo-col-delta, max-content);
@@ -761,6 +771,9 @@ a:hover {
   font-size: var(--font-size-13);
   font-weight: var(--font-weight-regular);
   color: var(--color-text-secondary);
+  /* Iter 6: 16px subcategory indent (spec §16.2) lives here, not on
+   * the subrow grid container. See `.ot-saldo-subrow` above. */
+  padding-left: var(--space-6);
 }
 .ot-saldo-subrow--compare .ot-saldo-subrow__name {
   grid-column: 1 / 2;
