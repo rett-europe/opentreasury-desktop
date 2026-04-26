@@ -236,3 +236,86 @@ Verified @copilot's fix commit 91d3fc3 addressed all 3 of Neo's CHANGES_REQUESTE
 ### 2026-04-25 — PR #51 + #50 reconciliation (test coordination, merged)
 
 PR #51 (wi23-legacy-fixture-gate tests) closed as redundant — PR #50 already included both test cases I was proposing (fresh seed + legacy fixture smoke gate). Morpheus and I converged on the same solution independently. Branch deleted. Orchestration log + merge-train summary logged to `.squad/orchestration-log/` and `.squad/log/`.
+
+### 2026-04-29 — SPEC-023 Split Transactions — Wave 1 Anticipatory Test Plan (PR #62, issue #59)
+
+**Task:** Create anticipatory e2e test plan + skeleton test files for Split Transactions BEFORE Morpheus's IPC implementation lands (parallel worktree).
+
+**Deliverables (all in worktree C:\rettx\opentreasury-desktop-59-tests, branch squad/59-split-tests):**
+1. `tests/e2e/SPLIT-TRANSACTIONS-TEST-PLAN.md` — comprehensive test taxonomy mapping all 15 SPEC-023 acceptance criteria to test scenarios
+2. `tests/e2e/split-transactions.spec.ts` — 30+ skeleton e2e tests (HP/EC/BC/UX scenarios)
+3. `tests/e2e/split-transactions-bulk.spec.ts` — error states, aggregations, bulk update interactions
+4. `tests/unit/split-cents.test.md` — unit test plan for cents arithmetic (actual unit tests will be in Morpheus's reducer files)
+
+**Test Taxonomy Created:**
+- **Happy Path (HP-01 to HP-07):** Basic split flows — create 2-part/3-part splits, badge visibility, totals strip aggregation, category filter, remove split, offline operation
+- **Edge Cases Cents (EC-01 to EC-06):** Integer cents validation — 33+33+34=100 ✅, 33+33+33=99 ❌, negative amounts, zero-child rejection
+- **Boundary Conditions (BC-01 to BC-08):** Min 2 splits, max 20 splits, 500-char comment limit (499/500/501), nullable categories
+- **Error States (ES-01 to ES-07):** Parent amount edit rejection (`TX_HAS_ACTIVE_SPLITS`), bulk update skip logic, delete parent cascades to splits
+- **UI/UX (UX-01 to UX-07):** Keyboard nav, ARIA live regions, focus trap, i18n ES+EN, running total updates, save-button-disabled-until-valid
+- **Aggregations (AG-01 to AG-05):** Movements totals strip, Saldo category breakdown, Panel — all use split amounts NOT parent amount (FR9)
+- **CSV Export (EX-01 to EX-02):** Wave 3 future feature — one row per child, parent envelope not exported (SPEC-023 §6.6)
+
+**Pedro's 6 Locks — Test Coverage:**
+1. ✅ Integer cents — children sum EQUALS parent in cents (EC-01 to EC-06, unit tests)
+2. ✅ Parent amount edit rejected when split exists (ES-01, ES-02)
+3. ✅ Bulk update skips split parents — reports skip count (ES-03, ES-04)
+4. ✅ M1 — no crypto assumptions (all tests plaintext-only)
+5. ✅ CSV export one row per child (EX-01, EX-02 — Wave 3)
+6. ✅ 500-char limit on child comment (BC-05, BC-06, BC-07)
+
+**Performance Budget Note:**
+- Test plan includes PERF-01 for Wave 2: validate split-heavy dataset (500 split parents, 1500 split records) doesn't regress MovementsScreen 1500ms mount budget
+- Risk: split badge rendering + `hasSplits` checks. Mitigation: `splitParentIds` is a Set (O(1)), virtual table already handles 5000 rows efficiently
+
+**All Tests Skipped with Wave 2 Notes:**
+- Used `test.skip(true, 'Awaiting Wave 2 IPC wiring')` on all test bodies
+- Each test includes detailed Wave 2 wiring notes as comments:
+  - IPC channel to call (`tx:split`, `tx:split:remove`, `tx:split:get`)
+  - Expected payload/response shapes
+  - Assertions to wire (badge visibility, totals strip values, error codes)
+- Lint clean (removed unused `expect` and `electron` imports from skipped tests)
+
+**Open Questions for Wave 2 (documented in test plan):**
+1. **Final IPC error codes:** Placeholder assumptions — `SPLIT_SUM_MISMATCH`, `MIN_SPLITS_REQUIRED`, `MAX_SPLITS_EXCEEDED`. Awaiting Morpheus's actual codes.
+2. **Negative split amounts:** Spec doesn't explicitly address debits. Assumption: sign propagates from parent (test EC-05 flags this).
+3. **Zero-amount splits:** Spec says `positive()` constraint. Confirm zero is rejected.
+4. **Floating-point parent amounts:** What if parent is €1.005 (3 decimals from import)? Document rounding rule.
+
+**Pattern — Anticipatory Test-Driven Development:**
+- **Why it works:** Writing tests before implementation forces clarity on acceptance criteria, surfaces ambiguities early, and creates a clear wiring checklist for backend dev.
+- **When to use:** Complex features with parallel backend/frontend work where the contract (IPC shape) is stable even if implementation isn't done.
+- **When NOT to use:** Exploratory work where the contract is still evolving (would create churn).
+- **Split transactions was ideal:** SPEC-023 locked down the IPC contract (§7), event schemas (§6.1), and FR1-FR16 acceptance criteria. Pedro's 6 lock answers removed ambiguity. Tests could be written confidently against stable requirements.
+
+**Gotchas Found:**
+1. **Cents arithmetic edge cases are the real test surface:** The sum constraint (FR3) is the critical invariant. Most bugs will be rounding errors (33+33+33≠100). Exhaustive boundary tests (EC-01 to EC-06) + unit tests are essential.
+2. **Bulk update skip logic is subtle:** FR15 says skip split parents entirely (not just amount field). Test ES-03 validates the `skippedSplitParentCount` response field — easy to forget in implementation.
+3. **Aggregation touchpoints are widespread:** Five query functions must be updated (`effectiveAmounts()` helper pattern). AG-01 to AG-05 ensure no query is missed.
+4. **Performance risk is real:** Split badge rendering on 5000-row virtual table could regress mount time. PERF-01 documents the validation step for Wave 2.
+
+**Skills Identified (not yet written):**
+- `.squad/skills/anticipatory-test-planning/` — Pattern for writing e2e skeletons before backend lands. Key: stable contract + locked requirements + parallel work.
+- **Defer skill creation** until after Wave 2 wiring proves the pattern worked. If tests need major rework post-IPC, the pattern failed.
+
+**Outcome:**
+- PR #62 opened against main (NOT merged — awaiting Wave 2)
+- Issue #59 commented with summary
+- Lint clean, all files committed
+- Ready for Neo + Pedro review
+
+**Commands that worked:**
+- `git rev-parse --show-toplevel` to verify worktree path
+- `npm run lint` to validate skeletons compile
+- `gh pr create` with detailed body
+- `gh issue comment` to cross-reference PR
+
+**Next Steps (Wave 2 — not my task):**
+1. Morpheus lands IPC PR with `tx:split`, `tx:split:remove`, `tx:split:get` channels
+2. Remove `test.skip()` from tests
+3. Wire IPC calls and assertions per Wave 2 notes in each test
+4. Run `npm run build && npm run e2e` to validate
+5. Add split-heavy perf seed script (`--split-ratio=0.1`)
+6. Run PERF-01 to confirm no budget regression
+7. Update test plan with actual IPC error codes (replace placeholders)
+8. Merge PR #62 (or squash into Morpheus's PR as joint delivery)
