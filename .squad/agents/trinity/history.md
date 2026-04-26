@@ -1556,3 +1556,13 @@ Tests: 654 passing (lint + typecheck + vitest), prettier clean.
 Files: pp/src/renderer/screens/SaldoScreen/SaldoScreen.css, pp/src/renderer/screens/SaldoScreen/SaldoScreen.tsx, pp/src/renderer/styles/globals.css. +68 / -33.
 
 New skill drafted: .squad/skills/responsive-panel-width/SKILL.md — minmax(intrinsic-min, fr) grid + min-width: 0 on bar tracks for responsive bar visualisations.
+
+## 2026-04-26: Saldo Iter 6 — Subcategory expansion header alignment fixed
+
+**Agent:** trinity-saldo-iter6 (claude-opus-4.7, background mode)
+**Root Cause:** Sub-row grid container had 16px left padding (indent), which shrank the inner width. Year columns resolved narrower than the header row's column widths, causing misalignment when expanded.
+**Fix:** Moved indent from grid container padding to name cell margin/padding. Added + var(--space-6) to shared min-width calculation across header, parent row, and sub-row name columns, ensuring name column width stays consistent.
+**Commit:** 2ec7560
+**Quality:** Lint/typecheck/format green, 654 tests passing.
+**Skill Update:** grid-header-row-alignment bumped to HIGH confidence with new dedenting rule.
+**Outcome:** Subcategory rows now align perfectly with header columns when expanded. Year columns no longer resolve narrower due to container padding shrinkage.

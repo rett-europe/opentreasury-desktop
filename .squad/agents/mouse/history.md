@@ -520,3 +520,11 @@ Pedro re-opened Saldo after #78 closed. Three rounds of feedback, all merged int
 **Locked rule (Pedro, #87):** When two CSS cues combine to over-signal (e.g., left guide + category separator forming a box), drop the weaker cue rather than tuning both — for row nesting, prefer indentation over borders.
 
 **Mechanic:** `gh pr review --approve` is blocked on owner-authored PRs; use `gh pr review --comment "APPROVE: ..."` so the signal is grep-able.
+## 2026-04-26: Saldo Iter 6 — Subcategory expansion header alignment fixed
+
+**Related:** Trinity-saldo-iter6 (claude-opus-4.7)
+**Context:** Fixed header-to-sub-row column misalignment when subcategories expanded in saldo view.
+**Root Cause:** Sub-row grid container padding-left shrank inner width; year columns resolved narrower than header.
+**Solution:** Indent moved to name cell; shared min-width across header/parent/sub-row with +space-6 buffer.
+**Commit:** 2ec7560 — all tests passing (654), lint/typecheck green.
+**Outcome:** Visual alignment now perfect when expanding subcategories.
