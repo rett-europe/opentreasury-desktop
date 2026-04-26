@@ -7,7 +7,10 @@ import { newUlid } from '../../utils/ulid.js';
 import { createSplit, removeSplit, getSplits } from '../../services/splitsApi.js';
 import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
 import type { CategoryRecord } from '../../types/config.js';
-import { MAX_SPLITS_PER_TX, SPLIT_COMMENT_MAX } from '../../../shared/ipc-contracts/transaction-splits.js';
+import {
+  MAX_SPLITS_PER_TX,
+  SPLIT_COMMENT_MAX,
+} from '../../../shared/ipc-contracts/transaction-splits.js';
 
 export interface SplitTransactionModalProps {
   readonly isOpen: boolean;
@@ -71,7 +74,9 @@ export function SplitTransactionModal({
           setSplits(rows);
           setInitialSplits(JSON.parse(JSON.stringify(rows)));
         } else {
-          setGeneralError(t(`split.errors.${result.error.code}`, { defaultValue: result.error.message }));
+          setGeneralError(
+            t(`split.errors.${result.error.code}`, { defaultValue: result.error.message }),
+          );
         }
       } else {
         const empty: SplitRow[] = [
@@ -153,11 +158,7 @@ export function SplitTransactionModal({
   };
 
   const handleCategoryChange = (id: string, categoryId: string): void => {
-    setSplits(
-      splits.map((s) =>
-        s.id === id ? { ...s, categoryId, subcategoryId: '' } : s
-      )
-    );
+    setSplits(splits.map((s) => (s.id === id ? { ...s, categoryId, subcategoryId: '' } : s)));
   };
 
   const handleSubcategoryChange = (id: string, subcategoryId: string): void => {
@@ -208,7 +209,9 @@ export function SplitTransactionModal({
         onSplitSaved();
         onClose();
       } else {
-        setGeneralError(t(`split.errors.${result.error.code}`, { defaultValue: result.error.message }));
+        setGeneralError(
+          t(`split.errors.${result.error.code}`, { defaultValue: result.error.message }),
+        );
       }
     } catch (err) {
       console.error('Failed to save split:', err);
@@ -234,7 +237,9 @@ export function SplitTransactionModal({
         onSplitSaved();
         onClose();
       } else {
-        setGeneralError(t(`split.errors.${result.error.code}`, { defaultValue: result.error.message }));
+        setGeneralError(
+          t(`split.errors.${result.error.code}`, { defaultValue: result.error.message }),
+        );
       }
     } catch (err) {
       console.error('Failed to remove split:', err);
@@ -274,9 +279,8 @@ export function SplitTransactionModal({
 
       <div className="ot-split-modal__body">
         <div className="ot-split-modal__original">
-          <strong>{t('split.modal.originalLabel')}:</strong>{' '}
-          {formatDate(transaction.date, locale)} · {transaction.description} ·{' '}
-          {formatter.format(totalEur)}
+          <strong>{t('split.modal.originalLabel')}:</strong> {formatDate(transaction.date, locale)}{' '}
+          · {transaction.description} · {formatter.format(totalEur)}
         </div>
 
         {generalError && (
@@ -371,7 +375,9 @@ export function SplitTransactionModal({
             onClick={handleAddPart}
             disabled={splits.length >= MAX_SPLITS_PER_TX}
             className="ot-split-modal__add-part"
-            title={splits.length >= MAX_SPLITS_PER_TX ? t('split.modal.maxPartsWarning') : undefined}
+            title={
+              splits.length >= MAX_SPLITS_PER_TX ? t('split.modal.maxPartsWarning') : undefined
+            }
           >
             {t('split.modal.addPart')}
           </button>
@@ -397,9 +403,7 @@ export function SplitTransactionModal({
             </div>
           )}
           {splits.length < 2 && (
-            <div className="ot-split-delta__warning">
-              ⚠ {t('split.modal.minPartsWarning')}
-            </div>
+            <div className="ot-split-delta__warning">⚠ {t('split.modal.minPartsWarning')}</div>
           )}
         </div>
       </div>
@@ -417,10 +421,18 @@ export function SplitTransactionModal({
           )}
         </div>
         <div className="ot-split-modal__footer-right">
-          <Button variant="secondary" onClick={handleCancelClick} disabled={isSubmitting || isRemoving}>
+          <Button
+            variant="secondary"
+            onClick={handleCancelClick}
+            disabled={isSubmitting || isRemoving}
+          >
             {t('split.modal.cancel')}
           </Button>
-          <Button variant="primary" onClick={handleSave} disabled={!canSubmit || isSubmitting || isRemoving}>
+          <Button
+            variant="primary"
+            onClick={handleSave}
+            disabled={!canSubmit || isSubmitting || isRemoving}
+          >
             {isSubmitting ? t('split.modal.saving') : t('split.modal.save')}
           </Button>
         </div>
@@ -435,7 +447,13 @@ export function SplitTransactionModal({
               <Button variant="secondary" onClick={() => setShowDiscardConfirm(false)}>
                 {t('split.modal.discardCancel')}
               </Button>
-              <Button variant="destructive" onClick={() => { setShowDiscardConfirm(false); onClose(); }}>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setShowDiscardConfirm(false);
+                  onClose();
+                }}
+              >
                 {t('split.modal.discardConfirm')}
               </Button>
             </div>
