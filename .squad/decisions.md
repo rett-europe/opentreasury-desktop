@@ -6414,3 +6414,39 @@ CI `format:check` recurringly red (PR #63, #68). Two-PR delivery:
 3. **Two-PR strategy** kept review sane despite mechanical changes: #73 unblocks CI immediately; #74 has no CI impact (repo already LF) and no rush.
 
 CI step ordering left as-is: lint → `format:check` → tests → build. Pre-commit hook is the upstream guard; CI is the backstop.
+
+---
+
+## Process / Pairing
+
+### 2026-04-26: User Directive — Mouse + Trinity Pairing for UI Work
+
+**Date:** 2026-04-26  
+**Status:** 📋 DIRECTIVE (active going forward)  
+**By:** Pedro (perocha) — via Copilot  
+**Agents:** Mouse (visual judgment), Trinity (renderer code)
+
+#### Directive
+
+Pair Mouse + Trinity on UI work whenever possible (and analogous visual + code pairs). Mouse owns visual judgment / prototype fidelity (Opus + vision); Trinity owns the renderer code (.tsx/.css). 
+
+**Default pattern going forward:**
+1. Mouse drafts the visual spec / reviews against the prototype.
+2. Trinity implements and ships the diff.
+3. Solo Mouse **only** when it's pure design/spec work (no code interpretation).
+4. Solo Trinity **only** when there's no visual reference to interpret.
+
+#### Rationale
+
+PR #91 (Saldo compare-mode layout) went 3 iterations because Mouse interpreted the prototype AND edited the JSX in the same turn — the dual responsibility produced misreads and layout pivots. Pairing separates two concerns cleanly:
+
+- **Mouse asks:** "Is this what the prototype shows?"
+- **Trinity asks:** "Is the React tree correct?"
+
+This reduces single-agent risk and keeps roles aligned with outing.md.
+
+#### Locked Rules
+
+1. **Separate "what does the prototype show?" from "is the React tree correct?"** — these are independent questions and require independent judgment.
+2. **Visual reference is authoritative** — Mouse interprets prototype; Trinity consumes Mouse's judgment as the spec.
+3. **Visual regression is Trinity's responsibility post-implementation** — Mouse reviews the shipped code against prototype before merge.
