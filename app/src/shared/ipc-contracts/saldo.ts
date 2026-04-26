@@ -45,6 +45,19 @@ export type SaldoComparisonRequest = z.infer<typeof saldoComparisonRequestSchema
 // Response — nested shapes
 // ============================================================================
 
+// Subcategory-level net for one period. Structure mirrors SaldoCategoryNet.
+// `subcategoryId=null` represents transactions that have no subcategory assigned.
+export const saldoSubcategoryNetSchema = z.object({
+  subcategoryId: z.string().nullable(),
+  // `null` when the transaction's subcategory is missing (deleted/archived)
+  // or the bucket is the explicit uncategorized bucket (subcategoryId === null).
+  // The renderer resolves a locale-appropriate label via i18n.
+  subcategoryName: z.string().nullable(),
+  income: z.number().nonnegative(),
+  expense: z.number().nonnegative(),
+});
+export type SaldoSubcategoryNet = z.infer<typeof saldoSubcategoryNetSchema>;
+
 // Signed net per category for one period. `categoryId=null` is the
 // "uncategorized" bucket. `income`/`expense` are non-negative amounts (so
 // `net = income - expense`).
@@ -56,6 +69,11 @@ export const saldoCategoryNetSchema = z.object({
   categoryName: z.string().nullable(),
   income: z.number().nonnegative(),
   expense: z.number().nonnegative(),
+  // WI-B prerequisite (#67): per-subcategory breakdown for this category.
+  // Optional at the wire level for backwards compatibility; always populated
+  // by the projection (may be empty array for categories with no subcategorized
+  // transactions). Sorted by current-period abs(income - expense) descending.
+  subcategories: z.array(saldoSubcategoryNetSchema).optional(),
 });
 export type SaldoCategoryNet = z.infer<typeof saldoCategoryNetSchema>;
 

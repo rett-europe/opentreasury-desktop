@@ -562,3 +562,82 @@ describe('Saldo — boundary cases', () => {
     }
   });
 });
+
+// WI-B prerequisite (#67) — property test for subcategory sum invariants
+describe('Saldo — subcategory aggregation invariants (WI-B #67)', () => {
+  it('Property: sum(subcategories[].income) === category.income for all categories (both periods)', () => {
+    fc.assert(
+      fc.property(eventLogArb, periodArb, anchorArb, nowArb, (events, period, anchor, now) => {
+        const txs = projectEvents(events);
+        const model = toReadModel(txs, categoryIdPool);
+        const res = getSaldoComparison(
+          { period, anchor },
+          { now: () => now, getReadModel: () => model },
+        );
+
+        // Check currentPeriod: for every category, sum of subcategory income must equal category income
+        for (const cat of res.currentPeriod.netByCategory) {
+          if (cat.subcategories && cat.subcategories.length > 0) {
+            const subIncomeCents = cat.subcategories.reduce(
+              (s, sub) => s + Math.round(sub.income * 100),
+              0,
+            );
+            const catIncomeCents = Math.round(cat.income * 100);
+            expect(subIncomeCents).toBe(catIncomeCents);
+          }
+        }
+
+        // Check priorPeriod: same invariant
+        for (const cat of res.priorPeriod.netByCategory) {
+          if (cat.subcategories && cat.subcategories.length > 0) {
+            const subIncomeCents = cat.subcategories.reduce(
+              (s, sub) => s + Math.round(sub.income * 100),
+              0,
+            );
+            const catIncomeCents = Math.round(cat.income * 100);
+            expect(subIncomeCents).toBe(catIncomeCents);
+          }
+        }
+      }),
+      { numRuns: 120, verbose: true },
+    );
+  });
+
+  it('Property: sum(subcategories[].expense) === category.expense for all categories (both periods)', () => {
+    fc.assert(
+      fc.property(eventLogArb, periodArb, anchorArb, nowArb, (events, period, anchor, now) => {
+        const txs = projectEvents(events);
+        const model = toReadModel(txs, categoryIdPool);
+        const res = getSaldoComparison(
+          { period, anchor },
+          { now: () => now, getReadModel: () => model },
+        );
+
+        // Check currentPeriod
+        for (const cat of res.currentPeriod.netByCategory) {
+          if (cat.subcategories && cat.subcategories.length > 0) {
+            const subExpenseCents = cat.subcategories.reduce(
+              (s, sub) => s + Math.round(sub.expense * 100),
+              0,
+            );
+            const catExpenseCents = Math.round(cat.expense * 100);
+            expect(subExpenseCents).toBe(catExpenseCents);
+          }
+        }
+
+        // Check priorPeriod
+        for (const cat of res.priorPeriod.netByCategory) {
+          if (cat.subcategories && cat.subcategories.length > 0) {
+            const subExpenseCents = cat.subcategories.reduce(
+              (s, sub) => s + Math.round(sub.expense * 100),
+              0,
+            );
+            const catExpenseCents = Math.round(cat.expense * 100);
+            expect(subExpenseCents).toBe(catExpenseCents);
+          }
+        }
+      }),
+      { numRuns: 120, verbose: true },
+    );
+  });
+});

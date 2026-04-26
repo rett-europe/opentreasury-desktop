@@ -159,6 +159,14 @@ describe('getSaldoComparison — aggregation', () => {
       categoryName: 'Donaciones',
       income: 800,
       expense: 0,
+      subcategories: [
+        {
+          subcategoryId: null,
+          subcategoryName: null,
+          income: 800,
+          expense: 0,
+        },
+      ],
     });
   });
 
@@ -171,6 +179,14 @@ describe('getSaldoComparison — aggregation', () => {
       categoryName: null,
       income: 50,
       expense: 0,
+      subcategories: [
+        {
+          subcategoryId: null,
+          subcategoryName: null,
+          income: 50,
+          expense: 0,
+        },
+      ],
     });
   });
 
@@ -371,5 +387,363 @@ describe('getSaldoComparison — biggest category growth', () => {
     expect(res.kpis.biggestCategoryGrowth).not.toBeNull();
     expect(res.kpis.biggestCategoryGrowth!.categoryId).toBe('c1');
     expect(res.kpis.biggestCategoryGrowth!.deltaPct).toBeCloseTo(1.0, 6);
+  });
+});
+
+// WI-B prerequisite (#67) — per-subcategory aggregation extension
+describe('getSaldoComparison — subcategory aggregation (WI-B #67)', () => {
+  it('populates subcategories array with income/expense per subcategory', () => {
+    const model = makeModel(
+      [
+        { date: '2026-04-10', type: 'income', amount: 500, categoryId: 'c1', subcategoryId: 's1' },
+        { date: '2026-04-15', type: 'income', amount: 300, categoryId: 'c1', subcategoryId: 's2' },
+        { date: '2026-04-20', type: 'expense', amount: 120, categoryId: 'c1', subcategoryId: 's1' },
+      ],
+      [
+        {
+          id: 'c1',
+          name: 'Donaciones',
+          subcategories: [
+            { id: 's1', parentCategoryId: 'c1', name: 'Socios', createdAt: '2025-01-01T00:00:00Z' },
+            {
+              id: 's2',
+              parentCategoryId: 'c1',
+              name: 'Empresas',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+    );
+
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const c1 = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+
+    expect(c1).toBeDefined();
+    expect(c1!.subcategories).toBeDefined();
+    expect(c1!.subcategories).toHaveLength(2);
+
+    // Sorted by abs(income - expense) desc: s1 has net 380, s2 has net 300
+    expect(c1!.subcategories![0]).toEqual({
+      subcategoryId: 's1',
+      subcategoryName: 'Socios',
+      income: 500,
+      expense: 120,
+    });
+    expect(c1!.subcategories![1]).toEqual({
+      subcategoryId: 's2',
+      subcategoryName: 'Empresas',
+      income: 300,
+      expense: 0,
+    });
+  });
+
+  it('sum of subcategory income equals category income (invariant AC3)', () => {
+    const model = makeModel(
+      [
+        { date: '2026-04-10', type: 'income', amount: 500, categoryId: 'c1', subcategoryId: 's1' },
+        { date: '2026-04-15', type: 'income', amount: 300, categoryId: 'c1', subcategoryId: 's2' },
+        { date: '2026-04-20', type: 'income', amount: 200, categoryId: 'c1', subcategoryId: 's3' },
+      ],
+      [
+        {
+          id: 'c1',
+          name: 'Donaciones',
+          subcategories: [
+            { id: 's1', parentCategoryId: 'c1', name: 'Socios', createdAt: '2025-01-01T00:00:00Z' },
+            {
+              id: 's2',
+              parentCategoryId: 'c1',
+              name: 'Empresas',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+            {
+              id: 's3',
+              parentCategoryId: 'c1',
+              name: 'Eventos',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+    );
+
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const c1 = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+
+    expect(c1).toBeDefined();
+    const sumSubcategoryIncome = c1!.subcategories!.reduce((acc, s) => acc + s.income, 0);
+    expect(sumSubcategoryIncome).toBe(c1!.income);
+  });
+
+  it('sum of subcategory expense equals category expense (invariant AC4)', () => {
+    const model = makeModel(
+      [
+        { date: '2026-04-10', type: 'expense', amount: 100, categoryId: 'c1', subcategoryId: 's1' },
+        { date: '2026-04-15', type: 'expense', amount: 200, categoryId: 'c1', subcategoryId: 's2' },
+        { date: '2026-04-20', type: 'expense', amount: 50, categoryId: 'c1', subcategoryId: 's3' },
+      ],
+      [
+        {
+          id: 'c1',
+          name: 'Gastos',
+          subcategories: [
+            {
+              id: 's1',
+              parentCategoryId: 'c1',
+              name: 'Salarios',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+            {
+              id: 's2',
+              parentCategoryId: 'c1',
+              name: 'Seguridad Social',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+            {
+              id: 's3',
+              parentCategoryId: 'c1',
+              name: 'Formación',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+    );
+
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const c1 = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+
+    expect(c1).toBeDefined();
+    const sumSubcategoryExpense = c1!.subcategories!.reduce((acc, s) => acc + s.expense, 0);
+    expect(sumSubcategoryExpense).toBe(c1!.expense);
+  });
+
+  it('sorts subcategories by abs(income - expense) descending (AC5)', () => {
+    const model = makeModel(
+      [
+        { date: '2026-04-10', type: 'income', amount: 100, categoryId: 'c1', subcategoryId: 's1' }, // net: 100
+        { date: '2026-04-15', type: 'income', amount: 500, categoryId: 'c1', subcategoryId: 's2' }, // net: 500
+        {
+          date: '2026-04-20',
+          type: 'expense',
+          amount: 400,
+          categoryId: 'c1',
+          subcategoryId: 's3',
+        }, // net: -400 (abs 400)
+        { date: '2026-04-25', type: 'income', amount: 50, categoryId: 'c1', subcategoryId: 's4' }, // net: 50
+      ],
+      [
+        {
+          id: 'c1',
+          name: 'Mixed',
+          subcategories: [
+            { id: 's1', parentCategoryId: 'c1', name: 'Sub1', createdAt: '2025-01-01T00:00:00Z' },
+            { id: 's2', parentCategoryId: 'c1', name: 'Sub2', createdAt: '2025-01-01T00:00:00Z' },
+            { id: 's3', parentCategoryId: 'c1', name: 'Sub3', createdAt: '2025-01-01T00:00:00Z' },
+            { id: 's4', parentCategoryId: 'c1', name: 'Sub4', createdAt: '2025-01-01T00:00:00Z' },
+          ],
+        },
+      ],
+    );
+
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const c1 = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+
+    expect(c1).toBeDefined();
+    expect(c1!.subcategories).toHaveLength(4);
+    // Order: s2 (500), s3 (400), s1 (100), s4 (50)
+    expect(c1!.subcategories![0]!.subcategoryId).toBe('s2');
+    expect(c1!.subcategories![1]!.subcategoryId).toBe('s3');
+    expect(c1!.subcategories![2]!.subcategoryId).toBe('s1');
+    expect(c1!.subcategories![3]!.subcategoryId).toBe('s4');
+  });
+
+  it('excludes subcategories with both income == 0 AND expense == 0', () => {
+    const model = makeModel(
+      [
+        { date: '2026-04-10', type: 'income', amount: 500, categoryId: 'c1', subcategoryId: 's1' },
+        // s2 has no transactions, should NOT appear
+      ],
+      [
+        {
+          id: 'c1',
+          name: 'Donaciones',
+          subcategories: [
+            { id: 's1', parentCategoryId: 'c1', name: 'Socios', createdAt: '2025-01-01T00:00:00Z' },
+            {
+              id: 's2',
+              parentCategoryId: 'c1',
+              name: 'Empresas',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+    );
+
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const c1 = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+
+    expect(c1).toBeDefined();
+    expect(c1!.subcategories).toHaveLength(1);
+    expect(c1!.subcategories![0]!.subcategoryId).toBe('s1');
+  });
+
+  it('handles categories with no subcategorized transactions (empty array)', () => {
+    const model = makeModel(
+      [{ date: '2026-04-10', type: 'income', amount: 500, categoryId: 'c1', subcategoryId: null }],
+      [
+        {
+          id: 'c1',
+          name: 'Donaciones',
+          subcategories: [
+            { id: 's1', parentCategoryId: 'c1', name: 'Socios', createdAt: '2025-01-01T00:00:00Z' },
+          ],
+        },
+      ],
+    );
+
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const c1 = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+
+    expect(c1).toBeDefined();
+    // Transaction has subcategoryId=null, which creates a null subcategory entry
+    // (this represents uncategorized transactions within the category)
+    expect(c1!.subcategories).toHaveLength(1);
+    expect(c1!.subcategories![0]!.subcategoryId).toBeNull();
+    expect(c1!.subcategories![0]!.subcategoryName).toBeNull();
+    expect(c1!.subcategories![0]!.income).toBe(500);
+  });
+
+  it('resolves archived subcategory names (AC6)', () => {
+    const model = makeModel(
+      [{ date: '2026-04-10', type: 'income', amount: 500, categoryId: 'c1', subcategoryId: 's1' }],
+      [
+        {
+          id: 'c1',
+          name: 'Donaciones',
+          subcategories: [
+            {
+              id: 's1',
+              parentCategoryId: 'c1',
+              name: 'Archived Sub',
+              createdAt: '2025-01-01T00:00:00Z',
+              archivedAt: '2026-01-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+    );
+
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const c1 = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+
+    expect(c1).toBeDefined();
+    expect(c1!.subcategories).toHaveLength(1);
+    expect(c1!.subcategories![0]!.subcategoryName).toBe('Archived Sub');
+  });
+
+  it('resolves deleted subcategory name to null (AC7)', () => {
+    const model = makeModel(
+      [
+        {
+          date: '2026-04-10',
+          type: 'income',
+          amount: 500,
+          categoryId: 'c1',
+          subcategoryId: 's-deleted',
+        },
+      ],
+      [
+        {
+          id: 'c1',
+          name: 'Donaciones',
+          subcategories: [], // subcategory was deleted
+        },
+      ],
+    );
+
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const c1 = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+
+    expect(c1).toBeDefined();
+    expect(c1!.subcategories).toHaveLength(1);
+    expect(c1!.subcategories![0]!.subcategoryId).toBe('s-deleted');
+    expect(c1!.subcategories![0]!.subcategoryName).toBeNull();
+  });
+
+  it('populates subcategories for both currentPeriod and priorPeriod', () => {
+    const model = makeModel(
+      [
+        // 2026
+        { date: '2026-04-10', type: 'income', amount: 500, categoryId: 'c1', subcategoryId: 's1' },
+        { date: '2026-04-15', type: 'income', amount: 300, categoryId: 'c1', subcategoryId: 's2' },
+        // 2025
+        { date: '2025-04-10', type: 'income', amount: 400, categoryId: 'c1', subcategoryId: 's1' },
+        { date: '2025-04-15', type: 'income', amount: 100, categoryId: 'c1', subcategoryId: 's2' },
+      ],
+      [
+        {
+          id: 'c1',
+          name: 'Donaciones',
+          subcategories: [
+            { id: 's1', parentCategoryId: 'c1', name: 'Socios', createdAt: '2025-01-01T00:00:00Z' },
+            {
+              id: 's2',
+              parentCategoryId: 'c1',
+              name: 'Empresas',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+    );
+
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const currentC1 = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+    const priorC1 = res.priorPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+
+    expect(currentC1!.subcategories).toHaveLength(2);
+    expect(priorC1!.subcategories).toHaveLength(2);
+
+    // Current: s1 has 500, s2 has 300
+    expect(currentC1!.subcategories![0]!.subcategoryId).toBe('s1');
+    expect(currentC1!.subcategories![0]!.income).toBe(500);
+
+    // Prior: s1 has 400, s2 has 100
+    expect(priorC1!.subcategories![0]!.subcategoryId).toBe('s1');
+    expect(priorC1!.subcategories![0]!.income).toBe(400);
+  });
+
+  it('handles transactions with null subcategoryId (uncategorized subcategory)', () => {
+    const model = makeModel(
+      [
+        { date: '2026-04-10', type: 'income', amount: 500, categoryId: 'c1', subcategoryId: 's1' },
+        { date: '2026-04-15', type: 'income', amount: 300, categoryId: 'c1', subcategoryId: null },
+      ],
+      [
+        {
+          id: 'c1',
+          name: 'Donaciones',
+          subcategories: [
+            { id: 's1', parentCategoryId: 'c1', name: 'Socios', createdAt: '2025-01-01T00:00:00Z' },
+          ],
+        },
+      ],
+    );
+
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const c1 = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+
+    expect(c1).toBeDefined();
+    expect(c1!.income).toBe(800); // total includes both subcategorized and not
+    expect(c1!.subcategories).toHaveLength(2);
+
+    // Should have s1 and null subcategory
+    const nullSub = c1!.subcategories!.find((s) => s.subcategoryId === null);
+    expect(nullSub).toBeDefined();
+    expect(nullSub!.subcategoryName).toBeNull();
+    expect(nullSub!.income).toBe(300);
   });
 });
