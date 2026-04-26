@@ -710,10 +710,19 @@ a:hover {
   border-bottom: 0;
 }
 .ot-saldo-subrow--compare {
-  grid-template-columns: 1fr auto 1fr auto auto;
+  /* Issue #78 follow-up — share the panel-level column widths defined on
+   * `.ot-saldo-panel__rows` so subrows align with each other (and with the
+   * parent rows) at the bars column. See the matching recipe in
+   * SaldoScreen.css for the row-level grid template. */
+  grid-template-columns:
+    1fr var(--saldo-col-prior, max-content) 1fr var(--saldo-col-current, max-content)
+    var(--saldo-col-delta, max-content);
 }
 .ot-saldo-subrow--single {
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr var(--saldo-col-current, max-content) var(
+      --saldo-col-delta,
+      max-content
+    );
 }
 
 /* Visual close-out: extra breathing room after the last subrow
