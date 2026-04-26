@@ -222,6 +222,12 @@ a:hover {
   place-items: center;
   flex-shrink: 0;
 }
+.ot-kpi__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
 /* Tone modifiers drive KPI tile icon bg + icon glyph + value color from tokens.
  * Prototype (panel.jsx KpiCard) sets `{ background: t.bg, color: t.fg }` on the
  * icon and `{ color: t.fg }` on the value — glyph color matches the value tone,
@@ -259,6 +265,11 @@ a:hover {
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+  margin-top: 2px;
+}
+.ot-kpi__sublabel {
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
   margin-top: 2px;
 }
 .ot-kpi__delta {

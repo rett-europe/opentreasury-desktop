@@ -2,6 +2,36 @@
   /* Main layout follows existing screen patterns (Panel, Saldo) */
 }
 
+/* Loading and error states */
+.ot-insights__loading {
+  padding: var(--space-9);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.ot-insights__error {
+  max-width: 540px;
+  margin: var(--space-11) auto;
+  text-align: center;
+}
+
+.ot-insights__retry {
+  margin-top: var(--space-5);
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-14);
+  cursor: pointer;
+  transition: background 150ms;
+}
+
+.ot-insights__retry:hover {
+  background: var(--color-surface-secondary);
+}
+
+/* Empty state (zero tags or zero data) */
 .ot-insights__empty-state {
   max-width: 540px;
   margin: var(--space-11) auto;
@@ -34,4 +64,169 @@
   line-height: 1.5;
   margin: 0;
   max-width: 400px;
+}
+
+/* Tag card grid — responsive per spec §3.4 */
+.ot-tag-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+  /* Allow shrinking below min-content in parent flex/grid */
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .ot-tag-cards {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: var(--space-4);
+  }
+}
+
+/* TagCard component */
+.ot-tag-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6);
+  cursor: pointer;
+  transition:
+    transform 150ms,
+    box-shadow 150ms;
+  /* Allow shrinking in horizontal scroll */
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .ot-tag-card {
+    flex: 0 0 280px;
+    scroll-snap-align: start;
+  }
+}
+
+.ot-tag-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.ot-tag-card:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Card header: color dot + name + badge */
+.ot-tag-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ot-tag-card__color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ot-tag-card__name {
+  flex: 1;
+  font-size: var(--font-size-15);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  /* Truncate at 24ch per spec */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.ot-tag-card__badge {
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
+  background: var(--color-surface-secondary);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Metrics row — 3-column grid for volume mode */
+.ot-tag-card__metrics {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.ot-tag-card__metrics--volume {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.ot-tag-card__metrics--net,
+.ot-tag-card__metrics--count {
+  grid-template-columns: 1fr;
+}
+
+.ot-tag-card__metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-tag-card__metric--hero {
+  align-items: center;
+  padding: var(--space-5) 0;
+}
+
+.ot-tag-card__metric-label {
+  font-size: var(--font-size-11);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.ot-tag-card__metric-value {
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.ot-tag-card__metric-value--hero {
+  font-size: var(--font-size-28);
+}
+
+/* Sparkline */
+.ot-tag-card__sparkline {
+  height: 32px;
+  margin: var(--space-2) 0;
+}
+
+.ot-sparkline {
+  width: 100%;
+  height: 100%;
+  color: var(--color-chart-primary);
+}
+
+/* Footer: top categories */
+.ot-tag-card__footer {
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Footnote about multi-label overlap */
+.ot-insights__footnote {
+  margin-top: var(--space-7);
+  padding: var(--space-5) var(--space-6);
+  font-size: var(--font-size-13);
+  color: var(--color-text-muted);
+  background: var(--color-surface-secondary);
+  border-left: 3px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
 }
