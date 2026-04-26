@@ -111,10 +111,7 @@ export function Table<T>({
     const handleRowActivate = (): void => {
       if (onRowClick) onRowClick(row);
     };
-    const rowClasses = [
-      clickable ? 'ot-table__row--clickable' : '',
-      getRowClassName?.(row) ?? '',
-    ]
+    const rowClasses = [clickable ? 'ot-table__row--clickable' : '', getRowClassName?.(row) ?? '']
       .filter(Boolean)
       .join(' ');
     return (
