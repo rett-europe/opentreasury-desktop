@@ -189,6 +189,24 @@
       },
       "empty": "No categories in this year",
       "uncategorized": "Uncategorized"
+    },
+    "subcategories": {
+      "toggle": "Show subcategories",
+      "toggleAriaClosed": "Show subcategories. State: closed",
+      "toggleAriaOpen": "Show subcategories. State: open",
+      "toggleDisabledTooltip": "Insufficient data to compare subcategories",
+      "expandedAnnounce_one": "{{count}} category expanded with subcategories",
+      "expandedAnnounce_other": "{{count}} categories expanded with subcategories",
+      "collapsedAnnounce": "Summary view by categories",
+      "uncategorized": "Uncategorized",
+      "otras": {
+        "label": "Other subcategories",
+        "tooltip_one": "{{count}} subcategory: {{names}}",
+        "tooltip_other": "{{count}} subcategories: {{names}}"
+      },
+      "row": {
+        "aria": "{{subcategoryName}}, subcategory of {{categoryName}}. Current year: {{current}}. Prior year: {{prior}}. Delta: {{delta}}."
+      }
     }
   },
   "movements": {
