@@ -109,3 +109,37 @@ No new CSS tokens. No grid template changes. `.ot-saldo-subrow--compare/--single
 - **Mouse:** CSS — add `.ot-saldo-toggle-subcategories--inline`, the left guide on `.ot-saldo-subrow`, and the `padding-bottom` bump.
 - **Trinity:** TSX — render `SubcategoryToggle` twice (one per panel) with the inline modifier, anchored in `.ot-saldo-panel__columns`; remove from `.ot-saldo-controls`. Lift `panelMaxAbs` computation into the panel render and thread to row + subrow components. Change `TOP_N` for subrows from 8 to 5 in the aggregation helper.
 - Update tests per §5. Run existing Saldo Playwright/Vitest suites.
+
+
+---
+
+## Amendment 1 follow-up — drop the parent-grouping guide (Pedro dogfood, post-#85)
+
+> **Status:** Applied · **Owner:** Mouse (CSS) · **Date:** 2026-04-30
+> **Issue:** [#78](https://github.com/rett-europe/opentreasury-desktop/issues/78) follow-up to PR [#85](https://github.com/rett-europe/opentreasury-desktop/pull/85)
+
+This section supersedes §3.3's 2px left guide. §3.3 itself is preserved above so the spec's evolution stays auditable.
+
+**What §3.3 specified.** A 2px `border-left: var(--color-divider)` on `.ot-saldo-subrow`, inset by the existing `padding-left: var(--space-6)`, as a quiet vertical tick anchoring each indented sub-group to its parent.
+
+**What dogfood found (Pedro, post-#85).**
+
+> "I still see those borders, not sure if it's on purpose" — around the whole expanded subgroup (containing all subrows under a parent).
+
+In the shipped layout three edges combine to fake a box around an expanded subgroup:
+
+1. **Top edge** — the *previous* category's `[role="group"]` wrapper draws a `border-bottom` (legitimate category separator) immediately above the current parent row.
+2. **Left edge** — the 2px `.ot-saldo-subrow` left guide from §3.3 runs the full height of the expanded subgroup.
+3. **Bottom edge** — the current category's wrapper `border-bottom` closes the bottom.
+
+The 2px left guide is the dominant contributor and the only edge genuinely tying the three lines into a closed rectangle; the bottoms in isolation read as plain horizontal category dividers.
+
+**Decision.** Drop the 2px left guide on `.ot-saldo-subrow`. The existing 16px `padding-left` indent (§16.2) alone signals nesting; the category separator stays as the legitimate horizontal rule between groups. No new tokens, no new selectors.
+
+**Class contract delta vs §4.**
+
+| Change | Class | Notes |
+|---|---|---|
+| Remove | `.ot-saldo-subrow { border-left: 2px solid var(--color-divider); }` | Replaced by `border-left: 0`. Indentation alone communicates nesting. |
+
+All other amendment-1 decisions stand: inline toggle (§2), shared per-panel scale (§3.1), top-5 + Otras cap (§3.2), promoted last-child padding-bottom (§3.3 second bullet, kept). Markup is unchanged; only the one declaration is reverted.
