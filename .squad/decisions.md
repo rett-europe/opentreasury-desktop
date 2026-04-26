@@ -2,6 +2,38 @@
 
 ## Active Decisions
 
+### 2026-04-26: Saldo Subcategory Drilldown — Drop §3.3 Left Guide (post-#78 dogfood, PR #87)
+
+**Date:** 2026-04-26
+**Status:** ✅ MERGED (PR #87 → `main`)
+**Agents:** Mouse (implementation), Neo (consult), Niobe (spec ownership)
+**Requested by:** Pedro (perocha) — round 3 of post-#78 Saldo dogfood feedback.
+
+#### Decision
+
+Per Pedro dogfood (#87): when amendment §3.3 left guide combines with category separator to form a perceptual box, drop the guide — indentation alone signals nesting.
+
+The 2px parent-grouping `border-left` on `.ot-saldo-subrow` (introduced in #81 per `ux-004a-saldo-subcategory-drilldown-amendment-1.md` §3.3) was removed. The 16px content indent stays as the sole nesting cue.
+
+#### Generalization (locked rule)
+
+When two CSS cues combine to over-signal (e.g., a left guide + a category separator border that together fake a box), **drop the weaker cue rather than tuning both**. For row nesting, prefer indentation over borders.
+
+#### Spec-amendment convention
+
+Amendments to already-amended specs are appended (new section at end), not edited in place. The reasoning trail must survive — future readers should see the journey, not a rewritten history. Applied here: §3.3 history preserved verbatim in `ux-004a-...-amendment-1.md`; the override appears as an appended section in the same file.
+
+#### Related polish in the same wave
+
+- **PR #85 (Mouse):** F4 shrink inline subcategory toggle + F5 relocate category divider to `[role='group']` wrapper. Tests 21/21.
+- **PR #86 (Trinity):** F6 align compare-mode subrow bars across subcategories. Per-panel CSS custom props (`--saldo-col-prior` / `--saldo-col-current` / `--saldo-col-delta` in `ch`) measured from formatted-text width replace per-row `auto` grid tracks. Tests 22/22. Locked sub-rule: `panelMaxAbs` solves bar-length parity, not bar-start parity — for grids whose `auto` tracks vary row-to-row, broadcast widths via CSS custom props at the panel scope.
+
+#### Review-mechanic note
+
+For PRs authored by repo owner (perocha), `gh pr review --approve` is rejected by GitHub. Approve via `gh pr review --comment "APPROVE: <reasoning>"` so the signal is grep-able. Merge gating handled separately (admin or CI green).
+
+---
+
 ### 2026-04-29: SPEC-023 Rev 3 Approval — Split Transactions Architecture Locked
 
 **Date:** 2026-04-29  
