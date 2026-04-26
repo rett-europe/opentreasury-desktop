@@ -340,3 +340,10 @@ Replaced the "Todos los meses + 12 month names" dropdown with a 7-chip preset ro
 6. **Slider verdict logged as a NO.** Future date/range UI questions: before reaching for a slider, check (a) is the domain bounded and known? (b) is day-level precision required? If yes to (b), slider loses every time to chips + inputs. Document this so we don't relitigate.
 
 **Next:** Await Pedro on 2 open Qs (fiscal year alignment, localStorage persistence). Trinity can start scaffolding chips against the spec; the two open Qs don't block the chip row, only the year-preset semantics + persistence wiring.
+
+## 2026-04-29: WI-B Spec Locked + Wave 2 closure (Scribe summary)
+
+- **PR #71 merged:** `docs/ux/specs/ux-004a-saldo-subcategory-drilldown.md` locks Option A global toggle, recursive top-8 + Otras subcategorías, projection §11.1/§11.2 contract extension. All §12 open questions (1–9) resolved.
+- **Hand-off plan executed:** Morpheus → PR #72 (projection) merged; Mouse + Trinity now on parallel WI-B UI branches.
+- **WI-C deferred** to issue #69 (now `priority:v1`) — your spec scope held the line.
+- **Wave 2 (SPEC-023):** Closed — all five PRs (#62/#63/#65/#66/#68) merged.

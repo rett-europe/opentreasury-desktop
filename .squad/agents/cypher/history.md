@@ -319,3 +319,11 @@ PR #51 (wi23-legacy-fixture-gate tests) closed as redundant — PR #50 already i
 6. Run PERF-01 to confirm no budget regression
 7. Update test plan with actual IPC error codes (replace placeholders)
 8. Merge PR #62 (or squash into Morpheus's PR as joint delivery)
+
+## 2026-04-29: Wave 2 tests + CI hardening (Scribe summary)
+
+- **PR #62 merged:** Test plan APPROVED by Neo (50+ scenarios across 7 categories, all 15 ACs mapped, all `test.skip()`'d — no false greens). Reconciled error-code naming with Morpheus' actuals (`SUM_MISMATCH` / `INVALID_SPLIT_COUNT` / `SCHEMA_INVALID`) when wiring Wave 2.
+- **PR #63 prettier fix** (855c78f): Added missing `TX_HAS_ACTIVE_SPLITS` to `updateTransactionValidationErrorCodeSchema`; 30 unit tests covering FR3/FR12/FR13/FR14/FR15. Strict-lockout did NOT apply to fresh prettier-only fix.
+- **PR #73 merged (Layer B):** husky + lint-staged pre-commit hook + 5 prettier fixes. Mechanical guard before commit lands.
+- **PR #74 merged (Layer A, last in train):** `.gitattributes` `* text=auto eol=lf` — eliminated ~58 Windows CRLF ghost-diffs. `format:check` now green on Windows.
+- **Locked rule:** Pre-commit hooks are mandatory for format/lint; CI is the backstop, never the only line of defense.
