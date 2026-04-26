@@ -709,12 +709,12 @@ a:hover {
   align-items: center;
   padding: var(--space-3) 0;
   padding-left: var(--space-6); /* 16px indent — spec §16.2 */
-  /* 2px parent-grouping guide rule (amendment 1, §3.3). Sits outside
-   * the padding box so the existing 16px content indent is preserved
-   * and the rule reads as a quiet vertical tick anchoring the
-   * sub-group to its parent category. Uses the existing divider
-   * token; no new colours. */
-  border-left: 2px solid var(--color-divider);
+  /* Parent-grouping guide removed (Pedro dogfood, post-#85): the 2px
+   * left rule from amendment 1 §3.3 combined with the [role="group"]
+   * wrapper's category-separator border-bottom (above + below) to
+   * fake a box around expanded subgroups. Indentation alone now
+   * communicates nesting; see amendment 1 follow-up section. */
+  border-left: 0;
   border-bottom: 0;
 }
 .ot-saldo-subrow--compare {
