@@ -171,7 +171,8 @@ export function createTransactionUpdateHandler(
             ok: false,
             error: {
               code: 'TX_HAS_ACTIVE_SPLITS',
-              message: 'Cannot change amount on a transaction with active splits. Remove splits first.',
+              message:
+                'Cannot change amount on a transaction with active splits. Remove splits first.',
               field: 'amount',
             },
           };
