@@ -1157,10 +1157,12 @@ function CategoryPanel({
       const arrow = k === 'up' ? '↑ ' : k === 'down' ? '↓ ' : '';
       return `${arrow}${text}`;
     };
+    let maxName = 1;
     let maxPrior = 1;
     let maxCurrent = 1;
     let maxDelta = 1;
     const measureRow = (
+      name: string | null | undefined,
       prior: number,
       current: number,
       delta: number | null,
@@ -1170,15 +1172,30 @@ function CategoryPanel({
       const priorText = `${reversedSignPrefix(priorReversed, kind)}${fmtLocal(prior)}`;
       const currentText = `${reversedSignPrefix(currentReversed, kind)}${fmtLocal(current)}`;
       const deltaText = formatDeltaText(delta);
+      maxName = Math.max(maxName, (name ?? '').length);
       maxPrior = Math.max(maxPrior, priorText.length);
       maxCurrent = Math.max(maxCurrent, currentText.length);
       maxDelta = Math.max(maxDelta, deltaText.length);
     };
     for (const row of rows) {
-      measureRow(row.prior, row.current, row.delta, row.priorReversed, row.currentReversed);
+      measureRow(
+        row.name,
+        row.prior,
+        row.current,
+        row.delta,
+        row.priorReversed,
+        row.currentReversed,
+      );
       if (shouldRenderSubrows(row)) {
         for (const sub of row.subRows) {
-          measureRow(sub.prior, sub.current, sub.delta, sub.priorReversed, sub.currentReversed);
+          measureRow(
+            sub.name,
+            sub.prior,
+            sub.current,
+            sub.delta,
+            sub.priorReversed,
+            sub.currentReversed,
+          );
         }
       }
     }
@@ -1186,6 +1203,7 @@ function CategoryPanel({
     // perfectly tabular even with `tabular-nums`. Keeps long numbers from
     // visually kissing the next column.
     return {
+      name: `${maxName + 1}ch`,
       prior: `${maxPrior + 1}ch`,
       current: `${maxCurrent + 1}ch`,
       delta: `${maxDelta + 1}ch`,
@@ -1194,6 +1212,7 @@ function CategoryPanel({
   }, [rows, showSubcategories, kind, locale]);
 
   const panelRowsStyle = {
+    '--saldo-col-name': panelColWidths.name,
     '--saldo-col-prior': panelColWidths.prior,
     '--saldo-col-current': panelColWidths.current,
     '--saldo-col-delta': panelColWidths.delta,

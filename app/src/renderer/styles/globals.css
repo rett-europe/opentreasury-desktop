@@ -718,13 +718,14 @@ a:hover {
   border-bottom: 0;
 }
 .ot-saldo-subrow--compare {
-  /* Amendment 2 (Pedro 2026-04-26): per-year cell layout, mirroring the
-   * parent row recipe in SaldoScreen.css. See `.ot-saldo-row--compare` for
-   * the rationale and column-width derivation. */
+  /* Iter 5 (Pedro 2026-04-26 dogfood follow-up): mirrors the parent row
+   * recipe in SaldoScreen.css — flexible `fr` year tracks with text-width
+   * minimums, 1:3 prior:current ratio, panel adapts to viewport width.
+   * See `.ot-saldo-row--compare` for the full rationale. */
   grid-template-columns:
-    1fr
-    calc(var(--saldo-col-prior, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3))
-    calc(var(--saldo-col-current, max-content) + var(--saldo-bar-min, 8rem) + var(--space-3))
+    minmax(var(--saldo-col-name, max-content), 1fr)
+    minmax(var(--saldo-col-prior, 0), 1fr)
+    minmax(var(--saldo-col-current, 0), 3fr)
     var(--saldo-col-delta, max-content);
 }
 .ot-saldo-subrow--single {
@@ -780,9 +781,11 @@ a:hover {
 /* Iter 4: bar height aligned with parent rows (8px) — Pedro spec calls for
  * uniform bar geometry across the whole panel. */
 .ot-saldo-subrow__bar-track {
+  /* Iter 5: no `min-width` — track fills its grid cell so the panel
+   * adapts to viewport width. See `.ot-saldo-row__bar-track`. */
   position: relative;
   width: 100%;
-  min-width: var(--saldo-bar-min, 8rem);
+  min-width: 0;
   height: 8px;
   border-radius: var(--radius-pill);
   background: var(--color-surface-secondary);
