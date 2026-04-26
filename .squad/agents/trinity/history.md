@@ -1477,3 +1477,16 @@ Pedro dogfood pass on WI-B (#67) → 3 polish needs fanned out to four agents; a
 **Locked directive (Pedro):** Saldo category placement follows `category.kind` (intrinsic type), NOT period net sign. Subcategories follow their parent's `kind`, never their own subcategory net. Logged in `.squad/decisions.md`.
 
 **Next:** Issue #69 (WI-C YoY) labeled `priority:v1` — next saldo work.
+
+
+## 2026-04-26 — Issue #78 Saldo dogfood polish, rounds 2 + 3 (Scribe summary)
+
+Pedro re-opened Saldo after #78 closed. Three rounds of feedback, all merged into `main`.
+
+- **PR #85 (Mouse):** F4 shrink `.ot-saldo-toggle-subcategories--inline` recipe (smaller font/padding, tighter pressed contrast). F5 move category divider off row container onto `[role='group']` wrapper. Files: `globals.css`, `SaldoScreen.css`. Tests 21/21. Reviewed by Neo via `--comment "APPROVE:"` (perocha-authored).
+- **PR #86 (Trinity):** F6 align compare-mode subrow bars. Diagnosis — per-row `auto` grid tracks shifted the `1fr` bars column. Fix — per-panel CSS custom props (`--saldo-col-prior` / `--saldo-col-current` / `--saldo-col-delta` in `ch`) measured from widest formatted text, broadcast on panel root, replace `auto` tracks. `panelMaxAbs` solves bar length, not bar start. Tests 22/22 (+1 alignment regression).
+- **PR #87 (Mouse):** Drop the 2px parent-grouping `border-left` on `.ot-saldo-subrow` (amendment §3.3). It combined with category-separator `border-bottom` to fake a perceptual box around expanded subgroups. Indentation alone signals nesting now. Spec amendment posted as **append** to `ux-004a-saldo-subcategory-drilldown-amendment-1.md` — §3.3 history preserved. Tests 654/654. Self-merged with admin (CI green).
+
+**Locked rule (Pedro, #87):** When two CSS cues combine to over-signal (e.g., left guide + category separator forming a box), drop the weaker cue rather than tuning both — for row nesting, prefer indentation over borders.
+
+**Mechanic:** `gh pr review --approve` is blocked on owner-authored PRs; use `gh pr review --comment "APPROVE: ..."` so the signal is grep-able.
