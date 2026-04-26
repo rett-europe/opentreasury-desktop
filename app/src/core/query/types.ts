@@ -28,6 +28,19 @@ export interface TransactionNote {
   readonly createdAt: string; // ISO 8601 UTC — creation timestamp, stable across edits
 }
 
+// SPEC-023 — Transaction split child. Each split represents one portion of
+// the parent transaction's amount, with independent category/comment. Splits
+// are grouped by parentTxId in ReadModel.splits.
+export interface TransactionSplit {
+  readonly splitId: string; // ULID — stable PK
+  readonly parentTxId: string; // ULID FK → Transaction.id
+  readonly amountCents: number; // Positive EUR cents (e.g. 30000 = €300.00)
+  readonly categoryId: string | null;
+  readonly subcategoryId: string | null;
+  readonly comment: string | null; // ≤ 500 chars (line-item style)
+  readonly sortOrder: number;
+}
+
 // WI-23 — The legacy `Account` / `Category` / `Tag` / `Subcategory` entity
 // interfaces (populated by the `account.created` / `category.created` /
 // `tag.created` event streams) were DELETED. All consumers now read from
@@ -112,4 +125,11 @@ export interface ReadModel {
   // DB index is N/A because persistence is an NDJSON event log). Normalized
   // reference (exact match, case-sensitive) → list of transactions sharing it.
   readonly transactionsByReference: ReadonlyMap<string, readonly Transaction[]>;
+  // SPEC-023 — splits grouped by parent transaction id. Key = parentTxId;
+  // value = splits array in sortOrder ASC. Entry present only while at least
+  // one split exists for the parent. Matches the notes pattern.
+  readonly splits: ReadonlyMap<string, readonly TransactionSplit[]>;
+  // SPEC-023 — O(1) hasSplits check in query functions (avoids Map.has() at
+  // every call-site). Set contains parentTxId values.
+  readonly splitParentIds: ReadonlySet<string>;
 }

@@ -494,6 +494,55 @@ export const transactionDeletedEventSchema = z.object({
 
 export type TransactionDeletedEvent = z.infer<typeof transactionDeletedEventSchema>;
 
+// ---------------------------------------------------------------------------
+// SPEC-023 — Transaction split events (flat wire-style, no envelope).
+// Splits let a treasurer divide a single confirmed transaction into ≥2 child
+// amounts, each with its own category/subcategory/comment. The parent remains
+// visible in the Movements list but financial aggregations use split amounts.
+//
+// Integer cents: Child amounts stored as `amountCents` (e.g. 30000 = €300.00)
+// to eliminate floating-point drift in the sum invariant. UI converts at edge.
+// Parent amounts remain floats (pre-existing). This sets precedent for future
+// migration but ONLY split children use integer cents for now (FR4).
+//
+// Two events:
+//   - tx.split         (create/replace split state for a parent)
+//   - tx.split.removed (revert parent to un-split single-line behaviour)
+// ---------------------------------------------------------------------------
+
+export const MAX_SPLITS_PER_TX = 20;
+export const SPLIT_COMMENT_MAX = 500;
+
+export const transactionSplitRowSchema = z.object({
+  splitId: z.string().length(26), // ULID — stable PK in read model
+  amountCents: z.number().int().positive(), // EUR cents (e.g. 30000 = €300.00)
+  categoryId: z.string().length(26).nullable(),
+  subcategoryId: z.string().length(26).nullable(),
+  comment: z.string().max(SPLIT_COMMENT_MAX).nullable(),
+  sortOrder: z.number().int().nonnegative(),
+});
+
+export type TransactionSplitRow = z.infer<typeof transactionSplitRowSchema>;
+
+export const transactionSplitEventSchema = z.object({
+  type: z.literal('tx.split'),
+  id: z.string().length(26), // Event ULID
+  parentTxId: z.string().length(26), // FK → Transaction.id
+  splits: z.array(transactionSplitRowSchema).min(2).max(MAX_SPLITS_PER_TX),
+  createdAt: z.string().datetime(),
+});
+
+export type TransactionSplitEvent = z.infer<typeof transactionSplitEventSchema>;
+
+export const transactionSplitRemovedEventSchema = z.object({
+  type: z.literal('tx.split.removed'),
+  id: z.string().length(26), // Event ULID
+  parentTxId: z.string().length(26),
+  removedAt: z.string().datetime(),
+});
+
+export type TransactionSplitRemovedEvent = z.infer<typeof transactionSplitRemovedEventSchema>;
+
 // Union type for all domain events
 export type DomainEvent =
   | TransactionCreatedEvent
@@ -522,4 +571,6 @@ export type DomainEvent =
   | TransactionNoteEditedEvent
   | TransactionNoteDeletedEvent
   | TransactionUpdatedEvent
-  | TransactionDeletedEvent;
+  | TransactionDeletedEvent
+  | TransactionSplitEvent
+  | TransactionSplitRemovedEvent;

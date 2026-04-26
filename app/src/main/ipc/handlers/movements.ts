@@ -55,6 +55,9 @@ export function createMovementsListHandler(
       createdAt: tx.createdAt,
       reference: tx.reference,
       details: tx.details,
+      // SPEC-023 — populate split metadata for renderer badge + edit routing.
+      hasSplits: model.splitParentIds.has(tx.id),
+      splitCount: model.splitParentIds.has(tx.id) ? (model.splits.get(tx.id)?.length ?? 0) : 0,
     }));
   };
 }

@@ -55,6 +55,9 @@ export const movementRecordSchema = z.object({
   // detail modal; not rendered in the Movements table.
   reference: z.string().max(120).nullable().optional(),
   details: z.string().max(1000).nullable().optional(),
+  // SPEC-023 — split metadata for renderer routing + badge display.
+  hasSplits: z.boolean(),
+  splitCount: z.number().int().nonnegative(),
 });
 
 export type MovementRecord = z.infer<typeof movementRecordSchema>;
