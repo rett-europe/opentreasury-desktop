@@ -55,6 +55,9 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 - **PR #58 (transaction detail bugs):** Fixed 3 bugs on dev-empty: (1) DatosScreen "See transactions" CTA now navigates via onNavigateToMovements prop, (2) description tooltip shows reference + details, (3) reference/details threaded through Movement type, mapMovementRecord, row→tx conversion, and main-process movements:list handler. i18n keys movements.tooltip.reference/.details added (EN/ES parity).
 - **Layout/visual decision pivot finalized:** Niobe Option A (Dedicated Scope Bar) locked; Mouse pivoted from Anchored Band to Calm Scope (weight over tint). Decision inbox entries consolidated into decisions.md §"2026-04-28: Movements Filter UI."
 
+### 2026-04-26: Pairing Rule — Separate Visual Judgment from Code Interpretation
+After PR #91 Saldo compare-mode layout (Mouse iter 3, commit b41f973): **pair with Mouse on all UI work going forward.** Mouse owns visual judgment / prototype fidelity (Opus + vision); Trinity owns .tsx/.css (React tree correctness). This separation emerged from PR #91 needing 3 iterations because a single agent was answering both "is this what the prototype shows?" AND "is the React tree correct?" — independent questions. Default pattern locked in decisions.md: Mouse drafts visual spec + reviews against prototype; Trinity implements and ships code. When Trinity encounters visual regression, request Mouse review before merge.
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
 ---

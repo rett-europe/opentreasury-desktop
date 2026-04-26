@@ -24,6 +24,9 @@ Language: ES + EN parity mandatory (`locales/{en,es}/common.json`). Target user:
 
 ## Learnings
 
+### 2026-04-26: Pairing Rule — Separate Visual Judgment from Code Interpretation
+After PR #91 Saldo Iteration 3 (mouse/saldo-prototype-layout, commit b41f973): **always pair with Trinity on UI work.** Mouse owns visual judgment / prototype fidelity; Trinity owns .tsx/.css. PR #91 went 3 iterations because a single agent (Mouse) was answering both "is this what the prototype shows?" AND "is the React tree correct?" — independent questions requiring independent judgment. Default pattern: Mouse drafts visual spec + reviews against prototype; Trinity implements and ships code. This rule is now locked in decisions.md under Process / Pairing.
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
 ## 2026-04-19 — Team Context Update (from Scribe)
