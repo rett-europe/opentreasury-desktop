@@ -11,6 +11,7 @@ import { AddTransactionModal } from '../../components/AddTransactionModal/index.
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
 import { BulkActionsBar } from '../../components/BulkActionsBar/index.js';
 import { BulkClassifyModal } from '../../components/BulkClassifyModal/index.js';
+import { SplitTransactionModal } from '../../components/SplitTransactionModal/index.js';
 import { listMovements } from '../../services/movementsApi.js';
 import {
   bulkUpdateTransactions,
@@ -61,7 +62,7 @@ import './MovementsScreen.css';
 
 type ScreenState =
   | { kind: 'loading' }
-  | { kind: 'loaded'; rows: readonly Movement[] }
+  | { kind: 'loaded'; rows: readonly Movement[]; rawRecords: readonly MovementRecord[] }
   | { kind: 'error'; message: string };
 
 type SortColumn =
@@ -192,8 +193,10 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
   const [categories, setCategories] = useState<readonly CategoryRecord[]>([]);
   const [tags, setTags] = useState<readonly TagRecord[]>([]);
 
-  // Selected transaction for detail modal
+  // Selected transaction for detail modal — now includes the raw record
+  // so we can check hasSplits and access split metadata.
   const [selectedTx, setSelectedTx] = useState<RecentTransaction | null>(null);
+  const [selectedRawRecord, setSelectedRawRecord] = useState<MovementRecord | null>(null);
 
   // Filter state
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
@@ -221,6 +224,11 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
   // current selection; on success we clear `selected` and re-run loadAll()
   // (same invalidation pattern as the detail modal's onUpdate).
   const [isBulkClassifyOpen, setIsBulkClassifyOpen] = useState(false);
+  const [bulkSuccessMessage, setBulkSuccessMessage] = useState<string | null>(null);
+
+  // SPEC-023 — split modal state. Opened from row action (context or detail).
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
+  const [splitTargetTx, setSplitTargetTx] = useState<MovementRecord | null>(null);
 
   const clearSelection = useCallback(() => {
     setSelected(new Set());
@@ -232,6 +240,16 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
 
   const closeBulkClassify = useCallback(() => {
     setIsBulkClassifyOpen(false);
+  }, []);
+
+  const openSplitModal = useCallback((record: MovementRecord) => {
+    setSplitTargetTx(record);
+    setIsSplitModalOpen(true);
+  }, []);
+
+  const closeSplitModal = useCallback(() => {
+    setIsSplitModalOpen(false);
+    setSplitTargetTx(null);
   }, []);
 
   const loadAll = useCallback(async () => {
@@ -262,7 +280,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
       setAccounts(accountsResp.accounts);
       setCategories(categoriesResp.categories);
       setTags(tagsResp.tags);
-      setState({ kind: 'loaded', rows });
+      setState({ kind: 'loaded', rows, rawRecords: records });
     } catch (err) {
       setState({
         kind: 'error',
@@ -321,6 +339,12 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     () => (state.kind === 'loaded' ? state.rows : ([] as readonly Movement[])),
     [state],
   );
+
+  // Build ID→record lookup for split modal / badge rendering.
+  const rawRecordById = useMemo(() => {
+    if (state.kind !== 'loaded') return new Map<string, MovementRecord>();
+    return new Map(state.rawRecords.map((r) => [r.id, r]));
+  }, [state]);
 
   // Distinct accounts / categories for the select options.
   const accountOptions = useMemo(() => {
@@ -608,14 +632,32 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         id: 'category',
         header: t('movements.columns.category'),
         sortable: true,
-        render: (m) =>
-          m.category != null ? (
+        render: (m) => {
+          const record = rawRecordById.get(m.id);
+          if (record?.hasSplits) {
+            // SPEC-023 — split parent: show "Dividida · N" badge + click to edit
+            return (
+              <button
+                type="button"
+                className="ot-split-parent-badge"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openSplitModal(record);
+                }}
+                aria-label={t('splits.actions.editSplit')}
+              >
+                {t('splits.list.categoryCell')} · {record.splitCount}
+              </button>
+            );
+          }
+          return m.category != null ? (
             <span title={m.category}>{m.category}</span>
           ) : (
             <span className="ot-badge ot-badge--uncategorized">
               {t('movements.filters.uncategorizedOnly')}
             </span>
-          ),
+          );
+        },
       },
       {
         id: 'subcategory',
@@ -692,6 +734,8 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
       allVisibleSelected,
       toggleAllVisible,
       accountColorByLabel,
+      rawRecordById,
+      openSplitModal,
     ],
   );
 
@@ -715,6 +759,13 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         </div>
       </header>
 
+      {/* SPEC-023 — bulk-classify skipped-count toast */}
+      {bulkSuccessMessage && (
+        <div className="ot-movements__success-toast" role="status" aria-live="polite">
+          {bulkSuccessMessage}
+        </div>
+      )}
+
       <AddTransactionModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -736,12 +787,16 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         selectedIds={Array.from(selected)}
         categories={categories}
         onBulkUpdate={bulkUpdateTransactions}
-        onSuccess={async () => {
-          // Clear selection + re-run panel/movements queries so the new
-          // labels (and the Panel totals, once Panel subscribes to tx.updated)
-          // show up immediately. Matches the detail-modal onUpdate pattern.
+        onSuccess={async ({ skippedSplitParentCount }) => {
+          closeBulkClassify();
           clearSelection();
           await loadAll();
+          // SPEC-023 FR15 — show skipped-count message if any split parents were skipped.
+          if (skippedSplitParentCount > 0) {
+            const msg = t('splits.bulk.skipped', { count: skippedSplitParentCount });
+            setBulkSuccessMessage(msg);
+            setTimeout(() => setBulkSuccessMessage(null), 5000);
+          }
         }}
       />
 
@@ -1108,6 +1163,10 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
                 sortBy={sortBy}
                 sortDirection={sortDir}
                 onSort={handleSort}
+                getRowClassName={(m) => {
+                  const record = rawRecordById.get(m.id);
+                  return record?.hasSplits ? 'ot-split-parent' : undefined;
+                }}
                 virtualise={sortedRows.length >= VIRTUAL_ROW_THRESHOLD}
                 containerStyle={
                   sortedRows.length >= VIRTUAL_ROW_THRESHOLD
@@ -1116,6 +1175,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
                 }
                 onRowClick={(row) => {
                   // Convert Movement to RecentTransaction for the detail modal
+                  const record = rawRecordById.get(row.id);
                   const tx: RecentTransaction = {
                     id: row.id,
                     date: row.date,
@@ -1133,6 +1193,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
                     createdAt: new Date().toISOString(),
                   };
                   setSelectedTx(tx);
+                  setSelectedRawRecord(record ?? null);
                 }}
               />
             </div>
@@ -1140,8 +1201,12 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
 
           <TransactionDetailModal
             isOpen={selectedTx !== null}
-            onClose={() => setSelectedTx(null)}
+            onClose={() => {
+              setSelectedTx(null);
+              setSelectedRawRecord(null);
+            }}
             transaction={selectedTx}
+            rawRecord={selectedRawRecord}
             accounts={accounts}
             categories={categories}
             tags={tags}
@@ -1161,6 +1226,23 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
               // Reload movements list to reflect changes
               await loadAll();
               setSelectedTx(null);
+              setSelectedRawRecord(null);
+            }}
+            onOpenSplit={() => {
+              if (selectedRawRecord) {
+                openSplitModal(selectedRawRecord);
+              }
+            }}
+          />
+
+          <SplitTransactionModal
+            isOpen={isSplitModalOpen}
+            onClose={closeSplitModal}
+            transaction={splitTargetTx}
+            categories={categories}
+            onSplitSaved={async () => {
+              closeSplitModal();
+              await loadAll();
             }}
           />
         </>

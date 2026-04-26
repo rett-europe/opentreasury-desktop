@@ -819,5 +819,64 @@
       "PATH_INVALID": "Ruta de archivo no válida.",
       "ROW_COUNT_EXCEEDED": "El archivo supera el límite de 100.000 filas."
     }
+  },
+  "split": {
+    "modal": {
+      "title": "Dividir movimiento",
+      "editTitle": "Editar división",
+      "originalLabel": "Movimiento original",
+      "colAmount": "Importe",
+      "colCategory": "Categoría",
+      "colSubcategory": "Subcategoría",
+      "colComment": "Comentario",
+      "addPart": "+ Añadir parte",
+      "distributed": "Importe distribuido: {{distributed}} de {{total}}",
+      "remaining": "Restante: {{amount}}",
+      "sumWarning": "Los importes deben sumar {{amount}}",
+      "minPartsWarning": "Una división requiere al menos 2 partes",
+      "maxPartsWarning": "Máximo 20 partes",
+      "cancel": "Cancelar",
+      "save": "Guardar división",
+      "saving": "Guardando…",
+      "remove": "Eliminar división",
+      "saveError": "No se pudo guardar la división: {{reason}}",
+      "removeError": "No se pudo eliminar la división",
+      "discardTitle": "¿Descartar cambios?",
+      "discardBody": "Los cambios en esta división no se han guardado.",
+      "discardConfirm": "Descartar",
+      "discardCancel": "Seguir editando",
+      "removeTitle": "¿Eliminar la división?",
+      "removeBody": "Se eliminarán todas las partes. El movimiento volverá a tratarse como un único importe de {{amount}}.",
+      "removeConfirm": "Eliminar",
+      "removeCancel": "Cancelar",
+      "amountLockedTitle": "Importe bloqueado",
+      "amountLockedBody": "El importe está bloqueado porque este movimiento tiene partes. Elimina la división para cambiar el importe."
+    },
+    "detail": {
+      "childrenHeading": "División en {{count}} partes",
+      "amountLocked": "Importe bloqueado mientras existan divisiones activas"
+    },
+    "list": {
+      "badge": "Movimiento dividido",
+      "partCount_one": "{{count}} parte",
+      "partCount_other": "{{count}} partes",
+      "categoryCell": "Dividido"
+    },
+    "actions": {
+      "split": "Dividir movimiento",
+      "editSplit": "Editar división"
+    },
+    "bulk": {
+      "skipped_one": "Se omitió {{count}} transacción con división activa.",
+      "skipped_other": "Se omitieron {{count}} transacciones con división activa."
+    },
+    "errors": {
+      "TX_NOT_FOUND": "Movimiento no encontrado.",
+      "TX_DELETED": "El movimiento ha sido eliminado.",
+      "INVALID_SPLIT_COUNT": "Debe tener entre 2 y 20 partes.",
+      "SUM_MISMATCH": "Los importes no suman el total.",
+      "SCHEMA_INVALID": "Los datos de la división no son válidos.",
+      "INTERNAL": "Algo salió mal. Inténtalo de nuevo."
+    }
   }
 }

@@ -249,6 +249,82 @@
   overflow-wrap: anywhere;
 }
 
+/* SPEC-023 — split children section (collapsible) */
+.ot-transaction-detail-modal__splits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.ot-transaction-detail-modal__splits-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-3) 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.ot-transaction-detail-modal__splits-toggle:hover {
+  color: var(--color-brand-primary);
+}
+.ot-transaction-detail-modal__splits-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+.ot-transaction-detail-modal__split-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-13);
+}
+.ot-transaction-detail-modal__split-amount {
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+.ot-transaction-detail-modal__split-category {
+  color: var(--color-text-secondary);
+}
+.ot-transaction-detail-modal__split-comment {
+  grid-column: 2 / -1;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+.ot-transaction-detail-modal__edit-split-btn {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+}
+.ot-transaction-detail-modal__info-notice {
+  padding: var(--space-4);
+  background: var(--color-brand-surface);
+  border: 1px solid var(--color-brand-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-13);
+  color: var(--color-text-primary);
+}
+.ot-transaction-detail-modal__info-notice strong {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-brand-primary);
+}
+.ot-transaction-detail-modal__info-notice p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
 .ot-transaction-detail-modal__divider {
   margin: 0;
   border: 0;
