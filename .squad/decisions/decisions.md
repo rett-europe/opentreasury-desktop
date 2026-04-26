@@ -1594,3 +1594,166 @@ Subrows: `.ot-saldo-subrow` (+ `--compare`, `--single`); `.ot-saldo-subrow__name
 Validation: lint ✅ · typecheck ✅ · format:check ✅ · 637 passed / 9 skipped.
 
 Convention reinforced: globals.css owns prototype-parity recipes; no SaldoScreen.css touched; no new tokens.
+
+---
+
+## Directive: Saldo % display — integer rounding
+
+**Author:** Pedro (via Copilot)  
+**Date:** 2026-04-26  
+**Status:** Active  
+**Scope:** All Saldo % renderings — parent rows, subrows, headers, tooltips
+
+### Rule
+
+All percentage deltas in Saldo (e.g., "↑12.566%") must round to integer percent (e.g., "↑13%"). No decimals anywhere in Saldo % display.
+
+- **Implementation:** Use `Math.round()` in GroupedBarChart and SaldoScreen formatters
+- **Coverage:** All % delta labels, tooltip %, subrow %, header %
+
+### Rationale
+
+Excessive precision adds visual clutter without analytical value at the dashboard level. Integer % is sufficient for treasurer decision-making.
+
+### Implementation Status
+
+- **PR #91 commit 0e0b3e7:** Rounded GroupedBarChart % (lines 155, 281). Tests 654/654 ✅
+- **SaldoScreen:** formatPct already returns integer (no change needed)
+
+---
+
+## Directive: Saldo compare layout — side-by-side year-column restructure
+
+**Author:** Pedro (via Copilot)  
+**Date:** 2026-04-26  
+**Status:** Active  
+**Scope:** Saldo CompareRow subrow layout
+
+### Rule
+
+Restructure year-cell layout from stacked (prior-on-top-of-current) to side-by-side columns. Each year column is self-contained:
+- Value on top, bar below
+- Both year cells share the same recipe
+- Headers `2025`/`2026` aligned over their respective vertical stacks
+- Dropped the `vs YYYY` sublabel (extraneous)
+
+### Rationale
+
+Matches prototype's clean side-by-side comparison (see ingresos_gastos.png). Prototype bars are NOT stacked vertically — each year's value + bar occupies its own column, making year-to-year comparison immediate.
+
+### Implementation Status
+
+- **PR #91 commit 241caaf:** Restructured subrow layout, dropped sublabel. Tests 654/654 ✅
+- **Prototype reference:** ingresos_gastos.png (directive 20260426-180716)
+
+---
+
+## Directive: Pedro — Insights as a new product surface
+
+**Author:** Pedro (via Copilot)  
+**Date:** 2026-04-26  
+**Status:** Active  
+**Scope:** Strategic product direction; Insights section (M4 target)
+
+### Rule
+
+"Saldo per-label YoY is a crown jewel of a feature. I'm even wondering if we could create a specific new section for Insights — it goes beyond balance info. Anything we could do around labels will be very interesting."
+
+### Rationale
+
+Labels are a high-value analytics axis. Analytics views beyond balance (Saldo) deserve their own home in the IA. Captured for team memory while #69 spec is being drafted.
+
+### Follow-up
+
+- Niobe to fold insights_idea.png + insights_idea_2.png mockups into UX-005 amendment (post-M3, target M4)
+- See link-69-insights-prio.md (PM brief) for full roadmap justification
+- See niobe-69-insights-ia-sketch.md (Niobe's spec response with open questions)
+
+---
+
+## Decision: PM brief — #69 Saldo per-label YoY & "Insights" section scope + roadmap
+
+**Author:** Link (PM)  
+**Date:** 2026-04-26  
+**Status:** Approved (Pedro directive captured; Niobe spec drafted)  
+**References:** Issue #69, roadmap-v1.md (M3/M4 scope), prd-plan.md
+
+### Summary
+
+- **#69 re-targeted from `priority:v1` → M4 (v1.x)** — does not force into M1
+- **Insights deserves its own section** — "what's my balance?" (Saldo) vs "what patterns exist?" (Insights)
+- **Spanish naming:** `Análisis` (ES) / `Insights` (EN); sits between Saldo and Config in nav
+- **Dependencies:** Projection layer (Morpheus) must build label-indexed aggregations in M3 idle capacity; IPC contracts defined when spec lands
+
+### Phasing Recommendation (Niobe owns final picks)
+
+**v1.x (M4) first wave:**
+1. Label YoY (= #69) — stacked bar / small-multiples
+2. Label cumulative over time — running total per label across fiscal year
+3. Account × Label heatmap — which money pots fund which initiatives
+
+**v1.x later / v2:**
+- Label velocity, top spenders by label, uncategorized drift (depend on mature labelling habits)
+
+### Risks (mitigated by v1.x schedule)
+
+- **Risk of forcing into M1:** breaks locked PRD-002 contract, forces Morpheus rework, creates throwaway pivot
+- **Risk of waiting:** low — pilot NGO does not need Insights to operate; core loop + Saldo + Panel cover M2 needs
+
+---
+
+## Input: Pedro's mockup — Insights landing screen (insights_idea.png)
+
+**Source:** perocha (via Copilot)  
+**Date:** 2026-04-26  
+**Format:** PNG mockup; captured for Niobe to fold into UX-005 amendment
+
+### Key elements observed
+
+- **Header:** "Análisis por etiquetas — campañas, proyectos y eventos transversales a las categorías"
+- **Global metric toggle (top-right):** `Volumen | Neto | # Mov.`
+- **KPI strip (3 cards):** Etiquetas activas (N/total) · Ingresos etiquetados · Gastos etiquetados
+- **Tag cards section "Etiquetas / Campañas" (horizontal scroll):** per-tag card with colored dot, `#mov` badge, Ingresos/Gastos/Neto, optional sparkline, "Top: {categories}" footer
+- **Cross-tag composer affordance (bottom):** "Combina etiquetas para análisis cruzados" — example `Calendarios ∩ 2026`
+
+### Implications for UX-005
+
+1. Insights landing is now **DASHBOARD-FIRST** (KPI strip + tag cards), not direct-to-YoY
+2. UX-005a (per-label YoY) becomes the **DRILL-DOWN** when a tag card is clicked
+3. New primitive: tag intersection (`∩`) — needs spec for chip composer, URL state, persistence
+4. New primitive: global metric switcher (Volumen/Neto/#Mov) — affects every chart/card
+
+### Status
+
+Parked for M4 Insights work. Not blocking current Saldo (M3) work.
+
+---
+
+## Input: Pedro's mockup — Insights drill-down screen (insights_idea_2.png)
+
+**Source:** perocha (via Copilot)  
+**Date:** 2026-04-26  
+**Format:** PNG mockup; captured for Niobe to fold into UX-005 amendment
+
+### Key elements observed
+
+- **Navigation:** Breadcrumb back `← Volver a Insights`
+- **Tag chip + inline intersection composer:** `[Tag chip] [+ Combinar etiqueta... ▾]` — answers the ∩ question; it's a chip composer not a separate page
+- **Title + subtitle:** `{Tag Name}` / `Análisis de campaña por categorías y cuentas`
+- **3 KPI cards:** Ingresos / Gastos / Neto (each with N categoría(s) / movimiento(s) footer)
+- **Distribución por categoría:** side-by-side donuts (Ingresos | Gastos); empty-state "Sin gastos para esta selección"
+- **Detalle por subcategoría:** table (Categoría · Subcategoría · Ingresos · Gastos · Neto)
+- **Evolución mensual:** line chart (Ingresos / Gastos legend)
+- **Por cuenta:** horizontal stacked bars per account
+
+### Implications for UX-005 / UX-005a
+
+1. Insights IA confirmed: landing (dashboard of tags) → drill-down (per-tag analytics)
+2. Tag intersection (∩) is an **INLINE chip composer** next to the active chip — NOT a separate screen, NOT a modal
+3. The drill-down replaces what UX-005a originally proposed as the per-label YoY view — now richer (KPIs + donuts + table + time-series + per-account)
+4. Per-label YoY (original UX-005a) likely lives INSIDE the drill-down as one of the sections (or replaces "Evolución mensual" with a year-over-year overlay toggle)
+5. Empty states matter: "Sin gastos para esta selección" — every section needs one
+
+### Status
+
+Parked for M4 Insights work together with insights_idea.png. Full IA now defined. Not blocking current Saldo (M3) work.

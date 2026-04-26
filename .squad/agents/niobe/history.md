@@ -378,3 +378,37 @@ Pedro re-opened Saldo after #78 closed. Three rounds of feedback, all merged int
 ### Niobe-specific (spec ownership)
 
 Your `ux-004a-saldo-subcategory-drilldown-amendment-1.md` §3.3 (2px parent-grouping left guide on `.ot-saldo-subrow`) was **overridden** by the round-3 dogfood pass. Override is recorded as an **appended section** in the same amendment file — §3.3 stays intact. If you revisit this spec for WI-C or future polish, treat §3.3 as historical context; the live rule is the appended override (no left guide; indentation = sole nesting cue).
+## 2026-04-26 — Insights mockup input captured for UX-005 amendment
+
+**Cross-agent note from Scribe:** Two PNG mockups (insights_idea.png + insights_idea_2.png) have been captured in .squad/decisions/inbox/ as design input for the Insights section work (M4 target, issue #69 context).
+
+### What these mockups define
+
+**insights_idea.png — Insights landing (dashboard):**
+- KPI strip: Etiquetas activas · Ingresos etiquetados · Gastos etiquetados
+- Tag cards gallery (horizontal scroll): per-tag card with colored dot, #mov badge, Ingresos/Gastos/Neto, optional sparkline
+- Global metric toggle top-right: Volumen | Neto | # Mov
+- Cross-tag composer (bottom): "Combina etiquetas para análisis cruzados" example Calendarios ∩ 2026
+
+**insights_idea_2.png — Per-tag drill-down:**
+- Breadcrumb: ← Volver a Insights
+- **Inline tag intersection composer** (NOT separate screen/modal): [Tag chip] [+ Combinar etiqueta... ▾]
+- Title + subtitle: {Tag Name} / Análisis de campaña...
+- KPI cards: Ingresos / Gastos / Neto with category/movement counts
+- Distribución (donuts): Ingresos | Gastos side-by-side, empty state "Sin gastos para esta selección"
+- Detalle (table): Categoría · Subcategoría · Ingresos/Gastos/Neto
+- Evolución (line chart): Ingresos/Gastos legend
+- Por cuenta: horizontal stacked bars
+
+### Implications for your UX-005 amendment
+
+1. Insights IA is now **DASHBOARD-FIRST** (landing with KPI + tag cards) → drill-down per-tag analytics
+2. UX-005a (per-label YoY) becomes **DRILL-DOWN navigate target** when tag card is clicked
+3. The drill-down view replaces your original UX-005a vision — now richer with KPIs + donuts + table + time-series + per-account breakdown
+4. Tag intersection (∩) is an **INLINE chip composer**, not a separate page
+5. Per-label YoY (original UX-005a) likely lives INSIDE the drill-down or as an overlay toggle on "Evolución mensual"
+6. Empty states are **critical** — every section needs one (e.g., "Sin gastos para esta selección")
+
+### Next step
+
+Fold these two mockups into your UX-005 amendment when Insights work resumes post-M3 (target M4). See Link's PM brief (link-69-insights-prio.md) for roadmap context and Niobe's prior spec response (niobe-69-insights-ia-sketch.md) — both now merged into .squad/decisions/decisions.md for team memory.
