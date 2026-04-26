@@ -1,7 +1,7 @@
 # Grid header–row alignment
 
-**Confidence:** MEDIUM (proven recipe landed in PR #91 iter 8 after two
-rejections — needs one clean iteration to move back to HIGH).
+**Confidence:** HIGH (proven recipe across PR #91 iters 8 and 10; iter 9
+regression was unrelated to alignment).
 
 ## Problem
 

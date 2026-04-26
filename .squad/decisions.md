@@ -4820,6 +4820,88 @@ _No prototype exists yet for the import wizard. This spec is the authoritative c
 | ⚠ Duplicates detected: {N} (not imported) | ⚠ Duplicados detectados: {N} (no se importan) |
 | ✗ Validation errors: {N} | ✗ Errores de validación: {N} |
 | Using last mapping from {time}. [Reset] | Usando asignación de {time}. [Empezar de cero] |
+
+---
+
+### 2026-04-26: Saldo Iter 7–10 Arc — PR #91 (mouse/saldo-prototype-layout) + PR #93 (Squad state)
+
+**Date:** 2026-04-26  
+**Status:** ✅ SHIPPED (PR #91 → `main`, Squad state via PR #93)  
+**Agents:** Mouse (iter 7), Trinity (iters 8-10), Niobe (diagnostics)  
+**Requested by:** perocha (Pedro)
+
+## Context
+
+Four-iteration refinement of the Saldo compare-mode panels following iter 6 rejection by Pedro. Each iteration built on DevTools investigation and visual proof.
+
+## Arc Decisions
+
+### Iter 7: Double-padding fix + responsive AppShell padding (Mouse, commit 251a840)
+
+**Problem:** Subcategory indent padding not accounted for in grid column template; AppShell fixed padding capping panel growth.
+
+**Decision:** (1) Add `+ var(--space-6)` to name column minimum across all three grid siblings (header, category rows, subrows) to reserve space for 20px subcategory indent. (2) Replace fixed `var(--space-10)` AppShell padding with `clamp(var(--space-7), 3vw, var(--space-10))` to enable responsive growth.
+
+**Outcome:** Both bugs persisted — root causes were misidentified. **Pedro rejected iter 7.** Learning: static code analysis insufficient; visual evidence + DevTools inspection mandatory before speccing fixes.
+
+### Iter 8: Header alignment via font-size reparenting (Trinity, commit c6c8646)
+
+**Problem:** Header grid container had `font-size: var(--font-size-11)` on the container; rows inherited larger font-size (~16px). CSS variables using `ch` units resolve relative to the **grid container's font-size**, not the cells'. This caused `14ch` to compute to different pixel widths in header vs rows → `1fr` distribution differed → columns drifted.
+
+**Decision:** Move `font-size` / `letter-spacing` / `text-transform` from grid containers to their **children**, so `ch` resolution uses inherited (consistent) font-size. Also: reduce double `+ var(--space-6)` padding to single; add `minmax(0,1fr)` to outer panel grid + `min-width:0` to panels for responsive shrinking.
+
+**Outcome:** Header aligned. But responsive shrinking caused content overflow at narrow viewports (Bug B). All checks green; Pedro deferred judgment pending Bug B fix.
+
+### Iter 9: Responsive shrink via zero-minimum tracks (Trinity, commit 022100b)
+
+**Problem:** Rows kept full content width even when panel shrunk. Grid tracks had `ch`-based minimums from the JS column-sync mechanism (`var(--saldo-col-prior)`, etc.), creating hard floors that prevented shrinking below the sum of all minimums (~476px).
+
+**Decision:** Replace all content-based track minimums with `0`. Add `min-width: 0` to row/subrow/header grid containers to allow them to shrink below min-content. Add `overflow: hidden; text-overflow: ellipsis; white-space: nowrap` to all value text elements for graceful truncation at extreme narrowness.
+
+**Outcome:** Bug B resolved — rows now shrink with panel. Regression: amounts truncate at narrow viewports. **Amounts are critical readability markers — truncation unacceptable.**
+
+### Iter 10: Protect amounts + media query bar-ratio swap (Trinity, commit 4951ec5)
+
+**Problem:** Iter 9 broke amounts; responsive bars were over-shrinking. Need to protect amount text from truncation while allowing bars to be the responsive axis.
+
+**Decision:** (1) Change prior/current track minimums from `0` to `min-content` so amount text never truncates. Remove `overflow: hidden; text-overflow: ellipsis` from amount cells; keep `white-space: nowrap` only. (2) Remove `min-width: 0` from compound cells (prior/current cell containers) so their content minimum (amount text) propagates to the grid track. (3) Add `@media (max-width: 1200px)` to override current-year column `3fr` → `1fr`, making bar ratio 1:1 at narrow viewports for legibility.
+
+**Outcome:** All 4 requirements met:
+- ✅ Panels adapt to viewport width (responsive)
+- ✅ Bar ratio 1:3 above 1200px, 1:1 below (Pedro specified ratio)
+- ✅ Row content shrinks with panel (no overflow)
+- ✅ Amounts always readable (never truncate)
+
+**Pedro confirmed "all good." PR #91 merged.**
+
+## Learnings Locked (Recipe Updates)
+
+1. **Grid container properties affect unit resolution:** The `ch` unit in CSS variables resolves relative to the **grid container's font-size**, not the cells'. Inspecting `var()` resolution requires DevTools → Elements → Computed Styles on the grid container, not the cell.
+   - **Skill:** `.squad/skills/grid-header-row-alignment/SKILL.md` — Confidence bumped to **HIGH** (validated across iters 8 + 10).
+
+2. **Responsive shrinking in grids requires layered constraints:**
+   - Outer grid: `minmax(0, 1fr)` for flex allocation.
+   - Inner containers: `min-width: 0` to allow shrink (except compound cells whose content minimum must propagate).
+   - Track minimums: `min-content` for critical content (amounts), `0` for truncatable content (names).
+   - Media query: override `fr` ratios at viewport breakpoints (e.g., 1:3 → 1:1 at ≤1200px).
+   - **Skill:** `.squad/skills/responsive-panel-width/SKILL.md` — Confidence bumped to **MEDIUM** (validated in iters 9-10, media query refinement adds new axis).
+
+3. **Amounts are the last line of defence:** Design decisions must guarantee amounts are always readable. Use `min-content` minimums and test at 400px viewport to verify no truncation path exists.
+
+## Files Changed
+
+- `app/src/renderer/styles/globals.css` — `.ot-saldo-subrow--compare` grid template (iter 7, 8, 10)
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.css` — header + row grid templates + media query (iters 7, 8, 9, 10)
+- `app/src/renderer/screens/AppShell/AppShell.css` — responsive padding (iter 7)
+
+## Verification
+
+- ✅ iter10-proof-1100.png (narrow viewport, 1:1 ratio, amounts readable)
+- ✅ iter10-proof-1700.png (wide viewport, 1:3 ratio, layout stable)
+- ✅ Commit 4951ec5, all checks green
+- ✅ Pedro sign-off: "all good"
+- ✅ PR #91 merged to main
+- ✅ Squad state pushed via PR #93
 | File columns do not match previous mapping. Review mapping. | Las columnas del archivo no coinciden con la importación anterior. Verifica el mapeo. |
 
 ---
