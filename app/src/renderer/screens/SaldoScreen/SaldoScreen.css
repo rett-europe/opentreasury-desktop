@@ -111,7 +111,7 @@
 
 .ot-saldo-panel__columns {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 1fr auto auto auto auto;
   gap: var(--space-3) var(--space-6);
   align-items: center;
   font-size: var(--font-size-11);
