@@ -8,7 +8,6 @@ import { createSplit, removeSplit, getSplits } from '../../services/splitsApi.js
 import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
 import type { CategoryRecord } from '../../types/config.js';
 import { MAX_SPLITS_PER_TX, SPLIT_COMMENT_MAX } from '../../../shared/ipc-contracts/transaction-splits.js';
-import './SplitTransactionModal.css';
 
 export interface SplitTransactionModalProps {
   readonly isOpen: boolean;

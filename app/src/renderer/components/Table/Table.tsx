@@ -31,6 +31,11 @@ export interface TableProps<T> {
    */
   readonly onRowClick?: (row: T) => void;
   /**
+   * Optional per-row className getter. Returns a class name (or undefined)
+   * for each row. Used to apply row-level styling (e.g., .ot-split-parent).
+   */
+  readonly getRowClassName?: (row: T) => string | undefined;
+  /**
    * Enable row virtualisation. The wrapping div becomes a scroll container;
    * only rows near the visible viewport are mounted. Recommended for datasets
    * with ≥100 rows. Requires the container to have a bounded height — pass
@@ -72,6 +77,7 @@ export function Table<T>({
   onSort,
   footer,
   onRowClick,
+  getRowClassName,
   virtualise = false,
   containerStyle,
 }: TableProps<T>): JSX.Element {
@@ -105,11 +111,17 @@ export function Table<T>({
     const handleRowActivate = (): void => {
       if (onRowClick) onRowClick(row);
     };
+    const rowClasses = [
+      clickable ? 'ot-table__row--clickable' : '',
+      getRowClassName?.(row) ?? '',
+    ]
+      .filter(Boolean)
+      .join(' ');
     return (
       <tr
         key={getRowKey(row)}
         aria-rowindex={virtualise ? rowIndex + 1 : undefined}
-        className={clickable ? 'ot-table__row--clickable' : undefined}
+        className={rowClasses || undefined}
         onClick={clickable ? handleRowActivate : undefined}
         onKeyDown={
           clickable

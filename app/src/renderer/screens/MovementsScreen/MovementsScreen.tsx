@@ -639,7 +639,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
             return (
               <button
                 type="button"
-                className="ot-badge ot-badge--split ot-badge--clickable"
+                className="ot-split-parent-badge"
                 onClick={(e) => {
                   e.stopPropagation();
                   openSplitModal(record);
@@ -1163,6 +1163,10 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
                 sortBy={sortBy}
                 sortDirection={sortDir}
                 onSort={handleSort}
+                getRowClassName={(m) => {
+                  const record = rawRecordById.get(m.id);
+                  return record?.hasSplits ? 'ot-split-parent' : undefined;
+                }}
                 virtualise={sortedRows.length >= VIRTUAL_ROW_THRESHOLD}
                 containerStyle={
                   sortedRows.length >= VIRTUAL_ROW_THRESHOLD

@@ -81,4 +81,22 @@ describe('Table', () => {
     const amountCell = screen.getByText('10');
     expect(amountCell.className).toContain('ot-table__cell--tnum');
   });
+
+  it('applies getRowClassName to rows', () => {
+    render(
+      <Table
+        columns={COLS}
+        rows={[
+          { id: 'a', name: 'Alpha', amount: 10 },
+          { id: 'b', name: 'Beta', amount: 20 },
+        ]}
+        getRowKey={(r) => r.id}
+        getRowClassName={(r) => (r.amount > 15 ? 'ot-split-parent' : undefined)}
+      />,
+    );
+    const rows = screen.getAllByRole('row');
+    // rows[0] is the header row
+    expect(rows[1]?.className).not.toContain('ot-split-parent'); // Alpha (10)
+    expect(rows[2]?.className).toContain('ot-split-parent'); // Beta (20)
+  });
 });
