@@ -21,6 +21,7 @@
       "panel": "Panel",
       "movements": "Movimientos",
       "balance": "Saldo",
+      "insights": "Análisis",
       "datos": "Datos",
       "configuracion": "Configuración",
       "cuentas": "Cuentas",
@@ -890,6 +891,14 @@
       "SUM_MISMATCH": "Los importes no suman el total.",
       "SCHEMA_INVALID": "Los datos de la división no son válidos.",
       "INTERNAL": "Algo salió mal. Inténtalo de nuevo."
+    }
+  },
+  "insights": {
+    "title": "Análisis",
+    "subtitle": "Análisis por etiquetas — campañas, proyectos y eventos transversales a las categorías",
+    "empty": {
+      "title": "Aún no hay datos para Insights",
+      "body": "Asigna etiquetas a tus movimientos para ver análisis de campañas y proyectos que cruzan categorías."
     }
   }
 }
