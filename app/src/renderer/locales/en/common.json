@@ -819,5 +819,60 @@
       "PATH_INVALID": "Invalid file path.",
       "ROW_COUNT_EXCEEDED": "File exceeds 100,000 row limit."
     }
+  },
+  "split": {
+    "modal": {
+      "title": "Split transaction",
+      "editTitle": "Edit split",
+      "originalLabel": "Original movement",
+      "colAmount": "Amount",
+      "colCategory": "Category",
+      "colSubcategory": "Subcategory",
+      "colComment": "Comment",
+      "addPart": "+ Add part",
+      "distributed": "Distributed: {{distributed}} of {{total}}",
+      "remaining": "Remaining: {{amount}}",
+      "sumWarning": "Amounts must total {{amount}}",
+      "minPartsWarning": "A split requires at least 2 parts",
+      "maxPartsWarning": "Maximum 20 parts",
+      "cancel": "Cancel",
+      "save": "Save split",
+      "saving": "Saving…",
+      "remove": "Remove split",
+      "saveError": "Could not save the split: {{reason}}",
+      "removeError": "Could not remove the split",
+      "discardTitle": "Discard changes?",
+      "discardBody": "Changes to this split have not been saved.",
+      "discardConfirm": "Discard",
+      "discardCancel": "Keep editing",
+      "removeTitle": "Remove the split?",
+      "removeBody": "All parts will be removed. The transaction will revert to a single amount of {{amount}}.",
+      "removeConfirm": "Remove",
+      "removeCancel": "Cancel",
+      "amountLockedTitle": "Amount locked",
+      "amountLockedBody": "Amount is locked because this transaction has splits. Remove the split to change the amount."
+    },
+    "list": {
+      "badge": "Split transaction",
+      "partCount_one": "{{count}} part",
+      "partCount_other": "{{count}} parts",
+      "categoryCell": "Split"
+    },
+    "actions": {
+      "split": "Split transaction",
+      "editSplit": "Edit split"
+    },
+    "bulk": {
+      "skipped_one": "Skipped {{count}} transaction with active split.",
+      "skipped_other": "Skipped {{count}} transactions with active splits."
+    },
+    "errors": {
+      "TX_NOT_FOUND": "Transaction not found.",
+      "TX_DELETED": "The transaction has been deleted.",
+      "INVALID_SPLIT_COUNT": "Must have between 2 and 20 parts.",
+      "SUM_MISMATCH": "Amounts do not sum to the total.",
+      "SCHEMA_INVALID": "Split data is not valid.",
+      "INTERNAL": "Something went wrong. Please try again."
+    }
   }
 }

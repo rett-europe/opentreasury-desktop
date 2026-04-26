@@ -136,6 +136,17 @@ import {
   type DeleteNoteRequest,
   type DeleteNoteResponse,
 } from '../shared/ipc-contracts/notes.js';
+import {
+  IPC_TRANSACTION_SPLIT,
+  IPC_TRANSACTION_SPLIT_REMOVE,
+  IPC_TRANSACTION_SPLIT_GET,
+  type SplitTransactionRequest,
+  type SplitTransactionResponse,
+  type RemoveSplitRequest,
+  type RemoveSplitResponse,
+  type GetSplitsRequest,
+  type GetSplitsResponse,
+} from '../shared/ipc-contracts/transaction-splits.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -194,6 +205,17 @@ const api = {
       },
       delete: (req: DeleteNoteRequest): Promise<DeleteNoteResponse> => {
         return ipcRenderer.invoke(IPC_TRANSACTION_NOTE_DELETE, req);
+      },
+    },
+    split: {
+      create: (req: SplitTransactionRequest): Promise<SplitTransactionResponse> => {
+        return ipcRenderer.invoke(IPC_TRANSACTION_SPLIT, req);
+      },
+      remove: (req: RemoveSplitRequest): Promise<RemoveSplitResponse> => {
+        return ipcRenderer.invoke(IPC_TRANSACTION_SPLIT_REMOVE, req);
+      },
+      get: (req: GetSplitsRequest): Promise<GetSplitsResponse> => {
+        return ipcRenderer.invoke(IPC_TRANSACTION_SPLIT_GET, req);
       },
     },
   },
