@@ -26,8 +26,9 @@ export interface BulkClassifyModalProps {
     input: BulkUpdateTransactionRequest,
   ) => Promise<BulkUpdateTransactionResponse>;
   /** Called after a fully-successful bulk update so the host can clear
-   *  selection and re-run panel/movements queries. */
-  readonly onSuccess: () => void | Promise<void>;
+   *  selection and re-run panel/movements queries. Receives the result
+   *  to display skipped-count messages. */
+  readonly onSuccess: (result: { updatedCount: number; skippedSplitParentCount: number }) => void | Promise<void>;
 }
 
 /**
@@ -132,7 +133,7 @@ export function BulkClassifyModal({
 
         const result = await onBulkUpdate(input);
         if (result.ok) {
-          await onSuccess();
+          await onSuccess({ updatedCount: result.updatedCount, skippedSplitParentCount: result.skippedSplitParentCount });
           onClose();
         } else {
           setFailures(result.failures);

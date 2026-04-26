@@ -403,6 +403,24 @@ a:hover {
   color: var(--color-expense-default);
   background: var(--color-expense-bg);
 }
+/* SPEC-023 — split parent badge. Uses brand surface for subtle distinction. */
+.ot-badge--split {
+  color: var(--color-brand-primary);
+  background: var(--color-brand-surface);
+  font-weight: var(--font-weight-medium);
+}
+.ot-badge--clickable {
+  cursor: pointer;
+  border: 0;
+  transition: background-color 120ms ease;
+}
+.ot-badge--clickable:hover {
+  background: color-mix(in oklch, var(--color-brand-surface) 70%, var(--color-brand-primary));
+}
+.ot-badge--clickable:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
 
 /* Tag chip (Movements "Etiquetas" column). Port of prototype .tag-chip:
  * background is a transparent tint of a per-tag color, passed via the

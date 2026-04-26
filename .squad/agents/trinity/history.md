@@ -1425,3 +1425,20 @@ Coordinated batch (Neo perf-gate review, Cypher verification + merge, Morpheus P
 ## Wave 2 Awaiting — 2026-04-29
 
 Split Transactions (SPEC-023 Wave 2): Awaiting PR #63 (Morpheus IPC contract for split mutations + MovementRecord hasSplits/splitCount fields) merge. Once landed, implement split editor modal, list badge, aggregation wiring. PR #62 (Cypher tests) will unskip in parallel.
+
+## 2026-04-26 — PR #68 Split Transaction Modal (Partial)
+
+**Split modal component (SPEC-023 Wave 2 — partial):**
+- Created `SplitTransactionModal` component with create/edit/remove modes
+- IPC preload bridge for `transaction:split`, `transaction:split:remove`, `transaction:split:get`
+- Service API wrapper (`splitsApi.ts`) matching WI-19 discriminated-union pattern
+- Live cents-sum validation with running delta display
+- 50+ i18n keys (ES + EN parity) in `split.*` namespace
+- Class-name contract with Mouse: `.ot-split-modal`, `.ot-split-row`, `.ot-split-delta`, `.ot-split-parent`, `.ot-split-parent-badge`
+
+**Pattern: Cents-sum live validation** — Track running sum in integer cents to avoid floating-point drift. Parse EUR inputs → convert to cents → sum → compare integers. Display delta in EUR for UX. State modifiers (`.ot-split-delta--balanced/positive/negative`) + ARIA live region for accessibility.
+
+**Pattern: Sub-confirmation overlays** — For complex modals with nested confirmations (discard changes, remove split), use inline overlay divs rather than nested `<dialog>` elements. Keeps modal lifecycle simple (one ref, one showModal/close pair) while supporting multi-step flows.
+
+**Integration pending** — MovementsScreen (row badge, context action, modal state), TransactionDetailModal (amount lock FR14, split display), BulkClassifyModal (skip count toast FR15). PR marked draft until integration complete.
+

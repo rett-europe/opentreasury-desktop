@@ -852,6 +852,10 @@
       "amountLockedTitle": "Importe bloqueado",
       "amountLockedBody": "El importe está bloqueado porque este movimiento tiene partes. Elimina la división para cambiar el importe."
     },
+    "detail": {
+      "childrenHeading": "División en {{count}} partes",
+      "amountLocked": "Importe bloqueado mientras existan divisiones activas"
+    },
     "list": {
       "badge": "Movimiento dividido",
       "partCount_one": "{{count}} parte",

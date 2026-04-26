@@ -852,6 +852,10 @@
       "amountLockedTitle": "Amount locked",
       "amountLockedBody": "Amount is locked because this transaction has splits. Remove the split to change the amount."
     },
+    "detail": {
+      "childrenHeading": "Split into {{count}} parts",
+      "amountLocked": "Amount locked while splits are active"
+    },
     "list": {
       "badge": "Split transaction",
       "partCount_one": "{{count}} part",

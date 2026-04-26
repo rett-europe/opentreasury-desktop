@@ -1,19 +1,32 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Edit, Trash2 } from 'lucide-react';
+import { X, Edit, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { NotesThread } from '../NotesThread/index.js';
 import { TransactionFormFields } from '../TransactionFormFields/index.js';
 import { formatDate } from '../../utils/dateFormat.js';
 import type { Account, RecentTransaction } from '../../../shared/ipc-contracts/panel.js';
+import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
+import { getSplits } from '../../services/splitsApi.js';
 import './TransactionDetailModal.css';
+
+// SPEC-023 — local type for split child (mirrors core/query/types.TransactionSplit
+// but defined here to avoid renderer→core import violation per ADR-002 §4.1).
+interface SplitChild {
+  readonly splitId: string;
+  readonly amountCents: number;
+  readonly categoryId: string | null;
+  readonly subcategoryId: string | null;
+  readonly comment: string | null;
+}
 
 export interface TransactionDetailModalProps {
   readonly isOpen: boolean;
   readonly onClose: () => void;
   readonly transaction: RecentTransaction | null;
+  readonly rawRecord?: MovementRecord | null;
   readonly accounts?: readonly Account[];
   readonly categories?: readonly CategoryRecord[];
   readonly tags?: readonly TagRecord[];
@@ -22,6 +35,7 @@ export interface TransactionDetailModalProps {
   readonly tagLabels?: readonly string[];
   readonly onUpdate: (input: UpdateTransactionRequest) => Promise<void>;
   readonly onDelete: (id: string) => Promise<void>;
+  readonly onOpenSplit?: () => void;
 }
 
 interface FormErrors {
@@ -50,6 +64,7 @@ export function TransactionDetailModal({
   isOpen,
   onClose,
   transaction,
+  rawRecord,
   accounts = [],
   categories = [],
   tags = [],
@@ -58,6 +73,7 @@ export function TransactionDetailModal({
   tagLabels,
   onUpdate,
   onDelete,
+  onOpenSplit,
 }: TransactionDetailModalProps): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
@@ -83,6 +99,10 @@ export function TransactionDetailModal({
   const [errors, setErrors] = useState<FormErrors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
 
+  // SPEC-023 — split children state for read-only view
+  const [splitsExpanded, setSplitsExpanded] = useState(false);
+  const [splitChildren, setSplitChildren] = useState<readonly SplitChild[]>([]);
+
   // Populate form when entering edit mode
   useEffect(() => {
     if (isEditMode && transaction) {
@@ -101,6 +121,27 @@ export function TransactionDetailModal({
       setGeneralError(null);
     }
   }, [isEditMode, transaction]);
+
+  // SPEC-023 — Load split children when opening a split parent (read-only mode).
+  useEffect(() => {
+    if (!transaction || !rawRecord?.hasSplits || isEditMode) {
+      setSplitChildren([]);
+      return;
+    }
+    const loadSplitChildren = async (): Promise<void> => {
+      try {
+        const result = await getSplits({ parentTxId: transaction.id });
+        if (result.ok) {
+          setSplitChildren(result.splits);
+        }
+      } catch (err) {
+        console.error('Failed to load split children:', err);
+      }
+    };
+    loadSplitChildren().catch(() => {
+      // Silent failure — splits UI will remain collapsed if load fails.
+    });
+  }, [transaction, rawRecord, isEditMode]);
 
   // Manage <dialog> open/close state
   useEffect(() => {
@@ -341,6 +382,13 @@ export function TransactionDetailModal({
                 {generalError}
               </div>
             )}
+            {/* SPEC-023 — amount-locked notice (defense-in-depth; UI prevents editing) */}
+            {rawRecord?.hasSplits && (
+              <div className="ot-transaction-detail-modal__info-notice" role="status">
+                <strong>{t('splits.modal.amountLockedTitle')}</strong>
+                <p>{t('splits.modal.amountLockedBody')}</p>
+              </div>
+            )}
             <TransactionFormFields
               date={date}
               onDateChange={setDate}
@@ -447,6 +495,66 @@ export function TransactionDetailModal({
                   <p className="ot-transaction-detail-modal__details">{transaction.details}</p>
                 </section>
               ) : null}
+
+              {/* SPEC-023 — split children display (collapsed by default) */}
+              {rawRecord?.hasSplits && splitChildren.length > 0 && (
+                <section
+                  className="ot-transaction-detail-modal__splits"
+                  aria-label={t('splits.detail.childrenHeading', { count: rawRecord.splitCount })}
+                >
+                  <button
+                    type="button"
+                    className="ot-transaction-detail-modal__splits-toggle"
+                    onClick={() => setSplitsExpanded((prev) => !prev)}
+                    aria-expanded={splitsExpanded}
+                  >
+                    <span>{t('splits.detail.childrenHeading', { count: rawRecord.splitCount })}</span>
+                    {splitsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </button>
+                  {splitsExpanded && (
+                    <div className="ot-transaction-detail-modal__splits-list">
+                      {splitChildren.map((split) => {
+                        const cat = categories.find((c) => c.id === split.categoryId);
+                        const subcat = categories
+                          .flatMap((c) => c.subcategories)
+                          .find((s) => s?.id === split.subcategoryId);
+                        const amountEur = split.amountCents / 100;
+                        const formattedAmt = new Intl.NumberFormat(locale, {
+                          style: 'currency',
+                          currency: 'EUR',
+                        }).format(amountEur);
+                        return (
+                          <div key={split.splitId} className="ot-transaction-detail-modal__split-row">
+                            <span className="ot-transaction-detail-modal__split-amount">
+                              {formattedAmt}
+                            </span>
+                            <span className="ot-transaction-detail-modal__split-category">
+                              {cat?.name ?? t('transactionDetail.fields.none')}
+                              {subcat && ` → ${subcat.name}`}
+                            </span>
+                            {split.comment && (
+                              <span className="ot-transaction-detail-modal__split-comment">
+                                {split.comment}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {onOpenSplit && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={onOpenSplit}
+                          className="ot-transaction-detail-modal__edit-split-btn"
+                        >
+                          {t('splits.actions.editSplit')}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </section>
+              )}
 
               <hr className="ot-transaction-detail-modal__divider" />
 
