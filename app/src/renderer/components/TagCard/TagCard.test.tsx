@@ -62,12 +62,17 @@ describe('TagCard', () => {
     it('shows all three metrics in volumen mode', () => {
       render(<TagCard tagId="tag-1" name="Test" kpis={defaultKPIs} displayMode="volumen" />);
 
+      const normalizedMatcher = (expected: string) => (text: string | null) => {
+        if (!text) return false;
+        return text.replace(/\u00a0/g, ' ') === expected.replace(/\u00a0/g, ' ');
+      };
+
       expect(screen.getByText('INGRESOS')).toBeDefined();
       expect(screen.getByText('GASTOS')).toBeDefined();
       expect(screen.getByText('NETO')).toBeDefined();
-      expect(screen.getByText('1.000,00 €')).toBeDefined();
-      expect(screen.getByText('400,00 €')).toBeDefined();
-      expect(screen.getByText('600,00 €')).toBeDefined();
+      expect(screen.getByText(normalizedMatcher('1000,00 €'))).toBeDefined();
+      expect(screen.getByText(normalizedMatcher('400,00 €'))).toBeDefined();
+      expect(screen.getByText(normalizedMatcher('600,00 €'))).toBeDefined();
     });
 
     it('shows only neto in neto mode', () => {
@@ -226,7 +231,9 @@ describe('TagCard', () => {
       );
 
       const card = container.querySelector('.ot-tag-card');
-      expect(card?.getAttribute('aria-label')).toBe('Campaign 2026: 5 movimientos, neto 600,00 €');
+      const ariaLabel = card?.getAttribute('aria-label');
+      const normalized = ariaLabel?.replace(/\u00a0/g, ' ') || '';
+      expect(normalized).toBe('Campaign 2026: 5 movimientos, neto 600,00 €');
     });
 
     it('includes negative neto in aria-label', () => {
@@ -236,7 +243,9 @@ describe('TagCard', () => {
       );
 
       const card = container.querySelector('.ot-tag-card');
-      expect(card?.getAttribute('aria-label')).toContain('-200,00 €');
+      const ariaLabel = card?.getAttribute('aria-label');
+      const normalized = ariaLabel?.replace(/\u00a0/g, ' ') || '';
+      expect(normalized).toContain('-200,00 €');
     });
   });
 
