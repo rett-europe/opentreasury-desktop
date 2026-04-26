@@ -189,6 +189,24 @@
       },
       "empty": "Sin categorías en este año",
       "uncategorized": "Sin categoría"
+    },
+    "subcategories": {
+      "toggle": "Mostrar subcategorías",
+      "toggleAriaClosed": "Mostrar subcategorías. Estado: cerrado",
+      "toggleAriaOpen": "Mostrar subcategorías. Estado: abierto",
+      "toggleDisabledTooltip": "Insuficientes datos para comparar subcategorías",
+      "expandedAnnounce_one": "{{count}} categoría expandida con subcategorías",
+      "expandedAnnounce_other": "{{count}} categorías expandidas con subcategorías",
+      "collapsedAnnounce": "Vista resumida por categorías",
+      "uncategorized": "Sin subcategoría",
+      "otras": {
+        "label": "Otras subcategorías",
+        "tooltip_one": "{{count}} subcategoría: {{names}}",
+        "tooltip_other": "{{count}} subcategorías: {{names}}"
+      },
+      "row": {
+        "aria": "{{subcategoryName}}, subcategoría de {{categoryName}}. Año actual: {{current}}. Año anterior: {{prior}}. Delta: {{delta}}."
+      }
     }
   },
   "movements": {

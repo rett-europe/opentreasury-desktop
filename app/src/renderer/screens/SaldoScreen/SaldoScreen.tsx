@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Calculator, TrendingDown, TrendingUp } from 'lucide-react';
+import { Calculator, ChevronDown, ChevronUp, TrendingDown, TrendingUp } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
@@ -9,6 +9,7 @@ import { getSaldoComparison } from '../../services/saldoApi.js';
 import type {
   SaldoCategoryNet,
   SaldoComparisonResponse,
+  SaldoSubcategoryNet,
 } from '../../../shared/ipc-contracts/saldo.js';
 import { formatCurrency } from '../../utils/numberFormat.js';
 import './SaldoScreen.css';
@@ -138,6 +139,9 @@ export function SaldoScreen(): JSX.Element {
 
   const [view, setView] = useState<ViewState>(() => loadView(maxYear, minYear));
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
+  // WI-B (#67): subcategory drill-down toggle. Local-only state, default OFF
+  // per UX-004a §5; resets on screen unmount (no persistence in v1).
+  const [showSubcategories, setShowSubcategories] = useState(false);
 
   useEffect(() => {
     saveView(view);
@@ -243,6 +247,7 @@ export function SaldoScreen(): JSX.Element {
           onCurrentChange={onCurrentYearChange}
           onPriorChange={onPriorYearChange}
         />
+        <SubcategoryToggle on={showSubcategories} onChange={setShowSubcategories} />
       </div>
 
       {state.kind === 'loading' ? (
@@ -264,9 +269,48 @@ export function SaldoScreen(): JSX.Element {
       ) : null}
 
       {state.kind === 'loaded' ? (
-        <SaldoLoadedView view={view} current={state.current} prior={state.prior} locale={locale} />
+        <SaldoLoadedView
+          view={view}
+          current={state.current}
+          prior={state.prior}
+          locale={locale}
+          showSubcategories={showSubcategories}
+        />
       ) : null}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Subcategory drill-down toggle (UX-004a §4, §7).
+// ---------------------------------------------------------------------------
+
+type SubcategoryToggleProps = {
+  readonly on: boolean;
+  readonly onChange: (next: boolean) => void;
+};
+
+function SubcategoryToggle({ on, onChange }: SubcategoryToggleProps): JSX.Element {
+  const { t } = useTranslation('common');
+  const ariaLabel = on
+    ? t('saldo.subcategories.toggleAriaOpen')
+    : t('saldo.subcategories.toggleAriaClosed');
+  return (
+    <button
+      type="button"
+      className="ot-saldo-toggle-subcategories"
+      aria-pressed={on}
+      aria-label={ariaLabel}
+      data-testid="saldo-subcategories-toggle"
+      onClick={() => onChange(!on)}
+    >
+      <span className="ot-saldo-toggle-subcategories__label">
+        {t('saldo.subcategories.toggle')}
+      </span>
+      <span className="ot-saldo-toggle-subcategories__icon" aria-hidden="true">
+        {on ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </span>
+    </button>
   );
 }
 
@@ -407,18 +451,56 @@ type LoadedProps = {
   readonly current: YearData;
   readonly prior?: YearData | undefined;
   readonly locale: string;
+  readonly showSubcategories: boolean;
 };
 
-function SaldoLoadedView({ view, current, prior, locale }: LoadedProps): JSX.Element {
+function SaldoLoadedView({
+  view,
+  current,
+  prior,
+  locale,
+  showSubcategories,
+}: LoadedProps): JSX.Element {
   const { t } = useTranslation('common');
   const isEmpty = current.income === 0 && current.expense === 0;
 
+  // a11y announce: count of unique categories with ≥2 distinct subcategories.
+  const expandedCount = useMemo(() => {
+    if (!showSubcategories) return 0;
+    let n = 0;
+    for (const c of current.netByCategory) {
+      const subs = c.subcategories ?? [];
+      // Count subcategories with non-zero contribution in either kind.
+      const meaningful = subs.filter((s) => s.income > 0 || s.expense > 0).length;
+      if (meaningful >= 2) n += 1;
+    }
+    return n;
+  }, [showSubcategories, current.netByCategory]);
+
+  const announce = showSubcategories
+    ? t('saldo.subcategories.expandedAnnounce', { count: expandedCount })
+    : t('saldo.subcategories.collapsedAnnounce');
+
   return (
     <>
+      <div
+        className="ot-saldo-subcategories-announce"
+        role="status"
+        aria-live="polite"
+        data-testid="saldo-subcategories-announce"
+      >
+        {announce}
+      </div>
       <KpiStrip view={view} current={current} prior={prior} locale={locale} />
       <MonthlyChart view={view} current={current} locale={locale} />
       {isEmpty ? null : (
-        <CategoryPanels view={view} current={current} prior={prior} locale={locale} />
+        <CategoryPanels
+          view={view}
+          current={current}
+          prior={prior}
+          locale={locale}
+          showSubcategories={showSubcategories}
+        />
       )}
       {isEmpty ? (
         <EmptyState
@@ -664,9 +746,16 @@ type CategoryPanelsProps = {
   readonly current: YearData;
   readonly prior?: YearData | undefined;
   readonly locale: string;
+  readonly showSubcategories: boolean;
 };
 
-function CategoryPanels({ view, current, prior, locale }: CategoryPanelsProps): JSX.Element {
+function CategoryPanels({
+  view,
+  current,
+  prior,
+  locale,
+  showSubcategories,
+}: CategoryPanelsProps): JSX.Element {
   const { t } = useTranslation('common');
   const compareMode = view.mode === 'compare' && prior !== undefined;
   const incomeRows = useMemo(
@@ -699,6 +788,7 @@ function CategoryPanels({ view, current, prior, locale }: CategoryPanelsProps): 
         rows={incomeRows}
         view={view}
         locale={locale}
+        showSubcategories={showSubcategories}
       />
       <CategoryPanel
         kind="expense"
@@ -709,10 +799,22 @@ function CategoryPanels({ view, current, prior, locale }: CategoryPanelsProps): 
         rows={expenseRows}
         view={view}
         locale={locale}
+        showSubcategories={showSubcategories}
       />
     </div>
   );
 }
+
+type SubPanelRow = {
+  readonly id: string;
+  readonly name: string | null;
+  readonly prior: number;
+  readonly current: number;
+  readonly delta: number | null;
+  readonly isOtras: boolean;
+  readonly otrasNames: ReadonlyArray<string>;
+  readonly otrasCount: number;
+};
 
 type PanelRow = {
   readonly id: string;
@@ -720,35 +822,145 @@ type PanelRow = {
   readonly prior: number;
   readonly current: number;
   readonly delta: number | null;
+  readonly subRows: ReadonlyArray<SubPanelRow>;
+  // Original record count of distinct subcategories with non-zero contribution.
+  // Used for the E1/E2 "render parent only" rule (UX-004a §4.3).
+  readonly meaningfulSubcount: number;
 };
+
+const SUBCATEGORY_TOP_N = 8;
+
+function subKeyFor(id: string | null): string {
+  return id ?? '__uncategorized_sub__';
+}
+
+function buildSubcategoryRows(
+  currentParent: SaldoCategoryNet | undefined,
+  priorParent: SaldoCategoryNet | undefined,
+  kind: 'income' | 'expense',
+): { rows: SubPanelRow[]; meaningfulCount: number } {
+  const cur = currentParent?.subcategories ?? [];
+  const prev = priorParent?.subcategories ?? [];
+  const pick = (r: SaldoSubcategoryNet): number => (kind === 'income' ? r.income : r.expense);
+
+  const map = new Map<string, { name: string | null; cur: number; prev: number }>();
+  for (const r of cur) {
+    if (pick(r) <= 0) continue;
+    map.set(subKeyFor(r.subcategoryId), { name: r.subcategoryName, cur: pick(r), prev: 0 });
+  }
+  for (const r of prev) {
+    if (pick(r) <= 0) continue;
+    const k = subKeyFor(r.subcategoryId);
+    const existing = map.get(k);
+    if (existing) {
+      map.set(k, { ...existing, prev: pick(r) });
+    } else {
+      map.set(k, { name: r.subcategoryName, cur: 0, prev: pick(r) });
+    }
+  }
+
+  type Entry = { id: string; name: string | null; prior: number; current: number };
+  const all: Entry[] = [];
+  for (const [id, v] of map) {
+    all.push({ id, name: v.name, prior: v.prev, current: v.cur });
+  }
+  all.sort((a, b) => {
+    const byCur = Math.abs(b.current) - Math.abs(a.current);
+    if (byCur !== 0) return byCur;
+    return (a.name ?? '\uffff').localeCompare(b.name ?? '\uffff');
+  });
+
+  const meaningfulCount = all.length;
+
+  const toRow = (e: Entry): SubPanelRow => ({
+    id: e.id,
+    name: e.name,
+    prior: e.prior,
+    current: e.current,
+    delta: e.prior > 0 ? (e.current - e.prior) / e.prior : null,
+    isOtras: false,
+    otrasNames: [],
+    otrasCount: 0,
+  });
+
+  if (all.length <= SUBCATEGORY_TOP_N) {
+    return { rows: all.map(toRow), meaningfulCount };
+  }
+
+  const top = all.slice(0, SUBCATEGORY_TOP_N).map(toRow);
+  const rest = all.slice(SUBCATEGORY_TOP_N);
+  const restPrior = rest.reduce((s, r) => s + r.prior, 0);
+  const restCurrent = rest.reduce((s, r) => s + r.current, 0);
+  if (restPrior === 0 && restCurrent === 0) {
+    return { rows: top, meaningfulCount };
+  }
+  const otrasNames = rest
+    .map((r) => r.name)
+    .filter((n): n is string => typeof n === 'string' && n.length > 0)
+    .slice(0, 3);
+  top.push({
+    id: '__otras__',
+    name: null,
+    prior: restPrior,
+    current: restCurrent,
+    delta: restPrior > 0 ? (restCurrent - restPrior) / restPrior : null,
+    isOtras: true,
+    otrasNames,
+    otrasCount: rest.length,
+  });
+  return { rows: top, meaningfulCount };
+}
 
 function buildPanelRows(
   current: ReadonlyArray<SaldoCategoryNet>,
   prior: ReadonlyArray<SaldoCategoryNet> | undefined,
   kind: 'income' | 'expense',
 ): PanelRow[] {
-  const map = new Map<string, { name: string | null; cur: number; prev: number }>();
+  const map = new Map<
+    string,
+    {
+      name: string | null;
+      cur: number;
+      prev: number;
+      curRec?: SaldoCategoryNet;
+      prevRec?: SaldoCategoryNet;
+    }
+  >();
   const pick = (r: SaldoCategoryNet): number => (kind === 'income' ? r.income : r.expense);
 
   for (const r of current) {
     if (pick(r) <= 0) continue;
-    map.set(keyFor(r.categoryId), { name: r.categoryName, cur: pick(r), prev: 0 });
+    map.set(keyFor(r.categoryId), {
+      name: r.categoryName,
+      cur: pick(r),
+      prev: 0,
+      curRec: r,
+    });
   }
   for (const r of prior ?? []) {
     if (pick(r) <= 0) continue;
     const k = keyFor(r.categoryId);
     const existing = map.get(k);
     if (existing) {
-      map.set(k, { ...existing, prev: pick(r) });
+      map.set(k, { ...existing, prev: pick(r), prevRec: r });
     } else {
-      map.set(k, { name: r.categoryName, cur: 0, prev: pick(r) });
+      map.set(k, { name: r.categoryName, cur: 0, prev: pick(r), prevRec: r });
     }
   }
 
   const rows: PanelRow[] = [];
   for (const [k, v] of map) {
     const delta = v.prev > 0 ? (v.cur - v.prev) / v.prev : null;
-    rows.push({ id: k, name: v.name, prior: v.prev, current: v.cur, delta });
+    const { rows: subRows, meaningfulCount } = buildSubcategoryRows(v.curRec, v.prevRec, kind);
+    rows.push({
+      id: k,
+      name: v.name,
+      prior: v.prev,
+      current: v.cur,
+      delta,
+      subRows,
+      meaningfulSubcount: meaningfulCount,
+    });
   }
   rows.sort((a, b) => {
     const byCur = Math.abs(b.current) - Math.abs(a.current);
@@ -767,6 +979,7 @@ type CategoryPanelProps = {
   readonly rows: ReadonlyArray<PanelRow>;
   readonly view: ViewState;
   readonly locale: string;
+  readonly showSubcategories: boolean;
 };
 
 function CategoryPanel({
@@ -778,11 +991,18 @@ function CategoryPanel({
   rows,
   view,
   locale,
+  showSubcategories,
 }: CategoryPanelProps): JSX.Element {
   const { t } = useTranslation('common');
   const compareMode = view.mode === 'compare' && view.priorYear !== undefined;
   const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
   const totalForShare = rows.reduce((acc, r) => acc + r.current, 0);
+
+  // E1/E2 (UX-004a §4.3): only render subrows when category has ≥2 subcategories
+  // with meaningful (non-zero) data. Single-subcategory and zero-subcategory
+  // categories render parent-only — no degenerate nested rows.
+  const shouldRenderSubrows = (row: PanelRow): boolean =>
+    showSubcategories && row.meaningfulSubcount >= 2 && row.subRows.length > 0;
 
   return (
     <section
@@ -821,13 +1041,27 @@ function CategoryPanel({
           </div>
           <div className="ot-saldo-panel__rows">
             {rows.map((row) => (
-              <CompareRow
-                key={row.id}
-                row={row}
-                kind={kind}
-                priorYear={view.priorYear ?? view.currentYear - 1}
-                locale={locale}
-              />
+              <div key={row.id} role="group">
+                <CompareRow
+                  row={row}
+                  kind={kind}
+                  priorYear={view.priorYear ?? view.currentYear - 1}
+                  locale={locale}
+                  ariaExpanded={row.meaningfulSubcount >= 2 ? showSubcategories : undefined}
+                />
+                {shouldRenderSubrows(row)
+                  ? row.subRows.map((sub) => (
+                      <CompareSubRow
+                        key={sub.id}
+                        sub={sub}
+                        parent={row}
+                        kind={kind}
+                        priorYear={view.priorYear ?? view.currentYear - 1}
+                        locale={locale}
+                      />
+                    ))
+                  : null}
+              </div>
             ))}
           </div>
         </>
@@ -843,13 +1077,27 @@ function CategoryPanel({
           </div>
           <div className="ot-saldo-panel__rows">
             {rows.map((row) => (
-              <SingleRow
-                key={row.id}
-                row={row}
-                kind={kind}
-                totalForShare={totalForShare}
-                locale={locale}
-              />
+              <div key={row.id} role="group">
+                <SingleRow
+                  row={row}
+                  kind={kind}
+                  totalForShare={totalForShare}
+                  locale={locale}
+                  ariaExpanded={row.meaningfulSubcount >= 2 ? showSubcategories : undefined}
+                />
+                {shouldRenderSubrows(row)
+                  ? row.subRows.map((sub) => (
+                      <SingleSubRow
+                        key={sub.id}
+                        sub={sub}
+                        parent={row}
+                        kind={kind}
+                        totalForShare={totalForShare}
+                        locale={locale}
+                      />
+                    ))
+                  : null}
+              </div>
             ))}
           </div>
         </>
@@ -863,9 +1111,10 @@ type CompareRowProps = {
   readonly kind: 'income' | 'expense';
   readonly priorYear: number;
   readonly locale: string;
+  readonly ariaExpanded?: boolean | undefined;
 };
 
-function CompareRow({ row, kind, priorYear, locale }: CompareRowProps): JSX.Element {
+function CompareRow({ row, kind, priorYear, locale, ariaExpanded }: CompareRowProps): JSX.Element {
   const { t } = useTranslation('common');
   const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
   const maxVal = Math.max(row.prior, row.current, 1);
@@ -879,7 +1128,11 @@ function CompareRow({ row, kind, priorYear, locale }: CompareRowProps): JSX.Elem
         ? formatPct(0, locale)
         : formatPct(row.delta as number, locale);
   return (
-    <div className="ot-saldo-row ot-saldo-row--compare" data-testid={`saldo-row-${kind}-${row.id}`}>
+    <div
+      className="ot-saldo-row ot-saldo-row--compare"
+      data-testid={`saldo-row-${kind}-${row.id}`}
+      {...(ariaExpanded === undefined ? {} : { 'aria-expanded': ariaExpanded })}
+    >
       <span className="ot-saldo-row__name">{row.name ?? t('saldo.panel.uncategorized')}</span>
       <span className="ot-saldo-row__prior">{fmt(row.prior)}</span>
       <div
@@ -924,16 +1177,191 @@ type SingleRowProps = {
   readonly kind: 'income' | 'expense';
   readonly totalForShare: number;
   readonly locale: string;
+  readonly ariaExpanded?: boolean | undefined;
 };
 
-function SingleRow({ row, kind, totalForShare, locale }: SingleRowProps): JSX.Element {
+function SingleRow({
+  row,
+  kind,
+  totalForShare,
+  locale,
+  ariaExpanded,
+}: SingleRowProps): JSX.Element {
   const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
   const share = totalForShare > 0 ? row.current / totalForShare : 0;
   return (
-    <div className="ot-saldo-row ot-saldo-row--single" data-testid={`saldo-row-${kind}-${row.id}`}>
+    <div
+      className="ot-saldo-row ot-saldo-row--single"
+      data-testid={`saldo-row-${kind}-${row.id}`}
+      {...(ariaExpanded === undefined ? {} : { 'aria-expanded': ariaExpanded })}
+    >
       <span className="ot-saldo-row__name">{row.name}</span>
       <span className="ot-saldo-row__current">{fmt(row.current)}</span>
       <span className="ot-saldo-row__delta">
+        {new Intl.NumberFormat(locale, {
+          style: 'percent',
+          maximumFractionDigits: 0,
+        }).format(share)}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Subcategory rows (UX-004a §4.1, §4.2). Indented half-height variants of the
+// parent row, rendered when the global toggle is ON. Class names follow the
+// `.ot-saldo-subrow--compare/--single` BEM modifier pattern (paired with the
+// CSS recipes Mouse owns in globals.css).
+// ---------------------------------------------------------------------------
+
+type CompareSubRowProps = {
+  readonly sub: SubPanelRow;
+  readonly parent: PanelRow;
+  readonly kind: 'income' | 'expense';
+  readonly priorYear: number;
+  readonly locale: string;
+};
+
+function CompareSubRow({ sub, parent, kind, priorYear, locale }: CompareSubRowProps): JSX.Element {
+  const { t } = useTranslation('common');
+  const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
+  const maxVal = Math.max(sub.prior, sub.current, 1);
+  const priorPct = (sub.prior / maxVal) * 100;
+  const currentPct = (sub.current / maxVal) * 100;
+  const deltaKind = classifyDelta(sub.delta);
+  const deltaText =
+    deltaKind === 'noPrior'
+      ? '—'
+      : deltaKind === 'flat'
+        ? formatPct(0, locale)
+        : formatPct(sub.delta as number, locale);
+  const subName = sub.isOtras
+    ? t('saldo.subcategories.otras.label')
+    : (sub.name ?? t('saldo.subcategories.uncategorized'));
+  const parentName = parent.name ?? t('saldo.panel.uncategorized');
+  const tooltip = sub.isOtras
+    ? t('saldo.subcategories.otras.tooltip', {
+        count: sub.otrasCount,
+        names: sub.otrasNames.join(', '),
+      })
+    : undefined;
+
+  const ariaLabel = t('saldo.subcategories.row.aria', {
+    subcategoryName: subName,
+    categoryName: parentName,
+    current: fmt(sub.current),
+    prior: fmt(sub.prior),
+    delta: deltaText,
+  });
+
+  const nameClass = sub.isOtras
+    ? 'ot-saldo-subrow__name ot-saldo-subrow__name--otras'
+    : 'ot-saldo-subrow__name';
+
+  return (
+    <div
+      className="ot-saldo-subrow ot-saldo-subrow--compare"
+      role="row"
+      aria-level={2}
+      aria-label={ariaLabel}
+      data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}`}
+      {...(tooltip ? { title: tooltip } : {})}
+    >
+      <span className={nameClass}>{subName}</span>
+      <span className="ot-saldo-subrow__prior">{fmt(sub.prior)}</span>
+      <div
+        className="ot-saldo-subrow__bars"
+        role="img"
+        aria-label={t('saldo.panel.row.barsAria', {
+          priorYear,
+          priorValue: fmt(sub.prior),
+          currentValue: fmt(sub.current),
+        })}
+      >
+        <div className="ot-saldo-subrow__bar-track">
+          <div
+            className="ot-saldo-subrow__bar-fill ot-saldo-subrow__bar-fill--prior"
+            style={{ width: `${priorPct}%` }}
+          />
+        </div>
+        <div className="ot-saldo-subrow__bar-track">
+          <div
+            className="ot-saldo-subrow__bar-fill ot-saldo-subrow__bar-fill--current"
+            style={{ width: `${currentPct}%` }}
+          />
+        </div>
+      </div>
+      <span className="ot-saldo-subrow__current">{fmt(sub.current)}</span>
+      <span
+        className={`ot-saldo-subrow__delta ot-saldo-subrow__delta--${deltaKind}`}
+        data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-delta`}
+      >
+        {deltaKind === 'up' ? '↑ ' : deltaKind === 'down' ? '↓ ' : ''}
+        {deltaText}
+      </span>
+      <span className="ot-saldo-subrow__delta-sublabel">
+        {t('saldo.panel.row.vs', { year: priorYear })}
+      </span>
+    </div>
+  );
+}
+
+type SingleSubRowProps = {
+  readonly sub: SubPanelRow;
+  readonly parent: PanelRow;
+  readonly kind: 'income' | 'expense';
+  readonly totalForShare: number;
+  readonly locale: string;
+};
+
+function SingleSubRow({
+  sub,
+  parent,
+  kind,
+  totalForShare,
+  locale,
+}: SingleSubRowProps): JSX.Element {
+  const { t } = useTranslation('common');
+  const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
+  const share = totalForShare > 0 ? sub.current / totalForShare : 0;
+  const subName = sub.isOtras
+    ? t('saldo.subcategories.otras.label')
+    : (sub.name ?? t('saldo.subcategories.uncategorized'));
+  const parentName = parent.name ?? t('saldo.panel.uncategorized');
+  const tooltip = sub.isOtras
+    ? t('saldo.subcategories.otras.tooltip', {
+        count: sub.otrasCount,
+        names: sub.otrasNames.join(', '),
+      })
+    : undefined;
+
+  const ariaLabel = t('saldo.subcategories.row.aria', {
+    subcategoryName: subName,
+    categoryName: parentName,
+    current: fmt(sub.current),
+    prior: fmt(sub.prior),
+    delta: new Intl.NumberFormat(locale, {
+      style: 'percent',
+      maximumFractionDigits: 0,
+    }).format(share),
+  });
+
+  const nameClass = sub.isOtras
+    ? 'ot-saldo-subrow__name ot-saldo-subrow__name--otras'
+    : 'ot-saldo-subrow__name';
+
+  return (
+    <div
+      className="ot-saldo-subrow ot-saldo-subrow--single"
+      role="row"
+      aria-level={2}
+      aria-label={ariaLabel}
+      data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}`}
+      {...(tooltip ? { title: tooltip } : {})}
+    >
+      <span className={nameClass}>{subName}</span>
+      <span className="ot-saldo-subrow__current">{fmt(sub.current)}</span>
+      <span className="ot-saldo-subrow__delta">
         {new Intl.NumberFormat(locale, {
           style: 'percent',
           maximumFractionDigits: 0,

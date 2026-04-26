@@ -257,4 +257,207 @@ describe('SaldoScreen', () => {
     // Donaciones income (8000) of total income (10000) = 80%.
     expect(row.textContent ?? '').toMatch(/80\s*%/);
   });
+
+  // -------------------------------------------------------------------------
+  // WI-B (#67) — subcategory drill-down toggle. Spec: UX-004a.
+  // -------------------------------------------------------------------------
+
+  function makeResponseWithSubs(): SaldoComparisonResponse {
+    // cat-a (Donaciones, income): 3 subcategories — small enough to skip Otras.
+    // cat-c (Eventos, income): 10 subcategories — exercises the top-8 + Otras
+    //                          rollup rule recursively per UX-004a §4.2.
+    // cat-b (Oficina, expense): 1 subcategory — exercises the E2 "render parent
+    //                          only" suppression for single-subcategory cats.
+    const eventosSubsCur = Array.from({ length: 10 }, (_, i) => ({
+      subcategoryId: `evt-sub-${i}`,
+      subcategoryName: `Evt ${i}`,
+      // Descending so the sort by current-period abs(amount) is unambiguous.
+      income: 1000 - i * 50,
+      expense: 0,
+    }));
+    return makeResponse({
+      currentPeriod: {
+        start: `${CURRENT_YEAR}-01-01`,
+        end: `${CURRENT_YEAR}-12-31`,
+        totalIncome: 10000,
+        totalExpense: 4000,
+        netByCategory: [
+          {
+            categoryId: 'cat-a',
+            categoryName: 'Donaciones',
+            income: 8000,
+            expense: 0,
+            subcategories: [
+              { subcategoryId: 'sub-socios', subcategoryName: 'Socios', income: 4000, expense: 0 },
+              {
+                subcategoryId: 'sub-empresas',
+                subcategoryName: 'Empresas',
+                income: 3000,
+                expense: 0,
+              },
+              {
+                subcategoryId: 'sub-eventos',
+                subcategoryName: 'Eventos',
+                income: 1000,
+                expense: 0,
+              },
+            ],
+          },
+          {
+            categoryId: 'cat-b',
+            categoryName: 'Oficina',
+            income: 0,
+            expense: 3000,
+            subcategories: [
+              { subcategoryId: 'ofi-only', subcategoryName: 'Material', income: 0, expense: 3000 },
+            ],
+          },
+          {
+            categoryId: 'cat-c',
+            categoryName: 'Eventos',
+            income: 2000,
+            expense: 1000,
+            subcategories: eventosSubsCur,
+          },
+        ],
+        isPartial: false,
+        daysElapsed: 365,
+        daysInPeriod: 365,
+        currentProjectedTotal: null,
+      },
+      priorPeriod: {
+        start: `${PRIOR_YEAR}-01-01`,
+        end: `${PRIOR_YEAR}-12-31`,
+        totalIncome: 8000,
+        totalExpense: 3500,
+        netByCategory: [
+          {
+            categoryId: 'cat-a',
+            categoryName: 'Donaciones',
+            income: 6000,
+            expense: 0,
+            subcategories: [
+              { subcategoryId: 'sub-socios', subcategoryName: 'Socios', income: 3000, expense: 0 },
+              {
+                subcategoryId: 'sub-empresas',
+                subcategoryName: 'Empresas',
+                income: 2500,
+                expense: 0,
+              },
+              { subcategoryId: 'sub-eventos', subcategoryName: 'Eventos', income: 500, expense: 0 },
+            ],
+          },
+          {
+            categoryId: 'cat-b',
+            categoryName: 'Oficina',
+            income: 0,
+            expense: 2500,
+            subcategories: [
+              { subcategoryId: 'ofi-only', subcategoryName: 'Material', income: 0, expense: 2500 },
+            ],
+          },
+          {
+            categoryId: 'cat-c',
+            categoryName: 'Eventos',
+            income: 1500,
+            expense: 800,
+            subcategories: eventosSubsCur.map((s) => ({ ...s, income: s.income - 100 })),
+          },
+        ],
+      },
+    });
+  }
+
+  it('renders the Show subcategories toggle off by default with no subrows', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle')).toBeDefined();
+    });
+    const toggle = screen.getByTestId('saldo-subcategories-toggle');
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    // No subrows rendered while toggle is OFF.
+    expect(screen.queryByTestId('saldo-subrow-income-cat-a-sub-socios')).toBeNull();
+  });
+
+  it('renders subrows in compare mode when toggle is on', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle'));
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle').getAttribute('aria-pressed')).toBe(
+        'true',
+      );
+    });
+    // Donaciones (cat-a) has 3 subcategories — all should render.
+    expect(screen.getByTestId('saldo-subrow-income-cat-a-sub-socios')).toBeDefined();
+    expect(screen.getByTestId('saldo-subrow-income-cat-a-sub-empresas')).toBeDefined();
+    expect(screen.getByTestId('saldo-subrow-income-cat-a-sub-eventos')).toBeDefined();
+    // Compare modifier class on subrow.
+    expect(screen.getByTestId('saldo-subrow-income-cat-a-sub-socios').className).toMatch(
+      /ot-saldo-subrow--compare/,
+    );
+    // E2: Oficina (cat-b) has only 1 subcategory → render parent only.
+    expect(screen.queryByTestId('saldo-subrow-expense-cat-b-ofi-only')).toBeNull();
+  });
+
+  it('applies top-8 + Otras rollup rule recursively for categories with >8 subcategories', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle'));
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle').getAttribute('aria-pressed')).toBe(
+        'true',
+      );
+    });
+    // Eventos (cat-c) has 10 income subcategories → top-8 + Otras.
+    for (let i = 0; i < 8; i += 1) {
+      expect(screen.getByTestId(`saldo-subrow-income-cat-c-evt-sub-${i}`)).toBeDefined();
+    }
+    // Subcategories ranked 9 and 10 collapsed into a single Otras row.
+    expect(screen.queryByTestId('saldo-subrow-income-cat-c-evt-sub-8')).toBeNull();
+    expect(screen.queryByTestId('saldo-subrow-income-cat-c-evt-sub-9')).toBeNull();
+    expect(screen.getByTestId('saldo-subrow-income-cat-c-__otras__')).toBeDefined();
+  });
+
+  it('renders subrows in single mode with the single modifier class', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-mode-single')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('saldo-mode-single'));
+    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('saldo-subrow-income-cat-a-sub-socios')).not.toBeNull();
+    });
+    expect(screen.getByTestId('saldo-subrow-income-cat-a-sub-socios').className).toMatch(
+      /ot-saldo-subrow--single/,
+    );
+  });
+
+  it('handles undefined subcategories field gracefully (no crash, no subrows)', async () => {
+    // Simulates pre-projection-extension data: subcategories is undefined.
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle'));
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle').getAttribute('aria-pressed')).toBe(
+        'true',
+      );
+    });
+    // Toggle is on but no subcategories arrived → no subrows rendered.
+    expect(screen.queryByTestId('saldo-subrow-income-cat-a-sub-socios')).toBeNull();
+    // Parent rows still render normally.
+    expect(screen.getByTestId('saldo-row-income-cat-a')).toBeDefined();
+  });
 });
