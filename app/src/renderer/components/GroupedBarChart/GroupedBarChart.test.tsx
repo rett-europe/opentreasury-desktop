@@ -94,8 +94,8 @@ describe('GroupedBarChart', () => {
     const tooltip = screen.getByTestId('gbc-tooltip');
     expect(within(tooltip).getByText(/€1,000\.00/)).toBeDefined();
     expect(within(tooltip).getByText(/€800\.00/)).toBeDefined();
-    // delta = +25.0%
-    expect(within(tooltip).getByText(/\+25\.0%/)).toBeDefined();
+    // delta = +25% (rounded to integer per Pedro feedback on PR #91)
+    expect(within(tooltip).getByText(/\+25%/)).toBeDefined();
   });
 
   it('renders empty state when all values are 0', () => {
@@ -172,6 +172,6 @@ describe('GroupedBarChart', () => {
     expect(label).toContain('2025');
     expect(label).toMatch(/€1,000\.00/);
     expect(label).toMatch(/€800\.00/);
-    expect(label).toMatch(/\+25\.0%/);
+    expect(label).toMatch(/\+25%/);
   });
 });
