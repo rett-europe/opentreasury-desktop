@@ -1209,6 +1209,116 @@ margin-inline: auto;           /* center when max-width kicks in */
 
 ---
 
+## Decision: Trinity — Saldo iter 5 polish (PR #91, commit 1d3fcb7)
+
+**Date:** 2026-04-26T19:16:30+02:00  
+**Status:** Completed, awaiting Pedro re-review  
+**Branch:** `mouse/saldo-prototype-layout`  
+**Commit:** `1d3fcb7`
+
+### What was delivered
+
+Two polish items from Pedro's iter 4 feedback:
+
+1. **Responsive panel width** — Compare-mode panels now shrink/grow with viewport, matching Balance page behavior. Removed fixed `min-width` on bar tracks; year columns now use `fr` units with text-width minimums.
+
+2. **1:3 prior:current column ratio** — Grid template changed from equal `1fr / 1fr` to asymmetric `1fr / 3fr`, giving current-year column 3x the width. Bars scale against same `panelMaxAbs` denominator, so a 100% prior bar is now visually ~1/3 the length of a 100% current bar (matches `ingresos_gastos.png` prototype).
+
+### Files changed
+
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.css` — Header + parent row grid template, removed bar-track `min-width`
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.tsx` — `panelColWidths` measures name length, `panelRowsStyle` exposes `--saldo-col-name`
+- `app/src/renderer/styles/globals.css` — Subrow grid template, removed bar-track `min-width`
+
+### Reusable artefact
+
+`.squad/skills/responsive-panel-width/SKILL.md` — Recipe for future bar-visualization panels.
+
+### Quality gates
+
+- ✅ `npm run lint` — 0 errors
+- ✅ `npm run typecheck` — 0 errors
+- ✅ `npm test` — 654 passing
+- ✅ `npm run format` — clean
+
+---
+
+## Decision: Trinity — Saldo iter 4 (PR #91, commit 2d0ac7c)
+
+**Date:** 2026-04-26  
+**Status:** Completed (iter 5 now in progress)  
+**Branch:** `mouse/saldo-prototype-layout`  
+**Commit:** `2d0ac7c`  
+**Author:** Trinity (Frontend Dev)  
+**Context:** Mouse strict-locked-out per Reviewer Rejection Lockout after 3 consecutive Pedro rejections. Pairing rule suspended; Pedro's verbatim feedback served as the spec.
+
+### What changed (plain English)
+
+#### 1. Year cell internal layout — vertical stack (value on top, bar below)
+
+`.ot-saldo-row__prior-cell` and `.ot-saldo-row__current-cell` switched from horizontal `display: grid; grid-template-columns: 1fr auto` to vertical `display: flex; flex-direction: column; align-items: stretch; row-gap: var(--space-2)`.
+
+DOM order in `CompareRow` reordered so value `<span>` renders BEFORE the bar `<div>`. Final per-cell DOM:
+
+```html
+<div class="ot-saldo-row__current-cell">
+  <span class="ot-saldo-row__current">8.435 €</span>
+  <div class="ot-saldo-row__bar-track">
+    <div class="ot-saldo-row__bar-fill ot-saldo-row__bar-fill--current" style="width: 23%"></div>
+  </div>
+</div>
+```
+
+The two year cells still sit horizontally side-by-side on the same row baseline.
+
+#### 2. Bar geometry — uniform 8px height across the panel
+
+- `.ot-saldo-row__bar-track`: was `6px` → now `8px`
+- `.ot-saldo-subrow__bar-track`: was `4px` → now `8px`
+
+Bar widths are scaled as a percentage of `panelMaxAbs` (per-panel max absolute value, clamped to ≥1). Both year cells use the same denominator, so 2025 vs 2026 bars are directly comparable.
+
+#### 3. Header row — matching column widths
+
+Header now receives `style={panelRowsStyle}`, so the same `--saldo-col-prior`, `--saldo-col-current`, `--saldo-col-delta` custom properties drive both header and rows. Previously the header fell back to `max-content`, producing column-width mismatch on narrow viewports.
+
+#### 4. Value text alignment
+
+`.ot-saldo-row__prior`, `.ot-saldo-row__current`: changed from `text-align: right` to `text-align: left`. Since value now sits ABOVE the bar, left-aligning anchors the digit at the bar's origin.
+
+### Quality gates
+
+- ✅ `npm run lint` — 0 errors
+- ✅ `npm run typecheck` — 0 errors
+- ✅ `npm test` — 654 passing (same baseline)
+- ✅ `npm run format` — all files unchanged
+
+---
+
+## Copilot Directive — User feedback captured (2026-04-26)
+
+**By:** Pedro (via Copilot)  
+**Date:** 2026-04-26T19:17:00+02:00  
+**Scope:** Future work (queued after Saldo iter 5 ships)
+
+### 1. Collapsible navbar in small screens
+
+The left navbar should shrink/collapse dynamically when the window is narrow, freeing horizontal space for content.
+
+**Context:** _"is it possible to reduce the size of the navbar dynamically? in smaller screens this is handy to get more horizontal space."_
+
+### 2. Transactions page: date column must NEVER be truncated
+
+In small screens, the date is currently being trimmed. The date is one of the most important fields and must remain fully visible at all viewport widths.
+
+**Context:** _"in a small screen, in the page transactions, the dates are trimmed... this can never occur as the date is one of the most important fields."_
+
+### Outcome
+
+Captured for the next UI polish round (after Saldo iter 5 lands). **Owners:** Mouse (spec/visual) + Trinity (implement) per pairing directive. Mouse is eligible — Saldo lockout is artifact-scoped, doesn't apply to navbar or MovementsScreen.
+
+---
+
 ## Copilot Directive — Saldo redesign
 
 **By:** Pedro (perocha) (via Copilot)  

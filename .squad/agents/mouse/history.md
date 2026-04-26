@@ -24,6 +24,12 @@ Language: ES + EN parity mandatory (`locales/{en,es}/common.json`). Target user:
 
 ## Learnings
 
+### 2026-04-26: Saldo iter 5 complete — responsive panels + 1:3 column ratio locked
+
+PR #91 `mouse/saldo-prototype-layout` commit `1d3fcb7`: Saldo compare-mode now responsive (shrinks with viewport, matching Balance page). Added asymmetric grid template `1fr / 3fr` (prior / current year), giving current-year column 3x width. Bars scale against same denominator across both years, so a 100% prior bar is visually ~1/3 the length of a 100% current bar — matches `ingresos_gastos.png` prototype intent. All 654 tests green, lint/typecheck/prettier clean. Reusable skill captured: `.squad/skills/responsive-panel-width/SKILL.md`. Awaiting Pedro re-review.
+
+**Queued follow-up work:** Responsive navbar (collapse on small screens) + non-truncating date column in Movements page. Both captured in separate directive inbox → decisions.md. Owners: Mouse (spec) + Trinity (impl). Mouse eligible — Saldo lockout is artifact-scoped.
+
 ### 2026-04-26: Pairing Rule — Separate Visual Judgment from Code Interpretation
 After PR #91 Saldo Iteration 3 (mouse/saldo-prototype-layout, commit b41f973): **always pair with Trinity on UI work.** Mouse owns visual judgment / prototype fidelity; Trinity owns .tsx/.css. PR #91 went 3 iterations because a single agent (Mouse) was answering both "is this what the prototype shows?" AND "is the React tree correct?" — independent questions requiring independent judgment. Default pattern: Mouse drafts visual spec + reviews against prototype; Trinity implements and ships code. This rule is now locked in decisions.md under Process / Pairing.
 

@@ -55,6 +55,22 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 - **PR #58 (transaction detail bugs):** Fixed 3 bugs on dev-empty: (1) DatosScreen "See transactions" CTA now navigates via onNavigateToMovements prop, (2) description tooltip shows reference + details, (3) reference/details threaded through Movement type, mapMovementRecord, row→tx conversion, and main-process movements:list handler. i18n keys movements.tooltip.reference/.details added (EN/ES parity).
 - **Layout/visual decision pivot finalized:** Niobe Option A (Dedicated Scope Bar) locked; Mouse pivoted from Anchored Band to Calm Scope (weight over tint). Decision inbox entries consolidated into decisions.md §"2026-04-28: Movements Filter UI."
 
+### 2026-04-26: Saldo iter 5 shipped — responsive panels + 1:3 column ratio (PR #91, commit 1d3fcb7)
+
+**Status:** Complete, awaiting Pedro re-review.
+
+**What was delivered:**
+1. **Responsive panel width** — Compare-mode panels now shrink/grow with viewport (matches Balance page). Removed fixed `min-width` on bar tracks; year columns use `fr` units with text-width minimums only.
+2. **1:3 prior:current column ratio** — Grid template `1fr / 3fr` gives current-year 3x width. Bars scale against same `panelMaxAbs` denominator, so 100% prior bar is visually ~1/3 length of 100% current bar.
+
+**Files:** `SaldoScreen.css` (header + parent row template), `SaldoScreen.tsx` (panelColWidths + --saldo-col-name), `globals.css` (subrow template).
+
+**Quality gates:** 654 tests ✅, lint ✅, typecheck ✅, prettier ✅.
+
+**Reusable:** `.squad/skills/responsive-panel-width/SKILL.md` — recipe for future bar-visualization panels.
+
+**Queued:** Responsive navbar (small-screen collapse) + non-truncating date column (Movements). Owners: Mouse (spec) + Trinity (impl). Mouse eligible — Saldo lockout is artifact-scoped.
+
 ### 2026-04-26: Pairing Rule — Separate Visual Judgment from Code Interpretation
 After PR #91 Saldo compare-mode layout (Mouse iter 3, commit b41f973): **pair with Mouse on all UI work going forward.** Mouse owns visual judgment / prototype fidelity (Opus + vision); Trinity owns .tsx/.css (React tree correctness). This separation emerged from PR #91 needing 3 iterations because a single agent was answering both "is this what the prototype shows?" AND "is the React tree correct?" — independent questions. Default pattern locked in decisions.md: Mouse drafts visual spec + reviews against prototype; Trinity implements and ships code. When Trinity encounters visual regression, request Mouse review before merge.
 
@@ -1493,3 +1509,50 @@ Pedro re-opened Saldo after #78 closed. Three rounds of feedback, all merged int
 **Locked rule (Pedro, #87):** When two CSS cues combine to over-signal (e.g., left guide + category separator forming a box), drop the weaker cue rather than tuning both — for row nesting, prefer indentation over borders.
 
 **Mechanic:** `gh pr review --approve` is blocked on owner-authored PRs; use `gh pr review --comment "APPROVE: ..."` so the signal is grep-able.
+
+## Learnings — iter 4 saldo (Mouse locked-out, Pedro spec verbatim)
+
+**Date:** 2026-04-26
+**Context:** PR #91 saldo prototype, iter 4. Mouse strict-locked-out per Reviewer Rejection Lockout after 3 consecutive Pedro rejections. Pairing rule (Mouse spec + Trinity implement) suspended for this artifact.
+
+**Pattern: spec-verbatim-from-Pedro when Mouse is locked out.**
+When the designer is locked out, Pedro's verbatim feedback IS the spec. Treat each phrase as a hard constraint:
+
+- Bullet phrases like "amounts should be on top" → vertical stack inside cell, value-text first in DOM, bar second.
+- "the bars are not equal in size, none of them" → enumerate every bar-track rule across files (parent row CSS + subrow CSS in globals.css), pick ONE pixel height, apply uniformly. Don't keep "half-height" subrow variants.
+- "header has text in rows" → the visible-symptom complaint. Trace the grid template; the actual cause was the header <div> lacking the same CSS custom properties (--saldo-col-*) the row wrapper had. Fix = apply the same style={panelRowsStyle} to header so column widths match exactly.
+
+**Don't try to re-interpret the prototype image when Pedro's words contradict it.** The reference PNG showed amounts to the LEFT/RIGHT of bars; Pedro's words said "on top". Words win.
+
+**Workflow that worked for iter 4:**
+1. Read history + decisions, view reference image.
+2. Pull worktree, locate the exact components & CSS rules from the spec's file pointers.
+3. Cross-check tests for selector dependencies (.querySelector, data-testid) BEFORE refactoring DOM, to know what is fragile.
+4. Edit CSS + reorder DOM in same response (parallel edits).
+5. lint → typecheck → test → format → commit with verbose message → push.
+6. Drop a decision file inbox/ describing the final structure so Pedro can verify without running the app.
+
+**Specific CSS lesson logged separately at .squad/skills/grid-header-row-alignment/SKILL.md.**
+
+
+---
+## 2026-04-26 — PR #91 iter 5 (commit 1d3fcb7) — APPROVED-pending
+
+Pedro iter 4 dogfood feedback (verbatim):
+> much better!! a couple of details:
+> - the 2 sections don't resize if I reduce the size of the window, which is a bit inconsistent to the Balance page (the bar graph adapts the width to the size of the window)
+> - the first group of bars (in the left) should be slightly smaller, as per the image I shared (I would try with 1/3 of the size). This makes the whole page less crowded
+
+Two surgical fixes:
+
+**Fix 1 — Responsive panels.** The compare-mode grid template used intrinsic year tracks (calc(text-width + 8rem bar-min)), which capped the panel at a fixed minimum width. Replaced with flexible r tracks (minmax(text-min, Nfr)) for both the header (.ot-saldo-panel__columns--compare), parent rows (.ot-saldo-row--compare) and subrows (.ot-saldo-subrow--compare). Also dropped min-width: var(--saldo-bar-min, 8rem) from .ot-saldo-row__bar-track and .ot-saldo-subrow__bar-track so the bar fills its grid cell and shrinks freely. Recipe matches Balance page (PanelScreen.css): bars adapt to container, container adapts to viewport.
+
+**Fix 2 — 1:3 prior:current ratio.** Year columns now use 1fr (2025) and 3fr (2026), so prior cell is ~1/3 of current cell width. Bars scale within their cell against the same panelMaxAbs denominator → 2025 bars naturally render ~1/3 the size of 2026 bars at the same value, matching ingresos_gastos.png.
+
+**Cross-row alignment preserved.** Added --saldo-col-name (longest category/subcategory text length, in ch) to panelColWidths and panelRowsStyle. With identical mins on every row and identical panel width → identical fr-distributed columns → bars stay vertically aligned across rows. Extends the alignment recipe from iter 4 (now in .squad/skills/grid-header-row-alignment/SKILL.md).
+
+Tests: 654 passing (lint + typecheck + vitest), prettier clean.
+
+Files: pp/src/renderer/screens/SaldoScreen/SaldoScreen.css, pp/src/renderer/screens/SaldoScreen/SaldoScreen.tsx, pp/src/renderer/styles/globals.css. +68 / -33.
+
+New skill drafted: .squad/skills/responsive-panel-width/SKILL.md — minmax(intrinsic-min, fr) grid + min-width: 0 on bar tracks for responsive bar visualisations.
