@@ -1442,3 +1442,16 @@ Split Transactions (SPEC-023 Wave 2): Awaiting PR #63 (Morpheus IPC contract for
 
 **Integration pending** — MovementsScreen (row badge, context action, modal state), TransactionDetailModal (amount lock FR14, split display), BulkClassifyModal (skip count toast FR15). PR marked draft until integration complete.
 
+## 2026-05-01 — PR #68 Split Integration Complete
+
+**Integration delivered (SPEC-023 Wave 2 complete):**
+- **MovementsScreen:** Badge on split parents (`ot-badge--split` with count). Clickable → opens `SplitTransactionModal` in edit mode. State stores both `rows: Movement[]` (display) and `rawRecords: MovementRecord[]` (wire with hasSplits/splitCount). O(1) lookup via `Map<id, MovementRecord>` during column rendering.
+- **TransactionDetailModal:** Accepts `rawRecord?` prop alongside `transaction`. When hasSplits, shows info notice (amount locked per FR14), collapsible split children list (category/amount/comment), and "Edit split" button. Split children loaded via `getSplits()` on mount. Avoids renderer→core import by copying `SplitChild` type locally.
+- **BulkClassifyModal:** Success callback now receives `{ updatedCount, skippedSplitParentCount }` (FR15). MovementsScreen shows 5-second auto-dismiss toast when `skippedSplitParentCount > 0`. Pattern: state-managed toast with `role="status"` + `aria-live="polite"`.
+
+**Pattern: Dual row state for wire + display shapes** — Store raw wire records alongside transformed display rows. Build ID→record Map for column-level access to wire fields (hasSplits, splitCount) while rendering display-friendly Movement shape. Avoids re-mapping on every render; keeps lookup O(1).
+
+**Pattern: Success toast with auto-dismiss** — State variable + `setTimeout(() => setState(null), 5000)`. CSS via `.ot-movements__success-toast` (info-bg + border). Future: extract to reusable toast service when more screens need it.
+
+PR #68 marked ready for review. All tests green. Spanish + English i18n parity maintained.
+
