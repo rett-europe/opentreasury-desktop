@@ -201,19 +201,18 @@
     );
 }
 
-/* Per-year compound cells. Vertical stack: value-text on top (left-aligned,
- * sitting under the year header), bar-track below (left-anchored at fixed
- * `--saldo-bar-min` width). Both year cells use the SAME inner layout — no
- * mirror — so reading flow is uniform across the row. See
- * ux-004a-amendment-2 §2 (v2). */
+/* Per-year compound cells. Horizontal layout (v3 — Pedro 2026-04-26 dogfood
+ * iter 3): bar fills most of the cell width on the LEFT (left-anchored,
+ * grows rightward), value-text is a small label adjacent on the RIGHT.
+ * Both year cells use the SAME inner layout — no mirror — so the two bars
+ * within a row sit on the SAME baseline and read as side-by-side bars.
+ * See ux-004a-amendment-2 §2 (v3). */
 .ot-saldo-row__prior-cell,
 .ot-saldo-row__current-cell {
   display: grid;
-  grid-template-columns: 1fr;
-  grid-auto-rows: auto;
-  justify-items: start;
-  align-content: center;
-  row-gap: 4px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: var(--space-2);
 }
 
 .ot-saldo-row__name {
@@ -226,10 +225,10 @@
 }
 
 .ot-saldo-row__prior {
-  text-align: left;
-  font-size: var(--font-size-14);
+  text-align: right;
+  font-size: var(--font-size-13);
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-primary);
+  color: var(--color-text-secondary);
 }
 
 .ot-saldo-row__bars {
@@ -239,12 +238,12 @@
 }
 .ot-saldo-row__bar-track {
   position: relative;
-  width: var(--saldo-bar-min, 8rem);
+  width: 100%;
+  min-width: var(--saldo-bar-min, 8rem);
   height: 6px;
   border-radius: var(--radius-pill);
   background: var(--color-surface-secondary);
   overflow: hidden;
-  min-width: 0;
 }
 .ot-saldo-row__bar-fill {
   position: absolute;
@@ -268,7 +267,7 @@
 }
 
 .ot-saldo-row__current {
-  text-align: left;
+  text-align: right;
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;

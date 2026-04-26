@@ -1,10 +1,11 @@
 # UX-004a — Amendment 2: Compare-mode bars pivot to per-year side-by-side layout
 
-> **Status:** Draft v0.2 · **Owner:** Mouse (Visual / CSS) · **Date:** 2026-04-26 (v0.1) · **Updated:** 2026-04-27 (v0.2)
+> **Status:** Draft v0.3 · **Owner:** Mouse (Visual / CSS) · **Date:** 2026-04-26 (v0.1) · **Updated:** 2026-04-27 (v0.3)
 > **Parent spec:** [`ux-004a-saldo-subcategory-drilldown.md`](./ux-004a-saldo-subcategory-drilldown.md)
 > **Supersedes (visual only):** Amendment 1 §3.1 bar geometry (the panel-shared scale and `panelMaxAbs` denominator are unchanged; only the in-row arrangement of the two bars changes).
 > **Trigger:** Pedro dogfood feedback 2026-04-26 — directive `.squad/decisions/inbox/copilot-directive-20260426-180716-saldo-compare-layout.md` (verbatim: *"Looking again into the original prototype, can you also take a look at image ingresos_gastos.png? It shows a very clean comparison 2025 vs 2026… the bars are not piled on each other, but rather side by side (smaller on 2025 than on 2026)."*).
 > **v0.2 trigger:** Second Pedro dogfood pass 2026-04-27 — *"there's a lot of 'vs 2024' below each sub-category, that gets super confusing. And the text '2024 2025 ↑' on the top is not aligned with the bars. The example I showed was much cleaner — on the left, small bars (with the date 2025 on the top) and on the right, bigger bars (with the date 2026 on the top)."*
+> **v0.3 trigger:** Third Pedro dogfood pass 2026-04-27 — *"I don't see any difference on the bars... still messy, bars are now showing up on top, not side by side..."* The v0.2 vertical stack inside each cell read as bars stacked between rows; reverted to a horizontal `[ bar | value-text ]` cell so the two year bars in a row sit on the SAME baseline and clearly read as side-by-side.
 > **Reference prototype:** `.squad/decisions/inbox/ingresos_gastos.png`.
 
 ---
@@ -23,16 +24,18 @@ Compare-mode rows (`.ot-saldo-row--compare`) and subrows (`.ot-saldo-subrow--com
 | name (1fr) | prior-cell | current-cell | Δ |
 ```
 
-Each year cell is itself a **vertical stack** (v0.2 — supersedes v0.1's horizontal mirror):
+Each year cell is a **horizontal layout** (v0.3 — supersedes v0.2's vertical stack):
 
-- **Prior cell** — `[ value-text ]` on top, `[ bar-track ]` below. Both anchored to the cell's left edge. Pale bar (`color-mix 45%`) grows from left → right.
-- **Current cell** — same recipe: `[ value-text ]` on top, `[ bar-track ]` below, both left-anchored. Saturated bar grows from left → right.
+- **Prior cell** — `[ bar-track | value-text ]`. The pale bar fills the left (1fr) portion of the cell and grows left → right. The value-text sits as a small `auto`-width label on the right, subordinate to the bar.
+- **Current cell** — same recipe: `[ bar-track | value-text ]`. Saturated bar on the left, value-text label on the right.
 
-Both cells share the same internal layout (no mirror). Because both bars start at the same x-anchor inside their respective cells, a smaller-year bar reads as visibly shorter than the bigger-year bar on the same row, matching the prototype's "small bars left / big bars right" silhouette.
+Both cells share the same internal layout (no mirror). Because both bars start at the same x-anchor (cell's left edge) and sit on the same baseline within the row, a smaller-year bar reads as visibly shorter than the bigger-year bar **side by side** on the same row, matching the prototype's "small bars left / big bars right" silhouette. Critically, the two bars within a single row sit on **the same horizontal baseline** — they are never visually stacked.
 
-The bar-track has a fixed `--saldo-bar-min` width so percentages remain visually comparable across rows. Value text aligns to each cell's left edge, which sits directly under the year header label (see §5).
+The bar-track has `width: 100%` with `min-width: --saldo-bar-min`, so the bar fills its grid column while still guaranteeing comparable visual lengths across rows. The year header label in the panel column-row sits above each cell's left edge, directly above the bar's anchor (see §5).
 
-> **v0.1 (superseded):** the cells used a horizontal mirror — prior cell `[ value | bar ]`, current cell `[ bar | value ]`, with the two bars facing each other across the column gutter. Pedro found the mirror visually confusing in dogfood (2026-04-27): the year header labels in the column header row did not visually anchor over either the value or the bar, since each cell was itself two-column. The vertical-stack layout fixes this by giving each cell a single x-anchor (left edge) that the header label can sit cleanly above.
+> **v0.2 (superseded):** cells were a vertical stack — value-text on top, bar below. Pedro found this read as bars being *stacked* (one above the other) between the two year columns rather than as two bars side by side. The v0.3 horizontal layout restores a single shared baseline per row.
+>
+> **v0.1 (superseded):** the cells used a horizontal mirror — prior cell `[ value | bar ]`, current cell `[ bar | value ]`, with the two bars facing each other across the column gutter. Rejected because the year header labels did not visually anchor over a single x-position inside the cell.
 
 ## 3. Column-width derivation
 

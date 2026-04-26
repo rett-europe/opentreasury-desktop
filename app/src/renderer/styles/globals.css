@@ -734,18 +734,16 @@ a:hover {
     );
 }
 
-/* Per-year compound cells for subrows — same vertical stack recipe as parent
+/* Per-year compound cells for subrows — same horizontal recipe as parent
  * rows (see SaldoScreen.css), at the smaller subrow text scale. Bars inherit
  * the half-height treatment defined further down. See ux-004a-amendment-2 §2
- * (v2). */
+ * (v3). */
 .ot-saldo-subrow__prior-cell,
 .ot-saldo-subrow__current-cell {
   display: grid;
-  grid-template-columns: 1fr;
-  grid-auto-rows: auto;
-  justify-items: start;
-  align-content: center;
-  row-gap: 4px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: var(--space-2);
 }
 
 /* Visual close-out: extra breathing room after the last subrow
@@ -767,8 +765,8 @@ a:hover {
 }
 
 .ot-saldo-subrow__prior {
-  text-align: left;
-  font-size: var(--font-size-13);
+  text-align: right;
+  font-size: var(--font-size-12);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
 }
@@ -782,12 +780,12 @@ a:hover {
  * (6px → 4px). Same pill radius keeps the silhouette consistent. */
 .ot-saldo-subrow__bar-track {
   position: relative;
-  width: var(--saldo-bar-min, 8rem);
+  width: 100%;
+  min-width: var(--saldo-bar-min, 8rem);
   height: 4px;
   border-radius: var(--radius-pill);
   background: var(--color-surface-secondary);
   overflow: hidden;
-  min-width: 0;
 }
 .ot-saldo-subrow__bar-fill {
   position: absolute;
@@ -812,7 +810,7 @@ a:hover {
 }
 
 .ot-saldo-subrow__current {
-  text-align: left;
+  text-align: right;
   font-size: var(--font-size-13);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
