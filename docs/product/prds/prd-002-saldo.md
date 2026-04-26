@@ -117,7 +117,7 @@ Saldo is the treasurer's **year-over-year comparison view** — income and expen
 
 ## 8. UX Handoff Notes (for Niobe)
 
-Niobe owns `docs/ux/002-saldo.md`. Areas needing her spec:
+Niobe owns `docs/ux/specs/ux-004-saldo-screen.md`. Areas needing her spec:
 
 - **Projection annotation copy.** "proy. vs 2025" is prototype shorthand. Niobe specs the full tooltip explaining the linear pro-rata method so a treasurer isn't surprised. This is a user-literacy question, not a visual one.
 - **Empty states.** (a) No transactions at all ("aún no hay datos"), (b) only current-period has data (no prior-year bars), (c) only prior-year has data. Niobe specs each.
@@ -125,6 +125,7 @@ Niobe owns `docs/ux/002-saldo.md`. Areas needing her spec:
 - **Chart accessibility pattern** (PR17). Niobe specs the collapse/expand pattern and whether the data table is always visible or on-demand.
 - **Zero-total suppression boundary.** A category that was non-zero last year but zero this year — should it show (signalling a drop) or hide? PR9 says hide if *both* zero; the one-sided case needs Niobe's call.
 - **Delta thresholds for up/down/flat arrows.** Prototype uses ±3%. Niobe confirms.
+- **Subcategory drill-down** (issue #67 WI-B) → **Separate spec:** `docs/ux/specs/ux-004a-saldo-subcategory-drilldown.md`. Extends the base Saldo screen with optional per-subcategory YoY comparison via global toggle.
 
 Niobe: DO NOT change the two-panel layout or the KPI strip pattern from the prototype. DO spec the micro-copy, empty states, and a11y details.
 

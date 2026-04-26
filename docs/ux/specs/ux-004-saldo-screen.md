@@ -162,6 +162,7 @@ Three cards:
 - **Visual treatment** (colours, panel cards, chart styling, segmented control visuals, delta-pill chrome) → **Mouse**.
 - **CSV / Excel / PDF export of Saldo** → **UX-017 / PRD-008, M3 / PRD-016, M4**. The "Exportar" button in the prototype header is hidden in M1 (§11 Q1).
 - **Drill-through** from a category row → pre-filtered Movements → **v1.x** (PRD-002 Q4).
+- **Subcategory drill-down** → **[UX-004a](./ux-004a-saldo-subcategory-drilldown.md)** (issue #67 WI-B; extends this spec with optional per-subcategory YoY comparison).
 - **User-reorderable categories** → v1.x.
 - **Advanced projections** (seasonality, YoY-weighted, budget overlay) → Later.
 - **Multi-currency** → Later.
