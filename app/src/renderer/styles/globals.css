@@ -626,7 +626,7 @@ a:hover {
  * mode segmented control. Compact, neutral, mirrors prototype
  * tertiary-button shape; pressed state uses brand surface so it
  * reads as "active" without competing with the mode control. */
-.ot-saldo-header__subtoggle {
+.ot-saldo-toggle-subcategories {
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
@@ -644,24 +644,24 @@ a:hover {
     color var(--motion-duration-base) var(--motion-easing-standard),
     border-color var(--motion-duration-base) var(--motion-easing-standard);
 }
-.ot-saldo-header__subtoggle:hover {
+.ot-saldo-toggle-subcategories:hover {
   background: var(--color-surface-secondary);
 }
-.ot-saldo-header__subtoggle:focus-visible {
+.ot-saldo-toggle-subcategories:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
 }
-.ot-saldo-header__subtoggle[aria-pressed='true'] {
+.ot-saldo-toggle-subcategories[aria-pressed='true'] {
   background: var(--color-brand-surface);
   color: var(--color-brand-primary);
   border-color: color-mix(in oklch, var(--color-brand-primary) 35%, transparent);
 }
-.ot-saldo-header__subtoggle[disabled],
-.ot-saldo-header__subtoggle[aria-disabled='true'] {
+.ot-saldo-toggle-subcategories[disabled],
+.ot-saldo-toggle-subcategories[aria-disabled='true'] {
   opacity: 0.55;
   cursor: not-allowed;
 }
-.ot-saldo-header__subtoggle__icon {
+.ot-saldo-toggle-subcategories__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -669,7 +669,7 @@ a:hover {
   line-height: 1;
   transition: transform var(--motion-duration-base) var(--motion-easing-standard);
 }
-.ot-saldo-header__subtoggle[aria-pressed='true'] .ot-saldo-header__subtoggle__icon {
+.ot-saldo-toggle-subcategories[aria-pressed='true'] .ot-saldo-toggle-subcategories__icon {
   transform: rotate(180deg);
 }
 
@@ -797,8 +797,37 @@ a:hover {
 }
 
 /* "Otras subcategorías" rollup — italic label distinguishes
- * the aggregated bucket from explicit subcategories (spec §16.3). */
-.ot-saldo-subrow--otras .ot-saldo-subrow__name {
+ * the aggregated bucket from explicit subcategories (spec §16.3).
+ * Trinity's TSX applies the `--otras` modifier on `__name` only
+ * (not on the row), so we scope the visual treatment to the name cell. */
+.ot-saldo-subrow__name--otras {
   font-style: italic;
   color: var(--color-text-muted);
+}
+
+/* Sub-delta caption — small descriptor that follows the numeric delta
+ * (e.g. "vs prior"). Mirrors `.ot-saldo-subrow__delta` aesthetic at a
+ * smaller, muted scale so it reads as supporting metadata. */
+.ot-saldo-subrow__delta-sublabel {
+  display: block;
+  text-align: right;
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+/* aria-live region announcing subcategory expand/collapse to AT users.
+ * Visually hidden using the standard sr-only recipe (mirrors `.ot-sr-only`). */
+.ot-saldo-subcategories-announce {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
