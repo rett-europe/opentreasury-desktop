@@ -18,7 +18,10 @@ import {
   replayEvents,
   resetReadModel,
 } from '../../../core/query/reducers';
-import { MAX_SPLITS_PER_TX, SPLIT_COMMENT_MAX } from '../../../shared/ipc-contracts/transaction-splits';
+import {
+  MAX_SPLITS_PER_TX,
+  SPLIT_COMMENT_MAX,
+} from '../../../shared/ipc-contracts/transaction-splits';
 
 const ulid = (suffix: string): string => (suffix + '0'.repeat(26)).slice(0, 26).toUpperCase();
 

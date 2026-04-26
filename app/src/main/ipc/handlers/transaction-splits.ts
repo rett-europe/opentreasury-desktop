@@ -61,9 +61,7 @@ export function createSplitTransactionHandler(
 ): (raw: unknown) => Promise<SplitTransactionResponse> {
   const apply = deps.applyEvent ?? applyEvent;
 
-  return async function handleSplitTransaction(
-    raw: unknown,
-  ): Promise<SplitTransactionResponse> {
+  return async function handleSplitTransaction(raw: unknown): Promise<SplitTransactionResponse> {
     try {
       const parsed = splitTransactionRequestSchema.safeParse(raw);
       if (!parsed.success) {

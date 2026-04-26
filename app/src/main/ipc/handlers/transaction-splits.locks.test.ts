@@ -9,11 +9,7 @@ import {
   type TransactionCreateHandlerDeps,
 } from './transaction';
 import type { EventLog, DomainEvent } from '../../../core/eventLog/EventLog';
-import {
-  getReadModel,
-  replayEvents,
-  resetReadModel,
-} from '../../../core/query/reducers';
+import { getReadModel, replayEvents, resetReadModel } from '../../../core/query/reducers';
 
 const ulid = (suffix: string): string => (suffix + '0'.repeat(26)).slice(0, 26).toUpperCase();
 
@@ -391,8 +387,22 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
         id: ulid('SPLA'),
         parentTxId: TX_A,
         splits: [
-          { splitId: ulid('SP1'), amountCents: 5000, categoryId: null, subcategoryId: null, comment: null, sortOrder: 0 },
-          { splitId: ulid('SP2'), amountCents: 5000, categoryId: null, subcategoryId: null, comment: null, sortOrder: 1 },
+          {
+            splitId: ulid('SP1'),
+            amountCents: 5000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: null,
+            sortOrder: 0,
+          },
+          {
+            splitId: ulid('SP2'),
+            amountCents: 5000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: null,
+            sortOrder: 1,
+          },
         ],
         createdAt: '2026-04-20T11:00:00.000Z',
       } as DomainEvent,
@@ -401,8 +411,22 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
         id: ulid('SPLB'),
         parentTxId: TX_B,
         splits: [
-          { splitId: ulid('SP3'), amountCents: 10000, categoryId: null, subcategoryId: null, comment: null, sortOrder: 0 },
-          { splitId: ulid('SP4'), amountCents: 10000, categoryId: null, subcategoryId: null, comment: null, sortOrder: 1 },
+          {
+            splitId: ulid('SP3'),
+            amountCents: 10000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: null,
+            sortOrder: 0,
+          },
+          {
+            splitId: ulid('SP4'),
+            amountCents: 10000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: null,
+            sortOrder: 1,
+          },
         ],
         createdAt: '2026-04-20T11:00:00.000Z',
       } as DomainEvent,
@@ -411,8 +435,22 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
         id: ulid('SPLC'),
         parentTxId: TX_C,
         splits: [
-          { splitId: ulid('SP5'), amountCents: 15000, categoryId: null, subcategoryId: null, comment: null, sortOrder: 0 },
-          { splitId: ulid('SP6'), amountCents: 15000, categoryId: null, subcategoryId: null, comment: null, sortOrder: 1 },
+          {
+            splitId: ulid('SP5'),
+            amountCents: 15000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: null,
+            sortOrder: 0,
+          },
+          {
+            splitId: ulid('SP6'),
+            amountCents: 15000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: null,
+            sortOrder: 1,
+          },
         ],
         createdAt: '2026-04-20T11:00:00.000Z',
       } as DomainEvent,

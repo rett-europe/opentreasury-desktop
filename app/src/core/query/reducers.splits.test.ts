@@ -189,11 +189,7 @@ describe('reducers — tx.split event projection', () => {
     model = getReadModel();
     const splits = model.splits.get(TX_ID);
     expect(splits).toHaveLength(3);
-    expect(splits!.map((s) => s.splitId)).toEqual([
-      ulid('NEW-A'),
-      ulid('NEW-B'),
-      ulid('NEW-C'),
-    ]);
+    expect(splits!.map((s) => s.splitId)).toEqual([ulid('NEW-A'), ulid('NEW-B'), ulid('NEW-C')]);
     expect(splits!.map((s) => s.comment)).toEqual(['New A', 'New B', 'New C']);
   });
 
@@ -325,8 +321,22 @@ describe('reducers — tx.split.removed event projection', () => {
       id: ulid('SPLIT1'),
       parentTxId: TX_ID,
       splits: [
-        { splitId: ulid('SP1'), amountCents: 30000, categoryId: null, subcategoryId: null, comment: null, sortOrder: 0 },
-        { splitId: ulid('SP2'), amountCents: 20000, categoryId: null, subcategoryId: null, comment: null, sortOrder: 1 },
+        {
+          splitId: ulid('SP1'),
+          amountCents: 30000,
+          categoryId: null,
+          subcategoryId: null,
+          comment: null,
+          sortOrder: 0,
+        },
+        {
+          splitId: ulid('SP2'),
+          amountCents: 20000,
+          categoryId: null,
+          subcategoryId: null,
+          comment: null,
+          sortOrder: 1,
+        },
       ],
       createdAt: '2026-04-20T11:00:00.000Z',
     };
@@ -349,8 +359,22 @@ describe('reducers — tx.split.removed event projection', () => {
       id: ulid('SPLIT2'),
       parentTxId: TX_ID,
       splits: [
-        { splitId: ulid('SP3'), amountCents: 25000, categoryId: null, subcategoryId: null, comment: null, sortOrder: 0 },
-        { splitId: ulid('SP4'), amountCents: 25000, categoryId: null, subcategoryId: null, comment: null, sortOrder: 1 },
+        {
+          splitId: ulid('SP3'),
+          amountCents: 25000,
+          categoryId: null,
+          subcategoryId: null,
+          comment: null,
+          sortOrder: 0,
+        },
+        {
+          splitId: ulid('SP4'),
+          amountCents: 25000,
+          categoryId: null,
+          subcategoryId: null,
+          comment: null,
+          sortOrder: 1,
+        },
       ],
       createdAt: '2026-04-20T13:00:00.000Z',
     };
@@ -417,8 +441,22 @@ describe('reducers — splits projection with multiple parents', () => {
         id: ulid('SPLA'),
         parentTxId: TX_A,
         splits: [
-          { splitId: ulid('A1'), amountCents: 5000, categoryId: null, subcategoryId: null, comment: 'A1', sortOrder: 0 },
-          { splitId: ulid('A2'), amountCents: 5000, categoryId: null, subcategoryId: null, comment: 'A2', sortOrder: 1 },
+          {
+            splitId: ulid('A1'),
+            amountCents: 5000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: 'A1',
+            sortOrder: 0,
+          },
+          {
+            splitId: ulid('A2'),
+            amountCents: 5000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: 'A2',
+            sortOrder: 1,
+          },
         ],
         createdAt: '2026-04-20T11:00:00.000Z',
       } as DomainEvent,
@@ -427,8 +465,22 @@ describe('reducers — splits projection with multiple parents', () => {
         id: ulid('SPLB'),
         parentTxId: TX_B,
         splits: [
-          { splitId: ulid('B1'), amountCents: 6000, categoryId: null, subcategoryId: null, comment: 'B1', sortOrder: 0 },
-          { splitId: ulid('B2'), amountCents: 4000, categoryId: null, subcategoryId: null, comment: 'B2', sortOrder: 1 },
+          {
+            splitId: ulid('B1'),
+            amountCents: 6000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: 'B1',
+            sortOrder: 0,
+          },
+          {
+            splitId: ulid('B2'),
+            amountCents: 4000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: 'B2',
+            sortOrder: 1,
+          },
         ],
         createdAt: '2026-04-20T11:00:00.000Z',
       } as DomainEvent,
@@ -437,9 +489,30 @@ describe('reducers — splits projection with multiple parents', () => {
         id: ulid('SPLC'),
         parentTxId: TX_C,
         splits: [
-          { splitId: ulid('C1'), amountCents: 3000, categoryId: null, subcategoryId: null, comment: 'C1', sortOrder: 0 },
-          { splitId: ulid('C2'), amountCents: 4000, categoryId: null, subcategoryId: null, comment: 'C2', sortOrder: 1 },
-          { splitId: ulid('C3'), amountCents: 3000, categoryId: null, subcategoryId: null, comment: 'C3', sortOrder: 2 },
+          {
+            splitId: ulid('C1'),
+            amountCents: 3000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: 'C1',
+            sortOrder: 0,
+          },
+          {
+            splitId: ulid('C2'),
+            amountCents: 4000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: 'C2',
+            sortOrder: 1,
+          },
+          {
+            splitId: ulid('C3'),
+            amountCents: 3000,
+            categoryId: null,
+            subcategoryId: null,
+            comment: 'C3',
+            sortOrder: 2,
+          },
         ],
         createdAt: '2026-04-20T11:00:00.000Z',
       } as DomainEvent,
