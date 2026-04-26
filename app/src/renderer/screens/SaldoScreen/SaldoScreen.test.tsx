@@ -264,8 +264,8 @@ describe('SaldoScreen', () => {
 
   function makeResponseWithSubs(): SaldoComparisonResponse {
     // cat-a (Donaciones, income): 3 subcategories — small enough to skip Otras.
-    // cat-c (Eventos, income): 10 subcategories — exercises the top-8 + Otras
-    //                          rollup rule recursively per UX-004a §4.2.
+    // cat-c (Eventos, income): 10 subcategories — exercises the top-5 + Otras
+    //                          rollup rule (amendment §3.2 narrowed from top-8).
     // cat-b (Oficina, expense): 1 subcategory — exercises the E2 "render parent
     //                          only" suppression for single-subcategory cats.
     const eventosSubsCur = Array.from({ length: 10 }, (_, i) => ({
@@ -372,25 +372,29 @@ describe('SaldoScreen', () => {
     vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
     renderWithI18n();
     await waitFor(() => {
-      expect(screen.getByTestId('saldo-subcategories-toggle')).toBeDefined();
+      expect(screen.getByTestId('saldo-subcategories-toggle-income')).toBeDefined();
     });
-    const toggle = screen.getByTestId('saldo-subcategories-toggle');
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    const toggleIncome = screen.getByTestId('saldo-subcategories-toggle-income');
+    const toggleExpense = screen.getByTestId('saldo-subcategories-toggle-expense');
+    expect(toggleIncome.getAttribute('aria-pressed')).toBe('false');
+    expect(toggleExpense.getAttribute('aria-pressed')).toBe('false');
     // No subrows rendered while toggle is OFF.
     expect(screen.queryByTestId('saldo-subrow-income-cat-a-sub-socios')).toBeNull();
+    // Old single-pill testid is retired (amendment §2.2).
+    expect(screen.queryByTestId('saldo-subcategories-toggle')).toBeNull();
   });
 
   it('renders subrows in compare mode when toggle is on', async () => {
     vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
     renderWithI18n();
     await waitFor(() => {
-      expect(screen.getByTestId('saldo-subcategories-toggle')).toBeDefined();
+      expect(screen.getByTestId('saldo-subcategories-toggle-income')).toBeDefined();
     });
-    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle'));
+    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle-income'));
     await waitFor(() => {
-      expect(screen.getByTestId('saldo-subcategories-toggle').getAttribute('aria-pressed')).toBe(
-        'true',
-      );
+      expect(
+        screen.getByTestId('saldo-subcategories-toggle-income').getAttribute('aria-pressed'),
+      ).toBe('true');
     });
     // Donaciones (cat-a) has 3 subcategories — all should render.
     expect(screen.getByTestId('saldo-subrow-income-cat-a-sub-socios')).toBeDefined();
@@ -404,24 +408,24 @@ describe('SaldoScreen', () => {
     expect(screen.queryByTestId('saldo-subrow-expense-cat-b-ofi-only')).toBeNull();
   });
 
-  it('applies top-8 + Otras rollup rule recursively for categories with >8 subcategories', async () => {
+  it('applies top-5 + Otras rollup rule for categories with >5 subcategories (amendment §3.2)', async () => {
     vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
     renderWithI18n();
     await waitFor(() => {
-      expect(screen.getByTestId('saldo-subcategories-toggle')).toBeDefined();
+      expect(screen.getByTestId('saldo-subcategories-toggle-income')).toBeDefined();
     });
-    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle'));
+    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle-income'));
     await waitFor(() => {
-      expect(screen.getByTestId('saldo-subcategories-toggle').getAttribute('aria-pressed')).toBe(
-        'true',
-      );
+      expect(
+        screen.getByTestId('saldo-subcategories-toggle-income').getAttribute('aria-pressed'),
+      ).toBe('true');
     });
-    // Eventos (cat-c) has 10 income subcategories → top-8 + Otras.
-    for (let i = 0; i < 8; i += 1) {
+    // Eventos (cat-c) has 10 income subcategories → top-5 + Otras.
+    for (let i = 0; i < 5; i += 1) {
       expect(screen.getByTestId(`saldo-subrow-income-cat-c-evt-sub-${i}`)).toBeDefined();
     }
-    // Subcategories ranked 9 and 10 collapsed into a single Otras row.
-    expect(screen.queryByTestId('saldo-subrow-income-cat-c-evt-sub-8')).toBeNull();
+    // Subcategories ranked 6..10 collapsed into a single Otras row.
+    expect(screen.queryByTestId('saldo-subrow-income-cat-c-evt-sub-5')).toBeNull();
     expect(screen.queryByTestId('saldo-subrow-income-cat-c-evt-sub-9')).toBeNull();
     expect(screen.getByTestId('saldo-subrow-income-cat-c-__otras__')).toBeDefined();
   });
@@ -433,7 +437,10 @@ describe('SaldoScreen', () => {
       expect(screen.getByTestId('saldo-mode-single')).toBeDefined();
     });
     fireEvent.click(screen.getByTestId('saldo-mode-single'));
-    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle'));
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle-income')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle-income'));
     await waitFor(() => {
       expect(screen.queryByTestId('saldo-subrow-income-cat-a-sub-socios')).not.toBeNull();
     });
@@ -447,17 +454,110 @@ describe('SaldoScreen', () => {
     vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
     renderWithI18n();
     await waitFor(() => {
-      expect(screen.getByTestId('saldo-subcategories-toggle')).toBeDefined();
+      expect(screen.getByTestId('saldo-subcategories-toggle-income')).toBeDefined();
     });
-    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle'));
+    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle-income'));
     await waitFor(() => {
-      expect(screen.getByTestId('saldo-subcategories-toggle').getAttribute('aria-pressed')).toBe(
-        'true',
-      );
+      expect(
+        screen.getByTestId('saldo-subcategories-toggle-income').getAttribute('aria-pressed'),
+      ).toBe('true');
     });
     // Toggle is on but no subcategories arrived → no subrows rendered.
     expect(screen.queryByTestId('saldo-subrow-income-cat-a-sub-socios')).toBeNull();
     // Parent rows still render normally.
     expect(screen.getByTestId('saldo-row-income-cat-a')).toBeDefined();
+  });
+
+  // -------------------------------------------------------------------------
+  // Amendment 1 (#78): F1 — shared toggle state between income & expense pills.
+  // F2 — panel-shared bar scale.
+  // -------------------------------------------------------------------------
+
+  it('shares toggle state across both panel pills (clicking one flips both, amendment §F1)', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle-income')).toBeDefined();
+    });
+    const income = screen.getByTestId('saldo-subcategories-toggle-income');
+    const expense = screen.getByTestId('saldo-subcategories-toggle-expense');
+    expect(income.getAttribute('aria-pressed')).toBe('false');
+    expect(expense.getAttribute('aria-pressed')).toBe('false');
+
+    // Click the expense-side pill — both should flip to pressed.
+    fireEvent.click(expense);
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('saldo-subcategories-toggle-income').getAttribute('aria-pressed'),
+      ).toBe('true');
+    });
+    expect(
+      screen.getByTestId('saldo-subcategories-toggle-expense').getAttribute('aria-pressed'),
+    ).toBe('true');
+
+    // Single announce node remains a single element regardless of pill clicked.
+    expect(screen.getAllByTestId('saldo-subcategories-announce')).toHaveLength(1);
+
+    // Clicking the income pill flips both back.
+    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle-income'));
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('saldo-subcategories-toggle-income').getAttribute('aria-pressed'),
+      ).toBe('false');
+    });
+    expect(
+      screen.getByTestId('saldo-subcategories-toggle-expense').getAttribute('aria-pressed'),
+    ).toBe('false');
+  });
+
+  it('scales subrow bars against the panel-shared denominator (amendment §F2)', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle-income')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle-income'));
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('saldo-subcategories-toggle-income').getAttribute('aria-pressed'),
+      ).toBe('true');
+    });
+    // Income panel: parent Donaciones=8000 (largest), subrow Eventos under
+    // Donaciones=1000. With shared scale, the subrow's current bar must render
+    // narrower than the parent row's current bar — not equal-width as the
+    // legacy per-row scale produced.
+    const parentRow = screen.getByTestId('saldo-row-income-cat-a');
+    const parentCurrent = parentRow.querySelector(
+      '.ot-saldo-row__bar-fill--current',
+    ) as HTMLElement;
+    const subRow = screen.getByTestId('saldo-subrow-income-cat-a-sub-eventos');
+    const subCurrent = subRow.querySelector('.ot-saldo-subrow__bar-fill--current') as HTMLElement;
+    expect(parentCurrent).not.toBeNull();
+    expect(subCurrent).not.toBeNull();
+    const pct = (el: HTMLElement): number => Number.parseFloat(el.style.width.replace('%', ''));
+    const parentPct = pct(parentCurrent);
+    const subPct = pct(subCurrent);
+    // Parent (8000) is the panel max, so it should be ~100%.
+    expect(parentPct).toBeGreaterThan(95);
+    // Sub (1000) is 1/8 of the parent; should be ~12.5%, definitely <50%.
+    expect(subPct).toBeLessThan(50);
+    expect(subPct).toBeLessThan(parentPct);
+    // Subrow also exposes the panel-shared scale via a CSS custom property
+    // that Mouse's CSS recipe can consume in parallel.
+    expect(subCurrent.style.getPropertyValue('--saldo-subrow-bar-pct')).toMatch(/%$/);
+  });
+
+  it('renders the inline toggle pill with the --inline modifier class (amendment §F1)', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle-income')).toBeDefined();
+    });
+    expect(screen.getByTestId('saldo-subcategories-toggle-income').className).toMatch(
+      /ot-saldo-toggle-subcategories--inline/,
+    );
+    expect(screen.getByTestId('saldo-subcategories-toggle-expense').className).toMatch(
+      /ot-saldo-toggle-subcategories--inline/,
+    );
   });
 });
