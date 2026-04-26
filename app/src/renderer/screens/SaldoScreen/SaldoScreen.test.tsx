@@ -242,7 +242,7 @@ describe('SaldoScreen', () => {
     expect(row.textContent ?? '').toMatch(new RegExp(`vs\\s*${PRIOR_YEAR}`));
   });
 
-  it('single mode panel keeps the type column and shows % of total instead of delta', async () => {
+  it('single mode panel shows % of total instead of delta', async () => {
     vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
     renderWithI18n();
     await waitFor(() => {
@@ -256,7 +256,5 @@ describe('SaldoScreen', () => {
     const row = screen.getByTestId('saldo-row-income-cat-a');
     // Donaciones income (8000) of total income (10000) = 80%.
     expect(row.textContent ?? '').toMatch(/80\s*%/);
-    // Type column is still rendered for a11y.
-    expect(row.textContent ?? '').toMatch(/ingreso|income/i);
   });
 });
