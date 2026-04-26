@@ -2,6 +2,71 @@
 
 ## Active Decisions
 
+### 2026-04-28: Movements Filter UI — Joint Two-Row Bar with Calm Scope
+
+**Date:** 2026-04-28  
+**Status:** ✅ SHIPPED (PR #57, PR #58)  
+**Agents:** Trinity (implementation), Niobe (UX layout), Mouse (visual treatment)  
+**Requested by:** perocha (Pedro)
+
+## Decision: Movements date filter lives in dedicated scope bar above slicing filters
+
+### Layout Structure (Niobe Option A → Final)
+
+**Two-tier toolbar:**
+1. **Scope bar** (top) — Date-range preset chips (Este mes, Mes pasado, Últimos 3 meses, Este año, Año pasado, Últimos 12 meses, Personalizado) + active custom-range pill
+2. **Filter bar** (bottom) — Slicing filters (Cuenta, Tipo, Categoría, Subcategoría, Etiquetas, search, Clear)
+
+**Rationale:**
+- Date scope is a **temporal boundary** that governs the entire dataset; presets are top-level controls.
+- Slicing filters are **refinements within scope** (secondary controls); they operate on the scoped data.
+- Two-tier pattern is familiar in finance/analytics UIs (Holded, Notion, Airtable); NGO admins recognize it.
+- Layout-proof: single structure works across all future screens (Panel, Saldo) needing period scope.
+
+### Visual Treatment (Mouse Anchored Band → Calm Scope Pivot)
+
+**Initial spec (Mouse):** Anchored Band — full-width tinted band with maximum hierarchy clarity.
+
+**Final implementation (post-review):** Calm Scope — weight and container isolation via typography + muted slicing filters.
+
+| Element | Token | Details |
+|---------|-------|---------|
+| **Scope bar bg** | `--color-brand-surface` | Light tint (`#f3edf8`), rounds at top |
+| **Scope bar divider** | `--color-divider` | Bottom border separates from filter bar below |
+| **Scope chip active** | `--color-brand-primary` bg | Semibold text, brand color when selected |
+| **Slicing filter text** | `--color-text-muted` | Recedes via muted color, regular weight |
+| **Active-range pill** | Inline in scope bar | Right-aligned, compact format (e.g., "12 mar – 18 abr 2026") |
+
+**No new tokens required** — reuses existing semantic palette.
+
+### Implementation (PR #57)
+
+**Files changed:**
+- `globals.css` — new `.ot-scope-bar` recipe (prototype-parity rule: shared patterns in globals, not component CSS)
+- `MovementsScreen.tsx` — restructured JSX: date group + pill hoisted into scope bar above filter bar
+- `MovementsScreen.css` — updated pill styles for inline rendering; `.ot-scope-bar + .ot-filter-bar` modifier removes top border
+
+**Recipe placement note:** Scope bar CSS lives in `globals.css` to support future reuse across screens (Panel, Saldo). This follows the rule: component CSS imported after globals wins cascade conflicts and can shadow token updates. Component-specific overrides go in `MovementsScreen.css` only.
+
+**Dark mode:** Token-aware; no new overrides needed.
+
+### Related PRs & Decisions Subsumed
+
+- PR #57: Two-row filter bar structure (Trinity)
+- PR #58: Transaction detail bugs (reference/details threading, CTA navigation)
+- **Niobe decision inbox:** `niobe-movements-date-filter-layout.md` — Options A through D; Option A selected (Dedicated Scope Bar)
+- **Mouse decision inbox:** `mouse-movements-date-filter-visual.md` — Treatments 1–4; Calm Scope selected (weight contrast over full-width tint)
+- **Trinity decision inbox:** `trinity-anchored-band-impl.md` — Now superseded (joint bar shipped with Calm Scope treatment instead of Anchored Band)
+
+### Cross-Screen Pattern
+
+If future screens (Panel period picker, Saldo period scope) need date-range UI:
+- Reuse `.ot-scope-bar` recipe from `globals.css`
+- Reuse preset chips + popover flow from `MovementsScreen`
+- Visual treatment (Calm Scope) applies consistently
+
+---
+
 ### 2026-04-25: WI-23 Legacy Event Backfill Policy
 
 **Date:** 2026-04-25  
