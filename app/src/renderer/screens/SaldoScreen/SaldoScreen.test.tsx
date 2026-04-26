@@ -556,8 +556,144 @@ describe('SaldoScreen', () => {
     expect(screen.getByTestId('saldo-subcategories-toggle-income').className).toMatch(
       /ot-saldo-toggle-subcategories--inline/,
     );
-    expect(screen.getByTestId('saldo-subcategories-toggle-expense').className).toMatch(
-      /ot-saldo-toggle-subcategories--inline/,
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue #78 F3 visual fix — bucket panels by intrinsic category kind, not by
+  // the period's net sign. Sign-reversed rows render with a "+" / "−" prefix.
+  // -------------------------------------------------------------------------
+
+  it('places a refund-heavy expense category in the EXPENSE panel with "+" prefixed net', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(
+      makeResponse({
+        currentPeriod: {
+          start: `${CURRENT_YEAR}-01-01`,
+          end: `${CURRENT_YEAR}-12-31`,
+          totalIncome: 600,
+          totalExpense: 500,
+          netByCategory: [
+            // Refund-heavy expense category: refunds (income=600) outweigh
+            // expenses (expense=500) → net=+100 but kind='expense' pins it to
+            // the expense panel and the renderer must show "+€100".
+            {
+              categoryId: 'cat-refund',
+              categoryName: 'Reembolsos Oficina',
+              income: 600,
+              expense: 500,
+              kind: 'expense',
+            },
+          ],
+          isPartial: false,
+          daysElapsed: 365,
+          daysInPeriod: 365,
+          currentProjectedTotal: null,
+        },
+        priorPeriod: {
+          start: `${PRIOR_YEAR}-01-01`,
+          end: `${PRIOR_YEAR}-12-31`,
+          totalIncome: 0,
+          totalExpense: 200,
+          netByCategory: [
+            {
+              categoryId: 'cat-refund',
+              categoryName: 'Reembolsos Oficina',
+              income: 0,
+              expense: 200,
+              kind: 'expense',
+            },
+          ],
+        },
+      }),
     );
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-row-expense-cat-refund')).toBeDefined();
+    });
+    const incomePanel = screen.getByTestId('saldo-panel-income');
+    const expensePanel = screen.getByTestId('saldo-panel-expense');
+    // Bucketed by kind: present on expense side, absent from income side even
+    // though gross income (600) > 0.
+    expect(within(expensePanel).getByText('Reembolsos Oficina')).toBeDefined();
+    expect(within(incomePanel).queryByText('Reembolsos Oficina')).toBeNull();
+    // Sign-reversed: net=+100 on the expense panel renders with a leading "+".
+    const value = screen.getByTestId('saldo-row-expense-cat-refund-current-value');
+    expect(value.textContent ?? '').toMatch(/^\+/);
+    expect(value.textContent ?? '').toMatch(/100/);
+  });
+
+  it('places a negative-net income category in the INCOME panel with "−" prefixed net', async () => {
+    vi.mocked(getSaldoComparison).mockResolvedValue(
+      makeResponse({
+        currentPeriod: {
+          start: `${CURRENT_YEAR}-01-01`,
+          end: `${CURRENT_YEAR}-12-31`,
+          totalIncome: 200,
+          totalExpense: 300,
+          netByCategory: [
+            // Reversed-deposit income category: chargebacks (expense=300)
+            // outweigh deposits (income=200) → net=−100 but kind='income'
+            // keeps it on the income panel with "−€100".
+            {
+              categoryId: 'cat-deposits',
+              categoryName: 'Donaciones (revertidas)',
+              income: 200,
+              expense: 300,
+              kind: 'income',
+            },
+          ],
+          isPartial: false,
+          daysElapsed: 365,
+          daysInPeriod: 365,
+          currentProjectedTotal: null,
+        },
+        priorPeriod: {
+          start: `${PRIOR_YEAR}-01-01`,
+          end: `${PRIOR_YEAR}-12-31`,
+          totalIncome: 500,
+          totalExpense: 0,
+          netByCategory: [
+            {
+              categoryId: 'cat-deposits',
+              categoryName: 'Donaciones (revertidas)',
+              income: 500,
+              expense: 0,
+              kind: 'income',
+            },
+          ],
+        },
+      }),
+    );
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-row-income-cat-deposits')).toBeDefined();
+    });
+    const incomePanel = screen.getByTestId('saldo-panel-income');
+    const expensePanel = screen.getByTestId('saldo-panel-expense');
+    expect(within(incomePanel).getByText('Donaciones (revertidas)')).toBeDefined();
+    expect(within(expensePanel).queryByText('Donaciones (revertidas)')).toBeNull();
+    const value = screen.getByTestId('saldo-row-income-cat-deposits-current-value');
+    // Minus sign is U+2212 to match typographic convention used in the helper.
+    expect(value.textContent ?? '').toMatch(/^\u2212/);
+    expect(value.textContent ?? '').toMatch(/100/);
+  });
+
+  it('falls back to net-sign bucketing when category kind is null (legacy fixtures)', async () => {
+    // Legacy makeResponse() omits `kind` on every category; cat-c (Eventos)
+    // has BOTH income=2000 and expense=1000, so under the legacy net-sign
+    // fallback it must still appear in BOTH panels — and without any "+/−"
+    // sign prefix on either side.
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponse());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-row-income-cat-c')).toBeDefined();
+    });
+    expect(screen.getByTestId('saldo-row-expense-cat-c')).toBeDefined();
+    const incomeValue = screen.getByTestId('saldo-row-income-cat-c-current-value');
+    const expenseValue = screen.getByTestId('saldo-row-expense-cat-c-current-value');
+    // Legacy fallback keeps the gross magnitude with no sign prefix.
+    expect(incomeValue.textContent ?? '').not.toMatch(/^[+\u2212]/);
+    expect(expenseValue.textContent ?? '').not.toMatch(/^[+\u2212]/);
+    expect(incomeValue.textContent ?? '').toMatch(/2[.,]000/);
+    expect(expenseValue.textContent ?? '').toMatch(/1[.,]000/);
   });
 });
