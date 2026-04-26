@@ -607,3 +607,198 @@ a:hover {
   color: var(--color-status-approved);
   background: var(--color-status-approved-bg);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Saldo subcategory drill-down — UX-004a / WI-B (#67)
+   Visual recipes for the indented subcategory rows that appear
+   under each category bar when the "Mostrar subcategorías"
+   toggle is ON, plus the toggle pill that lives in the screen
+   header. Class-name contract is shared with Trinity (wiring
+   PR sibling); keep names in sync with spec §11 / UX-004a §16.
+
+   Grid alignment: subrows reuse the parent .ot-saldo-row column
+   tracks via the same --compare / --single modifier pattern.
+   Bar height shrinks to ~70% of the parent track (4px vs 6px)
+   to signal hierarchy without introducing new colours.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Header toggle pill — sits in .ot-saldo-controls next to the
+ * mode segmented control. Compact, neutral, mirrors prototype
+ * tertiary-button shape; pressed state uses brand surface so it
+ * reads as "active" without competing with the mode control. */
+.ot-saldo-header__subtoggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  appearance: none;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-primary);
+  color: var(--color-text-secondary);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-duration-base) var(--motion-easing-standard),
+    color var(--motion-duration-base) var(--motion-easing-standard),
+    border-color var(--motion-duration-base) var(--motion-easing-standard);
+}
+.ot-saldo-header__subtoggle:hover {
+  background: var(--color-surface-secondary);
+}
+.ot-saldo-header__subtoggle:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+.ot-saldo-header__subtoggle[aria-pressed='true'] {
+  background: var(--color-brand-surface);
+  color: var(--color-brand-primary);
+  border-color: color-mix(in oklch, var(--color-brand-primary) 35%, transparent);
+}
+.ot-saldo-header__subtoggle[disabled],
+.ot-saldo-header__subtoggle[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.ot-saldo-header__subtoggle__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-11);
+  line-height: 1;
+  transition: transform var(--motion-duration-base) var(--motion-easing-standard);
+}
+.ot-saldo-header__subtoggle[aria-pressed='true'] .ot-saldo-header__subtoggle__icon {
+  transform: rotate(180deg);
+}
+
+/* Subcategory row — nests under the parent .ot-saldo-row.
+ * Grid columns mirror the parent so that name / prior / bars /
+ * current / delta line up vertically across the whole panel.
+ * Padding is lighter (no bottom border, smaller vertical rhythm)
+ * so the nested group reads as a single visual block. */
+.ot-saldo-subrow {
+  display: grid;
+  column-gap: var(--space-6);
+  row-gap: 2px;
+  align-items: center;
+  padding: var(--space-3) 0;
+  padding-left: var(--space-6); /* 16px indent — spec §16.2 */
+  border-bottom: 0;
+}
+.ot-saldo-subrow--compare {
+  grid-template-columns: 1fr auto 1fr auto auto;
+}
+.ot-saldo-subrow--single {
+  grid-template-columns: 1fr auto auto;
+}
+
+/* Visual close-out: extra breathing room after the last subrow
+ * inside a category, so the next category row reads as a fresh
+ * group (spec §16.2 — 8px gap between groups). */
+.ot-saldo-subrow:last-child {
+  padding-bottom: var(--space-5);
+}
+
+.ot-saldo-subrow__name {
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-secondary);
+}
+.ot-saldo-subrow--compare .ot-saldo-subrow__name {
+  grid-column: 1 / 2;
+}
+
+.ot-saldo-subrow__prior {
+  text-align: right;
+  font-size: var(--font-size-13);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+.ot-saldo-subrow--compare .ot-saldo-subrow__prior {
+  grid-column: 2 / 3;
+}
+
+.ot-saldo-subrow__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 80px;
+}
+.ot-saldo-subrow--compare .ot-saldo-subrow__bars {
+  grid-column: 3 / 4;
+}
+/* Half-height bar track — ~70% of the parent .ot-saldo-row__bar-track
+ * (6px → 4px). Same pill radius keeps the silhouette consistent. */
+.ot-saldo-subrow__bar-track {
+  position: relative;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-secondary);
+  overflow: hidden;
+}
+.ot-saldo-subrow__bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  border-radius: var(--radius-pill);
+  min-width: 2px;
+}
+/* Inherit the panel's income/expense accent — no new tokens. */
+.ot-saldo-panel--income .ot-saldo-subrow__bar-fill--current {
+  background: var(--color-income-default);
+}
+.ot-saldo-panel--income .ot-saldo-subrow__bar-fill--prior {
+  background: color-mix(in oklch, var(--color-income-default) 45%, transparent);
+}
+.ot-saldo-panel--expense .ot-saldo-subrow__bar-fill--current {
+  background: var(--color-expense-default);
+}
+.ot-saldo-panel--expense .ot-saldo-subrow__bar-fill--prior {
+  background: color-mix(in oklch, var(--color-expense-default) 45%, transparent);
+}
+
+.ot-saldo-subrow__current {
+  text-align: right;
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.ot-saldo-subrow--compare .ot-saldo-subrow__current {
+  grid-column: 4 / 5;
+}
+.ot-saldo-panel--income .ot-saldo-subrow__current {
+  color: var(--color-income-default);
+}
+.ot-saldo-panel--expense .ot-saldo-subrow__current {
+  color: var(--color-expense-default);
+}
+
+.ot-saldo-subrow__delta {
+  text-align: right;
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.ot-saldo-subrow--compare .ot-saldo-subrow__delta {
+  grid-column: 5 / 6;
+}
+.ot-saldo-subrow__delta--up {
+  color: var(--color-income-default);
+}
+.ot-saldo-subrow__delta--down {
+  color: var(--color-expense-default);
+}
+.ot-saldo-subrow__delta--flat,
+.ot-saldo-subrow__delta--noPrior {
+  color: var(--color-text-muted);
+}
+
+/* "Otras subcategorías" rollup — italic label distinguishes
+ * the aggregated bucket from explicit subcategories (spec §16.3). */
+.ot-saldo-subrow--otras .ot-saldo-subrow__name {
+  font-style: italic;
+  color: var(--color-text-muted);
+}
