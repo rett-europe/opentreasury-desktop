@@ -160,6 +160,12 @@ import {
   createEditNoteHandler,
   createDeleteNoteHandler,
 } from './handlers/notes.js';
+import {
+  IPC_INSIGHTS_LANDING_SUMMARY,
+  insightsLandingSummaryRequestSchema,
+  insightsLandingSummaryResponseSchema,
+} from '../../shared/ipc-contracts/insights.js';
+import { handleInsightsLandingSummary } from './handlers/insights.js';
 import { getEventLog } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { ACTOR_DEVICE_ID, DATASET_ID, newUlid } from '../ids.js';
@@ -211,6 +217,13 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     const request = saldoComparisonRequestSchema.parse(raw);
     const response = await handleGetSaldoComparison(request);
     return saldoComparisonResponseSchema.parse(response);
+  });
+
+  // Insights — landing summary aggregation
+  ipcMain.handle(IPC_INSIGHTS_LANDING_SUMMARY, async (_event, raw: unknown) => {
+    const request = insightsLandingSummaryRequestSchema.parse(raw);
+    const response = await handleInsightsLandingSummary(request);
+    return insightsLandingSummaryResponseSchema.parse(response);
   });
 
   // WI-12 — transaction.create + movements.list

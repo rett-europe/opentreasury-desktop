@@ -445,6 +445,143 @@ This 120px difference caused the modal to shrink when entering edit mode.
 
 **COMMIT:** see commit hash below
 
+## 2026-04-26 · PR #102 · Insights landing-summary handler + TagCard (paired with Trinity)
+
+**Status:** ✅ Shipped  
+**Branch:** `squad/insights-landing-mouse`  
+**PR:** #102  
+**Paired with:** Trinity (parallel landing screen layout)
+
+### Mission
+
+Deliver the Insights landing seam for Trinity's parallel work (#100):
+1. Real `insights:landing-summary` IPC handler (top-8 + Otras bucket)
+2. TagCard component (3 display modes + archived styling)
+3. Preload exposure for renderer consumption
+
+### What I shipped
+
+**IPC Contract** (`app/src/shared/ipc-contracts/insights.ts`):
+- `insights:landing-summary` channel + Zod schemas
+- Input: optional `dateWindow` (startISO/endISO, defaults to current year), optional `accountId`
+- Output: global KPIs + top-N tags + Otras bucket + resolved window bounds
+- `TagSummary` schema: ingresos/gastos/neto/count (cents) + topCategorias + sparklineNetCents
+- Multi-label overlap documented: transaction with 2 tags counts toward BOTH totals
+
+**Handler** (`app/src/main/ipc/handlers/insights.ts`):
+- Aggregates transactions over date window (default: current year Jan 1 → today)
+- Filters: non-archived accounts + optional accountId filter
+- Per-tag metrics: ingresos, gastos, neto (cents), movimientosCount
+- Top 2 categories by volume per tag for footer display
+- Sparkline data: net per month when ≥3 months with data
+- Top-8 tags by magnitude (`|net|`) + tail aggregated into Otras bucket
+- Excludes archived tags from landing (per spec)
+- Splits support: handles transaction splits via `effectiveAmounts` helper
+
+**TagCard Component** (`app/src/renderer/components/TagCard/`):
+- Props: tagId, name, color (optional), kpis, displayMode, archived, topCategorias, onClick
+- 3 display modes:
+  - `volumen`: shows INGRESOS + GASTOS + NETO (all 3)
+  - `neto`: hero value (large NETO only)
+  - `mov`: movement count as hero
+- Archived styling: 60% opacity + italic + "(archivada)" sublabel
+- Color: uses provided color or falls back to colorHash util (deterministic)
+- Accessibility: role=button when onClick, keyboard activation (Enter/Space), ARIA label
+- Footer: "Top categorías: {cat1}, {cat2}" when present
+
+**Preload** (`app/src/preload/index.ts`):
+- Exposed as `window.opentreasury.insights.landingSummary({ dateWindow?, accountId? })`
+- Returns typed `InsightsLandingSummaryResponse`
+
+**Tests:**
+- Handler tests (13): top-N aggregation, Otras bucket, year boundary, empty data, archived exclusion, KPI calculation, top categorías
+- TagCard tests (18): all display modes, archived styling, color hashing, keyboard activation, accessibility, ARIA labels
+
+### Decisions
+
+1. **Default date window = current year** (spec §6.2): Jan 1 → today (or Dec 31 if year complete)
+2. **Top-N = 8** per spec; tail aggregated into `Otras` bucket
+3. **Multi-label overlap acknowledged**: transaction with tags [A, B] counts toward BOTH A's and B's totals. Documented in contract JSDoc. UI will show footnote.
+4. **Archived tags excluded from landing**: they don't appear in the tags array or Otras bucket, but their historical data still contributes to global KPIs if unarchived
+5. **Color hashing**: TagCard uses existing `categoryColor` util when no explicit color provided (deterministic FNV-1a hash)
+
+### Patterns learned
+
+**Top-N + tail aggregation idiom:**
+```ts
+const topTags = tagMetrics.slice(0, TOP_N);
+const tailTags = tagMetrics.slice(TOP_N);
+if (tailTags.length > 0) {
+  const otrasBucket = {
+    tagId: '__otras__',
+    name: 'Otras',
+    ingresosCents: tailTags.reduce((sum, t) => sum + t.ingresosCents, 0),
+    // ... aggregate all fields
+  };
+}
+```
+This pattern is reusable for any "top-N + remainder" aggregation (categories, subcategories, accounts).
+
+**Testing without jest-dom matchers:**
+Project doesn't use `@testing-library/jest-dom`, so tests use:
+- `toBeDefined()` instead of `toBeInTheDocument()`
+- `element?.classList.contains(className)` instead of `toHaveClass(className)`
+- `element?.getAttribute('aria-label')` instead of `toHaveAttribute('aria-label', value)`
+This is the existing pattern across all component tests.
+
+### What I didn't do (intentional)
+
+- InsightsScreen wiring — Trinity owns it (#100); she'll consume my contract from a typed mock until this PR merges
+- Drilldown handlers (5 label-detail queries) — separate PR #103 (future)
+- DonutChart/SegmentedToggle — already shipped in #99
+
+### Handoff to Trinity
+
+The contract is locked and typed. Trinity can now:
+1. Import `InsightsLandingSummaryResponse` type from `insights.ts`
+2. Call `window.opentreasury.insights.landingSummary({})` for current year
+3. Render TagCard with the returned data:
+   ```tsx
+   <TagCard
+     tagId={tag.tagId}
+     name={tag.name}
+     color={tag.color}
+     kpis={{
+       ingresos: tag.ingresosCents / 100,
+       gastos: tag.gastosCents / 100,
+       neto: tag.netoCents / 100,
+       count: tag.movimientosCount,
+     }}
+     displayMode={displayMode}
+     archived={tag.archived}
+     topCategorias={tag.topCategorias}
+   />
+   ```
+
+### Verification
+
+- ✅ `npm run typecheck` — clean
+- ✅ `npm run lint` — clean
+- ✅ `npm test -- TagCard` — 18/18 passing
+- ✅ `npm test -- insights` — 13/13 passing
+- ✅ Smoke: handler returns plausible shape for current year
+
+### Files touched
+
+```
+app/src/shared/ipc-contracts/insights.ts          (new, 101 lines)
+app/src/main/ipc/handlers/insights.ts              (new, 302 lines)
+app/src/main/ipc/handlers/insights.test.ts         (new, 437 lines)
+app/src/main/ipc/handlers.ts                       (modified, +7 lines)
+app/src/preload/index.ts                           (modified, +11 lines)
+app/src/renderer/components/TagCard/TagCard.tsx   (new, 145 lines)
+app/src/renderer/components/TagCard/TagCard.css   (new, 156 lines)
+app/src/renderer/components/TagCard/TagCard.test.tsx (new, 269 lines)
+app/src/renderer/components/TagCard/index.ts       (new, 2 lines)
+```
+
+**Total:** 9 files, +1,430 lines
+
 ---
 
 **2026-04-22 — NEXT:** Link recommended **WI-22 Saldo** as next priority (primary). WI-23/24 runners-up. See decisions.md § "Link — WI-22 Recommendation (post-WI-21 merge)" for full spec. Chart primitive decision (sparkline reuse vs new grouped-bar) deferred to Neo; locale polish (date formatting) flagged for pre-WI-22 pass. Awaiting Pedro confirmation.

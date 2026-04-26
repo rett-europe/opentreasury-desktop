@@ -147,6 +147,11 @@ import {
   type GetSplitsRequest,
   type GetSplitsResponse,
 } from '../shared/ipc-contracts/transaction-splits.js';
+import {
+  IPC_INSIGHTS_LANDING_SUMMARY,
+  type InsightsLandingSummaryRequest,
+  type InsightsLandingSummaryResponse,
+} from '../shared/ipc-contracts/insights.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -290,6 +295,13 @@ const api = {
     },
     unarchive: (req: UnarchiveTagRequest): Promise<UnarchiveTagResponse> => {
       return ipcRenderer.invoke(IPC_TAGS_UNARCHIVE, req);
+    },
+  },
+  insights: {
+    landingSummary: (
+      req?: InsightsLandingSummaryRequest,
+    ): Promise<InsightsLandingSummaryResponse> => {
+      return ipcRenderer.invoke(IPC_INSIGHTS_LANDING_SUMMARY, req ?? {});
     },
   },
   import: {
