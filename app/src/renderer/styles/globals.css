@@ -673,6 +673,22 @@ a:hover {
   transform: rotate(180deg);
 }
 
+/* Inline placement modifier (amendment 1, §2.1) — when the toggle
+ * pill sits inside `.ot-saldo-panel__columns` instead of the screen
+ * header, it must read as section-anchored: smaller padding, smaller
+ * font, and a muted resting color so it harmonises with the column
+ * label strip. Pressed state still picks up the brand accent from
+ * the base recipe so the affordance stays discoverable. No new
+ * tokens — only existing OKLCH spacing/typography. */
+.ot-saldo-toggle-subcategories--inline {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-12);
+  color: var(--color-text-muted);
+}
+.ot-saldo-toggle-subcategories--inline[aria-pressed='true'] {
+  color: var(--color-brand-primary);
+}
+
 /* Subcategory row — nests under the parent .ot-saldo-row.
  * Grid columns mirror the parent so that name / prior / bars /
  * current / delta line up vertically across the whole panel.
@@ -685,6 +701,12 @@ a:hover {
   align-items: center;
   padding: var(--space-3) 0;
   padding-left: var(--space-6); /* 16px indent — spec §16.2 */
+  /* 2px parent-grouping guide rule (amendment 1, §3.3). Sits outside
+   * the padding box so the existing 16px content indent is preserved
+   * and the rule reads as a quiet vertical tick anchoring the
+   * sub-group to its parent category. Uses the existing divider
+   * token; no new colours. */
+  border-left: 2px solid var(--color-divider);
   border-bottom: 0;
 }
 .ot-saldo-subrow--compare {
@@ -696,9 +718,11 @@ a:hover {
 
 /* Visual close-out: extra breathing room after the last subrow
  * inside a category, so the next category row reads as a fresh
- * group (spec §16.2 — 8px gap between groups). */
+ * group. Amendment 1 §3.3 promotes the gap one rhythm step
+ * (--space-5 → --space-6) to absorb the higher subrow density
+ * when many parents are expanded simultaneously. */
 .ot-saldo-subrow:last-child {
-  padding-bottom: var(--space-5);
+  padding-bottom: var(--space-6);
 }
 
 .ot-saldo-subrow__name {
