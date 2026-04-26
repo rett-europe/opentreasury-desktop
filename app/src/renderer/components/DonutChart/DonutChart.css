@@ -1,0 +1,67 @@
+.ot-donut-chart {
+  display: inline-block;
+  position: relative;
+}
+
+.ot-donut-chart__segment {
+  transition: stroke-dasharray 200ms ease-out;
+}
+
+.ot-donut-chart__center-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  fill: var(--color-text-muted);
+}
+
+.ot-donut-chart__center-value {
+  font-size: 16px;
+  font-weight: 700;
+  fill: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ot-donut-chart__empty-text {
+  font-size: 12px;
+  fill: var(--color-text-muted);
+}
+
+/* Hide accessibility data table visually but keep for screen readers */
+.ot-donut-chart__data-table {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Color palette — deterministic mapping via CSS custom properties */
+:root,
+:root[data-theme='light'] {
+  --color-donut-0: oklch(0.55 0.15 270); /* purple */
+  --color-donut-1: oklch(0.6 0.18 200); /* blue */
+  --color-donut-2: oklch(0.65 0.14 150); /* teal */
+  --color-donut-3: oklch(0.6 0.12 130); /* green */
+  --color-donut-4: oklch(0.7 0.14 80); /* yellow-green */
+  --color-donut-5: oklch(0.65 0.16 40); /* orange */
+  --color-donut-6: oklch(0.6 0.18 20); /* red-orange */
+  --color-donut-7: oklch(0.55 0.12 340); /* pink */
+  --color-donut-otras: oklch(0.6 0.02 260); /* neutral gray */
+}
+
+:root[data-theme='dark'] {
+  --color-donut-0: oklch(0.65 0.15 270);
+  --color-donut-1: oklch(0.7 0.18 200);
+  --color-donut-2: oklch(0.75 0.14 150);
+  --color-donut-3: oklch(0.7 0.12 130);
+  --color-donut-4: oklch(0.8 0.14 80);
+  --color-donut-5: oklch(0.75 0.16 40);
+  --color-donut-6: oklch(0.7 0.18 20);
+  --color-donut-7: oklch(0.65 0.12 340);
+  --color-donut-otras: oklch(0.7 0.02 260);
+}
