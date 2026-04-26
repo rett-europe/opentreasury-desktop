@@ -24,13 +24,14 @@ import type {
   SaldoComparisonRequest,
   SaldoComparisonResponse,
   SaldoCategoryNet,
+  SaldoSubcategoryNet,
   SaldoMonthlyBucket,
   SaldoPeriod,
 } from '../../shared/ipc-contracts/saldo';
 import type { ReadModel, Transaction } from './types';
 import { getReadModel } from './reducers';
 
-// ----- Category-name resolution -----------------------------------------
+// ----- Category & subcategory name resolution ----------------------------
 // Transactions carry a categoryId that references model.configCategories.
 // Archived categories still resolve (users shouldn't lose the label on
 // historical tx); deleted-or-null categories resolve to `null` so the
@@ -41,6 +42,21 @@ function resolveCategoryName(categoryId: string | null, model: ReadModel): strin
   if (categoryId === null) return null;
   const c = model.configCategories.find((x) => x.id === categoryId);
   return c?.name ?? null;
+}
+
+// WI-B prerequisite (#67): Subcategory name resolution. Same semantics as
+// category resolution — archived subcategories still resolve, deleted/null
+// subcategories resolve to `null`.
+function resolveSubcategoryName(
+  categoryId: string | null,
+  subcategoryId: string | null,
+  model: ReadModel,
+): string | null {
+  if (subcategoryId === null || categoryId === null) return null;
+  const cat = model.configCategories.find((c) => c.id === categoryId);
+  if (!cat) return null;
+  const sub = cat.subcategories.find((s) => s.id === subcategoryId);
+  return sub?.name ?? null;
 }
 
 // SPEC-023 — effectiveAmounts helper: returns the amounts to use for
@@ -143,7 +159,19 @@ function shiftPriorYear(range: PeriodRange): PeriodRange {
 interface TotalsAgg {
   totalIncome: number;
   totalExpense: number;
-  byCategory: Map<string | null, { name: string | null; income: number; expense: number }>;
+  byCategory: Map<
+    string | null,
+    {
+      name: string | null;
+      income: number;
+      expense: number;
+      // WI-B prerequisite (#67): track subcategory aggregation within each category
+      bySubcategory: Map<
+        string | null,
+        { name: string | null; income: number; expense: number }
+      >;
+    }
+  >;
 }
 
 function aggregateTotals(model: ReadModel, range: PeriodRange): TotalsAgg {
@@ -164,11 +192,34 @@ function aggregateTotals(model: ReadModel, range: PeriodRange): TotalsAgg {
       if (existing) {
         if (tx.type === 'income') existing.income += ea.amount;
         else existing.expense += ea.amount;
+        // WI-B: aggregate by subcategory within this category
+        const subKey = ea.subcategoryId;
+        const existingSub = existing.bySubcategory.get(subKey);
+        if (existingSub) {
+          if (tx.type === 'income') existingSub.income += ea.amount;
+          else existingSub.expense += ea.amount;
+        } else {
+          existing.bySubcategory.set(subKey, {
+            name: resolveSubcategoryName(key, subKey, model),
+            income: tx.type === 'income' ? ea.amount : 0,
+            expense: tx.type === 'expense' ? ea.amount : 0,
+          });
+        }
       } else {
+        const bySubcategory = new Map<
+          string | null,
+          { name: string | null; income: number; expense: number }
+        >();
+        bySubcategory.set(ea.subcategoryId, {
+          name: resolveSubcategoryName(key, ea.subcategoryId, model),
+          income: tx.type === 'income' ? ea.amount : 0,
+          expense: tx.type === 'expense' ? ea.amount : 0,
+        });
         agg.byCategory.set(key, {
           name: resolveCategoryName(key, model),
           income: tx.type === 'income' ? ea.amount : 0,
           expense: tx.type === 'expense' ? ea.amount : 0,
+          bySubcategory,
         });
       }
     }
@@ -179,11 +230,34 @@ function aggregateTotals(model: ReadModel, range: PeriodRange): TotalsAgg {
 function toCategoryNetArray(agg: TotalsAgg): SaldoCategoryNet[] {
   const rows: SaldoCategoryNet[] = [];
   for (const [categoryId, value] of agg.byCategory) {
+    // WI-B: build subcategory array, sorted by abs(income - expense) desc,
+    // excluding zero-amount subcategories
+    const subcategories: SaldoSubcategoryNet[] = [];
+    for (const [subcategoryId, subValue] of value.bySubcategory) {
+      const subIncome = round2(subValue.income);
+      const subExpense = round2(subValue.expense);
+      // Exclude subcategories with both income == 0 AND expense == 0
+      if (subIncome === 0 && subExpense === 0) continue;
+      subcategories.push({
+        subcategoryId,
+        subcategoryName: subValue.name,
+        income: subIncome,
+        expense: subExpense,
+      });
+    }
+    // Sort by abs(income - expense) descending (net absolute value)
+    subcategories.sort((a, b) => {
+      const netA = Math.abs(a.income - a.expense);
+      const netB = Math.abs(b.income - b.expense);
+      return netB - netA;
+    });
+
     rows.push({
       categoryId,
       categoryName: value.name,
       income: round2(value.income),
       expense: round2(value.expense),
+      subcategories, // Always populated (may be empty array)
     });
   }
   // Deterministic order for UI + test stability: net desc, tie → name asc,
