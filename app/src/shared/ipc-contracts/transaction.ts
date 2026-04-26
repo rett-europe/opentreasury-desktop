@@ -189,6 +189,7 @@ export const updateTransactionValidationErrorCodeSchema = z.enum([
   'TYPE_INVALID',
   'REFERENCE_TOO_LONG',
   'DETAILS_TOO_LONG',
+  'TX_HAS_ACTIVE_SPLITS', // SPEC-023 FR14 — reject parent amount edit when splits exist
   'SCHEMA_INVALID',
   'INTERNAL',
 ]);
