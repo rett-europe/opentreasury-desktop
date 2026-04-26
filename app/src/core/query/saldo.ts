@@ -59,6 +59,19 @@ function resolveSubcategoryName(
   return sub?.name ?? null;
 }
 
+// Issue #78 — Resolve a category's intrinsic `kind` (income/expense). Returns
+// `null` for the uncategorized bucket and for categories created before the
+// 2026-04-22 `kind` field was added. Callers (toCategoryNetArray) fall back
+// to net-sign classification only when this returns `null`.
+function resolveCategoryKind(
+  categoryId: string | null,
+  model: ReadModel,
+): 'income' | 'expense' | null {
+  if (categoryId === null) return null;
+  const c = model.configCategories.find((x) => x.id === categoryId);
+  return c?.kind ?? null;
+}
+
 // SPEC-023 — effectiveAmounts helper: returns the amounts to use for
 // aggregation. If the transaction has active splits, returns split amounts
 // (converted from cents to EUR). Otherwise, returns the parent's single
@@ -163,6 +176,11 @@ interface TotalsAgg {
     string | null,
     {
       name: string | null;
+      // Issue #78 — Intrinsic category kind (from ConfigCategory.kind).
+      // `null` when the category has no kind set (legacy / uncategorized);
+      // in that case `toCategoryNetArray` falls back to net-sign classification
+      // for the row's `kind` field.
+      kind: 'income' | 'expense' | null;
       income: number;
       expense: number;
       // WI-B prerequisite (#67): track subcategory aggregation within each category
@@ -214,6 +232,7 @@ function aggregateTotals(model: ReadModel, range: PeriodRange): TotalsAgg {
         });
         agg.byCategory.set(key, {
           name: resolveCategoryName(key, model),
+          kind: resolveCategoryKind(key, model),
           income: tx.type === 'income' ? ea.amount : 0,
           expense: tx.type === 'expense' ? ea.amount : 0,
           bySubcategory,
@@ -227,8 +246,15 @@ function aggregateTotals(model: ReadModel, range: PeriodRange): TotalsAgg {
 function toCategoryNetArray(agg: TotalsAgg): SaldoCategoryNet[] {
   const rows: SaldoCategoryNet[] = [];
   for (const [categoryId, value] of agg.byCategory) {
+    // Issue #78 — Row's bucket-side follows the category's intrinsic `kind`.
+    // For legacy/uncategorized rows (kind === null) we fall back to net-sign
+    // classification so existing single-direction behaviour is preserved.
+    const net = value.income - value.expense;
+    const rowKind: 'income' | 'expense' | null = value.kind ?? (net >= 0 ? 'income' : 'expense');
+
     // WI-B: build subcategory array, sorted by abs(income - expense) desc,
-    // excluding zero-amount subcategories
+    // excluding zero-amount subcategories. Issue #78: subcategories inherit
+    // their parent category's kind (NOT their own per-subcategory net sign).
     const subcategories: SaldoSubcategoryNet[] = [];
     for (const [subcategoryId, subValue] of value.bySubcategory) {
       const subIncome = round2(subValue.income);
@@ -240,6 +266,7 @@ function toCategoryNetArray(agg: TotalsAgg): SaldoCategoryNet[] {
         subcategoryName: subValue.name,
         income: subIncome,
         expense: subExpense,
+        kind: rowKind,
       });
     }
     // Sort by abs(income - expense) descending (net absolute value)
@@ -252,17 +279,25 @@ function toCategoryNetArray(agg: TotalsAgg): SaldoCategoryNet[] {
     rows.push({
       categoryId,
       categoryName: value.name,
+      kind: rowKind,
       income: round2(value.income),
       expense: round2(value.expense),
       subcategories, // Always populated (may be empty array)
     });
   }
-  // Deterministic order for UI + test stability: net desc, tie → name asc,
-  // tie → categoryId string (null sorts last).
+  // Issue #78 — Deterministic order: bucket first (income before expense,
+  // null/uncategorized last), then by abs(net) desc within the bucket so the
+  // renderer's panels render the largest-impact categories first regardless
+  // of net sign. Final tiebreaks on name asc then categoryId asc keep the
+  // order stable across runs.
+  const bucketRank = (k: 'income' | 'expense' | null): number =>
+    k === 'income' ? 0 : k === 'expense' ? 1 : 2;
   rows.sort((a, b) => {
-    const netA = a.income - a.expense;
-    const netB = b.income - b.expense;
-    if (netA !== netB) return netB - netA;
+    const rankCmp = bucketRank(a.kind ?? null) - bucketRank(b.kind ?? null);
+    if (rankCmp !== 0) return rankCmp;
+    const absA = Math.abs(a.income - a.expense);
+    const absB = Math.abs(b.income - b.expense);
+    if (absA !== absB) return absB - absA;
     // null category names sort last (matches null categoryId tiebreak).
     const nameA = a.categoryName ?? '\uffff';
     const nameB = b.categoryName ?? '\uffff';
