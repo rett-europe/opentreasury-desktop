@@ -152,7 +152,7 @@ export function GroupedBarChart({
       const cur = s.values[0] ?? 0;
       const prev = s.values[1] ?? 0;
       const delta = computeDelta(cur, prev);
-      const deltaTxt = delta === null ? '' : ` (${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%)`;
+      const deltaTxt = delta === null ? '' : ` (${delta >= 0 ? '+' : ''}${Math.round(delta)}%)`;
       return `${s.label}: ${legendLabel(legend[0]!)} ${format(cur)} vs ${legendLabel(legend[1]!)} ${format(prev)}${deltaTxt}`;
     }
     const parts = legend
@@ -278,7 +278,7 @@ export function GroupedBarChart({
                   ? computeDelta(tooltipSeries.values[0] ?? 0, tooltipSeries.values[1] ?? 0)
                   : null;
                 const deltaTxt =
-                  delta === null ? '—' : `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`;
+                  delta === null ? '—' : `${delta >= 0 ? '+' : ''}${Math.round(delta)}%`;
                 return (
                   <div
                     className="ot-grouped-bar-chart__tooltip"

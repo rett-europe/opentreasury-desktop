@@ -44,7 +44,9 @@
 /* ── Saldo paired category panels ───────────────────────────── */
 .ot-saldo-panels {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* Bug B fix: minmax(0,1fr) allows panels to shrink below min-content
+     at narrow viewports instead of overflowing. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-7);
   margin-top: var(--space-9);
 }
@@ -63,6 +65,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+  /* Bug B fix: allow panel to shrink below min-content in the grid. */
+  min-width: 0;
 }
 
 .ot-saldo-panel__header {
@@ -113,16 +117,32 @@
   display: grid;
   gap: var(--space-3) var(--space-6);
   align-items: center;
+  /* Bug A fix: font properties moved to children so the grid container
+     inherits the same base font-size as .ot-saldo-row grids. This makes
+     ch-based column minimums in grid-template-columns resolve identically
+     across header and row grids — the root cause of the alignment drift. */
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+  /* Bug B (iter 9): allow header grid to shrink below content in flex. */
+  min-width: 0;
+}
+.ot-saldo-panel__columns > * {
   font-size: var(--font-size-11);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-divider);
 }
 .ot-saldo-panel__columns--compare {
-  grid-template-columns: 1fr auto auto auto auto;
+  /* Iter 10: prior/current track minimums are min-content so the amount
+   * text never truncates — bars are the responsive axis, amounts are not.
+   * Name and delta keep min=0 (name can ellipsis, delta is small).
+   * Header and row templates stay identical ⇒ Bug A alignment preserved. */
+  grid-template-columns:
+    minmax(0, calc(var(--saldo-col-name, max-content) + var(--space-6)))
+    minmax(min-content, 1fr)
+    minmax(min-content, 3fr)
+    minmax(0, var(--saldo-col-delta, max-content));
 }
 .ot-saldo-panel__columns--single {
   grid-template-columns: 1fr auto auto;
@@ -150,6 +170,9 @@
   row-gap: 2px;
   align-items: center;
   padding: var(--space-5) 0;
+  /* Bug B (iter 9): allow row grid to shrink below min-content in the
+   * panel's flex-direction:column layout. */
+  min-width: 0;
 }
 
 /* Pedro F5 (#78 follow-up): category separator lives on the `role=group`
@@ -167,55 +190,76 @@
   border-bottom: 0;
 }
 .ot-saldo-row--compare {
-  /* Issue #78 follow-up — the prior / current / delta column widths come from
-   * panel-level CSS custom properties (computed once per panel render in
-   * `CategoryPanel`) so every row + subrow in the panel uses the SAME column
-   * widths. This anchors the `1fr` bars column at an identical x-coord across
-   * rows, which is what makes the two-bar groups line up across categories.
-   * Falls back to `max-content` if a row is rendered outside the panel grid
-   * scope (e.g. tests, isolated stories). */
+  /* Iter 10: mirrors header template — prior/current min-content protects
+   * amounts; bars shrink first. See .ot-saldo-panel__columns--compare. */
   grid-template-columns:
-    1fr var(--saldo-col-prior, max-content) 1fr var(--saldo-col-current, max-content)
-    var(--saldo-col-delta, max-content);
+    minmax(0, calc(var(--saldo-col-name, max-content) + var(--space-6)))
+    minmax(min-content, 1fr)
+    minmax(min-content, 3fr)
+    minmax(0, var(--saldo-col-delta, max-content));
 }
 .ot-saldo-row--single {
-  grid-template-columns: 1fr var(--saldo-col-current, max-content) var(
-      --saldo-col-delta,
-      max-content
-    );
+  grid-template-columns:
+    1fr
+    minmax(0, var(--saldo-col-current, max-content))
+    minmax(0, var(--saldo-col-delta, max-content));
+}
+
+/* Per-year compound cells. Iter 4 (Pedro 2026-04-26 dogfood iter 3 reject):
+ * VERTICAL stack inside each cell — value text on top, horizontal bar below,
+ * both left-anchored. The two year cells still sit side-by-side horizontally
+ * on the same row (enforced by the outer row grid `--compare`); only the
+ * INNER layout of each cell stacks vertically. Both year cells use the same
+ * inner layout — no mirror — so the value and bar baselines match across
+ * 2025 and 2026 within a single row. The header `2025` / `2026` labels sit
+ * directly above the value+bar stack of their column. */
+.ot-saldo-row__prior-cell,
+.ot-saldo-row__current-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  row-gap: var(--space-2);
+  /* Iter 10: removed min-width:0 so the cell's min-content (amount text
+   * width) propagates to the grid track's minmax(min-content, ...). */
 }
 
 .ot-saldo-row__name {
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
+  /* Bug B (iter 9): graceful text truncation when panel is narrow. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ot-saldo-row--compare .ot-saldo-row__name {
   grid-column: 1 / 2;
 }
 
 .ot-saldo-row__prior {
-  text-align: right;
-  font-size: var(--font-size-14);
+  text-align: left;
+  font-size: var(--font-size-13);
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-primary);
-}
-.ot-saldo-row--compare .ot-saldo-row__prior {
-  grid-column: 2 / 3;
+  color: var(--color-text-secondary);
+  /* Iter 10: removed overflow/ellipsis — amounts must always be readable.
+   * The grid track's minmax(min-content, ...) prevents the column from
+   * shrinking below this text. */
+  white-space: nowrap;
 }
 
 .ot-saldo-row__bars {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 80px;
-}
-.ot-saldo-row--compare .ot-saldo-row__bars {
-  grid-column: 3 / 4;
+  /* Legacy stacked-bars wrapper retained as a no-op for any external
+   * consumer that still selects on it; current TSX no longer renders it. */
+  display: contents;
 }
 .ot-saldo-row__bar-track {
+  /* Iter 5: no `min-width` — the track fills its grid cell and shrinks
+   * with the panel so the visualisation adapts to viewport width
+   * (matches Balance page recipe). */
   position: relative;
-  height: 6px;
+  width: 100%;
+  min-width: 0;
+  height: 8px;
   border-radius: var(--radius-pill);
   background: var(--color-surface-secondary);
   overflow: hidden;
@@ -242,13 +286,12 @@
 }
 
 .ot-saldo-row__current {
-  text-align: right;
+  text-align: left;
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
-}
-.ot-saldo-row--compare .ot-saldo-row__current {
-  grid-column: 4 / 5;
+  /* Iter 10: removed overflow/ellipsis — amounts always readable. */
+  white-space: nowrap;
 }
 .ot-saldo-panel--income .ot-saldo-row__current {
   color: var(--color-income-default);
@@ -262,9 +305,12 @@
   font-size: var(--font-size-13);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ot-saldo-row--compare .ot-saldo-row__delta {
-  grid-column: 5 / 6;
+  grid-column: 4 / 5;
 }
 .ot-saldo-row__delta--up {
   color: var(--color-income-default);
@@ -283,7 +329,7 @@
   color: var(--color-text-muted);
 }
 .ot-saldo-row--compare .ot-saldo-row__delta-sublabel {
-  grid-column: 5 / 6;
+  grid-column: 4 / 5;
 }
 
 /* ── Chart section ──────────────────────────────────────────── */
@@ -369,4 +415,26 @@
 .ot-saldo-year-picker__compare-note {
   font-size: var(--font-size-12);
   color: var(--color-text-muted);
+}
+
+/* ── Narrow-viewport: 1:1 bar ratio ─────────────────────────
+ * Iter 10 (Pedro feedback): at narrow widths the 1:3 prior:current
+ * ratio makes the prior bar a sliver. Below 1200px both years get
+ * equal weight (1fr/1fr) so both bars stay legible. Above 1200px
+ * the visual-emphasis 1:3 ratio is preserved. */
+@media (max-width: 1200px) {
+  .ot-saldo-panel__columns--compare {
+    grid-template-columns:
+      minmax(0, calc(var(--saldo-col-name, max-content) + var(--space-6)))
+      minmax(min-content, 1fr)
+      minmax(min-content, 1fr)
+      minmax(0, var(--saldo-col-delta, max-content));
+  }
+  .ot-saldo-row--compare {
+    grid-template-columns:
+      minmax(0, calc(var(--saldo-col-name, max-content) + var(--space-6)))
+      minmax(min-content, 1fr)
+      minmax(min-content, 1fr)
+      minmax(0, var(--saldo-col-delta, max-content));
+  }
 }
