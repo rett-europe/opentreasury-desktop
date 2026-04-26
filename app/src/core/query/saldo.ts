@@ -166,10 +166,7 @@ interface TotalsAgg {
       income: number;
       expense: number;
       // WI-B prerequisite (#67): track subcategory aggregation within each category
-      bySubcategory: Map<
-        string | null,
-        { name: string | null; income: number; expense: number }
-      >;
+      bySubcategory: Map<string | null, { name: string | null; income: number; expense: number }>;
     }
   >;
 }

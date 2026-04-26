@@ -405,7 +405,12 @@ describe('getSaldoComparison — subcategory aggregation (WI-B #67)', () => {
           name: 'Donaciones',
           subcategories: [
             { id: 's1', parentCategoryId: 'c1', name: 'Socios', createdAt: '2025-01-01T00:00:00Z' },
-            { id: 's2', parentCategoryId: 'c1', name: 'Empresas', createdAt: '2025-01-01T00:00:00Z' },
+            {
+              id: 's2',
+              parentCategoryId: 'c1',
+              name: 'Empresas',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
           ],
         },
       ],
@@ -446,8 +451,18 @@ describe('getSaldoComparison — subcategory aggregation (WI-B #67)', () => {
           name: 'Donaciones',
           subcategories: [
             { id: 's1', parentCategoryId: 'c1', name: 'Socios', createdAt: '2025-01-01T00:00:00Z' },
-            { id: 's2', parentCategoryId: 'c1', name: 'Empresas', createdAt: '2025-01-01T00:00:00Z' },
-            { id: 's3', parentCategoryId: 'c1', name: 'Eventos', createdAt: '2025-01-01T00:00:00Z' },
+            {
+              id: 's2',
+              parentCategoryId: 'c1',
+              name: 'Empresas',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+            {
+              id: 's3',
+              parentCategoryId: 'c1',
+              name: 'Eventos',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
           ],
         },
       ],
@@ -473,14 +488,24 @@ describe('getSaldoComparison — subcategory aggregation (WI-B #67)', () => {
           id: 'c1',
           name: 'Gastos',
           subcategories: [
-            { id: 's1', parentCategoryId: 'c1', name: 'Salarios', createdAt: '2025-01-01T00:00:00Z' },
+            {
+              id: 's1',
+              parentCategoryId: 'c1',
+              name: 'Salarios',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
             {
               id: 's2',
               parentCategoryId: 'c1',
               name: 'Seguridad Social',
               createdAt: '2025-01-01T00:00:00Z',
             },
-            { id: 's3', parentCategoryId: 'c1', name: 'Formación', createdAt: '2025-01-01T00:00:00Z' },
+            {
+              id: 's3',
+              parentCategoryId: 'c1',
+              name: 'Formación',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
           ],
         },
       ],
@@ -546,7 +571,12 @@ describe('getSaldoComparison — subcategory aggregation (WI-B #67)', () => {
           name: 'Donaciones',
           subcategories: [
             { id: 's1', parentCategoryId: 'c1', name: 'Socios', createdAt: '2025-01-01T00:00:00Z' },
-            { id: 's2', parentCategoryId: 'c1', name: 'Empresas', createdAt: '2025-01-01T00:00:00Z' },
+            {
+              id: 's2',
+              parentCategoryId: 'c1',
+              name: 'Empresas',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
           ],
         },
       ],
@@ -616,7 +646,15 @@ describe('getSaldoComparison — subcategory aggregation (WI-B #67)', () => {
 
   it('resolves deleted subcategory name to null (AC7)', () => {
     const model = makeModel(
-      [{ date: '2026-04-10', type: 'income', amount: 500, categoryId: 'c1', subcategoryId: 's-deleted' }],
+      [
+        {
+          date: '2026-04-10',
+          type: 'income',
+          amount: 500,
+          categoryId: 'c1',
+          subcategoryId: 's-deleted',
+        },
+      ],
       [
         {
           id: 'c1',
@@ -651,7 +689,12 @@ describe('getSaldoComparison — subcategory aggregation (WI-B #67)', () => {
           name: 'Donaciones',
           subcategories: [
             { id: 's1', parentCategoryId: 'c1', name: 'Socios', createdAt: '2025-01-01T00:00:00Z' },
-            { id: 's2', parentCategoryId: 'c1', name: 'Empresas', createdAt: '2025-01-01T00:00:00Z' },
+            {
+              id: 's2',
+              parentCategoryId: 'c1',
+              name: 'Empresas',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
           ],
         },
       ],
