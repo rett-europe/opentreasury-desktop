@@ -1,6 +1,6 @@
 # UX-007 — Split Transactions
 
-> **Status:** Draft v0.2 · **Owner:** Niobe (Spec / UX Analyst) · **Date:** 2026-04-26
+> **Status:** Draft v0.3 · **Owner:** Niobe (Spec / UX Analyst) · **Date:** 2026-04-29
 > **Paired spec:** [`docs/specs/023-split-transactions.md`](../../specs/023-split-transactions.md)
 > **Paired PRD:** Pending (PRD-023 reservation needed — see issue #59)
 
@@ -120,7 +120,8 @@ displayed in the strip.
 "Guardar división" is enabled only when:
 1. ≥ 2 split rows exist.
 2. All rows have amount > 0.
-3. Sum of amounts equals parent amount within tolerance (SPEC-023 FR3).
+3. Sum of split amounts (in cents) equals parent amount (SPEC-023 FR3). Integer
+      comparison — no floating-point tolerance needed.
 
 On click:
 1. Renderer sends `tx:split` IPC request.
@@ -338,3 +339,4 @@ be populated before this spec moves to Accepted.
 |---|---|---|---|
 | 2026-04-26 | Draft v0.1 | Niobe | Initial UX spec from issue #59. Paired with SPEC-023. |
 | 2026-04-26 | Draft v0.2 | Niobe | Rev 2 in response to Neo architectural review: updated max-splits reference from open question to constant (§3.4), added §3.8 (amount field locked when splits active — FR14), updated Edit row action routing to use `hasSplits` (FR14), updated traceability to FR1–FR16. |
+| 2026-04-29 | Draft v0.3 | Niobe | Rev 3: Updated sum validation to integer cents (no float tolerance). Aligned with SPEC-023 Rev 3 (Pedro's 6 lock answers). |

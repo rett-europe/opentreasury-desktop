@@ -1,9 +1,11 @@
 # SPEC-023 — Split Transactions
 
-> **Status:** Draft (Rev 2) · **Owner:** Niobe (Spec / UX Analyst) · **Last updated:** 2026-04-26
+> **Status:** Draft (Rev 3) · **Milestone:** M1 · **Owner:** Niobe (Spec / UX Analyst) · **Last updated:** 2026-04-29
 > **Paired PRD:** Pending — Split Transactions is not yet in the PRD plan; this spec is issued directly from issue #59. A PRD reservation (PRD-023) should be added to `docs/product/prd-plan.md` before this spec moves to Accepted.
 > **Paired UX:** `docs/ux/specs/ux-007-split-transactions.md`
 > **Paired Design:** `docs/design/023-split-transactions.md` (pending Mouse)
+>
+> **Milestone note:** Splits ship in **M1**, independent of M2 crypto work. Encryption is deferred to M2 alongside other transaction data — no split-specific crypto is needed.
 
 ---
 
@@ -69,12 +71,19 @@ though there is only one underlying bank transaction.
   already-deleted transactions MUST NOT be splittable.
 - **FR2** — A split operation creates ≥ 2 split records. A transaction with exactly one
   split is invalid; the split editor MUST prevent submission in that state.
-- **FR3** — The sum of all split amounts MUST exactly equal the parent transaction
-  amount. Validation is enforced at the IPC boundary (main process) and surfaced live in
+- **FR3** — The sum of all split `amountCents` values MUST exactly equal
+  `Math.round(parentTx.amount * 100)`. Integer comparison — no floating-point tolerance.
+  Validation is enforced at the IPC boundary (main process) and surfaced live in
   the split editor UI before submission.
-- **FR4** — Each split record carries: `amount` (positive, EUR), `categoryId` (nullable),
-  `subcategoryId` (nullable), `comment` (free text ≤ 500 chars, nullable). Categories and
-  subcategories are independent of the parent transaction's category.
+- **FR4** — Each split record carries: `amountCents` (positive integer, EUR cents —
+  e.g. `12345` = €123.45), `categoryId` (nullable), `subcategoryId` (nullable),
+  `comment` (free text ≤ 500 chars, nullable). Categories and subcategories are
+  independent of the parent transaction's category. The UI converts cents ↔ EUR at
+  the edge using `Intl.NumberFormat`. **Integer cents are mandatory for split
+  children** to eliminate floating-point drift in the sum invariant. This sets
+  precedent for future migration of float amounts elsewhere, but for now ONLY
+  split children use cents — existing `tx.created` / `tx.updated` amounts remain
+  as floats.
 - **FR5** — A split is persisted as a `tx.split` event referencing the parent transaction
   ID. The event replaces any previous split state for the same parent (i.e., re-splitting
   overwrites; see §6.1).
@@ -106,13 +115,16 @@ though there is only one underlying bank transaction.
   parent amount. Edits to `description`, `categoryId`, `tags`, `reference`, `details`
   on the parent are permitted while splits exist (they do not affect the sum invariant).
   The edit form MUST disable the amount field and show an inline notice when the
-  transaction has active splits. (*Pending Pedro's decision — see Q6.*)
+  transaction has active splits. The detail modal surfaces this state clearly: disabled
+  amount field with explanatory tooltip + a "Remove split" affordance to unblock
+  editing. *(Locked — Pedro confirmed Option A: Reject.)*
 - **FR15** — A `transaction:bulkUpdate` request that includes transactions with active
-  splits MUST silently skip the `categoryId` / `subcategoryId` fields for those
-  transactions (the category change is undefined for a split parent — categories live on
-  the individual splits). Other fields in the bulk payload (`tagIds`, `status`) MAY be
-  applied to split parents. The response counts skipped-category updates separately.
-  (*Pending Pedro's decision — see Q7.*)
+  splits MUST silently skip those split-parent transactions entirely. The response
+  reports: `"X updated, Y skipped (split parents — edit children individually)"`.
+  Split children are NOT touched by bulk ops on the parent. Children CAN be
+  bulk-edited directly if individually selected. Other fields (`tagIds`, `status`)
+  are also skipped for split parents to avoid partial application confusion.
+  *(Locked — Pedro confirmed Option A: Skip.)*
 - **FR16** — Splits do not have independent notes. The existing `tx.note.added` /
   `tx.note.edited` / `tx.note.deleted` event cycle applies to the parent transaction
   only. Each split carries a `comment` field (FR4); no note events are produced per
@@ -134,7 +146,7 @@ though there is only one underlying bank transaction.
   source of truth.
 - **NFR5 — Event immutability.** Split events, once persisted, are append-only. A
   re-split replaces logically by appending a new `tx.split` event with a new ULID
-  filename; the old event is never rewritten.
+  event id; the old event is never rewritten.
 
 ---
 
@@ -166,10 +178,12 @@ Key constraints that affect architecture:
 recent transaction events (`tx.note.added`, `tx.note.edited`, `tx.note.deleted`,
 `tx.deleted`) — top-level fields, no nested `payload` object.
 
-> **Amount representation (pending Pedro Q5):** The recommended approach is to store
-> `amountCents: integer` (e.g. 30000 = €300.00) to eliminate floating-point drift in
-> the sum invariant. If Pedro approves (Q5 below), the schemas below use `amountCents`
-> instead of `amount`. The spec will be updated once Q5 is resolved.
+> **Amount representation (LOCKED):** Child split amounts are stored as **integer
+> cents** (`amountCents: z.number().int().positive()`) — e.g. `12345` = €123.45.
+> This eliminates floating-point drift in the sum invariant. The UI converts at the
+> edge via `Intl.NumberFormat`. Existing `tx.created` / `tx.updated` amounts remain
+> as floats — integer cents apply ONLY to split children for now. This sets
+> precedent for future migration of float amounts elsewhere.
 
 | Event type | Schema | Produced by | Consumed by |
 |---|---|---|---|
@@ -181,10 +195,10 @@ recent transaction events (`tx.note.added`, `tx.note.edited`, `tx.note.deleted`,
 ```typescript
 export const transactionSplitRowSchema = z.object({
   splitId:       z.string().length(26),            // ULID — stable PK in the read model
-  amount:        z.number().positive(),             // EUR; replace with amountCents if Q5 = yes
+  amountCents:   z.number().int().positive(),       // EUR cents (e.g. 30000 = €300.00)
   categoryId:    z.string().length(26).nullable(),
   subcategoryId: z.string().length(26).nullable(),
-  comment:       z.string().max(500).nullable(),
+  comment:       z.string().max(500).nullable(),   // ≤ 500 chars (line-item style, shorter than parent's 1000-char details)
   sortOrder:     z.number().int().nonnegative(),    // Preserves editor row order
 });
 
@@ -192,7 +206,7 @@ export const transactionSplitEventSchema = z.object({
   type:        z.literal('tx.split'),
   id:          z.string().length(26),  // Event ULID — dedup key in the NDJSON log
   parentTxId:  z.string().length(26),  // FK → Transaction.id
-  splits:      z.array(transactionSplitRowSchema).min(2),
+  splits:      z.array(transactionSplitRowSchema).min(2).max(20), // MAX_SPLITS_PER_TX = 20
   createdAt:   z.string().datetime(),
 });
 
@@ -207,6 +221,12 @@ export type TransactionSplitRow    = z.infer<typeof transactionSplitRowSchema>;
 export type TransactionSplitEvent  = z.infer<typeof transactionSplitEventSchema>;
 export type TransactionSplitRemovedEvent = z.infer<typeof transactionSplitRemovedEventSchema>;
 ```
+
+**Sum invariant (integer precision):** The command handler validates
+`sum(splits[].amountCents) === parentTx.amount * 100` (converting the parent's float
+to cents for comparison). No tolerance epsilon — the sum must be exact when expressed
+in integer cents. The renderer enforces this live in the split editor as a UX aid;
+the main-process check is the source of truth.
 
 **Semantics:** `tx.split` is idempotent-by-replacement. When the reducer processes a
 `tx.split` event whose `parentTxId` already has an earlier `tx.split` in the log, the
@@ -227,10 +247,10 @@ reducer replaces the existing splits map entry entirely (no per-row diffing need
 export interface TransactionSplit {
   readonly splitId:       string;        // ULID — stable PK
   readonly parentTxId:    string;        // ULID FK → Transaction.id
-  readonly amount:        number;        // Positive EUR (or amountCents: number if Q5 = yes)
+  readonly amountCents:   number;        // Positive EUR cents (e.g. 30000 = €300.00)
   readonly categoryId:    string | null;
   readonly subcategoryId: string | null;
-  readonly comment:       string | null; // ≤ 500 chars
+  readonly comment:       string | null; // ≤ 500 chars (line-item style)
   readonly sortOrder:     number;
 }
 ```
@@ -260,7 +280,7 @@ case 'tx.split': {
   const rows: TransactionSplit[] = event.splits.map(s => ({
     splitId:       s.splitId,
     parentTxId:    event.parentTxId,
-    amount:        s.amount,
+    amountCents:   s.amountCents,
     categoryId:    s.categoryId ?? null,
     subcategoryId: s.subcategoryId ?? null,
     comment:       s.comment ?? null,
@@ -304,7 +324,8 @@ case 'tx.deleted': {
 **Aggregation query pattern (I1 — query touchpoints):**
 
 Every query that sums `tx.amount` must be updated to use a shared helper that returns
-the effective amounts for a transaction:
+the effective amounts for a transaction. Since split children use integer cents while
+parent amounts are floats, the helper normalises to EUR floats for downstream callers:
 
 ```typescript
 // app/src/core/query/queries.ts — new shared helper
@@ -313,7 +334,12 @@ function effectiveAmounts(
   model: ReadModel,
 ): readonly { amount: number; categoryId: string | null; subcategoryId: string | null }[] {
   if (model.splitParentIds.has(tx.id)) {
-    return model.splits.get(tx.id) ?? [];
+    const splits = model.splits.get(tx.id) ?? [];
+    return splits.map(s => ({
+      amount: s.amountCents / 100,  // cents → EUR for aggregation
+      categoryId: s.categoryId,
+      subcategoryId: s.subcategoryId,
+    }));
   }
   return [{ amount: tx.amount, categoryId: tx.categoryId, subcategoryId: tx.subcategoryId }];
 }
@@ -348,20 +374,90 @@ When M2 AEAD encryption is implemented, `tx.split` and `tx.split.removed` events
 be encrypted in the same manner as every other event type — **no split-specific storage
 changes are required at that point**.
 
-### 6.4 Integration points
+### 6.4 Integration Seam Map
 
-The following four files must be modified to integrate `tx.split` and
-`tx.split.removed` into the existing pipeline. This is the seam map for Morpheus:
+> This section maps exactly where splits plug into the existing pipeline. Every file
+> path is relative to `app/src/`. This is the implementation guide for Morpheus.
 
-| File | Change required |
-|---|---|
-| `app/src/core/events/schemas.ts` | Add `transactionSplitEventSchema`, `transactionSplitRemovedEventSchema`, `transactionSplitRowSchema`; add both event types to `DomainEvent` union |
-| `app/src/core/query/types.ts` | Add `TransactionSplit` interface; add `splits` and `splitParentIds` fields to `ReadModel` |
-| `app/src/core/query/reducers.ts` | Add `case 'tx.split'`, `case 'tx.split.removed'`; extend `case 'tx.deleted'` to clear splits; update `emptyReadModel()` to initialise `splits: new Map()` and `splitParentIds: new Set()` |
-| `app/src/core/query/queries.ts` + `saldo.ts` | Add `effectiveAmounts()` helper; update the 5 query functions listed in §6.2 |
-| `app/src/shared/ipc-contracts/movements.ts` | Add `hasSplits: z.boolean()` and `splitCount: z.number().int().nonnegative()` to `movementRecordSchema` (see §7) |
-| `app/src/shared/ipc-contracts/transaction-splits.ts` | New file — 3 IPC channels (see §7) |
-| `app/src/main/ipc/handlers/` | New handler file for `tx:split`, `tx:split:remove`, `tx:split:get` channels |
+#### 6.4.1 Event Log Layer (`core/events/`)
+
+| File | Change | Detail |
+|---|---|---|
+| `core/events/schemas.ts` | **Add 3 Zod schemas** | `transactionSplitRowSchema`, `transactionSplitEventSchema`, `transactionSplitRemovedEventSchema` — flat wire style matching `tx.note.added` pattern |
+| `core/events/schemas.ts` | **Extend `DomainEvent` union** | Add `TransactionSplitEvent \| TransactionSplitRemovedEvent` to the existing 25-member union (line ~498) |
+| `core/events/index.ts` | **Re-export types** | Export the new event types for consumers |
+
+The `tx.split` event is an **additive event type** — it is appended to the NDJSON log
+alongside existing event types. **There is no migration.** Old event logs that lack
+`tx.split` events are valid and replay cleanly (splits map simply stays empty).
+
+#### 6.4.2 Read-Model Layer (`core/query/`)
+
+| File | Change | Detail |
+|---|---|---|
+| `core/query/types.ts` | **Add `TransactionSplit` interface** | Fields: `splitId`, `parentTxId`, `amountCents`, `categoryId`, `subcategoryId`, `comment` (≤500 chars), `sortOrder` |
+| `core/query/types.ts` | **Extend `ReadModel`** | Add `splits: ReadonlyMap<string, readonly TransactionSplit[]>` (keyed by parentTxId) + `splitParentIds: ReadonlySet<string>` (O(1) lookup) |
+| `core/query/reducers.ts` | **`applyEvent` new cases** | `case 'tx.split'`: populate splits map + splitParentIds set; `case 'tx.split.removed'`: clear both |
+| `core/query/reducers.ts` | **`case 'tx.deleted'` extension** | Clear splits map entry + splitParentIds for deleted parent (FR12) |
+| `core/query/reducers.ts` | **`emptyReadModel()` update** | Initialise `splits: new Map()` and `splitParentIds: new Set()` |
+| `core/query/queries.ts` | **Add `effectiveAmounts()` helper** | Shared helper converting split children's `amountCents/100` to EUR for downstream aggregation |
+| `core/query/queries.ts` | **Update 3 query functions** | `getAccountBalances()`, `getMonthKPIs()`, `getAccountSparklines()` — iterate via `effectiveAmounts()` |
+| `core/query/saldo.ts` | **Update `getSaldoComparison()`** | Period/category/monthly series sums use `effectiveAmounts()`; category breakdowns filter by per-split `categoryId` |
+
+#### 6.4.3 IPC Contract Layer (`shared/ipc-contracts/`)
+
+| File | Change | Detail |
+|---|---|---|
+| `shared/ipc-contracts/transaction-splits.ts` | **New file** | 3 channels: `tx:split`, `tx:split:remove`, `tx:split:get`. Schemas follow WI-19 convention: `{ok:true, event} \| {ok:false, error}` |
+| `shared/ipc-contracts/transaction.ts` | **Add `TX_HAS_ACTIVE_SPLITS` error code** | To `updateTransactionValidationErrorCodeSchema` (FR14 — reject parent amount edit when splits exist) |
+| `shared/ipc-contracts/transaction.ts` | **Extend bulk-update response** | Add `skippedSplitParentCount: z.number().int().nonnegative()` to success branch (FR15) |
+| `shared/ipc-contracts/movements.ts` | **Extend `movementRecordSchema`** | Add `hasSplits: z.boolean()` + `splitCount: z.number().int().nonnegative()` — enables split badge + edit routing in renderer |
+
+#### 6.4.4 Renderer Projection Layer
+
+| Wire type | Renderer type | Where | Split-relevant additions |
+|---|---|---|---|
+| `MovementRecord` | `Movement` (alias) | `shared/ipc-contracts/movements.ts` | `hasSplits` + `splitCount` surface in both types (same shape) |
+| — | Split editor component | `renderer/components/` (new) | Consumes `tx:split:get` response; emits `tx:split` on save |
+
+Children MUST surface in both the `MovementRecord` wire shape (via `hasSplits` /
+`splitCount`) and the renderer's `Movement` type. The renderer uses `hasSplits` to:
+- Show the split badge icon (UX-007 §4.1)
+- Route the "Edit" row action to the split editor instead of the plain edit form
+- Disable the amount field in the edit modal with tooltip (FR14)
+
+#### 6.4.5 Handler Layer (`main/ipc/handlers/`)
+
+| File | Change | Detail |
+|---|---|---|
+| `main/ipc/handlers/transaction-splits.ts` | **New file** | Handlers for `tx:split`, `tx:split:remove`, `tx:split:get`; validates sum invariant (`sum(amountCents) === parentTx.amount * 100`) |
+| `main/ipc/handlers/transaction.ts` | **Extend `transaction:update` handler** | Check `splitParentIds.has(txId)` before allowing amount change; return `TX_HAS_ACTIVE_SPLITS` if violated |
+| `main/ipc/handlers/transaction.ts` | **Extend `transaction:bulkUpdate` handler** | Skip split parents; report `skippedSplitParentCount` in response |
+| `main/ipc/handlers/movements.ts` | **Extend `movements:list` handler** | Populate `hasSplits` and `splitCount` from `readModel.splitParentIds` / `readModel.splits` |
+
+### 6.5 Field Constraints
+
+| Field | Scope | Max length | Rationale |
+|---|---|---|---|
+| `Transaction.details` | Parent transaction | 1000 chars | Existing limit (WI-19) — full narrative context |
+| `TransactionSplit.comment` | Split child | **500 chars** | Line-item style annotation; shorter than parent's details because each split describes one purpose, not the full transaction context |
+| `Transaction.description` | Parent transaction | 500 chars | Existing limit — short bank-statement-like label |
+
+### 6.6 CSV Export Shape (future feature)
+
+> Export is not built yet, but the spec declares the contract so the IPC surface
+> and read-model projections are designed to support it without changes.
+
+**One row per child.** When CSV export ships (future feature), each split child
+becomes its own row in the export file. The parent envelope is NOT exported as a
+separate row. Each export row carries:
+- The split child's `amountCents / 100` (formatted as EUR)
+- The split child's `categoryId` / `subcategoryId` / `comment`
+- The parent's `date`, `description`, `accountId`, `type`
+
+This is reconciliation-friendly: each row maps to a single category assignment,
+which is the whole point of splitting. Auditors see N rows summing to the bank
+statement amount.
 
 
 
@@ -388,10 +484,10 @@ Schema violations MUST be rejected at the boundary (R12, C13).
 z.object({
   parentTxId: z.string().min(1),
   splits: z.array(z.object({
-    amount: z.number().positive().finite(),  // or amountCents if Q5 resolved yes
+    amountCents: z.number().int().positive(),  // EUR cents (e.g. 30000 = €300.00)
     categoryId: z.string().nullable().optional(),
     subcategoryId: z.string().nullable().optional(),
-    comment: freeTextField(500).optional(),  // reuse helper from transaction.ts
+    comment: freeTextField(500).optional(),  // reuse helper from transaction.ts; max 500 chars
   })).min(2).max(20),  // 20 is a named constant MAX_SPLITS_PER_TX, not a magic number
 })
 ```
@@ -408,7 +504,7 @@ z.object({ parentTxId: z.string().min(1) })
 z.object({
   splits: z.array(z.object({
     splitId:       z.string(),
-    amount:        z.number(),  // or amountCents if Q5 resolved yes
+    amountCents:   z.number().int().positive(),  // EUR cents
     categoryId:    z.string().nullable(),
     subcategoryId: z.string().nullable(),
     comment:       z.string().nullable(),
@@ -441,39 +537,33 @@ transaction edit form.
 
 ## 8. Security Considerations
 
-> **B3 note (Rev 2 — current implementation state):** All events in this codebase are
-> currently stored as **plaintext NDJSON lines** in `events.ndjson`. The AEAD encryption
-> layer (crypto-spec §2.1) is scheduled for M2 and has not yet been implemented. The
-> crypto controls below describe the **target M2 state**. `tx.split` and
-> `tx.split.removed` events follow the same plaintext storage as all other events
-> today. The AEAD requirements apply uniformly when the crypto layer lands and do
-> **NOT** require any split-specific implementation — splits piggyback on the existing
-> encryption pipeline.
+> **Current implementation state (M1):** All events are stored as **plaintext NDJSON
+> lines** in `events.ndjson`. Encryption is deferred to M2 alongside other transaction
+> data. `tx.split` and `tx.split.removed` events follow the same plaintext storage as
+> all other events. When the M2 AEAD layer lands, split events will be encrypted
+> uniformly — no split-specific crypto implementation is needed.
 
-- **AEAD envelope (M2 target):** When the M2 crypto layer ships, `tx.split` and
-  `tx.split.removed` event lines will be encrypted with the AEAD envelope from
-  [`crypto-spec.md`](../security/crypto-spec.md) §2.1. AAD binds `record_type`,
-  `record_id` (event id ULID), `dataset_id`, `dek_version`. No split-specific
-  encryption code is needed; the transport layer handles it uniformly. (C1, C2)
-- **Nonces (M2 target):** 192-bit random via `crypto.randomBytes` per event, per the
-  common envelope. (C3)
-- **Audit entries:** The following actions produce audit log entries (crypto-spec §8.2).
-  This applies from the initial implementation (not M2-gated):
+- **Encryption (M2 — deferred):** When the M2 crypto layer ships, `tx.split` and
+  `tx.split.removed` event lines will be encrypted via the common AEAD envelope. No
+  split-specific encryption code is needed; the transport layer handles it uniformly.
+- **Audit entries:** The following actions produce audit log entries. This applies from
+  the M1 implementation (not M2-gated):
   - `tx.split` — actor device id, parentTxId, split count, before/after hash.
   - `tx.split.removed` — actor device id, parentTxId, before hash.
   (C10, R8)
 - **Renderer isolation:** No new code imports from `src/main/` or `src/crypto/` into
   `src/renderer/`. All split data flows through the three new IPC channels. (C6, R11)
-- **PII in logs:** `comment`, `amount`, `categoryId` MUST NOT appear in structured log
-  output. These fields describe financial operations and are PII-adjacent. (R15)
+- **PII in logs:** `comment`, `amountCents`, `categoryId` MUST NOT appear in structured
+  log output. These fields describe financial operations and are PII-adjacent. (R15)
 - **Input validation:** `SplitTransactionRequest` is validated with Zod at the IPC
   boundary before entering the command handler. The sum constraint (FR3) is revalidated
   inside the command handler — not only in the schema — to guard against client-side
   bypass. (R17)
 - **Sum constraint in main process:** The command handler reads `parentTx.amount` from
-  the read model, sums the incoming split amounts, and rejects if they differ by more
-  than the configured tolerance (or by ≠ 0 if Q5 resolves to integer cents). This
-  check is authoritative even if the renderer already validated it.
+  the read model, converts to cents (`Math.round(parentTx.amount * 100)`), sums the
+  incoming `amountCents` values, and rejects if they differ. Integer comparison — no
+  floating-point tolerance needed. This check is authoritative even if the renderer
+  already validated it.
 
 *This spec interacts with Switch-owned domains (audit log, future encryption). Switch
 review of §8 is required before this spec moves from In Review → Accepted.*
@@ -536,8 +626,9 @@ review of §8 is required before this spec moves from In Review → Accepted.*
 
 - [ ] **AC1** — A confirmed transaction can be split into ≥ 2 parts via the Movements
   screen row action.
-- [ ] **AC2** — The split editor rejects submission when split amounts do not sum to
-  the parent amount (within 0.001 EUR tolerance).
+- [ ] **AC2** — The split editor rejects submission when the sum of split `amountCents`
+  values does not equal `Math.round(parentTx.amount * 100)`. Integer comparison — no
+  floating-point tolerance.
 - [ ] **AC3** — Each split can have an independent category, subcategory, and comment
   (all optional) regardless of the parent transaction's category.
 - [ ] **AC4** — The Movements list shows the parent row with a split badge; individual
@@ -573,13 +664,12 @@ review of §8 is required before this spec moves from In Review → Accepted.*
   Issue: [#59](https://github.com/rett-europe/opentreasury-desktop/issues/59).
 - **ADRs:** [ADR-001](../architecture/adr-001-tech-stack.md),
   [ADR-002](../architecture/adr-002-repo-structure.md)
-- **ADR-001 conditions satisfied:** C1 (AEAD on event files), C2 (AAD binding),
-  C3 (192-bit nonces), C6 (renderer isolation), C10 (audit entries), C11 (ULID filenames),
-  C13 (schema-validated IPC)
-- **Security requirements satisfied:** R3 (AEAD), R5 (integrity), R8 (audit log),
+- **ADR-001 conditions satisfied:** C6 (renderer isolation), C10 (audit entries),
+  C13 (schema-validated IPC). Crypto conditions (C1, C2, C3) apply uniformly when M2
+  AEAD ships — no split-specific crypto work.
+- **Security requirements satisfied:** R5 (integrity), R8 (audit log),
   R11 (Electron hardening), R12 (IPC schema validation), R15 (log redaction), R17
-  (input validation)
-- **Crypto-spec sections:** §2.1 (per-file AEAD envelope), §8 (audit log format)
+  (input validation). R3 (AEAD) deferred to M2.
 - **Paired UX:** `docs/ux/specs/ux-007-split-transactions.md`
 - **Paired Design:** `docs/design/023-split-transactions.md` (pending Mouse)
 - **Supersedes / Superseded by:** —
@@ -588,47 +678,37 @@ review of §8 is required before this spec moves from In Review → Accepted.*
 
 ---
 
-## 12. Open Questions
+## 12. Resolved Questions (Pedro's Answers)
 
-Numbered for easy reply. These block moving this spec from In Review → Accepted.
+All questions from Rev 2 have been resolved by Pedro. Answers are locked into the
+normative sections of the spec. This section records the decisions for traceability.
 
-1. **Milestone placement.** Split Transactions is not in the current PRD plan. Should
-   this be scheduled for M1, M2, or M3?
-   *Neo recommends M2: it extends the core event model (M1 foundations are in place)
-   but is not part of the single-user MVP happy path.*
+1. **Integer cents in split payloads?** → **YES.** Child amounts stored as integer
+   cents (`amountCents`). Sets precedent for future float migration elsewhere; for now,
+   ONLY split children use cents. *(Locked in §6.1, FR4.)*
 
-2. **Split visibility in export.** When CSV export (PRD-008, M3) is implemented, should
-   splits appear as individual rows (parent row suppressed) or as the parent row with a
-   "split" annotation?
-   *Neo and Niobe recommend individual rows — mirrors how they appear in financial
-   aggregations.*
+2. **Edit parent amount after split?** → **REJECT.** If a transaction has splits,
+   `transaction:update` rejects amount changes with `TX_HAS_ACTIVE_SPLITS`. User must
+   remove splits first. Detail modal: disabled amount field + tooltip + "Remove split"
+   affordance. *(Locked in FR14, §6.4.5.)*
 
-3. **Split comment length.** The spec proposes 500 chars per split comment (same as
-   transaction `description`). Shorter (e.g. 200)?
-   *Recommendation: keep 500 for consistency with the existing description field.*
+3. **Bulk update on split parents?** → **SKIP.** Bulk-edit operations skip split parents
+   entirely. Response reports: `"X updated, Y skipped (split parents — edit children
+   individually)"`. Children CAN be bulk-edited if individually selected. *(Locked in
+   FR15, §6.4.5.)*
 
-4. **Re-split limit.** Max 20 splits per transaction — is this acceptable for v1?
-   *Recommendation: 20 is fine; encoded as named constant `MAX_SPLITS_PER_TX`, easy
-   to adjust post-pilot.*
+4. **Milestone placement?** → **M1.** Splits ship in M1, independent of M2 crypto
+   work. *(Locked in header metadata.)*
 
-5. **Integer cents in split payloads.** The spec currently uses `amount: number` (EUR
-   float). Neo strongly recommends `amountCents: integer` (e.g. 30000 = €300.00) to
-   eliminate floating-point drift in the sum invariant. This affects only the `tx.split`
-   event schema — existing `tx.created` amounts are unchanged.
-   *Neo recommendation: integer cents. Niobe agrees. Decision needed: yes/no.*
+5. **CSV export shape?** → **ONE ROW PER CHILD.** Parent envelope not exported as
+   separate row. Each split child becomes its own CSV row with parent's date/description
+   and child's amount/category/comment. Reconciliation-friendly. *(Locked in §6.6.)*
 
-6. **Edit parent amount after split.** FR14 proposes: reject a `transaction:update`
-   that changes the `amount` field if the transaction has active splits (force user to
-   remove splits first). Alternatives: auto-remove splits on amount change, or cascade
-   proportionally.
-   *Neo and Niobe recommendation: reject (Option 1). Cleanest, safest, easiest to test.
-   Decision needed: reject / auto-remove / cascade.*
+6. **Split comment length?** → **500 CHARS.** Parent `details` stays at 1000 (existing).
+   Children get 500 (shorter, line-item style). *(Locked in §6.5, FR4.)*
 
-7. **Bulk update on split parents.** FR15 proposes: `transaction:bulkUpdate` silently
-   skips `categoryId` / `subcategoryId` changes for split-parent transactions (categories
-   live on splits, not on the parent). Other fields (`tagIds`, `status`) are applied.
-   *Neo and Niobe recommendation: skip + report count. Decision needed: skip / reject /
-   apply-to-parent-only.*
+7. **Re-split limit?** → **20.** Encoded as named constant `MAX_SPLITS_PER_TX`.
+   *(Confirmed in Rev 2; unchanged.)*
 
 ---
 
@@ -638,3 +718,4 @@ Numbered for easy reply. These block moving this spec from In Review → Accepte
 |---|---|---|---|
 | 2026-04-26 | Draft | Niobe | Initial draft from issue #59. PRD reservation pending. |
 | 2026-04-26 | Draft (Rev 2) | Niobe | Addressed Neo's architectural review: B1 (replaced SQLite model with in-memory TypeScript ReadModel pattern), B2 (replaced `.enc` file description with NDJSON), B3 (added M2 crypto caveat to §8), B4 (added §6.4 integration points seam map). Added FR14 (reject tx amount update when splits active), FR15 (bulkUpdate skips category for split parents), FR16 (notes stay on parent only). Specified `effectiveAmounts()` helper and 5 query touchpoints (I1). Added `hasSplits`/`splitCount` to `movementRecordSchema` (I4). Updated open questions Q5-Q7 for Pedro. |
+| 2026-04-29 | Draft (Rev 3) | Niobe | Incorporated Neo's PR #60 review feedback + Pedro's 6 lock answers. **Persistence model fixed:** removed all SQLite references (were already corrected in Rev 2 — verified). **Encryption fixed:** removed all AEAD/crypto-spec normative references — §8 now clearly defers encryption to M2 and describes only M1 security controls. **Integration Seam Map expanded:** §6.4 now has 5 subsections (event log, read-model, IPC contracts, renderer projection, handler layer) with concrete file paths and change descriptions. **Pedro's 6 answers locked:** (1) integer cents in `amountCents` field throughout, (2) parent-amount rejection via `TX_HAS_ACTIVE_SPLITS`, (3) bulk-update skip for split parents, (4) milestone = M1, (5) CSV export = one row per child (§6.6), (6) 500-char child comment limit (§6.5). All open questions resolved (§12 → "Resolved Questions"). |
