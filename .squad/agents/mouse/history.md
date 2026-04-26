@@ -22,7 +22,78 @@ Design tokens v0.2 extracted from `prototype/` (oklch color space, modern CSS). 
 
 Language: ES + EN parity mandatory (`locales/{en,es}/common.json`). Target user: NGO admin staff (clarity over aesthetics). Accessibility target: WCAG AA — native `<dialog>` for modals, `role="tablist"` + ARIA authoring-practices tab juggling for tabs, empty states with icon + title + body + primary CTA.
 
+# Project Context
+
+- **Owner:** Pedro (perocha)
+- **Project:** OpenTreasury Desktop — Electron-based treasury management for NGOs. Desktop version of the cloud-based rett-europe/opentreasury, designed to work without complex cloud setup.
+- **Stack:** Electron (frontend), rest TBD. Reference app: Angular 19 + Python FastAPI + Cosmos DB + Entra ID on Azure.
+- **Created:** 2026-04-19
+
+## Key Reference
+
+Design context:
+- Cloud version uses Angular Material as component library
+- Target audience: NGO administrative staff (clarity over aesthetics)
+- Desktop app context: larger screens, keyboard + mouse primary input
+- Existing prototype in `/prototype/` uses oklch color space, modern CSS
+- Multi-language support needed (Spanish + English) — affects layout
+- Financial data display: tables, numbers, currency formatting
+- Dashboard: balance cards, monthly charts
+
+## Core Context
+
+Design tokens v0.2 extracted from `prototype/` (oklch color space, modern CSS). **Prototype is the visual/interaction contract for v1** per the prototype-fidelity ruling — when design system and prototype conflict, prototype wins and the design system is updated to match. All colors in component CSS must resolve through tokens (no inline hex); data palettes (e.g. the 8-color category palette stored on the category record) are an exception. AppShell sidebar is now split into **Principal** + **Configuración** sections; icon set is `lucide-react` (`SlidersHorizontal` used for Settings — gear alternative available if preferred).
+
+Language: ES + EN parity mandatory (`locales/{en,es}/common.json`). Target user: NGO admin staff (clarity over aesthetics). Accessibility target: WCAG AA — native `<dialog>` for modals, `role="tablist"` + ARIA authoring-practices tab juggling for tabs, empty states with icon + title + body + primary CTA.
+
 ## Learnings
+
+### 2026-04-26: PR #99 Insights Primitives Complete — DonutChart + SegmentedToggle Shipped
+
+**Context:** Second of 4-PR Insights M4 train. Pure component primitives for consumption by PR #100 (landing) and #101 (drilldown).
+
+**What shipped:**
+- ✅ DonutChart: SVG-based category distribution donut with deterministic color palette
+  - Props: `slices`, `total`, `size`, `thickness`, `centerLabel`, `emptyLabel`, `ariaLabel`, `locale`, `currency`
+  - Edge cases: empty state, single segment, N segments, >5 auto-aggregates to "Otras (N)" bucket
+  - Accessibility: hidden `<table>` + ARIA `role="img"` + segment tooltips
+  - Animation: stroke-dasharray 200ms ease-out transition
+- ✅ SegmentedToggle: Radio group styled as pill buttons (display-mode selector)
+  - Props: `options`, `value`, `onChange`, `ariaLabel`
+  - Keyboard nav: arrow keys wrap, ARIA radiogroup semantics
+  - Controlled component pattern (parent owns state)
+- ✅ colorHash utility: Deterministic category ID → oklch color mapping
+  - FNV-1a hash (32-bit) → modulo 8 → palette index
+  - 8-color curated palette with WCAG AA contrast (light + dark themes)
+  - Special: `otherBucketColor()` returns neutral gray for "Otras"
+
+**Design decisions:**
+1. **CSS custom properties for donut colors:** Uses `--color-donut-0` through `--color-donut-7` instead of inline styles. Mirrors GroupedBarChart pattern (--current/--prior bar classes). Enables theme-aware palette swapping without component re-render.
+2. **Deterministic color hashing:** FNV-1a chosen for speed + good distribution on short strings. Same category ID always maps to same color across sessions. 8-color palette balances visual distinction vs. palette explosion.
+3. **SegmentedToggle semantics:** Display-mode selector (Volumen/Neto/# Mov.), NOT a sort selector. This clarifies Niobe's §2.3 spec critique — the toggle changes *presentation*, not ranking.
+4. **Native accessibility patterns:** DonutChart uses `role="img"` + hidden `<table>`, SegmentedToggle uses `role="radiogroup"` + arrow key nav. No ARIA invention — just authoring practices.
+
+**Reusable patterns confirmed:**
+- **SVG donut via stroke-dasharray:** `circumference = 2πr`, each segment gets `dasharray="${segmentLength} ${circumference}"` + offset. Rotate via `strokeDashoffset` starting at `-circumference/4` (top of circle). Accumulate offsets for multi-segment.
+- **Deterministic palette mapping:** Hash string → modulo palette size → index. Store palette as const array, use CSS custom properties for theme-aware colors.
+- **Controlled radio group component:** Parent passes `value` + `onChange`, component renders radio inputs + labels, keyboard nav updates selection via onChange callback.
+
+**Test patterns:**
+- 25 tests total (6 colorHash + 9 DonutChart + 10 SegmentedToggle)
+- Use `// @vitest-environment jsdom` comment for React components
+- Use `fireEvent` from `@testing-library/react` (no userEvent library)
+- Use `.toBeDefined()` and `.toContain()` instead of jest-dom matchers (`toBeInTheDocument`, `toHaveAttribute`)
+- For multiple matches (e.g., text in SVG + table), use `getAllByText()` or regex `.toMatch()`
+
+**Spec compliance:**
+- ux-005-insights-final-spec.md §5.1 (DonutChart): Props match exactly, "Otras" bucket rule at >5 slices ✅
+- §5.3 (SegmentedToggle): Display-mode selector semantics (NOT sort) ✅
+- §2.10 critique: Color palette deterministic hash (NOT hardcoded) ✅
+
+**Ready for PR #100:** DonutChart + SegmentedToggle are wired and tested. Next PR will consume them in InsightsScreen landing + drilldown views.
+
+**PR:** https://github.com/rett-europe/opentreasury-desktop/pull/99  
+**Tests:** All 25 pass, typecheck clean, lint clean.
 
 ### 2026-04-26: Saldo iter 5 complete — responsive panels + 1:3 column ratio locked
 
