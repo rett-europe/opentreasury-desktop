@@ -157,12 +157,14 @@ describe('getSaldoComparison — aggregation', () => {
     expect(c1).toEqual({
       categoryId: 'c1',
       categoryName: 'Donaciones',
+      kind: 'income',
       income: 800,
       expense: 0,
       subcategories: [
         {
           subcategoryId: null,
           subcategoryName: null,
+          kind: 'income',
           income: 800,
           expense: 0,
         },
@@ -177,12 +179,16 @@ describe('getSaldoComparison — aggregation', () => {
     expect(uncat).toEqual({
       categoryId: null,
       categoryName: null,
+      // Issue #78 — uncategorized has no intrinsic kind, projection falls back
+      // to net-sign classification (income > expense → income side).
+      kind: 'income',
       income: 50,
       expense: 0,
       subcategories: [
         {
           subcategoryId: null,
           subcategoryName: null,
+          kind: 'income',
           income: 50,
           expense: 0,
         },
@@ -427,12 +433,14 @@ describe('getSaldoComparison — subcategory aggregation (WI-B #67)', () => {
     expect(c1!.subcategories![0]).toEqual({
       subcategoryId: 's1',
       subcategoryName: 'Socios',
+      kind: 'income',
       income: 500,
       expense: 120,
     });
     expect(c1!.subcategories![1]).toEqual({
       subcategoryId: 's2',
       subcategoryName: 'Empresas',
+      kind: 'income',
       income: 300,
       expense: 0,
     });
@@ -745,5 +753,152 @@ describe('getSaldoComparison — subcategory aggregation (WI-B #67)', () => {
     expect(nullSub).toBeDefined();
     expect(nullSub!.subcategoryName).toBeNull();
     expect(nullSub!.income).toBe(300);
+  });
+});
+
+// Issue #78 — Category placement follows the category's intrinsic `kind`
+// (income/expense), not the period's net sign. Captures Pedro's dogfood
+// directive: a refund-heavy expense category whose period net is positive
+// must STILL render on the expense side (with a "+" treatment); an income
+// category that happens to net negative this period STILL renders on the
+// income side.
+describe('getSaldoComparison — classify by intrinsic category kind (#78)', () => {
+  it('refund-heavy expense category stays on the expense side with positive net', () => {
+    // "Gastos" is intrinsically an expense category. This period it received
+    // a 1000 EUR refund (income flow) and 600 EUR of purchases — net is
+    // +400, but the category must remain on the expense side.
+    const model = makeModel(
+      [
+        { date: '2026-04-15', type: 'income', amount: 1000, categoryId: 'c-gastos' },
+        { date: '2026-04-20', type: 'expense', amount: 600, categoryId: 'c-gastos' },
+      ],
+      [{ id: 'c-gastos', name: 'Gastos', kind: 'expense' }],
+    );
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+
+    const row = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c-gastos');
+    expect(row).toBeDefined();
+    // Bucket placement is the category's intrinsic kind, not the net sign.
+    expect(row!.kind).toBe('expense');
+    expect(row!.income).toBe(1000);
+    expect(row!.expense).toBe(600);
+    // Net is positive (refund > purchases) but the row still lives on the
+    // expense side — the renderer is expected to render this with a "+" on
+    // the bar (Pedro's directive).
+    expect(row!.income - row!.expense).toBe(400);
+  });
+
+  it('income category that nets negative (reversed deposit) stays on the income side', () => {
+    // "Donaciones" is intrinsically an income category. A reversed deposit
+    // pushes the period net negative (200 income vs 350 expense = -150),
+    // but the category must remain on the income side.
+    const model = makeModel(
+      [
+        { date: '2026-04-10', type: 'income', amount: 200, categoryId: 'c-don' },
+        { date: '2026-04-12', type: 'expense', amount: 350, categoryId: 'c-don' },
+      ],
+      [{ id: 'c-don', name: 'Donaciones', kind: 'income' }],
+    );
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+
+    const row = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c-don');
+    expect(row).toBeDefined();
+    expect(row!.kind).toBe('income');
+    expect(row!.income).toBe(200);
+    expect(row!.expense).toBe(350);
+    expect(row!.income - row!.expense).toBe(-150);
+  });
+
+  it('subcategories inherit their parent category kind regardless of their own net sign', () => {
+    // Parent "Gastos" is expense-typed. Subcategory s-refund nets POSITIVE
+    // (refund > purchase) — but it MUST still be classified expense because
+    // its parent is an expense category. Subcategory s-cost nets negative as
+    // expected and is also expense.
+    const model = makeModel(
+      [
+        // s-refund: 800 income (refund), 200 expense → net +600
+        {
+          date: '2026-04-10',
+          type: 'income',
+          amount: 800,
+          categoryId: 'c1',
+          subcategoryId: 's-refund',
+        },
+        {
+          date: '2026-04-11',
+          type: 'expense',
+          amount: 200,
+          categoryId: 'c1',
+          subcategoryId: 's-refund',
+        },
+        // s-cost: 0 income, 500 expense → net -500
+        {
+          date: '2026-04-12',
+          type: 'expense',
+          amount: 500,
+          categoryId: 'c1',
+          subcategoryId: 's-cost',
+        },
+      ],
+      [
+        {
+          id: 'c1',
+          name: 'Gastos',
+          kind: 'expense',
+          subcategories: [
+            {
+              id: 's-refund',
+              parentCategoryId: 'c1',
+              name: 'Devoluciones',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+            {
+              id: 's-cost',
+              parentCategoryId: 'c1',
+              name: 'Compras',
+              createdAt: '2025-01-01T00:00:00Z',
+            },
+          ],
+        },
+      ],
+    );
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const row = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c1');
+    expect(row).toBeDefined();
+    expect(row!.kind).toBe('expense');
+    // Both subcategories inherit parent's kind regardless of own net sign.
+    for (const sub of row!.subcategories!) {
+      expect(sub.kind).toBe('expense');
+    }
+  });
+
+  it('legacy categories without kind fall back to net-sign classification', () => {
+    // Backwards-compat: a ConfigCategory created before the `kind` field was
+    // added (no `kind` property) gets classified by net sign — preserves
+    // pre-#78 behaviour for already-imported NDJSON logs.
+    const model = makeModel(
+      [{ date: '2026-04-15', type: 'income', amount: 250, categoryId: 'c-legacy' }],
+      [{ id: 'c-legacy', name: 'Legacy' }],
+    );
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const row = res.currentPeriod.netByCategory.find((r) => r.categoryId === 'c-legacy');
+    expect(row).toBeDefined();
+    expect(row!.kind).toBe('income');
+  });
+
+  it('rows are ordered with income-kind bucket before expense-kind bucket', () => {
+    const model = makeModel(
+      [
+        { date: '2026-04-10', type: 'income', amount: 100, categoryId: 'c-inc' },
+        { date: '2026-04-12', type: 'expense', amount: 200, categoryId: 'c-exp' },
+      ],
+      [
+        { id: 'c-inc', name: 'Ingreso', kind: 'income' },
+        { id: 'c-exp', name: 'Gasto', kind: 'expense' },
+      ],
+    );
+    const res = runSaldo(model, 'ano', '2026-01-01', new Date('2027-01-10T00:00:00Z'));
+    const ids = res.currentPeriod.netByCategory.map((r) => r.categoryId);
+    expect(ids.indexOf('c-inc')).toBeLessThan(ids.indexOf('c-exp'));
   });
 });

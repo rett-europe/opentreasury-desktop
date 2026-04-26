@@ -55,6 +55,11 @@ export const saldoSubcategoryNetSchema = z.object({
   subcategoryName: z.string().nullable(),
   income: z.number().nonnegative(),
   expense: z.number().nonnegative(),
+  // Issue #78 — Subcategory bucket placement follows the PARENT category's
+  // intrinsic `kind` (never the subcategory's own net sign). `null` when the
+  // parent category has no `kind` set (legacy / uncategorized) — in that
+  // case the renderer falls back to net-sign classification.
+  kind: z.enum(['income', 'expense']).nullable().optional(),
 });
 export type SaldoSubcategoryNet = z.infer<typeof saldoSubcategoryNetSchema>;
 
@@ -74,6 +79,17 @@ export const saldoCategoryNetSchema = z.object({
   // by the projection (may be empty array for categories with no subcategorized
   // transactions). Sorted by current-period abs(income - expense) descending.
   subcategories: z.array(saldoSubcategoryNetSchema).optional(),
+  // Issue #78 — Intrinsic category type (from ConfigCategory.kind), surfaced
+  // so the renderer can place the row on the income or expense panel WITHOUT
+  // looking at the period's net sign. A refund-heavy expense category nets
+  // positive but stays on the expense side; a reversed-deposit income
+  // category nets negative but stays on the income side.
+  // `null` when the category has no `kind` set (legacy categories, the
+  // uncategorized bucket): the renderer is expected to fall back to net-sign
+  // classification only in that case.
+  // Optional at the wire level for backwards compatibility — the projection
+  // always populates it.
+  kind: z.enum(['income', 'expense']).nullable().optional(),
 });
 export type SaldoCategoryNet = z.infer<typeof saldoCategoryNetSchema>;
 
