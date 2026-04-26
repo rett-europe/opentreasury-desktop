@@ -35,9 +35,7 @@ export async function createSplit(
  *  - `{ ok: true, event }` on success (the persisted `tx.split.removed` envelope).
  *  - `{ ok: false, error }` on validation failure (TX_NOT_FOUND, etc.).
  */
-export async function removeSplit(
-  input: RemoveSplitRequest,
-): Promise<RemoveSplitResponse> {
+export async function removeSplit(input: RemoveSplitRequest): Promise<RemoveSplitResponse> {
   return window.opentreasury.transaction.split.remove(input);
 }
 

@@ -1,3 +1,6 @@
+# Default to LF for all text files; matches .prettierrc endOfLine: lf
+* text=auto eol=lf
+
 # Squad: union merge for append-only team state files
 .squad/decisions.md merge=union
 .squad/agents/*/history.md merge=union

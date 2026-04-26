@@ -508,7 +508,9 @@ export function TransactionDetailModal({
                     onClick={() => setSplitsExpanded((prev) => !prev)}
                     aria-expanded={splitsExpanded}
                   >
-                    <span>{t('splits.detail.childrenHeading', { count: rawRecord.splitCount })}</span>
+                    <span>
+                      {t('splits.detail.childrenHeading', { count: rawRecord.splitCount })}
+                    </span>
                     {splitsExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </button>
                   {splitsExpanded && (
@@ -524,7 +526,10 @@ export function TransactionDetailModal({
                           currency: 'EUR',
                         }).format(amountEur);
                         return (
-                          <div key={split.splitId} className="ot-transaction-detail-modal__split-row">
+                          <div
+                            key={split.splitId}
+                            className="ot-transaction-detail-modal__split-row"
+                          >
                             <span className="ot-transaction-detail-modal__split-amount">
                               {formattedAmt}
                             </span>
