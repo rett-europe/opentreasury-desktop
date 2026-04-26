@@ -1,10 +1,10 @@
 # UX-007 — Split Transactions
 
-> **Status:** Draft v0.1 · **Owner:** Niobe (Spec / UX Analyst) · **Date:** 2026-04-26
+> **Status:** Draft v0.2 · **Owner:** Niobe (Spec / UX Analyst) · **Date:** 2026-04-26
 > **Paired spec:** [`docs/specs/023-split-transactions.md`](../../specs/023-split-transactions.md)
 > **Paired PRD:** Pending (PRD-023 reservation needed — see issue #59)
 
-**Traceability:** SPEC-023 FR1–FR13 · vision §5, §7 Principles 2 & 5 · ADR-001 C6/C13
+**Traceability:** SPEC-023 FR1–FR16 · vision §5, §7 Principles 2 & 5 · ADR-001 C6/C13
 
 ---
 
@@ -105,8 +105,9 @@ displayed in the strip.
 
 ### 3.4 Add / remove split rows
 
-- **"+ Añadir parte"** appends a new empty row at the bottom. Maximum 20 rows (FR
-  open question Q4); at 20 rows the button is disabled with tooltip "Máximo 20 partes".
+- **"+ Añadir parte"** appends a new empty row at the bottom. Maximum 20 rows (SPEC-023
+  FR — `MAX_SPLITS_PER_TX = 20`); at 20 rows the button is disabled with tooltip
+  "Máximo 20 partes".
 - Each split row has a **[×]** delete control on the right. Deleting a row:
   - Removes the row.
   - If fewer than 2 rows remain: the deleted row UI is replaced with an inline warning
@@ -161,6 +162,24 @@ On confirm:
 2. On success: modal closes; parent row reverts to normal (no split badge); totals strip
    recalculates using the parent amount.
 
+### 3.8 Transaction edit form — amount field locked when splits are active (FR14)
+
+When the user opens the standard Edit Transaction form for a parent that has active
+splits, the **Amount field is disabled** (grayed out, not focusable). An inline notice
+appears below the field:
+
+> *"El importe está bloqueado porque este movimiento tiene partes. Elimina la división
+> para cambiar el importe."*
+> *(EN: "Amount is locked because this transaction has splits. Remove the split to
+> change the amount.")*
+
+All other fields (description, tags, reference, details) remain editable.
+
+The "Edit" row action on a split parent SHOULD open the split editor directly (not the
+plain edit form), routing via `hasSplits` from the `movementRecordSchema` wire field.
+If the user reaches the plain edit form through another path (e.g. keyboard shortcut),
+the amount lock provides the safety net.
+
 ---
 
 ## 4. Movements List — Split Row Presentation
@@ -178,9 +197,10 @@ The parent row renders normally in the Movements table with the following additi
   the split count.
 - **Category column:** Shows "—" or "Dividido" (Mouse's call) since the category
   is per-split, not on the parent row.
-- **Row actions:** "Editar" opens the split editor (not the plain transaction edit
-  form); "Eliminar" deletes the parent and all splits; "Dividir" / "Editar división"
-  is contextually appropriate (see §2.2).
+- **Row actions:** "Editar" on a split parent MUST open the split editor (not the plain
+  transaction edit form) — routed via `hasSplits` from `movementRecordSchema`; "Eliminar"
+  deletes the parent and all splits; "Dividir" / "Editar división" is the contextual
+  split-specific action (see §2.2).
 
 ### 4.2 Filtering behaviour (SPEC-023 FR10)
 
@@ -317,3 +337,4 @@ be populated before this spec moves to Accepted.
 | Date | Status | By | Notes |
 |---|---|---|---|
 | 2026-04-26 | Draft v0.1 | Niobe | Initial UX spec from issue #59. Paired with SPEC-023. |
+| 2026-04-26 | Draft v0.2 | Niobe | Rev 2 in response to Neo architectural review: updated max-splits reference from open question to constant (§3.4), added §3.8 (amount field locked when splits active — FR14), updated Edit row action routing to use `hasSplits` (FR14), updated traceability to FR1–FR16. |
