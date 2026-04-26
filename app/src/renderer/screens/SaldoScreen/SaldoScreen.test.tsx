@@ -547,6 +547,64 @@ describe('SaldoScreen', () => {
     expect(subCurrent.style.getPropertyValue('--saldo-subrow-bar-pct')).toMatch(/%$/);
   });
 
+  it('aligns compare-mode subrow bars across subcategories via panel-level column widths (#78 follow-up)', async () => {
+    // Pedro 2026-04-30: "each group of 2 bars (in the comparison between 2
+    // years) per each subcategory are not aligned, 'Captación de fondos' bars
+    // are a bit more on the left compared with bars of 'Donación Particular'".
+    // Root cause: each `.ot-saldo-subrow--compare` was its own grid container
+    // with `auto`-sized prior/current/delta columns → variable text widths
+    // across rows shifted the `1fr` bars column. Fix exposes panel-level CSS
+    // custom props (`--saldo-col-prior` / `--saldo-col-current` /
+    // `--saldo-col-delta`) so every row uses identical column widths.
+    vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
+    renderWithI18n();
+    await waitFor(() => {
+      expect(screen.getByTestId('saldo-subcategories-toggle-income')).toBeDefined();
+    });
+    fireEvent.click(screen.getByTestId('saldo-subcategories-toggle-income'));
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('saldo-subcategories-toggle-income').getAttribute('aria-pressed'),
+      ).toBe('true');
+    });
+
+    // The panel-rows wrapper carries the shared column widths. Both subrows
+    // under cat-a inherit them, so their grid templates collapse to the SAME
+    // computed column widths and the bars column anchors at the same x.
+    const incomePanel = screen.getByTestId('saldo-panel-income');
+    const rowsWrapper = incomePanel.querySelector(
+      '.ot-saldo-panel__rows--compare',
+    ) as HTMLElement | null;
+    expect(rowsWrapper).not.toBeNull();
+    const colPrior = rowsWrapper!.style.getPropertyValue('--saldo-col-prior');
+    const colCurrent = rowsWrapper!.style.getPropertyValue('--saldo-col-current');
+    const colDelta = rowsWrapper!.style.getPropertyValue('--saldo-col-delta');
+    expect(colPrior).toMatch(/^\d+ch$/);
+    expect(colCurrent).toMatch(/^\d+ch$/);
+    expect(colDelta).toMatch(/^\d+ch$/);
+
+    // The widest formatted value in the income panel under cat-a is "8.000 €"
+    // (parent current) and "6.000 €" (parent prior) — both 7 chars. The fix
+    // adds +1ch breathing room, so prior/current widths must be ≥ 8ch.
+    const num = (s: string): number => Number.parseInt(s.replace('ch', ''), 10);
+    expect(num(colPrior)).toBeGreaterThanOrEqual(8);
+    expect(num(colCurrent)).toBeGreaterThanOrEqual(8);
+
+    // Two subrows with very different values share the wrapper → both their
+    // bar pcts scale to the SAME panel denominator (panelMaxAbs), so the
+    // larger-value subrow gets a strictly larger pct. Combined with identical
+    // grid columns above, this is what visually aligns the two-bar groups.
+    const sociosBar = screen
+      .getByTestId('saldo-subrow-income-cat-a-sub-socios')
+      .querySelector('.ot-saldo-subrow__bar-fill--current') as HTMLElement;
+    const eventosBar = screen
+      .getByTestId('saldo-subrow-income-cat-a-sub-eventos')
+      .querySelector('.ot-saldo-subrow__bar-fill--current') as HTMLElement;
+    const pct = (el: HTMLElement): number => Number.parseFloat(el.style.width.replace('%', ''));
+    // Socios current = 4000, Eventos current = 1000 → socios pct must be ~4×.
+    expect(pct(sociosBar)).toBeGreaterThan(pct(eventosBar) * 3);
+  });
+
   it('renders the inline toggle pill with the --inline modifier class (amendment §F1)', async () => {
     vi.mocked(getSaldoComparison).mockResolvedValue(makeResponseWithSubs());
     renderWithI18n();

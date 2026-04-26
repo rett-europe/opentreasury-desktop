@@ -1131,6 +1131,74 @@ function CategoryPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, showSubcategories]);
 
+  // Issue #78 follow-up (Pedro): in compare mode, each `.ot-saldo-row*` is its
+  // own CSS grid container with `auto`-sized prior / current / delta columns.
+  // Different rows have different formatted-text widths (e.g. "100 €" vs
+  // "12.345 €"), so the `1fr` bars column starts at different x-positions per
+  // row → the two-bar groups don't horizontally align across subcategories.
+  //
+  // Fix: compute the longest formatted text per column across ALL visible rows
+  // and subrows in the panel, then expose those widths as CSS custom properties
+  // (in `ch` units, paired with the existing `tabular-nums` so digits are
+  // equal-width). Row + subrow grid templates consume these vars instead of
+  // `auto`, giving every row identical column widths and aligning the bars
+  // column. No grid topology change; no touch on `.ot-saldo-subrow` chrome
+  // (border-left / padding) which Mouse owns.
+  const panelColWidths = useMemo(() => {
+    const fmtLocal = (v: number): string => formatCurrency(v, locale, 'EUR');
+    const formatDeltaText = (deltaVal: number | null): string => {
+      const k = classifyDelta(deltaVal);
+      const text =
+        k === 'noPrior'
+          ? '—'
+          : k === 'flat'
+            ? formatPct(0, locale)
+            : formatPct(deltaVal as number, locale);
+      const arrow = k === 'up' ? '↑ ' : k === 'down' ? '↓ ' : '';
+      return `${arrow}${text}`;
+    };
+    let maxPrior = 1;
+    let maxCurrent = 1;
+    let maxDelta = 1;
+    const measureRow = (
+      prior: number,
+      current: number,
+      delta: number | null,
+      priorReversed: boolean,
+      currentReversed: boolean,
+    ): void => {
+      const priorText = `${reversedSignPrefix(priorReversed, kind)}${fmtLocal(prior)}`;
+      const currentText = `${reversedSignPrefix(currentReversed, kind)}${fmtLocal(current)}`;
+      const deltaText = formatDeltaText(delta);
+      maxPrior = Math.max(maxPrior, priorText.length);
+      maxCurrent = Math.max(maxCurrent, currentText.length);
+      maxDelta = Math.max(maxDelta, deltaText.length);
+    };
+    for (const row of rows) {
+      measureRow(row.prior, row.current, row.delta, row.priorReversed, row.currentReversed);
+      if (shouldRenderSubrows(row)) {
+        for (const sub of row.subRows) {
+          measureRow(sub.prior, sub.current, sub.delta, sub.priorReversed, sub.currentReversed);
+        }
+      }
+    }
+    // +1ch breathing room for non-digit glyphs ("€", separators) that aren't
+    // perfectly tabular even with `tabular-nums`. Keeps long numbers from
+    // visually kissing the next column.
+    return {
+      prior: `${maxPrior + 1}ch`,
+      current: `${maxCurrent + 1}ch`,
+      delta: `${maxDelta + 1}ch`,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, showSubcategories, kind, locale]);
+
+  const panelRowsStyle = {
+    '--saldo-col-prior': panelColWidths.prior,
+    '--saldo-col-current': panelColWidths.current,
+    '--saldo-col-delta': panelColWidths.delta,
+  } as React.CSSProperties;
+
   return (
     <section
       className={`ot-saldo-panel ot-saldo-panel--${kind}`}
@@ -1171,7 +1239,10 @@ function CategoryPanel({
             onChange={onShowSubcategoriesChange}
             kind={kind}
           />
-          <div className="ot-saldo-panel__rows">
+          <div
+            className="ot-saldo-panel__rows ot-saldo-panel__rows--compare"
+            style={panelRowsStyle}
+          >
             {rows.map((row) => (
               <div key={row.id} role="group">
                 <CompareRow
@@ -1214,7 +1285,7 @@ function CategoryPanel({
             onChange={onShowSubcategoriesChange}
             kind={kind}
           />
-          <div className="ot-saldo-panel__rows">
+          <div className="ot-saldo-panel__rows ot-saldo-panel__rows--single" style={panelRowsStyle}>
             {rows.map((row) => (
               <div key={row.id} role="group">
                 <SingleRow
