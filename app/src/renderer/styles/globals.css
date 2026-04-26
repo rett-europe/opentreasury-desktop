@@ -708,29 +708,64 @@ a:hover {
   row-gap: 2px;
   align-items: center;
   padding: var(--space-3) 0;
-  padding-left: var(--space-6); /* 16px indent — spec §16.2 */
-  /* Parent-grouping guide removed (Pedro dogfood, post-#85): the 2px
+  /* Iter 6 (Pedro 2026-04-26 dogfood follow-up): the 16px subcategory
+   * indent (spec §16.2) lives on the `__name` cell — see below — NOT
+   * the grid container. Container-level `padding-left` shrank the
+   * subrow's inner grid by 16px relative to the parent row + header,
+   * so the `1fr` year tracks resolved to slightly narrower widths and
+   * the bars drifted left of the `2025` / `2026` header labels.
+   * Indenting the name cell instead keeps every grid container in the
+   * panel at the SAME inner width, so all rows + header share one
+   * column geometry. (Recipe captured in
+   * `.squad/skills/grid-header-row-alignment/SKILL.md`.)
+   *
+   * Parent-grouping guide removed (Pedro dogfood, post-#85): the 2px
    * left rule from amendment 1 §3.3 combined with the [role="group"]
    * wrapper's category-separator border-bottom (above + below) to
    * fake a box around expanded subgroups. Indentation alone now
    * communicates nesting; see amendment 1 follow-up section. */
   border-left: 0;
   border-bottom: 0;
+  /* Bug B (iter 9): allow subrow grid to shrink with panel. */
+  min-width: 0;
 }
 .ot-saldo-subrow--compare {
-  /* Issue #78 follow-up — share the panel-level column widths defined on
-   * `.ot-saldo-panel__rows` so subrows align with each other (and with the
-   * parent rows) at the bars column. See the matching recipe in
-   * SaldoScreen.css for the row-level grid template. */
+  /* Iter 10: mirrors header + parent row template — prior/current
+   * min-content protects amounts. See .ot-saldo-panel__columns--compare. */
   grid-template-columns:
-    1fr var(--saldo-col-prior, max-content) 1fr var(--saldo-col-current, max-content)
-    var(--saldo-col-delta, max-content);
+    minmax(0, calc(var(--saldo-col-name, max-content) + var(--space-6)))
+    minmax(min-content, 1fr)
+    minmax(min-content, 3fr)
+    minmax(0, var(--saldo-col-delta, max-content));
 }
 .ot-saldo-subrow--single {
-  grid-template-columns: 1fr var(--saldo-col-current, max-content) var(
-      --saldo-col-delta,
-      max-content
-    );
+  grid-template-columns:
+    1fr
+    minmax(0, var(--saldo-col-current, max-content))
+    minmax(0, var(--saldo-col-delta, max-content));
+}
+/* Iter 10: 1:1 bar ratio at narrow widths for subrows. */
+@media (max-width: 1200px) {
+  .ot-saldo-subrow--compare {
+    grid-template-columns:
+      minmax(0, calc(var(--saldo-col-name, max-content) + var(--space-6)))
+      minmax(min-content, 1fr)
+      minmax(min-content, 1fr)
+      minmax(0, var(--saldo-col-delta, max-content));
+  }
+}
+
+/* Per-year compound cells for subrows — iter 4 (Pedro 2026-04-26 dogfood
+ * iter 3 reject): VERTICAL stack inside each cell — value text on top,
+ * horizontal bar below, both left-anchored. Same recipe as parent rows
+ * (see SaldoScreen.css), at the smaller subrow text scale. */
+.ot-saldo-subrow__prior-cell,
+.ot-saldo-subrow__current-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  row-gap: var(--space-2);
+  /* Iter 10: removed min-width:0 so amount text min-content propagates. */
 }
 
 /* Visual close-out: extra breathing room after the last subrow
@@ -746,35 +781,41 @@ a:hover {
   font-size: var(--font-size-13);
   font-weight: var(--font-weight-regular);
   color: var(--color-text-secondary);
+  /* Iter 6: 16px subcategory indent (spec §16.2) lives here, not on
+   * the subrow grid container. See `.ot-saldo-subrow` above. */
+  padding-left: var(--space-6);
+  /* Bug B (iter 9): graceful text truncation. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ot-saldo-subrow--compare .ot-saldo-subrow__name {
   grid-column: 1 / 2;
 }
 
 .ot-saldo-subrow__prior {
-  text-align: right;
-  font-size: var(--font-size-13);
+  text-align: left;
+  font-size: var(--font-size-12);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
-}
-.ot-saldo-subrow--compare .ot-saldo-subrow__prior {
-  grid-column: 2 / 3;
+  /* Iter 10: removed overflow/ellipsis — amounts always readable. */
+  white-space: nowrap;
 }
 
 .ot-saldo-subrow__bars {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 80px;
+  /* Legacy stacked-bars wrapper retained as a no-op for any external
+   * consumer that still selects on it; current TSX no longer renders it. */
+  display: contents;
 }
-.ot-saldo-subrow--compare .ot-saldo-subrow__bars {
-  grid-column: 3 / 4;
-}
-/* Half-height bar track — ~70% of the parent .ot-saldo-row__bar-track
- * (6px → 4px). Same pill radius keeps the silhouette consistent. */
+/* Iter 4: bar height aligned with parent rows (8px) — Pedro spec calls for
+ * uniform bar geometry across the whole panel. */
 .ot-saldo-subrow__bar-track {
+  /* Iter 5: no `min-width` — track fills its grid cell so the panel
+   * adapts to viewport width. See `.ot-saldo-row__bar-track`. */
   position: relative;
-  height: 4px;
+  width: 100%;
+  min-width: 0;
+  height: 8px;
   border-radius: var(--radius-pill);
   background: var(--color-surface-secondary);
   overflow: hidden;
@@ -802,13 +843,12 @@ a:hover {
 }
 
 .ot-saldo-subrow__current {
-  text-align: right;
+  text-align: left;
   font-size: var(--font-size-13);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
-}
-.ot-saldo-subrow--compare .ot-saldo-subrow__current {
-  grid-column: 4 / 5;
+  /* Iter 10: removed overflow/ellipsis — amounts always readable. */
+  white-space: nowrap;
 }
 .ot-saldo-panel--income .ot-saldo-subrow__current {
   color: var(--color-income-default);
@@ -822,9 +862,12 @@ a:hover {
   font-size: var(--font-size-12);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ot-saldo-subrow--compare .ot-saldo-subrow__delta {
-  grid-column: 5 / 6;
+  grid-column: 4 / 5;
 }
 .ot-saldo-subrow__delta--up {
   color: var(--color-income-default);
@@ -844,19 +887,6 @@ a:hover {
 .ot-saldo-subrow__name--otras {
   font-style: italic;
   color: var(--color-text-muted);
-}
-
-/* Sub-delta caption — small descriptor that follows the numeric delta
- * (e.g. "vs prior"). Mirrors `.ot-saldo-subrow__delta` aesthetic at a
- * smaller, muted scale so it reads as supporting metadata. */
-.ot-saldo-subrow__delta-sublabel {
-  display: block;
-  text-align: right;
-  font-size: var(--font-size-11);
-  font-weight: var(--font-weight-regular);
-  color: var(--color-text-muted);
-  line-height: 1.2;
-  margin-top: 1px;
 }
 
 /* aria-live region announcing subcategory expand/collapse to AT users.

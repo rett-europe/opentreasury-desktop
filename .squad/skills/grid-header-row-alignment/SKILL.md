@@ -1,69 +1,155 @@
-# SKILL: CSS Grid header / row alignment via shared custom properties
+# Grid header–row alignment
 
-**Owner:** Trinity (Frontend Dev)
-**First captured:** 2026-04-26 (PR #91 saldo iter 4)
+**Confidence:** MEDIUM (proven recipe landed in PR #91 iter 8 after two
+rejections — needs one clean iteration to move back to HIGH).
 
 ## Problem
 
-You have a "table-like" layout built with CSS Grid: a header `<div>` (column labels) and a sibling rows wrapper containing many row `<div>`s. Each row has the same `grid-template-columns` template as the header. You want the header labels to sit DIRECTLY above their respective columns.
+A panel renders a header row above a list of data rows. Bars / numeric
+columns in the rows must line up vertically with their corresponding
+header labels. Both header and rows are CSS Grid containers using the
+same logical columns (e.g. `name | prior | current | delta`).
 
-When the column widths depend on the runtime-measured content of the rows (e.g. widest formatted currency in the panel), it's tempting to compute the widths once and inject them as CSS custom properties on the rows wrapper:
+The bug surface: small changes to row content (longer text in one
+column, indented sub-rows, different per-row tracks) cause the rows'
+column widths to drift away from the header's column widths → bars no
+longer sit under their labels.
 
-```tsx
-<div className="header" />                     {/* ❌ no vars here */}
-<div className="rows" style={{
-  '--col-prior': '9ch',
-  '--col-current': '10ch',
-}} />
-```
+## Recipe
+
+Four rules together. Drop any one and alignment breaks.
+
+### 1. Single shared template, exposed via CSS custom properties
+
+Header AND every row variant (parent row, sub-row, etc.) MUST use a
+**byte-identical** `grid-template-columns`. Put the per-column widths
+into CSS variables exposed at the panel root, then reference them from
+all three rules:
 
 ```css
-.header, .row {
-  display: grid;
-  grid-template-columns: 1fr var(--col-prior, max-content) var(--col-current, max-content) auto;
+.panel-header,
+.panel-row,
+.panel-subrow {
+  grid-template-columns:
+    minmax(calc(var(--col-name, max-content) + var(--space-6)), 1fr)
+    minmax(var(--col-prior, 0), 1fr)
+    minmax(var(--col-current, 0), 3fr)
+    var(--col-delta, max-content);
 }
 ```
 
-The header silently uses the `max-content` fallback — which differs from the rows' measured widths — so the header columns drift slightly out of alignment with the row columns. On narrow viewports this can collapse the header into what looks like a vertical stack (Pedro: "the header has text in rows").
+Compute the `ch` widths in JS from the widest formatted string in any
+visible row + sub-row. Set them on the panel container so all grids
+inherit identical mins.
 
-## Rule
+### 2. Identical outer width on every grid container
 
-**If two siblings share a `grid-template-columns` template parameterised by CSS custom properties, BOTH siblings must receive the same custom-property values.** The simplest fix is to apply the same `style` object to both:
+Each `.panel-header` / `.panel-row` / `.panel-subrow` is its own grid.
+For their `1fr` tracks to resolve to the same pixel width, every grid
+container in the panel MUST have the same content-box width. That
+means: **no horizontal padding / margin / border on any individual grid
+container that isn't applied to ALL of them**.
 
-```tsx
-const colsStyle = {
-  '--col-prior': panelColWidths.prior,
-  '--col-current': panelColWidths.current,
-} as React.CSSProperties;
+Subcategory indent ⚠️ — do NOT put `padding-left` on the sub-row grid
+container. That shrinks the sub-row's grid by N pixels relative to
+header + parent rows; `1fr` resolves smaller; bars drift left of the
+header. Instead:
 
-<div className="header" style={colsStyle} />
-<div className="rows" style={colsStyle} />
+- Apply the indent as `padding-left` on the **name cell** only
+  (`.panel-subrow__name { padding-left: var(--space-6) }`); the grid
+  container itself stays full-width.
+- Bake the indent budget into the shared name-column min so the
+  sub-row's name+padding still fits without expanding the track:
+
+  ```css
+  /* on header + parent row + sub-row */
+  grid-template-columns:
+    minmax(calc(var(--col-name, max-content) + var(--space-6)), 1fr)
+    /* …other tracks identical… */;
+  ```
+
+  This way every grid container reserves the same min for the name
+  column whether its name has padding or not, and the `1fr`
+  distribution is identical across containers.
+
+### 3. Identical font-size context for `ch` resolution (CRITICAL — iter 8 discovery)
+
+When `grid-template-columns` uses `ch`-based CSS variables (e.g.
+`var(--col-name)` = `14ch`), the `ch` unit resolves relative to the
+**grid container's own font-size**, not the cells' font-sizes.
+
+If the header grid container has `font-size: 11px` (for small-caps
+labels) while the row grid container inherits `font-size: 16px`, then
+`14ch` evaluates to ~84px in the header but ~112px in the rows. The
+column minimums differ → `1fr` distributes differently → **columns
+drift even though the templates are byte-identical**.
+
+**Fix:** Move any font-size / letter-spacing / text-transform
+declarations from the **grid container** to its **children**:
+
+```css
+/* BAD — ch resolves at 11px in the header grid */
+.panel-header {
+  display: grid;
+  font-size: var(--font-size-11);
+  grid-template-columns: minmax(var(--col-name), 1fr) …;
+}
+
+/* GOOD — ch resolves at the inherited (same as rows) font-size */
+.panel-header {
+  display: grid;
+  grid-template-columns: minmax(var(--col-name), 1fr) …;
+}
+.panel-header > * {
+  font-size: var(--font-size-11);
+}
 ```
 
-Or hoist the variables one level up to a common ancestor:
+### 4. Single source of truth for the template
 
-```tsx
-<section style={colsStyle}>
-  <div className="header" />
-  <div className="rows" />
-</section>
-```
+Don't duplicate the template literal. If you must (different files /
+BEM blocks), put a comment in EACH copy pointing to the other and
+flagging that they MUST be byte-identical. A template drift is silent
+and re-introduces this bug.
 
-The hoisted variant is preferred when there are 3+ siblings or when a future component will join the column system.
+## When this skill applies
 
-## Why fallbacks are dangerous
+- Any panel with a sticky / fixed header above scrollable rows.
+- Any "compare two periods" layout where header columns label
+  per-period cells.
+- Any drilldown where sub-rows nest under parent rows but must stay
+  visually columnar with the header.
 
-`var(--col-prior, max-content)` looks safe but the fallback is evaluated against DIFFERENT content in the header vs the rows:
-- Header column 2 contains the year label `2025` → ~3ch.
-- Row column 2 contains a currency string `32.181 €` → ~9ch.
+## Tells that the bug is back
 
-Even tiny mismatches accumulate across columns and can blow past the panel width on narrow viewports, causing visible misalignment or apparent column wrapping.
+- "Header is no longer aligned with the bars" — exactly Pedro's
+  language both times.
+- The misalignment appears only when sub-rows are visible / when one
+  row's text is much longer than the header label.
+- DOM inspection shows different `grid-template-columns` resolved
+  widths between header and one row.
+- **New tell (iter 8):** misalignment visible even in categories-only
+  view (no subcategories expanded) → likely a `ch` resolution mismatch
+  caused by different font-sizes on header vs row grid containers.
 
-## Quick check
+## History
 
-In dev tools, set both elements' computed `grid-template-columns` to identical pixel values. If they differ, you have this bug.
-
-## See also
-
-- `.squad/decisions/inbox/trinity-saldo-iter4.md` — concrete fix in PR #91.
-- `app/src/renderer/screens/SaldoScreen/SaldoScreen.tsx` lines 1196–1235 — the `panelRowsStyle` object now applied to BOTH the `__columns` header and the `__rows` wrapper.
+- **PR #86 iter 4 (2026-04-30):** First confirmation. Each row was its
+  own grid with `auto`-sized tracks → variable text widths shifted the
+  `1fr` bars column. Fixed by introducing the panel-level `--saldo-col-*`
+  custom props (rule #1).
+- **PR #91 iter 6 (2026-05-01):** Second confirmation. Sub-row grid
+  container had `padding-left: var(--space-6)` for the indent; this
+  shrank its inner grid by 16px relative to header & parent rows, so
+  `1fr` resolved narrower and bars drifted left when sub-rows were
+  shown. Fixed by moving indent to the name cell and adding
+  `+ var(--space-6)` to the shared name-column min (rule #2).
+- **PR #91 iter 8 (2026-05-01):** Third confirmation. Header grid had
+  `font-size: var(--font-size-11)` on the container; rows inherited a
+  larger font-size (~16px). The `ch`-based column minimums resolved to
+  different pixel widths in each grid → `1fr` distributed differently →
+  headers sat LEFT of their row values. Fixed by moving font properties
+  from the header grid container to its children (rule #3). Also reduced
+  double `+ var(--space-6)` in name column min to single (Bug B fix),
+  added `minmax(0,1fr)` to panel grid and `min-width:0` to panels for
+  responsive shrinking.

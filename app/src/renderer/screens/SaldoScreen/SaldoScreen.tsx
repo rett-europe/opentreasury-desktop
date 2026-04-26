@@ -1157,10 +1157,12 @@ function CategoryPanel({
       const arrow = k === 'up' ? '↑ ' : k === 'down' ? '↓ ' : '';
       return `${arrow}${text}`;
     };
+    let maxName = 1;
     let maxPrior = 1;
     let maxCurrent = 1;
     let maxDelta = 1;
     const measureRow = (
+      name: string | null | undefined,
       prior: number,
       current: number,
       delta: number | null,
@@ -1170,15 +1172,30 @@ function CategoryPanel({
       const priorText = `${reversedSignPrefix(priorReversed, kind)}${fmtLocal(prior)}`;
       const currentText = `${reversedSignPrefix(currentReversed, kind)}${fmtLocal(current)}`;
       const deltaText = formatDeltaText(delta);
+      maxName = Math.max(maxName, (name ?? '').length);
       maxPrior = Math.max(maxPrior, priorText.length);
       maxCurrent = Math.max(maxCurrent, currentText.length);
       maxDelta = Math.max(maxDelta, deltaText.length);
     };
     for (const row of rows) {
-      measureRow(row.prior, row.current, row.delta, row.priorReversed, row.currentReversed);
+      measureRow(
+        row.name,
+        row.prior,
+        row.current,
+        row.delta,
+        row.priorReversed,
+        row.currentReversed,
+      );
       if (shouldRenderSubrows(row)) {
         for (const sub of row.subRows) {
-          measureRow(sub.prior, sub.current, sub.delta, sub.priorReversed, sub.currentReversed);
+          measureRow(
+            sub.name,
+            sub.prior,
+            sub.current,
+            sub.delta,
+            sub.priorReversed,
+            sub.currentReversed,
+          );
         }
       }
     }
@@ -1186,6 +1203,7 @@ function CategoryPanel({
     // perfectly tabular even with `tabular-nums`. Keeps long numbers from
     // visually kissing the next column.
     return {
+      name: `${maxName + 1}ch`,
       prior: `${maxPrior + 1}ch`,
       current: `${maxCurrent + 1}ch`,
       delta: `${maxDelta + 1}ch`,
@@ -1194,6 +1212,7 @@ function CategoryPanel({
   }, [rows, showSubcategories, kind, locale]);
 
   const panelRowsStyle = {
+    '--saldo-col-name': panelColWidths.name,
     '--saldo-col-prior': panelColWidths.prior,
     '--saldo-col-current': panelColWidths.current,
     '--saldo-col-delta': panelColWidths.delta,
@@ -1227,11 +1246,11 @@ function CategoryPanel({
           <div
             className="ot-saldo-panel__columns ot-saldo-panel__columns--compare"
             aria-hidden="true"
+            style={panelRowsStyle}
           >
             <span>{t('saldo.panel.columns.category')}</span>
-            <span className="ot-saldo-panel__col--right">{view.priorYear}</span>
-            <span />
-            <span className="ot-saldo-panel__col--right">{view.currentYear}</span>
+            <span>{view.priorYear}</span>
+            <span>{view.currentYear}</span>
             <span className="ot-saldo-panel__col--right">Δ</span>
           </div>
           <SubcategoryToggle
@@ -1353,12 +1372,8 @@ function CompareRow({
       {...(ariaExpanded === undefined ? {} : { 'aria-expanded': ariaExpanded })}
     >
       <span className="ot-saldo-row__name">{row.name ?? t('saldo.panel.uncategorized')}</span>
-      <span className="ot-saldo-row__prior" data-testid={`saldo-row-${kind}-${row.id}-prior-value`}>
-        {reversedSignPrefix(row.priorReversed, kind)}
-        {fmt(row.prior)}
-      </span>
       <div
-        className="ot-saldo-row__bars"
+        className="ot-saldo-row__prior-cell"
         role="img"
         aria-label={t('saldo.panel.row.barsAria', {
           priorYear,
@@ -1366,12 +1381,28 @@ function CompareRow({
           currentValue: fmt(row.current),
         })}
       >
+        <span
+          className="ot-saldo-row__prior"
+          data-testid={`saldo-row-${kind}-${row.id}-prior-value`}
+        >
+          {reversedSignPrefix(row.priorReversed, kind)}
+          {fmt(row.prior)}
+        </span>
         <div className="ot-saldo-row__bar-track">
           <div
             className="ot-saldo-row__bar-fill ot-saldo-row__bar-fill--prior"
             style={{ width: `${priorPct}%` }}
           />
         </div>
+      </div>
+      <div className="ot-saldo-row__current-cell">
+        <span
+          className="ot-saldo-row__current"
+          data-testid={`saldo-row-${kind}-${row.id}-current-value`}
+        >
+          {reversedSignPrefix(row.currentReversed, kind)}
+          {fmt(row.current)}
+        </span>
         <div className="ot-saldo-row__bar-track">
           <div
             className="ot-saldo-row__bar-fill ot-saldo-row__bar-fill--current"
@@ -1379,13 +1410,6 @@ function CompareRow({
           />
         </div>
       </div>
-      <span
-        className="ot-saldo-row__current"
-        data-testid={`saldo-row-${kind}-${row.id}-current-value`}
-      >
-        {reversedSignPrefix(row.currentReversed, kind)}
-        {fmt(row.current)}
-      </span>
       <span
         className={`ot-saldo-row__delta ot-saldo-row__delta--${deltaKind}`}
         data-testid={`saldo-row-${kind}-${row.id}-delta`}
@@ -1510,15 +1534,8 @@ function CompareSubRow({
       {...(tooltip ? { title: tooltip } : {})}
     >
       <span className={nameClass}>{subName}</span>
-      <span
-        className="ot-saldo-subrow__prior"
-        data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-prior-value`}
-      >
-        {reversedSignPrefix(sub.priorReversed, kind)}
-        {fmt(sub.prior)}
-      </span>
       <div
-        className="ot-saldo-subrow__bars"
+        className="ot-saldo-subrow__prior-cell"
         role="img"
         aria-label={t('saldo.panel.row.barsAria', {
           priorYear,
@@ -1526,6 +1543,13 @@ function CompareSubRow({
           currentValue: fmt(sub.current),
         })}
       >
+        <span
+          className="ot-saldo-subrow__prior"
+          data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-prior-value`}
+        >
+          {reversedSignPrefix(sub.priorReversed, kind)}
+          {fmt(sub.prior)}
+        </span>
         <div className="ot-saldo-subrow__bar-track">
           <div
             className="ot-saldo-subrow__bar-fill ot-saldo-subrow__bar-fill--prior"
@@ -1537,6 +1561,15 @@ function CompareSubRow({
             }
           />
         </div>
+      </div>
+      <div className="ot-saldo-subrow__current-cell">
+        <span
+          className="ot-saldo-subrow__current"
+          data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-current-value`}
+        >
+          {reversedSignPrefix(sub.currentReversed, kind)}
+          {fmt(sub.current)}
+        </span>
         <div className="ot-saldo-subrow__bar-track">
           <div
             className="ot-saldo-subrow__bar-fill ot-saldo-subrow__bar-fill--current"
@@ -1550,21 +1583,11 @@ function CompareSubRow({
         </div>
       </div>
       <span
-        className="ot-saldo-subrow__current"
-        data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-current-value`}
-      >
-        {reversedSignPrefix(sub.currentReversed, kind)}
-        {fmt(sub.current)}
-      </span>
-      <span
         className={`ot-saldo-subrow__delta ot-saldo-subrow__delta--${deltaKind}`}
         data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-delta`}
       >
         {deltaKind === 'up' ? '↑ ' : deltaKind === 'down' ? '↓ ' : ''}
         {deltaText}
-      </span>
-      <span className="ot-saldo-subrow__delta-sublabel">
-        {t('saldo.panel.row.vs', { year: priorYear })}
       </span>
     </div>
   );

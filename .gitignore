@@ -41,3 +41,9 @@ events.jsonl
 events.jsonl.bak
 /dev-events/
 /my-data/
+
+# Transient test artifacts (event-log-smoke fixture)
+.test-legacy-fixture-*/
+.test-legacy-*/
+.test-enveloped-*/
+.test-seed-*/

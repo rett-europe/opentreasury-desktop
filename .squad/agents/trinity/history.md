@@ -73,6 +73,13 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 
 ### 2026-04-26: Pairing Rule — Separate Visual Judgment from Code Interpretation
 After PR #91 Saldo compare-mode layout (Mouse iter 3, commit b41f973): **pair with Mouse on all UI work going forward.** Mouse owns visual judgment / prototype fidelity (Opus + vision); Trinity owns .tsx/.css (React tree correctness). This separation emerged from PR #91 needing 3 iterations because a single agent was answering both "is this what the prototype shows?" AND "is the React tree correct?" — independent questions. Default pattern locked in decisions.md: Mouse drafts visual spec + reviews against prototype; Trinity implements and ships code. When Trinity encounters visual regression, request Mouse review before merge.
+## 2026-05-01 — PR #91 Saldo iter 8: header/value alignment fix
+
+**Lesson learned:** Static CSS analysis is not verification. Header/row alignment with separate grid containers is fundamentally fragile — the only safe fix is to share the grid container OR pin both with content-derived widths in the same source of truth.
+
+**Root cause (iter 6 + 7 both missed this):** The header grid container (`.ot-saldo-panel__columns`) had `font-size: var(--font-size-11)` for small-caps styling. The row grid containers inherited a larger font-size (~16px). Since `grid-template-columns` uses `ch`-based CSS variables, and `ch` resolves relative to the grid container's own font-size, the column minimums evaluated to different pixel values in header vs rows — even though the templates were byte-identical. The `1fr` free-space distribution differed, causing "2025"/"2026" headers to sit LEFT of their corresponding row values.
+
+**Fix:** Moved font-size/letter-spacing/text-transform/font-weight/color from `.ot-saldo-panel__columns` to `.ot-saldo-panel__columns > *`. This ensures `ch` resolves at the same inherited font-size in both header and row grids. Also reduced the doubled `+ var(--space-6)` name-column padding to single, added `minmax(0,1fr)` to panel grid layout, and `min-width:0` to panels for responsive shrinking (Bug B).
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
@@ -1566,3 +1573,43 @@ New skill drafted: .squad/skills/responsive-panel-width/SKILL.md — minmax(intr
 **Quality:** Lint/typecheck/format green, 654 tests passing.
 **Skill Update:** grid-header-row-alignment bumped to HIGH confidence with new dedenting rule.
 **Outcome:** Subcategory rows now align perfectly with header columns when expanded. Year columns no longer resolve narrower due to container padding shrinkage.
+## 2026-05-01 — PR #91 iter 6: header-vs-bar alignment when subcategories shown
+
+**Context:** Pedro approved iter 5 (responsive panel width + 1:3 ratio) but
+flagged: "when subcategories are shown, because the text of subcategories
+comes in, the header is not aligned with the bars anymore... that's the
+only minor issue."
+
+**Diagnosis:** `.ot-saldo-subrow` had `padding-left: var(--space-6)` on
+the grid container itself (the 16px subcategory indent from spec §16.2).
+That shrank the sub-row's inner grid by 16px relative to the header and
+parent rows. All three are independent grid containers using the same
+template (`minmax(var(--saldo-col-*), Nfr)`), so a smaller outer width
+made the sub-row's `1fr` tracks resolve narrower → the prior/current
+bars and the Δ column drifted left of the matching header labels. With
+category-only view (no sub-rows visible) the header + parent rows had
+identical outer widths and everything aligned — exactly what Pedro saw.
+
+**Fix (surgical CSS-only):**
+1. Remove `padding-left` from `.ot-saldo-subrow` container.
+2. Apply the 16px indent on `.ot-saldo-subrow__name` (the name cell)
+   instead, so the indent is purely intra-cell and the grid container
+   stays full-width.
+3. Bake the indent budget into the shared name-column min on header,
+   parent row, and sub-row:
+   `minmax(calc(var(--saldo-col-name, max-content) + var(--space-6)), 1fr)`
+   This guarantees no row ever needs to expand the name track to fit
+   its name+padding, so all three grids resolve to identical column
+   widths regardless of which rows are visible.
+
+**Verification:** lint clean, typecheck clean, 654 tests green, format
+clean. iter 5's responsive width + 1:3 prior:current ratio preserved
+(the rule shape didn't change, only the name-column min grew by 16px).
+
+**Skill updates:**
+- `.squad/skills/grid-header-row-alignment/SKILL.md` — bumped to
+  HIGH confidence, added the **identical outer width on every grid
+  container** rule with the sub-row indent gotcha as the canonical
+  worked example. Second confirmation of this bug class.
+- `.squad/skills/responsive-panel-width/SKILL.md` — created from
+  iter 5's recipe, kept intact by this fix.

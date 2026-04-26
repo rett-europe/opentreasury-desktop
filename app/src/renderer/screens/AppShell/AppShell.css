@@ -342,7 +342,7 @@
    * visually passing ABOVE the sticky header strip. Keep top padding at 0
    * here and let the first page element (`.ot-page-header`) carry the top
    * gutter via its own `padding-top`. Horizontal + bottom padding stay. */
-  padding: 0 var(--space-10) var(--space-9);
+  padding: 0 clamp(var(--space-7), 3vw, var(--space-10)) var(--space-9);
   min-width: 0;
   min-height: 0;
   position: relative;

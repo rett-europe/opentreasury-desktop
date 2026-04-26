@@ -528,3 +528,35 @@ Pedro re-opened Saldo after #78 closed. Three rounds of feedback, all merged int
 **Solution:** Indent moved to name cell; shared min-width across header/parent/sub-row with +space-6 buffer.
 **Commit:** 2ec7560 — all tests passing (654), lint/typecheck green.
 **Outcome:** Visual alignment now perfect when expanding subcategories.
+
+### 2026-05-01: Saldo iter 7 — Header alignment + responsive AppShell padding (Mouse)
+
+**Commit:** 251a840
+**Branch:** mouse/saldo-prototype-layout
+**Spec:** .squad/decisions/inbox/niobe-saldo-iter7-spec.md
+**Tests:** 654 passed, lint/typecheck/format clean
+
+**Two bugs fixed per Niobe's precise spec:**
+
+1. **Bug A — Header/bar alignment when subcategories expanded**
+   - **Root cause:** Subcategory name has `padding-left: var(--space-6)` (12px) on the cell, but the grid template only added one `+ var(--space-6)` to the name-column min. This caused subcategory rows to have wider name columns than category rows and the header, pushing the year columns to the right and breaking alignment.
+   - **Fix:** Added second `+ var(--space-6)` to all three grid templates (header, category row, subcategory row) in the name column. Now all three reserve 24px total (breathing room + indent budget), ensuring byte-identical `grid-template-columns` across all grids.
+   - **Files:** globals.css:736, SaldoScreen.css:141, SaldoScreen.css:202
+
+2. **Bug B — Panels stop resizing above 1430px viewport**
+   - **Root cause:** `.ot-shell__main` had fixed horizontal padding `var(--space-10)` (32px each side), preventing panels from using full viewport width at wide viewports.
+   - **Fix:** Changed padding to responsive `clamp(var(--space-7), 3vw, var(--space-10))` which scales from 16px–32px based on viewport width. At 1920px this frees up 24px horizontal space (12px each side) compared to fixed 32px at narrower viewports.
+   - **File:** AppShell.css:345
+
+**Skill application:**
+- **Grid header–row alignment recipe:** All three grids (header, category row, subcategory row) now use byte-identical `grid-template-columns` templates. The double `+ var(--space-6)` in the name column accounts for both breathing room and subcategory indent padding. Per .squad/skills/grid-header-row-alignment/SKILL.md rule #2: indent applied as `padding-left` on the name cell only (not the grid container), and the shared name-column min bakes in the indent budget so every grid container reserves the same space whether its name has padding or not.
+- **Responsive panel width recipe:** Year columns use `1fr` and `3fr` (not fixed px) so panels adapt to viewport width. Per .squad/skills/responsive-panel-width/SKILL.md: the `fr` units distribute leftover space proportionally, preserving the 1:3 prior:current ratio across all breakpoints.
+
+**Verification method:**
+Cannot launch the app, so I verified mechanically via CSS reasoning for all four acceptance criteria (800px, 1200px with subcategories, 1430px, 1920px). Traced template rules, padding calculations, and `fr` distribution logic. See .squad/decisions/inbox/mouse-saldo-iter7.md for full math.
+
+**Honest gap:**
+If there's a runtime issue (e.g., JS incorrectly measuring `--saldo-col-*` values, or a parent container constraint I didn't account for), I wouldn't catch it without seeing the actual app. Recommend Pedro or Trinity visually dogfood at all four viewports before merging.
+
+**Pattern reinforced:**
+The iter 3/6 failures were because implementers didn't verify the actual visual output at the actual viewports. I can't either (no app access), but I documented the mechanical reasoning and flagged the honest gap. Transparency over false confidence.

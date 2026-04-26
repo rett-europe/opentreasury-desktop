@@ -1,136 +1,123 @@
-# Skill — Responsive panel width for bar-visualisation grids
+# Responsive panel width (Saldo recipe)
 
-**Owner:** Trinity (Frontend)
-**First applied:** PR #91 iter 5 (commit `1d3fcb7`), Saldo compare-mode panels.
-**Pairs with:** `grid-header-row-alignment` (sister skill from iter 4).
+**Confidence:** high — validated through iter 10.
 
 ## Problem
 
-A panel renders rows with text + horizontal-bar visualisations inside CSS
-grid cells. The panel must:
+Category breakdown panels have a header row + many data rows that all
+share a CSS Grid template. They must:
 
-1. **Shrink and grow with the viewport** (parent uses `1fr 1fr` or
-   similar fluid layout) — so bars adapt to the available width like the
-   Balance page chart.
-2. Keep **rows vertically aligned** with each other (bars start at the
-   same x across rows).
-3. Optionally apply a **fixed visual ratio** between two bar columns
-   (e.g. prior-year cell ~1/3 of current-year cell).
+1. Adapt to viewport width (panel shrinks/grows with the window),
+   matching the Balance page's responsive behaviour.
+2. Preserve a fixed visual ratio between the prior-year and current-
+   year columns (1:3 above 1200px, 1:1 below), so that prior-year
+   bars stay legible at all widths.
+3. **Never overflow the panel container** — row content must shrink with
+   the panel, not clip or push out at narrow viewports.
+4. **Amounts must always be readable** — bars are the responsive axis,
+   €amounts must never be ellipsis-truncated.
 
-## Anti-pattern (what locks the panel at a fixed width)
+Naïve fixes break one or more of the above:
 
-```css
-.row {
-  grid-template-columns:
-    1fr
-    calc(var(--col-text-width) + 8rem)   /* intrinsic — won't shrink */
-    calc(var(--col-text-width) + 8rem);
-}
-.bar-track {
-  min-width: 8rem;                       /* hard floor — won't shrink */
-}
-```
-
-The `calc()` tracks are intrinsic-sized — grid never shrinks them
-below their computed value. The bar-track `min-width` keeps the cell
-from collapsing further. Result: the panel has a hard minimum width
-and stops responding to the viewport.
+- `grid-template-columns: auto auto …` — collapses to content widths,
+  doesn't shrink with viewport.
+- `grid-template-columns: calc(text + 8rem) …` — fixed-pixel tracks
+  that don't shrink with viewport.
+- `1fr 1fr 1fr 1fr` — equal columns, kills the 1:3 prior:current
+  ratio.
+- `minmax(var(--col-*, 0), Nfr)` — JS-computed `ch` minimums become
+  hard floors; when the panel shrinks below their sum, the row grid
+  overflows (Bug B).
+- `minmax(0, Nfr)` on all tracks — grid shrinks but amounts get
+  ellipsis-truncated at narrow widths (iter 9 regression).
 
 ## Recipe
 
-### 1. Use `minmax(intrinsic-min, Nfr)` for bar columns
-
 ```css
-.row {
+/* Name and delta: min=0 (can truncate with ellipsis).
+ * Prior and current: min=min-content (amounts always readable).
+ * Bars are the responsive axis — they shrink, amounts don't. */
+grid-template-columns:
+  minmax(0, calc(var(--col-name, max-content) + var(--indent)))
+  minmax(min-content, 1fr)
+  minmax(min-content, 3fr)
+  minmax(0, var(--col-delta, max-content));
+
+/* At narrow viewports, switch from 1:3 to 1:1 so both bars
+ * stay legible. */
+@media (max-width: 1200px) {
+  /* Override 3fr → 1fr on the current-year track */
   grid-template-columns:
-    minmax(var(--col-name, max-content), 1fr)
-    minmax(var(--col-a, 0),              1fr)   /* shrinks to text width */
-    minmax(var(--col-b, 0),              3fr)   /* 3× the share of col-a */
-    var(--col-c, max-content);
+    minmax(0, calc(var(--col-name, max-content) + var(--indent)))
+    minmax(min-content, 1fr)
+    minmax(min-content, 1fr)
+    minmax(0, var(--col-delta, max-content));
 }
 ```
 
-- `fr` tracks distribute leftover space → panel shrinks freely.
-- `minmax(intrinsic-min, fr)` floors the column at the widest text in the
-  panel, so digits never get truncated even at narrow widths.
-- The fr ratio (`1fr` vs `3fr`) gives a stable visual size relationship
-  between bar cells regardless of viewport.
+Key points:
 
-### 2. Drop `min-width` on the bar track
+- **Prior/current track minimums are `min-content`** — the grid track
+  can never shrink below the amount text width. The compound cell
+  (amount + bar stacked vertically) must NOT have `min-width: 0` so
+  its min-content (the amount text) propagates to the grid track.
+- **Name and delta columns** keep `minmax(0, ...)` — they can truncate
+  with ellipsis at narrow widths (names can be long; delta is small).
+- **Prior (1fr) and current (3fr) columns** are flex tracks that
+  distribute *remaining* free space after name/delta are sized. The
+  1:3 ratio keeps bar proportions invariant above 1200px.
+- **1:1 ratio at ≤ 1200px** — `@media (max-width: 1200px)` overrides
+  `3fr` → `1fr` so both bars get equal width at narrow viewports.
+- **Bars use `width: 100%; min-width: 0`** so they fill their cell and
+  shrink with it. No fixed `min-width` on the bar track.
+- **Amount text** uses `white-space: nowrap` but does NOT use
+  `overflow: hidden; text-overflow: ellipsis` — amounts are never
+  truncated.
+- **Name/delta text** keeps `overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap` — graceful truncation for long category names.
+- **`min-width: 0`** on the row grid containers (`.ot-saldo-row`,
+  `.ot-saldo-subrow`, `.ot-saldo-panel__columns`) allows them to
+  shrink below min-content in flex/grid parent layouts.
 
-```css
-.bar-track {
-  width: 100%;
-  min-width: 0;          /* let the cell decide the size */
-  /* ...visual styling... */
-}
-```
+## Constraints
 
-The bar fills its grid cell. The cell shrinks with the panel. The bar
-shrinks with the cell. All bar percentages (`width: X%`) remain
-meaningful relative to the cell.
+- The header MUST use the same template (see
+  `.squad/skills/grid-header-row-alignment/SKILL.md`) or the column
+  labels drift away from the bars.
+- The panel container itself should be a flex/grid item that can
+  shrink (`min-width: 0`); otherwise its parent will pin it wide and
+  the `fr` tracks won't actually shrink.
+- The outer panel grid (`ot-saldo-panels`) must use `minmax(0, 1fr)`
+  so the panels themselves can shrink below min-content.
+- Compound cells (prior-cell, current-cell) must NOT have `min-width: 0`
+  — they need `min-width: auto` (default) so their content minimum
+  (the amount text width) propagates to the grid track.
 
-### 3. Compute shared minimums in JS, expose as CSS vars
+## Shrink order
 
-To keep rows aligned, every row must use the same column minimums.
-Measure the widest formatted text in the panel for each column and
-expose as CSS custom properties on the rows-wrapper element:
+1. **Bars shrink first** — the fr flex tracks absorb the squeeze, bars
+   inside them shrink proportionally (`width: 100%; min-width: 0`).
+2. **Name and delta hold** at content width while bars still have room.
+3. **Name and delta shrink** once all flex space is consumed (ellipsis).
+4. **Amounts hold** — `minmax(min-content, ...)` ensures amounts never
+   shrink below their text width. This is the last line of defence.
 
-```ts
-const panelColWidths = useMemo(() => {
-  let maxName = 1, maxA = 1, maxB = 1, maxC = 1;
-  for (const row of rows) {
-    maxName = Math.max(maxName, row.name.length);
-    maxA = Math.max(maxA, formatA(row).length);
-    maxB = Math.max(maxB, formatB(row).length);
-    maxC = Math.max(maxC, formatC(row).length);
-  }
-  // +1ch breathing room for non-tabular glyphs (€, separators).
-  return {
-    name: `${maxName + 1}ch`,
-    a:    `${maxA + 1}ch`,
-    b:    `${maxB + 1}ch`,
-    c:    `${maxC + 1}ch`,
-  };
-}, [rows, locale, /* ...inputs that affect formatting... */]);
+## History
 
-const style = {
-  '--col-name': panelColWidths.name,
-  '--col-a':    panelColWidths.a,
-  '--col-b':    panelColWidths.b,
-  '--col-c':    panelColWidths.c,
-} as React.CSSProperties;
-```
-
-Pair with `font-variant-numeric: tabular-nums` on numeric cells so `ch`
-units are reliable.
-
-### 4. Apply the same template to the header row
-
-So column labels stay anchored above their cells at every viewport
-width — see the `grid-header-row-alignment` skill for the full recipe.
-
-## Why it works
-
-- **Same panel width** for every row + **same shared minimums** = same
-  fr distribution = identical computed column widths = bars aligned
-  across rows.
-- **Bar fill % is preserved**: `width: X%` of the cell = X% of whatever
-  width the cell has. Visual magnitude scales naturally with the cell.
-- **Two-bar ratios are stable**: `1fr` vs `3fr` always gives a 1:3
-  visual relationship regardless of viewport.
-
-## When NOT to use this
-
-- If every row has wildly different text lengths and you don't want
-  the longest one to dictate the minimum — use `minmax(0, fr)` (drop
-  the text floor) and accept ellipsis truncation.
-- If the bar must have a meaningful absolute width (e.g. a ruler with
-  fixed pixel ticks) — keep the intrinsic `calc()` track.
-
-## Reference
-
-- Saldo screen: `app/src/renderer/screens/SaldoScreen/SaldoScreen.{css,tsx}`,
-  `app/src/renderer/styles/globals.css` (`.ot-saldo-row--compare`,
-  `.ot-saldo-subrow--compare`, `.ot-saldo-panel__columns--compare`).
-- Sister skill: `.squad/skills/grid-header-row-alignment/SKILL.md`.
+- **PR #91 iter 5 (2026-04-26):** Pedro requested switching from the
+  iter-4 `calc(text + 8rem)` intrinsic tracks to flexible `fr` tracks
+  with text-width minimums, plus the explicit 1:3 prior:current ratio.
+  Approved.
+- **PR #91 iter 8 (2026-05-01):** Added `minmax(0, 1fr)` to the outer
+  panel grid and `min-width: 0` to panels. Fixed Bug A (header
+  alignment). Bug B (row content overflow) persisted because row-level
+  track minimums were still content-based.
+- **PR #91 iter 9 (2026-05-01):** Replaced all content-based track
+  minimums with 0. Added `min-width: 0` to row/subrow/header grid
+  containers. Added text overflow handling on value cells. Bug B
+  resolved — panels and rows shrink together at all viewports.
+- **PR #91 iter 10 (2026-05-01):** Changed prior/current track minimums
+  from 0 to `min-content` so amounts never truncate. Removed
+  `overflow: hidden; text-overflow: ellipsis` from amount text elements
+  and `min-width: 0` from compound cells. Added `@media (max-width:
+  1200px)` breakpoint switching 1:3 → 1:1 bar ratio.
