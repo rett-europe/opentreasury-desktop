@@ -2,16 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tag, TrendingUp, TrendingDown } from 'lucide-react';
 import { SegmentedToggle } from '../../components/SegmentedToggle/index.js';
+import { TagCard } from '../../components/TagCard/index.js';
 import { getInsightsLandingSummary } from '../../services/insightsApi.js';
 import { thisYear } from '../../utils/datePresets.js';
 import { formatCurrency } from '../../utils/numberFormat.js';
-import type {
-  InsightsLandingSummaryResponse,
-  TagSummary,
-} from '../../../shared/ipc-contracts/insights.js';
+import type { InsightsLandingSummaryResponse } from '../../../shared/ipc-contracts/insights.js';
 import './InsightsScreen.css';
 
-type DisplayMode = 'volume' | 'net' | 'count';
+type DisplayMode = 'volumen' | 'neto' | 'mov';
 
 type ScreenState =
   | { kind: 'loading' }
@@ -23,12 +21,11 @@ type ScreenState =
  *
  * Spec: docs/ux/specs/ux-005-insights-final-spec.md §3
  * Layout: KPI strip + segmented toggle + tag card grid + footnote
- * Data: Mocked until Mouse's PR #100 lands (insights:landing-summary handler)
  */
 export function InsightsScreen(): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
-  const [displayMode, setDisplayMode] = useState<DisplayMode>('volume');
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('volumen');
 
   const loadData = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -94,9 +91,9 @@ export function InsightsScreen(): JSX.Element {
         </div>
         <SegmentedToggle
           options={[
-            { value: 'volume', label: t('insights.displayMode.volume') },
-            { value: 'net', label: t('insights.displayMode.net') },
-            { value: 'count', label: t('insights.displayMode.count') },
+            { value: 'volumen', label: t('insights.displayMode.volume') },
+            { value: 'neto', label: t('insights.displayMode.net') },
+            { value: 'mov', label: t('insights.displayMode.count') },
           ]}
           value={displayMode}
           onChange={(val) => setDisplayMode(val as DisplayMode)}
@@ -168,128 +165,26 @@ export function InsightsScreen(): JSX.Element {
           <h2 className="ot-section-label">{t('insights.sectionLabel.tags')}</h2>
           <div className="ot-tag-cards">
             {tags.map((tag) => (
-              <TagCard key={tag.tagId} tag={tag} displayMode={displayMode} locale={i18n.language} />
+              <TagCard
+                key={tag.tagId}
+                tagId={tag.tagId}
+                name={tag.name}
+                {...(tag.color ? { color: tag.color } : {})}
+                kpis={{
+                  ingresos: tag.ingresosCents / 100,
+                  gastos: tag.gastosCents / 100,
+                  neto: tag.netoCents / 100,
+                  count: tag.movimientosCount,
+                }}
+                displayMode={displayMode}
+                archived={tag.archived}
+                topCategorias={tag.topCategorias}
+              />
             ))}
           </div>
           <div className="ot-insights__footnote">{t('insights.footnote.multiLabel')}</div>
         </>
       )}
     </div>
-  );
-}
-
-interface TagCardProps {
-  tag: TagSummary;
-  displayMode: DisplayMode;
-  locale: string;
-}
-
-/**
- * TagCard — placeholder until Mouse's component lands.
- * Matches the visual spec from ux-005 §3.2.
- */
-function TagCard({ tag, displayMode, locale }: TagCardProps): JSX.Element {
-  const showVolume = displayMode === 'volume';
-  const showNet = displayMode === 'net';
-  const showCount = displayMode === 'count';
-
-  const hasSparkline = tag.sparklineNetCents && tag.sparklineNetCents.length >= 3;
-  const topCatText =
-    tag.topCategorias.length > 0 ? `Top: ${tag.topCategorias.map((c) => c.name).join(', ')}` : '';
-
-  return (
-    <div className="ot-tag-card ot-p-card" role="button" tabIndex={0}>
-      <div className="ot-tag-card__header">
-        <span
-          className="ot-tag-card__color-dot"
-          style={{ backgroundColor: tag.color }}
-          aria-hidden="true"
-        />
-        <span className="ot-tag-card__name">{tag.name}</span>
-        <span className="ot-tag-card__badge">{tag.movimientosCount} mov.</span>
-      </div>
-
-      {showVolume && (
-        <div className="ot-tag-card__metrics ot-tag-card__metrics--volume">
-          <div className="ot-tag-card__metric">
-            <div className="ot-tag-card__metric-label">INGRESOS</div>
-            <div className="ot-tag-card__metric-value ot-tnum">
-              {formatCurrency(tag.ingresosCents / 100, locale)}
-            </div>
-          </div>
-          <div className="ot-tag-card__metric">
-            <div className="ot-tag-card__metric-label">GASTOS</div>
-            <div className="ot-tag-card__metric-value ot-tnum">
-              {formatCurrency(tag.gastosCents / 100, locale)}
-            </div>
-          </div>
-          <div className="ot-tag-card__metric">
-            <div className="ot-tag-card__metric-label">NETO</div>
-            <div className="ot-tag-card__metric-value ot-tnum">
-              {formatCurrency(tag.netoCents / 100, locale)}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showNet && (
-        <div className="ot-tag-card__metrics ot-tag-card__metrics--net">
-          <div className="ot-tag-card__metric ot-tag-card__metric--hero">
-            <div className="ot-tag-card__metric-label">NETO</div>
-            <div className="ot-tag-card__metric-value ot-tag-card__metric-value--hero ot-tnum">
-              {formatCurrency(tag.netoCents / 100, locale)}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showCount && (
-        <div className="ot-tag-card__metrics ot-tag-card__metrics--count">
-          <div className="ot-tag-card__metric ot-tag-card__metric--hero">
-            <div className="ot-tag-card__metric-label"># MOVIMIENTOS</div>
-            <div className="ot-tag-card__metric-value ot-tag-card__metric-value--hero">
-              {tag.movimientosCount}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {hasSparkline && (
-        <div className="ot-tag-card__sparkline" aria-hidden="true">
-          <SimpleSpark data={tag.sparklineNetCents!} />
-        </div>
-      )}
-
-      {topCatText && <div className="ot-tag-card__footer">{topCatText}</div>}
-    </div>
-  );
-}
-
-/**
- * SimpleSpark — minimal inline sparkline (placeholder until real component).
- * Heights proportional to data range, all positive rendering.
- */
-function SimpleSpark({ data }: { data: readonly number[] }): JSX.Element {
-  const max = Math.max(...data.map(Math.abs));
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  const points = data
-    .map((val, i) => {
-      const x = (i / (data.length - 1)) * 100;
-      const y = 100 - ((val - min) / range) * 100;
-      return `${x},${y}`;
-    })
-    .join(' ');
-
-  return (
-    <svg className="ot-sparkline" viewBox="0 0 100 32" preserveAspectRatio="none">
-      <polyline
-        points={points}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
   );
 }
