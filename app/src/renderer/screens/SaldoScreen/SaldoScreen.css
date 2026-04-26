@@ -44,7 +44,9 @@
 /* ── Saldo paired category panels ───────────────────────────── */
 .ot-saldo-panels {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* Bug B fix: minmax(0,1fr) allows panels to shrink below min-content
+     at narrow viewports instead of overflowing. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-7);
   margin-top: var(--space-9);
 }
@@ -63,6 +65,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+  /* Bug B fix: allow panel to shrink below min-content in the grid. */
+  min-width: 0;
 }
 
 .ot-saldo-panel__header {
@@ -113,32 +117,26 @@
   display: grid;
   gap: var(--space-3) var(--space-6);
   align-items: center;
+  /* Bug A fix: font properties moved to children so the grid container
+     inherits the same base font-size as .ot-saldo-row grids. This makes
+     ch-based column minimums in grid-template-columns resolve identically
+     across header and row grids — the root cause of the alignment drift. */
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+}
+.ot-saldo-panel__columns > * {
   font-size: var(--font-size-11);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
-  padding-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-divider);
 }
 .ot-saldo-panel__columns--compare {
-  /* Iter 5 (Pedro 2026-04-26 dogfood follow-up): two changes vs iter 4.
-   *
-   * 1. Responsive width — year columns are now flexible (`fr`) tracks with
-   *    a text-width minimum, instead of `calc(text + 8rem)` intrinsic
-   *    tracks. This lets the panel (and its bar tracks) shrink with the
-   *    viewport, matching the Balance page's responsive recipe.
-   * 2. Prior:current ratio — the 2025 column is `1fr` and the 2026 column
-   *    is `3fr` so the prior-year cell is ~1/3 the width of the current-
-   *    year cell, matching `ingresos_gastos.png`. Bars scale within their
-   *    cell, so 2025 bars naturally appear smaller than 2026 bars at the
-   *    same value.
-   *
-   * The header reuses this exact template so the `2025` / `2026` labels
-   * stay aligned above their value+bar stacks (alignment recipe from
-   * iter 4 — see `.squad/skills/grid-header-row-alignment`). */
+  /* Iter 8 (Bug A + B fix): single --space-6 in name column minimum is
+   * sufficient for the subcategory indent budget. The second was added in
+   * iter 7 but inflated the floor and worsened Bug B (panel resize). */
   grid-template-columns:
-    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6) + var(--space-6)), 1fr)
+    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6)), 1fr)
     minmax(var(--saldo-col-prior, 0), 1fr)
     minmax(var(--saldo-col-current, 0), 3fr)
     var(--saldo-col-delta, max-content);
@@ -186,20 +184,9 @@
   border-bottom: 0;
 }
 .ot-saldo-row--compare {
-  /* Iter 5 (Pedro 2026-04-26 dogfood follow-up): row template keeps the
-   * vertical-stack year cells from iter 4, but switches the year columns
-   * from intrinsic `calc(text + 8rem)` tracks to flexible `fr` tracks
-   * with a text-width minimum, so the panel adapts to viewport width
-   * (matches Balance page recipe). The 2025:2026 width ratio is 1:3
-   * per `ingresos_gastos.png` — prior-year cell is ~1/3 of current-year.
-   * Row template:
-   *   name (--saldo-col-name min, 1fr) | 2025 (1fr) | 2026 (3fr) | Δ
-   * `--saldo-col-name` / `--saldo-col-prior` / `--saldo-col-current` are
-   * driven by CategoryPanel from the widest formatted strings in the
-   * panel, so every row in a panel collapses to the same computed
-   * column widths and the bars stay aligned across rows. */
+  /* Iter 8: single --space-6 indent budget (matches header + subrow). */
   grid-template-columns:
-    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6) + var(--space-6)), 1fr)
+    minmax(calc(var(--saldo-col-name, max-content) + var(--space-6)), 1fr)
     minmax(var(--saldo-col-prior, 0), 1fr)
     minmax(var(--saldo-col-current, 0), 3fr)
     var(--saldo-col-delta, max-content);

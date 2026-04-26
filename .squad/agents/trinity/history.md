@@ -55,6 +55,14 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 - **PR #58 (transaction detail bugs):** Fixed 3 bugs on dev-empty: (1) DatosScreen "See transactions" CTA now navigates via onNavigateToMovements prop, (2) description tooltip shows reference + details, (3) reference/details threaded through Movement type, mapMovementRecord, row→tx conversion, and main-process movements:list handler. i18n keys movements.tooltip.reference/.details added (EN/ES parity).
 - **Layout/visual decision pivot finalized:** Niobe Option A (Dedicated Scope Bar) locked; Mouse pivoted from Anchored Band to Calm Scope (weight over tint). Decision inbox entries consolidated into decisions.md §"2026-04-28: Movements Filter UI."
 
+## 2026-05-01 — PR #91 Saldo iter 8: header/value alignment fix
+
+**Lesson learned:** Static CSS analysis is not verification. Header/row alignment with separate grid containers is fundamentally fragile — the only safe fix is to share the grid container OR pin both with content-derived widths in the same source of truth.
+
+**Root cause (iter 6 + 7 both missed this):** The header grid container (`.ot-saldo-panel__columns`) had `font-size: var(--font-size-11)` for small-caps styling. The row grid containers inherited a larger font-size (~16px). Since `grid-template-columns` uses `ch`-based CSS variables, and `ch` resolves relative to the grid container's own font-size, the column minimums evaluated to different pixel values in header vs rows — even though the templates were byte-identical. The `1fr` free-space distribution differed, causing "2025"/"2026" headers to sit LEFT of their corresponding row values.
+
+**Fix:** Moved font-size/letter-spacing/text-transform/font-weight/color from `.ot-saldo-panel__columns` to `.ot-saldo-panel__columns > *`. This ensures `ch` resolves at the same inherited font-size in both header and row grids. Also reduced the doubled `+ var(--space-6)` name-column padding to single, added `minmax(0,1fr)` to panel grid layout, and `min-width:0` to panels for responsive shrinking (Bug B).
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
 ---
