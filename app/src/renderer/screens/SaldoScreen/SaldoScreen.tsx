@@ -1227,6 +1227,7 @@ function CategoryPanel({
           <div
             className="ot-saldo-panel__columns ot-saldo-panel__columns--compare"
             aria-hidden="true"
+            style={panelRowsStyle}
           >
             <span>{t('saldo.panel.columns.category')}</span>
             <span>{view.priorYear}</span>
@@ -1361,12 +1362,6 @@ function CompareRow({
           currentValue: fmt(row.current),
         })}
       >
-        <div className="ot-saldo-row__bar-track">
-          <div
-            className="ot-saldo-row__bar-fill ot-saldo-row__bar-fill--prior"
-            style={{ width: `${priorPct}%` }}
-          />
-        </div>
         <span
           className="ot-saldo-row__prior"
           data-testid={`saldo-row-${kind}-${row.id}-prior-value`}
@@ -1374,14 +1369,14 @@ function CompareRow({
           {reversedSignPrefix(row.priorReversed, kind)}
           {fmt(row.prior)}
         </span>
-      </div>
-      <div className="ot-saldo-row__current-cell">
         <div className="ot-saldo-row__bar-track">
           <div
-            className="ot-saldo-row__bar-fill ot-saldo-row__bar-fill--current"
-            style={{ width: `${currentPct}%` }}
+            className="ot-saldo-row__bar-fill ot-saldo-row__bar-fill--prior"
+            style={{ width: `${priorPct}%` }}
           />
         </div>
+      </div>
+      <div className="ot-saldo-row__current-cell">
         <span
           className="ot-saldo-row__current"
           data-testid={`saldo-row-${kind}-${row.id}-current-value`}
@@ -1389,6 +1384,12 @@ function CompareRow({
           {reversedSignPrefix(row.currentReversed, kind)}
           {fmt(row.current)}
         </span>
+        <div className="ot-saldo-row__bar-track">
+          <div
+            className="ot-saldo-row__bar-fill ot-saldo-row__bar-fill--current"
+            style={{ width: `${currentPct}%` }}
+          />
+        </div>
       </div>
       <span
         className={`ot-saldo-row__delta ot-saldo-row__delta--${deltaKind}`}
@@ -1523,6 +1524,13 @@ function CompareSubRow({
           currentValue: fmt(sub.current),
         })}
       >
+        <span
+          className="ot-saldo-subrow__prior"
+          data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-prior-value`}
+        >
+          {reversedSignPrefix(sub.priorReversed, kind)}
+          {fmt(sub.prior)}
+        </span>
         <div className="ot-saldo-subrow__bar-track">
           <div
             className="ot-saldo-subrow__bar-fill ot-saldo-subrow__bar-fill--prior"
@@ -1534,15 +1542,15 @@ function CompareSubRow({
             }
           />
         </div>
-        <span
-          className="ot-saldo-subrow__prior"
-          data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-prior-value`}
-        >
-          {reversedSignPrefix(sub.priorReversed, kind)}
-          {fmt(sub.prior)}
-        </span>
       </div>
       <div className="ot-saldo-subrow__current-cell">
+        <span
+          className="ot-saldo-subrow__current"
+          data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-current-value`}
+        >
+          {reversedSignPrefix(sub.currentReversed, kind)}
+          {fmt(sub.current)}
+        </span>
         <div className="ot-saldo-subrow__bar-track">
           <div
             className="ot-saldo-subrow__bar-fill ot-saldo-subrow__bar-fill--current"
@@ -1554,13 +1562,6 @@ function CompareSubRow({
             }
           />
         </div>
-        <span
-          className="ot-saldo-subrow__current"
-          data-testid={`saldo-subrow-${kind}-${parent.id}-${sub.id}-current-value`}
-        >
-          {reversedSignPrefix(sub.currentReversed, kind)}
-          {fmt(sub.current)}
-        </span>
       </div>
       <span
         className={`ot-saldo-subrow__delta ot-saldo-subrow__delta--${deltaKind}`}

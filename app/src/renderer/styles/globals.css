@@ -734,16 +734,17 @@ a:hover {
     );
 }
 
-/* Per-year compound cells for subrows — same horizontal recipe as parent
- * rows (see SaldoScreen.css), at the smaller subrow text scale. Bars inherit
- * the half-height treatment defined further down. See ux-004a-amendment-2 §2
- * (v3). */
+/* Per-year compound cells for subrows — iter 4 (Pedro 2026-04-26 dogfood
+ * iter 3 reject): VERTICAL stack inside each cell — value text on top,
+ * horizontal bar below, both left-anchored. Same recipe as parent rows
+ * (see SaldoScreen.css), at the smaller subrow text scale. */
 .ot-saldo-subrow__prior-cell,
 .ot-saldo-subrow__current-cell {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  column-gap: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  row-gap: var(--space-2);
+  min-width: 0;
 }
 
 /* Visual close-out: extra breathing room after the last subrow
@@ -765,7 +766,7 @@ a:hover {
 }
 
 .ot-saldo-subrow__prior {
-  text-align: right;
+  text-align: left;
   font-size: var(--font-size-12);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
@@ -776,13 +777,13 @@ a:hover {
    * consumer that still selects on it; current TSX no longer renders it. */
   display: contents;
 }
-/* Half-height bar track — ~70% of the parent .ot-saldo-row__bar-track
- * (6px → 4px). Same pill radius keeps the silhouette consistent. */
+/* Iter 4: bar height aligned with parent rows (8px) — Pedro spec calls for
+ * uniform bar geometry across the whole panel. */
 .ot-saldo-subrow__bar-track {
   position: relative;
   width: 100%;
   min-width: var(--saldo-bar-min, 8rem);
-  height: 4px;
+  height: 8px;
   border-radius: var(--radius-pill);
   background: var(--color-surface-secondary);
   overflow: hidden;
@@ -810,7 +811,7 @@ a:hover {
 }
 
 .ot-saldo-subrow__current {
-  text-align: right;
+  text-align: left;
   font-size: var(--font-size-13);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;

@@ -201,18 +201,21 @@
     );
 }
 
-/* Per-year compound cells. Horizontal layout (v3 — Pedro 2026-04-26 dogfood
- * iter 3): bar fills most of the cell width on the LEFT (left-anchored,
- * grows rightward), value-text is a small label adjacent on the RIGHT.
- * Both year cells use the SAME inner layout — no mirror — so the two bars
- * within a row sit on the SAME baseline and read as side-by-side bars.
- * See ux-004a-amendment-2 §2 (v3). */
+/* Per-year compound cells. Iter 4 (Pedro 2026-04-26 dogfood iter 3 reject):
+ * VERTICAL stack inside each cell — value text on top, horizontal bar below,
+ * both left-anchored. The two year cells still sit side-by-side horizontally
+ * on the same row (enforced by the outer row grid `--compare`); only the
+ * INNER layout of each cell stacks vertically. Both year cells use the same
+ * inner layout — no mirror — so the value and bar baselines match across
+ * 2025 and 2026 within a single row. The header `2025` / `2026` labels sit
+ * directly above the value+bar stack of their column. */
 .ot-saldo-row__prior-cell,
 .ot-saldo-row__current-cell {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  column-gap: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  row-gap: var(--space-2);
+  min-width: 0;
 }
 
 .ot-saldo-row__name {
@@ -225,7 +228,7 @@
 }
 
 .ot-saldo-row__prior {
-  text-align: right;
+  text-align: left;
   font-size: var(--font-size-13);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
@@ -240,7 +243,7 @@
   position: relative;
   width: 100%;
   min-width: var(--saldo-bar-min, 8rem);
-  height: 6px;
+  height: 8px;
   border-radius: var(--radius-pill);
   background: var(--color-surface-secondary);
   overflow: hidden;
@@ -267,7 +270,7 @@
 }
 
 .ot-saldo-row__current {
-  text-align: right;
+  text-align: left;
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
