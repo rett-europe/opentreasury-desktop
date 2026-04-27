@@ -517,107 +517,11 @@ a:hover {
   line-height: 1.35;
 }
 
-/* ── Split modal ────────────────────────────────────────────
-   Follows TransactionDetailModal shell pattern.
-   640px width (prototype .modal-lg) to fit 4-column child grid.
-   Scrollable body accommodates 20+ child rows. */
-.ot-split-modal {
-  width: 640px;
-  max-width: 92vw;
-  max-height: 88vh;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-dialog);
-  background: var(--color-surface-primary);
-  color: var(--color-text-primary);
-}
-.ot-split-modal::backdrop {
-  background: var(--color-surface-overlay);
-  backdrop-filter: blur(2px);
-}
-
-/* Scrollable child-list area inside the modal body */
-.ot-split-modal__body {
-  overflow-y: auto;
-  max-height: 56vh;
-  padding: var(--space-6) var(--space-8);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-/* ── Child row (inside modal) ───────────────────────────────
-   Compact 4-column grid: amount · category · comment · remove.
-   Border-bottom separates rows; last child omits it. */
-.ot-split-row {
-  display: grid;
-  grid-template-columns: 110px 1fr 1fr auto;
-  gap: var(--space-4);
-  align-items: center;
-  padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--color-border-default);
-  min-height: 40px;
-}
-.ot-split-row:last-child {
-  border-bottom: none;
-}
-
-.ot-split-row__amount {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum';
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-14);
-  text-align: right;
-  padding-right: var(--space-3);
-}
-
-.ot-split-row__category {
-  font-size: var(--font-size-14);
-  color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ot-split-row__comment {
-  font-size: var(--font-size-12);
-  color: var(--color-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── Delta indicator (running sum / balance hint) ───────────
-   Bold, prominent — user's primary success signal.
-   Sits at the bottom of the modal (footer area). */
-.ot-split-delta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-5) var(--space-8);
-  border-top: 1px solid var(--color-border-default);
-  font-size: var(--font-size-16);
-  font-weight: var(--font-weight-bold);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum';
-}
-
-/* Over-allocation (children > parent) — recoverable error; expense/danger tone */
-.ot-split-delta--positive {
-  color: var(--color-expense-default);
-  background: var(--color-expense-bg);
-}
-/* Under-allocation (children < parent) — needs attention; warning/amber tone */
-.ot-split-delta--negative {
-  color: var(--color-warning-default);
-  background: var(--color-warning-bg);
-}
-/* Balanced (children == parent) — success; approved/green tone */
-.ot-split-delta--balanced {
-  color: var(--color-status-approved);
-  background: var(--color-status-approved-bg);
-}
+/* ── Split modal styling moved to component-scoped CSS ──────
+   See app/src/renderer/components/SplitTransactionModal/
+   SplitTransactionModal.css. The `.ot-split-parent*` rules
+   above stay in globals because they style rows in the
+   Movements table, not the modal itself. */
 
 /* ═══════════════════════════════════════════════════════════
    Saldo subcategory drill-down — UX-004a / WI-B (#67)

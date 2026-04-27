@@ -888,6 +888,12 @@
       "removeBody": "Se eliminarán todas las partes. El movimiento volverá a tratarse como un único importe de {{amount}}.",
       "removeConfirm": "Eliminar",
       "removeCancel": "Cancelar",
+      "summaryOriginal": "Importe original",
+      "summaryDistributed": "Distribuido",
+      "summaryRemaining": "Restante",
+      "summaryOver": "Excedido en",
+      "summaryBalanced": "Equilibrado",
+      "saveHint": "Ctrl+Enter para guardar",
       "amountLockedTitle": "Importe bloqueado",
       "amountLockedBody": "El importe está bloqueado porque este movimiento tiene partes. Elimina la división para cambiar el importe."
     },

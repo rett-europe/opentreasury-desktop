@@ -279,27 +279,69 @@ export function SplitTransactionModal({
   const remainingEur = remainingCents / 100;
   const totalEur = transaction.amount;
 
+  const deltaState: 'balanced' | 'over' | 'under' = isBalanced
+    ? 'balanced'
+    : remainingEur < 0
+      ? 'over'
+      : 'under';
+
+  const deltaLabelKey =
+    deltaState === 'balanced'
+      ? 'splits.modal.summaryBalanced'
+      : deltaState === 'over'
+        ? 'splits.modal.summaryOver'
+        : 'splits.modal.summaryRemaining';
+
   return (
     <dialog ref={dialogRef} className="ot-split-modal" aria-labelledby="split-modal-title">
-      <div className="ot-split-modal__header">
-        <h2 id="split-modal-title">
-          {isEditMode ? t('splits.modal.editTitle') : t('splits.modal.title')}
-        </h2>
-        <button
-          type="button"
-          onClick={handleCancelClick}
-          className="ot-split-modal__close"
-          aria-label={t('common.close')}
-        >
-          <X size={20} />
-        </button>
-      </div>
+      <div className="ot-split-modal__content">
+        <header className="ot-split-modal__header">
+          <div className="ot-split-modal__header-text">
+            <h2 id="split-modal-title" className="ot-split-modal__title">
+              {isEditMode ? t('splits.modal.editTitle') : t('splits.modal.title')}
+            </h2>
+            <p className="ot-split-modal__subtitle">
+              <span className="ot-split-modal__subtitle-date">
+                {formatDate(transaction.date, locale)}
+              </span>
+              <span className="ot-split-modal__subtitle-sep" aria-hidden="true">
+                ·
+              </span>
+              <span className="ot-split-modal__subtitle-desc">{transaction.description}</span>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleCancelClick}
+            className="ot-split-modal__close"
+            aria-label={t('common.close')}
+          >
+            <X size={20} />
+          </button>
+        </header>
 
-      <div className="ot-split-modal__body">
-        <div className="ot-split-modal__original">
-          <strong>{t('splits.modal.originalLabel')}:</strong> {formatDate(transaction.date, locale)}{' '}
-          · {transaction.description} · {formatter.format(totalEur)}
-        </div>
+        <section
+          className={`ot-split-summary ot-split-summary--${deltaState}`}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="ot-split-summary__cell">
+            <span className="ot-split-summary__label">{t('splits.modal.summaryOriginal')}</span>
+            <span className="ot-split-summary__value">{formatter.format(totalEur)}</span>
+          </div>
+          <div className="ot-split-summary__cell">
+            <span className="ot-split-summary__label">{t('splits.modal.summaryDistributed')}</span>
+            <span className="ot-split-summary__value">{formatter.format(distributedEur)}</span>
+          </div>
+          <div className="ot-split-summary__cell ot-split-summary__cell--delta">
+            <span className="ot-split-summary__label">{t(deltaLabelKey)}</span>
+            <span className="ot-split-summary__value ot-split-summary__value--delta">
+              {deltaState === 'balanced'
+                ? formatter.format(0)
+                : formatter.format(Math.abs(remainingEur))}
+            </span>
+          </div>
+        </section>
 
         {generalError && (
           <div className="ot-split-modal__error" role="alert">
@@ -307,95 +349,114 @@ export function SplitTransactionModal({
           </div>
         )}
 
-        <div className="ot-split-modal__table">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>{t('splits.modal.colAmount')}</th>
-                <th>{t('splits.modal.colCategory')}</th>
-                <th>{t('splits.modal.colSubcategory')}</th>
-                <th>{t('splits.modal.colComment')}</th>
-                <th aria-label={t('common.delete')}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {splits.map((split, index) => {
-                const rowHasError = !isBalanced && isRowAmountInvalid(split);
-                return (
-                  <tr
-                    key={split.id}
-                    className={`ot-split-row ${rowHasError ? 'ot-split-row--error' : ''}`}
-                    aria-invalid={rowHasError}
-                    aria-describedby={rowHasError ? 'split-sum-warning' : undefined}
+        <div className="ot-split-modal__parts" role="group" aria-label={t('splits.modal.title')}>
+          <div className="ot-split-modal__parts-head" aria-hidden="true">
+            <span className="ot-split-modal__parts-head-cell ot-split-modal__parts-head-cell--index">
+              #
+            </span>
+            <span className="ot-split-modal__parts-head-cell ot-split-modal__parts-head-cell--amount">
+              {t('splits.modal.colAmount')}
+            </span>
+            <span className="ot-split-modal__parts-head-cell">{t('splits.modal.colCategory')}</span>
+            <span className="ot-split-modal__parts-head-cell">
+              {t('splits.modal.colSubcategory')}
+            </span>
+            <span className="ot-split-modal__parts-head-cell ot-split-modal__parts-head-cell--remove" />
+          </div>
+
+          <ul className="ot-split-modal__parts-list">
+            {splits.map((split, index) => {
+              const rowHasError = !isBalanced && isRowAmountInvalid(split);
+              return (
+                <li
+                  key={split.id}
+                  className={`ot-split-row ${rowHasError ? 'ot-split-row--error' : ''}`}
+                  aria-invalid={rowHasError}
+                  aria-describedby={rowHasError ? 'split-sum-warning' : undefined}
+                >
+                  <span className="ot-split-row__index" aria-hidden="true">
+                    {index + 1}
+                  </span>
+                  <div className="ot-split-row__amount">
+                    <label className="ot-sr-only" htmlFor={`split-amount-${split.id}`}>
+                      {t('splits.modal.colAmount')}
+                    </label>
+                    <input
+                      id={`split-amount-${split.id}`}
+                      type="text"
+                      inputMode="decimal"
+                      value={split.amountEur}
+                      onChange={(e) => handleAmountChange(split.id, e.target.value)}
+                      placeholder="0,00"
+                      className="ot-split-row__amount-input"
+                      aria-invalid={rowHasError}
+                    />
+                  </div>
+                  <div className="ot-split-row__category">
+                    <label className="ot-sr-only" htmlFor={`split-category-${split.id}`}>
+                      {t('splits.modal.colCategory')}
+                    </label>
+                    <select
+                      id={`split-category-${split.id}`}
+                      value={split.categoryId}
+                      onChange={(e) => handleCategoryChange(split.id, e.target.value)}
+                      className="ot-split-row__select"
+                    >
+                      <option value="">— {t('configuracion.categorias.none')} —</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="ot-split-row__subcategory">
+                    <label className="ot-sr-only" htmlFor={`split-subcategory-${split.id}`}>
+                      {t('splits.modal.colSubcategory')}
+                    </label>
+                    <select
+                      id={`split-subcategory-${split.id}`}
+                      value={split.subcategoryId}
+                      onChange={(e) => handleSubcategoryChange(split.id, e.target.value)}
+                      disabled={!split.categoryId}
+                      className="ot-split-row__select"
+                    >
+                      <option value="">— {t('configuracion.categorias.none')} —</option>
+                      {subcategoriesForRow(split.categoryId).map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePart(split.id)}
+                    disabled={splits.length <= 2}
+                    className="ot-split-row__remove"
+                    aria-label={t('common.delete')}
+                    title={t('common.delete')}
                   >
-                    <td className="ot-split-row__index">{index + 1}</td>
-                    <td className="ot-split-row__amount">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={split.amountEur}
-                        onChange={(e) => handleAmountChange(split.id, e.target.value)}
-                        placeholder="0,00"
-                        className="ot-split-row__amount-input"
-                        aria-invalid={rowHasError}
-                      />
-                    </td>
-                    <td className="ot-split-row__category">
-                      <select
-                        value={split.categoryId}
-                        onChange={(e) => handleCategoryChange(split.id, e.target.value)}
-                        className="ot-split-row__category-select"
-                      >
-                        <option value="">— {t('configuracion.categorias.none')} —</option>
-                        {categories.map((cat) => (
-                          <option key={cat.id} value={cat.id}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="ot-split-row__subcategory">
-                      <select
-                        value={split.subcategoryId}
-                        onChange={(e) => handleSubcategoryChange(split.id, e.target.value)}
-                        disabled={!split.categoryId}
-                        className="ot-split-row__subcategory-select"
-                      >
-                        <option value="">— {t('configuracion.categorias.none')} —</option>
-                        {subcategoriesForRow(split.categoryId).map((sub) => (
-                          <option key={sub.id} value={sub.id}>
-                            {sub.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="ot-split-row__comment">
-                      <input
-                        type="text"
-                        value={split.comment}
-                        onChange={(e) => handleCommentChange(split.id, e.target.value)}
-                        maxLength={SPLIT_COMMENT_MAX}
-                        placeholder="…"
-                        className="ot-split-row__comment-input"
-                      />
-                    </td>
-                    <td className="ot-split-row__actions">
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePart(split.id)}
-                        disabled={splits.length <= 2}
-                        className="ot-split-row__remove"
-                        aria-label={t('common.delete')}
-                      >
-                        <X size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    <X size={16} />
+                  </button>
+                  <div className="ot-split-row__comment">
+                    <label className="ot-sr-only" htmlFor={`split-comment-${split.id}`}>
+                      {t('splits.modal.colComment')}
+                    </label>
+                    <input
+                      id={`split-comment-${split.id}`}
+                      type="text"
+                      value={split.comment}
+                      onChange={(e) => handleCommentChange(split.id, e.target.value)}
+                      maxLength={SPLIT_COMMENT_MAX}
+                      placeholder={t('splits.modal.colComment')}
+                      className="ot-split-row__comment-input"
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
 
           <button
             type="button"
@@ -410,32 +471,21 @@ export function SplitTransactionModal({
           </button>
         </div>
 
-        <div
-          className={`ot-split-delta ${isBalanced ? 'ot-split-delta--balanced' : remainingEur > 0 ? 'ot-split-delta--positive' : 'ot-split-delta--negative'}`}
-          role="status"
-          aria-live="polite"
-        >
-          <div>
-            {t('splits.modal.distributed', {
-              distributed: formatter.format(distributedEur),
-              total: formatter.format(totalEur),
-            })}
+        {(!isBalanced || splits.length < 2) && (
+          <div className="ot-split-modal__warnings" aria-live="polite">
+            {!isBalanced && (
+              <p className="ot-split-modal__warning" id="split-sum-warning">
+                {t('splits.modal.sumWarning', { amount: formatter.format(totalEur) })}
+              </p>
+            )}
+            {splits.length < 2 && (
+              <p className="ot-split-modal__warning">{t('splits.modal.minPartsWarning')}</p>
+            )}
           </div>
-          <div>
-            {t('splits.modal.remaining', { amount: formatter.format(Math.abs(remainingEur)) })}
-          </div>
-          {!isBalanced && (
-            <div className="ot-split-delta__warning" id="split-sum-warning">
-              ⚠ {t('splits.modal.sumWarning', { amount: formatter.format(totalEur) })}
-            </div>
-          )}
-          {splits.length < 2 && (
-            <div className="ot-split-delta__warning">⚠ {t('splits.modal.minPartsWarning')}</div>
-          )}
-        </div>
+        )}
       </div>
 
-      <div className="ot-split-modal__footer">
+      <footer className="ot-split-modal__footer">
         <div className="ot-split-modal__footer-left">
           {isEditMode && (
             <Button
@@ -462,8 +512,15 @@ export function SplitTransactionModal({
           >
             {isSubmitting ? t('splits.modal.saving') : t('splits.modal.save')}
           </Button>
+          <span
+            className="ot-split-modal__save-hint"
+            aria-hidden="true"
+            title={t('splits.modal.saveHint')}
+          >
+            {t('splits.modal.saveHint')}
+          </span>
         </div>
-      </div>
+      </footer>
 
       {showDiscardConfirm && (
         <div className="ot-split-modal__confirm-overlay">
