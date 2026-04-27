@@ -62,6 +62,26 @@ Dashboard's recent-transactions table column widths now match MovementsScreen ex
 
 ---
 
+## PR #105 Wave 5 (2026-05-02)
+
+**Agent:** Trinity  
+**Branch:** `squad/dashboard-bugs-tags-recent-chart`  
+**Commits:** `71c0845` (refactor) + `b1cf32d` (docs)
+
+Extracted shared `TransactionsTable` component used by both MovementsScreen and PanelScreen:
+- **New component:** `app/src/renderer/components/TransactionsTable/{tsx,css,index.ts}` (~570 lines)
+- **Deleted:** ~200 lines JSX from MovementsScreen + ~150 from PanelScreen, plus 147 + 152 CSS lines
+- **Pattern:** Each screen maps native type (Movement/RecentTransaction) → shared `TransactionRow` at boundary; passes lookup maps (accounts/tags/categories/subcategories)
+- **TS+lint clean, 654 tests pass**
+
+Resolves the duplication-drift chain triggered in Waves 3–4. Both screens now pull column widths, headers, and cell rendering from a single source of truth.
+
+**Decisions merged into `.squad/decisions.md`:**
+- **Reuse-First Directive (Pedro, via Copilot)** — locked rule: extract shared components early for UI appearing 2+ times; configuration beats duplication
+- **Shared TransactionsTable Pattern (Trinity)** — component API, screen migration pattern, generalization for future transaction-list screens
+
+---
+
 ## PR #104 (2026-04-XX)
 
 [Team history begins with PR #105 Wave 2. Earlier PRs logged separately in decisions.md.]

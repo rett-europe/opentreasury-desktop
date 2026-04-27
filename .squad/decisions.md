@@ -102,53 +102,111 @@ For any semantic data type (income/expense, debit/credit, asset/liability), esta
 
 ---
 
-### 2026-04-29: Pattern — TransactionsTable Duplication Drift (Trinity, PR #105 Wave 4)
+### 2026-04-27: Directive — Prefer Component Extraction over JSX Duplication (Pedro, via Copilot)
 
-**Date:** 2026-04-29  
-**Status:** 🚩 IDENTIFIED (Wave 4 fix applied, future refactor flagged)  
+**Date:** 2026-04-27  
+**Status:** ✅ LOCKED TEAM RULE  
+**Requested by:** Pedro (perocha)  
+**Context:** PR #105 Wave 3 & Wave 4 both required drift fixes; Trinity flagged duplication risk
+
+#### Directive
+
+When the same UI structure is needed in multiple screens, reuse via shared components. Avoid JSX duplication — repeated manual syncing wastes time and introduces bugs.
+
+#### Rationale
+
+- PR #105 Waves 3–4 showed the cost of table duplication: two separate fixes (column headers, then column widths) required manual syncing to avoid Dashboard drift
+- Trinity recommended extraction rather than continued manual patching
+- Duplication accumulates faster than configuration complexity
+
+#### Team Rule
+
+**Extract shared components early when UI elements appear 2+ times.** Configuration via props (lookup maps, row mapping, optional features) is preferable to maintaining separate implementations.
+
+#### Locked Generalization
+
+For any UI component appearing in multiple screens with minor configuration differences (one interactive, one read-only; one with sort, one without; different data shapes), extract a shared component accepting configurable props. Manual duplication trades short-term simplicity for long-term maintenance cost — don't make that trade.
+
+---
+
+### 2026-05-02: Pattern — Shared TransactionsTable Component (Trinity, PR #105 Wave 5)
+
+**Date:** 2026-05-02  
+**Status:** ✅ SHIPPED (PR #105, commits 71c0845 + b1cf32d)  
 **Agent:** Trinity (Frontend Dev)  
-**Related Issue:** PR #105 Wave 3 → Wave 4 drift (missing column widths)
+**Related Issue:** PR #105 Wave 3 → Wave 4 → Wave 5 (extract shared component)
 
 #### Decision
 
-The recent-transactions table on Dashboard (`PanelScreen`) duplicates JSX and CSS from `MovementsScreen` instead of sharing a component. This pattern has caused two drift incidents in PR #105:
+Extract a shared `TransactionsTable` component that both `MovementsScreen` and `PanelScreen` use. This resolves the duplication-drift pattern identified in Waves 3–4.
 
-1. **Commit 2ef25df** — Dashboard missing Tags + Status columns
-2. **Commit fe45e7a** — Dashboard incorrect column widths (STATUS too wide, DATE/ACCOUNT/DESCRIPTION misaligned)
+#### Component API
 
-Both required manual syncing to canonical source (`MovementsScreen`).
+**Location:** `app/src/renderer/components/TransactionsTable/` (TransactionsTable.tsx, TransactionsTable.css, index.ts)
 
-#### Current State
+**Core responsibility:**
+- Canonical column widths (1012px total with select column, 980px without)
+- Column headers (type, date, account, description, category, subcategory, tags, status, amount)
+- Row rendering logic (type arrow, account pill, tag chips with overflow, category/subcategory labels, status badges)
+- `table-layout: fixed` + `min-width` + wrapper `overflow-x: auto` scroll pattern
+- All table-related CSS
 
-**Canonical source:** `MovementsScreen.tsx` (lines 560-740) + `MovementsScreen.css` (lines 418-480 for widths)
+**Accepts (lookup maps + data transformation):**
+- `rows: TransactionRow[]` — pre-mapped data
+- `accountLookup`, `tagLookup`, `categoryLookup`, `subcategoryLookup` — reference data
+- Optional: `showSelectColumn`, `selectedIds`, `onToggleRow`, `onSort`, `onRowClick`, etc.
 
-**Duplicate:** `PanelScreen.tsx` (columns array, lines 240-385) + `PanelScreen.css` (nth-child rules, lines 31-130)
+**Does NOT own:**
+- Toolbar, filters, search bar, pagination, KPI strip, screen layout
+- Data fetching, filtering, sorting (caller handles)
+- Modal/side-panel triggers (caller wires)
 
-The tables share identical column order, rendering logic, widths, and table-layout CSS. Only features differ (Dashboard: no select, no sort, no row actions, 8-row limit; Movements: full interactivity).
+#### Screen Migration Pattern
 
-#### Risk
+Each screen builds lookup maps from reference data and maps its native type (`Movement` or `RecentTransaction`) to shared `TransactionRow` shape at the boundary:
 
-Each future change to Movements table (columns, widths, rendering) must be manually propagated or Dashboard drifts. This is error-prone and wastes time on every fix.
+```typescript
+const accountLookup = useMemo(() => new Map(...), [accounts]);
+const transactionRows = useMemo(() => state.rawRecords.map(r => ({
+  id: r.id, date: r.date, type: r.type, amount: r.amount, 
+  accountId: r.accountId, categoryId: r.categoryId, ...
+})), [state]);
 
-#### Recommendation
+<TransactionsTable
+  rows={sortedTransactionRows}
+  accountLookup={accountLookup}
+  tagLookup={tagLookup}
+  categoryLookup={categoryLookup}
+  subcategoryLookup={subcategoryLookup}
+  showSelectColumn
+  onRowClick={(row) => { /* open detail modal */ }}
+/>
+```
 
-**Future refactor (not urgent):** Extract shared `<TransactionsTable>` component accepting:
-- `data: Transaction[]`
-- `columns: Array<'select' | 'type' | 'date' | ...>` — configurable column set
-- `sortable?: boolean`, `onRowClick?: (tx) => void`, `selectedIds?: Set<string>`, `onToggleRow?: (id) => void`
+#### Files Changed
 
-Column widths live in shared component CSS. Both screens render with their respective configs. Next drift incident should trigger this refactor rather than another manual sync.
+**Created:**
+- `app/src/renderer/components/TransactionsTable/TransactionsTable.tsx` (335 lines)
+- `app/src/renderer/components/TransactionsTable/TransactionsTable.css` (232 lines)
+- `app/src/renderer/components/TransactionsTable/index.ts`
+
+**Edited:**
+- `MovementsScreen.tsx` — deleted ~200 lines of column definitions + CSS, added lookup builders
+- `MovementsScreen.css` — deleted column width rules
+- `PanelScreen.tsx` — deleted ~150 lines of column definitions + CSS
+- `PanelScreen.css` — deleted column width rules
+
+**Net result:** -350 lines of duplicated code, +567 lines of shared component. Single source of truth for widths, headers, cell rendering.
 
 #### Generalization (locked rule)
 
-When the same table/list component appears in two screens with minor configuration differences (one interactive, one read-only), **extract shared component early**. Manual duplication accumulates drift faster than interactivity variations accumulate code complexity. Apply for UI elements appearing 2+ times.
+**Going forward:** Reuse-first, no duplicated tables/lists. When adding new screens showing transaction lists (search results, reports, export previews), reuse `TransactionsTable` with the lookup-map + row-mapping pattern. If a variant is needed, extend with optional props rather than forking.
 
-#### Files
+#### References
 
-- `app/src/renderer/screens/MovementsScreen/MovementsScreen.tsx` (lines 560-740)
-- `app/src/renderer/screens/MovementsScreen/MovementsScreen.css` (lines 418-480)
-- `app/src/renderer/screens/PanelScreen/PanelScreen.tsx` (lines 240-385)
-- `app/src/renderer/screens/PanelScreen/PanelScreen.css` (lines 31-130)
+- PR #105: squad/dashboard-bugs-tags-recent-chart (Wave 5)
+- Commits: 71c0845 (refactor) + b1cf32d (docs)
+- Skill: `.squad/skills/transactions-table/SKILL.md`
 
 ---
 
