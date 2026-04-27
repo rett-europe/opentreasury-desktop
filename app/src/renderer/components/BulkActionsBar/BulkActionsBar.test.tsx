@@ -7,14 +7,21 @@ import { BulkActionsBar } from './BulkActionsBar.js';
 
 function renderBar(props: Partial<React.ComponentProps<typeof BulkActionsBar>> = {}) {
   const onClassify = props.onClassify ?? vi.fn();
+  const onApprove = props.onApprove;
   const onCancel = props.onCancel ?? vi.fn();
   const selectedCount = props.selectedCount ?? 0;
   return {
     onClassify,
+    onApprove,
     onCancel,
     ...render(
       <I18nextProvider i18n={i18n}>
-        <BulkActionsBar selectedCount={selectedCount} onClassify={onClassify} onCancel={onCancel} />
+        <BulkActionsBar
+          selectedCount={selectedCount}
+          onClassify={onClassify}
+          onApprove={onApprove}
+          onCancel={onCancel}
+        />
       </I18nextProvider>,
     ),
   };
@@ -55,5 +62,25 @@ describe('BulkActionsBar', () => {
     fireEvent.click(screen.getByRole('button', { name: /^cancel(ar)?$/i }));
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onClassify).not.toHaveBeenCalled();
+  });
+
+  it('hides the Approve button when onApprove is not provided', () => {
+    renderBar({ selectedCount: 2 });
+    expect(screen.queryByRole('button', { name: /^(approve|aprobar)$/i })).toBeNull();
+  });
+
+  it('renders the Approve button and invokes onApprove when clicked', () => {
+    const onApprove = vi.fn();
+    renderBar({ selectedCount: 3, onApprove });
+    const btn = screen.getByRole('button', { name: /^(approve|aprobar)$/i });
+    expect(btn).not.toBeNull();
+    fireEvent.click(btn);
+    expect(onApprove).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not render the Approve button when selectedCount is 0', () => {
+    const onApprove = vi.fn();
+    renderBar({ selectedCount: 0, onApprove });
+    expect(screen.queryByRole('button', { name: /^(approve|aprobar)$/i })).toBeNull();
   });
 });
