@@ -2461,3 +2461,55 @@ Pedro dogfood pass on WI-B (#67) → 3 polish needs fanned out to four agents; a
 **Locked directive (Pedro):** Saldo category placement follows `category.kind` (intrinsic type), NOT period net sign. Subcategories follow their parent's `kind`, never their own subcategory net. Logged in `.squad/decisions.md`.
 
 **Next:** Issue #69 (WI-C YoY) labeled `priority:v1` — next saldo work.
+
+## 2026-04-27 — PR #105 Panel Recent Transactions Bug Fix
+
+**Branch:** squad/dashboard-bugs-tags-recent-chart  
+**Commit:** b56ee21  
+**Status:** Complete — fix pushed, ready for review
+
+### Root Cause
+
+queryRecentTransactions in pp/src/core/query/queries.ts sorted transactions by createdAt DESC only, not by transaction date. This returned the 8 most-recently-CREATED transactions in the system (based on when they were entered), not the 8 transactions with the most recent transaction DATES.
+
+**Why this mattered:** The dev-seed assigns createdAt timestamps based on transaction date (line 692 of devSeed.ts: ``T12:00:.000Z``). If transactions span multiple accounts on the same date, they receive sequential createdAt values (12:00:00, 12:00:01, etc.). Sorting by createdAt alone grouped all same-date transactions together, but did NOT guarantee cross-account diversity in the top 8 results. If the most recent date had ≥8 transactions from a single account, only that account would appear.
+
+**Trinity's prior investigation:** Trinity marked this as "code is correct, must be a data issue" in PR #105 history. Pedro confirmed this was incorrect — data DOES have multiple accounts with recent transactions. The bug was in the sorting logic, not the data.
+
+### Fix Applied
+
+Changed queryRecentTransactions to mirror the Movements screen pattern:
+- **Primary sort:** transaction date DESC (most recent dates first)
+- **Tiebreaker:** createdAt DESC (for same-date transactions, most-recently-entered first)
+
+This matches the existing pattern in pp/src/main/ipc/handlers/movements.ts lines 34-37:
+`	ypescript
+const sorted = [...filtered].sort((a, b) => {
+  if (a.date !== b.date) return b.date.localeCompare(a.date);
+  return b.createdAt.localeCompare(a.createdAt);
+});
+`
+
+Now Panel "Recent transactions" shows the latest 8 transactions by DATE, spanning all active accounts.
+
+### Learnings
+
+**"Recent transactions" = recent by DATE, not by system createdAt:** When building queries for user-facing "recent" lists, always sort by business date (transaction date, event date, etc.) first, then use audit timestamps (createdAt) as tiebreakers. Sorting only by createdAt shows "recently entered" data, which is correct for audit trails but wrong for transactional history views.
+
+**Cross-check with similar queries:** When a query seems correct in isolation but produces unexpected results, check if other queries in the codebase solve the same problem. The Movements list handler already had the correct 2-tier sort; applying that pattern to Panel fixed the issue immediately.
+
+**Verify Trinity's "data issue" dismissals:** If a UI bug is dismissed as "data problem" but the user confirms data is correct, re-investigate the query logic. Trinity's assumption that ``model.transactions`` with no accountId filter = correct was sound, but the sort-by-createdAt was subtly wrong. Always trace the full data flow: sort → slice → render.
+
+### Files Changed
+
+- ``app/src/core/query/queries.ts`` — changed queryRecentTransactions to sort by date DESC, then createdAt DESC
+
+### Quality Gates
+
+- ✅ TypeScript: 
+px tsc --noEmit passed
+- ✅ Lint: 
+pm run lint passed
+- ✅ Tests: all 714 tests passed (83 files)
+
+---

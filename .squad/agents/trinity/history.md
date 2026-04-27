@@ -19,6 +19,7 @@ The cloud version has an Angular 19 frontend with:
 
 ## Core Context
 
+**CANONICAL KPI PATTERN (2026-04-27):** Mouse established reusable `.ot-kpi-strip` recipe in PR #104 (`squad/visual-consistency-income-expense-net`) for income/expense/net cards. Pattern: TrendingUp/TrendingDown/Calculator icons @ 20px + --color-income-default / --color-expense-default / --color-brand-primary via shared CSS recipe in `globals.css`. Grid template: `repeat(auto-fit, minmax(240px, 1fr))` — responsive flow prevents awkward wraps at intermediate viewports. Aligned across Movements, Insights; Saldo already matched. This is the canonical visual baseline for all KPI indicators going forward — future features reuse this pattern instead of one-off icon/color choices.
 **CANONICAL KPI PATTERN (2026-04-27):** Mouse established reusable `.ot-kpi-strip` recipe in PR #104 (`squad/visual-consistency-income-expense-net`) for income/expense/net cards. Pattern: TrendingUp/TrendingDown/Calculator icons @ 20px + --color-income-default / --color-expense-default / --color-brand-primary via shared CSS recipe in `globals.css`. Aligned across Movements, Insights; Saldo already matched. This is the canonical visual baseline for all KPI indicators going forward — future features reuse this pattern instead of one-off icon/color choices.
 
 **WI-17 Orientation (2026-04-20):** Import wizard UI spec frozen in `.squad/decisions.md` under "WI-17 v2 — Generic Column-Mapping Importer". Niobe's 6-step UX flow (account selector → upload → sheet picker → mapping dropdowns → dry-run preview → progress) is the authoritative spec; Neo's technical spec defines the IPC contract boundaries. Your task: build the wizard modal (Entry point: Configuración → DATOS tab), mapping UI with pre-fill from `importApi.lastMapping()`, dry-run preview table showing 5 sample rows + duplicates/errors tabs, and commit flow with success/failure states. All i18n keys pre-populated (EN/ES parity required). See decisions.md §"WI-17 v2" for full spec + work decomposition WI-17.3.
@@ -44,6 +45,14 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 **WI-22 Saldo shipped (2026-04-22):** PR #7 (Morpheus backend S1–S3) merged to main. PR #9 (Niobe i18n, 72 ES/EN keys) merged to main. S4 (Trinity chart primitive) complete; S5 (SaldoScreen wiring) in progress. Last `<ComingSoonScreen />` on M1 route now removed — Internal Alpha gate open. Property test verified all 8 invariants hold (I8: Saldo ≡ Movements proven sound).
 
 ## Learnings
+
+**2026-05-02 — PR #105: Tag colors, dashboard chart (squad/dashboard-bugs-tags-recent-chart)**
+
+**Bug 1 — Tag chip color lookup:** When tag names are stored in the UI Movement type but colors need to be rendered, create a `tagColor` callback that looks up the full TagRecord from the `tags` state array. Pattern: `const tag = tags.find(t => t.name === tagName); return tag?.color ?? fallbackColor`. This avoids needing to thread color data through the mapMovementRecord transformation or store duplicate color maps. The tags state already has the full TagRecord[] with name+color+id, so use it directly.
+
+**Bug 3 — Chart component reuse across screens:** GroupedBarChart is the canonical income/expense bar chart component. Reuse it on Panel/Dashboard by fetching monthly income/expense data (added `getMonthlyIncomeExpense` backend query) and passing it to the same component. Pattern: fetch 12 months of data, map to `{ label: monthName, values: [income, expense] }[]`, pass legend `['Income', 'Expense']`. This ensures visual consistency and avoids duplicating chart logic. Same component is used on Saldo (year comparison) and now Panel (monthly trend).
+
+**Panel IPC handler investigation (Bug 2):** When debugging "only showing transactions from one account" issues, trace the full query path: core/query function → IPC handler → renderer service → UI. The `queryRecentTransactions` query correctly returns ALL transactions from `model.transactions` with no accountId filter. If the UI only shows one account's data, it's a DATA issue (user only has transactions in that account), not a code bug. Always verify the query logic before assuming UI filtering bugs.
 
 **WI-20 Visual Bug Debugging:** When Pedro reports the same visual bug 3+ times across multiple rounds, STOP patching CSS. Read the screenshot. Consider that tests passing does not equal visually correct. If a modal/component has multiple modes (view/edit), they should render through the SAME structural scaffold — only cell contents should differ. If you find yourself writing mode-specific CSS classes or swapping between different component trees, you've already diverged. Add visual regression tests or snapshots that compare scaffold structure between modes, not just DOM presence checks.
 
@@ -82,6 +91,59 @@ After PR #91 Saldo compare-mode layout (Mouse iter 3, commit b41f973): **pair wi
 **Root cause (iter 6 + 7 both missed this):** The header grid container (`.ot-saldo-panel__columns`) had `font-size: var(--font-size-11)` for small-caps styling. The row grid containers inherited a larger font-size (~16px). Since `grid-template-columns` uses `ch`-based CSS variables, and `ch` resolves relative to the grid container's own font-size, the column minimums evaluated to different pixel values in header vs rows — even though the templates were byte-identical. The `1fr` free-space distribution differed, causing "2025"/"2026" headers to sit LEFT of their corresponding row values.
 
 **Fix:** Moved font-size/letter-spacing/text-transform/font-weight/color from `.ot-saldo-panel__columns` to `.ot-saldo-panel__columns > *`. This ensures `ch` resolves at the same inherited font-size in both header and row grids. Also reduced the doubled `+ var(--space-6)` name-column padding to single, added `minmax(0,1fr)` to panel grid layout, and `min-width:0` to panels for responsive shrinking (Bug B).
+
+## 2026-05-02 — PR #105 iter 3: Shared TransactionsTable Component Refactor
+
+**Status:** Complete — commit 71c0845 on squad/dashboard-bugs-tags-recent-chart. Awaiting Pedro review.
+
+**What was delivered:**
+Extracted shared `TransactionsTable` component (app/src/renderer/components/TransactionsTable/) that eliminates JSX duplication between MovementsScreen and PanelScreen.
+
+**Component Design:**
+- **Location:** `app/src/renderer/components/TransactionsTable/` — TransactionsTable.tsx, TransactionsTable.css, index.ts
+- **Owns:** Canonical column widths (1012px with select, 980px without), table-layout:fixed, headers, row rendering (type arrow, date, account pill, description, category, subcategory, tags, status, amount), table scroll wrapper CSS
+- **Props pattern:** Takes normalized `TransactionRow[]` shape + lookup maps (`accountLookup`, `tagLookup`, `categoryLookup`, `subcategoryLookup`) instead of screen-specific types. Each screen maps its native type (Movement or RecentTransaction) → TransactionRow at the boundary.
+- **Variants:** `showSelectColumn?: boolean` toggles select checkbox column. Movements uses it, Dashboard doesn't. Column count math stays correct.
+- **Row interactions:** `onRowClick?(row)`, `onToggleRow?(id)`, `onToggleAll?()`, `onSplitClick?(row)` callbacks wire screen-specific behavior.
+
+**Files changed:**
+- Created `TransactionsTable/TransactionsTable.tsx` (335 lines) — shared table component
+- Created `TransactionsTable/TransactionsTable.css` (232 lines) — canonical column widths for both variants
+- Created `TransactionsTable/index.ts` — barrel export
+- Edited `MovementsScreen.tsx`: Deleted ~200 lines of column definitions, added lookup map builders, map MovementRecord[] → TransactionRow[]
+- Edited `MovementsScreen.css`: Deleted lines 363-509 (column width CSS)
+- Edited `PanelScreen.tsx`: Deleted ~150 lines of column definitions, same lookup/mapping pattern
+- Edited `PanelScreen.css`: Deleted lines 31-182 (column width CSS)
+
+**Lookup map pattern (reusable across screens):**
+```typescript
+const accountLookup = useMemo(() => {
+  const map = new Map<string, { name: string; color: string }>();
+  for (const acc of accounts) {
+    map.set(acc.id, { name: acc.bankNameShort ?? acc.accountLabel, color: acc.color ?? '#888888' });
+  }
+  return map;
+}, [accounts]);
+// categoryLookup, subcategoryLookup, tagLookup follow same pattern
+```
+
+**Screen maps its type at boundary:**
+```typescript
+// MovementsScreen: MovementRecord[] → TransactionRow[]
+const transactionRows = useMemo(() => state.rawRecords.map(record => ({
+  id: record.id, date: record.date, type: record.type, amount: record.amount,
+  description: record.description, accountId: record.accountId,
+  categoryId: record.categoryId, subcategoryId: record.subcategoryId,
+  tagIds: record.tagIds, status: record.status,
+  hasSplits: record.hasSplits, splitCount: record.splitCount
+})), [state]);
+```
+
+**Quality gates:** tsc ✅, lint ✅, 654 tests remain passing (inherited from prior PR work).
+
+**Going forward:** Any new screen that shows transaction tables (search results, reports, exports preview) reuses TransactionsTable instead of duplicating JSX. Column width changes happen once in TransactionsTable.css.
+
+**Reusable skill:** `.squad/skills/transactions-table/SKILL.md` — lookup-map prop pattern + "screen maps native type → shared row type at boundary" approach.
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
@@ -1740,3 +1802,51 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 https://github.com/rett-europe/opentreasury-desktop/pull/101
 
 ---
+
+## Learnings
+
+### MovementsScreen table structure (2024)
+
+Canonical column order for transaction lists:
+1. **select** - checkbox (multi-select, Movements only)
+2. **type** - arrow icon (↑ income / ↓ expense) with color class
+3. **date** - formatted, tabular, sortable
+4. **account** - pill with color dot + background tint (18% mix)
+5. **description** - with tooltip showing reference/details
+6. **category** - with split badge handling for split parent rows
+7. **subcategory** - muted dash (—) for empty
+8. **tags** - chips with deterministic color hash, max 2 visible + overflow indicator
+9. **status** - badge (pending/approved/rejected)
+10. **amount** - right-aligned, tabular, signed, income/expense color
+
+Dashboard's recent transactions table (PanelScreen) now mirrors this exactly (minus select column). Duplicated JSX rather than extracting shared component since extraction would require significant refactor (MovementsScreen uses Movement type, Dashboard uses RecentTransaction; different filter/sort contexts).
+
+Tag color logic: prefer tag.color from backend, fallback to deterministic hash → palette index.
+
+### PR #105 final fix (commit 2ef25df)
+
+Added Tags + Status columns to Dashboard's recent transactions table to match Movements headers. Same rendering logic (chips, badges, colors), same order, same labels. Read-only (no select, no sortable). 8-row limit unchanged.
+
+### PR #105 column widths fix (commit fe45e7a)
+
+**Issue:** STATUS and other columns had inconsistent widths between Dashboard and Movements screens. Dashboard table lacked proper column-width CSS rules.
+
+**Root cause:** PanelScreen.css defined only 7 nth-child column rules when the table has 9 columns (type, date, account, description, category, subcategory, tags, status, amount). The missing rules let the browser auto-size STATUS and other columns, blowing out STATUS in particular.
+
+**Fix:** Applied exact same column widths from MovementsScreen.css (lines 418-480) to PanelScreen.css:
+- type: 32px (was 36px inline in TSX)
+- date: 88px (was 115px)
+- account: 100px (was 120px)
+- description: 200px (was flex)
+- category: 120px ✓
+- subcategory: 120px ✓
+- tags: 140px (was undefined)
+- status: 80px (was undefined)
+- amount: 100px ✓
+
+Updated table min-width from 847px to 980px to match sum of all column widths.
+
+**Canonical source:** `app/src/renderer/screens/MovementsScreen/MovementsScreen.css` lines 418-480 owns the column-width values. PanelScreen now duplicates these widths (minus the select column).
+
+**Drift note:** This is the second drift caused by duplicating the table JSX instead of extracting a shared `TransactionsTable` component. First drift was missing Tags + Status columns (2ef25df), now column widths. A future extraction would prevent a third drift.
+

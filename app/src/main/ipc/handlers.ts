@@ -11,6 +11,7 @@ import {
   IPC_PANEL_GET_MONTH_KPIS,
   IPC_PANEL_GET_ACCOUNT_SPARKLINES,
   IPC_PANEL_QUERY_RECENT_TRANSACTIONS,
+  IPC_PANEL_GET_MONTHLY_INCOME_EXPENSE,
   getAccountsRequestSchema,
   getAccountsResponseSchema,
   getAccountBalancesRequestSchema,
@@ -21,6 +22,8 @@ import {
   getAccountSparklinesResponseSchema,
   queryRecentTransactionsRequestSchema,
   queryRecentTransactionsResponseSchema,
+  getMonthlyIncomeExpenseRequestSchema,
+  getMonthlyIncomeExpenseResponseSchema,
 } from '../../shared/ipc-contracts/panel.js';
 import {
   IPC_SALDO_GET_COMPARISON,
@@ -113,6 +116,7 @@ import {
   handleGetMonthKPIs,
   handleGetAccountSparklines,
   handleQueryRecentTransactions,
+  handleGetMonthlyIncomeExpense,
 } from './handlers/panel.js';
 import { handleGetSaldoComparison } from './handlers/saldo.js';
 import {
@@ -210,6 +214,12 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     const request = queryRecentTransactionsRequestSchema.parse(raw);
     const response = await handleQueryRecentTransactions(request);
     return queryRecentTransactionsResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_PANEL_GET_MONTHLY_INCOME_EXPENSE, async (_event, raw: unknown) => {
+    const request = getMonthlyIncomeExpenseRequestSchema.parse(raw);
+    const response = await handleGetMonthlyIncomeExpense(request);
+    return getMonthlyIncomeExpenseResponseSchema.parse(response);
   });
 
   // WI-22 — Saldo aggregation (single read-only comparison endpoint).

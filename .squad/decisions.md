@@ -2,6 +2,214 @@
 
 ## Active Decisions
 
+### 2026-04-27: Pattern — Recent Transactions Sort Order (Morpheus, PR #105 Wave 2)
+
+**Date:** 2026-04-27  
+**Status:** ✅ MERGED (PR #105 commit b56ee21)  
+**Agent:** Morpheus (Backend Dev)  
+**Related Issue:** Dashboard bugs — recent transactions only shows from one account
+
+#### Decision
+
+All user-facing "recent transactions" queries MUST sort by business date first, then audit timestamp as tiebreaker:
+
+```typescript
+.sort((a, b) => {
+  if (a.date !== b.date) return b.date.localeCompare(a.date); // primary: business date DESC
+  return b.createdAt.localeCompare(a.createdAt); // tiebreaker: audit timestamp DESC
+})
+```
+
+#### Rationale
+
+- `createdAt` reflects when a transaction was ENTERED into the system (import time, manual-entry time, etc.)
+- `date` reflects when the transaction OCCURRED in the real world
+- Users expect "recent" to mean "recent occurrence", not "recently imported"
+- Sorting only by `createdAt` can cluster same-import-batch transactions, hiding cross-account diversity
+
+#### Examples
+
+- ✅ `app/src/main/ipc/handlers/movements.ts` — MovementsList query (lines 34-37)
+- ✅ `app/src/core/query/queries.ts` — `queryRecentTransactions` (fixed in PR #105)
+
+#### Applies to
+
+Any query that presents "latest N transactions" or "recent movements" to the user. Does NOT apply to audit trails or system event logs (where `createdAt`-only sort is correct).
+
+#### Generalization (locked rule)
+
+"Recent" in user-facing UX always prioritizes business semantics (transaction date) over system semantics (import timestamp). When sorting events by time, check: "Does the user care when this happened in the world, or when we processed it?" If the former, sort by business date with audit timestamp as tiebreaker.
+
+---
+
+### 2026-04-27: Pattern — Chart Colors: Canonical Income/Expense Token Extension (Mouse, PR #105 Wave 2)
+
+**Date:** 2026-04-27  
+**Status:** ✅ MERGED (PR #105 commit a372019)  
+**Agent:** Mouse (UI Designer)  
+**Related:** PR #104 (canonical tokens), PR #105 (Dashboard chart)
+
+#### Decision
+
+When charts represent income vs expense data semantically (monthly trends, category breakdowns, year-over-year comparisons), they should use the canonical `--color-income-default` (green) and `--color-expense-default` (red) tokens — NOT generic brand colors (`--color-brand-primary`, `--color-brand-primary-muted`).
+
+#### Context
+
+PR #104 shipped canonical income/expense color tokens for visual consistency across KPI cards, amount cells, and delta indicators. PR #105 added a `GroupedBarChart` to Dashboard showing monthly income vs expense trend. Initial implementation used default bar classes (`--current` / `--prior`) which mapped to blue brand colors. Pedro flagged: "the colors in the new graph need to be aligned with Dashboard screen (red & green)."
+
+#### Implementation Pattern
+
+The `GroupedBarChart` component is designed to be flexible:
+
+1. **Accepts color overrides via props:**
+   - `barClassNames` (per series) — array of CSS class names for bar fills
+   - `legend` items can be objects with `{ label, className }` to override swatch colors
+
+2. **Provides sensible defaults:**
+   - Falls back to `DEFAULT_BAR_CLASSES` (`--current`, `--prior`) if no override
+   - Falls back to `DEFAULT_SWATCH_CLASSES` for legend swatches
+
+3. **CSS defines semantic classes:**
+   - `.ot-grouped-bar-chart__bar--income-solo { fill: var(--color-income-default); }`
+   - `.ot-grouped-bar-chart__bar--expense-solo { fill: var(--color-expense-default); }`
+
+#### Rationale
+
+1. **Visual consistency:** Income is green, expense is red everywhere (KPI cards, amounts, deltas, charts)
+2. **Semantic correctness:** Color encodes data type (income/expense), not arbitrary series order
+3. **User recognition:** Users learn color → meaning mapping once, applies across entire app
+4. **Accessibility:** Consistent color coding reinforces screen-reader labels and ARIA descriptions
+
+#### When NOT to Use Canonical Tokens
+
+The component stays flexible for non-income/expense contexts:
+- Multi-account comparison charts → use account colors
+- Custom analysis views → use custom color schemes
+- Generic data series → use brand primary/secondary
+
+The canonical tokens are a *conventional default* for financial income/expense contexts, not a hardcoded requirement.
+
+#### Generalization (locked rule)
+
+For any semantic data type (income/expense, debit/credit, asset/liability), establish a canonical color pair and apply it consistently across *all* UI elements that represent that type — cards, numbers, charts, badges. Users should learn the mapping once.
+
+#### Files
+
+- Canonical tokens: `app/src/renderer/styles/tokens.css` (lines 66, 71, 314, 318, 399, 401)
+- Component: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.tsx`
+- Chart CSS: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.css` (lines 85-125)
+- Implementation: `PanelScreen.tsx` (lines 354-370) — barClassNames + legend className props
+
+---
+
+### 2026-04-27: Directive — Prefer Component Extraction over JSX Duplication (Pedro, via Copilot)
+
+**Date:** 2026-04-27  
+**Status:** ✅ LOCKED TEAM RULE  
+**Requested by:** Pedro (perocha)  
+**Context:** PR #105 Wave 3 & Wave 4 both required drift fixes; Trinity flagged duplication risk
+
+#### Directive
+
+When the same UI structure is needed in multiple screens, reuse via shared components. Avoid JSX duplication — repeated manual syncing wastes time and introduces bugs.
+
+#### Rationale
+
+- PR #105 Waves 3–4 showed the cost of table duplication: two separate fixes (column headers, then column widths) required manual syncing to avoid Dashboard drift
+- Trinity recommended extraction rather than continued manual patching
+- Duplication accumulates faster than configuration complexity
+
+#### Team Rule
+
+**Extract shared components early when UI elements appear 2+ times.** Configuration via props (lookup maps, row mapping, optional features) is preferable to maintaining separate implementations.
+
+#### Locked Generalization
+
+For any UI component appearing in multiple screens with minor configuration differences (one interactive, one read-only; one with sort, one without; different data shapes), extract a shared component accepting configurable props. Manual duplication trades short-term simplicity for long-term maintenance cost — don't make that trade.
+
+---
+
+### 2026-05-02: Pattern — Shared TransactionsTable Component (Trinity, PR #105 Wave 5)
+
+**Date:** 2026-05-02  
+**Status:** ✅ SHIPPED (PR #105, commits 71c0845 + b1cf32d)  
+**Agent:** Trinity (Frontend Dev)  
+**Related Issue:** PR #105 Wave 3 → Wave 4 → Wave 5 (extract shared component)
+
+#### Decision
+
+Extract a shared `TransactionsTable` component that both `MovementsScreen` and `PanelScreen` use. This resolves the duplication-drift pattern identified in Waves 3–4.
+
+#### Component API
+
+**Location:** `app/src/renderer/components/TransactionsTable/` (TransactionsTable.tsx, TransactionsTable.css, index.ts)
+
+**Core responsibility:**
+- Canonical column widths (1012px total with select column, 980px without)
+- Column headers (type, date, account, description, category, subcategory, tags, status, amount)
+- Row rendering logic (type arrow, account pill, tag chips with overflow, category/subcategory labels, status badges)
+- `table-layout: fixed` + `min-width` + wrapper `overflow-x: auto` scroll pattern
+- All table-related CSS
+
+**Accepts (lookup maps + data transformation):**
+- `rows: TransactionRow[]` — pre-mapped data
+- `accountLookup`, `tagLookup`, `categoryLookup`, `subcategoryLookup` — reference data
+- Optional: `showSelectColumn`, `selectedIds`, `onToggleRow`, `onSort`, `onRowClick`, etc.
+
+**Does NOT own:**
+- Toolbar, filters, search bar, pagination, KPI strip, screen layout
+- Data fetching, filtering, sorting (caller handles)
+- Modal/side-panel triggers (caller wires)
+
+#### Screen Migration Pattern
+
+Each screen builds lookup maps from reference data and maps its native type (`Movement` or `RecentTransaction`) to shared `TransactionRow` shape at the boundary:
+
+```typescript
+const accountLookup = useMemo(() => new Map(...), [accounts]);
+const transactionRows = useMemo(() => state.rawRecords.map(r => ({
+  id: r.id, date: r.date, type: r.type, amount: r.amount, 
+  accountId: r.accountId, categoryId: r.categoryId, ...
+})), [state]);
+
+<TransactionsTable
+  rows={sortedTransactionRows}
+  accountLookup={accountLookup}
+  tagLookup={tagLookup}
+  categoryLookup={categoryLookup}
+  subcategoryLookup={subcategoryLookup}
+  showSelectColumn
+  onRowClick={(row) => { /* open detail modal */ }}
+/>
+```
+
+#### Files Changed
+
+**Created:**
+- `app/src/renderer/components/TransactionsTable/TransactionsTable.tsx` (335 lines)
+- `app/src/renderer/components/TransactionsTable/TransactionsTable.css` (232 lines)
+- `app/src/renderer/components/TransactionsTable/index.ts`
+
+**Edited:**
+- `MovementsScreen.tsx` — deleted ~200 lines of column definitions + CSS, added lookup builders
+- `MovementsScreen.css` — deleted column width rules
+- `PanelScreen.tsx` — deleted ~150 lines of column definitions + CSS
+- `PanelScreen.css` — deleted column width rules
+
+**Net result:** -350 lines of duplicated code, +567 lines of shared component. Single source of truth for widths, headers, cell rendering.
+
+#### Generalization (locked rule)
+
+**Going forward:** Reuse-first, no duplicated tables/lists. When adding new screens showing transaction lists (search results, reports, export previews), reuse `TransactionsTable` with the lookup-map + row-mapping pattern. If a variant is needed, extend with optional props rather than forking.
+
+#### References
+
+- PR #105: squad/dashboard-bugs-tags-recent-chart (Wave 5)
+- Commits: 71c0845 (refactor) + b1cf32d (docs)
+- Skill: `.squad/skills/transactions-table/SKILL.md`
+
+---
+
 ### 2026-04-26: Saldo Subcategory Drilldown — Drop §3.3 Left Guide (post-#78 dogfood, PR #87)
 
 **Date:** 2026-04-26
@@ -6532,3 +6740,116 @@ This reduces single-agent risk and keeps roles aligned with outing.md.
 1. **Separate "what does the prototype show?" from "is the React tree correct?"** — these are independent questions and require independent judgment.
 2. **Visual reference is authoritative** — Mouse interprets prototype; Trinity consumes Mouse's judgment as the spec.
 3. **Visual regression is Trinity's responsibility post-implementation** — Mouse reviews the shipped code against prototype before merge.
+
+---
+
+### 2026-04-27: Income/Expense/Net Canonical Visual Pattern
+
+**Date:** 2026-04-27  
+**Status:** ✅ LOCKED (PR #104)  
+**Agent:** Mouse (UI Designer)  
+**Requested by:** Pedro (perocha) — visual consistency audit
+
+#### Decision
+
+All income/expense/net KPI presentations across the application MUST follow the Dashboard (Panel) pattern defined in `KPIStrip` component and `globals.css` `.ot-kpi-strip` recipe.
+
+#### Canonical Pattern
+
+| Metric   | Icon           | Icon Size | Icon BG Token              | Icon + Value Color Token       |
+|----------|----------------|-----------|----------------------------|--------------------------------|
+| Income   | `TrendingUp`   | 20px      | `--color-income-bg`        | `--color-income-default`       |
+| Expense  | `TrendingDown` | 20px      | `--color-expense-bg`       | `--color-expense-default`      |
+| Net      | `Calculator`   | 20px      | `--color-brand-surface`    | `--color-brand-primary`        |
+
+**Structure:**
+```tsx
+<div className="ot-kpi-strip" role="status" aria-live="polite">
+  <div className="ot-kpi ot-kpi--income">
+    <div className="ot-kpi__icon">
+      <TrendingUp size={20} />
+    </div>
+    <div className="ot-kpi__content">
+      <div className="ot-kpi__label">{label}</div>
+      <div className="ot-kpi__value">{value}</div>
+    </div>
+  </div>
+  {/* repeat for expense, net */}
+</div>
+```
+
+**Typography:**
+- Label: 11px uppercase, 0.08em letter-spacing, semibold, `--color-text-muted`
+- Value: 24px semibold, tabular-nums, tone-specific color
+
+#### Enforcement
+
+- All income/expense/net displays MUST use `.ot-kpi-strip` + `.ot-kpi` classes from `globals.css`
+- Component-level CSS MUST NOT override `.ot-kpi-*` classes
+- Icon set: `lucide-react` at size **20px**
+- Color tokens: use modifiers (`.ot-kpi--income`, `.ot-kpi--expense`, `.ot-kpi--net`), not inline styles
+
+#### Anti-pattern caught
+
+Component CSS imported after `globals.css` silently shadows shared recipes. Movements had redefined `.ot-movements__totals-*` with different grid layout and missing icons.
+
+#### PR
+
+https://github.com/rett-europe/opentreasury-desktop/pull/104
+
+---
+
+### 2026-04-27: Chart Component Reuse Pattern — GroupedBarChart Canonical for Bar Charts
+
+**Date:** 2026-04-27  
+**Status:** ✅ IMPLEMENTED (PR #105)  
+**Author:** Trinity  
+**Pattern Type:** Architecture
+
+#### Context
+
+Panel (Dashboard) screen needed an income vs expense bar chart showing the last 12 months. Saldo (Insights) screen already had a GroupedBarChart component for year-over-year comparison.
+
+#### Decision
+
+Reuse the same `GroupedBarChart` component across both screens rather than creating separate chart implementations.
+
+**Pattern:**
+1. Backend provides monthly aggregated data via dedicated query (`getMonthlyIncomeExpense`)
+2. Renderer transforms data into GroupedBarChart's expected shape:
+   ```typescript
+   series: Array<{ label: string; values: number[] }>
+   legend: string[]
+   ```
+3. Same visual treatment (colors, spacing, tooltip) across all uses
+
+#### Rationale
+
+- **Visual consistency** — users see the same chart style everywhere (income/expense bars)
+- **Single source of truth** — chart logic (scaling, tooltips, accessibility) lives in one component
+- **Maintainability** — bug fixes and improvements apply to all charts automatically
+- **Accessibility** — GroupedBarChart already has proper ARIA labels, keyboard nav, and data table fallback
+
+#### Implementation (PR #105)
+
+**Backend:**
+- Added `getMonthlyIncomeExpense()` query in `core/query/queries.ts` (12 months, all accounts)
+- IPC contract: `panel:get-monthly-income-expense`
+- Handler: `handleGetMonthlyIncomeExpense` in `main/ipc/handlers/panel.ts`
+
+**Frontend:**
+- Service: `getMonthlyIncomeExpense()` in `renderer/services/panelApi.ts`
+- PanelScreen fetches data on mount, maps to chart series format
+- Replaced skeleton placeholder with `<GroupedBarChart />` component
+
+**Chart usage:**
+- **Saldo:** 12 months × 2 years (current vs prior) = year-over-year comparison
+- **Panel:** 12 months × 2 series (income vs expense) = monthly trend
+
+#### Future Reuse
+
+When adding charts to other screens (e.g., category breakdown, account trends), prefer reusing `GroupedBarChart` if the data fits the grouped-bar pattern (multiple values per label). Only create new chart components when the visualization type fundamentally differs (pie, line, etc.).
+
+#### PR
+
+https://github.com/rett-europe/opentreasury-desktop/pull/105

@@ -29,11 +29,14 @@ function effectiveAmounts(
   return [{ amount: tx.amount, categoryId: tx.categoryId, subcategoryId: tx.subcategoryId }];
 }
 
-// Query 1: Get recent transactions (sorted DESC by createdAt)
+// Query 1: Get recent transactions (sorted DESC by date, then createdAt)
 export function queryRecentTransactions(limit = 10): Transaction[] {
   const model = getReadModel();
   return [...model.transactions]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date);
+      return b.createdAt.localeCompare(a.createdAt);
+    })
     .slice(0, limit);
 }
 
@@ -193,5 +196,54 @@ export function getAccounts(): ConfigAccount[] {
       return a.sortOrder - b.sortOrder;
     }
     return accountDisplayLabel(a).localeCompare(accountDisplayLabel(b));
+  });
+}
+
+// Query 6: Get monthly income/expense breakdown (12 months)
+export interface MonthlyIncomeExpense {
+  readonly yearMonth: string; // YYYY-MM
+  readonly income: number;
+  readonly expense: number;
+}
+
+export function getMonthlyIncomeExpense(): MonthlyIncomeExpense[] {
+  const model = getReadModel();
+
+  // Get the last 12 months relative to now
+  const now = new Date();
+  const months: string[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const yearMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    months.push(yearMonth);
+  }
+
+  const bucketMap = new Map<string, { income: number; expense: number }>();
+  for (const month of months) {
+    bucketMap.set(month, { income: 0, expense: 0 });
+  }
+
+  for (const tx of model.transactions) {
+    const txMonth = tx.date.substring(0, 7); // YYYY-MM
+    if (bucketMap.has(txMonth)) {
+      const bucket = bucketMap.get(txMonth)!;
+      const amounts = effectiveAmounts(tx, model);
+      for (const ea of amounts) {
+        if (tx.type === 'income') {
+          bucket.income += ea.amount;
+        } else {
+          bucket.expense += ea.amount;
+        }
+      }
+    }
+  }
+
+  return months.map((month) => {
+    const { income, expense } = bucketMap.get(month)!;
+    return {
+      yearMonth: month,
+      income: Math.round(income * 100) / 100,
+      expense: Math.round(expense * 100) / 100,
+    };
   });
 }

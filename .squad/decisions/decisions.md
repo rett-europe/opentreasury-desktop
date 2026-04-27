@@ -1282,6 +1282,74 @@ Bar widths are scaled as a percentage of `panelMaxAbs` (per-panel max absolute v
 
 Header now receives `style={panelRowsStyle}`, so the same `--saldo-col-prior`, `--saldo-col-current`, `--saldo-col-delta` custom properties drive both header and rows. Previously the header fell back to `max-content`, producing column-width mismatch on narrow viewports.
 
+---
+
+## DECISION: Income/Expense/Net Canonical Visual Pattern (PR #104)
+
+**Author:** Mouse (UI Designer)  
+**Date:** 2026-04-27  
+**Status:** ✅ LOCKED  
+**Scope:** All income/expense/net KPI presentations across the application  
+**Related work:** PR #104 (squad/visual-consistency-income-expense-net)
+
+### Rule
+
+All income/expense/net KPI presentations MUST follow the Dashboard (Panel) pattern defined in `KPIStrip` component and `globals.css` `.ot-kpi-strip` recipe.
+
+### Canonical Pattern
+
+| Metric   | Icon           | Icon Size | Icon BG Token              | Icon + Value Color Token       |
+|----------|----------------|-----------|----------------------------|--------------------------------|
+| Income   | `TrendingUp`   | 20px      | `--color-income-bg`        | `--color-income-default`       |
+| Expense  | `TrendingDown` | 20px      | `--color-expense-bg`       | `--color-expense-default`      |
+| Net      | `Calculator`   | 20px      | `--color-brand-surface`    | `--color-brand-primary`        |
+
+**Structure** (TSX):
+```tsx
+<div className="ot-kpi-strip" role="status" aria-live="polite">
+  <div className="ot-kpi ot-kpi--income">
+    <div className="ot-kpi__icon">
+      <TrendingUp size={20} />
+    </div>
+    <div className="ot-kpi__content">
+      <div className="ot-kpi__label">{label}</div>
+      <div className="ot-kpi__value">{value}</div>
+      {/* optional: <div className="ot-kpi__sublabel">{sublabel}</div> */}
+    </div>
+  </div>
+  {/* repeat for expense, net */}
+</div>
+```
+
+**Typography:**
+- Label: 11px uppercase, 0.08em letter-spacing, semibold, `--color-text-muted`
+- Value: 24px semibold, tabular-nums, tone-specific color
+- Sublabel (optional): 12px, `--color-text-secondary`
+
+**Grid layout:**
+- Fixed to 3 columns: `grid-template-columns: repeat(3, 1fr)` for 3-card KPI strips
+- Responsive (4+ cards): `grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))` — prevents awkward wraps at intermediate viewports
+- Gap: `var(--space-4)` (16px) between cards
+- Minmax floor (auto-fit): 240px ensures card readability (icon 42px + label + value with currency formatting)
+
+### Rationale
+
+Visual drift observed across Movements, Saldo, Insights, and Panel. Root cause: component CSS imported after `globals.css` silently shadowed shared recipes. Movements had custom `.ot-movements__totals-*` with divergent layout, Insights had icon size mismatch (24px vs 20px).
+
+PR #104 unifies the pattern and adds responsive grid to prevent 4-card wraps on desktop viewports.
+
+### Enforcement
+
+- All income/expense/net displays MUST use `.ot-kpi-strip` + `.ot-kpi` classes from `globals.css`
+- Component-level CSS MUST NOT override `.ot-kpi-*` classes (use BEM marker classes for scoped sizing only, per modal-shell-override pattern)
+- Icon set: `lucide-react` at size **20px** (not 24px, not variable)
+- Color tokens: use modifier classes (`.ot-kpi--income`, `.ot-kpi--expense`, `.ot-kpi--net`), not inline styles
+- Grid recipe: `repeat(auto-fit, minmax(240px, 1fr))` is the canonical responsive template for all KPI strips
+
+### Exceptions
+
+Screens with semantic KPIs not in the income/expense/net trio (e.g., Insights "active tags" KPI, Movements "transaction count" KPI) may use plain `.ot-kpi` without a modifier and apply neutral styling via a scoped BEM class or inline style. Do not create a third `.ot-kpi-*` variant.
+
 #### 4. Value text alignment
 
 `.ot-saldo-row__prior`, `.ot-saldo-row__current`: changed from `text-align: right` to `text-align: left`. Since value now sits ABOVE the bar, left-aligning anchors the digit at the bar's origin.

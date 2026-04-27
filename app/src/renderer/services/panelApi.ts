@@ -12,6 +12,8 @@ import {
   type GetAccountSparklinesResponse,
   queryRecentTransactionsResponseSchema,
   type QueryRecentTransactionsResponse,
+  getMonthlyIncomeExpenseResponseSchema,
+  type GetMonthlyIncomeExpenseResponse,
 } from '../../shared/ipc-contracts/panel';
 
 /**
@@ -59,4 +61,12 @@ export async function queryRecentTransactions(
 ): Promise<QueryRecentTransactionsResponse> {
   const raw = await window.opentreasury.panel.queryRecentTransactions({ limit });
   return queryRecentTransactionsResponseSchema.parse(raw);
+}
+
+/**
+ * Get last 12 months income/expense breakdown (all accounts).
+ */
+export async function getMonthlyIncomeExpense(): Promise<GetMonthlyIncomeExpenseResponse> {
+  const raw = await window.opentreasury.panel.getMonthlyIncomeExpense();
+  return getMonthlyIncomeExpenseResponseSchema.parse(raw);
 }

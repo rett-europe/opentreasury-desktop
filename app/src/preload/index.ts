@@ -10,6 +10,7 @@ import {
   IPC_PANEL_GET_MONTH_KPIS,
   IPC_PANEL_GET_ACCOUNT_SPARKLINES,
   IPC_PANEL_QUERY_RECENT_TRANSACTIONS,
+  IPC_PANEL_GET_MONTHLY_INCOME_EXPENSE,
   type GetAccountsResponse,
   type GetAccountBalancesResponse,
   type GetMonthKPIsRequest,
@@ -18,6 +19,7 @@ import {
   type GetAccountSparklinesResponse,
   type QueryRecentTransactionsRequest,
   type QueryRecentTransactionsResponse,
+  type GetMonthlyIncomeExpenseResponse,
 } from '../shared/ipc-contracts/panel.js';
 import {
   IPC_SALDO_GET_COMPARISON,
@@ -178,6 +180,9 @@ const api = {
       req: QueryRecentTransactionsRequest,
     ): Promise<QueryRecentTransactionsResponse> => {
       return ipcRenderer.invoke(IPC_PANEL_QUERY_RECENT_TRANSACTIONS, req);
+    },
+    getMonthlyIncomeExpense: (): Promise<GetMonthlyIncomeExpenseResponse> => {
+      return ipcRenderer.invoke(IPC_PANEL_GET_MONTHLY_INCOME_EXPENSE, {});
     },
   },
   saldo: {

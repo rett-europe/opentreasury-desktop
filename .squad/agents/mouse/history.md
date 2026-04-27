@@ -842,3 +842,75 @@ The iter 3/6 failures were because implementers didn't verify the actual visual 
 **PR:** https://github.com/rett-europe/opentreasury-desktop/pull/103  
 **Branch:** squad/fix-txn-view-modal-categoryid  
 **Tests:** All pass (8 TransactionDetailModal tests + 654 full suite), typecheck clean, lint clean.
+
+
+### 2026-05-27: PR #104 Movements KPI strip 4-card wrapping fix
+
+**Root cause:** The `.ot-kpi-strip` recipe in globals.css used `grid-template-columns: repeat(3, 1fr)` — locked to exactly 3 columns. Movements screen now has 4 KPI cards (Income, Expense, Net, Transactions count), so the 4th card wrapped to a second row even on wide viewports (1280px+).
+
+**Fix:** Changed recipe from `repeat(3, 1fr)` to `repeat(auto-fit, minmax(240px, 1fr))`. The grid now dynamically fits 3-4 cards based on available space. At desktop widths (1280px+) all 4 cards fit in a single row; narrower viewports collapse gracefully. Panel screen (3 cards) unaffected.
+
+**Why 240px minmax floor:** Each KPI card contains icon (42px) + label + value with minimal text. 240px provides breathing room for the widest card content (currency formatting) while allowing 4 cards to fit within typical desktop viewports: 4 × 240px + 3 gaps (~20px each) = ~1020px, well under 1280px.
+
+**Commit:** 9964f92
+**Branch:** squad/visual-consistency-income-expense-net (PR #104 follow-up)
+**Files:** globals.css:199 (1 line changed)
+**Tests:** TypeScript check clean, lint clean (ESLint warning about TypeScript 5.9.3 vs 5.6.0 supported version is pre-existing)
+
+### 2026-04-27: PR #105 Chart Reuse Pattern — GroupedBarChart Canonical for Bar Charts
+
+**Context:** Panel (Dashboard) screen needed monthly income vs expense chart. Saldo (Insights) already had GroupedBarChart for year-over-year comparison. Decision: reuse the same component instead of duplicating chart logic.
+
+**Pattern locked:**
+- Backend provides aggregated data via dedicated query (e.g., `getMonthlyIncomeExpense`)
+- Renderer transforms to GroupedBarChart shape: `{ series: [{ label, values }], legend }`
+- Same visual treatment everywhere (colors, spacing, tooltips, accessibility)
+
+**Screen usage:**
+- **Saldo:** 12 months × 2 years (YoY comparison) — Trinity implemented for PR #57
+- **Panel:** 12 months × 2 series (income vs expense trend) — Trinity wired for PR #105
+
+**Rationale:**
+- Visual consistency — users see identical bar styling across screens
+- Single source of truth — chart logic (scaling, accessibility) lives in one component
+- Maintainability — bug fixes apply to all uses automatically
+- Accessibility — GroupedBarChart already has ARIA labels, keyboard nav, data table fallback
+
+**Future pattern:** When adding charts (category breakdown, account trends), prefer reusing GroupedBarChart if data fits grouped-bar shape. Only create new chart type if visualization fundamentally differs (pie, line, area, etc.).
+
+**Reusable skill:** `GroupedBarChart` component at `app/src/renderer/components/GroupedBarChart/GroupedBarChart.tsx` — query contract is flexible (monthly, yearly, any label+values pair). Data shape transformation happens in screen component, not chart.
+
+**PR:** https://github.com/rett-europe/opentreasury-desktop/pull/105
+
+### 2026-04-27: Chart Color Sourcing — Canonical Income/Expense Tokens Extended to Charts
+
+**Context:** PR #105 shipped `GroupedBarChart` on Dashboard for income-vs-expense monthly trend. Initial implementation used default `--current` / `--prior` bar classes (blue brand colors). Pedro flagged: "the colors in the new graph need to be aligned with Dashboard screen (red & green)" — meaning canonical income/expense tokens should apply.
+
+**Pattern confirmed:**
+- **Canonical tokens:** `--color-income-default` (green) for income, `--color-expense-default` (red) for expense
+- **Chart classes:** `ot-grouped-bar-chart__bar--income-solo` / `ot-grouped-bar-chart__bar--expense-solo` (bars), `ot-grouped-bar-chart__swatch--income-solo` / `ot-grouped-bar-chart__swatch--expense-solo` (legend)
+- **Component pattern:** GroupedBarChart accepts `barClassNames` and `legend` as `{ label, className }` objects — screens specify canonical classes via props
+
+**Where chart colors are sourced:**
+1. **Component defaults:** `GroupedBarChart.tsx` defines DEFAULT_BAR_CLASSES (`--current`, `--prior`) and DEFAULT_SWATCH_CLASSES as fallbacks
+2. **CSS class definitions:** `GroupedBarChart.css` defines bar/swatch classes (lines 85-125) — income/expense classes reference canonical tokens
+3. **Screen overrides:** Screens pass `barClassNames` (per series) and `legend` (with `className` per item) to override defaults
+
+**Both screens aligned:**
+- **Saldo:** Already used canonical classes (lines 718-732 in SaldoScreen.tsx)
+- **Panel:** Updated to match (lines 354-370 in PanelScreen.tsx) — passed explicit `barClassNames` + legend `className` objects
+
+**Token extension principle:** When a new context represents income/expense semantically (KPI cards, chart bars, delta indicators), use the canonical `--color-income-default` / `--color-expense-default` tokens — NOT generic brand colors. This creates visual consistency across all financial data presentation.
+
+**Why not hardcode in component:** Different screens may need different color schemes (e.g., a multi-account comparison might use account colors instead of type colors). The component stays flexible via props while canonical tokens become the *conventional default* for income/expense contexts.
+
+**Files:**
+- Component definition: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.tsx` (lines 56-63, 170-173)
+- Chart CSS: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.css` (lines 85-125)
+- Saldo screen: `app/src/renderer/screens/SaldoScreen/SaldoScreen.tsx` (lines 718-732)
+- Panel screen (fixed): `app/src/renderer/screens/PanelScreen/PanelScreen.tsx` (lines 354-370)
+- Canonical tokens: `app/src/renderer/styles/tokens.css` (lines 66, 71, 314, 318, 399, 401)
+
+**Commit:** a372019  
+**Branch:** squad/dashboard-bugs-tags-recent-chart (PR #105 follow-up)  
+**Tests:** TypeScript check clean, lint clean

@@ -16,6 +16,8 @@ import type {
   GetAccountSparklinesResponse,
   QueryRecentTransactionsRequest,
   QueryRecentTransactionsResponse,
+  GetMonthlyIncomeExpenseRequest,
+  GetMonthlyIncomeExpenseResponse,
 } from '../../../shared/ipc-contracts/panel.js';
 import {
   getAccounts as coreGetAccounts,
@@ -23,6 +25,7 @@ import {
   getMonthKPIs as coreGetMonthKPIs,
   getAccountSparklines as coreGetAccountSparklines,
   queryRecentTransactions as coreQueryRecentTransactions,
+  getMonthlyIncomeExpense as coreGetMonthlyIncomeExpense,
 } from '../../../core/query/index.js';
 
 export async function handleGetAccounts(
@@ -92,4 +95,10 @@ export async function handleQueryRecentTransactions(
       createdAt: t.createdAt,
     })),
   };
+}
+
+export async function handleGetMonthlyIncomeExpense(
+  _request: GetMonthlyIncomeExpenseRequest,
+): Promise<GetMonthlyIncomeExpenseResponse> {
+  return { months: coreGetMonthlyIncomeExpense() };
 }
