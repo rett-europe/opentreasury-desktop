@@ -46,12 +46,12 @@ export interface TransactionsTableProps {
   readonly onRowClick?: (row: TransactionRow) => void;
   readonly onSplitClick?: (row: TransactionRow) => void;
   readonly emptyState?: React.ReactNode;
-  readonly sortBy?: string;
+  readonly sortBy?: string | null;
   readonly sortDirection?: SortDirection;
   readonly onSort?: (columnId: string) => void;
   readonly getRowClassName?: (row: TransactionRow) => string | undefined;
   readonly virtualise?: boolean;
-  readonly containerStyle?: React.CSSProperties;
+  readonly containerStyle?: React.CSSProperties | undefined;
 }
 
 export function TransactionsTable({
@@ -315,12 +315,12 @@ export function TransactionsTable({
         columns={columns}
         rows={rows}
         getRowKey={(row) => row.id}
-        sortBy={sortBy}
-        sortDirection={sortDirection}
-        onSort={onSort}
-        onRowClick={onRowClick}
-        getRowClassName={getRowClassName}
-        virtualise={virtualise}
+        sortBy={sortBy ?? null}
+        sortDirection={sortDirection ?? null}
+        {...(onSort && { onSort })}
+        {...(onRowClick && { onRowClick })}
+        {...(getRowClassName && { getRowClassName })}
+        {...(virtualise !== undefined && { virtualise })}
         containerStyle={containerStyle}
       />
     </div>

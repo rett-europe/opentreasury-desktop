@@ -350,7 +350,7 @@ export function PanelScreen(): JSX.Element {
               categoryId: row.categoryId,
               subcategoryId: row.subcategoryId,
               tagIds: [...row.tagIds],
-              status: row.status,
+              status: row.status as 'pending' | 'approved',
               createdAt: transactions.find((t) => t.id === row.id)?.createdAt ?? '',
               reference: row.reference ?? undefined,
               details: row.details ?? undefined,
