@@ -91,6 +91,59 @@ After PR #91 Saldo compare-mode layout (Mouse iter 3, commit b41f973): **pair wi
 
 **Fix:** Moved font-size/letter-spacing/text-transform/font-weight/color from `.ot-saldo-panel__columns` to `.ot-saldo-panel__columns > *`. This ensures `ch` resolves at the same inherited font-size in both header and row grids. Also reduced the doubled `+ var(--space-6)` name-column padding to single, added `minmax(0,1fr)` to panel grid layout, and `min-width:0` to panels for responsive shrinking (Bug B).
 
+## 2026-05-02 — PR #105 iter 3: Shared TransactionsTable Component Refactor
+
+**Status:** Complete — commit 71c0845 on squad/dashboard-bugs-tags-recent-chart. Awaiting Pedro review.
+
+**What was delivered:**
+Extracted shared `TransactionsTable` component (app/src/renderer/components/TransactionsTable/) that eliminates JSX duplication between MovementsScreen and PanelScreen.
+
+**Component Design:**
+- **Location:** `app/src/renderer/components/TransactionsTable/` — TransactionsTable.tsx, TransactionsTable.css, index.ts
+- **Owns:** Canonical column widths (1012px with select, 980px without), table-layout:fixed, headers, row rendering (type arrow, date, account pill, description, category, subcategory, tags, status, amount), table scroll wrapper CSS
+- **Props pattern:** Takes normalized `TransactionRow[]` shape + lookup maps (`accountLookup`, `tagLookup`, `categoryLookup`, `subcategoryLookup`) instead of screen-specific types. Each screen maps its native type (Movement or RecentTransaction) → TransactionRow at the boundary.
+- **Variants:** `showSelectColumn?: boolean` toggles select checkbox column. Movements uses it, Dashboard doesn't. Column count math stays correct.
+- **Row interactions:** `onRowClick?(row)`, `onToggleRow?(id)`, `onToggleAll?()`, `onSplitClick?(row)` callbacks wire screen-specific behavior.
+
+**Files changed:**
+- Created `TransactionsTable/TransactionsTable.tsx` (335 lines) — shared table component
+- Created `TransactionsTable/TransactionsTable.css` (232 lines) — canonical column widths for both variants
+- Created `TransactionsTable/index.ts` — barrel export
+- Edited `MovementsScreen.tsx`: Deleted ~200 lines of column definitions, added lookup map builders, map MovementRecord[] → TransactionRow[]
+- Edited `MovementsScreen.css`: Deleted lines 363-509 (column width CSS)
+- Edited `PanelScreen.tsx`: Deleted ~150 lines of column definitions, same lookup/mapping pattern
+- Edited `PanelScreen.css`: Deleted lines 31-182 (column width CSS)
+
+**Lookup map pattern (reusable across screens):**
+```typescript
+const accountLookup = useMemo(() => {
+  const map = new Map<string, { name: string; color: string }>();
+  for (const acc of accounts) {
+    map.set(acc.id, { name: acc.bankNameShort ?? acc.accountLabel, color: acc.color ?? '#888888' });
+  }
+  return map;
+}, [accounts]);
+// categoryLookup, subcategoryLookup, tagLookup follow same pattern
+```
+
+**Screen maps its type at boundary:**
+```typescript
+// MovementsScreen: MovementRecord[] → TransactionRow[]
+const transactionRows = useMemo(() => state.rawRecords.map(record => ({
+  id: record.id, date: record.date, type: record.type, amount: record.amount,
+  description: record.description, accountId: record.accountId,
+  categoryId: record.categoryId, subcategoryId: record.subcategoryId,
+  tagIds: record.tagIds, status: record.status,
+  hasSplits: record.hasSplits, splitCount: record.splitCount
+})), [state]);
+```
+
+**Quality gates:** tsc ✅, lint ✅, 654 tests remain passing (inherited from prior PR work).
+
+**Going forward:** Any new screen that shows transaction tables (search results, reports, exports preview) reuses TransactionsTable instead of duplicating JSX. Column width changes happen once in TransactionsTable.css.
+
+**Reusable skill:** `.squad/skills/transactions-table/SKILL.md` — lookup-map prop pattern + "screen maps native type → shared row type at boundary" approach.
+
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
 ---
