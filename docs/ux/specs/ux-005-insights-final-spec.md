@@ -133,6 +133,7 @@ InsightsScreen
 ├── PageHeader
 │   ├── Title: "Insights"
 │   ├── Subtitle: "Análisis por etiquetas — campañas, proyectos y eventos transversales a las categorías"
+│   ├── DateRangePicker (Saldo parity — same control, same default range)
 │   └── SegmentedToggle [Volumen | Neto | # Mov.]
 ├── KPIStrip (3 cards)
 │   ├── KPICard: ETIQUETAS ACTIVAS (icon: tag, tone: brand)
@@ -153,14 +154,22 @@ InsightsScreen
 
 **InsightsScreen** needs these IPC calls on mount:
 1. `tags:list` — get all tags with colors
-2. `insights:landing-summary` — aggregated totals per tag (see §6)
+2. `insights:landing-summary` — aggregated totals per tag (see §6). MUST be called with the active `{windowStart, windowEnd}` range (server-side aggregation respects the range).
 
-**KPIStrip props:**
+**Date range selector (locked by OQ-1, §9):**
+- Reuse Saldo's `DateRangePicker` component — same control, same defaults.
+- Default range = whatever Saldo uses today (single source of truth; do not fork the default).
+- Range changes trigger a refetch of `insights:landing-summary` and a re-render of KPIs, tag cards (incl. sparklines + topCategories).
+- Range is part of URL/router state so the view is shareable / back-button safe.
+
+**KPIStrip props (all values respect the active date range):**
 | # | label | value | sublabel | icon | tone |
 |---|-------|-------|----------|------|------|
 | 1 | "ETIQUETAS ACTIVAS" | `{count}` | "de {total} totales" | `Tag` | brand |
-| 2 | "INGRESOS ETIQUETADOS" | `€{sum}` | "acumulado todas las etiquetas" | `TrendingUp` | income |
-| 3 | "GASTOS ETIQUETADOS" | `€{sum}` | "acumulado todas las etiquetas" | `TrendingDown` | expense |
+| 2 | "INGRESOS ETIQUETADOS" | `€{sum}` | "en el rango seleccionado" | `TrendingUp` | income |
+| 3 | "GASTOS ETIQUETADOS" | `€{sum}` | "en el rango seleccionado" | `TrendingDown` | expense |
+
+> **Multi-tag overlap is a feature, not a bug (locked by OQ-2, §9).** Transactions with 2+ tags credit the full amount to **each** tag card. This means `Σ(tag card incomeCents) ≥ KPI INGRESOS ETIQUETADOS` whenever any transaction has multiple tags. Do **not** dedupe, do **not** add a footnote, do **not** "fix" this in a future PR — each campaign gets full credit on its own card by design. The KPI strip totals are deduplicated (each transaction counted once); tag-card sums are not. This asymmetry is intentional.
 
 **TagCard props:**
 ```ts
@@ -262,6 +271,10 @@ InsightsDetailView
 │   └── AccountRow[] (pill + stacked bar + values)
 └── FooterLink: "Ver todos los movimientos →"
 ```
+
+> **Footer link contract (locked by OQ-3, §9):** "Ver todos los movimientos →" navigates to **Movimientos with BOTH the active tag filter(s) AND the active date range pre-applied**. The user lands on a pre-filtered Movimientos view that exactly matches the aggregates they were just looking at. Same-tab navigation; browser back returns to the drilldown.
+>
+> **Required Movimientos route contract:** The Movimientos route MUST accept `tagIds: string[]` (1+ values, AND semantics — same as Insights drilldown) and `windowStart` / `windowEnd` ISO date strings via query params (or equivalent router state). Movimientos applies these as initial filter state on mount. If the route does not yet support these params, that work is a hard prerequisite for the drilldown PR — flag in PR #101's dependency list.
 
 ### 4.3 Breadcrumb & Tag Combiner
 
@@ -407,10 +420,12 @@ Defined in `arch-005a`. Returns per-label yearly breakdown for YoY analysis. **R
 
 Returns aggregates for ALL active tags in one call (landing page efficiency).
 
+`windowStart` / `windowEnd` are **required in practice** — the landing always passes the active date range from the `DateRangePicker` (Saldo parity, see §3.3). They remain optional in the type signature for backwards compat / non-UI callers, but the renderer MUST always pass them. Server-side aggregation filters by `[windowStart, windowEnd]` inclusive before grouping by tag; `monthlyNet` and `topCategories` are also computed within the window.
+
 ```ts
 interface InsightsLandingSummaryRequest {
-  windowStart?: string;  // ISO date
-  windowEnd?: string;    // ISO date
+  windowStart?: string;  // ISO date — landing always passes this (Saldo's default range)
+  windowEnd?: string;    // ISO date — landing always passes this (Saldo's default range)
   accountId?: string;    // optional filter
 }
 
@@ -619,32 +634,40 @@ Aligned with Mouse's phasing (survey §8), with PR boundaries:
 
 ---
 
-## §9 Open Questions for Pedro
+## §9 Resolved Decisions
 
-Three items require Pedro's input:
+The three items previously open for Pedro have been answered (2026-05-02). Recorded here for traceability; the answers are propagated into §3, §4, and §6 above.
 
-### OQ-1: Landing date window
+### OQ-1 — Landing date window → **Date-range selector NOW, Saldo parity**
 
-The prototype shows all-time totals. Should the landing have a date-range selector (like Saldo)? Or always show current calendar year? My recommendation: **default to current calendar year**, with option to change in future milestone.
+**Decision:** The landing ships in M4 with a date-range selector reusing Saldo's `DateRangePicker` component. Default range mirrors Saldo's current default (single source of truth — do not fork the default). The active range is passed as `windowStart` / `windowEnd` into `insights:landing-summary` so server-side aggregation respects it; KPIs, tag cards, sparklines, and `topCategories` all reflect the active range. Range lives in URL/router state.
 
-### OQ-2: Multi-label overlap disclosure
+**Rationale:** Insights and Saldo are sibling analytics views — they should have the same temporal control surface from day one. Shipping without it and adding later would change the meaning of every KPI mid-flight. Worth the scope bump now.
 
-When a transaction has 2+ tags, its amount appears in both tag cards. This makes sum-of-cards ≠ total labeled. Should we:
-- (a) Add a tooltip/footnote explaining overlap?
-- (b) Change KPI "INGRESOS ETIQUETADOS" to deduplicated total?
-- (c) Accept the overlap as a feature (each campaign gets full credit)?
+**Note:** This is a scope change vs. Niobe's original recommendation (which was to defer the picker to a later milestone). Pedro overrode in favor of parity now.
 
-My recommendation: **(c)** — accept overlap, no footnote. Power users understand that tags are non-exclusive. Adding disclaimers creates noise.
+**Propagated to:** §3.2 component tree (DateRangePicker added to PageHeader), §3.3 KPI sublabels + IPC call note + date-range selector spec, §6.2 `insights:landing-summary` request contract.
 
-### OQ-3: Drilldown transactions link destination
+### OQ-2 — Multi-tag overlap → **Accepted as a feature (option c)**
 
-The footer link "Ver todos los movimientos →" navigates to Movimientos. Should it:
-- (a) Filter by the selected tag(s)?
-- (b) Filter by tag(s) AND date range shown?
-- (c) Open in a new tab/window?
+**Decision:** Each tag card credits the full transaction amount. No dedupe. No footnote. No tooltip. `Σ(tag card incomeCents)` will exceed the KPI `INGRESOS ETIQUETADOS` total whenever any transaction has 2+ tags — this is intentional and locked. KPI strip totals remain deduplicated (each transaction counted once).
 
-My recommendation: **(a)** — filter by tag only, same tab, user can refine date in Movimientos.
+**Rationale:** Each campaign gets full credit on its own card. Tags are non-exclusive by design; subtracting overlap would understate every campaign's true contribution. Power users (Pedro, Mouse) understand the model; adding disclaimers creates noise without information value.
+
+**Lock note:** A one-line implementer note has been added next to the KPI definitions in §3.3 so future contributors don't "fix" this asymmetry.
+
+**Propagated to:** §3.3 (lock note inline with KPI table).
+
+### OQ-3 — Drilldown footer link → **Tag(s) + date range pre-applied (option b)**
+
+**Decision:** "Ver todos los movimientos →" navigates to Movimientos with **both** the active tag filter(s) **and** the active date range pre-applied. Same tab; browser back returns to the drilldown.
+
+**Rationale:** The user is mid-investigation looking at a specific aggregate window. Dropping them into an unfiltered (or date-unfiltered) Movimientos view forces them to re-establish context they just had. Carrying both filters preserves continuity.
+
+**Contract requirement:** The Movimientos route MUST accept `tagIds: string[]` (AND semantics) and `windowStart` / `windowEnd` ISO date strings via query params or router state. If Movimientos does not currently support these params, adding that support is a hard prerequisite for the drilldown PR (flag in PR #101 dependencies).
+
+**Propagated to:** §4.2 footer link block (contract note inline).
 
 ---
 
-*Final implementation spec. Ready for Mouse/Trinity build queue. Supersedes Amendment A1.*
+*Final implementation spec. Ready for Mouse/Trinity build queue. Supersedes Amendment A1. All open questions resolved 2026-05-02 by Pedro.*
