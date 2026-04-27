@@ -208,6 +208,12 @@
       "row": {
         "aria": "{{subcategoryName}}, subcategoría de {{categoryName}}. Año actual: {{current}}. Año anterior: {{prior}}. Delta: {{delta}}."
       }
+    },
+    "dateRange": {
+      "from": "Desde",
+      "to": "Hasta",
+      "apply": "Aplicar",
+      "invalidRange": "Rango inválido"
     }
   },
   "movements": {
