@@ -1,0 +1,13 @@
+/* SPEC-023 AC11 — Row-level error highlight for invalid split amounts */
+.ot-split-row--error {
+  background-color: color-mix(in oklch, var(--color-error-default, #dc2626) 8%, transparent);
+}
+
+.ot-split-row--error .ot-split-row__amount-input {
+  border-color: var(--color-error-default, #dc2626);
+}
+
+.ot-split-row--error .ot-split-row__amount-input:focus {
+  outline-color: var(--color-error-default, #dc2626);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-error-default, #dc2626) 20%, transparent);
+}

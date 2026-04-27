@@ -36,6 +36,8 @@ export interface TransactionFormFieldsProps {
   mode?: 'add' | 'edit';
   /** Currency for read-only display (edit mode mirrors view's currency field) */
   currency?: string;
+  /** SPEC-023 AC14 — Disable amount field when transaction has active splits. */
+  amountDisabled?: boolean;
 }
 
 /**
@@ -82,6 +84,7 @@ export function TransactionFormFields({
   readonly = false,
   mode = 'add',
   currency,
+  amountDisabled = false,
 }: TransactionFormFieldsProps): JSX.Element {
   const { t } = useTranslation('common');
 
@@ -323,7 +326,7 @@ export function TransactionFormFields({
             className="ot-tx-fields__input"
             aria-invalid={!!errors.amount}
             aria-describedby={errors.amount ? 'error-amount' : undefined}
-            disabled={readonly}
+            disabled={readonly || amountDisabled}
           />
           {errors.amount && (
             <span id="error-amount" className="ot-tx-fields__field-error">

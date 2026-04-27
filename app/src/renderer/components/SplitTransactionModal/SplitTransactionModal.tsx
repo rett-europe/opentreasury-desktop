@@ -12,6 +12,7 @@ import {
   MAX_SPLITS_PER_TX,
   SPLIT_COMMENT_MAX,
 } from '../../../shared/ipc-contracts/transaction-splits.js';
+import './SplitTransactionModal.css';
 
 export interface SplitTransactionModalProps {
   readonly isOpen: boolean;
@@ -126,11 +127,20 @@ export function SplitTransactionModal({
         handleCancelClick();
       }
     };
+    // SPEC-023 UX-007 §7 — Ctrl+Enter (or Cmd+Enter on Mac) saves the modal.
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && canSubmit && !isSubmitting) {
+        e.preventDefault();
+        handleSave().catch((err) => console.error('Save failed:', err));
+      }
+    };
     dialog.addEventListener('cancel', handleCancel);
     dialog.addEventListener('click', handleClick);
+    dialog.addEventListener('keydown', handleKeyDown);
     return () => {
       dialog.removeEventListener('cancel', handleCancel);
       dialog.removeEventListener('click', handleClick);
+      dialog.removeEventListener('keydown', handleKeyDown);
     };
   });
 
@@ -188,6 +198,12 @@ export function SplitTransactionModal({
     return !isNaN(parsed) && parsed > 0;
   });
   const canSubmit = isBalanced && allAmountsValid && splits.length >= 2;
+
+  // SPEC-023 AC11 — Helper to check if a specific split row has an invalid amount.
+  const isRowAmountInvalid = (split: SplitRow): boolean => {
+    const parsed = parseLocaleAmount(split.amountEur);
+    return isNaN(parsed) || parsed <= 0;
+  };
 
   const handleSave = async (): Promise<void> => {
     if (!transaction || !canSubmit) return;
@@ -304,71 +320,80 @@ export function SplitTransactionModal({
               </tr>
             </thead>
             <tbody>
-              {splits.map((split, index) => (
-                <tr key={split.id} className="ot-split-row">
-                  <td className="ot-split-row__index">{index + 1}</td>
-                  <td className="ot-split-row__amount">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={split.amountEur}
-                      onChange={(e) => handleAmountChange(split.id, e.target.value)}
-                      placeholder="0,00"
-                      className="ot-split-row__amount-input"
-                    />
-                  </td>
-                  <td className="ot-split-row__category">
-                    <select
-                      value={split.categoryId}
-                      onChange={(e) => handleCategoryChange(split.id, e.target.value)}
-                      className="ot-split-row__category-select"
-                    >
-                      <option value="">— {t('configuracion.categorias.none')} —</option>
-                      {categories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="ot-split-row__subcategory">
-                    <select
-                      value={split.subcategoryId}
-                      onChange={(e) => handleSubcategoryChange(split.id, e.target.value)}
-                      disabled={!split.categoryId}
-                      className="ot-split-row__subcategory-select"
-                    >
-                      <option value="">— {t('configuracion.categorias.none')} —</option>
-                      {subcategoriesForRow(split.categoryId).map((sub) => (
-                        <option key={sub.id} value={sub.id}>
-                          {sub.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="ot-split-row__comment">
-                    <input
-                      type="text"
-                      value={split.comment}
-                      onChange={(e) => handleCommentChange(split.id, e.target.value)}
-                      maxLength={SPLIT_COMMENT_MAX}
-                      placeholder="…"
-                      className="ot-split-row__comment-input"
-                    />
-                  </td>
-                  <td className="ot-split-row__actions">
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePart(split.id)}
-                      disabled={splits.length <= 2}
-                      className="ot-split-row__remove"
-                      aria-label={t('common.delete')}
-                    >
-                      <X size={16} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {splits.map((split, index) => {
+                const rowHasError = !isBalanced && isRowAmountInvalid(split);
+                return (
+                  <tr
+                    key={split.id}
+                    className={`ot-split-row ${rowHasError ? 'ot-split-row--error' : ''}`}
+                    aria-invalid={rowHasError}
+                    aria-describedby={rowHasError ? 'split-sum-warning' : undefined}
+                  >
+                    <td className="ot-split-row__index">{index + 1}</td>
+                    <td className="ot-split-row__amount">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={split.amountEur}
+                        onChange={(e) => handleAmountChange(split.id, e.target.value)}
+                        placeholder="0,00"
+                        className="ot-split-row__amount-input"
+                        aria-invalid={rowHasError}
+                      />
+                    </td>
+                    <td className="ot-split-row__category">
+                      <select
+                        value={split.categoryId}
+                        onChange={(e) => handleCategoryChange(split.id, e.target.value)}
+                        className="ot-split-row__category-select"
+                      >
+                        <option value="">— {t('configuracion.categorias.none')} —</option>
+                        {categories.map((cat) => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="ot-split-row__subcategory">
+                      <select
+                        value={split.subcategoryId}
+                        onChange={(e) => handleSubcategoryChange(split.id, e.target.value)}
+                        disabled={!split.categoryId}
+                        className="ot-split-row__subcategory-select"
+                      >
+                        <option value="">— {t('configuracion.categorias.none')} —</option>
+                        {subcategoriesForRow(split.categoryId).map((sub) => (
+                          <option key={sub.id} value={sub.id}>
+                            {sub.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="ot-split-row__comment">
+                      <input
+                        type="text"
+                        value={split.comment}
+                        onChange={(e) => handleCommentChange(split.id, e.target.value)}
+                        maxLength={SPLIT_COMMENT_MAX}
+                        placeholder="…"
+                        className="ot-split-row__comment-input"
+                      />
+                    </td>
+                    <td className="ot-split-row__actions">
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePart(split.id)}
+                        disabled={splits.length <= 2}
+                        className="ot-split-row__remove"
+                        aria-label={t('common.delete')}
+                      >
+                        <X size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
@@ -400,7 +425,7 @@ export function SplitTransactionModal({
             {t('splits.modal.remaining', { amount: formatter.format(Math.abs(remainingEur)) })}
           </div>
           {!isBalanced && (
-            <div className="ot-split-delta__warning">
+            <div className="ot-split-delta__warning" id="split-sum-warning">
               ⚠ {t('splits.modal.sumWarning', { amount: formatter.format(totalEur) })}
             </div>
           )}

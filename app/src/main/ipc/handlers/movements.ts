@@ -28,6 +28,22 @@ export function createMovementsListHandler(
       if (parsed.accountId !== undefined && tx.accountId !== parsed.accountId) return false;
       if (parsed.dateFrom !== undefined && tx.date < parsed.dateFrom) return false;
       if (parsed.dateTo !== undefined && tx.date > parsed.dateTo) return false;
+      // SPEC-023 FR10/AC6 — Category filter: include parent if ANY split matches categoryId.
+      if (parsed.categoryId !== undefined) {
+        const parentMatches = tx.categoryId === parsed.categoryId;
+        const splitMatches =
+          model.splitParentIds.has(tx.id) &&
+          (model.splits.get(tx.id) ?? []).some((s) => s.categoryId === parsed.categoryId);
+        if (!parentMatches && !splitMatches) return false;
+      }
+      // SPEC-023 FR10/AC6 — Subcategory filter: include parent if ANY split matches subcategoryId.
+      if (parsed.subcategoryId !== undefined) {
+        const parentMatches = tx.subcategoryId === parsed.subcategoryId;
+        const splitMatches =
+          model.splitParentIds.has(tx.id) &&
+          (model.splits.get(tx.id) ?? []).some((s) => s.subcategoryId === parsed.subcategoryId);
+        if (!parentMatches && !splitMatches) return false;
+      }
       return true;
     });
 
@@ -58,6 +74,17 @@ export function createMovementsListHandler(
       // SPEC-023 — populate split metadata for renderer badge + edit routing.
       hasSplits: model.splitParentIds.has(tx.id),
       splitCount: model.splitParentIds.has(tx.id) ? (model.splits.get(tx.id)?.length ?? 0) : 0,
+      // SPEC-023 FR10/AC6 — Include split category/subcategory IDs for client-side filtering.
+      splitCategoryIds: model.splitParentIds.has(tx.id)
+        ? (model.splits.get(tx.id) ?? [])
+            .map((s) => s.categoryId)
+            .filter((id): id is string => id !== null)
+        : [],
+      splitSubcategoryIds: model.splitParentIds.has(tx.id)
+        ? (model.splits.get(tx.id) ?? [])
+            .map((s) => s.subcategoryId)
+            .filter((id): id is string => id !== null)
+        : [],
     }));
   };
 }

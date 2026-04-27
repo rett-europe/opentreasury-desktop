@@ -503,7 +503,16 @@ export function MovementsScreen({
     return allRows.filter((m) => {
       if (typeFilter !== 'all' && m.type !== typeFilter) return false;
       if (accountFilter !== 'all' && m.account !== accountFilter) return false;
-      if (categoryFilter !== 'all' && m.category !== categoryFilter) return false;
+      // SPEC-023 FR10/AC6 — Category filter: include parent if parent OR any split matches.
+      if (categoryFilter !== 'all') {
+        const parentMatches = m.category === categoryFilter;
+        // Check if any split categoryId matches (using raw record data).
+        const record = state.kind === 'loaded' ? state.rawRecords.find((r) => r.id === m.id) : null;
+        const splitMatches =
+          record?.splitCategoryIds?.some((catId) => categoryLookup.get(catId) === categoryFilter) ??
+          false;
+        if (!parentMatches && !splitMatches) return false;
+      }
       if (!matchesDateFilter(m, dateFilter)) return false;
       if (tagIdsFilter.length > 0) {
         const tagSet = tagIdsByMovementId.get(m.id);
@@ -527,6 +536,7 @@ export function MovementsScreen({
     typeFilter,
     accountFilter,
     categoryFilter,
+    categoryLookup,
     dateFilter,
     tagIdsFilter,
     minAmount,
@@ -1123,6 +1133,10 @@ export function MovementsScreen({
                   setSelectedRawRecord(record);
                 }}
                 onSplitClick={(row) => {
+                  const record = rawRecordById.get(row.id);
+                  if (record) openSplitModal(record);
+                }}
+                onSplitAction={(row) => {
                   const record = rawRecordById.get(row.id);
                   if (record) openSplitModal(record);
                 }}
