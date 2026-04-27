@@ -4,6 +4,7 @@ import { Calendar } from 'lucide-react';
 import { Button } from '../../components/Button/index.js';
 import { AccountCard } from '../../components/AccountCard/index.js';
 import { KPIStrip } from '../../components/KPIStrip/index.js';
+import { GroupedBarChart } from '../../components/GroupedBarChart/index.js';
 import { Table } from '../../components/Table/index.js';
 import type { TableColumn } from '../../components/Table/Table.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
@@ -15,6 +16,7 @@ import type {
   GetMonthKPIsResponse,
   GetAccountSparklinesResponse,
   RecentTransaction,
+  MonthlyIncomeExpense,
 } from '../../../shared/ipc-contracts/panel';
 import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
@@ -34,6 +36,7 @@ interface PanelData {
   transactions: RecentTransaction[];
   categories: CategoryRecord[];
   tags: TagRecord[];
+  monthlyData: MonthlyIncomeExpense[];
 }
 
 // Mock per-account transaction counts mirroring prototype/data.js. Replaced
@@ -65,15 +68,23 @@ export function PanelScreen(): JSX.Element {
 
       const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-      const [accountsResp, balancesResp, kpisResp, transactionsResp, categoriesResp, tagsResp] =
-        await Promise.all([
-          panelApi.getAccounts(),
-          panelApi.getAccountBalances(),
-          panelApi.getMonthKPIs(currentMonth),
-          panelApi.queryRecentTransactions(8),
-          listCategories(),
-          listTags(),
-        ]);
+      const [
+        accountsResp,
+        balancesResp,
+        kpisResp,
+        transactionsResp,
+        categoriesResp,
+        tagsResp,
+        monthlyResp,
+      ] = await Promise.all([
+        panelApi.getAccounts(),
+        panelApi.getAccountBalances(),
+        panelApi.getMonthKPIs(currentMonth),
+        panelApi.queryRecentTransactions(8),
+        listCategories(),
+        listTags(),
+        panelApi.getMonthlyIncomeExpense(),
+      ]);
 
       const sparklinePromises = accountsResp.accounts.map((acc) =>
         panelApi.getAccountSparklines(acc.id).then((resp) => [acc.id, resp.sparkline] as const),
@@ -88,6 +99,7 @@ export function PanelScreen(): JSX.Element {
         transactions: transactionsResp.transactions,
         categories: categoriesResp.categories,
         tags: tagsResp.tags,
+        monthlyData: monthlyResp.months,
       });
       setState('loaded');
     } catch (err) {
@@ -339,9 +351,23 @@ export function PanelScreen(): JSX.Element {
       />
 
       <div className="ot-section-label">{t('panel.sections.monthly-trend')}</div>
-      <div className="ot-skeleton" style={{ minHeight: 180, borderRadius: 12 }}>
-        {t('panel.skeleton')}
-      </div>
+      <GroupedBarChart
+        series={data.monthlyData.map((m) => {
+          const monthLabel = new Date(`${m.yearMonth}-01T00:00:00Z`).toLocaleDateString(locale, {
+            month: 'short',
+          });
+          return {
+            label: monthLabel,
+            values: [m.income, m.expense],
+          };
+        })}
+        legend={[t('movements.totals.income'), t('movements.totals.expense')]}
+        currency="EUR"
+        locale={locale}
+        ariaLabel={t('panel.sections.monthly-trend')}
+        dataTableCaption={t('panel.sections.monthly-trend')}
+        emptyLabel={t('panel.skeleton')}
+      />
 
       <div className="ot-section-label" style={{ marginTop: 'var(--space-9)' }}>
         {t('panel.sections.recent')}

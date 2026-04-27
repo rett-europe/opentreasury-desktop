@@ -168,3 +168,27 @@ export type QueryRecentTransactionsResponse = z.infer<typeof queryRecentTransact
 
 // Legacy alias for Trinity compatibility
 export const QueryRecentTransactionsResponseSchema = queryRecentTransactionsResponseSchema;
+
+// ============================================================================
+// 6. getMonthlyIncomeExpense — Last 12 months income/expense breakdown
+// ============================================================================
+
+export const IPC_PANEL_GET_MONTHLY_INCOME_EXPENSE = 'panel:get-monthly-income-expense';
+
+export const getMonthlyIncomeExpenseRequestSchema = z.object({});
+
+export type GetMonthlyIncomeExpenseRequest = z.infer<typeof getMonthlyIncomeExpenseRequestSchema>;
+
+export const monthlyIncomeExpenseSchema = z.object({
+  yearMonth: z.string().regex(/^\d{4}-\d{2}$/), // YYYY-MM
+  income: z.number().nonnegative(),
+  expense: z.number().nonnegative(),
+});
+
+export type MonthlyIncomeExpense = z.infer<typeof monthlyIncomeExpenseSchema>;
+
+export const getMonthlyIncomeExpenseResponseSchema = z.object({
+  months: z.array(monthlyIncomeExpenseSchema),
+});
+
+export type GetMonthlyIncomeExpenseResponse = z.infer<typeof getMonthlyIncomeExpenseResponseSchema>;

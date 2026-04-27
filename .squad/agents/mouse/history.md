@@ -842,3 +842,17 @@ The iter 3/6 failures were because implementers didn't verify the actual visual 
 **PR:** https://github.com/rett-europe/opentreasury-desktop/pull/103  
 **Branch:** squad/fix-txn-view-modal-categoryid  
 **Tests:** All pass (8 TransactionDetailModal tests + 654 full suite), typecheck clean, lint clean.
+
+
+### 2026-05-27: PR #104 Movements KPI strip 4-card wrapping fix
+
+**Root cause:** The `.ot-kpi-strip` recipe in globals.css used `grid-template-columns: repeat(3, 1fr)` — locked to exactly 3 columns. Movements screen now has 4 KPI cards (Income, Expense, Net, Transactions count), so the 4th card wrapped to a second row even on wide viewports (1280px+).
+
+**Fix:** Changed recipe from `repeat(3, 1fr)` to `repeat(auto-fit, minmax(240px, 1fr))`. The grid now dynamically fits 3-4 cards based on available space. At desktop widths (1280px+) all 4 cards fit in a single row; narrower viewports collapse gracefully. Panel screen (3 cards) unaffected.
+
+**Why 240px minmax floor:** Each KPI card contains icon (42px) + label + value with minimal text. 240px provides breathing room for the widest card content (currency formatting) while allowing 4 cards to fit within typical desktop viewports: 4 × 240px + 3 gaps (~20px each) = ~1020px, well under 1280px.
+
+**Commit:** 9964f92
+**Branch:** squad/visual-consistency-income-expense-net (PR #104 follow-up)
+**Files:** globals.css:199 (1 line changed)
+**Tests:** TypeScript check clean, lint clean (ESLint warning about TypeScript 5.9.3 vs 5.6.0 supported version is pre-existing)

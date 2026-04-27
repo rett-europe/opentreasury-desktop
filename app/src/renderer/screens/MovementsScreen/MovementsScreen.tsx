@@ -506,6 +506,8 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
   // same hue. The mock Movement.tags are opaque strings; the real domain
   // will resolve tag colors from reference data. Values chosen in oklch-
   // friendly hex to mix cleanly with the prototype's color-mix() recipe.
+  // Tag color lookup — use actual tag color from backend, fall back to hash-based
+  // color if tag not found or color not set.
   const TAG_COLORS = useMemo(
     () =>
       [
@@ -519,14 +521,17 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     [],
   );
   const tagColor = useCallback(
-    (tag: string): string => {
+    (tagName: string): string => {
+      const tag = tags.find((t) => t.name === tagName);
+      if (tag?.color) return tag.color;
+      // Fallback: hash-based color when tag color not set
       let h = 0;
-      for (let i = 0; i < tag.length; i += 1) {
-        h = (h * 31 + tag.charCodeAt(i)) >>> 0;
+      for (let i = 0; i < tagName.length; i += 1) {
+        h = (h * 31 + tagName.charCodeAt(i)) >>> 0;
       }
       return TAG_COLORS[h % TAG_COLORS.length] as string;
     },
-    [TAG_COLORS],
+    [TAG_COLORS, tags],
   );
 
   const statusLabel = useCallback((s: MovementStatus) => t(`movements.status.${s}`), [t]);
