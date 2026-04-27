@@ -190,6 +190,7 @@ export function PanelScreen(): JSX.Element {
       subcategoryNameById.set(sub.id, sub.name);
     }
   }
+  const tagNameById = new Map<string, string>(tags.map((t) => [t.id, t.name]));
 
   const accountsWithBalances = accounts.map((acc) => {
     const balance = balances.find((b) => b.accountId === acc.id);
@@ -205,16 +206,44 @@ export function PanelScreen(): JSX.Element {
     };
   });
 
-  // Recent transactions table columns — arrow chip + account pill + amount
-  // tone mirror MovementsScreen so a truncated Panel row looks identical to
-  // the equivalent row on the full transactions screen.
-  // WI-20 Round 2: width values moved to CSS (PanelScreen.css) for proper
-  // table-layout: fixed. Title attributes added for hover on truncated cells.
+  // Tag color palette — mirrors MovementsScreen's deterministic hash
+  const TAG_COLORS = [
+    '#9b72cf', // brand
+    '#4e8bd6', // blue
+    '#e06b6b', // coral
+    '#6ca974', // green
+    '#d6a94e', // amber
+    '#b06bd6', // violet
+  ] as const;
+  const tagColor = (tagName: string): string => {
+    const tag = tags.find((t) => t.name === tagName);
+    if (tag?.color) return tag.color;
+    // Fallback: hash-based color when tag color not set
+    let h = 0;
+    for (let i = 0; i < tagName.length; i += 1) {
+      h = (h * 31 + tagName.charCodeAt(i)) >>> 0;
+    }
+    return TAG_COLORS[h % TAG_COLORS.length] as string;
+  };
+
+  const statusLabel = (s: string) => t(`movements.status.${s}`);
+  const statusClass = (s: string): string => {
+    if (s === 'pending') return 'ot-badge ot-badge--pending';
+    if (s === 'rejected') return 'ot-badge ot-badge--rejected';
+    return 'ot-badge ot-badge--approved';
+  };
+
+  // Recent transactions table columns — now aligned with MovementsScreen.
+  // Same headers, same order, same rendering. Only difference: no select
+  // checkbox and no row actions. Dashboard is read-only; edits happen via
+  // the detail modal.
   const columns: TableColumn<RecentTransaction>[] = [
     {
       id: 'type',
       header: '',
+      sortable: false,
       align: 'center',
+      width: 36,
       render: (row) => {
         const cls =
           row.type === 'income'
@@ -230,12 +259,14 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'date',
       header: t('movements.columns.date'),
+      sortable: false,
       tabular: true,
       render: (row) => formatDate(row.date, locale),
     },
     {
       id: 'account',
       header: t('movements.columns.account'),
+      sortable: false,
       render: (row) => {
         const account = accountById.get(row.accountId);
         const label =
@@ -263,6 +294,7 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'description',
       header: t('movements.columns.observations'),
+      sortable: false,
       render: (row) => (
         <span className="ot-panel-recent__desc" title={row.description}>
           {row.description}
@@ -272,6 +304,7 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'category',
       header: t('movements.columns.category'),
+      sortable: false,
       render: (row) => {
         const name = row.categoryId
           ? (categoryNameById.get(row.categoryId) ?? row.categoryId)
@@ -280,7 +313,7 @@ export function PanelScreen(): JSX.Element {
           <span title={name}>{name}</span>
         ) : (
           <span className="ot-badge ot-badge--uncategorized">
-            {t('panel.recent.uncategorized')}
+            {t('movements.filters.uncategorizedOnly')}
           </span>
         );
       },
@@ -288,22 +321,59 @@ export function PanelScreen(): JSX.Element {
     {
       id: 'subcategory',
       header: t('movements.columns.subcategory'),
+      sortable: false,
       render: (row) => {
         const name = row.subcategoryId
           ? (subcategoryNameById.get(row.subcategoryId) ?? row.subcategoryId)
           : null;
-        return name ? (
-          <span className="ot-text-muted" title={name}>
-            {name}
+        return name ? <span title={name}>{name}</span> : <span className="ot-text-muted">—</span>;
+      },
+    },
+    {
+      id: 'tags',
+      header: t('movements.columns.tags'),
+      sortable: false,
+      render: (row) => {
+        const tagNames = (row.tagIds ?? []).map((id) => tagNameById.get(id) ?? id);
+        if (tagNames.length === 0) return <span className="ot-text-muted">—</span>;
+        // Show max 2 chips visibly; overflow as +N indicator with title listing rest
+        const MAX_VISIBLE = 2;
+        const visibleTags = tagNames.slice(0, MAX_VISIBLE);
+        const overflowTags = tagNames.slice(MAX_VISIBLE);
+        const overflowCount = overflowTags.length;
+        return (
+          <span className="ot-tag-cell" title={tagNames.join(', ')}>
+            <span className="ot-tag-cell__chips">
+              {visibleTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="ot-tag-chip"
+                  style={{ ['--ot-tag-color' as string]: tagColor(tag) }}
+                  title={tag}
+                >
+                  {tag}
+                </span>
+              ))}
+            </span>
+            {overflowCount > 0 && (
+              <span className="ot-tag-cell__overflow" title={overflowTags.join(', ')}>
+                +{overflowCount}
+              </span>
+            )}
           </span>
-        ) : (
-          <span className="ot-text-muted">—</span>
         );
       },
     },
     {
+      id: 'status',
+      header: t('movements.columns.status'),
+      sortable: false,
+      render: (row) => <span className={statusClass(row.status)}>{statusLabel(row.status)}</span>,
+    },
+    {
       id: 'amount',
       header: t('movements.columns.amount'),
+      sortable: false,
       align: 'right',
       tabular: true,
       render: (row) => {
