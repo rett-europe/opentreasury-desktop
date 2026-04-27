@@ -1,13 +1,576 @@
-/* SPEC-023 AC11 — Row-level error highlight for invalid split amounts */
+/*
+ * SplitTransactionModal — visual layer.
+ *
+ * Sibling of TransactionDetailModal. Shares modal shell metrics
+ * (radius-lg, shadow-dialog, surface-primary, max-height 88vh)
+ * but lays out a parts list as a 5-column CSS grid (index, amount,
+ * category, subcategory, remove) with a comment input wrapping to
+ * a second visual row.
+ *
+ * All colour/spacing/radius/font values come from
+ * app/src/renderer/styles/tokens.css. No raw hex/px outside tokens.
+ *
+ * Class-name contract: see SplitTransactionModal.tsx. The earlier
+ * skeleton rules that used to live in globals.css were moved here
+ * (component-scoped) per the .squad/agents/mouse charter rule
+ * "stay within the component folder for component-scoped CSS".
+ */
+
+/* ── Modal shell ────────────────────────────────────────────── */
+.ot-split-modal {
+  width: 760px;
+  max-width: 92vw;
+  max-height: 88vh;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dialog);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  /* dialog defaults to inline-block; stretch to the viewport */
+  display: flex;
+  flex-direction: column;
+}
+
+.ot-split-modal[open] {
+  display: flex;
+}
+
+.ot-split-modal::backdrop {
+  background: var(--color-surface-overlay);
+  backdrop-filter: blur(2px);
+}
+
+/* Scrollable content; footer pinned outside this region */
+.ot-split-modal__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  padding: var(--space-9) var(--space-9) var(--space-7);
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.ot-split-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-7);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.ot-split-modal__header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ot-split-modal__title {
+  margin: 0;
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.ot-split-modal__subtitle {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--font-size-13);
+  color: var(--color-text-muted);
+  min-width: 0;
+}
+
+.ot-split-modal__subtitle-date {
+  font-variant-numeric: tabular-nums;
+}
+
+.ot-split-modal__subtitle-sep {
+  color: var(--color-text-disabled);
+}
+
+.ot-split-modal__subtitle-desc {
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60ch;
+}
+
+.ot-split-modal__close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-duration-fast) var(--motion-easing-standard),
+    color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-split-modal__close:hover {
+  background: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+}
+
+.ot-split-modal__close:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+/* ── Summary card (3-cell totals row) ───────────────────────── */
+.ot-split-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-7);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border-default);
+  transition:
+    background-color var(--motion-duration-base) var(--motion-easing-standard),
+    border-color var(--motion-duration-base) var(--motion-easing-standard);
+}
+
+.ot-split-summary__cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ot-split-summary__cell + .ot-split-summary__cell {
+  padding-left: var(--space-6);
+  border-left: 1px solid var(--color-border-default);
+}
+
+.ot-split-summary__label {
+  font-size: var(--font-size-11);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+}
+
+.ot-split-summary__value {
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  color: var(--color-text-primary);
+}
+
+/* Delta cell — coloured by state */
+.ot-split-summary--balanced .ot-split-summary__cell--delta .ot-split-summary__label,
+.ot-split-summary--balanced .ot-split-summary__value--delta {
+  color: var(--color-status-approved);
+}
+.ot-split-summary--over .ot-split-summary__cell--delta .ot-split-summary__label,
+.ot-split-summary--over .ot-split-summary__value--delta {
+  color: var(--color-expense-default);
+}
+.ot-split-summary--under .ot-split-summary__cell--delta .ot-split-summary__label,
+.ot-split-summary--under .ot-split-summary__value--delta {
+  color: var(--color-warning-default);
+}
+
+/* Tint the whole card by state — subtle, just enough to register */
+.ot-split-summary--balanced {
+  background: var(--color-status-approved-bg);
+  border-color: color-mix(in oklch, var(--color-status-approved) 20%, transparent);
+}
+.ot-split-summary--over {
+  background: var(--color-expense-bg);
+  border-color: color-mix(in oklch, var(--color-expense-default) 25%, transparent);
+}
+.ot-split-summary--under {
+  background: var(--color-warning-bg);
+  border-color: color-mix(in oklch, var(--color-warning-default) 25%, transparent);
+}
+
+/* ── Error banner ───────────────────────────────────────────── */
+.ot-split-modal__error {
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-md);
+  background: var(--color-expense-bg);
+  color: var(--color-expense-default);
+  border: 1px solid color-mix(in oklch, var(--color-expense-default) 25%, transparent);
+  font-size: var(--font-size-13);
+}
+
+/* ── Parts list ─────────────────────────────────────────────── */
+.ot-split-modal__parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Column tracks: index | amount | category | subcategory | remove
+   Comment input wraps to a second row beneath the selects. */
+.ot-split-modal__parts-head,
+.ot-split-row {
+  display: grid;
+  grid-template-columns: 24px 130px minmax(0, 1fr) minmax(0, 1fr) 28px;
+  column-gap: var(--space-5);
+  align-items: center;
+}
+
+.ot-split-modal__parts-head {
+  padding: 0 var(--space-3) var(--space-3);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.ot-split-modal__parts-head-cell {
+  font-size: var(--font-size-11);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.ot-split-modal__parts-head-cell--index {
+  text-align: center;
+}
+
+.ot-split-modal__parts-head-cell--amount {
+  text-align: right;
+}
+
+.ot-split-modal__parts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ── Part row ───────────────────────────────────────────────── */
+.ot-split-row {
+  position: relative;
+  row-gap: var(--space-3);
+  padding: var(--space-4) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition:
+    background-color var(--motion-duration-fast) var(--motion-easing-standard),
+    border-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-split-row:hover {
+  background: var(--color-row-hover);
+}
+
+.ot-split-row__index {
+  grid-column: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--color-brand-surface);
+  color: var(--color-brand-primary);
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  align-self: center;
+}
+
+.ot-split-row__amount {
+  grid-column: 2;
+}
+
+.ot-split-row__category {
+  grid-column: 3;
+  min-width: 0;
+}
+
+.ot-split-row__subcategory {
+  grid-column: 4;
+  min-width: 0;
+}
+
+.ot-split-row__remove {
+  grid-column: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-duration-fast) var(--motion-easing-standard),
+    color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-split-row__remove:hover:not(:disabled) {
+  background: var(--color-expense-bg);
+  color: var(--color-expense-default);
+}
+
+.ot-split-row__remove:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.ot-split-row__remove:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Comment lives on a second visual row, aligned under the value
+   columns (skips the index gutter and remove button). */
+.ot-split-row__comment {
+  grid-column: 2 / 5;
+  grid-row: 2;
+  min-width: 0;
+}
+
+/* Form controls inside rows — subtle, table-like */
+.ot-split-row__amount-input,
+.ot-split-row__select,
+.ot-split-row__comment-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 var(--space-5);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-14);
+  transition:
+    border-color var(--motion-duration-fast) var(--motion-easing-standard),
+    box-shadow var(--motion-duration-fast) var(--motion-easing-standard),
+    background-color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-split-row__amount-input {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  font-weight: var(--font-weight-semibold);
+}
+
+.ot-split-row__select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--space-9);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
+    linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 9px) 50%;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+}
+
+.ot-split-row__comment-input {
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-secondary);
+}
+
+.ot-split-row__amount-input:hover:not(:disabled),
+.ot-split-row__select:hover:not(:disabled),
+.ot-split-row__comment-input:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+}
+
+.ot-split-row__amount-input:focus,
+.ot-split-row__select:focus,
+.ot-split-row__comment-input:focus {
+  outline: none;
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-brand-primary) 18%, transparent);
+}
+
+.ot-split-row__select:disabled {
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+/* Row-level error: left accent + tinted background */
 .ot-split-row--error {
-  background-color: color-mix(in oklch, var(--color-error-default, #dc2626) 8%, transparent);
+  background: color-mix(in oklch, var(--color-expense-default) 6%, transparent);
+  border-color: color-mix(in oklch, var(--color-expense-default) 30%, transparent);
+  box-shadow: inset 3px 0 0 0 var(--color-expense-default);
 }
 
 .ot-split-row--error .ot-split-row__amount-input {
-  border-color: var(--color-error-default, #dc2626);
+  border-color: var(--color-expense-default);
 }
 
 .ot-split-row--error .ot-split-row__amount-input:focus {
-  outline-color: var(--color-error-default, #dc2626);
-  box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-error-default, #dc2626) 20%, transparent);
+  border-color: var(--color-expense-default);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-expense-default) 18%, transparent);
+}
+
+/* ── Add part button ────────────────────────────────────────── */
+.ot-split-modal__add-part {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  height: 36px;
+  padding: 0 var(--space-7);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-brand-primary);
+  font-family: inherit;
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-duration-fast) var(--motion-easing-standard),
+    border-color var(--motion-duration-fast) var(--motion-easing-standard),
+    color var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-split-modal__add-part:hover:not(:disabled) {
+  background: var(--color-brand-surface);
+  border-color: var(--color-brand-primary);
+  border-style: solid;
+}
+
+.ot-split-modal__add-part:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ot-split-modal__add-part:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--color-text-disabled);
+  border-color: var(--color-border-default);
+}
+
+/* ── Inline warnings (under parts list) ─────────────────────── */
+.ot-split-modal__warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-split-modal__warning {
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  border-left: 3px solid var(--color-warning-default);
+  background: var(--color-warning-bg);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-13);
+}
+
+/* ── Footer ─────────────────────────────────────────────────── */
+.ot-split-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-9);
+  border-top: 1px solid var(--color-border-default);
+  background: var(--color-surface-primary);
+  flex-shrink: 0;
+}
+
+.ot-split-modal__footer-left {
+  display: flex;
+  align-items: center;
+}
+
+.ot-split-modal__footer-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.ot-split-modal__save-hint {
+  font-size: var(--font-size-11);
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* ── Confirm sub-dialogs (discard / remove) ─────────────────── */
+.ot-split-modal__confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-overlay);
+  backdrop-filter: blur(2px);
+}
+
+.ot-split-modal__confirm {
+  width: 420px;
+  max-width: 92vw;
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-primary);
+  box-shadow: var(--shadow-dialog);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.ot-split-modal__confirm h3 {
+  margin: 0;
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.ot-split-modal__confirm p {
+  margin: 0;
+  font-size: var(--font-size-14);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.ot-split-modal__confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+/* ── Responsive — narrow laptops (≤ 1024px) ─────────────────── */
+@media (max-width: 1024px) {
+  .ot-split-modal {
+    width: 92vw;
+  }
+  .ot-split-modal__parts-head,
+  .ot-split-row {
+    grid-template-columns: 22px 110px minmax(0, 1fr) minmax(0, 1fr) 28px;
+    column-gap: var(--space-4);
+  }
 }

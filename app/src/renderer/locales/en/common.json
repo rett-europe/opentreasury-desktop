@@ -873,6 +873,12 @@
       "removeBody": "All parts will be removed. The transaction will revert to a single amount of {{amount}}.",
       "removeConfirm": "Remove",
       "removeCancel": "Cancel",
+      "summaryOriginal": "Original amount",
+      "summaryDistributed": "Distributed",
+      "summaryRemaining": "Remaining",
+      "summaryOver": "Over by",
+      "summaryBalanced": "Balanced",
+      "saveHint": "Ctrl+Enter to save",
       "amountLockedTitle": "Amount locked",
       "amountLockedBody": "Amount is locked because this transaction has splits. Remove the split to change the amount."
     },
