@@ -485,3 +485,25 @@ Your `ux-004a-saldo-subcategory-drilldown-amendment-1.md` §3.3 (2px parent-grou
 ### Next step
 
 Fold these two mockups into your UX-005 amendment when Insights work resumes post-M3 (target M4). See Link's PM brief (link-69-insights-prio.md) for roadmap context and Niobe's prior spec response (niobe-69-insights-ia-sketch.md) — both now merged into .squad/decisions/decisions.md for team memory.
+
+---
+
+## Learning: Parallel-Checkout Race & `SQUAD_WORKTREES=1` (2026-04-27)
+
+**Incident:** During Insights M4 final push, Morpheus + Trinity were spawned simultaneously without `SQUAD_WORKTREES=1` env var.
+
+**Mechanism:**
+- Morpheus: `git checkout squad/insights-drilldown-ipc` → updates index
+- Trinity: Writing 40+ drilldown UI files (JSX, CSS, tests) into renderer working tree at same time
+- Coordinator (Pedro): `git checkout hotfix/donut-chart-thousands` → **git index collision** with Trinity's WIP
+- **Result:** Trinity's UI files staged into coordinator's commit; PR #111 merged with bundled IPC+hotfix
+
+**Recovery:** Verified IPC code was correct (matches Morpheus's branch), merged with `--admin --squash` (bundled but coherent), rebuilt test-fix branch in isolated worktree at `C:\rettx\opentreasury-desktop-hotfix`.
+
+**Reinforcement:** **SQUAD_WORKTREES=1 is mandatory for 2+ parallel agents.** Export before spawning:
+```bash
+export SQUAD_WORKTREES=1
+# Then spawn Trinity + Morpheus
+```
+
+This ensures each agent gets `git worktree add` + isolated checkout, zero collision risk. Update your spawn checklist.
