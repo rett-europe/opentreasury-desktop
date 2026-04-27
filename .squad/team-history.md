@@ -43,6 +43,25 @@ Dashboard's recent-transactions table now mirrors Movements screen columns and r
 
 ---
 
+## PR #105 Wave 4 (2026-04-29)
+
+**Agent:** Trinity  
+**Branch:** `squad/dashboard-bugs-tags-recent-chart`  
+**Commit:** `fe45e7a` — `fix(panel): align recent transactions column widths with Movements`
+
+Dashboard's recent-transactions table column widths now match MovementsScreen exactly:
+- **Applied widths:** Type 32px, Date 88px, Account 100px, Description 200px, Category 120px, Subcategory 120px, Tags 140px, Status 80px, Amount 100px
+- **Source:** MovementsScreen.css canonical widths (lines 418-480)
+- **Root cause:** CSS missing explicit nth-child widths; STATUS defaulted too wide, pushing Date/Account/Description off grid
+- **TS+lint clean**
+
+**Drift Pattern Identified:** This is the 2nd unplanned sync incident (Wave 3 added missing columns, Wave 4 fixed widths). Trinity documented the duplication-drift risk in `.squad/decisions.md` with recommendation to extract shared `<TransactionsTable>` component on next drift trigger, rather than continue manual syncing.
+
+**Decision merged into `.squad/decisions.md`:**
+- TransactionsTable Duplication Drift Pattern (Trinity) — when identical table logic appears 2+ screens with config-only differences, extract shared component early to prevent manual sync waste
+
+---
+
 ## PR #104 (2026-04-XX)
 
 [Team history begins with PR #105 Wave 2. Earlier PRs logged separately in decisions.md.]

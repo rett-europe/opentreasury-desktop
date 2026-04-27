@@ -102,6 +102,56 @@ For any semantic data type (income/expense, debit/credit, asset/liability), esta
 
 ---
 
+### 2026-04-29: Pattern — TransactionsTable Duplication Drift (Trinity, PR #105 Wave 4)
+
+**Date:** 2026-04-29  
+**Status:** 🚩 IDENTIFIED (Wave 4 fix applied, future refactor flagged)  
+**Agent:** Trinity (Frontend Dev)  
+**Related Issue:** PR #105 Wave 3 → Wave 4 drift (missing column widths)
+
+#### Decision
+
+The recent-transactions table on Dashboard (`PanelScreen`) duplicates JSX and CSS from `MovementsScreen` instead of sharing a component. This pattern has caused two drift incidents in PR #105:
+
+1. **Commit 2ef25df** — Dashboard missing Tags + Status columns
+2. **Commit fe45e7a** — Dashboard incorrect column widths (STATUS too wide, DATE/ACCOUNT/DESCRIPTION misaligned)
+
+Both required manual syncing to canonical source (`MovementsScreen`).
+
+#### Current State
+
+**Canonical source:** `MovementsScreen.tsx` (lines 560-740) + `MovementsScreen.css` (lines 418-480 for widths)
+
+**Duplicate:** `PanelScreen.tsx` (columns array, lines 240-385) + `PanelScreen.css` (nth-child rules, lines 31-130)
+
+The tables share identical column order, rendering logic, widths, and table-layout CSS. Only features differ (Dashboard: no select, no sort, no row actions, 8-row limit; Movements: full interactivity).
+
+#### Risk
+
+Each future change to Movements table (columns, widths, rendering) must be manually propagated or Dashboard drifts. This is error-prone and wastes time on every fix.
+
+#### Recommendation
+
+**Future refactor (not urgent):** Extract shared `<TransactionsTable>` component accepting:
+- `data: Transaction[]`
+- `columns: Array<'select' | 'type' | 'date' | ...>` — configurable column set
+- `sortable?: boolean`, `onRowClick?: (tx) => void`, `selectedIds?: Set<string>`, `onToggleRow?: (id) => void`
+
+Column widths live in shared component CSS. Both screens render with their respective configs. Next drift incident should trigger this refactor rather than another manual sync.
+
+#### Generalization (locked rule)
+
+When the same table/list component appears in two screens with minor configuration differences (one interactive, one read-only), **extract shared component early**. Manual duplication accumulates drift faster than interactivity variations accumulate code complexity. Apply for UI elements appearing 2+ times.
+
+#### Files
+
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.tsx` (lines 560-740)
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.css` (lines 418-480)
+- `app/src/renderer/screens/PanelScreen/PanelScreen.tsx` (lines 240-385)
+- `app/src/renderer/screens/PanelScreen/PanelScreen.css` (lines 31-130)
+
+---
+
 ### 2026-04-26: Saldo Subcategory Drilldown — Drop §3.3 Left Guide (post-#78 dogfood, PR #87)
 
 **Date:** 2026-04-26
