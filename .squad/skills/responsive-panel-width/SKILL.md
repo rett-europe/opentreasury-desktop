@@ -121,3 +121,26 @@ Key points:
   `overflow: hidden; text-overflow: ellipsis` from amount text elements
   and `min-width: 0` from compound cells. Added `@media (max-width:
   1200px)` breakpoint switching 1:3 → 1:1 bar ratio.
+---
+
+## Variant: single-mode share-% column (Saldo, PR #118)
+
+**Confidence:** LOW (one bug, one fix; not yet validated across more modes).
+
+The minmax recipe above protects amounts in compare mode by using JS-measured `ch`-unit vars (`--saldo-col-prior`, `--saldo-col-current`, `--saldo-col-delta`). The vars are computed by `panelColWidths` from the YoY *delta* text — that is correct for the compare row template.
+
+**Trap:** the *single*-mode row template (`.ot-saldo-row--single` / `.ot-saldo-subrow--single`) cannot reuse `--saldo-col-delta` because in single mode the third cell renders `Intl.NumberFormat({ style: 'percent' })` (share of total), NOT `formatDeltaText`. With no prior data, all deltas are `null` → `formatDeltaText` → `"—"` → var = `2ch` → share % gets clipped by the `__delta` cell's `text-overflow: ellipsis`.
+
+**Recipe for single mode:**
+
+\\\css
+.ot-saldo-panel__columns--single,
+.ot-saldo-row--single,
+.ot-saldo-subrow--single {
+  grid-template-columns: 1fr max-content max-content;
+}
+\\\
+
+Why `max-content` is enough here: every cell in cols 2-3 is a short fixed-format string (amount in EUR, percent at 0 fraction digits). The grid sizes each track to the widest such cell — alignment across rows + header is automatic, no JS measurement needed.
+
+**Rule of thumb:** if a CSS var's value depends on text formatted by function `A` but the variant being styled renders text formatted by function `B`, do not reuse the var. Either compute a separate var for `B`, or fall back to `max-content` if `B`'s output is short and bounded.

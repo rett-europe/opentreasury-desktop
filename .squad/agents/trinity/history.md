@@ -1948,3 +1948,25 @@ it('renders a single 100% slice as a full ring (no Pac-Man gap)', () => {
 \\\
 
 **Empty-State Color Convention:** All empty-state text in chart components uses --color-text-secondary + weight 500 (not --color-text-muted). Matches EmptyState.css pattern across app; ensures WCAG AA contrast.
+
+---
+
+## 2026-05-?? — fix(saldo): % column no longer truncates in 1-year view (PR #118)
+
+**Symptom:** In Saldo single-year mode the share-of-total % column was clipped (often to ~1 char) on every viewport, both with subcategories collapsed and expanded. Pedro flagged it.
+
+**Root cause:** `.ot-saldo-row--single` / `.ot-saldo-subrow--single` reused `minmax(0, var(--saldo-col-delta, max-content))` from the compare-mode template. `--saldo-col-delta` is JS-computed in `panelColWidths` from the YoY *delta* text (`formatDeltaText`). In single mode no prior data exists → all deltas are `null` → `formatDeltaText` returns `"—"` → var resolves to ~`2ch`. But the column actually renders `Intl.NumberFormat({ style: 'percent' })` (e.g. `"100 %"` / `"100%"`), which is much wider. Combined with `overflow: hidden; text-overflow: ellipsis` on the `__delta` cell, the share % got chopped.
+
+**Fix:** Replaced single-mode row, subrow, and header templates with `1fr max-content max-content`. The values rendered in single mode are short fixed-format strings (amount + "X %") so `max-content` is the right fit; no JS measurement needed for this mode. Header + row + subrow all share the same template → vertical column alignment preserved.
+
+Files:
+- `app/src/renderer/screens/SaldoScreen/SaldoScreen.css` — `.ot-saldo-panel__columns--single` and `.ot-saldo-row--single` (parent panel + parent row)
+- `app/src/renderer/styles/globals.css` — `.ot-saldo-subrow--single`
+
+Compare-mode (header + `--compare` row + `--compare` subrow + 1200px breakpoint) untouched.
+
+**Test matrix:** `typecheck` ✅ `lint` ✅ `prettier --check` (changed files) ✅ `vitest SaldoScreen.test.tsx` 22/22 ✅. The `single mode panel shows % of total instead of delta` test continues to pass — verifies `80 %` is rendered, not clipped.
+
+**Lesson / pattern:** When a CSS var is shared across modifier variants (`--compare` vs `--single`), confirm the var's *source of truth* (here: `panelColWidths` measurement) actually corresponds to what the variant *renders*. `--saldo-col-delta` is correct for compare mode (renders YoY delta) but wrong for single mode (renders share %). Cross-mode CSS-var reuse is a footgun when the rendered text differs by mode.
+
+**Pattern for short-fixed-format columns:** if every row's value is a short format-bound string (currency in fixed locale, percent at fixed precision), `max-content` is simpler and safer than a JS-measured `ch` var — the grid auto-sizes to the longest cell and all rows stay aligned. JS-measured `ch` vars are warranted only when content widths differ significantly between rows AND alignment with a different grid (e.g. header) matters.

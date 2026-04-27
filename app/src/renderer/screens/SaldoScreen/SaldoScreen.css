@@ -145,7 +145,11 @@
     minmax(0, var(--saldo-col-delta, max-content));
 }
 .ot-saldo-panel__columns--single {
-  grid-template-columns: 1fr auto auto;
+  /* Single-year mode: content columns size to their text. Header + row +
+   * subrow share this template so the amount and % cells align vertically
+   * across all visible rows. See `.ot-saldo-row--single` for the row
+   * recipe and the matching subrow recipe in globals.css. */
+  grid-template-columns: 1fr max-content max-content;
 }
 .ot-saldo-panel__col--right {
   text-align: right;
@@ -199,10 +203,17 @@
     minmax(0, var(--saldo-col-delta, max-content));
 }
 .ot-saldo-row--single {
-  grid-template-columns:
-    1fr
-    minmax(0, var(--saldo-col-current, max-content))
-    minmax(0, var(--saldo-col-delta, max-content));
+  /* Single-year mode renders: name | amount | share-of-total %. Column 3
+   * holds a percent string (e.g. "100 %" / "100%") rendered via Intl
+   * NumberFormat — NOT the YoY delta. The `--saldo-col-delta` var is
+   * sized for compare-mode delta text and resolves to "—"/2ch in single
+   * mode (prior is undefined → delta is null), which clipped the share
+   * % via the `__delta` cell's `text-overflow: ellipsis`. Using
+   * `max-content` directly for both amount and % tracks guarantees the
+   * formatted percentage fits at any viewport, in both ES ("27 %") and
+   * EN ("27%") locales, and keeps the template identical to the header
+   * and subrow so columns stay aligned across all rows. */
+  grid-template-columns: 1fr max-content max-content;
 }
 
 /* Per-year compound cells. Iter 4 (Pedro 2026-04-26 dogfood iter 3 reject):
@@ -298,6 +309,13 @@
 }
 .ot-saldo-panel--expense .ot-saldo-row__current {
   color: var(--color-expense-default);
+}
+/* Single (1-year) mode has no bar under the amount, so the number stands
+ * alone next to the % column. Right-align both for proper numeric reading
+ * (Pedro 2026-04 dogfood). Compare mode keeps left-align because the
+ * amount sits visually above a left-anchored bar fill. */
+.ot-saldo-row--single .ot-saldo-row__current {
+  text-align: right;
 }
 
 .ot-saldo-row__delta {

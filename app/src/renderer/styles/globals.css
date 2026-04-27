@@ -750,10 +750,11 @@ a:hover {
     minmax(0, var(--saldo-col-delta, max-content));
 }
 .ot-saldo-subrow--single {
-  grid-template-columns:
-    1fr
-    minmax(0, var(--saldo-col-current, max-content))
-    minmax(0, var(--saldo-col-delta, max-content));
+  /* Mirrors `.ot-saldo-row--single`. See SaldoScreen.css for the
+   * rationale: `--saldo-col-delta` is sized for compare-mode YoY delta
+   * text and is too narrow for the share % rendered here, which got
+   * truncated by the `__delta` cell's `text-overflow: ellipsis`. */
+  grid-template-columns: 1fr max-content max-content;
 }
 /* Iter 10: 1:1 bar ratio at narrow widths for subrows. */
 @media (max-width: 1200px) {
@@ -866,6 +867,11 @@ a:hover {
 }
 .ot-saldo-panel--expense .ot-saldo-subrow__current {
   color: var(--color-expense-default);
+}
+/* Mirrors `.ot-saldo-row--single .ot-saldo-row__current`. See
+ * SaldoScreen.css for rationale. */
+.ot-saldo-subrow--single .ot-saldo-subrow__current {
+  text-align: right;
 }
 
 .ot-saldo-subrow__delta {
