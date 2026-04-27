@@ -303,7 +303,9 @@ export function TransactionDetailModal({
   // Resolve FK IDs to display names — never show raw IDs in the UI
   const category = categories.find((c) => c.id === transaction.categoryId);
   const resolvedCategoryLabel = categoryLabel ?? category?.name ?? null;
-  const subcategory = categories.find((c) => c.id === transaction.subcategoryId);
+  const subcategory = categories
+    .flatMap((c) => c.subcategories ?? [])
+    .find((s) => s?.id === transaction.subcategoryId);
   const resolvedSubcategoryLabel = subcategoryLabel ?? subcategory?.name ?? null;
   const resolvedTagLabels: readonly string[] =
     tagLabels ??

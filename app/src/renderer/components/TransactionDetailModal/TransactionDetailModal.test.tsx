@@ -165,4 +165,68 @@ describe('TransactionDetailModal', () => {
     // Notes thread should not be visible in edit mode
     expect(screen.queryByRole('heading', { name: /Notes|Notas/i })).toBeNull();
   });
+
+  it('preserves category and subcategory ULIDs when entering edit mode', async () => {
+    const mockCategories = [
+      {
+        id: '01HCAT00000000000000000001',
+        name: 'Payroll',
+        type: 'expense' as const,
+        subcategories: [{ id: '01HCAT00000000000000000002', name: 'Staff costs' }],
+        isActive: true,
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    ];
+
+    const txWithCategory: RecentTransaction = {
+      ...baseTx,
+      categoryId: '01HCAT00000000000000000001',
+      subcategoryId: '01HCAT00000000000000000002',
+    };
+
+    const handleUpdate = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <TransactionDetailModal
+          isOpen={true}
+          onClose={() => {}}
+          transaction={txWithCategory}
+          accounts={[mockAccount]}
+          categories={mockCategories}
+          onUpdate={handleUpdate}
+          onDelete={vi.fn()}
+        />
+      </I18nextProvider>,
+    );
+
+    // Enter edit mode
+    const editButton = screen.getByRole('button', { name: /Edit|Editar/i });
+    fireEvent.click(editButton);
+
+    // Category dropdown should have the correct ULID selected
+    const categorySelect = document.getElementById('tx-category') as HTMLSelectElement;
+    expect(categorySelect).not.toBeNull();
+    expect(categorySelect.value).toBe('01HCAT00000000000000000001');
+
+    // Subcategory dropdown should have the correct ULID selected
+    const subcategorySelect = document.getElementById('tx-subcategory') as HTMLSelectElement;
+    expect(subcategorySelect).not.toBeNull();
+    expect(subcategorySelect.value).toBe('01HCAT00000000000000000002');
+
+    // Add a tag (simulating Pedro's scenario of "adding a label")
+    // For simplicity, we'll just save without changing anything
+    const saveButton = screen.getByRole('button', { name: /Save|Guardar/i });
+    fireEvent.click(saveButton);
+
+    // Wait for the async save to complete
+    await vi.waitFor(() => {
+      expect(handleUpdate).toHaveBeenCalled();
+    });
+
+    // Verify that the update was called with the correct ULIDs (not empty strings)
+    const updateCall = handleUpdate.mock.calls[0][0];
+    expect(updateCall.categoryId).toBe('01HCAT00000000000000000001');
+    expect(updateCall.subcategoryId).toBe('01HCAT00000000000000000002');
+  });
 });

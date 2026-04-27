@@ -87,6 +87,7 @@ function mapMovementRecord(
   accountsMap: Map<string, Account>,
   categoryNameById: Map<string, string>,
   subcategoryNameById: Map<string, string>,
+  tagNameById: Map<string, string>,
 ): Movement {
   const account = accountsMap.get(record.accountId);
   const categoryName =
@@ -107,7 +108,7 @@ function mapMovementRecord(
     account: account?.accountLabel ?? record.accountId,
     category: categoryName,
     subcategory: subcategoryName,
-    tags: record.tagIds ?? [],
+    tags: (record.tagIds ?? []).map((id) => tagNameById.get(id) ?? id),
     status: record.status,
     reference: record.reference ?? null,
     details: record.details ?? null,
@@ -273,8 +274,9 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
           subcategoryNameById.set(sub.id, sub.name);
         }
       }
+      const tagNameById = new Map<string, string>(tagsResp.tags.map((t) => [t.id, t.name]));
       const rows = records.map((r) =>
-        mapMovementRecord(r, accountsMap, categoryNameById, subcategoryNameById),
+        mapMovementRecord(r, accountsMap, categoryNameById, subcategoryNameById, tagNameById),
       );
 
       setAccounts(accountsResp.accounts);
@@ -1176,24 +1178,25 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
                 onRowClick={(row) => {
                   // Convert Movement to RecentTransaction for the detail modal
                   const record = rawRecordById.get(row.id);
+                  if (!record) return; // Defensive: skip if raw record not found
                   const tx: RecentTransaction = {
-                    id: row.id,
-                    date: row.date,
-                    type: row.type,
-                    amount: row.amount,
-                    currency: row.currency,
-                    description: row.description,
-                    accountId: accounts.find((a) => a.accountLabel === row.account)?.id ?? '',
-                    categoryId: row.category ?? null,
-                    subcategoryId: row.subcategory ?? null,
-                    tagIds: row.tags.slice(),
-                    status: row.status === 'rejected' ? 'pending' : row.status,
-                    reference: row.reference ?? undefined,
-                    details: row.details ?? undefined,
-                    createdAt: new Date().toISOString(),
+                    id: record.id,
+                    date: record.date,
+                    type: record.type,
+                    amount: record.amount,
+                    currency: record.currency,
+                    description: record.description,
+                    accountId: record.accountId,
+                    categoryId: record.categoryId,
+                    subcategoryId: record.subcategoryId,
+                    tagIds: record.tagIds.slice(),
+                    status: record.status,
+                    reference: record.reference ?? undefined,
+                    details: record.details ?? undefined,
+                    createdAt: record.createdAt,
                   };
                   setSelectedTx(tx);
-                  setSelectedRawRecord(record ?? null);
+                  setSelectedRawRecord(record);
                 }}
               />
             </div>
