@@ -1909,3 +1909,42 @@ export SQUAD_WORKTREES=1
 ```
 
 This ensures each agent gets `git worktree add` + isolated checkout, zero collision risk. Update your spawn checklist.
+
+---
+
+## 2025 — PR #115 — Insights donut single-slice + empty-state contrast
+
+### Learnings
+
+**Donut single-slice math (Pac-Man bug).** SVG donut implementations using `<circle stroke-dasharray=" " stroke-dashoffset="-C/4">` per slice break when one slice covers the full ring. With `arc = C` the pattern becomes `"C C"` (dash C, gap C), and `-C/4` shifts the pattern so the last quarter of the path lands in the *gap* portion → 75%% visible, 25%% invisible. Fix: when `segments.length === 1 && percentage >= 99.999`, render a plain `<circle>` with stroke but no dasharray/offset. Codified in `.squad/skills/donut-single-slice/SKILL.md`.
+
+**Empty-state contrast pattern for charts.** Don't put empty-state labels inside `<text>` elements within tiny SVGs — long localized strings overflow the SVG draw area and don't wrap. Render them as absolute-positioned HTML overlays (flex-centered, padded) sitting above the empty ring. Use `--color-text-secondary` + `font-weight: 500`, never `--color-text-muted` (insufficient contrast on light panel surfaces). This matches what `components/EmptyState/EmptyState.css` already uses for full-screen empty states — consistency.
+
+**Files touched:**
+- `app/src/renderer/components/DonutChart/DonutChart.tsx` — single-slice full-ring branch + HTML empty overlay
+- `app/src/renderer/components/DonutChart/DonutChart.css` — overlay styles, contrast bump
+- `app/src/renderer/components/DonutChart/DonutChart.test.tsx` — regression test `renders a single 100% slice as a full ring (no Pac-Man gap)`
+
+**i18n note.** Verified `insights.detail.donut.incomeEmpty` and `expenseEmpty` exist in both `locales/es/common.json` and `locales/en/common.json` before touching anything — no repeat of the PR #113 missing-key incident.
+
+## Donut Chart Skill — Single-Slice Rendering (2026-04-27)
+
+**Context:** PR #115 shipped with fix for Insights drilldown donut chart rendering bug. When a single slice covers 100% of the donut, the SVG stroke-dasharray approach renders only ~75% (Pac-Man effect).
+
+**Fix Pattern:** When segment >= 99.999%, render plain stroked <circle> instead of dash-patterned <circle>. Use 99.999 threshold to absorb FP rounding from (value / total) * 100.
+
+**Skill Location:** .squad/skills/donut-single-slice/SKILL.md — includes math explanation, fix code snippet, regression test pattern, and when-to-apply guidance for future chart components.
+
+**Cross-Agent Usage:** Mouse (Insights color work), Niobe (future Insights enhancements), and any agent landing new chart primitives that use the dasharray-on-circle approach.
+
+**Regression Test Pattern:**
+\\\	s
+it('renders a single 100% slice as a full ring (no Pac-Man gap)', () => {
+  const { container } = render(<DonutChart slices={[{ value: 500, … }]} total={500} … />);
+  const seg = container.querySelector('circle.segment-class')!;
+  expect(seg.getAttribute('stroke-dasharray')).toBeNull();
+  expect(seg.getAttribute('stroke-dashoffset')).toBeNull();
+});
+\\\
+
+**Empty-State Color Convention:** All empty-state text in chart components uses --color-text-secondary + weight 500 (not --color-text-muted). Matches EmptyState.css pattern across app; ensures WCAG AA contrast.

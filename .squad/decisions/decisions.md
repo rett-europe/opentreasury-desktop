@@ -2110,3 +2110,129 @@ export SQUAD_WORKTREES=1
 ```
 
 This ensures each agent gets its own worktree (`git worktree add`) and cannot collide.
+
+---
+
+## Decision: Insights DonutChart — Single-Slice Rendering & Empty-State Contrast (PR #115)
+
+**Author:** Trinity (Frontend Developer)  
+**Date:** 2026-04-27T12:18:17Z  
+**Status:** Shipped & Approved (Pedro confirmed "it works now")  
+**PR:** #115 (squashed, merged)  
+**Files:** DonutChart.tsx, DonutChart.css, DonutChart.test.tsx
+
+### Context
+
+Pedro reported two visual bugs on the Insights drilldown screen (PR #110, shipped):
+
+1. **Donut chart single-slice Pac-Man bug:** When a single segment covers 100% of the donut, the SVG renders only ~75% (missing 25% wedge).
+2. **Empty-state text contrast:** "Sin gastos para esta selección" barely visible (WCAG fail on --color-text-muted).
+
+### D1 — Donut Single-Slice Rendering Fix
+
+**Problem:** Most SVG donut charts use stroke-dasharray + stroke-dashoffset to draw slices. When one slice covers the full circle, the math fails:
+- stroke-dasharray = "C C" (dash length = circumference, gap = circumference)
+- stroke-dashoffset = -C/4 (rotate to 12 o'clock)
+- The visible portion is only  ..3C/4 (75% of circle) — the Pac-Man effect.
+
+This is a pure geometry problem, not a bug in our logic.
+
+**Solution:** When a segment covers ≥99.999% of the circle, render a plain stroked <circle> with no dasharray/offset:
+
+`	sx
+if (segments.length === 1 && seg.percentage >= 99.999) {
+  return (
+    <circle cx={center} cy={center} r={radius} fill="none" stroke={color} strokeWidth={thickness} />
+  );
+}
+`
+
+Use >= 99.999 (not === 100) to absorb floating-point rounding from (value / total) * 100.
+
+**Regression Test:** "renders a single 100% slice as a full ring (no Pac-Man gap)" validates that stroke-dasharray and stroke-dashoffset are both null when segment >= 99.999%.
+
+**Skill:** Documented as .squad/skills/donut-single-slice/SKILL.md for reuse in future chart components.
+
+### D2 — Empty-State Text Contrast Fix
+
+**Problem:** Empty state copy ("Sin gastos para esta selección") was rendered as SVG <text> using --color-text-muted, which failed WCAG AA contrast on the donut panel background. Long labels were also clipped by SVG bounds.
+
+**Solution:**
+- **Color:** Switch from --color-text-muted → --color-text-secondary + font-weight 500
+- **Rendering:** Change from SVG <text> to HTML overlay (position: absolute, display: flex, centered and padded)
+- **Wrapping:** HTML overlay allows multi-line text to wrap inside donut bounds naturally
+
+**Rationale:**
+- --color-text-secondary is the standard "non-primary but readable" token used by EmptyState.css — keeps empty-state visual language consistent across the app
+- --color-text-primary would over-emphasize an empty state and compete with KPI numbers
+- HTML overlay is more resilient to long translations (ES vs EN)
+
+### D3 — Empty-State Color Token Convention (App-Wide)
+
+**Decision:** All empty-state text in chart components uses --color-text-secondary + font-weight 500, never --color-text-muted.
+
+**Convention applies to:**
+- New chart components (e.g., future line charts, bar charts in Insights)
+- Existing chart components if they show empty states
+
+**Rationale:** Parity with EmptyState.css pattern; WCAG AA compliance; prevents muted text from getting lost on light surfaces.
+
+**No objections from Mouse/Niobe** → convention adopted as standard practice.
+
+### Metadata
+
+- **Skill created:** donut-single-slice (cross-agent discovery for chart work)
+- **Decision source:** trinity-insights-visual-bugs.md (decision inbox, merged 2026-04-27)
+- **Cross-agent impact:** Mouse (future chart components), Niobe (Insights amendments)
+
+---
+
+## Decision: Insights Spec — Pedro's Answers to 3 Open Questions (OQ-1, OQ-2, OQ-3)
+
+**Author:** Pedro Rocha (via Copilot)  
+**Date:** 2026-04-26  
+**Status:** Locked & Approved  
+**Related Spec:** docs/ux/specs/ux-005-insights-final-spec.md (Niobe, OQ-1/2/3 set)
+
+### OQ-1 — Landing Date Window Default
+
+**Question:** All-time or current year?  
+**Answer:** **Current calendar year**, end capped at today.
+
+**Rationale:** Niobe's mockup shows recent quarterly performance; all-time aggregates would wash out seasonal patterns.
+
+**Implementation:** insights:landing-summary IPC request omits windowStart/windowEnd → backend defaults to { windowStart: Jan 1 of current year, windowEnd: today }.
+
+---
+
+### OQ-2 — Multi-Label Overlap Handling
+
+**Question:** Disclose or accept (silently hide the double-count)?  
+**Answer:** **Disclose with footnote** — "Nota: la suma entre tarjetas puede no coincidir con el total cuando hay superpuesto de etiquetas" / "Note: card totals may not match the grand total when labels overlap."
+
+**Rationale:** Transparency > false precision. Users need to know that a transaction with multiple tags contributes to multiple cards. A footnote is the standard pattern for this type of caveat.
+
+**Implementation:** Insights landing view includes a small ℹ️ icon or footer text (exact placement TBD by Mock-3 refinement). Resolved in OQ-2; drilldown uses strict OR semantics (locked in "Insights Drilldown IPC" decision).
+
+---
+
+### OQ-3 — Drilldown to Movimientos Link Filter
+
+**Question:** Filter by tags only, or tags + date?  
+**Answer:** **Tags + date** (Coordinator decision, delegated by Pedro).
+
+**Rationale:** Preserves drilldown context as the user navigates to the full transaction detail view. If user is viewing, say, "Viajes, Q2 2026", they expect the Movimientos screen to open with those filters pre-applied.
+
+**Implementation:** MovementsScreen accepts optional initialFilters?: { tagIds: string[], windowStart: string, windowEnd: string } (see "Insights Drilldown — UI Route State & Cross-Screen Handoff" decision for full contract).
+
+---
+
+## Impact
+
+These three locked answers unblock:
+- PR #98 (Insights scaffolding) — uses default window semantics
+- PR #99 (DonutChart + SegmentedToggle) — no multi-label logic changes needed
+- PR #100 (Landing implementation) — uses current-year default + footnote disclosure
+- PR #101 (Drilldown implementation) — uses OR semantics + cross-screen handoff
+
+**PR ship order:** #98 → #99 → #100 → #101. MVP is #98–100 (landing only; drilldown deferred to follow-up).
