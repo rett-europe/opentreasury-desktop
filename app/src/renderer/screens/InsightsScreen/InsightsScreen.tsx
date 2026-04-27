@@ -103,7 +103,15 @@ export function InsightsScreen(): JSX.Element {
 
       <div className="ot-kpi-strip">
         <div className="ot-kpi">
-          <Tag className="ot-kpi__icon" size={24} aria-hidden="true" />
+          <div
+            className="ot-kpi__icon"
+            style={{
+              background: 'var(--color-surface-tertiary)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            <Tag size={20} aria-hidden="true" />
+          </div>
           <div className="ot-kpi__content">
             <div className="ot-kpi__label">{t('insights.kpi.activeTags')}</div>
             <div className="ot-kpi__value">{kpis.etiquetasActivasCount}</div>
@@ -114,7 +122,9 @@ export function InsightsScreen(): JSX.Element {
         </div>
 
         <div className="ot-kpi ot-kpi--income">
-          <TrendingUp className="ot-kpi__icon" size={24} aria-hidden="true" />
+          <div className="ot-kpi__icon">
+            <TrendingUp size={20} aria-hidden="true" />
+          </div>
           <div className="ot-kpi__content">
             <div className="ot-kpi__label">{t('insights.kpi.totalIncome')}</div>
             <div className="ot-kpi__value ot-tnum">
@@ -125,7 +135,9 @@ export function InsightsScreen(): JSX.Element {
         </div>
 
         <div className="ot-kpi ot-kpi--expense">
-          <TrendingDown className="ot-kpi__icon" size={24} aria-hidden="true" />
+          <div className="ot-kpi__icon">
+            <TrendingDown size={20} aria-hidden="true" />
+          </div>
           <div className="ot-kpi__content">
             <div className="ot-kpi__label">{t('insights.kpi.totalExpense')}</div>
             <div className="ot-kpi__value ot-tnum">

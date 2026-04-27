@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Calendar, FolderOpen, Landmark, Plus, X } from 'lucide-react';
+import {
+  Calendar,
+  FolderOpen,
+  Landmark,
+  Plus,
+  X,
+  TrendingUp,
+  TrendingDown,
+  Calculator,
+} from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { Card } from '../../components/Card/index.js';
@@ -1105,39 +1114,55 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
         </div>
       ) : (
         <>
-          <div
-            className="ot-movements__totals"
-            role="status"
-            aria-live="polite"
-            aria-label={t('movements.title') satisfies string}
-          >
-            <div>
-              <span className="ot-movements__totals-label">{t('movements.totals.income')}</span>
-              <span className="ot-movements__totals-value ot-movements__totals-value--income">
-                {currencyFmt.format(totals.income)}
-              </span>
+          <div className="ot-kpi-strip" role="status" aria-live="polite">
+            <div className="ot-kpi ot-kpi--income">
+              <div className="ot-kpi__icon">
+                <TrendingUp size={20} />
+              </div>
+              <div className="ot-kpi__content">
+                <div className="ot-kpi__label">{t('movements.totals.income')}</div>
+                <div className="ot-kpi__value">{currencyFmt.format(totals.income)}</div>
+              </div>
             </div>
-            <div>
-              <span className="ot-movements__totals-label">{t('movements.totals.expense')}</span>
-              <span className="ot-movements__totals-value ot-movements__totals-value--expense">
-                {currencyFmt.format(totals.expense)}
-              </span>
+            <div className="ot-kpi ot-kpi--expense">
+              <div className="ot-kpi__icon">
+                <TrendingDown size={20} />
+              </div>
+              <div className="ot-kpi__content">
+                <div className="ot-kpi__label">{t('movements.totals.expense')}</div>
+                <div className="ot-kpi__value">{currencyFmt.format(totals.expense)}</div>
+              </div>
             </div>
-            <div>
-              <span className="ot-movements__totals-label">{t('movements.totals.net')}</span>
-              <span
-                className={
-                  totals.net >= 0
-                    ? 'ot-movements__totals-value ot-movements__totals-value--net-pos'
-                    : 'ot-movements__totals-value ot-movements__totals-value--net-neg'
-                }
+            <div className="ot-kpi ot-kpi--net">
+              <div className="ot-kpi__icon">
+                <Calculator size={20} />
+              </div>
+              <div className="ot-kpi__content">
+                <div className="ot-kpi__label">{t('movements.totals.net')}</div>
+                <div className="ot-kpi__value">{currencyFmt.format(totals.net)}</div>
+              </div>
+            </div>
+            <div className="ot-kpi">
+              <div
+                className="ot-kpi__icon"
+                style={{
+                  background: 'var(--color-surface-tertiary)',
+                  color: 'var(--color-text-secondary)',
+                }}
               >
-                {currencyFmt.format(totals.net)}
-              </span>
-            </div>
-            <div>
-              <span className="ot-movements__totals-label">{t('movements.totals.countLabel')}</span>
-              <span className="ot-movements__totals-value">{totals.count}</span>
+                <span
+                  style={{
+                    fontSize: 'var(--font-size-14)',
+                    fontWeight: 'var(--font-weight-semibold)',
+                  }}
+                >
+                  #
+                </span>
+              </div>
+              <div className="ot-kpi__content">
+                <div className="ot-kpi__label">{t('movements.totals.countLabel')}</div>
+                <div className="ot-kpi__value">{totals.count}</div>
+              </div>
             </div>
           </div>
 
