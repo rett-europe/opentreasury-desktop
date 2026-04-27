@@ -58,7 +58,7 @@ describe('DonutChart', () => {
 
     expect(screen.getByRole('img', { name: 'Single segment chart' })).toBeDefined();
     // Center should show total
-    const centerValues = screen.getAllByText('1000,00 €');
+    const centerValues = screen.getAllByText('1.000,00 €');
     expect(centerValues.length).toBeGreaterThan(0);
   });
 
@@ -152,7 +152,7 @@ describe('DonutChart', () => {
     expect(table.textContent).toContain('Donations');
     expect(table.textContent).toContain('Events');
     // Formatted values are in the table
-    expect(table.textContent).toMatch(/1000,00/);
+    expect(table.textContent).toMatch(/1\.000,00/);
     expect(table.textContent).toMatch(/500,00/);
   });
 
