@@ -14,13 +14,14 @@ import {
 import { Button } from '../../components/Button/index.js';
 import { Card } from '../../components/Card/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
-import { Table } from '../../components/Table/index.js';
-import type { TableColumn, SortDirection } from '../../components/Table/index.js';
+import type { SortDirection } from '../../components/Table/index.js';
 import { AddTransactionModal } from '../../components/AddTransactionModal/index.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
 import { BulkActionsBar } from '../../components/BulkActionsBar/index.js';
 import { BulkClassifyModal } from '../../components/BulkClassifyModal/index.js';
 import { SplitTransactionModal } from '../../components/SplitTransactionModal/index.js';
+import { TransactionsTable } from '../../components/TransactionsTable/index.js';
+import type { TransactionRow } from '../../components/TransactionsTable/index.js';
 import { listMovements } from '../../services/movementsApi.js';
 import {
   bulkUpdateTransactions,
@@ -38,7 +39,7 @@ import type {
 } from '../../../shared/ipc-contracts/transaction.js';
 import type { Account, RecentTransaction } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
-import type { Movement, MovementStatus, MovementTotals } from '../../types/movement.js';
+import type { Movement, MovementTotals } from '../../types/movement.js';
 import { DATE_PRESET_IDS, getPresetRange } from '../../utils/datePresets.js';
 import {
   DEFAULT_MOVEMENTS_DATE_FILTER,
@@ -357,6 +358,68 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     return new Map(state.rawRecords.map((r) => [r.id, r]));
   }, [state]);
 
+  // Build lookup maps for TransactionsTable
+  const accountLookup = useMemo(() => {
+    const map = new Map<string, { name: string; color: string }>();
+    for (const acc of accounts) {
+      map.set(acc.id, {
+        name: acc.bankNameShort ?? acc.accountLabel,
+        color: acc.color ?? '#888888',
+      });
+    }
+    return map;
+  }, [accounts]);
+
+  const categoryLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const cat of categories) {
+      map.set(cat.id, cat.name);
+    }
+    return map;
+  }, [categories]);
+
+  const subcategoryLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const cat of categories) {
+      for (const sub of cat.subcategories ?? []) {
+        map.set(sub.id, sub.name);
+      }
+    }
+    return map;
+  }, [categories]);
+
+  const tagLookup = useMemo(() => {
+    const map = new Map<string, { name: string; color: string }>();
+    for (const tag of tags) {
+      map.set(tag.id, { name: tag.name, color: tag.color ?? '#9b72cf' });
+    }
+    return map;
+  }, [tags]);
+
+  // Map Movement[] → TransactionRow[] for the shared table
+  const transactionRows: readonly TransactionRow[] = useMemo(() => {
+    if (state.kind !== 'loaded') return [];
+    return state.rawRecords.map((record) => {
+      const row: TransactionRow = {
+        id: record.id,
+        date: record.date,
+        type: record.type,
+        amount: record.amount,
+        description: record.description,
+        accountId: record.accountId,
+        categoryId: record.categoryId,
+        subcategoryId: record.subcategoryId,
+        tagIds: record.tagIds,
+        status: record.status,
+        reference: record.reference ?? null,
+        details: record.details ?? null,
+        hasSplits: record.hasSplits,
+        splitCount: record.splitCount,
+      };
+      return row;
+    });
+  }, [state]);
+
   // Distinct accounts / categories for the select options.
   const accountOptions = useMemo(() => {
     const s = new Set<string>();
@@ -419,6 +482,12 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     uncategorizedOnly,
   ]);
 
+  // Filter TransactionRows for the table
+  const filteredTransactionRows = useMemo(() => {
+    const visibleIds = new Set(filteredRows.map((m) => m.id));
+    return transactionRows.filter((row) => visibleIds.has(row.id));
+  }, [transactionRows, filteredRows]);
+
   // The default date filter (this-month) is always "active" but doesn't
   // count as user-applied. Anything else does.
   const isDefaultDateFilter = dateFilter.kind === 'preset' && dateFilter.id === 'this-month';
@@ -454,7 +523,6 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     () => new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }),
     [locale],
   );
-  const dateFmt = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }), [locale]);
 
   // ── Selection helpers ──────────────────────────────────────────────────
   // Derived set of IDs currently visible through the filter pipeline.
@@ -501,259 +569,32 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     }
   }, [someVisibleSelected]);
 
-  // ── Tag chip palette ───────────────────────────────────────────────────
-  // Deterministic hash → palette index so a given tag always renders the
-  // same hue. The mock Movement.tags are opaque strings; the real domain
-  // will resolve tag colors from reference data. Values chosen in oklch-
-  // friendly hex to mix cleanly with the prototype's color-mix() recipe.
-  // Tag color lookup — use actual tag color from backend, fall back to hash-based
-  // color if tag not found or color not set.
-  const TAG_COLORS = useMemo(
-    () =>
-      [
-        '#9b72cf', // brand
-        '#4e8bd6', // blue
-        '#e06b6b', // coral
-        '#6ca974', // green
-        '#d6a94e', // amber
-        '#b06bd6', // violet
-      ] as const,
-    [],
-  );
-  const tagColor = useCallback(
-    (tagName: string): string => {
-      const tag = tags.find((t) => t.name === tagName);
-      if (tag?.color) return tag.color;
-      // Fallback: hash-based color when tag color not set
-      let h = 0;
-      for (let i = 0; i < tagName.length; i += 1) {
-        h = (h * 31 + tagName.charCodeAt(i)) >>> 0;
-      }
-      return TAG_COLORS[h % TAG_COLORS.length] as string;
-    },
-    [TAG_COLORS, tags],
-  );
-
-  const statusLabel = useCallback((s: MovementStatus) => t(`movements.status.${s}`), [t]);
-  const statusClass = (s: MovementStatus): string => {
-    if (s === 'pending') return 'ot-badge ot-badge--pending';
-    if (s === 'rejected') return 'ot-badge ot-badge--rejected';
-    return 'ot-badge ot-badge--approved';
-  };
-
-  // Map account display label → per-account oklch color for pill tinting.
-  const accountColorByLabel = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const a of accounts) {
-      if (a.color) map.set(a.accountLabel, a.color);
-    }
-    return map;
-  }, [accounts]);
-
-  const columns: readonly TableColumn<Movement>[] = useMemo(
-    () => [
-      {
-        id: 'select',
-        header: (
-          <input
-            ref={headerCbRef}
-            type="checkbox"
-            className="ot-header-checkbox"
-            checked={allVisibleSelected}
-            onChange={toggleAllVisible}
-            onClick={(e) => e.stopPropagation()}
-            aria-label={t('movements.columns.select')}
-          />
-        ),
-        sortable: false,
-        align: 'center',
-        width: 36,
-        render: (m) => (
-          <input
-            type="checkbox"
-            className="ot-row-checkbox"
-            checked={selected.has(m.id)}
-            onChange={() => toggleRow(m.id)}
-            onClick={(e) => e.stopPropagation()}
-            aria-label={t('movements.columns.select')}
-          />
-        ),
-      },
-      {
-        id: 'type',
-        header: '',
-        sortable: false,
-        align: 'center',
-        width: 36,
-        render: (m) => {
-          const cls =
-            m.type === 'income'
-              ? 'ot-type-arrow ot-type-arrow--income'
-              : 'ot-type-arrow ot-type-arrow--expense';
-          return (
-            <span className={cls} aria-hidden="true">
-              {m.type === 'income' ? '↑' : '↓'}
-            </span>
-          );
-        },
-      },
-      {
-        id: 'date',
-        header: t('movements.columns.date'),
-        sortable: true,
-        tabular: true,
-        render: (m) => dateFmt.format(new Date(`${m.date}T00:00:00Z`)),
-      },
-      {
-        id: 'account',
-        header: t('movements.columns.account'),
-        sortable: true,
-        render: (m) => {
-          const color = accountColorByLabel.get(m.account) ?? 'var(--color-brand-primary)';
-          return (
-            <span
-              className="ot-account-pill"
-              title={m.account}
-              style={{
-                background: `color-mix(in oklch, ${color} 18%, transparent)`,
-                color: 'var(--color-text-primary)',
-              }}
-            >
-              <span
-                className="ot-account-pill__dot"
-                aria-hidden="true"
-                style={{ background: color }}
-              />
-              {m.account}
-            </span>
-          );
-        },
-      },
-      {
-        id: 'description',
-        header: t('movements.columns.observations'),
-        sortable: true,
-        render: (m) => {
-          const tooltipParts: string[] = [m.description];
-          if (m.reference) {
-            tooltipParts.push(`${t('movements.tooltip.reference')}: ${m.reference}`);
-          }
-          if (m.details) {
-            tooltipParts.push(`${t('movements.tooltip.details')}: ${m.details}`);
-          }
-          return <span title={tooltipParts.join('\n')}>{m.description}</span>;
-        },
-      },
-      {
-        id: 'category',
-        header: t('movements.columns.category'),
-        sortable: true,
-        render: (m) => {
-          const record = rawRecordById.get(m.id);
-          if (record?.hasSplits) {
-            // SPEC-023 — split parent: show "Dividida · N" badge + click to edit
-            return (
-              <button
-                type="button"
-                className="ot-split-parent-badge"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openSplitModal(record);
-                }}
-                aria-label={t('splits.actions.editSplit')}
-              >
-                {t('splits.list.categoryCell')} · {record.splitCount}
-              </button>
-            );
-          }
-          return m.category != null ? (
-            <span title={m.category}>{m.category}</span>
-          ) : (
-            <span className="ot-badge ot-badge--uncategorized">
-              {t('movements.filters.uncategorizedOnly')}
-            </span>
-          );
-        },
-      },
-      {
-        id: 'subcategory',
-        header: t('movements.columns.subcategory'),
-        sortable: true,
-        render: (m) =>
-          m.subcategory != null ? (
-            <span title={m.subcategory}>{m.subcategory}</span>
-          ) : (
-            <span className="ot-text-muted">—</span>
-          ),
-      },
-      {
-        id: 'tags',
-        header: t('movements.columns.tags'),
-        sortable: false,
-        render: (m) => {
-          if (m.tags.length === 0) return <span className="ot-text-muted">—</span>;
-          // Show max 2 chips visibly; overflow as +N indicator with title listing rest
-          const MAX_VISIBLE = 2;
-          const visibleTags = m.tags.slice(0, MAX_VISIBLE);
-          const overflowTags = m.tags.slice(MAX_VISIBLE);
-          const overflowCount = overflowTags.length;
-          return (
-            <span className="ot-tag-cell" title={m.tags.join(', ')}>
-              <span className="ot-tag-cell__chips">
-                {visibleTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="ot-tag-chip"
-                    style={{ ['--ot-tag-color' as string]: tagColor(tag) }}
-                    title={tag}
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </span>
-              {overflowCount > 0 && (
-                <span className="ot-tag-cell__overflow" title={overflowTags.join(', ')}>
-                  +{overflowCount}
-                </span>
-              )}
-            </span>
-          );
-        },
-      },
-      {
-        id: 'status',
-        header: t('movements.columns.status'),
-        sortable: true,
-        render: (m) => <span className={statusClass(m.status)}>{statusLabel(m.status)}</span>,
-      },
-      {
-        id: 'amount',
-        header: t('movements.columns.amount'),
-        sortable: true,
-        align: 'right',
-        tabular: true,
-        render: (m) => {
-          const cls = m.type === 'income' ? 'ot-amount--income' : 'ot-amount--expense';
-          const sign = m.type === 'expense' ? -m.amount : m.amount;
-          return <span className={cls}>{currencyFmt.format(sign)}</span>;
-        },
-      },
-    ],
-    [
-      t,
-      currencyFmt,
-      dateFmt,
-      selected,
-      toggleRow,
-      tagColor,
-      statusLabel,
-      allVisibleSelected,
-      toggleAllVisible,
-      accountColorByLabel,
-      rawRecordById,
-      openSplitModal,
-    ],
-  );
+  // Sort transaction rows by the same column/direction as the Movement rows
+  const sortedTransactionRows = useMemo(() => {
+    if (sortDir === null) return filteredTransactionRows;
+    const sorted = [...filteredTransactionRows];
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'date') cmp = a.date.localeCompare(b.date);
+      else if (sortBy === 'account') {
+        const aName = accountLookup.get(a.accountId)?.name ?? '';
+        const bName = accountLookup.get(b.accountId)?.name ?? '';
+        cmp = aName.localeCompare(bName);
+      } else if (sortBy === 'description') cmp = a.description.localeCompare(b.description);
+      else if (sortBy === 'category') {
+        const aCat = a.categoryId ? (categoryLookup.get(a.categoryId) ?? '') : '';
+        const bCat = b.categoryId ? (categoryLookup.get(b.categoryId) ?? '') : '';
+        cmp = aCat.localeCompare(bCat);
+      } else if (sortBy === 'subcategory') {
+        const aSub = a.subcategoryId ? (subcategoryLookup.get(a.subcategoryId) ?? '') : '';
+        const bSub = b.subcategoryId ? (subcategoryLookup.get(b.subcategoryId) ?? '') : '';
+        cmp = aSub.localeCompare(bSub);
+      } else if (sortBy === 'status') cmp = a.status.localeCompare(b.status);
+      else if (sortBy === 'amount') cmp = a.amount - b.amount;
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return sorted;
+  }, [filteredTransactionRows, sortBy, sortDir, accountLookup, categoryLookup, subcategoryLookup]);
 
   return (
     <div className="ot-movements">
@@ -1187,28 +1028,22 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
             </Card>
           ) : (
             <div className="ot-movements__table-container">
-              <Table
-                caption={t('movements.title') satisfies string}
-                columns={columns}
-                rows={sortedRows}
-                getRowKey={(m) => m.id}
-                sortBy={sortBy}
-                sortDirection={sortDir}
-                onSort={handleSort}
-                getRowClassName={(m) => {
-                  const record = rawRecordById.get(m.id);
-                  return record?.hasSplits ? 'ot-split-parent' : undefined;
-                }}
-                virtualise={sortedRows.length >= VIRTUAL_ROW_THRESHOLD}
-                containerStyle={
-                  sortedRows.length >= VIRTUAL_ROW_THRESHOLD
-                    ? { maxHeight: 'calc(100vh - 440px)', minHeight: '300px' }
-                    : undefined
-                }
+              <TransactionsTable
+                rows={sortedTransactionRows}
+                accountLookup={accountLookup}
+                tagLookup={tagLookup}
+                categoryLookup={categoryLookup}
+                subcategoryLookup={subcategoryLookup}
+                showSelectColumn
+                selectedIds={selected}
+                onToggleRow={toggleRow}
+                onToggleAll={toggleAllVisible}
+                allSelected={allVisibleSelected}
+                someSelected={someVisibleSelected}
                 onRowClick={(row) => {
-                  // Convert Movement to RecentTransaction for the detail modal
+                  // Convert TransactionRow to RecentTransaction for the detail modal
                   const record = rawRecordById.get(row.id);
-                  if (!record) return; // Defensive: skip if raw record not found
+                  if (!record) return;
                   const tx: RecentTransaction = {
                     id: record.id,
                     date: record.date,
@@ -1228,6 +1063,23 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
                   setSelectedTx(tx);
                   setSelectedRawRecord(record);
                 }}
+                onSplitClick={(row) => {
+                  const record = rawRecordById.get(row.id);
+                  if (record) openSplitModal(record);
+                }}
+                sortBy={sortBy}
+                sortDirection={sortDir}
+                onSort={handleSort}
+                getRowClassName={(row) => {
+                  const record = rawRecordById.get(row.id);
+                  return record?.hasSplits ? 'ot-split-parent' : undefined;
+                }}
+                virtualise={sortedTransactionRows.length >= VIRTUAL_ROW_THRESHOLD}
+                containerStyle={
+                  sortedTransactionRows.length >= VIRTUAL_ROW_THRESHOLD
+                    ? { maxHeight: 'calc(100vh - 440px)', minHeight: '300px' }
+                    : undefined
+                }
               />
             </div>
           )}

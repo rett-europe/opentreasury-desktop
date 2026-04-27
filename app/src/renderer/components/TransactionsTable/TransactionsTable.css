@@ -1,0 +1,196 @@
+/* TransactionsTable — canonical column widths for both Movements and Dashboard.
+ *
+ * This component owns:
+ *   - Column width constants (both with-select and no-select layouts)
+ *   - table-layout: fixed + min-width pattern for horizontal scroll fallback
+ *   - Cell truncation defaults
+ *
+ * Wrapper classes (.ot-movements__table-container, .ot-panel-recent) live in
+ * the screen CSS and own overflow-x behavior.
+ *
+ * Global recipes (.ot-account-pill, .ot-tag-chip, .ot-badge) live in globals.css.
+ */
+
+/* ══════════════════════════════════════════════════════════════════════════
+ * COLUMN WIDTH SYSTEM
+ *
+ * Two layouts:
+ *   1. WITH SELECT (Movements): 10 columns, total 1012px
+ *   2. NO SELECT (Dashboard):    9 columns, total  980px
+ *
+ * Column widths:
+ *   select:       32px  (only when showSelectColumn=true)
+ *   type:         32px  (arrow icon)
+ *   date:         88px  (dd MMM yyyy)
+ *   account:     100px  (pill truncates)
+ *   description: 200px  (main text)
+ *   category:    120px  (badge or text)
+ *   subcategory: 120px  (text or dash)
+ *   tags:        140px  (chips +N)
+ *   status:       80px  (badge)
+ *   amount:      100px  (currency)
+ * ══════════════════════════════════════════════════════════════════════════ */
+
+/* WITH SELECT COLUMN (MovementsScreen) */
+.ot-transactions-table--with-select .ot-table {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 1012px;
+}
+
+.ot-transactions-table--with-select .ot-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Column 1: select checkbox */
+.ot-transactions-table--with-select .ot-table th:nth-child(1),
+.ot-transactions-table--with-select .ot-table td:nth-child(1) {
+  width: 32px;
+  max-width: 32px;
+  text-overflow: clip;
+}
+
+/* Column 2: type arrow */
+.ot-transactions-table--with-select .ot-table th:nth-child(2),
+.ot-transactions-table--with-select .ot-table td:nth-child(2) {
+  width: 32px;
+  max-width: 32px;
+  text-overflow: clip;
+}
+
+/* Column 3: date */
+.ot-transactions-table--with-select .ot-table th:nth-child(3),
+.ot-transactions-table--with-select .ot-table td:nth-child(3) {
+  width: 88px;
+  max-width: 88px;
+}
+
+/* Column 4: account */
+.ot-transactions-table--with-select .ot-table th:nth-child(4),
+.ot-transactions-table--with-select .ot-table td:nth-child(4) {
+  width: 100px;
+  max-width: 100px;
+}
+
+/* Column 5: description */
+.ot-transactions-table--with-select .ot-table th:nth-child(5),
+.ot-transactions-table--with-select .ot-table td:nth-child(5) {
+  width: 200px;
+  max-width: 200px;
+}
+
+/* Column 6: category */
+.ot-transactions-table--with-select .ot-table th:nth-child(6),
+.ot-transactions-table--with-select .ot-table td:nth-child(6) {
+  width: 120px;
+  max-width: 120px;
+}
+
+/* Column 7: subcategory */
+.ot-transactions-table--with-select .ot-table th:nth-child(7),
+.ot-transactions-table--with-select .ot-table td:nth-child(7) {
+  width: 120px;
+  max-width: 120px;
+}
+
+/* Column 8: tags */
+.ot-transactions-table--with-select .ot-table th:nth-child(8),
+.ot-transactions-table--with-select .ot-table td:nth-child(8) {
+  width: 140px;
+  max-width: 140px;
+  text-overflow: clip;
+}
+
+/* Column 9: status */
+.ot-transactions-table--with-select .ot-table th:nth-child(9),
+.ot-transactions-table--with-select .ot-table td:nth-child(9) {
+  width: 80px;
+  max-width: 80px;
+}
+
+/* Column 10: amount */
+.ot-transactions-table--with-select .ot-table th:nth-child(10),
+.ot-transactions-table--with-select .ot-table td:nth-child(10) {
+  width: 100px;
+  max-width: 100px;
+}
+
+/* NO SELECT COLUMN (Dashboard PanelScreen) */
+.ot-transactions-table .ot-table {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 980px;
+}
+
+.ot-transactions-table .ot-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Column 1: type arrow */
+.ot-transactions-table .ot-table th:nth-child(1),
+.ot-transactions-table .ot-table td:nth-child(1) {
+  width: 32px;
+  max-width: 32px;
+  text-overflow: clip;
+}
+
+/* Column 2: date */
+.ot-transactions-table .ot-table th:nth-child(2),
+.ot-transactions-table .ot-table td:nth-child(2) {
+  width: 88px;
+  max-width: 88px;
+}
+
+/* Column 3: account */
+.ot-transactions-table .ot-table th:nth-child(3),
+.ot-transactions-table .ot-table td:nth-child(3) {
+  width: 100px;
+  max-width: 100px;
+}
+
+/* Column 4: description */
+.ot-transactions-table .ot-table th:nth-child(4),
+.ot-transactions-table .ot-table td:nth-child(4) {
+  width: 200px;
+  max-width: 200px;
+}
+
+/* Column 5: category */
+.ot-transactions-table .ot-table th:nth-child(5),
+.ot-transactions-table .ot-table td:nth-child(5) {
+  width: 120px;
+  max-width: 120px;
+}
+
+/* Column 6: subcategory */
+.ot-transactions-table .ot-table th:nth-child(6),
+.ot-transactions-table .ot-table td:nth-child(6) {
+  width: 120px;
+  max-width: 120px;
+}
+
+/* Column 7: tags */
+.ot-transactions-table .ot-table th:nth-child(7),
+.ot-transactions-table .ot-table td:nth-child(7) {
+  width: 140px;
+  max-width: 140px;
+  text-overflow: clip;
+}
+
+/* Column 8: status */
+.ot-transactions-table .ot-table th:nth-child(8),
+.ot-transactions-table .ot-table td:nth-child(8) {
+  width: 80px;
+  max-width: 80px;
+}
+
+/* Column 9: amount */
+.ot-transactions-table .ot-table th:nth-child(9),
+.ot-transactions-table .ot-table td:nth-child(9) {
+  width: 100px;
+  max-width: 100px;
+}

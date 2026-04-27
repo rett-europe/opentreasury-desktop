@@ -1773,3 +1773,26 @@ Tag color logic: prefer tag.color from backend, fallback to deterministic hash �
 
 Added Tags + Status columns to Dashboard's recent transactions table to match Movements headers. Same rendering logic (chips, badges, colors), same order, same labels. Read-only (no select, no sortable). 8-row limit unchanged.
 
+### PR #105 column widths fix (commit fe45e7a)
+
+**Issue:** STATUS and other columns had inconsistent widths between Dashboard and Movements screens. Dashboard table lacked proper column-width CSS rules.
+
+**Root cause:** PanelScreen.css defined only 7 nth-child column rules when the table has 9 columns (type, date, account, description, category, subcategory, tags, status, amount). The missing rules let the browser auto-size STATUS and other columns, blowing out STATUS in particular.
+
+**Fix:** Applied exact same column widths from MovementsScreen.css (lines 418-480) to PanelScreen.css:
+- type: 32px (was 36px inline in TSX)
+- date: 88px (was 115px)
+- account: 100px (was 120px)
+- description: 200px (was flex)
+- category: 120px ✓
+- subcategory: 120px ✓
+- tags: 140px (was undefined)
+- status: 80px (was undefined)
+- amount: 100px ✓
+
+Updated table min-width from 847px to 980px to match sum of all column widths.
+
+**Canonical source:** `app/src/renderer/screens/MovementsScreen/MovementsScreen.css` lines 418-480 owns the column-width values. PanelScreen now duplicates these widths (minus the select column).
+
+**Drift note:** This is the second drift caused by duplicating the table JSX instead of extracting a shared `TransactionsTable` component. First drift was missing Tags + Status columns (2ef25df), now column widths. A future extraction would prevent a third drift.
+

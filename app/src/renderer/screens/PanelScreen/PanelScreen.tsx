@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar } from 'lucide-react';
 import { Button } from '../../components/Button/index.js';
 import { AccountCard } from '../../components/AccountCard/index.js';
 import { KPIStrip } from '../../components/KPIStrip/index.js';
 import { GroupedBarChart } from '../../components/GroupedBarChart/index.js';
-import { Table } from '../../components/Table/index.js';
-import type { TableColumn } from '../../components/Table/Table.js';
+import { TransactionsTable } from '../../components/TransactionsTable/index.js';
+import type { TransactionRow } from '../../components/TransactionsTable/index.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
-import { formatDate, formatMonth } from '../../utils/dateFormat.js';
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { formatMonth } from '../../utils/dateFormat.js';
 import type {
   Account,
   AccountBalance,
@@ -112,6 +111,70 @@ export function PanelScreen(): JSX.Element {
     loadPanel();
   }, []);
 
+  // Build lookup maps for TransactionsTable
+  const accountLookup = useMemo(() => {
+    if (!data) return new Map();
+    const map = new Map<string, { name: string; color: string }>();
+    for (const acc of data.accounts) {
+      map.set(acc.id, {
+        name: acc.bankNameShort ?? acc.accountLabel,
+        color: acc.color ?? '#888888',
+      });
+    }
+    return map;
+  }, [data]);
+
+  const categoryLookup = useMemo(() => {
+    if (!data) return new Map();
+    const map = new Map<string, string>();
+    for (const cat of data.categories) {
+      map.set(cat.id, cat.name);
+    }
+    return map;
+  }, [data]);
+
+  const subcategoryLookup = useMemo(() => {
+    if (!data) return new Map();
+    const map = new Map<string, string>();
+    for (const cat of data.categories) {
+      for (const sub of cat.subcategories ?? []) {
+        map.set(sub.id, sub.name);
+      }
+    }
+    return map;
+  }, [data]);
+
+  const tagLookup = useMemo(() => {
+    if (!data) return new Map();
+    const map = new Map<string, { name: string; color: string }>();
+    for (const tag of data.tags) {
+      map.set(tag.id, { name: tag.name, color: tag.color ?? '#9b72cf' });
+    }
+    return map;
+  }, [data]);
+
+  // Map RecentTransaction[] → TransactionRow[] for the shared table
+  const transactionRows: readonly TransactionRow[] = useMemo(() => {
+    if (!data) return [];
+    return data.transactions.map((tx) => {
+      const row: TransactionRow = {
+        id: tx.id,
+        date: tx.date,
+        type: tx.type,
+        amount: tx.amount,
+        description: tx.description,
+        accountId: tx.accountId,
+        categoryId: tx.categoryId,
+        subcategoryId: tx.subcategoryId,
+        tagIds: tx.tagIds,
+        status: tx.status,
+        reference: tx.reference ?? null,
+        details: tx.details ?? null,
+      };
+      return row;
+    });
+  }, [data]);
+
   if (state === 'skeleton') {
     return (
       <div>
@@ -181,16 +244,6 @@ export function PanelScreen(): JSX.Element {
   }
 
   const { accounts, balances, kpis, sparklines, transactions, categories, tags } = data;
-  const accountById = new Map(accounts.map((a) => [a.id, a]));
-  const categoryNameById = new Map<string, string>();
-  const subcategoryNameById = new Map<string, string>();
-  for (const cat of categories) {
-    categoryNameById.set(cat.id, cat.name);
-    for (const sub of cat.subcategories ?? []) {
-      subcategoryNameById.set(sub.id, sub.name);
-    }
-  }
-  const tagNameById = new Map<string, string>(tags.map((t) => [t.id, t.name]));
 
   const accountsWithBalances = accounts.map((acc) => {
     const balance = balances.find((b) => b.accountId === acc.id);
@@ -205,183 +258,6 @@ export function PanelScreen(): JSX.Element {
       hasSparkline: sparkline && sparkline.months.length >= 3 ? true : false,
     };
   });
-
-  // Tag color palette — mirrors MovementsScreen's deterministic hash
-  const TAG_COLORS = [
-    '#9b72cf', // brand
-    '#4e8bd6', // blue
-    '#e06b6b', // coral
-    '#6ca974', // green
-    '#d6a94e', // amber
-    '#b06bd6', // violet
-  ] as const;
-  const tagColor = (tagName: string): string => {
-    const tag = tags.find((t) => t.name === tagName);
-    if (tag?.color) return tag.color;
-    // Fallback: hash-based color when tag color not set
-    let h = 0;
-    for (let i = 0; i < tagName.length; i += 1) {
-      h = (h * 31 + tagName.charCodeAt(i)) >>> 0;
-    }
-    return TAG_COLORS[h % TAG_COLORS.length] as string;
-  };
-
-  const statusLabel = (s: string) => t(`movements.status.${s}`);
-  const statusClass = (s: string): string => {
-    if (s === 'pending') return 'ot-badge ot-badge--pending';
-    if (s === 'rejected') return 'ot-badge ot-badge--rejected';
-    return 'ot-badge ot-badge--approved';
-  };
-
-  // Recent transactions table columns — now aligned with MovementsScreen.
-  // Same headers, same order, same rendering. Only difference: no select
-  // checkbox and no row actions. Dashboard is read-only; edits happen via
-  // the detail modal.
-  const columns: TableColumn<RecentTransaction>[] = [
-    {
-      id: 'type',
-      header: '',
-      sortable: false,
-      align: 'center',
-      render: (row) => {
-        const cls =
-          row.type === 'income'
-            ? 'ot-type-arrow ot-type-arrow--income'
-            : 'ot-type-arrow ot-type-arrow--expense';
-        return (
-          <span className={cls} aria-hidden="true">
-            {row.type === 'income' ? '↑' : '↓'}
-          </span>
-        );
-      },
-    },
-    {
-      id: 'date',
-      header: t('movements.columns.date'),
-      sortable: false,
-      tabular: true,
-      render: (row) => formatDate(row.date, locale),
-    },
-    {
-      id: 'account',
-      header: t('movements.columns.account'),
-      sortable: false,
-      render: (row) => {
-        const account = accountById.get(row.accountId);
-        const label =
-          account?.bankNameShort ?? account?.accountLabel ?? t('panel.recent.unknownAccount');
-        const color = account?.color ?? 'var(--color-brand-primary)';
-        return (
-          <span
-            className="ot-account-pill"
-            title={label}
-            style={{
-              background: `color-mix(in oklch, ${color} 18%, transparent)`,
-              color: 'var(--color-text-primary)',
-            }}
-          >
-            <span
-              className="ot-account-pill__dot"
-              aria-hidden="true"
-              style={{ background: color }}
-            />
-            {label}
-          </span>
-        );
-      },
-    },
-    {
-      id: 'description',
-      header: t('movements.columns.observations'),
-      sortable: false,
-      render: (row) => (
-        <span className="ot-panel-recent__desc" title={row.description}>
-          {row.description}
-        </span>
-      ),
-    },
-    {
-      id: 'category',
-      header: t('movements.columns.category'),
-      sortable: false,
-      render: (row) => {
-        const name = row.categoryId
-          ? (categoryNameById.get(row.categoryId) ?? row.categoryId)
-          : null;
-        return name ? (
-          <span title={name}>{name}</span>
-        ) : (
-          <span className="ot-badge ot-badge--uncategorized">
-            {t('movements.filters.uncategorizedOnly')}
-          </span>
-        );
-      },
-    },
-    {
-      id: 'subcategory',
-      header: t('movements.columns.subcategory'),
-      sortable: false,
-      render: (row) => {
-        const name = row.subcategoryId
-          ? (subcategoryNameById.get(row.subcategoryId) ?? row.subcategoryId)
-          : null;
-        return name ? <span title={name}>{name}</span> : <span className="ot-text-muted">—</span>;
-      },
-    },
-    {
-      id: 'tags',
-      header: t('movements.columns.tags'),
-      sortable: false,
-      render: (row) => {
-        const tagNames = (row.tagIds ?? []).map((id) => tagNameById.get(id) ?? id);
-        if (tagNames.length === 0) return <span className="ot-text-muted">—</span>;
-        // Show max 2 chips visibly; overflow as +N indicator with title listing rest
-        const MAX_VISIBLE = 2;
-        const visibleTags = tagNames.slice(0, MAX_VISIBLE);
-        const overflowTags = tagNames.slice(MAX_VISIBLE);
-        const overflowCount = overflowTags.length;
-        return (
-          <span className="ot-tag-cell" title={tagNames.join(', ')}>
-            <span className="ot-tag-cell__chips">
-              {visibleTags.map((tag) => (
-                <span
-                  key={tag}
-                  className="ot-tag-chip"
-                  style={{ ['--ot-tag-color' as string]: tagColor(tag) }}
-                  title={tag}
-                >
-                  {tag}
-                </span>
-              ))}
-            </span>
-            {overflowCount > 0 && (
-              <span className="ot-tag-cell__overflow" title={overflowTags.join(', ')}>
-                +{overflowCount}
-              </span>
-            )}
-          </span>
-        );
-      },
-    },
-    {
-      id: 'status',
-      header: t('movements.columns.status'),
-      sortable: false,
-      render: (row) => <span className={statusClass(row.status)}>{statusLabel(row.status)}</span>,
-    },
-    {
-      id: 'amount',
-      header: t('movements.columns.amount'),
-      sortable: false,
-      align: 'right',
-      tabular: true,
-      render: (row) => {
-        const cls = row.type === 'income' ? 'ot-amount--income' : 'ot-amount--expense';
-        const signed = row.type === 'expense' ? -row.amount : row.amount;
-        return <span className={cls}>{formatCurrency(signed, locale)}</span>;
-      },
-    },
-  ];
 
   return (
     <div>
@@ -455,12 +331,32 @@ export function PanelScreen(): JSX.Element {
         {t('panel.sections.recent')}
       </div>
       <div className="ot-panel-recent">
-        <Table
-          columns={columns}
-          rows={transactions}
-          getRowKey={(row) => row.id}
-          caption={t('panel.sections.recent')}
-          onRowClick={(row) => setSelectedTx(row)}
+        <TransactionsTable
+          rows={transactionRows}
+          accountLookup={accountLookup}
+          tagLookup={tagLookup}
+          categoryLookup={categoryLookup}
+          subcategoryLookup={subcategoryLookup}
+          onRowClick={(row) => {
+            // Convert TransactionRow back to RecentTransaction for the modal
+            const tx: RecentTransaction = {
+              id: row.id,
+              date: row.date,
+              type: row.type,
+              amount: row.amount,
+              currency: 'EUR',
+              description: row.description,
+              accountId: row.accountId,
+              categoryId: row.categoryId,
+              subcategoryId: row.subcategoryId,
+              tagIds: [...row.tagIds],
+              status: row.status,
+              createdAt: transactions.find((t) => t.id === row.id)?.createdAt ?? '',
+              reference: row.reference ?? undefined,
+              details: row.details ?? undefined,
+            };
+            setSelectedTx(tx);
+          }}
         />
         <div className="ot-panel-recent__footer">
           <a className="ot-panel-recent__link" href="/movements?range=this-month">
