@@ -520,7 +520,12 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
   const totals = useMemo(() => computeTotals(filteredRows), [filteredRows]);
 
   const currencyFmt = useMemo(
-    () => new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' }),
+    () =>
+      new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency: 'EUR',
+        useGrouping: 'always',
+      } as unknown as Intl.NumberFormatOptions),
     [locale],
   );
 

@@ -320,7 +320,8 @@ export function TransactionDetailModal({
     style: 'currency',
     currency: transaction.currency,
     signDisplay: 'auto',
-  }).format(signed);
+    useGrouping: 'always',
+  } as unknown as Intl.NumberFormatOptions).format(signed);
 
   // Modal title changes in edit mode
   const modalTitle = isEditMode ? t('movements.form.editTitle') : t('transactionDetail.title');
@@ -526,7 +527,8 @@ export function TransactionDetailModal({
                         const formattedAmt = new Intl.NumberFormat(locale, {
                           style: 'currency',
                           currency: 'EUR',
-                        }).format(amountEur);
+                          useGrouping: 'always',
+                        } as unknown as Intl.NumberFormatOptions).format(amountEur);
                         return (
                           <div
                             key={split.splitId}

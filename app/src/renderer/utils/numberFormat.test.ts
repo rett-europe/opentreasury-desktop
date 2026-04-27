@@ -4,10 +4,17 @@ import { formatCurrency } from './numberFormat.js';
 describe('formatCurrency', () => {
   it('formats EUR in es-ES with comma decimal and trailing euro symbol', () => {
     const out = formatCurrency(1500.5, 'es-ES');
-    expect(out).toContain('500,50');
+    expect(out).toContain('1.500,50');
     expect(out).toContain('€');
     // Symbol trails the amount in es-ES formatting.
-    expect(out.indexOf('€')).toBeGreaterThan(out.indexOf('500,50'));
+    expect(out.indexOf('€')).toBeGreaterThan(out.indexOf('1.500,50'));
+  });
+
+  it('groups thousands in es-ES even for 4-digit amounts (useGrouping: always)', () => {
+    // Without `useGrouping: 'always'`, Spanish CLDR suppresses grouping below
+    // 10.000 — producing "1500,50 €" instead of the expected "1.500,50 €".
+    expect(formatCurrency(1500.5, 'es-ES')).toContain('1.500,50');
+    expect(formatCurrency(27549.56, 'es-ES')).toContain('27.549,56');
   });
 
   it('formats EUR in en-US with leading symbol and period decimal', () => {
