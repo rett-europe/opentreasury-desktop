@@ -359,9 +359,22 @@ export function PanelScreen(): JSX.Element {
           return {
             label: monthLabel,
             values: [m.income, m.expense],
+            barClassNames: [
+              'ot-grouped-bar-chart__bar--income-solo',
+              'ot-grouped-bar-chart__bar--expense-solo',
+            ],
           };
         })}
-        legend={[t('movements.totals.income'), t('movements.totals.expense')]}
+        legend={[
+          {
+            label: t('movements.totals.income'),
+            className: 'ot-grouped-bar-chart__swatch--income-solo',
+          },
+          {
+            label: t('movements.totals.expense'),
+            className: 'ot-grouped-bar-chart__swatch--expense-solo',
+          },
+        ]}
         currency="EUR"
         locale={locale}
         ariaLabel={t('panel.sections.monthly-trend')}
