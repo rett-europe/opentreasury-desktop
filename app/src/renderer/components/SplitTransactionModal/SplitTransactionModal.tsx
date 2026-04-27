@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { formatDate } from '../../utils/dateFormat.js';
+import { parseLocaleAmount } from '../../utils/numberFormat.js';
 import { newUlid } from '../../utils/ulid.js';
 import { createSplit, removeSplit, getSplits } from '../../services/splitsApi.js';
 import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
@@ -93,7 +94,7 @@ export function SplitTransactionModal({
 
     loadSplits().catch((err) => {
       console.error('Failed to load splits:', err);
-      setGeneralError(t('split.modal.saveError', { reason: 'INTERNAL' }));
+      setGeneralError(t('splits.modal.saveError', { reason: 'INTERNAL' }));
     });
   }, [isOpen, transaction, t]);
 
@@ -174,7 +175,7 @@ export function SplitTransactionModal({
     if (!transaction) return { distributedCents: 0, remainingCents: 0 };
     const parentCents = Math.round(transaction.amount * 100);
     const distributedCents = splits.reduce((sum, s) => {
-      const parsed = parseFloat(s.amountEur);
+      const parsed = parseLocaleAmount(s.amountEur);
       return sum + (isNaN(parsed) ? 0 : Math.round(parsed * 100));
     }, 0);
     return { distributedCents, remainingCents: parentCents - distributedCents };
@@ -183,7 +184,7 @@ export function SplitTransactionModal({
   const { distributedCents, remainingCents } = calculateTotals();
   const isBalanced = remainingCents === 0;
   const allAmountsValid = splits.every((s) => {
-    const parsed = parseFloat(s.amountEur);
+    const parsed = parseLocaleAmount(s.amountEur);
     return !isNaN(parsed) && parsed > 0;
   });
   const canSubmit = isBalanced && allAmountsValid && splits.length >= 2;
@@ -195,7 +196,7 @@ export function SplitTransactionModal({
 
     try {
       const splitsPayload = splits.map((s) => ({
-        amountCents: Math.round(parseFloat(s.amountEur) * 100),
+        amountCents: Math.round(parseLocaleAmount(s.amountEur) * 100),
         categoryId: s.categoryId || null,
         subcategoryId: s.subcategoryId || null,
         comment: s.comment.trim() || null,
@@ -216,7 +217,7 @@ export function SplitTransactionModal({
       }
     } catch (err) {
       console.error('Failed to save split:', err);
-      setGeneralError(t('split.modal.saveError', { reason: 'INTERNAL' }));
+      setGeneralError(t('splits.modal.saveError', { reason: 'INTERNAL' }));
     } finally {
       setIsSubmitting(false);
     }
@@ -244,7 +245,7 @@ export function SplitTransactionModal({
       }
     } catch (err) {
       console.error('Failed to remove split:', err);
-      setGeneralError(t('split.modal.removeError'));
+      setGeneralError(t('splits.modal.removeError'));
     } finally {
       setIsRemoving(false);
     }
@@ -266,7 +267,7 @@ export function SplitTransactionModal({
     <dialog ref={dialogRef} className="ot-split-modal" aria-labelledby="split-modal-title">
       <div className="ot-split-modal__header">
         <h2 id="split-modal-title">
-          {isEditMode ? t('split.modal.editTitle') : t('split.modal.title')}
+          {isEditMode ? t('splits.modal.editTitle') : t('splits.modal.title')}
         </h2>
         <button
           type="button"
@@ -280,7 +281,7 @@ export function SplitTransactionModal({
 
       <div className="ot-split-modal__body">
         <div className="ot-split-modal__original">
-          <strong>{t('split.modal.originalLabel')}:</strong> {formatDate(transaction.date, locale)}{' '}
+          <strong>{t('splits.modal.originalLabel')}:</strong> {formatDate(transaction.date, locale)}{' '}
           · {transaction.description} · {formatter.format(totalEur)}
         </div>
 
@@ -295,10 +296,10 @@ export function SplitTransactionModal({
             <thead>
               <tr>
                 <th>#</th>
-                <th>{t('split.modal.colAmount')}</th>
-                <th>{t('split.modal.colCategory')}</th>
-                <th>{t('split.modal.colSubcategory')}</th>
-                <th>{t('split.modal.colComment')}</th>
+                <th>{t('splits.modal.colAmount')}</th>
+                <th>{t('splits.modal.colCategory')}</th>
+                <th>{t('splits.modal.colSubcategory')}</th>
+                <th>{t('splits.modal.colComment')}</th>
                 <th aria-label={t('common.delete')}></th>
               </tr>
             </thead>
@@ -377,10 +378,10 @@ export function SplitTransactionModal({
             disabled={splits.length >= MAX_SPLITS_PER_TX}
             className="ot-split-modal__add-part"
             title={
-              splits.length >= MAX_SPLITS_PER_TX ? t('split.modal.maxPartsWarning') : undefined
+              splits.length >= MAX_SPLITS_PER_TX ? t('splits.modal.maxPartsWarning') : undefined
             }
           >
-            {t('split.modal.addPart')}
+            {t('splits.modal.addPart')}
           </button>
         </div>
 
@@ -390,21 +391,21 @@ export function SplitTransactionModal({
           aria-live="polite"
         >
           <div>
-            {t('split.modal.distributed', {
+            {t('splits.modal.distributed', {
               distributed: formatter.format(distributedEur),
               total: formatter.format(totalEur),
             })}
           </div>
           <div>
-            {t('split.modal.remaining', { amount: formatter.format(Math.abs(remainingEur)) })}
+            {t('splits.modal.remaining', { amount: formatter.format(Math.abs(remainingEur)) })}
           </div>
           {!isBalanced && (
             <div className="ot-split-delta__warning">
-              ⚠ {t('split.modal.sumWarning', { amount: formatter.format(totalEur) })}
+              ⚠ {t('splits.modal.sumWarning', { amount: formatter.format(totalEur) })}
             </div>
           )}
           {splits.length < 2 && (
-            <div className="ot-split-delta__warning">⚠ {t('split.modal.minPartsWarning')}</div>
+            <div className="ot-split-delta__warning">⚠ {t('splits.modal.minPartsWarning')}</div>
           )}
         </div>
       </div>
@@ -417,7 +418,7 @@ export function SplitTransactionModal({
               onClick={handleRemoveSplit}
               disabled={isRemoving || isSubmitting}
             >
-              {isRemoving ? t('common.saving') : t('split.modal.remove')}
+              {isRemoving ? t('common.saving') : t('splits.modal.remove')}
             </Button>
           )}
         </div>
@@ -427,14 +428,14 @@ export function SplitTransactionModal({
             onClick={handleCancelClick}
             disabled={isSubmitting || isRemoving}
           >
-            {t('split.modal.cancel')}
+            {t('splits.modal.cancel')}
           </Button>
           <Button
             variant="primary"
             onClick={handleSave}
             disabled={!canSubmit || isSubmitting || isRemoving}
           >
-            {isSubmitting ? t('split.modal.saving') : t('split.modal.save')}
+            {isSubmitting ? t('splits.modal.saving') : t('splits.modal.save')}
           </Button>
         </div>
       </div>
@@ -442,11 +443,11 @@ export function SplitTransactionModal({
       {showDiscardConfirm && (
         <div className="ot-split-modal__confirm-overlay">
           <div className="ot-split-modal__confirm" role="dialog" aria-labelledby="discard-title">
-            <h3 id="discard-title">{t('split.modal.discardTitle')}</h3>
-            <p>{t('split.modal.discardBody')}</p>
+            <h3 id="discard-title">{t('splits.modal.discardTitle')}</h3>
+            <p>{t('splits.modal.discardBody')}</p>
             <div className="ot-split-modal__confirm-actions">
               <Button variant="secondary" onClick={() => setShowDiscardConfirm(false)}>
-                {t('split.modal.discardCancel')}
+                {t('splits.modal.discardCancel')}
               </Button>
               <Button
                 variant="destructive"
@@ -455,7 +456,7 @@ export function SplitTransactionModal({
                   onClose();
                 }}
               >
-                {t('split.modal.discardConfirm')}
+                {t('splits.modal.discardConfirm')}
               </Button>
             </div>
           </div>
@@ -465,14 +466,14 @@ export function SplitTransactionModal({
       {showRemoveConfirm && (
         <div className="ot-split-modal__confirm-overlay">
           <div className="ot-split-modal__confirm" role="dialog" aria-labelledby="remove-title">
-            <h3 id="remove-title">{t('split.modal.removeTitle')}</h3>
-            <p>{t('split.modal.removeBody', { amount: formatter.format(totalEur) })}</p>
+            <h3 id="remove-title">{t('splits.modal.removeTitle')}</h3>
+            <p>{t('splits.modal.removeBody', { amount: formatter.format(totalEur) })}</p>
             <div className="ot-split-modal__confirm-actions">
               <Button variant="secondary" onClick={() => setShowRemoveConfirm(false)}>
-                {t('split.modal.removeCancel')}
+                {t('splits.modal.removeCancel')}
               </Button>
               <Button variant="destructive" onClick={handleRemoveConfirm}>
-                {t('split.modal.removeConfirm')}
+                {t('splits.modal.removeConfirm')}
               </Button>
             </div>
           </div>
