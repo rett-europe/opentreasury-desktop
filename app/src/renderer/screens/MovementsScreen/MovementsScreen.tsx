@@ -87,6 +87,7 @@ function mapMovementRecord(
   accountsMap: Map<string, Account>,
   categoryNameById: Map<string, string>,
   subcategoryNameById: Map<string, string>,
+  tagNameById: Map<string, string>,
 ): Movement {
   const account = accountsMap.get(record.accountId);
   const categoryName =
@@ -107,7 +108,7 @@ function mapMovementRecord(
     account: account?.accountLabel ?? record.accountId,
     category: categoryName,
     subcategory: subcategoryName,
-    tags: record.tagIds ?? [],
+    tags: (record.tagIds ?? []).map((id) => tagNameById.get(id) ?? id),
     status: record.status,
     reference: record.reference ?? null,
     details: record.details ?? null,
@@ -273,8 +274,9 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
           subcategoryNameById.set(sub.id, sub.name);
         }
       }
+      const tagNameById = new Map<string, string>(tagsResp.tags.map((t) => [t.id, t.name]));
       const rows = records.map((r) =>
-        mapMovementRecord(r, accountsMap, categoryNameById, subcategoryNameById),
+        mapMovementRecord(r, accountsMap, categoryNameById, subcategoryNameById, tagNameById),
       );
 
       setAccounts(accountsResp.accounts);
