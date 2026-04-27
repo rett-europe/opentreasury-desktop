@@ -102,6 +102,15 @@
 .ot-shell__brand:hover {
   background: var(--color-row-hover);
 }
+.ot-shell__brand:disabled {
+  cursor: default;
+  /* Brand stays fully visible — only the hover affordance is suppressed.
+   * The button is `disabled` at ≤960px because the CSS auto-collapse owns
+   * the state there; we don't want to dim the brand wordmark/logo. */
+}
+.ot-shell__brand:disabled:hover {
+  background: transparent;
+}
 .ot-shell__brand:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
