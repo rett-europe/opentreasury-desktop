@@ -1850,3 +1850,40 @@ Updated table min-width from 847px to 980px to match sum of all column widths.
 
 **Drift note:** This is the second drift caused by duplicating the table JSX instead of extracting a shared `TransactionsTable` component. First drift was missing Tags + Status columns (2ef25df), now column widths. A future extraction would prevent a third drift.
 
+
+
+
+## Learnings — PR 4b/4 Insights drilldown UI (2026-05-03)
+
+### Route shape (no real router yet)
+The renderer still uses `useState<Route>` in `App.tsx`. Added `'insights-detail'` to the Route union and pair it with a separate `insightsDetail` state slice carrying `{ tagIds, windowStart, windowEnd }`. `onTagsChange([])` from the drilldown returns the user to the landing route. Sidebar nav clears the slice so a stale detail context cannot bleed across visits. This collapses cleanly into route params when a real router lands.
+
+URL contract proposal recorded in `.squad/decisions/inbox/trinity-insights-drilldown-ui.md`: repeated `?tag=<id>` query params + `?from=YYYY-MM-DD&to=YYYY-MM-DD`. Rejected the comma-joined `:tagIdsSerialized` from the original brief — repeated query params match the IPC contract (`tagIds: string[]`) more naturally.
+
+### Component decomposition
+- `InsightsDetailScreen` orchestrates the 5 IPC fan-out calls in parallel (`Promise.all`) and uses a request-id ref to drop stale responses when `tagIds` or window changes mid-flight.
+- `DonutPanel` is a private subcomponent inside `InsightsDetailScreen.tsx` (one of two — income / expense). Reuses the `DonutChart` primitive from PR #99 and adds a side-by-side legend (label / value / percentage). Did not extract — there is exactly one caller and the legend layout is screen-specific.
+- `SubcategoryTable` is also a private subcomponent. Plain `<table>` with the same column-header recipe semantics as `TransactionsTable` (uppercase, letter-spaced, secondary surface) but without the sortable/selectable interactions; extracting was overkill for one read-only table.
+- `TagCombinerDropdown` is a new shared primitive (its own folder + tests). Standard listbox a11y pattern: `aria-haspopup="listbox"`, `aria-expanded`, `aria-activedescendant` on the input, arrow-key navigation, Esc closes, click-outside closes. Filters out already-selected tags and archived tags before presenting options.
+- `AccountBarRow` is a new shared primitive (its own folder + tests). Single horizontal stacked bar (income green + expense red) sized to `maxTotalCents` across the sibling rows so the dominant account fills the track. `data-account-id` on the wrapper for future click-through. Uses `--color-status-approved` / `--color-expense-default` tokens to match the dashboard ramp (per PR #105 memory).
+
+### Pattern reuse from landing
+- Same screen state machine (`loading` / `loaded` / `error`) with retry button.
+- Same `ot-page-header` / `ot-section-label` / `ot-kpi-strip` recipes.
+- Same `formatCurrency(value, locale)` from utils — never re-rolled `Intl.NumberFormat` (PR #107 memory).
+- DateRangePicker reused from the existing component (Saldo parity per OQ-1). Drilldown wires up the 6 standard presets (`thisMonth` … `last12Months`) with i18n labels under `datePresets.*`.
+
+### Cross-screen handoff (OQ-3)
+Spec required Movimientos to accept `tagIds` + `windowStart` + `windowEnd` for the footer link. Added optional `initialFilters` prop to `MovementsScreen`; values applied on first mount only via state initializers (one-shot). Tag filter uses AND semantics — a movement matches only if it carries every requested tag. Date range becomes a `custom` filter when both bounds are present. `App.tsx` zeros the handoff when the user navigates via the sidebar so it cannot reapply on later visits.
+
+### Multi-tag overlap (OQ-2)
+Spec locks in the asymmetry: tag-card sums on landing can exceed the global KPI total because each multi-tag transaction credits each card fully. Drilldown aggregates count each tx once (Morpheus's contract documents this). The drilldown KPI strip just renders `summary.{income,expense,net,txCount}` straight from the IPC — no client-side dedupe.
+
+### Coordination with Morpheus
+By the time I started, Morpheus's branch had already shipped commit `c4bf4f8` with the full contract surface in `shared/ipc-contracts/insights.ts` plus preload bridges. Branched from his tip rather than `main` to avoid manual scaffolding. PR is DRAFT until his lands on `main`; rebase + retest then mark ready for review.
+
+### Verification
+- `npm run typecheck`: pass.
+- `npm run lint`: pass.
+- `prettier --check`: pass on all changed files.
+- Vitest: 8 new tests (4 `AccountBarRow` + 4 `TagCombinerDropdown`) pass; full Movements suite still green; the 3 pre-existing DonutChart/TagCard failures (€-symbol whitespace assertion drift) reproduce on the parent commit and are unrelated to this PR.

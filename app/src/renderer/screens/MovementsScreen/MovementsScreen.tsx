@@ -180,6 +180,25 @@ export interface MovementsScreenProps {
    *  Forces a re-fetch of reference data so the Add-Transaction modal selects
    *  hydrate fresh values without a full reload. WI-15-lite. */
   readonly configRevision?: number;
+  /**
+   * Initial filter overrides applied on first mount. Used by the Insights
+   * drilldown footer link ("Ver todos los movimientos →"), per UX-005 §4
+   * OQ-3: drop the user into Movimientos with the same tag intersection AND
+   * date window they were just analysing.
+   *
+   * Contract:
+   *   - `tagIds`: AND-ish — a movement is shown if it carries ALL listed tags
+   *      (matches the drilldown's intersection semantics).
+   *   - `windowStart` / `windowEnd`: ISO YYYY-MM-DD inclusive bounds.
+   *
+   * The values are read once via a ref-guarded effect; subsequent prop changes
+   * do not re-apply (users can edit the filters freely after landing).
+   */
+  readonly initialFilters?: {
+    readonly tagIds?: ReadonlyArray<string>;
+    readonly windowStart?: string;
+    readonly windowEnd?: string;
+  };
 }
 
 /**
@@ -190,7 +209,10 @@ export interface MovementsScreenProps {
  */
 const VIRTUAL_ROW_THRESHOLD = 100;
 
-export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {}): JSX.Element {
+export function MovementsScreen({
+  configRevision = 0,
+  initialFilters,
+}: MovementsScreenProps = {}): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
 
@@ -213,9 +235,22 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [accountFilter, setAccountFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [dateFilter, setDateFilterState] = useState<MovementsDateFilter>(() =>
-    loadPersistedDateFilter(),
+  // Tag intersection filter (AND semantics) — populated by the Insights
+  // drilldown footer link via `initialFilters`. UI to add/remove tag chips
+  // beyond the initial pre-applied set is deferred to a follow-up PR; for
+  // now users see the chips and can clear them via the global "Clear filters"
+  // affordance. PR 4b/4 only owns the *carry-through* contract.
+  const [tagIdsFilter, setTagIdsFilter] = useState<ReadonlyArray<string>>(
+    () => initialFilters?.tagIds?.slice() ?? [],
   );
+  const [dateFilter, setDateFilterState] = useState<MovementsDateFilter>(() => {
+    const start = initialFilters?.windowStart;
+    const end = initialFilters?.windowEnd;
+    if (start && end) {
+      return { kind: 'custom', from: start, to: end };
+    }
+    return loadPersistedDateFilter();
+  });
   // Open state for the custom-range popover. Independent of dateFilter so the
   // user can preview the popover without losing the active filter until Apply.
   const [isCustomOpen, setIsCustomOpen] = useState(false);
@@ -457,11 +492,26 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
   const filteredRows = useMemo(() => {
     const minN = minAmount.trim() === '' ? null : Number(minAmount);
     const maxN = maxAmount.trim() === '' ? null : Number(maxAmount);
+    // Build a lookup of tagIds per movement id so we can apply the
+    // drilldown-driven AND filter without re-mapping the wire shape.
+    const tagIdsByMovementId = new Map<string, ReadonlySet<string>>();
+    if (tagIdsFilter.length > 0 && state.kind === 'loaded') {
+      for (const r of state.rawRecords) {
+        tagIdsByMovementId.set(r.id, new Set(r.tagIds ?? []));
+      }
+    }
     return allRows.filter((m) => {
       if (typeFilter !== 'all' && m.type !== typeFilter) return false;
       if (accountFilter !== 'all' && m.account !== accountFilter) return false;
       if (categoryFilter !== 'all' && m.category !== categoryFilter) return false;
       if (!matchesDateFilter(m, dateFilter)) return false;
+      if (tagIdsFilter.length > 0) {
+        const tagSet = tagIdsByMovementId.get(m.id);
+        if (!tagSet) return false;
+        for (const required of tagIdsFilter) {
+          if (!tagSet.has(required)) return false;
+        }
+      }
       if (minN != null && !Number.isNaN(minN) && m.amount < minN) return false;
       if (maxN != null && !Number.isNaN(maxN) && m.amount > maxN) return false;
       if (uncategorizedOnly) {
@@ -473,10 +523,12 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     });
   }, [
     allRows,
+    state,
     typeFilter,
     accountFilter,
     categoryFilter,
     dateFilter,
+    tagIdsFilter,
     minAmount,
     maxAmount,
     uncategorizedOnly,
@@ -497,6 +549,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     accountFilter !== 'all' ||
     categoryFilter !== 'all' ||
     !isDefaultDateFilter ||
+    tagIdsFilter.length > 0 ||
     minAmount.trim() !== '' ||
     maxAmount.trim() !== '' ||
     uncategorizedOnly;
@@ -506,6 +559,7 @@ export function MovementsScreen({ configRevision = 0 }: MovementsScreenProps = {
     setAccountFilter('all');
     setCategoryFilter('all');
     setDateFilter(DEFAULT_MOVEMENTS_DATE_FILTER);
+    setTagIdsFilter([]);
     setIsCustomOpen(false);
     setMinAmount('');
     setMaxAmount('');

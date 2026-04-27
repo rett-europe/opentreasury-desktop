@@ -929,6 +929,70 @@
       "error": "Couldn't load data. Please try again.",
       "emptyTags": "No tags have transactions in this period.",
       "emptyTagsBody": "Tag your transactions to see analysis here."
+    },
+    "detail": {
+      "back": "Back to Insights",
+      "loadingTitle": "Loading…",
+      "loading": "Loading tag analysis…",
+      "error": "Couldn't load drilldown data. Please try again.",
+      "subtitle": "Campaign analysis by categories and accounts",
+      "combinerAria": "Tag selection",
+      "selectedTagsAria": "Active tags",
+      "removeTagAria": "Remove tag {{name}}",
+      "combinerTrigger": "Combine tag…",
+      "combinerSearchPlaceholder": "Search tag…",
+      "combinerEmpty": "No matches",
+      "combinerListAria": "Available tags",
+      "kpi": {
+        "income": "INCOME",
+        "expense": "EXPENSE",
+        "net": "NET",
+        "categoryCount": "{{count}} categor(y/ies)",
+        "txCount": "{{count}} transaction(s)"
+      },
+      "section": {
+        "distribution": "CATEGORY DISTRIBUTION",
+        "subcategories": "SUBCATEGORY DETAIL",
+        "monthly": "MONTHLY EVOLUTION",
+        "accounts": "PER ACCOUNT"
+      },
+      "donut": {
+        "incomeTitle": "Income",
+        "expenseTitle": "Expense",
+        "incomeEmpty": "No income for this selection",
+        "expenseEmpty": "No expense for this selection",
+        "incomeAria": "Income distribution by category",
+        "expenseAria": "Expense distribution by category"
+      },
+      "subcategoryTable": {
+        "category": "Category",
+        "subcategory": "Subcategory",
+        "income": "Income",
+        "expense": "Expense",
+        "net": "Net",
+        "empty": "No subcategories for this selection."
+      },
+      "monthly": {
+        "ariaLabel": "Monthly income and expense evolution",
+        "tableCaption": "Monthly evolution",
+        "empty": "No monthly data for this selection."
+      },
+      "accounts": {
+        "empty": "No accounts with transactions for this selection."
+      },
+      "legend": {
+        "income": "Income",
+        "expense": "Expense"
+      },
+      "seeAllMovements": "See all transactions"
     }
+  },
+  "datePresets": {
+    "thisMonth": "This month",
+    "lastMonth": "Last month",
+    "last3Months": "Last 3 months",
+    "thisYear": "This year",
+    "lastYear": "Last year",
+    "last12Months": "Last 12 months"
   }
 }
