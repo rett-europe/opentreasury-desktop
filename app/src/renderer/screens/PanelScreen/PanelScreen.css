@@ -29,7 +29,7 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
- * PANEL TABLE COLUMN WIDTH SYSTEM — WI-20 Round 2 (Mouse, 2026-04-22)
+ * PANEL TABLE COLUMN WIDTH SYSTEM — aligned with MovementsScreen
  *
  * AVAILABLE WIDTH CALCULATION (1366px viewport):
  *   Viewport:     1366px
@@ -39,28 +39,33 @@
  *   ────────────────────
  *   AVAILABLE:    1060px
  *
- * Panel table columns (7 columns, no select/status/tags like MovementsScreen):
+ * Panel table columns (9 columns, same as Movements minus select checkbox):
  *   type:         32px  (arrow icon)
- *   date:        115px  (dd MMM yyyy — wider for es-ES medium dates)
- *   account:     120px  (pill truncates)
- *   description: flex   (takes remaining space)
+ *   date:         88px  (dd MMM yyyy)
+ *   account:     100px  (pill truncates)
+ *   description: 200px  (main text)
  *   category:    120px  (badge or text)
  *   subcategory: 120px  (text or dash)
+ *   tags:        140px  (chips +N)
+ *   status:       80px  (badge)
  *   amount:      100px  (currency)
  *   ────────────────────
- *   Fixed cols:   607px  (description flexes to fill remaining ~453px)
+ *   TOTAL:       980px  (80px buffer for padding + narrow viewports)
+ *
+ * Same column widths as MovementsScreen (lines 418-480 in MovementsScreen.css)
+ * except select column is omitted.
  * ══════════════════════════════════════════════════════════════════════════ */
 
 /* Enable fixed-layout table + horizontal scroll fallback.
  *
- * `min-width` keeps the table at a readable intrinsic size so that on narrow
- * viewports the card's `overflow-x: auto` produces a real horizontal scroll
- * instead of silently compressing columns (description shrinking below its
- * 240px min). Total = 32+115+120+240+120+120+100 = 847px. */
+ * `min-width` equals the sum of column widths (980px) so the table keeps its
+ * tuned breathing-room size when the viewport is narrower. Combined with the
+ * card's `overflow-x: auto`, this makes the container horizontally scroll
+ * below ~1320px viewports instead of compressing columns. */
 .ot-panel-recent .ot-table {
   table-layout: fixed;
   width: 100%;
-  min-width: 847px;
+  min-width: 980px;
 }
 
 /* Apply ellipsis truncation to all cells by default */
@@ -78,25 +83,25 @@
   text-overflow: clip;
 }
 
-/* Column 2: date (115px — accommodates es-ES dateStyle:'medium' e.g. "21 sept 2026") */
+/* Column 2: date (88px) */
 .ot-panel-recent .ot-table th:nth-child(2),
 .ot-panel-recent .ot-table td:nth-child(2) {
-  width: 115px;
-  max-width: 115px;
+  width: 88px;
+  max-width: 88px;
 }
 
-/* Column 3: account (120px) */
+/* Column 3: account (100px) */
 .ot-panel-recent .ot-table th:nth-child(3),
 .ot-panel-recent .ot-table td:nth-child(3) {
-  width: 120px;
-  max-width: 120px;
+  width: 100px;
+  max-width: 100px;
 }
 
-/* Column 4: description (flex — auto width takes remaining space) */
+/* Column 4: description (200px) */
 .ot-panel-recent .ot-table th:nth-child(4),
 .ot-panel-recent .ot-table td:nth-child(4) {
-  /* No explicit width — flexes to fill remaining space */
-  min-width: 240px; /* Ensure minimum readable width before overflow scroll kicks in */
+  width: 200px;
+  max-width: 200px;
 }
 
 /* Column 5: category (120px) */
@@ -113,9 +118,24 @@
   max-width: 120px;
 }
 
-/* Column 7: amount (100px) */
+/* Column 7: tags (140px — uses chip overflow, not ellipsis) */
 .ot-panel-recent .ot-table th:nth-child(7),
 .ot-panel-recent .ot-table td:nth-child(7) {
+  width: 140px;
+  max-width: 140px;
+  text-overflow: clip;
+}
+
+/* Column 8: status (80px) */
+.ot-panel-recent .ot-table th:nth-child(8),
+.ot-panel-recent .ot-table td:nth-child(8) {
+  width: 80px;
+  max-width: 80px;
+}
+
+/* Column 9: amount (100px) */
+.ot-panel-recent .ot-table th:nth-child(9),
+.ot-panel-recent .ot-table td:nth-child(9) {
   width: 100px;
   max-width: 100px;
 }

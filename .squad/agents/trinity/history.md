@@ -1748,3 +1748,28 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 https://github.com/rett-europe/opentreasury-desktop/pull/101
 
 ---
+
+## Learnings
+
+### MovementsScreen table structure (2024)
+
+Canonical column order for transaction lists:
+1. **select** - checkbox (multi-select, Movements only)
+2. **type** - arrow icon (↑ income / ↓ expense) with color class
+3. **date** - formatted, tabular, sortable
+4. **account** - pill with color dot + background tint (18% mix)
+5. **description** - with tooltip showing reference/details
+6. **category** - with split badge handling for split parent rows
+7. **subcategory** - muted dash (—) for empty
+8. **tags** - chips with deterministic color hash, max 2 visible + overflow indicator
+9. **status** - badge (pending/approved/rejected)
+10. **amount** - right-aligned, tabular, signed, income/expense color
+
+Dashboard's recent transactions table (PanelScreen) now mirrors this exactly (minus select column). Duplicated JSX rather than extracting shared component since extraction would require significant refactor (MovementsScreen uses Movement type, Dashboard uses RecentTransaction; different filter/sort contexts).
+
+Tag color logic: prefer tag.color from backend, fallback to deterministic hash → palette index.
+
+### PR #105 final fix (commit 2ef25df)
+
+Added Tags + Status columns to Dashboard's recent transactions table to match Movements headers. Same rendering logic (chips, badges, colors), same order, same labels. Read-only (no select, no sortable). 8-row limit unchanged.
+

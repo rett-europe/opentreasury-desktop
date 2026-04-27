@@ -243,7 +243,6 @@ export function PanelScreen(): JSX.Element {
       header: '',
       sortable: false,
       align: 'center',
-      width: 36,
       render: (row) => {
         const cls =
           row.type === 'income'
