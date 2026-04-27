@@ -62,6 +62,31 @@ describe('DonutChart', () => {
     expect(centerValues.length).toBeGreaterThan(0);
   });
 
+  it('renders a single 100% slice as a full ring (no Pac-Man gap)', () => {
+    // Regression: when one slice covers the entire circle, using
+    // strokeDasharray + strokeDashoffset together clips ~1/4 of the ring.
+    // Verify the full-ring code path: a plain stroked circle with no
+    // strokeDasharray attribute.
+    const slices = [createSlice('Only', 500, 'cat-only')];
+
+    const { container } = render(
+      <DonutChart
+        slices={slices}
+        total={500}
+        ariaLabel="Full ring chart"
+        locale={LOCALE}
+        currency={CURRENCY}
+      />,
+    );
+
+    const segments = container.querySelectorAll('circle.ot-donut-chart__segment');
+    expect(segments).toHaveLength(1);
+    const seg = segments[0]!;
+    // No dasharray means no chance of the rotation offset clipping the ring.
+    expect(seg.getAttribute('stroke-dasharray')).toBeNull();
+    expect(seg.getAttribute('stroke-dashoffset')).toBeNull();
+  });
+
   it('renders multiple segments', () => {
     const slices = [
       createSlice('Donations', 1000, 'cat-1'),
