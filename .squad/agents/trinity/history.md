@@ -46,6 +46,42 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 
 ## Learnings
 
+**2026-05-03 — PR #121: Splits Wave B (squad/59-splits-wave-b)**
+
+Delivered 6 v1-quality bar items for SPEC-023 splits feature (issue #59):
+
+1. **FR10/AC6 — Category filter for split parents:** Extended MovementRecord IPC contract with `splitCategoryIds` / `splitSubcategoryIds` arrays. Handler (app/src/main/ipc/handlers/movements.ts) populates from read model's `splits` map. Client-side filter (app/src/renderer/screens/MovementsScreen/MovementsScreen.tsx) checks both parent category and split categories — parent shows if parent OR any split matches the selected category. Same logic for subcategories. This pattern (embed denormalized filter keys in the list response) is cleaner than async per-row lookups in a useMemo.
+
+2. **AC14/FR14 — Amount field disabled when hasSplits:** Added `amountDisabled` prop to TransactionFormFields. Wired from TransactionDetailModal when `rawRecord?.hasSplits`. Don't repurpose `readonly` — that's a global mode. Specific field-disable props are clearer.
+
+3. **AC1/UX-007 §2.1 — Row action for split:** Since no context menu infrastructure exists, implemented as inline action button in description column (TransactionsTable.tsx). Wrapped description in `.ot-description-cell` span, show action button on row hover (opacity: 0 → 1). Gated to `status === 'approved' && !hasSplits`. This required updating MovementsScreen tests to query the closest `.ot-description-cell` for tooltip assertions.
+
+4. **partCount i18n:** Changed hardcoded badge text to `t('splits.list.partCount', { count: row.splitCount ?? 0 })`. Required nullish coalesce because splitCount is optional (TypeScript strict mode). The plural keys were already in place from PR #116.
+
+5. **Row-level error highlight:** Added helper `isRowAmountInvalid(split)` in SplitTransactionModal, applied `.ot-split-row--error` class when balance is off AND row amount is invalid. Added `aria-invalid` + `aria-describedby` linking to the sum-mismatch banner. Created SplitTransactionModal.css for the error styles (red border, background tint). Previously the modal had no dedicated CSS file — split modal styles were probably in globals or inline.
+
+6. **Ctrl+Enter save:** Extended the existing `useEffect` listener block to add a `keydown` handler. Check `(e.ctrlKey || e.metaKey) && e.key === 'Enter'` and gate to `canSubmit && !isSubmitting`. This pattern (single effect with multiple listeners) is cleaner than separate effects — fewer registration cycles.
+
+**File paths:**
+- IPC contract: `app/src/shared/ipc-contracts/movements.ts` (added splitCategoryIds/splitSubcategoryIds)
+- Handler: `app/src/main/ipc/handlers/movements.ts` (populate split category arrays)
+- Filter logic: `app/src/renderer/screens/MovementsScreen/MovementsScreen.tsx` (useMemo category filter)
+- Form field: `app/src/renderer/components/TransactionFormFields/TransactionFormFields.tsx` (amountDisabled prop)
+- Detail modal: `app/src/renderer/components/TransactionDetailModal/TransactionDetailModal.tsx` (wire amountDisabled)
+- Table: `app/src/renderer/components/TransactionsTable/TransactionsTable.tsx` (row action + partCount i18n)
+- Table CSS: `app/src/renderer/components/TransactionsTable/TransactionsTable.css` (description cell + split badge)
+- Split modal: `app/src/renderer/components/SplitTransactionModal/SplitTransactionModal.tsx` (row error + Ctrl+Enter)
+- Split modal CSS: `app/src/renderer/components/SplitTransactionModal/SplitTransactionModal.css` (error row styles)
+
+**Testing:** Fixed MovementsScreen.test.tsx tooltip assertions to query `.ot-description-cell` parent. All 751 tests passing.
+
+**Wave B Coordination (2026-04-27):**
+- Part of concurrent 4-agent splits sprint (Trinity + Morpheus + Niobe + Cypher)
+- Morpheus PR #117 (IPC handlers) merged ✅ to unblock this wave
+- Parallel checkout race with Cypher E2E avoided by staggered branch creation (day-old lesson documented in history)
+- Cypher's E2E PR #119 closed (false-green detection) — will re-open post-Wave-B-merge with real assertions
+- Shared TransactionsTable component (PR #105) now single source of truth for tx list UI across screens (Reuse-First team rule adopted)
+
 **2026-05-02 — PR #105: Tag colors, dashboard chart (squad/dashboard-bugs-tags-recent-chart)**
 
 **Bug 1 — Tag chip color lookup:** When tag names are stored in the UI Movement type but colors need to be rendered, create a `tagColor` callback that looks up the full TagRecord from the `tags` state array. Pattern: `const tag = tags.find(t => t.name === tagName); return tag?.color ?? fallbackColor`. This avoids needing to thread color data through the mapMovementRecord transformation or store duplicate color maps. The tags state already has the full TagRecord[] with name+color+id, so use it directly.

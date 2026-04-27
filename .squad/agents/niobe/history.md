@@ -54,6 +54,21 @@ The Insights v1 spec (ux-005a) described a "small-multiples YoY grid" pattern ba
 
 **Process adjustment:** When Pedro shares mockups, treat them as the authoritative design source. The spec's job is to make the mockup implementable (responsive breakpoints, data fields, CSS recipes, component contracts), not to reimagine the design.
 
+### 2026-04-27 — Search Spec Revision (Topbar Pivot, Spec-024)
+
+**Wave coordination (concurrent with splits Wave A/B):**
+Part of 4-agent sprint. PR #120 (squad/spec-024-revision) revised free-text search spec to reflect topbar pivot:
+- ⌘K on macOS, Ctrl+K on Windows (keyboard shortcut)
+- ?q=<query> route param for deep linking and shareability
+- Cross-screen navigation: search results unified view across Movimientos, Panel, Insights, TransactionDetail
+- AppShell.tsx:228-232 placeholder identified for implementation handoff
+- CI ✅ GREEN, ready to merge
+- Spec-024-free-text-search.md + ux-008-movement-search.md both updated
+
+**Process insight:** Coordinate spec revisions in parallel with feature implementation when possible. Topbar search enables discovery across splits-enabled screens — ships in parallel no blocker on splits implementation.
+
+**Key lesson:** When specs pivot, update decision logs immediately so implementation teams have context. Handoff clarity matters more than perfect prose.
+
 ### 2026-04-27 — Saldo iter 8 re-diagnosis (iter 7 REJECTED)
 
 **Critical lesson learned: Diagnosing visual bugs without looking at the screenshot is malpractice.**

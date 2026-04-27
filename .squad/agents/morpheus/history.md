@@ -39,6 +39,8 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 
 **WI-22 Saldo shipped (2026-04-22):** PR #7 merged with backend (S1–S3 complete: IPC contract, aggregation query, projection logic, handler). 436 tests pass. On-demand aggregation <5ms at 1k events. Property test (Cypher) verified all 8 invariants (I8: Saldo ≡ Movements holds). Skill drafted: `read-model-aggregation` (reusable pattern for future queries). Trinity S5 (SaldoScreen) unblocked; Niobe i18n (PR #9) merged with 72 ES/EN keys locked.
 
+**WI-22 Saldo shipped (2026-04-22):** PR #7 merged with backend (S1–S3 complete: IPC contract, aggregation query, projection logic, handler). 436 tests pass. On-demand aggregation <5ms at 1k events. Property test (Cypher) verified all 8 invariants (I8: Saldo ≡ Movements holds). Skill drafted: `read-model-aggregation` (reusable pattern for future queries). Trinity S5 (SaldoScreen) unblocked; Niobe i18n (PR #9) merged with 72 ES/EN keys locked.
+
 ## Learnings
 
 **Strong typing for IPC methods (MethodBridge<Req,Res> pattern):** Strongly-typed bridges per-method (not generic wrappers) catch contract drift immediately. Trinity's PR #4 renderer fixes relied on this — when Morpheus diverged from spec (nested subcategory paths), TypeScript surface-area tests flagged it without e2e testing. Use this pattern for all config mutations (WI-21+). Validated in practice: 100% catch rate for contract mismatches.
@@ -48,6 +50,28 @@ Next on backlog: WI-16 (Panel invalidation event bus + toast primitive), WI-17 (
 **Contract extension pattern:** When frontend redesign touches IPC contract, batch changes in same PR (don't split). Mark old fields `@deprecated` if tests still depend; schedule cleanup debt explicitly. Communicate extensions to backend owner immediately.
 
 **Bug diagnosis workflow:** Dual-write footgun in dev-seeder (legacy `category.created` vs new `CategoryCreated` events). Root cause: two disjoint reducer slices + read handlers reading only one. Fix pattern: seed writes to the new event shape; delete legacy reducers in follow-up (cleanup debt). Applies to legacy `tag.created` / `account.created` too.
+
+### 2026-04-27 — Splits Wave A: IPC Handlers + Audit Trail (PR #117)
+
+**Wave coordination (concurrent 4-agent sprint):**
+Part of splits feature completion. PR #117 (squad/59-splits-ipc-register) shipped two IPC handlers + event definitions + audit trail pattern.
+
+**Deliverables:**
+1. **transaction:splits.create** handler — validates parent tx, creates N child splits, returns event with parentTxId/splitCount/totalCents
+2. **transaction:splits.remove** handler — idempotent remove by parent TX ID, returns removedSplitCount/allRemoved
+3. **transaction.split.created** event — enveloped shape, audit trail via console.info (lightweight pattern pending future crypto-spec §8)
+4. **transaction.split.removed** event — enveloped shape, audit trail via console.info
+
+**Audit Trail Decision:**
+Implemented lightweight structured `console.info('[audit] …')` pattern (not full persistent audit module) to satisfy SPEC-023 AC13 without shipping premature infrastructure. Schema: `[audit] split.{created,removed} eventId=<ulid> parentTxId=<ulid> splitCount=<int> totalCents=<int> at=<iso>`. Documented migration path for future crypto-spec §8 audit chain. Decision preserved in .squad/decisions.md.
+
+**Wave B Handoff:**
+- Unblocked Trinity Wave B (PR #121) for frontend wiring
+- Strong IPC typing pattern validated again (no contract mismatches)
+- 42 handler tests green
+
+**Parallel checkout coordination note (reinforced learning):**
+Cypher's E2E branch created before PR #117 merged — no dep conflict, but managed timing to avoid race on event log structure. Team now has day-old lesson (parallel checkout management) plus this confirmation: when multiple agents touch event log, coordinate merge ordering in sprint plan.
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 

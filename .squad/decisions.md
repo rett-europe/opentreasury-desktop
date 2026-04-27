@@ -6853,3 +6853,149 @@ When adding charts to other screens (e.g., category breakdown, account trends), 
 #### PR
 
 https://github.com/rett-europe/opentreasury-desktop/pull/105
+
+---
+
+### 2026-04-27: Splits Audit Log Shape (AC13, Wave A)
+
+**Author:** Morpheus (Backend Dev)  
+**Issue:** #59  
+**Wave:** A  
+**PR:** #117 (squad/59-splits-ipc-register)  
+**Date:** 2026-04-27  
+**Status:** ✅ MERGED (commit e08b926)
+
+#### Context
+
+SPEC-023 AC13 calls for an audit log entry per `tx.split` and `tx.split.removed` operation. Earlier gap audit asserted that other handlers write to "the audit log," but reality check: no audit module is shipped today. `grep -ri "audit"` across `app/src` returns only documentation references; `core/audit/` is yet-to-exist; handlers have TODO(C10, R8) for future.
+
+Two choices:
+1. Defer AC13 until proper crypto-spec §8 audit chain lands.
+2. Ship lightweight structured `console.info('[audit] …')` matching the existing `[bootstrap]` logging style.
+
+#### Decision
+
+**Ship option 2.** Single-line structured `console.info('[audit] …')` (key=value format) from inside split handlers, emitted **only** after successful append to event log (no second entry on replay/dedupe).
+
+#### Schema
+
+```
+[audit] split.created  eventId=<ulid> parentTxId=<ulid> splitCount=<int> totalCents=<int> at=<iso>
+[audit] split.removed  eventId=<ulid> parentTxId=<ulid> allRemoved=<bool> removedSplitCount=<int> at=<iso>
+```
+
+Field choices:
+- `eventId` — links audit line to underlying NDJSON event.
+- `parentTxId` — required by spec.
+- `splitCount` / `totalCents` — captures "what changed" without dumping every child (log-greppable, PII-light).
+- `allRemoved` / `removedSplitCount` — distinguishes idempotent no-op from real revert (AC7 telemetry observable from logs alone).
+
+#### Out of Scope (Explicit Non-Goals)
+
+- No new `core/audit/` module, no Ed25519 hash chain, no persistent audit file (C10/R8 work, separate milestone).
+- No retroactive audit entries for `transaction:create/update/delete` or notes (alignment is separate effort).
+- No structured logger introduction (`pino`, `winston`, etc.) — one log line, one prefix; trivial to refactor when audit module lands.
+
+#### Migration Path
+
+When `core/audit/` lands:
+1. Replace two `console.info('[audit] …')` calls in `app/src/main/ipc/handlers/transaction-splits.ts` with proper audit chain append.
+2. Apply pattern to `transaction.ts`, `notes.ts`, etc. in one pass — all handlers cross over together.
+
+---
+
+### 2026-04-27: Shared TransactionsTable Component (Reuse-First Pattern)
+
+**Date:** 2026-04-27  
+**Author:** Trinity (Frontend Dev)  
+**Status:** ✅ SHIPPED (PR #105, commit 71c0845)  
+**Branch:** squad/dashboard-bugs-tags-recent-chart
+
+#### Context
+
+Commits `2ef25df` and `fe45e7a` on PR #105 fixed bugs stemming from same root cause: transactions table JSX duplicated between MovementsScreen and PanelScreen. Same visual spec (headers, widths, cell rendering) but separate implementations — separate column definitions, separate CSS files with duplicate nth-child selectors, separate row rendering logic.
+
+Duplication created maintenance risk: column widths, header labels, cell rendering changes (account pills, tag chips, status badges, split parent badges) had to be applied twice. Asymmetric or delayed application caused visual drift.
+
+Pedro agreed: **"we should reuse as much as possible and avoid JSX duplication"** — going-forward rule for the team.
+
+#### Decision
+
+Extract shared `TransactionsTable` component used by both MovementsScreen and PanelScreen.
+
+**Component Location:** `app/src/renderer/components/TransactionsTable/` (TransactionsTable.tsx, TransactionsTable.css, index.ts)
+
+**Component Owns:**
+- Canonical column widths (1012px with select column, 980px without)
+- Column headers (type, date, account, description, category, subcategory, tags, status, amount)
+- Row rendering logic (type arrow, account pill, tag chips, category/subcategory labels, status badges, split parent badges)
+- `table-layout: fixed` + `min-width` + wrapper `overflow-x: auto` scroll pattern
+- All table-related CSS
+
+**Component Does NOT Own:**
+- Toolbar, filters, search bar, pagination, KPI strip, screen layout
+- Data fetching, filtering, sorting (caller handles)
+- Modal triggers (onRowClick wires to each screen's modal state)
+
+#### Screen Migration Pattern
+
+Each screen builds lookup maps from its reference data and maps its native data type to shared `TransactionRow` shape at screen boundary.
+
+**Files Changed:**
+- **Created:** TransactionsTable.tsx (335 lines), TransactionsTable.css (232 lines), index.ts
+- **Edited:** MovementsScreen.tsx (deleted ~200 lines column definitions), MovementsScreen.css (deleted 147 lines column width CSS), PanelScreen.tsx (deleted ~150 lines), PanelScreen.css (deleted 152 lines)
+
+**Net result:** -350 lines duplicated code, +567 lines shared component. Column widths, headers, cell rendering now have single source of truth.
+
+#### Team Rule (Going Forward)
+
+Reuse-first, no duplicated tables/lists.
+
+When adding new screens that show transaction lists (search results, reports, export previews), reuse `TransactionsTable` instead of inlining `<Table>` with custom column definitions. Follow lookup-map + row-mapping pattern.
+
+If new use case needs variant (different columns, interactive controls), extend `TransactionsTable` with optional props rather than forking.
+
+#### References
+
+- PR #105: squad/dashboard-bugs-tags-recent-chart
+- Commit: 71c0845
+- Skills: `.squad/skills/transactions-table/SKILL.md`
+
+---
+
+### 2026-05-02: Insights Final Spec (UX-005) — Prototype Critique Authority
+
+**Date:** 2026-05-02  
+**By:** Niobe (Spec / UX Analyst)  
+**What:** Final implementation-ready spec for Insights section (UX-005)  
+**Status:** ✅ SPEC LOCKED for implementation
+
+#### Summary
+
+Pedro's prototype (`insights.jsx`) provided the foundation, but I made 10 specific critical calls: KEEP the LabelOverviewCard structure and SVG donut approach; REJECT the YoY small-multiples grid (retired — mockup defines campaign-performance pattern, not yearly comparison) and inline transaction table (duplicates Movimientos); MODIFY segmented toggle to change display mode not sort order, fix donut empty state copy, make tag combiner a proper dropdown not native select, add responsive breakpoints for account bars.
+
+#### Key Critique Highlights
+
+1. **YoY view retired** — mockup defines campaign-performance cards, not yearly comparison tiles. VerticalBarTile component NOT needed for M4.
+2. **Toggle semantics corrected** — it's a display mode selector (what metrics to show), not a sort selector. Sorting stays by volume.
+3. **Transaction table removed** — drilldown shows aggregates only; "Ver todos los movimientos →" link for detail.
+4. **Donut palette** — reject hardcoded colors; use deterministic hash from category ID for consistency.
+5. **Tag combiner** — must be searchable dropdown, not native select, with dismissible chips.
+
+#### Spec Location
+
+`docs/ux/specs/ux-005-insights-final-spec.md`
+
+#### M4 Ship Order
+
+PR #98 (scaffolding) → #99 (DonutChart + SegmentedToggle) → #100 (landing) → #101 (drilldown). MVP is #98–100.
+
+#### Three Open Questions for Pedro
+
+1. Landing date window — all-time or current year?
+2. Multi-label overlap — disclose or accept?
+3. Drilldown link — filter by tags only?
+
+#### Key Learning: Prototype Critique Authority
+
+When Pedro says "challenge everything," exercise design authority — don't just translate mockups. This is different mode than mockup-translation: made opinionated KEEP/REJECT/MODIFY calls on 10 elements. The prototype-as-inspiration directive gave license to be opinionated. Future prototypes should get the same critical treatment.
