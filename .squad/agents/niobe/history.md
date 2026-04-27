@@ -5,6 +5,10 @@
 - **Stack:** Electron (frontend), rest TBD. Reference app: Angular 19 + Python FastAPI + Cosmos DB + Entra ID on Azure.
 - **Created:** 2026-04-19
 
+## Canonical Patterns
+
+**CANONICAL KPI PATTERN (2026-04-27):** Mouse established reusable `.ot-kpi-strip` recipe in PR #104 for income/expense/net cards. Pattern: TrendingUp/TrendingDown/Calculator icons @ 20px + --color-income-default / --color-expense-default / --color-brand-primary. Shared CSS recipe in `globals.css`. This is the baseline for all KPI indicators — reuse when i18n strings or icons for value indicators land in future WIs.
+
 ## Key Reference
 
 UX considerations from the cloud version:

@@ -48,6 +48,31 @@ Language: ES + EN parity mandatory (`locales/{en,es}/common.json`). Target user:
 
 ## Learnings
 
+### 2026-XX-XX: PR #104 Income/Expense/Net Visual Consistency — Dashboard Pattern Locked
+
+**Context:** Pedro reported visual inconsistency across four screens (Dashboard, Movements, Saldo, Insights) for income/expense/net presentation. Dashboard (Panel) was the canonical reference.
+
+**What shipped:**
+- ✅ Movements: Replaced custom `.ot-movements__totals` (4-column grid, no icons) with `.ot-kpi-strip` from `globals.css`. Added icons (TrendingUp/Down/Calculator size 20). Removed component CSS overrides that shadowed shared recipe.
+- ✅ Insights: Fixed icon size (24 → 20), wrapped icons in `.ot-kpi__icon` div. First KPI (active tags) uses neutral styling.
+- ✅ Saldo: Already correct — no changes needed.
+
+**Canonical pattern (locked):**
+- **Icons:** `TrendingUp` (income), `TrendingDown` (expense), `Calculator` (net) — all size **20px**
+- **Colors:** `--color-income-default`, `--color-expense-default`, `--color-brand-primary` (values); `--color-income-bg`, `--color-expense-bg`, `--color-brand-surface` (icon backgrounds)
+- **Layout:** `.ot-kpi-strip` (3-column grid) + `.ot-kpi` (card) + `.ot-kpi__icon` (icon wrapper) + `.ot-kpi__content` (text)
+- **Typography:** `.ot-kpi__label` (uppercase 11px), `.ot-kpi__value` (24px semibold tabular-nums)
+
+**Files:**
+- Reference component: `app/src/renderer/components/KPIStrip/KPIStrip.tsx`
+- Shared recipe: `app/src/renderer/styles/globals.css` (lines 197-269)
+- Fixed screens: `MovementsScreen.tsx`, `InsightsScreen.tsx`
+
+**Anti-pattern caught:** Component CSS imported after `globals.css` silently shadows shared recipes. Movements had redefined `.ot-movements__totals-*` with different grid layout and missing icons. Solution: remove component overrides, use shared `.ot-kpi-strip` exclusively.
+
+**PR:** https://github.com/rett-europe/opentreasury-desktop/pull/104  
+**Tests:** TypeCheck clean, lint clean.
+
 ### 2026-04-26: PR #99 Insights Primitives Complete — DonutChart + SegmentedToggle Shipped
 
 **Context:** Second of 4-PR Insights M4 train. Pure component primitives for consumption by PR #100 (landing) and #101 (drilldown).
@@ -791,3 +816,29 @@ If there's a runtime issue (e.g., JS incorrectly measuring `--saldo-col-*` value
 
 **Pattern reinforced:**
 The iter 3/6 failures were because implementers didn't verify the actual visual output at the actual viewports. I can't either (no app access), but I documented the mechanical reasoning and flagged the honest gap. Transparency over false confidence.
+
+### 2026-05-17: PR #103 MovementsScreen Transaction Detail Modal Bug Fix
+
+**Context:** Pedro reported that clicking a transaction row in the Movements screen opened the detail modal with empty category/subcategory fields, and attempting to save (even without changes) failed with a raw Zod validation error.
+
+**Root cause:** The row-click handler in MovementsScreen.tsx (line 1176-1197) was mapping display-layer labels (ow.category, ow.subcategory, ow.tags) into the RecentTransaction object passed to TransactionDetailModal, instead of using the ULIDs from the raw MovementRecord. This caused:
+1. Read-only view: Category lookup by label (e.g., "Payroll") instead of ID failed → fields showed empty
+2. Edit mode: Form state initialized with label strings instead of ULIDs
+3. Save: Label strings sent to backend → Zod validation error (expected 26-char ULID or null)
+
+**Fix:** Changed row-click handler to source all fields from ecord (raw MovementRecord) instead of ow (display Movement):
+- ecord.categoryId (ULID) instead of ow.category (label)
+- ecord.subcategoryId (ULID) instead of ow.subcategory (label)
+- ecord.tagIds (ULID[]) instead of ow.tags (label[])
+- All other fields now from ecord for consistency
+
+**Testing:** Added regression test preserves category and subcategory ULIDs when entering edit mode verifying:
+- Modal opens with transaction having category + subcategory
+- Form dropdowns pre-filled with correct ULIDs
+- Save submits ULIDs intact (not empty strings or labels)
+
+**Reusable pattern:** When passing data to components that expect IDs, always source from the ID-bearing layer (wire/domain) not the display layer (labels). The awRecordById map exists for this reason — use it.
+
+**PR:** https://github.com/rett-europe/opentreasury-desktop/pull/103  
+**Branch:** squad/fix-txn-view-modal-categoryid  
+**Tests:** All pass (8 TransactionDetailModal tests + 654 full suite), typecheck clean, lint clean.
