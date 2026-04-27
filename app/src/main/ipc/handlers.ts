@@ -111,6 +111,14 @@ import {
   deleteNoteResponseSchema,
 } from '../../shared/ipc-contracts/notes.js';
 import {
+  IPC_TRANSACTION_SPLIT,
+  IPC_TRANSACTION_SPLIT_REMOVE,
+  IPC_TRANSACTION_SPLIT_GET,
+  splitTransactionResponseSchema,
+  removeSplitResponseSchema,
+  getSplitsResponseSchema,
+} from '../../shared/ipc-contracts/transaction-splits.js';
+import {
   handleGetAccounts,
   handleGetAccountBalances,
   handleGetMonthKPIs,
@@ -164,6 +172,11 @@ import {
   createEditNoteHandler,
   createDeleteNoteHandler,
 } from './handlers/notes.js';
+import {
+  createSplitTransactionHandler,
+  createRemoveSplitHandler,
+  createGetSplitsHandler,
+} from './handlers/transaction-splits.js';
 import {
   IPC_INSIGHTS_LANDING_SUMMARY,
   insightsLandingSummaryRequestSchema,
@@ -514,5 +527,33 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_TRANSACTION_NOTE_DELETE, async (_event, raw: unknown) => {
     const response = await handleDeleteNote(raw);
     return deleteNoteResponseSchema.parse(response);
+  });
+
+  // SPEC-023 — transaction splits (split / split:remove / split:get). Same
+  // deps shape as notes; split events ride the same NDJSON event log.
+  const splitDeps = {
+    eventLog: getEventLog(),
+    getReadModel,
+    now: () => new Date(),
+    newId: newUlid,
+  };
+
+  const handleSplitTransaction = createSplitTransactionHandler(splitDeps);
+  const handleRemoveSplit = createRemoveSplitHandler(splitDeps);
+  const handleGetSplits = createGetSplitsHandler({ getReadModel });
+
+  ipcMain.handle(IPC_TRANSACTION_SPLIT, async (_event, raw: unknown) => {
+    const response = await handleSplitTransaction(raw);
+    return splitTransactionResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_TRANSACTION_SPLIT_REMOVE, async (_event, raw: unknown) => {
+    const response = await handleRemoveSplit(raw);
+    return removeSplitResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_TRANSACTION_SPLIT_GET, async (_event, raw: unknown) => {
+    const response = await handleGetSplits(raw);
+    return getSplitsResponseSchema.parse(response);
   });
 }

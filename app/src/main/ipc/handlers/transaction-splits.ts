@@ -115,7 +115,16 @@ export function createSplitTransactionHandler(
       const before = (await deps.eventLog.load()).length;
       await deps.eventLog.append(event);
       const after = (await deps.eventLog.load()).length;
-      if (after > before) apply(event);
+      if (after > before) {
+        apply(event);
+        // AC13 — audit trail for split.created. Captures parent + split count
+        // + total cents. Structured single-line log; matches the bootstrap.ts
+        // logging style until a dedicated audit module lands (crypto-spec §8).
+        // eslint-disable-next-line no-console
+        console.info(
+          `[audit] split.created eventId=${event.id} parentTxId=${event.parentTxId} splitCount=${event.splits.length} totalCents=${totalCents} at=${event.createdAt}`,
+        );
+      }
 
       return { ok: true, event };
     } catch (err) {
@@ -157,6 +166,8 @@ export function createRemoveSplitHandler(
 
       // Idempotent: if no splits exist, it's a no-op (no error).
       // The read model will ignore the event if the parent has no splits.
+      const previousSplits = model.splits.get(parsed.data.parentTxId) ?? [];
+      const hadSplits = previousSplits.length > 0;
       const event: TransactionSplitRemovedEvent = {
         type: 'tx.split.removed',
         id: deps.newId(),
@@ -167,7 +178,17 @@ export function createRemoveSplitHandler(
       const before = (await deps.eventLog.load()).length;
       await deps.eventLog.append(event);
       const after = (await deps.eventLog.load()).length;
-      if (after > before) apply(event);
+      if (after > before) {
+        apply(event);
+        // AC13 — audit trail for split.removed. Captures parent + how many
+        // child rows were cleared (allRemovedCount), so a noop on a non-split
+        // parent is still observable. See decision in
+        // .squad/decisions/inbox/morpheus-splits-audit-schema.md.
+        // eslint-disable-next-line no-console
+        console.info(
+          `[audit] split.removed eventId=${event.id} parentTxId=${event.parentTxId} allRemoved=${hadSplits} removedSplitCount=${previousSplits.length} at=${event.removedAt}`,
+        );
+      }
 
       return { ok: true, event };
     } catch (err) {
