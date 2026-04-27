@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -54,6 +54,42 @@ interface NavSection {
  * entry point. Datos is its own section with Importación (upload). The old
  * single "configuracion" route is gone.
  */
+/**
+ * localStorage key for the user-controlled sidebar collapse preference.
+ * v0.1 stand-in until the preload/main user-prefs bridge exists (mirrors the
+ * pattern in `useTheme.ts`). Auto-collapse at ≤960px stays purely CSS-driven.
+ */
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'opentreasury.sidebar.collapsed';
+
+function readStoredSidebarCollapsed(): boolean {
+  if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+    return false;
+  }
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Auto-collapse breakpoint. Must stay in lockstep with the `@media (max-width:
+ * 960px)` rule in `AppShell.css` so `aria-expanded` reflects the actual
+ * visual state across viewport widths (WCAG 4.1.2 — Name, Role, Value).
+ */
+const NARROW_VIEWPORT_QUERY = '(max-width: 960px)';
+
+function readInitialNarrowViewport(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return false;
+  }
+  try {
+    return window.matchMedia(NARROW_VIEWPORT_QUERY).matches;
+  } catch {
+    return false;
+  }
+}
+
 const NAV_SECTIONS: readonly NavSection[] = [
   {
     labelKey: 'shell.sections.main',
@@ -91,18 +127,98 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps):
 
   const activeLang = i18n.language.startsWith('es') ? 'es' : 'en';
 
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(readStoredSidebarCollapsed);
+  const [viewportNarrow, setViewportNarrow] = useState<boolean>(readInitialNarrowViewport);
+
+  // Track the auto-collapse breakpoint in JS so ARIA state stays truthful at
+  // all widths. Without this, `aria-expanded` would diverge from the visual
+  // state at ≤960px (CSS forces collapsed regardless of preference) — that
+  // would violate WCAG 4.1.2.
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined;
+    }
+    const mql = window.matchMedia(NARROW_VIEWPORT_QUERY);
+    const onChange = (event: MediaQueryListEvent): void => {
+      setViewportNarrow(event.matches);
+    };
+    // Modern API; fall back to deprecated `addListener` for older WebViews.
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', onChange);
+      return () => {
+        mql.removeEventListener('change', onChange);
+      };
+    }
+    mql.addListener(onChange);
+    return () => {
+      mql.removeListener(onChange);
+    };
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+        try {
+          window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, next ? 'true' : 'false');
+        } catch {
+          /* swallow — quotas / private mode */
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  // Cross-tab sync: if another window toggles the preference, mirror it here
+  // so the shell stays consistent. (Note: `useTheme.ts` does NOT do this yet;
+  // this hook intentionally extends the v0.1 pattern with cross-tab parity.)
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onStorage = (event: StorageEvent): void => {
+      if (event.key !== SIDEBAR_COLLAPSED_STORAGE_KEY) return;
+      // Ignore key removal (newValue === null) — leaves the in-memory
+      // preference intact rather than silently expanding the sidebar.
+      if (event.newValue === null) return;
+      setSidebarCollapsed(event.newValue === 'true');
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  // CSS at ≤960px forces the collapsed visual state regardless of preference.
+  // ARIA must reflect what the user sees, not just the stored preference.
+  const effectiveCollapsed = viewportNarrow || sidebarCollapsed;
+
+  const sidebarToggleLabel = t(
+    effectiveCollapsed ? 'shell.sidebar.expand' : 'shell.sidebar.collapse',
+  );
+
   return (
-    <div className="ot-shell">
+    <div className="ot-shell" data-sidebar-collapsed={effectiveCollapsed ? 'true' : undefined}>
       {/* ── Topbar ────────────────────────────────────────── */}
       <header className="ot-shell__topbar" role="banner">
-        <span className="ot-shell__brand">
+        <button
+          type="button"
+          className="ot-shell__brand"
+          onClick={toggleSidebar}
+          aria-expanded={!effectiveCollapsed}
+          aria-controls="ot-shell-sidebar"
+          aria-label={sidebarToggleLabel satisfies string}
+          title={sidebarToggleLabel satisfies string}
+          // At ≤960px the CSS auto-collapse wins regardless of preference, so
+          // the toggle is meaningless there — disable it to match what the
+          // user sees and avoid an interactive control with no effect.
+          disabled={viewportNarrow}
+        >
           <span className="ot-shell__brand-mark" aria-hidden="true">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2 L22 12 L12 22 L2 12 Z" />
             </svg>
           </span>
-          <span>{t('shell.brand')}</span>
-        </span>
+          <span className="ot-shell__brand-name">{t('shell.brand')}</span>
+        </button>
 
         <span className="ot-shell__divider-v" aria-hidden="true" />
         <span className="ot-shell__tenant">Demo NGO</span>
@@ -183,7 +299,7 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps):
       </header>
 
       {/* ── Sidebar ───────────────────────────────────────── */}
-      <nav className="ot-shell__sidebar" aria-label="Primary">
+      <nav className="ot-shell__sidebar" id="ot-shell-sidebar" aria-label="Primary">
         {NAV_SECTIONS.map((section) => (
           <div key={section.labelKey}>
             <div className="ot-shell__nav-section-label">{t(section.labelKey)}</div>
