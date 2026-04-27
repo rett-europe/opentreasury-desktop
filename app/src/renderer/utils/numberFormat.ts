@@ -12,6 +12,11 @@
  * (`'auto'`) is used, which renders negative values with a leading minus and
  * positive values without a sign — matching the pre-existing call sites.
  *
+ * `useGrouping: 'always'` is set so 4-digit amounts in Spanish locales also
+ * render the thousands separator (`1.500,50 €` instead of `1500,50 €`). The
+ * Spanish CLDR default of `minimumGroupingDigits: 2` would otherwise suppress
+ * grouping for sub-10.000 amounts, producing inconsistency with English.
+ *
  * @param amount - Numeric amount (may be negative).
  * @param locale - BCP 47 language tag (e.g. `'es-ES'`, `'en-US'`).
  * @param currency - ISO 4217 currency code. Defaults to `'EUR'`.
@@ -19,7 +24,13 @@
  */
 export function formatCurrency(amount: number, locale: string, currency: string = 'EUR'): string {
   try {
-    return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      // `useGrouping: 'always'` requires the modern Intl typings; the cast keeps
+      // us compatible with older TS lib targets while preserving runtime behavior.
+      useGrouping: 'always',
+    } as unknown as Intl.NumberFormatOptions).format(amount);
   } catch {
     return `${amount} ${currency}`;
   }

@@ -107,7 +107,8 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const fmtCurrency = new Intl.NumberFormat(i18n.language.startsWith('es') ? 'es-ES' : 'en-US', {
     style: 'currency',
     currency: 'EUR',
-  });
+    useGrouping: 'always',
+  } as unknown as Intl.NumberFormatOptions);
 
   const visibleAccounts =
     state.kind === 'loaded' ? state.accounts.filter((a) => showArchived || !isArchived(a)) : [];

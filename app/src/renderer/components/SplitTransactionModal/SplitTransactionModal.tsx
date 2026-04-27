@@ -55,7 +55,8 @@ export function SplitTransactionModal({
     currency: 'EUR',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  });
+    useGrouping: 'always',
+  } as unknown as Intl.NumberFormatOptions);
 
   useEffect(() => {
     if (!isOpen || !transaction) return;
