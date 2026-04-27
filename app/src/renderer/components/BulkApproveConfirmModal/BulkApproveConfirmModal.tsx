@@ -100,9 +100,9 @@ export function BulkApproveConfirmModal({
       aria-modal="true"
     >
       <div className="ot-bulk-approve-confirm__content">
-        <h1 id={titleId} className="ot-bulk-approve-confirm__title">
+        <h2 id={titleId} className="ot-bulk-approve-confirm__title">
           {title}
-        </h1>
+        </h2>
         {skipNotice && <p className="ot-bulk-approve-confirm__skip-notice">{skipNotice}</p>}
         {error && (
           <p className="ot-bulk-approve-confirm__error" role="alert">
@@ -110,13 +110,13 @@ export function BulkApproveConfirmModal({
           </p>
         )}
         <div className="ot-bulk-approve-confirm__actions">
-          <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={isSubmitting}>
+          <Button type="button" variant="ghost" size="md" onClick={onClose} disabled={isSubmitting}>
             {t('movements.bulk.cancel')}
           </Button>
           <Button
             type="button"
             variant="primary"
-            size="sm"
+            size="md"
             onClick={() => void handleConfirm()}
             disabled={isSubmitting || pendingCount === 0}
           >

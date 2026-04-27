@@ -12,7 +12,7 @@
  */
 
 .ot-bulk-approve-confirm {
-  width: min(400px, 92vw);
+  width: min(460px, 92vw);
   max-width: 92vw;
   padding: 0;
   border: none;
@@ -30,27 +30,29 @@
 .ot-bulk-approve-confirm__content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5);
+  gap: var(--space-6);
+  padding: var(--space-8);
 }
 
 .ot-bulk-approve-confirm__title {
   margin: 0;
-  font-size: var(--font-size-md, 1rem);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-border-subtle, var(--color-border, rgba(0, 0, 0, 0.08)));
+  font-size: var(--font-size-20);
   font-weight: var(--font-weight-semibold, 600);
   line-height: 1.3;
   color: var(--color-text-primary);
 }
 
 .ot-bulk-approve-confirm__skip-notice {
-  margin: calc(var(--space-1) * -1) 0 0 0;
+  margin: calc(var(--space-3) * -1) 0 0 0;
   font-size: var(--font-size-13);
   color: var(--color-text-secondary);
 }
 
 .ot-bulk-approve-confirm__error {
   margin: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-md);
   background: color-mix(in oklab, var(--color-danger, #e06b6b) 10%, var(--color-surface-primary));
   color: var(--color-danger, #e06b6b);
@@ -60,7 +62,7 @@
 .ot-bulk-approve-confirm__actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-2);
+  gap: var(--space-4);
   margin: 0;
   padding: 0;
 }
