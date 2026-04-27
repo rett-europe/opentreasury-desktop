@@ -967,3 +967,10 @@ This ensures each agent gets `git worktree add` + isolated checkout, zero collis
 2. Use the brand index-pill pattern for any future "list of N items the user adds" interaction (recurring rules editor, allocation rows, etc).
 3. Tokens hardening — `--color-error-*` and `--shadow-lg` are referenced in component CSS but undefined in tokens.css. Worth a follow-up.
 4. Always use a separate worktree when doing branch work on this repo while another agent is active — main checkout is a shared resource.
+## Session — 2026-04-28: Shrink BulkApproveConfirmModal
+
+- PR #123 added a BulkApproveConfirmModal that reused TransactionDetailModal's 760px shell. Pedro feedback: `the bulk approve is huge!! We need something much smaller...`. Direction: keep the modal, shrink dramatically.
+- Replaced full-modal shell with a self-contained compact card: `<dialog>` width `min(400px, 92vw)`, padding `var(--space-5)`, content stack with gap `var(--space-4)`, no header strip, no close `X`, Cancel/Approve as `size="sm"` buttons aligned right.
+- Dropped the descriptive body paragraph — title is the question. Skip-notice became a single muted line in `--color-text-secondary` (`--font-size-13`) tucked under the title.
+- Removed unused i18n keys `confirmBody_one/_other` from both `en` and `es` `common.json`; tightened `skipNotice` copy (`1 ya aprobado — se omitirá` / `1 already approved — will be skipped`). Updated `MovementsScreen.bulk.test.tsx` matcher to follow the new copy.
+- Lesson: when a confirm dialog only asks yes/no, avoid reusing form-modal shells. Wrote skill `compact-confirm-modal` so future yes/no confirms don't repeat this overshoot.
