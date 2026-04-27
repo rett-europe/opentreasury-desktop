@@ -45,6 +45,14 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 
 ## Learnings
 
+**2026-05-02 — PR #105: Tag colors, dashboard chart (squad/dashboard-bugs-tags-recent-chart)**
+
+**Bug 1 — Tag chip color lookup:** When tag names are stored in the UI Movement type but colors need to be rendered, create a `tagColor` callback that looks up the full TagRecord from the `tags` state array. Pattern: `const tag = tags.find(t => t.name === tagName); return tag?.color ?? fallbackColor`. This avoids needing to thread color data through the mapMovementRecord transformation or store duplicate color maps. The tags state already has the full TagRecord[] with name+color+id, so use it directly.
+
+**Bug 3 — Chart component reuse across screens:** GroupedBarChart is the canonical income/expense bar chart component. Reuse it on Panel/Dashboard by fetching monthly income/expense data (added `getMonthlyIncomeExpense` backend query) and passing it to the same component. Pattern: fetch 12 months of data, map to `{ label: monthName, values: [income, expense] }[]`, pass legend `['Income', 'Expense']`. This ensures visual consistency and avoids duplicating chart logic. Same component is used on Saldo (year comparison) and now Panel (monthly trend).
+
+**Panel IPC handler investigation (Bug 2):** When debugging "only showing transactions from one account" issues, trace the full query path: core/query function → IPC handler → renderer service → UI. The `queryRecentTransactions` query correctly returns ALL transactions from `model.transactions` with no accountId filter. If the UI only shows one account's data, it's a DATA issue (user only has transactions in that account), not a code bug. Always verify the query logic before assuming UI filtering bugs.
+
 **WI-20 Visual Bug Debugging:** When Pedro reports the same visual bug 3+ times across multiple rounds, STOP patching CSS. Read the screenshot. Consider that tests passing does not equal visually correct. If a modal/component has multiple modes (view/edit), they should render through the SAME structural scaffold — only cell contents should differ. If you find yourself writing mode-specific CSS classes or swapping between different component trees, you've already diverged. Add visual regression tests or snapshots that compare scaffold structure between modes, not just DOM presence checks.
 
 **Modal-shell override pattern (2026-04-25):** When a modal reuses TransactionDetailModal shell, scope sizing overrides (width, min-height) under a marker class. Do not fork the shell CSS. Pattern documented at `.squad/skills/modal-shell-overrides/SKILL.md`.

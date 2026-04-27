@@ -6532,3 +6532,116 @@ This reduces single-agent risk and keeps roles aligned with outing.md.
 1. **Separate "what does the prototype show?" from "is the React tree correct?"** — these are independent questions and require independent judgment.
 2. **Visual reference is authoritative** — Mouse interprets prototype; Trinity consumes Mouse's judgment as the spec.
 3. **Visual regression is Trinity's responsibility post-implementation** — Mouse reviews the shipped code against prototype before merge.
+
+---
+
+### 2026-04-27: Income/Expense/Net Canonical Visual Pattern
+
+**Date:** 2026-04-27  
+**Status:** ✅ LOCKED (PR #104)  
+**Agent:** Mouse (UI Designer)  
+**Requested by:** Pedro (perocha) — visual consistency audit
+
+#### Decision
+
+All income/expense/net KPI presentations across the application MUST follow the Dashboard (Panel) pattern defined in `KPIStrip` component and `globals.css` `.ot-kpi-strip` recipe.
+
+#### Canonical Pattern
+
+| Metric   | Icon           | Icon Size | Icon BG Token              | Icon + Value Color Token       |
+|----------|----------------|-----------|----------------------------|--------------------------------|
+| Income   | `TrendingUp`   | 20px      | `--color-income-bg`        | `--color-income-default`       |
+| Expense  | `TrendingDown` | 20px      | `--color-expense-bg`       | `--color-expense-default`      |
+| Net      | `Calculator`   | 20px      | `--color-brand-surface`    | `--color-brand-primary`        |
+
+**Structure:**
+```tsx
+<div className="ot-kpi-strip" role="status" aria-live="polite">
+  <div className="ot-kpi ot-kpi--income">
+    <div className="ot-kpi__icon">
+      <TrendingUp size={20} />
+    </div>
+    <div className="ot-kpi__content">
+      <div className="ot-kpi__label">{label}</div>
+      <div className="ot-kpi__value">{value}</div>
+    </div>
+  </div>
+  {/* repeat for expense, net */}
+</div>
+```
+
+**Typography:**
+- Label: 11px uppercase, 0.08em letter-spacing, semibold, `--color-text-muted`
+- Value: 24px semibold, tabular-nums, tone-specific color
+
+#### Enforcement
+
+- All income/expense/net displays MUST use `.ot-kpi-strip` + `.ot-kpi` classes from `globals.css`
+- Component-level CSS MUST NOT override `.ot-kpi-*` classes
+- Icon set: `lucide-react` at size **20px**
+- Color tokens: use modifiers (`.ot-kpi--income`, `.ot-kpi--expense`, `.ot-kpi--net`), not inline styles
+
+#### Anti-pattern caught
+
+Component CSS imported after `globals.css` silently shadows shared recipes. Movements had redefined `.ot-movements__totals-*` with different grid layout and missing icons.
+
+#### PR
+
+https://github.com/rett-europe/opentreasury-desktop/pull/104
+
+---
+
+### 2026-04-27: Chart Component Reuse Pattern — GroupedBarChart Canonical for Bar Charts
+
+**Date:** 2026-04-27  
+**Status:** ✅ IMPLEMENTED (PR #105)  
+**Author:** Trinity  
+**Pattern Type:** Architecture
+
+#### Context
+
+Panel (Dashboard) screen needed an income vs expense bar chart showing the last 12 months. Saldo (Insights) screen already had a GroupedBarChart component for year-over-year comparison.
+
+#### Decision
+
+Reuse the same `GroupedBarChart` component across both screens rather than creating separate chart implementations.
+
+**Pattern:**
+1. Backend provides monthly aggregated data via dedicated query (`getMonthlyIncomeExpense`)
+2. Renderer transforms data into GroupedBarChart's expected shape:
+   ```typescript
+   series: Array<{ label: string; values: number[] }>
+   legend: string[]
+   ```
+3. Same visual treatment (colors, spacing, tooltip) across all uses
+
+#### Rationale
+
+- **Visual consistency** — users see the same chart style everywhere (income/expense bars)
+- **Single source of truth** — chart logic (scaling, tooltips, accessibility) lives in one component
+- **Maintainability** — bug fixes and improvements apply to all charts automatically
+- **Accessibility** — GroupedBarChart already has proper ARIA labels, keyboard nav, and data table fallback
+
+#### Implementation (PR #105)
+
+**Backend:**
+- Added `getMonthlyIncomeExpense()` query in `core/query/queries.ts` (12 months, all accounts)
+- IPC contract: `panel:get-monthly-income-expense`
+- Handler: `handleGetMonthlyIncomeExpense` in `main/ipc/handlers/panel.ts`
+
+**Frontend:**
+- Service: `getMonthlyIncomeExpense()` in `renderer/services/panelApi.ts`
+- PanelScreen fetches data on mount, maps to chart series format
+- Replaced skeleton placeholder with `<GroupedBarChart />` component
+
+**Chart usage:**
+- **Saldo:** 12 months × 2 years (current vs prior) = year-over-year comparison
+- **Panel:** 12 months × 2 series (income vs expense) = monthly trend
+
+#### Future Reuse
+
+When adding charts to other screens (e.g., category breakdown, account trends), prefer reusing `GroupedBarChart` if the data fits the grouped-bar pattern (multiple values per label). Only create new chart components when the visualization type fundamentally differs (pie, line, etc.).
+
+#### PR
+
+https://github.com/rett-europe/opentreasury-desktop/pull/105

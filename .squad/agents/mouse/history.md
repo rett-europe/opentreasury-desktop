@@ -856,3 +856,28 @@ The iter 3/6 failures were because implementers didn't verify the actual visual 
 **Branch:** squad/visual-consistency-income-expense-net (PR #104 follow-up)
 **Files:** globals.css:199 (1 line changed)
 **Tests:** TypeScript check clean, lint clean (ESLint warning about TypeScript 5.9.3 vs 5.6.0 supported version is pre-existing)
+
+### 2026-04-27: PR #105 Chart Reuse Pattern — GroupedBarChart Canonical for Bar Charts
+
+**Context:** Panel (Dashboard) screen needed monthly income vs expense chart. Saldo (Insights) already had GroupedBarChart for year-over-year comparison. Decision: reuse the same component instead of duplicating chart logic.
+
+**Pattern locked:**
+- Backend provides aggregated data via dedicated query (e.g., `getMonthlyIncomeExpense`)
+- Renderer transforms to GroupedBarChart shape: `{ series: [{ label, values }], legend }`
+- Same visual treatment everywhere (colors, spacing, tooltips, accessibility)
+
+**Screen usage:**
+- **Saldo:** 12 months × 2 years (YoY comparison) — Trinity implemented for PR #57
+- **Panel:** 12 months × 2 series (income vs expense trend) — Trinity wired for PR #105
+
+**Rationale:**
+- Visual consistency — users see identical bar styling across screens
+- Single source of truth — chart logic (scaling, accessibility) lives in one component
+- Maintainability — bug fixes apply to all uses automatically
+- Accessibility — GroupedBarChart already has ARIA labels, keyboard nav, data table fallback
+
+**Future pattern:** When adding charts (category breakdown, account trends), prefer reusing GroupedBarChart if data fits grouped-bar shape. Only create new chart type if visualization fundamentally differs (pie, line, area, etc.).
+
+**Reusable skill:** `GroupedBarChart` component at `app/src/renderer/components/GroupedBarChart/GroupedBarChart.tsx` — query contract is flexible (monthly, yearly, any label+values pair). Data shape transformation happens in screen component, not chart.
+
+**PR:** https://github.com/rett-europe/opentreasury-desktop/pull/105
