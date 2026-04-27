@@ -914,3 +914,25 @@ The iter 3/6 failures were because implementers didn't verify the actual visual 
 **Commit:** a372019  
 **Branch:** squad/dashboard-bugs-tags-recent-chart (PR #105 follow-up)  
 **Tests:** TypeScript check clean, lint clean
+
+---
+
+## Learning: Parallel-Checkout Race & `SQUAD_WORKTREES=1` (2026-04-27)
+
+**Incident:** During Insights M4 final push, Morpheus + Trinity were spawned simultaneously without `SQUAD_WORKTREES=1` env var.
+
+**Mechanism:**
+- Morpheus: `git checkout squad/insights-drilldown-ipc` → updates index
+- Trinity: Writing 40+ drilldown UI files (JSX, CSS, tests) into renderer working tree at same time
+- Coordinator (Pedro): `git checkout hotfix/donut-chart-thousands` → **git index collision** with Trinity's WIP
+- **Result:** Trinity's UI files staged into coordinator's commit; PR #111 merged with bundled IPC+hotfix
+
+**Recovery:** Verified IPC code was correct (matches Morpheus's branch), merged with `--admin --squash` (bundled but coherent), rebuilt test-fix branch in isolated worktree at `C:\rettx\opentreasury-desktop-hotfix`.
+
+**Reinforcement:** **SQUAD_WORKTREES=1 is mandatory for 2+ parallel agents.** Export before spawning:
+```bash
+export SQUAD_WORKTREES=1
+# Then spawn Trinity + Morpheus
+```
+
+This ensures each agent gets `git worktree add` + isolated checkout, zero collision risk. Update your spawn checklist.

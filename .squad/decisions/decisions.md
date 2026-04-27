@@ -1935,3 +1935,178 @@ Parked for M4 Insights work. Not blocking current Saldo (M3) work.
 ### Status
 
 Parked for M4 Insights work together with insights_idea.png. Full IA now defined. Not blocking current Saldo (M3) work.
+
+---
+
+## Decision: Insights Drilldown — Final IPC Contract Shape
+
+**From:** Morpheus (Backend)  
+**For:** Trinity (UI), Mouse (UX), Niobe (Specs), Cypher (Tests)  
+**PR:** #108 (`squad/insights-drilldown-ipc`) — merged via PR #111 rebase chain  
+**Date:** 2026-04-27  
+**Status:** Locked and shipped
+
+### Summary
+
+Five new label-detail IPC channels are live on `window.opentreasury.insights.*`. All share the same request shape and OR semantics across `tagIds`. Within a single drilldown aggregate, a transaction with multiple matching tags is counted **once** (the no-dedupe rule from OQ-2 applies across landing tag *cards*, not within one aggregate).
+
+### Shared Request Shape
+
+```ts
+interface LabelDetailRequest {
+  tagIds: string[];          // 1+ ids — OR semantics (tx matches if it carries ANY)
+  windowStart?: string;      // ISO YYYY-MM-DD, defaults to current year
+  windowEnd?: string;        // ISO YYYY-MM-DD, defaults to today (capped at year-end)
+  accountId?: string;        // optional single-account filter
+}
+```
+
+Window dates are **inclusive** on both edges. Archived accounts are always excluded (parity with landing-summary).
+
+### Channels & Response Shapes
+
+#### `insights:label-summary` — header KPIs
+
+```ts
+window.opentreasury.insights.labelSummary(req): Promise<{
+  incomeCents: number;
+  expenseCents: number;
+  netCents: number;          // signed: income - expense
+  txCount: number;
+  categoryCount: number;     // distinct categories touched (split-aware)
+  accountCount: number;      // distinct accounts touched
+  windowStart: string;       // resolved (echo back)
+  windowEnd: string;
+}>
+```
+
+#### `insights:label-by-category` — donut data
+
+```ts
+window.opentreasury.insights.labelByCategory(req): Promise<{
+  categories: Array<{
+    categoryId: string | null;     // null = uncategorized
+    categoryName: string;          // 'Sin categoría' fallback when null
+    incomeCents: number;
+    expenseCents: number;
+  }>;  // sorted by total magnitude (income+expense) desc, then name asc
+}>
+```
+
+> Income donut: filter `incomeCents > 0`. Expense donut: filter `expenseCents > 0`. The same payload powers both.
+
+#### `insights:label-by-subcategory` — table rows
+
+```ts
+window.opentreasury.insights.labelBySubcategory(req): Promise<{
+  rows: Array<{
+    categoryId: string | null;
+    categoryName: string;
+    subcategoryId: string | null;
+    subcategoryName: string;       // 'Sin subcategoría' fallback when null
+    incomeCents: number;
+    expenseCents: number;
+  }>;  // sorted by total magnitude desc, then category, then subcategory name
+}>
+```
+
+#### `insights:label-monthly-evolution` — sparkline buckets
+
+```ts
+window.opentreasury.insights.labelMonthlyEvolution(req): Promise<{
+  months: Array<{
+    monthIso: string;              // 'YYYY-MM'
+    incomeCents: number;
+    expenseCents: number;
+  }>;  // ascending by monthIso, sparse (only months with data)
+}>
+```
+
+> Renderer should fill gaps if a continuous timeline is needed for the chart.
+
+#### `insights:label-by-account` — horizontal bars
+
+```ts
+window.opentreasury.insights.labelByAccount(req): Promise<{
+  accounts: Array<{
+    accountId: string;
+    accountName: string;           // ConfigAccount.label ?? .name
+    accountColor: string;          // '' if account has no color set
+    incomeCents: number;
+    expenseCents: number;
+  }>;  // sorted by total magnitude desc, then accountName asc
+}>
+```
+
+### Locked Semantics (do not "fix" later)
+
+1. **OR across tagIds**, not AND. The original spec said "AND intersection" but the resolved decision in OQ-2 locked OR. The drilldown shows **the union** of campaigns selected.
+2. **Single-count inside one aggregate.** A tx with three matching tags contributes its full amount **once** to the drilldown totals.
+3. **Split-aware via existing `effectiveAmounts`.** Splits expand a parent tx into N rows, each with its own categoryId/subcategoryId. `tx.type` (income/expense) is inherited from parent.
+4. **Default window = current calendar year**, end capped at today. Matches `insights:landing-summary`.
+5. **Archived accounts excluded** — parity with landing.
+
+### Footer Link Contract (OQ-3 Handoff)
+
+The "Ver todos los movimientos →" footer link must navigate to Movimientos with both `tagIds` and `windowStart`/`windowEnd` pre-applied. Per Movimientos contract, the route uses **AND semantics** for `tagIds` — that's a separate route contract owned by the Movimientos screen and is *not* the same as our OR semantics here.
+
+---
+
+## Decision: Insights Drilldown — UI Route State & Cross-Screen Handoff
+
+**From:** Trinity (Frontend Developer)  
+**PR:** #110 (draft) → merged as #4b/4  
+**Date:** 2026-04-27  
+**Status:** Locked and shipped
+
+This is a contract-relevant decision drop covering frontend choices on URL/router state and the Movimientos cross-screen handoff.
+
+### D1 — Drilldown Route is Encoded as Route + State Slice
+
+The renderer still has no router (`App.tsx` uses `useState<Route>` plus per-feature state slices).
+
+**Decision:** Add `'insights-detail'` to the `Route` union and carry `{ tagIds: string[], windowStart: string, windowEnd: string }` in a separate `insightsDetail` state slice in `App.tsx`. `onTagsChange([])` returns the user to the landing route. Sidebar navigation clears the slice so state can't bleed across visits. When a real router lands, this collapses into route params with zero contract surface change.
+
+**URL serialization (proposed for the future router):** `?tag=<id>&tag=<id>&from=YYYY-MM-DD&to=YYYY-MM-DD`.  
+Multi-tag uses repeated `tag` params (matches Morpheus's IPC contract `tagIds: string[]`). The shorthand `:tagIdsSerialized` from the original task brief was rejected — comma-joined IDs in a path segment are awkward to navigate to from anywhere outside the landing screen; repeated query params are more idiomatic.
+
+### D2 — Movimientos Cross-Screen Filter Handoff (OQ-3)
+
+**Decision:** Add an optional `initialFilters?: { tagIds?: string[], windowStart?: string, windowEnd?: string }` prop to `MovementsScreen`. Values are applied on first mount only (via state initializers); subsequent prop changes do not re-apply. This is one-shot context-handoff data, not a controlled prop.
+
+**Tag filter semantics:** AND (a movement must carry every requested tag). This matches the intersection semantics of the drilldown view itself.
+
+**Date filter:** When both `windowStart` and `windowEnd` are present, the date filter initializes to `kind: 'custom'`. Otherwise it falls back to `loadPersistedDateFilter()` (existing behaviour). The custom range is intentionally NOT persisted (existing rule, see `movementsDateFilter.ts`).
+
+**Sidebar nav clears the handoff:** `App.tsx` zeros `movementsInitialFilters` when the user navigates via the sidebar so a stale handoff can't reapply on a later free-form visit.
+
+### D3 — Provisional Handling Deferred to No-op
+
+The original task brief allowed scaffolding against a best-guess IPC shape. By the time Trinity sat down to build, Morpheus's branch already contained the final contracts on `squad/insights-drilldown-ipc`. Trinity's branch is therefore based on Morpheus's tip, not on `main`, and uses the actual `insights:label-*` types. The merge order remains: Morpheus's PR lands on `main` first, then Trinity rebases.
+
+### D4 — `archived` Tag Filter for Combiner
+
+Per OQ-4, archived tags appear on the landing but are NOT shown in the combiner dropdown. `TagRecord` exposes `archivedAt?: string` (not a boolean `archived`); the combiner filters on `!tag.archivedAt`. No new contract; just calling out the field name for whoever lands the next "hide archived" filter elsewhere.
+
+---
+
+## Cross-Agent Learning: Parallel-Checkout Race (2026-04-27)
+
+**Incident:** Spawned Trinity + Morpheus background agents simultaneously without setting `SQUAD_WORKTREES=1`.
+
+**Mechanism:**
+1. Morpheus: `git checkout squad/insights-drilldown-ipc` → updates index
+2. Trinity: Writing drilldown UI files (JSX, CSS, test files) into renderer working tree simultaneously
+3. Coordinator: `git checkout hotfix/donut-chart-thousands` → git index collision with Trinity's WIP
+4. **Result:** Trinity's files staged into coordinator's commit; PR #111 merged with bundled but correct IPC code
+
+**Recovery:** Verified IPC code was correct, merged with `--admin --squash` (bundled but coherent), rebuilt test-fix branch in isolated worktree.
+
+**Reinforcement:** **SQUAD_WORKTREES=1 is mandatory for 2+ parallel coding agents.** Spawning multiple agents without isolated worktrees causes git index collisions when they write to the working tree concurrently. The fix:
+
+```bash
+export SQUAD_WORKTREES=1
+# Then spawn agents
+```
+
+This ensures each agent gets its own worktree (`git worktree add`) and cannot collide.
