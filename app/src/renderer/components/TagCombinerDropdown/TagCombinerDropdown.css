@@ -1,0 +1,117 @@
+.ot-tag-combiner {
+  position: relative;
+  display: inline-block;
+}
+
+.ot-tag-combiner__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px dashed var(--color-border-default);
+  background: transparent;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background 120ms,
+    border-color 120ms,
+    color 120ms;
+}
+
+.ot-tag-combiner__trigger:hover:not(:disabled) {
+  background: var(--color-surface-secondary);
+  border-color: var(--color-border-strong, var(--color-text-secondary));
+  color: var(--color-text-primary);
+}
+
+.ot-tag-combiner__trigger:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ot-tag-combiner__trigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ot-tag-combiner__panel {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + var(--space-2));
+  left: 0;
+  min-width: 240px;
+  max-width: 320px;
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover, 0 8px 24px rgba(0, 0, 0, 0.12));
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-tag-combiner__search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-secondary);
+}
+
+.ot-tag-combiner__search input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-13);
+}
+
+.ot-tag-combiner__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.ot-tag-combiner__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-13);
+  color: var(--color-text-primary);
+}
+
+.ot-tag-combiner__option--active {
+  background: var(--color-surface-secondary);
+}
+
+.ot-tag-combiner__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ot-tag-combiner__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ot-tag-combiner__empty {
+  padding: var(--space-3);
+  font-size: var(--font-size-13);
+  color: var(--color-text-muted);
+  text-align: center;
+}

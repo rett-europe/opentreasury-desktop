@@ -16,13 +16,22 @@ type ScreenState =
   | { kind: 'loaded'; data: InsightsLandingSummaryResponse }
   | { kind: 'error'; message: string };
 
+export interface InsightsScreenProps {
+  /**
+   * Invoked when a TagCard is clicked; the parent navigates to the drilldown
+   * route with the chosen `tagId`. Required for spec §4 deep-linking.
+   * Optional so legacy mounts (tests) continue to work without crashing.
+   */
+  readonly onTagSelect?: (tagId: string) => void;
+}
+
 /**
  * InsightsScreen — tag-based analytics landing page.
  *
  * Spec: docs/ux/specs/ux-005-insights-final-spec.md §3
  * Layout: KPI strip + segmented toggle + tag card grid + footnote
  */
-export function InsightsScreen(): JSX.Element {
+export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
   const [displayMode, setDisplayMode] = useState<DisplayMode>('volumen');
@@ -191,6 +200,7 @@ export function InsightsScreen(): JSX.Element {
                 displayMode={displayMode}
                 archived={tag.archived}
                 topCategorias={tag.topCategorias}
+                {...(onTagSelect ? { onClick: () => onTagSelect(tag.tagId) } : {})}
               />
             ))}
           </div>

@@ -1,0 +1,84 @@
+.ot-account-bar-row {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-3) 0;
+}
+
+.ot-account-bar-row + .ot-account-bar-row {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.ot-account-bar-row__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: 999px;
+  color: #fff;
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-semibold);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.ot-account-bar-row__pill-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ot-account-bar-row__bar {
+  width: 100%;
+  height: 14px;
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.ot-account-bar-row__bar-track {
+  display: flex;
+  height: 100%;
+  min-width: 2px;
+}
+
+.ot-account-bar-row__seg {
+  height: 100%;
+  display: block;
+}
+
+.ot-account-bar-row__seg--income {
+  background: var(--color-status-approved);
+}
+
+.ot-account-bar-row__seg--expense {
+  background: var(--color-expense-default);
+}
+
+.ot-account-bar-row__values {
+  display: flex;
+  gap: var(--space-5);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.ot-account-bar-row__value--income {
+  color: var(--color-status-approved);
+}
+
+.ot-account-bar-row__value--expense {
+  color: var(--color-expense-default);
+}
+
+@media (max-width: 1023px) {
+  .ot-account-bar-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .ot-account-bar-row__values {
+    justify-content: flex-end;
+  }
+}

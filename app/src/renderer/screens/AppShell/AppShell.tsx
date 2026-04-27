@@ -25,6 +25,7 @@ export type Route =
   | 'movements'
   | 'balance'
   | 'insights'
+  | 'insights-detail'
   | 'datos'
   | 'cuentas'
   | 'categorias'

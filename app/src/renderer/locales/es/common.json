@@ -929,6 +929,70 @@
       "error": "No se pudieron cargar los datos. Inténtalo de nuevo.",
       "emptyTags": "No hay etiquetas con movimientos en este período.",
       "emptyTagsBody": "Asigna etiquetas a tus movimientos para ver análisis aquí."
+    },
+    "detail": {
+      "back": "Volver a Insights",
+      "loadingTitle": "Cargando…",
+      "loading": "Cargando análisis de etiqueta…",
+      "error": "No se pudieron cargar los datos del detalle. Inténtalo de nuevo.",
+      "subtitle": "Análisis de campaña por categorías y cuentas",
+      "combinerAria": "Selección de etiquetas",
+      "selectedTagsAria": "Etiquetas activas",
+      "removeTagAria": "Quitar etiqueta {{name}}",
+      "combinerTrigger": "Combinar etiqueta…",
+      "combinerSearchPlaceholder": "Buscar etiqueta…",
+      "combinerEmpty": "Sin coincidencias",
+      "combinerListAria": "Etiquetas disponibles",
+      "kpi": {
+        "income": "INGRESOS",
+        "expense": "GASTOS",
+        "net": "NETO",
+        "categoryCount": "{{count}} categoría(s)",
+        "txCount": "{{count}} movimiento(s)"
+      },
+      "section": {
+        "distribution": "DISTRIBUCIÓN POR CATEGORÍA",
+        "subcategories": "DETALLE POR SUBCATEGORÍA",
+        "monthly": "EVOLUCIÓN MENSUAL",
+        "accounts": "POR CUENTA"
+      },
+      "donut": {
+        "incomeTitle": "Ingresos",
+        "expenseTitle": "Gastos",
+        "incomeEmpty": "Sin ingresos para esta selección",
+        "expenseEmpty": "Sin gastos para esta selección",
+        "incomeAria": "Distribución de ingresos por categoría",
+        "expenseAria": "Distribución de gastos por categoría"
+      },
+      "subcategoryTable": {
+        "category": "Categoría",
+        "subcategory": "Subcategoría",
+        "income": "Ingresos",
+        "expense": "Gastos",
+        "net": "Neto",
+        "empty": "Sin subcategorías para esta selección."
+      },
+      "monthly": {
+        "ariaLabel": "Evolución mensual de ingresos y gastos",
+        "tableCaption": "Evolución mensual",
+        "empty": "Sin datos mensuales para esta selección."
+      },
+      "accounts": {
+        "empty": "Sin cuentas con movimientos para esta selección."
+      },
+      "legend": {
+        "income": "Ingresos",
+        "expense": "Gastos"
+      },
+      "seeAllMovements": "Ver todos los movimientos"
     }
+  },
+  "datePresets": {
+    "thisMonth": "Este mes",
+    "lastMonth": "Mes pasado",
+    "last3Months": "Últimos 3 meses",
+    "thisYear": "Este año",
+    "lastYear": "Año pasado",
+    "last12Months": "Últimos 12 meses"
   }
 }
