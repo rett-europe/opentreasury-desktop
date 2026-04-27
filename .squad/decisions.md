@@ -2,6 +2,106 @@
 
 ## Active Decisions
 
+### 2026-04-27: Pattern — Recent Transactions Sort Order (Morpheus, PR #105 Wave 2)
+
+**Date:** 2026-04-27  
+**Status:** ✅ MERGED (PR #105 commit b56ee21)  
+**Agent:** Morpheus (Backend Dev)  
+**Related Issue:** Dashboard bugs — recent transactions only shows from one account
+
+#### Decision
+
+All user-facing "recent transactions" queries MUST sort by business date first, then audit timestamp as tiebreaker:
+
+```typescript
+.sort((a, b) => {
+  if (a.date !== b.date) return b.date.localeCompare(a.date); // primary: business date DESC
+  return b.createdAt.localeCompare(a.createdAt); // tiebreaker: audit timestamp DESC
+})
+```
+
+#### Rationale
+
+- `createdAt` reflects when a transaction was ENTERED into the system (import time, manual-entry time, etc.)
+- `date` reflects when the transaction OCCURRED in the real world
+- Users expect "recent" to mean "recent occurrence", not "recently imported"
+- Sorting only by `createdAt` can cluster same-import-batch transactions, hiding cross-account diversity
+
+#### Examples
+
+- ✅ `app/src/main/ipc/handlers/movements.ts` — MovementsList query (lines 34-37)
+- ✅ `app/src/core/query/queries.ts` — `queryRecentTransactions` (fixed in PR #105)
+
+#### Applies to
+
+Any query that presents "latest N transactions" or "recent movements" to the user. Does NOT apply to audit trails or system event logs (where `createdAt`-only sort is correct).
+
+#### Generalization (locked rule)
+
+"Recent" in user-facing UX always prioritizes business semantics (transaction date) over system semantics (import timestamp). When sorting events by time, check: "Does the user care when this happened in the world, or when we processed it?" If the former, sort by business date with audit timestamp as tiebreaker.
+
+---
+
+### 2026-04-27: Pattern — Chart Colors: Canonical Income/Expense Token Extension (Mouse, PR #105 Wave 2)
+
+**Date:** 2026-04-27  
+**Status:** ✅ MERGED (PR #105 commit a372019)  
+**Agent:** Mouse (UI Designer)  
+**Related:** PR #104 (canonical tokens), PR #105 (Dashboard chart)
+
+#### Decision
+
+When charts represent income vs expense data semantically (monthly trends, category breakdowns, year-over-year comparisons), they should use the canonical `--color-income-default` (green) and `--color-expense-default` (red) tokens — NOT generic brand colors (`--color-brand-primary`, `--color-brand-primary-muted`).
+
+#### Context
+
+PR #104 shipped canonical income/expense color tokens for visual consistency across KPI cards, amount cells, and delta indicators. PR #105 added a `GroupedBarChart` to Dashboard showing monthly income vs expense trend. Initial implementation used default bar classes (`--current` / `--prior`) which mapped to blue brand colors. Pedro flagged: "the colors in the new graph need to be aligned with Dashboard screen (red & green)."
+
+#### Implementation Pattern
+
+The `GroupedBarChart` component is designed to be flexible:
+
+1. **Accepts color overrides via props:**
+   - `barClassNames` (per series) — array of CSS class names for bar fills
+   - `legend` items can be objects with `{ label, className }` to override swatch colors
+
+2. **Provides sensible defaults:**
+   - Falls back to `DEFAULT_BAR_CLASSES` (`--current`, `--prior`) if no override
+   - Falls back to `DEFAULT_SWATCH_CLASSES` for legend swatches
+
+3. **CSS defines semantic classes:**
+   - `.ot-grouped-bar-chart__bar--income-solo { fill: var(--color-income-default); }`
+   - `.ot-grouped-bar-chart__bar--expense-solo { fill: var(--color-expense-default); }`
+
+#### Rationale
+
+1. **Visual consistency:** Income is green, expense is red everywhere (KPI cards, amounts, deltas, charts)
+2. **Semantic correctness:** Color encodes data type (income/expense), not arbitrary series order
+3. **User recognition:** Users learn color → meaning mapping once, applies across entire app
+4. **Accessibility:** Consistent color coding reinforces screen-reader labels and ARIA descriptions
+
+#### When NOT to Use Canonical Tokens
+
+The component stays flexible for non-income/expense contexts:
+- Multi-account comparison charts → use account colors
+- Custom analysis views → use custom color schemes
+- Generic data series → use brand primary/secondary
+
+The canonical tokens are a *conventional default* for financial income/expense contexts, not a hardcoded requirement.
+
+#### Generalization (locked rule)
+
+For any semantic data type (income/expense, debit/credit, asset/liability), establish a canonical color pair and apply it consistently across *all* UI elements that represent that type — cards, numbers, charts, badges. Users should learn the mapping once.
+
+#### Files
+
+- Canonical tokens: `app/src/renderer/styles/tokens.css` (lines 66, 71, 314, 318, 399, 401)
+- Component: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.tsx`
+- Chart CSS: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.css` (lines 85-125)
+- Implementation: `PanelScreen.tsx` (lines 354-370) — barClassNames + legend className props
+
+---
+
 ### 2026-04-26: Saldo Subcategory Drilldown — Drop §3.3 Left Guide (post-#78 dogfood, PR #87)
 
 **Date:** 2026-04-26
