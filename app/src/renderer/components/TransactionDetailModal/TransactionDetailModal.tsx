@@ -421,6 +421,7 @@ export function TransactionDetailModal({
               errors={errors}
               mode="edit"
               currency={transaction.currency}
+              amountDisabled={rawRecord?.hasSplits ?? false}
             />
           </div>
         ) : (

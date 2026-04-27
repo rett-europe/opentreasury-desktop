@@ -45,6 +45,8 @@ export interface TransactionsTableProps {
   readonly someSelected?: boolean;
   readonly onRowClick?: (row: TransactionRow) => void;
   readonly onSplitClick?: (row: TransactionRow) => void;
+  /** SPEC-023 AC1 — Callback when user chooses "Split transaction" action on a non-split row. */
+  readonly onSplitAction?: (row: TransactionRow) => void;
   readonly emptyState?: React.ReactNode;
   readonly sortBy?: string | null;
   readonly sortDirection?: SortDirection;
@@ -68,6 +70,7 @@ export function TransactionsTable({
   someSelected = false,
   onRowClick,
   onSplitClick,
+  onSplitAction,
   emptyState,
   sortBy,
   sortDirection,
@@ -195,7 +198,26 @@ export function TransactionsTable({
         if (row.details) {
           tooltipParts.push(`${t('movements.tooltip.details')}: ${row.details}`);
         }
-        return <span title={tooltipParts.join('\n')}>{row.description}</span>;
+        // SPEC-023 AC1 — Show inline "Split" action for eligible rows (confirmed, non-split).
+        const canSplit = row.status === 'approved' && !row.hasSplits && onSplitAction;
+        return (
+          <span className="ot-description-cell" title={tooltipParts.join('\n')}>
+            <span className="ot-description-cell__text">{row.description}</span>
+            {canSplit && (
+              <button
+                type="button"
+                className="ot-description-cell__action"
+                onClick={(e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  onSplitAction(row);
+                }}
+                aria-label={t('splits.actions.split')}
+              >
+                {t('splits.actions.split')}
+              </button>
+            )}
+          </span>
+        );
       },
     },
     {
@@ -214,7 +236,8 @@ export function TransactionsTable({
               }}
               aria-label={t('splits.actions.editSplit')}
             >
-              {t('splits.list.categoryCell')} · {row.splitCount}
+              {t('splits.list.categoryCell')} ·{' '}
+              {t('splits.list.partCount', { count: row.splitCount ?? 0 })}
             </button>
           );
         }

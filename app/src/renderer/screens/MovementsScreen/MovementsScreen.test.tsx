@@ -186,7 +186,8 @@ describe('MovementsScreen', () => {
     });
 
     const descCell = await screen.findByText('Coffee');
-    const tooltip = descCell.getAttribute('title') ?? '';
+    // SPEC-023 AC1 — Description is now wrapped in .ot-description-cell span
+    const tooltip = descCell.closest('.ot-description-cell')?.getAttribute('title') ?? '';
     expect(tooltip).toContain('Coffee');
     expect(tooltip).toContain('BANK-REF-42');
     expect(tooltip).toContain('Cafetería céntrica');
@@ -201,7 +202,8 @@ describe('MovementsScreen', () => {
     });
 
     const descCell = await screen.findByText('Test expense');
-    const tooltip = descCell.getAttribute('title') ?? '';
+    // SPEC-023 AC1 — Description is now wrapped in .ot-description-cell span
+    const tooltip = descCell.closest('.ot-description-cell')?.getAttribute('title') ?? '';
     expect(tooltip).toBe('Test expense');
   });
 

@@ -24,6 +24,9 @@ export const movementsListRequestSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  // SPEC-023 FR10/AC6 — Category filter (include parent if ANY split matches).
+  categoryId: z.string().optional(),
+  subcategoryId: z.string().optional(),
   limit: z.number().int().positive().max(5000).optional(),
   offset: z.number().int().nonnegative().optional(),
 });
@@ -58,6 +61,9 @@ export const movementRecordSchema = z.object({
   // SPEC-023 — split metadata for renderer routing + badge display.
   hasSplits: z.boolean(),
   splitCount: z.number().int().nonnegative(),
+  // SPEC-023 FR10/AC6 — Split category IDs for client-side filter matching.
+  splitCategoryIds: z.array(z.string()).optional(),
+  splitSubcategoryIds: z.array(z.string()).optional(),
 });
 
 export type MovementRecord = z.infer<typeof movementRecordSchema>;
