@@ -153,6 +153,21 @@ import {
   IPC_INSIGHTS_LANDING_SUMMARY,
   type InsightsLandingSummaryRequest,
   type InsightsLandingSummaryResponse,
+  IPC_INSIGHTS_LABEL_SUMMARY,
+  type InsightsLabelSummaryRequest,
+  type InsightsLabelSummaryResponse,
+  IPC_INSIGHTS_LABEL_BY_CATEGORY,
+  type InsightsLabelByCategoryRequest,
+  type InsightsLabelByCategoryResponse,
+  IPC_INSIGHTS_LABEL_BY_SUBCATEGORY,
+  type InsightsLabelBySubcategoryRequest,
+  type InsightsLabelBySubcategoryResponse,
+  IPC_INSIGHTS_LABEL_MONTHLY_EVOLUTION,
+  type InsightsLabelMonthlyEvolutionRequest,
+  type InsightsLabelMonthlyEvolutionResponse,
+  IPC_INSIGHTS_LABEL_BY_ACCOUNT,
+  type InsightsLabelByAccountRequest,
+  type InsightsLabelByAccountResponse,
 } from '../shared/ipc-contracts/insights.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
@@ -307,6 +322,29 @@ const api = {
       req?: InsightsLandingSummaryRequest,
     ): Promise<InsightsLandingSummaryResponse> => {
       return ipcRenderer.invoke(IPC_INSIGHTS_LANDING_SUMMARY, req ?? {});
+    },
+    labelSummary: (req: InsightsLabelSummaryRequest): Promise<InsightsLabelSummaryResponse> => {
+      return ipcRenderer.invoke(IPC_INSIGHTS_LABEL_SUMMARY, req);
+    },
+    labelByCategory: (
+      req: InsightsLabelByCategoryRequest,
+    ): Promise<InsightsLabelByCategoryResponse> => {
+      return ipcRenderer.invoke(IPC_INSIGHTS_LABEL_BY_CATEGORY, req);
+    },
+    labelBySubcategory: (
+      req: InsightsLabelBySubcategoryRequest,
+    ): Promise<InsightsLabelBySubcategoryResponse> => {
+      return ipcRenderer.invoke(IPC_INSIGHTS_LABEL_BY_SUBCATEGORY, req);
+    },
+    labelMonthlyEvolution: (
+      req: InsightsLabelMonthlyEvolutionRequest,
+    ): Promise<InsightsLabelMonthlyEvolutionResponse> => {
+      return ipcRenderer.invoke(IPC_INSIGHTS_LABEL_MONTHLY_EVOLUTION, req);
+    },
+    labelByAccount: (
+      req: InsightsLabelByAccountRequest,
+    ): Promise<InsightsLabelByAccountResponse> => {
+      return ipcRenderer.invoke(IPC_INSIGHTS_LABEL_BY_ACCOUNT, req);
     },
   },
   import: {

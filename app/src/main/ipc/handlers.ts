@@ -168,8 +168,30 @@ import {
   IPC_INSIGHTS_LANDING_SUMMARY,
   insightsLandingSummaryRequestSchema,
   insightsLandingSummaryResponseSchema,
+  IPC_INSIGHTS_LABEL_SUMMARY,
+  insightsLabelSummaryRequestSchema,
+  insightsLabelSummaryResponseSchema,
+  IPC_INSIGHTS_LABEL_BY_CATEGORY,
+  insightsLabelByCategoryRequestSchema,
+  insightsLabelByCategoryResponseSchema,
+  IPC_INSIGHTS_LABEL_BY_SUBCATEGORY,
+  insightsLabelBySubcategoryRequestSchema,
+  insightsLabelBySubcategoryResponseSchema,
+  IPC_INSIGHTS_LABEL_MONTHLY_EVOLUTION,
+  insightsLabelMonthlyEvolutionRequestSchema,
+  insightsLabelMonthlyEvolutionResponseSchema,
+  IPC_INSIGHTS_LABEL_BY_ACCOUNT,
+  insightsLabelByAccountRequestSchema,
+  insightsLabelByAccountResponseSchema,
 } from '../../shared/ipc-contracts/insights.js';
-import { handleInsightsLandingSummary } from './handlers/insights.js';
+import {
+  handleInsightsLandingSummary,
+  handleInsightsLabelSummary,
+  handleInsightsLabelByCategory,
+  handleInsightsLabelBySubcategory,
+  handleInsightsLabelMonthlyEvolution,
+  handleInsightsLabelByAccount,
+} from './handlers/insights.js';
 import { getEventLog } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { ACTOR_DEVICE_ID, DATASET_ID, newUlid } from '../ids.js';
@@ -234,6 +256,39 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     const request = insightsLandingSummaryRequestSchema.parse(raw);
     const response = await handleInsightsLandingSummary(request);
     return insightsLandingSummaryResponseSchema.parse(response);
+  });
+
+  // Insights drilldown (UX-005 §6.3 – §6.7) — label-detail queries.
+  // All five accept `{ tagIds, windowStart?, windowEnd?, accountId? }` and
+  // apply OR semantics across tagIds (a tx matches if it carries ANY of them).
+  ipcMain.handle(IPC_INSIGHTS_LABEL_SUMMARY, async (_event, raw: unknown) => {
+    const request = insightsLabelSummaryRequestSchema.parse(raw);
+    const response = await handleInsightsLabelSummary(request);
+    return insightsLabelSummaryResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_INSIGHTS_LABEL_BY_CATEGORY, async (_event, raw: unknown) => {
+    const request = insightsLabelByCategoryRequestSchema.parse(raw);
+    const response = await handleInsightsLabelByCategory(request);
+    return insightsLabelByCategoryResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_INSIGHTS_LABEL_BY_SUBCATEGORY, async (_event, raw: unknown) => {
+    const request = insightsLabelBySubcategoryRequestSchema.parse(raw);
+    const response = await handleInsightsLabelBySubcategory(request);
+    return insightsLabelBySubcategoryResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_INSIGHTS_LABEL_MONTHLY_EVOLUTION, async (_event, raw: unknown) => {
+    const request = insightsLabelMonthlyEvolutionRequestSchema.parse(raw);
+    const response = await handleInsightsLabelMonthlyEvolution(request);
+    return insightsLabelMonthlyEvolutionResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_INSIGHTS_LABEL_BY_ACCOUNT, async (_event, raw: unknown) => {
+    const request = insightsLabelByAccountRequestSchema.parse(raw);
+    const response = await handleInsightsLabelByAccount(request);
+    return insightsLabelByAccountResponseSchema.parse(response);
   });
 
   // WI-12 — transaction.create + movements.list
