@@ -1,0 +1,68 @@
+/* BulkApproveConfirmModal — compact yes/no confirmation card.
+ *
+ * Visual language: closer to a confirmation pop-up than a form modal.
+ * The full TransactionDetailModal shell (760px width, prominent header
+ * strip, generous padding) was overkill for a single boolean choice —
+ * this stylesheet is intentionally self-contained so we don't inherit
+ * that ceremony.
+ *
+ * Tokens used: --space-1..5, --radius-lg, --shadow-lg,
+ * --color-surface-primary, --color-text-primary, --color-text-secondary,
+ * --color-danger, --font-size-13.
+ */
+
+.ot-bulk-approve-confirm {
+  width: min(460px, 92vw);
+  max-width: 92vw;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+}
+
+.ot-bulk-approve-confirm::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.ot-bulk-approve-confirm__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-8);
+}
+
+.ot-bulk-approve-confirm__title {
+  margin: 0;
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--color-border-subtle, var(--color-border, rgba(0, 0, 0, 0.08)));
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+.ot-bulk-approve-confirm__skip-notice {
+  margin: calc(var(--space-3) * -1) 0 0 0;
+  font-size: var(--font-size-13);
+  color: var(--color-text-secondary);
+}
+
+.ot-bulk-approve-confirm__error {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--color-danger, #e06b6b) 10%, var(--color-surface-primary));
+  color: var(--color-danger, #e06b6b);
+  font-size: var(--font-size-13);
+}
+
+.ot-bulk-approve-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+}

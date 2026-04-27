@@ -380,7 +380,7 @@ describe('MovementsScreen — bulk approve', () => {
     const dialogTitle = await screen.findByRole('heading', { name: /¿aprobar 2 movimientos\?/i });
     const dialog = dialogTitle.closest('dialog') as HTMLDialogElement;
     expect(dialog).not.toBeNull();
-    expect(within(dialog).getByText(/1 movimiento ya estaba aprobado/i)).toBeDefined();
+    expect(within(dialog).getByText(/1 ya aprobado/i)).toBeDefined();
 
     fireEvent.click(within(dialog).getByRole('button', { name: /^aprobar$/i }));
 

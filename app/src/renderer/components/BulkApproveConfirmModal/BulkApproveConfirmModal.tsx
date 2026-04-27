@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
-// Reuse the detail-modal shell so visual styling matches BulkClassifyModal.
-import '../TransactionDetailModal/TransactionDetailModal.css';
+import './BulkApproveConfirmModal.css';
 
 export interface BulkApproveConfirmModalProps {
   readonly isOpen: boolean;
@@ -21,12 +19,11 @@ export interface BulkApproveConfirmModalProps {
 }
 
 /**
- * BulkApproveConfirmModal — bulk-approve confirmation dialog.
+ * BulkApproveConfirmModal — compact bulk-approve confirmation card.
  *
- * Mirrors the BulkClassifyModal UX shell (same `<dialog>` + close button +
- * footer button placement) but acts as a simple confirm prompt: no form
- * inputs, just a body explaining what will happen, an optional skip-notice
- * for already-approved selections, and primary/ghost footer buttons.
+ * Intentionally minimal: title (the question), an optional subtle skip-notice
+ * line, and Cancel/Approve actions. No header strip, no descriptive body
+ * paragraph, no full-modal shell — this is a yes/no decision, not a form.
  */
 export function BulkApproveConfirmModal({
   isOpen,
@@ -91,61 +88,41 @@ export function BulkApproveConfirmModal({
   }, [isSubmitting, onConfirm, t]);
 
   const title = t('movements.bulk.approve.confirmTitle', { count: pendingCount });
-  const body = t('movements.bulk.approve.confirmBody', { count: pendingCount });
   const skipNotice =
     skippedCount > 0 ? t('movements.bulk.approve.skipNotice', { count: skippedCount }) : null;
 
   return (
     <dialog
       ref={dialogRef}
-      className="ot-transaction-detail-modal ot-transaction-detail-modal--edit"
+      className="ot-bulk-approve-confirm"
       aria-labelledby={titleId}
       role="dialog"
       aria-modal="true"
     >
-      <div className="ot-transaction-detail-modal__content">
-        <header className="ot-transaction-detail-modal__header">
-          <h1 id={titleId} className="ot-transaction-detail-modal__title">
-            {title}
-          </h1>
-          <div className="ot-transaction-detail-modal__header-actions">
-            <button
-              type="button"
-              className="ot-transaction-detail-modal__close"
-              onClick={onClose}
-              disabled={isSubmitting}
-              aria-label={t('common.close')}
-            >
-              <X size={20} aria-hidden="true" />
-            </button>
-          </div>
-        </header>
-
-        <div className="ot-transaction-detail-modal__edit-body">
-          {error && (
-            <div className="ot-transaction-detail-modal__error" role="alert">
-              {error}
-            </div>
-          )}
-          <p style={{ margin: 0 }}>{body}</p>
-          {skipNotice && (
-            <p style={{ margin: 0, color: 'var(--color-text-muted)' }}>{skipNotice}</p>
-          )}
-        </div>
-
-        <footer className="ot-transaction-detail-modal__footer">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
+      <div className="ot-bulk-approve-confirm__content">
+        <h2 id={titleId} className="ot-bulk-approve-confirm__title">
+          {title}
+        </h2>
+        {skipNotice && <p className="ot-bulk-approve-confirm__skip-notice">{skipNotice}</p>}
+        {error && (
+          <p className="ot-bulk-approve-confirm__error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="ot-bulk-approve-confirm__actions">
+          <Button type="button" variant="ghost" size="md" onClick={onClose} disabled={isSubmitting}>
             {t('movements.bulk.cancel')}
           </Button>
           <Button
             type="button"
             variant="primary"
+            size="md"
             onClick={() => void handleConfirm()}
             disabled={isSubmitting || pendingCount === 0}
           >
             {isSubmitting ? t('common.saving') : t('movements.bulk.approve.confirmCta')}
           </Button>
-        </footer>
+        </div>
       </div>
     </dialog>
   );
