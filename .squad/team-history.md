@@ -26,6 +26,23 @@ Two follow-up fixes landed after initial PR #105 review:
 
 ---
 
+## PR #105 Wave 3 (2026-05-02)
+
+**Agent:** Trinity  
+**Branch:** `squad/dashboard-bugs-tags-recent-chart`  
+**Commit:** `2ef25df` — `fix(panel): align recent transactions table with Movements headers`
+
+Dashboard's recent-transactions table now mirrors Movements screen columns and rendering:
+- **Column parity:** Type, Date, Account, Description, Category, Subcategory, Tags, Status, Amount
+- **Row rendering:** Tag chips, status badges, account pills, income/expense amount colors
+- **Pattern:** Duplicated JSX rather than extracting shared component (different screen types)
+- TS+lint clean
+
+**Decision merged into `.squad/decisions.md`:**
+- Chart Component Reuse Pattern (Trinity) — `GroupedBarChart` shared across Panel and Saldo, with flexible color/legend props for income/expense semantic contexts
+
+---
+
 ## PR #104 (2026-04-XX)
 
 [Team history begins with PR #105 Wave 2. Earlier PRs logged separately in decisions.md.]
