@@ -56,16 +56,10 @@ export function DonutChart({
             stroke="var(--color-border-subtle)"
             strokeWidth={thickness}
           />
-          <text
-            x={center}
-            y={center}
-            className="ot-donut-chart__empty-text"
-            textAnchor="middle"
-            dominantBaseline="middle"
-          >
-            {emptyLabel}
-          </text>
         </svg>
+        <div className="ot-donut-chart__empty-text" aria-hidden="true">
+          {emptyLabel}
+        </div>
       </div>
     );
   }
@@ -115,6 +109,33 @@ export function DonutChart({
           const offset = -circumference / 4 - accumulatedOffset;
           accumulatedOffset += seg.dashLength;
 
+          const stroke =
+            seg.slice.categoryId === '__otras__'
+              ? 'var(--color-donut-otras)'
+              : `var(--color-donut-${idx % 8})`;
+
+          // Edge case: a single segment covering the full circle. Using
+          // strokeDasharray with a non-zero strokeDashoffset clips part of the
+          // ring (classic "Pac-Man" bug), because the dash pattern is shifted
+          // along a path whose total length equals the dash length itself.
+          // Render a plain stroked circle instead — a complete ring.
+          if (segments.length === 1 && seg.percentage >= 99.999) {
+            return (
+              <circle
+                key={seg.slice.categoryId}
+                cx={center}
+                cy={center}
+                r={radius}
+                fill="none"
+                stroke={stroke}
+                strokeWidth={thickness}
+                className="ot-donut-chart__segment"
+              >
+                <title>{`${seg.slice.label}: ${formatCurrency(seg.slice.value, locale, currency)} (${seg.percentage.toFixed(1)}%)`}</title>
+              </circle>
+            );
+          }
+
           return (
             <circle
               key={seg.slice.categoryId}
@@ -122,11 +143,7 @@ export function DonutChart({
               cy={center}
               r={radius}
               fill="none"
-              stroke={
-                seg.slice.categoryId === '__otras__'
-                  ? 'var(--color-donut-otras)'
-                  : `var(--color-donut-${idx % 8})`
-              }
+              stroke={stroke}
               strokeWidth={thickness}
               strokeDasharray={`${seg.dashLength} ${circumference}`}
               strokeDashoffset={offset}
