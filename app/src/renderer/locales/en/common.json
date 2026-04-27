@@ -844,7 +844,7 @@
       "ROW_COUNT_EXCEEDED": "File exceeds 100,000 row limit."
     }
   },
-  "split": {
+  "splits": {
     "modal": {
       "title": "Split transaction",
       "editTitle": "Edit split",

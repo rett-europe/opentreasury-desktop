@@ -844,7 +844,7 @@
       "ROW_COUNT_EXCEEDED": "El archivo supera el límite de 100.000 filas."
     }
   },
-  "split": {
+  "splits": {
     "modal": {
       "title": "Dividir movimiento",
       "editTitle": "Editar división",

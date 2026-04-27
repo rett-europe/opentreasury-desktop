@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCurrency } from './numberFormat.js';
+import { formatCurrency, parseLocaleAmount } from './numberFormat.js';
 
 describe('formatCurrency', () => {
   it('formats EUR in es-ES with comma decimal and trailing euro symbol', () => {
@@ -27,5 +27,47 @@ describe('formatCurrency', () => {
     const out = formatCurrency(-250.75, 'en-US');
     expect(out.startsWith('-')).toBe(true);
     expect(out).toContain('250.75');
+  });
+});
+
+describe('parseLocaleAmount', () => {
+  it('parses Spanish-style decimals (comma)', () => {
+    expect(parseLocaleAmount('300,50')).toBe(300.5);
+  });
+
+  it('parses English-style decimals (period)', () => {
+    expect(parseLocaleAmount('300.50')).toBe(300.5);
+  });
+
+  it('parses Spanish thousands separator with comma decimal', () => {
+    expect(parseLocaleAmount('1.234,56')).toBe(1234.56);
+  });
+
+  it('parses English thousands separator with period decimal', () => {
+    expect(parseLocaleAmount('1,234.56')).toBe(1234.56);
+  });
+
+  it('parses bare integers', () => {
+    expect(parseLocaleAmount('1234')).toBe(1234);
+  });
+
+  it('returns NaN for non-numeric input', () => {
+    expect(parseLocaleAmount('abc')).toBeNaN();
+  });
+
+  it('returns NaN for empty string', () => {
+    expect(parseLocaleAmount('')).toBeNaN();
+  });
+
+  it('returns NaN for whitespace-only input', () => {
+    expect(parseLocaleAmount('   ')).toBeNaN();
+  });
+
+  it('handles negative values with comma decimal', () => {
+    expect(parseLocaleAmount('-300,50')).toBe(-300.5);
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(parseLocaleAmount('  42,5  ')).toBe(42.5);
   });
 });
