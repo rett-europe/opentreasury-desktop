@@ -70,7 +70,7 @@ describe('TagCard', () => {
       expect(screen.getByText('INGRESOS')).toBeDefined();
       expect(screen.getByText('GASTOS')).toBeDefined();
       expect(screen.getByText('NETO')).toBeDefined();
-      expect(screen.getByText(normalizedMatcher('1000,00 €'))).toBeDefined();
+      expect(screen.getByText(normalizedMatcher('1.000,00 €'))).toBeDefined();
       expect(screen.getByText(normalizedMatcher('400,00 €'))).toBeDefined();
       expect(screen.getByText(normalizedMatcher('600,00 €'))).toBeDefined();
     });
