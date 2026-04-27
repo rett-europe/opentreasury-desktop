@@ -881,3 +881,36 @@ The iter 3/6 failures were because implementers didn't verify the actual visual 
 **Reusable skill:** `GroupedBarChart` component at `app/src/renderer/components/GroupedBarChart/GroupedBarChart.tsx` — query contract is flexible (monthly, yearly, any label+values pair). Data shape transformation happens in screen component, not chart.
 
 **PR:** https://github.com/rett-europe/opentreasury-desktop/pull/105
+
+### 2026-04-27: Chart Color Sourcing — Canonical Income/Expense Tokens Extended to Charts
+
+**Context:** PR #105 shipped `GroupedBarChart` on Dashboard for income-vs-expense monthly trend. Initial implementation used default `--current` / `--prior` bar classes (blue brand colors). Pedro flagged: "the colors in the new graph need to be aligned with Dashboard screen (red & green)" — meaning canonical income/expense tokens should apply.
+
+**Pattern confirmed:**
+- **Canonical tokens:** `--color-income-default` (green) for income, `--color-expense-default` (red) for expense
+- **Chart classes:** `ot-grouped-bar-chart__bar--income-solo` / `ot-grouped-bar-chart__bar--expense-solo` (bars), `ot-grouped-bar-chart__swatch--income-solo` / `ot-grouped-bar-chart__swatch--expense-solo` (legend)
+- **Component pattern:** GroupedBarChart accepts `barClassNames` and `legend` as `{ label, className }` objects — screens specify canonical classes via props
+
+**Where chart colors are sourced:**
+1. **Component defaults:** `GroupedBarChart.tsx` defines DEFAULT_BAR_CLASSES (`--current`, `--prior`) and DEFAULT_SWATCH_CLASSES as fallbacks
+2. **CSS class definitions:** `GroupedBarChart.css` defines bar/swatch classes (lines 85-125) — income/expense classes reference canonical tokens
+3. **Screen overrides:** Screens pass `barClassNames` (per series) and `legend` (with `className` per item) to override defaults
+
+**Both screens aligned:**
+- **Saldo:** Already used canonical classes (lines 718-732 in SaldoScreen.tsx)
+- **Panel:** Updated to match (lines 354-370 in PanelScreen.tsx) — passed explicit `barClassNames` + legend `className` objects
+
+**Token extension principle:** When a new context represents income/expense semantically (KPI cards, chart bars, delta indicators), use the canonical `--color-income-default` / `--color-expense-default` tokens — NOT generic brand colors. This creates visual consistency across all financial data presentation.
+
+**Why not hardcode in component:** Different screens may need different color schemes (e.g., a multi-account comparison might use account colors instead of type colors). The component stays flexible via props while canonical tokens become the *conventional default* for income/expense contexts.
+
+**Files:**
+- Component definition: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.tsx` (lines 56-63, 170-173)
+- Chart CSS: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.css` (lines 85-125)
+- Saldo screen: `app/src/renderer/screens/SaldoScreen/SaldoScreen.tsx` (lines 718-732)
+- Panel screen (fixed): `app/src/renderer/screens/PanelScreen/PanelScreen.tsx` (lines 354-370)
+- Canonical tokens: `app/src/renderer/styles/tokens.css` (lines 66, 71, 314, 318, 399, 401)
+
+**Commit:** a372019  
+**Branch:** squad/dashboard-bugs-tags-recent-chart (PR #105 follow-up)  
+**Tests:** TypeScript check clean, lint clean

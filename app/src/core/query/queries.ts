@@ -29,11 +29,14 @@ function effectiveAmounts(
   return [{ amount: tx.amount, categoryId: tx.categoryId, subcategoryId: tx.subcategoryId }];
 }
 
-// Query 1: Get recent transactions (sorted DESC by createdAt)
+// Query 1: Get recent transactions (sorted DESC by date, then createdAt)
 export function queryRecentTransactions(limit = 10): Transaction[] {
   const model = getReadModel();
   return [...model.transactions]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort((a, b) => {
+      if (a.date !== b.date) return b.date.localeCompare(a.date);
+      return b.createdAt.localeCompare(a.createdAt);
+    })
     .slice(0, limit);
 }
 
