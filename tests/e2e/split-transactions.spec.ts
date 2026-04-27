@@ -23,8 +23,8 @@ test.describe('Split Transactions — Core Flows', () => {
   // Happy Path Tests
   // ---------------------------------------------------------------------------
 
-  test.skip('HP-01: Create a 2-part split (€300 + €200 = €500)', async () => {
-    // 📌 Wave 2: Awaiting Morpheus's tx:split IPC implementation
+  test('HP-01: Create a 2-part split (€300 + €200 = €500)', async () => {
+    // 📌 Wave A: Un-skipped — IPC handlers registered in PR #117
     //
     // Steps:
     // 1. Launch app with seeded €500 transaction
@@ -62,8 +62,8 @@ test.describe('Split Transactions — Core Flows', () => {
     // - Parent row badge shows "3 parts"
   });
 
-  test.skip('HP-03: Split badge appears in movements list', async () => {
-    // 📌 Wave 2: Awaiting movementRecordSchema.hasSplits field
+  test('HP-03: Split badge appears in movements list', async () => {
+    // 📌 Wave A: Un-skipped — hasSplits field shipped, i18n namespace fixed in PR #116
     //
     // Steps:
     // 1. Launch app with pre-seeded split transaction
@@ -93,8 +93,8 @@ test.describe('Split Transactions — Core Flows', () => {
     // - Selector: `.ot-totals-strip .expense` or similar
   });
 
-  test.skip('HP-05: Remove split returns transaction to single-line', async () => {
-    // 📌 Wave 2: Awaiting tx:split:remove IPC
+  test('HP-05: Remove split returns transaction to single-line', async () => {
+    // 📌 Wave A: Un-skipped — tx:split:remove IPC registered in PR #117
     //
     // Steps:
     // 1. Launch app with pre-split transaction

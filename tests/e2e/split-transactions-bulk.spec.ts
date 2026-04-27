@@ -51,8 +51,8 @@ test.describe('Split Transactions — Bulk Operations', () => {
     // - Other fields (description, tags, reference, details) remain editable
   });
 
-  test.skip('ES-03: Bulk update skips split parents', async () => {
-    // 📌 Wave 2: Awaiting bulkUpdate skip logic (FR15, Pedro Lock #3)
+  test('ES-03: Bulk update skips split parents', async () => {
+    // 📌 Wave A: Un-skipped — bulkUpdate skip logic shipped
     //
     // Steps:
     // 1. Launch app with 3 transactions:
