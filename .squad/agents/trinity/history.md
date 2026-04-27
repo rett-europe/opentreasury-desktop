@@ -2006,3 +2006,21 @@ Compare-mode (header + `--compare` row + `--compare` subrow + 1200px breakpoint)
 **Lesson / pattern:** When a CSS var is shared across modifier variants (`--compare` vs `--single`), confirm the var's *source of truth* (here: `panelColWidths` measurement) actually corresponds to what the variant *renders*. `--saldo-col-delta` is correct for compare mode (renders YoY delta) but wrong for single mode (renders share %). Cross-mode CSS-var reuse is a footgun when the rendered text differs by mode.
 
 **Pattern for short-fixed-format columns:** if every row's value is a short format-bound string (currency in fixed locale, percent at fixed precision), `max-content` is simpler and safer than a JS-measured `ch` var — the grid auto-sizes to the longest cell and all rows stay aligned. JS-measured `ch` vars are warranted only when content widths differ significantly between rows AND alignment with a different grid (e.g. header) matters.
+
+
+---
+
+## 2026-04-27 — Bulk-approve action in BulkActionsBar (PR #123)
+
+**Ask:** Pedro wanted `a way to bulk move transactions to a certain label and to approve them`. Half of it (`bulk move to label` = re-categorise) was already shipped via `BulkClassifyModal`; the explicit `Status` deferral comment in `BulkActionsBar` (`Tags / Status / Delete tracked on #31`) was the cue that `bulk-approve` was the new piece.
+
+**Implementation:** added optional `onApprove` to `BulkActionsBar` (hidden when not supplied → backwards-compatible), built `BulkApproveConfirmModal` mirroring the `BulkClassifyModal` shell, and wired `MovementsScreen` to partition selection into `pendingIds` vs `skippedCount` and call the existing `transaction:bulkUpdate` IPC with `{ status: 'approved', correlationId }`. **Reuse, not duplicate:** the bulk-update command already accepts a `status` patch; no new channel/event types were needed.
+
+**Lesson / pattern — concurrent agents:** during this task another agent (Mouse, on `squad/splits-modal-redesign`) repeatedly checked their branch back into the working tree, wiping my un-committed edits twice. Workaround: do the edits, `git add`, `git commit` *immediately* in tight succession so changes are pinned to the branch object and survive subsequent `git checkout` interference. `git status` is the only reliable way to confirm I'm still on my own branch — `git checkout -b` is not enough when a peer agent is also writing to the repo.
+
+**Lesson / pattern — i18n + `getByRole` queries:** when adding two siblings (`Aprobar` and `Aplicar`) to the same locale namespace, write the test query as `/^aprobar$/i` (anchored) so it never accidentally matches the existing `Aplicar` button inside the same dialog tree. Looser regexes like `/aprob/i` would cross-match.
+
+**Lesson / pattern — bulk action UX:** when a bulk action only applies to a subset of the selection, partition client-side and surface the skipped count *in the confirm copy itself* (`Approve N? M already approved will be skipped.`). Hides surprise behaviour and matches the count the IPC will actually mutate.
+
+**Test matrix:** `npm run typecheck` ✅ `npm run lint` ✅ `npx vitest run` ✅ (755/755). `npm run format:check` shows pre-existing warnings in unrelated files only.
+

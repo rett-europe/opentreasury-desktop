@@ -5184,6 +5184,84 @@ Four-iteration refinement of the Saldo compare-mode panels following iter 6 reje
 
 ---
 
+---
+
+### 2026-04-27: Bulk-approve IPC Reuse + Skip-Already-Approved (Trinity, PR #123)
+
+**Date:** 2026-04-27  
+**Status:** ✅ MERGED (PR #123)  
+**Agent:** Trinity (Frontend Dev)  
+**Related Issue:** Pedro request for bulk-approve action in Movements screen
+
+#### Decision
+
+**1. Reuse `transaction:bulkUpdate` IPC for bulk-approve.** The existing IPC already accepts a `status: 'approved' | 'pending'` patch and emits one `tx.updated` per row sharing a `correlationId`. No new channel, no new event type, no new audit shape. Bulk-approve is "bulk-update with only the `status` field set".
+
+**2. Skip already-approved transactions client-side.** The renderer partitions the current selection into `{pendingIds, skippedCount}` from the loaded `rawRecords` before opening the confirm dialog. The skip count is surfaced verbatim in the dialog body (`{n} ya estaba aprobado / already approved` notice).
+
+**3. `onApprove` is an optional prop on `BulkActionsBar`.** When omitted the button is hidden. Backward-compatible without a feature flag.
+
+**4. Visual hierarchy: Classify primary, Approve secondary.** Two adjacent primary buttons compete for attention. Classify is the first-step action on freshly imported batches; Approve is the second step.
+
+#### Rationale
+
+- Client-side skip filtering keeps UX conversation visible — skip count in title matches count that will actually mutate
+- Avoids relying on command-layer idempotency for UX outcome
+- Lets us short-circuit IPC when selection is 100% approved (no-op toast, no dialog)
+- Reusing IPC reduces surface area for future bulk actions (status flip, tag set, etc.) to follow same pattern
+
+#### Implications
+
+- **Morpheus/Cypher:** Bulk-update status branch already covered by `bulkUpdateTransactions.test.ts`; no new core logic. If we add dedicated `transaction:approve` IPC in future, retire the `status` patch from `bulkUpdate` to keep one way of doing it.
+- **Mouse:** Confirm dialog reuses `TransactionDetailModal.css` shell. No new tokens, no new visuals. If distinct destructive vs. affirmative confirm style needed, split later.
+- **Niobe:** i18n keys live under `movements.bulk.approve.*` in `es/common.json` and `en/common.json`. Wording follows existing `Clasificar` pattern.
+
+---
+
+### 2026-04-27: Component-Scoped CSS Rule + Index Pill Pattern (Mouse, PR #124)
+
+**Date:** 2026-04-27  
+**Status:** 🔄 CI running (expected merge)  
+**Agent:** Mouse (UI Designer)  
+**Related Issue:** Split modal UX redesign + process safeguards for parallel agent work
+
+#### Decision
+
+**1. Component-scoped CSS belongs in component folder.** While redesigning `SplitTransactionModal`, Mouse found bulk of styling living as loose rules in `app/src/renderer/styles/globals.css` (`.ot-split-modal`, `.ot-split-modal__body`, `.ot-split-row*`, `.ot-split-delta*`). Those rules were skeleton-only and didn't match the TSX structure.
+
+**Rule:** Component-scoped CSS — anything keyed off a class only used by one component — must live in the component's own `*.css` file. `globals.css` is reserved for genuinely cross-cutting recipes (`.ot-page-header`, `.ot-section-label`, `.ot-account-pill`, `.ot-tag-chip*`, Movements table `.ot-split-parent*` decorators, etc.).
+
+This PR demonstrates the pattern: all `.ot-split-modal*`, `.ot-split-row*`, `.ot-split-summary*` rules now live in `app/src/renderer/components/SplitTransactionModal/SplitTransactionModal.css`. Other modals (`BulkClassifyModal`, future `BulkApproveConfirmModal`, etc.) should follow the same rule.
+
+**2. Index pill pattern is reusable.** The split modal introduces a small **index pill** (22 × 22, `--radius-pill`, `--color-brand-surface` background, `--color-brand-primary` text) next to each row in the parts list. Clean ordering signal without heavy "1." text column; works equally well at 2 or 20 rows.
+
+**Rule:** Any future "user adds N items" UI (recurring-rule editor, allocation lines, tag-mapping rows, etc.) should reuse this pattern. If used in 3+ places, promote to `.ot-index-pill` recipe in `globals.css`.
+
+**3. Token hardening follow-up (out-of-scope tech debt).** `TransactionDetailModal.css` references `var(--color-error-default)`, `var(--color-error-text)`, `var(--color-error-surface)`, and `var(--shadow-lg)`, none defined in `app/src/renderer/styles/tokens.css`. They fall back to `initial`, rendering with UA defaults instead of intended semantic colors.
+
+**Decision:** Not Mouse's PR to fix (out of scope). File as tech debt: either add missing tokens (mapping to existing `--color-expense-*` and `--shadow-dialog` / `--shadow-card`) or migrate consumer CSS to existing tokens. Whichever route, add lint rule that fails CI on `var(--color-error-…)` references that don't resolve.
+
+In this PR Mouse deliberately stuck to **only tokens that are defined today**.
+
+**4. Use worktrees when concurrent agents operate.** While Mouse worked, Trinity was concurrently driving `squad/bulk-approve` on main checkout (`C:\rettx\opentreasury-desktop`). Mid-edit Mouse's working tree was silently reverted (`SplitTransactionModal.css` size dropped from 16 KB → 515 bytes; `git status` showed wrong branch). Same parallel-checkout race as prior incident.
+
+**Rule:** When two+ agents may operate on this repo at once, the second agent **must** create a dedicated worktree:
+```bash
+git worktree add ../opentreasury-<agent> squad/<their-branch>
+cd ../opentreasury-<agent> ; npm ci    # node_modules per worktree
+```
+
+Treat primary checkout as shared resource. All edits, validations, commits, pushes for this PR happened from `C:\rettx\opentreasury-mouse`. If this tax recurs, automate: `squad-worktree` script picking next free path and running `npm ci`.
+
+#### Implications
+
+- Future modals follow component-scoped CSS pattern; no sprawl in globals
+- Reusable recipes (index pill, KPI strip, etc.) get promoted when used 3+ times
+- Token hardening in `TransactionDetailModal` blocks visual consistency; file as prioritized debt
+- Parallel agent work requires worktree discipline to prevent silent checkout reverts
+
+---
+
 ## Summary for Implementation Teams
 
 - **Trinity (UI):** Reference this spec for layout + interaction. Prototype against STEP 5 (dry-run) first — it's the most complex screen.
