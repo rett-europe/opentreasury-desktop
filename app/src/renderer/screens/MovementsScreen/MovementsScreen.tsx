@@ -19,6 +19,7 @@ import { AddTransactionModal } from '../../components/AddTransactionModal/index.
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
 import { BulkActionsBar } from '../../components/BulkActionsBar/index.js';
 import { BulkClassifyModal } from '../../components/BulkClassifyModal/index.js';
+import { BulkApproveConfirmModal } from '../../components/BulkApproveConfirmModal/index.js';
 import { SplitTransactionModal } from '../../components/SplitTransactionModal/index.js';
 import { TransactionsTable } from '../../components/TransactionsTable/index.js';
 import type { TransactionRow } from '../../components/TransactionsTable/index.js';
@@ -50,6 +51,7 @@ import {
   resolveDateFilter,
 } from '../../utils/movementsDateFilter.js';
 import { formatDateRange } from '../../utils/dateFormat.js';
+import { newUlid } from '../../utils/ulid.js';
 import './MovementsScreen.css';
 
 /**
@@ -272,6 +274,15 @@ export function MovementsScreen({
   const [isBulkClassifyOpen, setIsBulkClassifyOpen] = useState(false);
   const [bulkSuccessMessage, setBulkSuccessMessage] = useState<string | null>(null);
 
+  // Bulk-approve confirmation state. We snapshot the {pendingIds, skipped}
+  // partition at the moment the user clicks "Aprobar" so the confirm copy
+  // and the IPC payload stay consistent even if the underlying selection
+  // mutates while the dialog is open.
+  const [bulkApprove, setBulkApprove] = useState<{
+    readonly pendingIds: readonly string[];
+    readonly skippedCount: number;
+  } | null>(null);
+
   // SPEC-023 — split modal state. Opened from row action (context or detail).
   const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
   const [splitTargetTx, setSplitTargetTx] = useState<MovementRecord | null>(null);
@@ -343,6 +354,82 @@ export function MovementsScreen({
   const handleRetry = useCallback(() => {
     void loadAll();
   }, [loadAll]);
+
+  // ─── Bulk approve ────────────────────────────────────────────────────────
+  // Open the bulk-approve confirmation: partition the current selection
+  // into pending vs already-approved using the loaded rawRecords. If
+  // nothing is pending we surface a no-op toast and skip the dialog.
+  const openBulkApprove = useCallback(() => {
+    const selectedIds = Array.from(selected);
+    if (selectedIds.length === 0) return;
+    const recordById =
+      state.kind === 'loaded'
+        ? new Map(state.rawRecords.map((r) => [r.id, r] as const))
+        : new Map<string, MovementRecord>();
+    const pendingIds: string[] = [];
+    let skippedCount = 0;
+    for (const id of selectedIds) {
+      const rec = recordById.get(id);
+      if (rec && rec.status === 'pending') {
+        pendingIds.push(id);
+      } else {
+        skippedCount += 1;
+      }
+    }
+    if (pendingIds.length === 0) {
+      setBulkSuccessMessage(t('movements.bulk.approve.noPending'));
+      setTimeout(() => setBulkSuccessMessage(null), 5000);
+      return;
+    }
+    setBulkApprove({ pendingIds, skippedCount });
+  }, [selected, state, t]);
+
+  const closeBulkApprove = useCallback(() => {
+    setBulkApprove(null);
+  }, []);
+
+  const confirmBulkApprove = useCallback(async () => {
+    if (!bulkApprove) return;
+    const { pendingIds } = bulkApprove;
+    const total = pendingIds.length;
+    const result = await bulkUpdateTransactions({
+      ids: [...pendingIds],
+      status: 'approved',
+      correlationId: newUlid(),
+    });
+
+    if (result.ok) {
+      setBulkApprove(null);
+      clearSelection();
+      await loadAll();
+      const msg = t('movements.bulk.approve.successToast', { count: result.updatedCount });
+      setBulkSuccessMessage(msg);
+      setTimeout(() => setBulkSuccessMessage(null), 5000);
+      return;
+    }
+
+    // Partial / full failure path — surface a concrete count and log details
+    // so the failure is never silent.
+    const failedCount = result.failures.length;
+    const okCount = Math.max(0, total - failedCount);
+    // eslint-disable-next-line no-console
+    console.error('bulk-approve failures', result.failures);
+    setBulkApprove(null);
+    if (okCount > 0) {
+      clearSelection();
+      await loadAll();
+    }
+    const msg =
+      okCount > 0
+        ? t('movements.bulk.approve.partialToast', {
+            ok: okCount,
+            total,
+            failed: failedCount,
+          })
+        : t('movements.bulk.approve.errorToast');
+    setBulkSuccessMessage(msg);
+    setTimeout(() => setBulkSuccessMessage(null), 5000);
+  }, [bulkApprove, clearSelection, loadAll, t]);
 
   const handleOpenModal = useCallback(() => {
     setIsModalOpen(true);
@@ -704,7 +791,16 @@ export function MovementsScreen({
       <BulkActionsBar
         selectedCount={selected.size}
         onClassify={openBulkClassify}
+        onApprove={openBulkApprove}
         onCancel={clearSelection}
+      />
+
+      <BulkApproveConfirmModal
+        isOpen={bulkApprove !== null}
+        pendingCount={bulkApprove?.pendingIds.length ?? 0}
+        skippedCount={bulkApprove?.skippedCount ?? 0}
+        onClose={closeBulkApprove}
+        onConfirm={confirmBulkApprove}
       />
 
       <BulkClassifyModal

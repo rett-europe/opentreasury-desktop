@@ -333,6 +333,21 @@
         "title_one": "Clasificar {{count}} movimiento",
         "title_other": "Clasificar {{count}} movimientos"
       },
+      "approve": {
+        "cta": "Aprobar",
+        "confirmTitle_one": "¿Aprobar {{count}} movimiento?",
+        "confirmTitle_other": "¿Aprobar {{count}} movimientos?",
+        "confirmBody_one": "Se marcará como aprobado y dejará de estar pendiente de revisión.",
+        "confirmBody_other": "Se marcarán como aprobados y dejarán de estar pendientes de revisión.",
+        "confirmCta": "Aprobar",
+        "skipNotice_one": "{{count}} movimiento ya estaba aprobado y se omitirá.",
+        "skipNotice_other": "{{count}} movimientos ya estaban aprobados y se omitirán.",
+        "noPending": "Todos los movimientos seleccionados ya están aprobados.",
+        "successToast_one": "Se aprobó {{count}} movimiento.",
+        "successToast_other": "Se aprobaron {{count}} movimientos.",
+        "partialToast": "Se aprobaron {{ok}} de {{total}}; {{failed}} fallaron.",
+        "errorToast": "No se pudo aprobar la selección. Inténtalo de nuevo."
+      },
       "success_one": "Se actualizó {{count}} movimiento.",
       "success_other": "Se actualizaron {{count}} movimientos.",
       "failures": {

@@ -340,3 +340,67 @@ describe('MovementsScreen — WI-31c bulk classify end-to-end', () => {
     ).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Bulk-approve happy path — the BulkActionsBar exposes "Aprobar" alongside
+// "Clasificar". Selecting a mix of pending + approved rows and confirming
+// must call bulkUpdateTransactions exactly once with `{ status: 'approved' }`,
+// only the pending IDs, a 26-char correlation id, and surface a success
+// toast. Already-approved rows must be skipped (mentioned in the dialog,
+// excluded from the IPC payload).
+// ---------------------------------------------------------------------------
+describe('MovementsScreen — bulk approve', () => {
+  function makeMovementWithStatus(i: number, status: 'pending' | 'approved'): MovementRecord {
+    return { ...makeMovement(i), status };
+  }
+
+  it('approves only pending selected rows, skips already-approved, and shows a success toast', async () => {
+    const mixed: MovementRecord[] = [
+      makeMovementWithStatus(0, 'pending'),
+      makeMovementWithStatus(1, 'approved'),
+      makeMovementWithStatus(2, 'pending'),
+    ];
+    vi.mocked(listMovements).mockResolvedValue([...mixed]);
+    vi.mocked(bulkUpdateTransactions).mockResolvedValue({
+      ok: true,
+      updatedCount: 2,
+      events: [],
+      skippedSplitParentCount: 0,
+    } as BulkUpdateTransactionResponse);
+
+    await renderScreen();
+    selectFirst(3);
+
+    const region = screen.getByRole('region', { name: /acciones en lote/i });
+    const approveBtn = within(region).getByRole('button', { name: /^aprobar$/i });
+    fireEvent.click(approveBtn);
+
+    // Confirm dialog opens with the pending count (2), and shows the skip
+    // notice for the 1 already-approved selection.
+    const dialogTitle = await screen.findByRole('heading', { name: /¿aprobar 2 movimientos\?/i });
+    const dialog = dialogTitle.closest('dialog') as HTMLDialogElement;
+    expect(dialog).not.toBeNull();
+    expect(within(dialog).getByText(/1 movimiento ya estaba aprobado/i)).toBeDefined();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /^aprobar$/i }));
+
+    await waitFor(() => {
+      expect(vi.mocked(bulkUpdateTransactions)).toHaveBeenCalledTimes(1);
+    });
+    const arg = vi.mocked(bulkUpdateTransactions).mock.calls[0]![0] as BulkUpdateTransactionRequest;
+    // Only the two pending rows go to IPC. Order doesn't matter.
+    expect(new Set(arg.ids)).toEqual(new Set([TX_IDS[0], TX_IDS[2]]));
+    expect(arg.status).toBe('approved');
+    expect(arg.correlationId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(arg.categoryId).toBeUndefined();
+
+    // Dialog closes, selection cleared, success toast surfaces, and the
+    // movements list is reloaded so the table reflects the new statuses.
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: /¿aprobar \d+ movimientos?\?/i })).toBeNull();
+    });
+    expect(screen.queryByRole('region', { name: /acciones en lote/i })).toBeNull();
+    expect(screen.getByText(/se aprobaron 2 movimientos/i)).toBeDefined();
+    expect(vi.mocked(listMovements).mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+});

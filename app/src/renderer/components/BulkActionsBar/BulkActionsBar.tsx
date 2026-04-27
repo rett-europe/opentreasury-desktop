@@ -7,12 +7,16 @@ export interface BulkActionsBarProps {
   readonly selectedCount: number;
   /** Opens the classify modal. */
   readonly onClassify: () => void;
+  /** Triggers the bulk-approve confirmation flow. Optional for
+   *  backwards-compatibility — callers that don't supply it simply hide
+   *  the Approve button. */
+  readonly onApprove?: () => void;
   /** Clears the current selection (no modal). */
   readonly onCancel: () => void;
 }
 
 /**
- * BulkActionsBar — WI-31b.
+ * BulkActionsBar — WI-31b / bulk-approve.
  *
  * Thin action bar that surfaces between the page header and the filter bar
  * whenever the user has selected one or more movements in the table. Keeps
@@ -20,12 +24,15 @@ export interface BulkActionsBarProps {
  * reachable. Visual parity with the Movements/Detail design language:
  * rounded card, pill buttons, uppercase-tracking labels.
  *
- * v1 only exposes `Clasificar` (category/subcategory). Additional bulk
- * actions (Tags, Status, Delete) are tracked on #31.
+ * Exposes `Clasificar` (category/subcategory) and `Aprobar` (status flip
+ * pending → approved). Classify keeps the `primary` slot (it's the most
+ * common bulk action); Approve uses `secondary` to keep visual hierarchy
+ * from competing. Tags / Delete bulk actions remain tracked on #31.
  */
 export function BulkActionsBar({
   selectedCount,
   onClassify,
+  onApprove,
   onCancel,
 }: BulkActionsBarProps): JSX.Element | null {
   const { t } = useTranslation('common');
@@ -54,6 +61,11 @@ export function BulkActionsBar({
         <Button variant="ghost" size="sm" onClick={onCancel}>
           {t('movements.bulk.cancel')}
         </Button>
+        {onApprove && (
+          <Button variant="secondary" size="sm" onClick={onApprove}>
+            {t('movements.bulk.approve.cta')}
+          </Button>
+        )}
         <Button variant="primary" size="sm" onClick={onClassify}>
           {t('movements.bulk.classify.cta')}
         </Button>

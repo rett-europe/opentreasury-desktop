@@ -333,6 +333,21 @@
         "title_one": "Classify {{count}} transaction",
         "title_other": "Classify {{count}} transactions"
       },
+      "approve": {
+        "cta": "Approve",
+        "confirmTitle_one": "Approve {{count}} transaction?",
+        "confirmTitle_other": "Approve {{count}} transactions?",
+        "confirmBody_one": "It will be marked as approved and will no longer be pending review.",
+        "confirmBody_other": "They will be marked as approved and will no longer be pending review.",
+        "confirmCta": "Approve",
+        "skipNotice_one": "{{count}} transaction is already approved and will be skipped.",
+        "skipNotice_other": "{{count}} transactions are already approved and will be skipped.",
+        "noPending": "All selected transactions are already approved.",
+        "successToast_one": "Approved {{count}} transaction.",
+        "successToast_other": "Approved {{count}} transactions.",
+        "partialToast": "Approved {{ok}} of {{total}}; {{failed}} failed.",
+        "errorToast": "Could not approve the selection. Please try again."
+      },
       "success_one": "Updated {{count}} transaction.",
       "success_other": "Updated {{count}} transactions.",
       "failures": {
