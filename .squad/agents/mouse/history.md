@@ -936,3 +936,34 @@ export SQUAD_WORKTREES=1
 ```
 
 This ensures each agent gets `git worktree add` + isolated checkout, zero collision risk. Update your spawn checklist.
+
+---
+
+## 2026-04-27 — Splits modal visual redesign (PR #124)
+
+**Context.** Pedro flagged the split modal as "horrible" while dogfooding. Plumbing from PRs #116/#117/#121 was correct (validation, IPC, i18n, Ctrl+Enter, error highlighting), but `SplitTransactionModal.css` was 515 bytes and component styling had been scattered into `globals.css` as bare skeleton rules that didn't even match the rendered TSX. Visually it read as a raw form, not a product.
+
+**What I did.**
+- Realigned the modal to `TransactionDetailModal`'s shell (760 px, `--radius-lg`, `--shadow-dialog`, `--color-surface-primary`, blurred `--color-surface-overlay` backdrop).
+- Replaced the `<table>` with a 5-column CSS grid (`24px 130px 1fr 1fr 28px`); comment input wraps to a second visual row to keep horizontal density manageable on a 1280 px laptop.
+- Added a 3-cell summary card (Original / Distributed / Delta) that tints by state (`--color-status-approved` / `--color-expense-default` / `--color-warning-default` — same triad already in use for split deltas elsewhere in the app).
+- Each row now carries a small brand-tinted index pill instead of a bare "1." cell; remove control became a 28×28 ghost ✕ icon button.
+- "+ Add part" became a dashed-border ghost CTA in brand color, sitting directly under the list (visible without scrolling).
+- Inline sum/min-parts warnings became soft amber callouts with a left accent.
+- Pinned footer with a subtle Ctrl+Enter hint label next to Save.
+
+**Where the CSS lives.** Moved all component-scoped rules from `globals.css` into `SplitTransactionModal.css`. Left `.ot-split-parent*` in globals because those decorate Movements table rows, not the modal.
+
+**No new design tokens.** Every color, spacing, radius, font-size, motion, z-index used here is an existing token from `app/src/renderer/styles/tokens.css`. `--color-error-*` and `--shadow-lg` referenced in `TransactionDetailModal.css` are not actually defined in tokens.css today — they fall back to `initial`. I did **not** define them; that's a pre-existing inconsistency to file later (probably worth a tokens hardening pass).
+
+**i18n.** Added six keys (en + es): `splits.modal.summaryOriginal/Distributed/Remaining/Over/Balanced` and `splits.modal.saveHint`. Old keys (`distributed`, `remaining`, `sumWarning`, `minPartsWarning`) preserved for backward compat / tests.
+
+**Validation.** typecheck ✅, lint ✅, `prettier --check` on changed files ✅, `vitest run` ✅ (751 passed | 9 skipped).
+
+**Process learning — parallel-checkout race redux.** The main checkout at `C:\rettx\opentreasury-desktop` was being driven by another concurrent agent on `squad/bulk-approve`. That agent kept pulling HEAD back to its branch and stomping my working tree mid-edit (file size silently reverted to 515 bytes; `git status` showed me on the wrong branch). Fix: I created a **dedicated worktree** (`git worktree add ../opentreasury-mouse squad/splits-modal-redesign`), ran `npm ci` once inside it, and worked from there. All edits, validations, and the commit/push happened from the worktree. This matches the "parallel-checkout race" learning the Scribe logged earlier — confirms worktrees are the correct pattern for any branch work that overlaps with another active agent on the same repo.
+
+**Decision drop.** Wrote `mouse-split-modal-redesign.md` to `.squad/decisions/inbox/` flagging:
+1. Component-scoped CSS belongs in the component folder; `globals.css` is for cross-component recipes only.
+2. Use the brand index-pill pattern for any future "list of N items the user adds" interaction (recurring rules editor, allocation rows, etc).
+3. Tokens hardening — `--color-error-*` and `--shadow-lg` are referenced in component CSS but undefined in tokens.css. Worth a follow-up.
+4. Always use a separate worktree when doing branch work on this repo while another agent is active — main checkout is a shared resource.
