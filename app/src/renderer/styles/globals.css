@@ -868,6 +868,11 @@ a:hover {
 .ot-saldo-panel--expense .ot-saldo-subrow__current {
   color: var(--color-expense-default);
 }
+/* Mirrors `.ot-saldo-row--single .ot-saldo-row__current`. See
+ * SaldoScreen.css for rationale. */
+.ot-saldo-subrow--single .ot-saldo-subrow__current {
+  text-align: right;
+}
 
 .ot-saldo-subrow__delta {
   text-align: right;

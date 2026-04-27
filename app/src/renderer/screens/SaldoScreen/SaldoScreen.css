@@ -310,6 +310,13 @@
 .ot-saldo-panel--expense .ot-saldo-row__current {
   color: var(--color-expense-default);
 }
+/* Single (1-year) mode has no bar under the amount, so the number stands
+ * alone next to the % column. Right-align both for proper numeric reading
+ * (Pedro 2026-04 dogfood). Compare mode keeps left-align because the
+ * amount sits visually above a left-anchored bar fill. */
+.ot-saldo-row--single .ot-saldo-row__current {
+  text-align: right;
+}
 
 .ot-saldo-row__delta {
   text-align: right;
