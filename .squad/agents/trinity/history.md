@@ -46,6 +46,25 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 
 ## Learnings
 
+**2026-04-28 — PR #141: Insights Detail Polish (squad/trinity-insights-detail-polish)**
+
+Shipped three improvements to Insights detail screen (Pedro dogfooding feedback):
+
+1. **Pac-Man donut SVG fix (reusable pattern):** Original `DonutChart` used cumulative `strokeDashoffset` positioning, which silently clipped dashes exceeding path end position. Any slice ≥ ~75% circumference would show a wedge-shaped gap (Pac-Man mouth). Root cause: the [75%, 100%) range was not covered by the 100%-single-slice shortcut. **Fix:** rotate each segment to its start angle via `transform="rotate(startAngle, cx, cy)"` and start every dash at path position 0 (no offset). This ensures any fraction [0, 1] always fits in [0, L] path regardless of distribution. **Locked rule for future agents:** Per-segment rotation is the canonical approach for SVG circumference rendering (donut, pie, polar). Updated `.squad/skills/svg-donut-chart/SKILL.md`.
+
+2. **Diverging bar chart (reusable pattern):** Replaced dual toggleable bar charts (one for gastos, one for ingresos) with single `DivergingSubcategoryChart`. Rationale: gastos and ingresos do NOT share subcategories (e.g., "Salario › Base" is income-only; "Casa › Alquiler" is expense-only). Grouped/stacked layouts require synthetic zero rows and obscure magnitude comparisons. Diverging horizontal bars (gastos left, ingresos right) let users read both distributions in one glance, mirroring donut row above. Uses canonical `--color-expense-default` / `--color-income-default` tokens for side legends. Narrow viewports (<720px) collapse diverging metaphor and stack vertically. **Locked rule:** When two categorical distributions share no keys, use diverging layout.
+
+3. **Breadcrumb label format (locked rule):** Bar row labels, tooltips, and progressbar ARIA labels now show `Category › Subcategory` format using U+203A SINGLE RIGHT-POINTING ANGLE QUOTATION MARK (NOT ASCII `>`). Implemented as `formatBreadcrumbLabel(categoryName, subcategoryName, subcategoryId)`; when `subcategoryId == null`, only category name is shown (no chevron). Verified donut tooltips are category-level only (keyed on `categoryId`), so no breadcrumb applied there.
+
+**Files changed:**
+- `app/src/renderer/components/DonutChart/DonutChart.tsx` — rotation-based rendering, +2 Pac-Man regression tests
+- `app/src/renderer/components/DivergingSubcategoryChart/` — new component (tsx, css, test, index)
+- `app/src/renderer/screens/InsightsDetailScreen/InsightsDetailScreen.tsx` — drops `SegmentedToggle` + `subcatView` state, wires both donuts to single `selectedCategoryId`
+- `app/src/renderer/components/SubcategoryDistributionPanel/` — removed (no other consumers)
+- `.squad/skills/svg-donut-chart/SKILL.md` — corrected core technique
+
+**Validation:** 829 tests passing (full suite green), +13 new tests (Pac-Man regressions, breadcrumb formatting, diverging chart rendering). Commit 6a092b8 on main.
+
 **2026-05-03 — PR #121: Splits Wave B (squad/59-splits-wave-b)**
 
 Delivered 6 v1-quality bar items for SPEC-023 splits feature (issue #59):
