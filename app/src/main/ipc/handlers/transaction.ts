@@ -22,6 +22,8 @@ import {
   type DeleteValidationErrorCode,
   bulkUpdateTransactions,
   type BulkUpdateInput,
+  bulkAddLabelToTransactions,
+  type BulkAddLabelInput,
 } from '../../../core/commands/index.js';
 import type { EventLog } from '../../../core/eventLog/index.js';
 import { applyEvent } from '../../../core/query/reducers.js';
@@ -35,6 +37,8 @@ import {
   type DeleteTransactionResponse,
   bulkUpdateTransactionRequestSchema,
   type BulkUpdateTransactionResponse,
+  bulkAddLabelTransactionRequestSchema,
+  type BulkAddLabelTransactionResponse,
 } from '../../../shared/ipc-contracts/transaction.js';
 
 export interface TransactionCreateHandlerDeps {
@@ -374,6 +378,129 @@ export function createTransactionBulkUpdateHandler(
         ok: true,
         updatedCount: result.events.length,
         events: result.events,
+        skippedSplitParentCount,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        ok: false,
+        failures: [{ id: '', code: 'INTERNAL', message }],
+      };
+    }
+  };
+}
+
+// Bulk Add Label Handler — append-set tagIds to N transactions (idempotent
+// per-tx). Mirrors createTransactionBulkUpdateHandler.
+export interface TransactionBulkAddLabelHandlerDeps {
+  readonly eventLog: EventLog;
+  readonly getReadModel: () => ReadModel;
+  readonly now: () => Date;
+  readonly newId: () => string;
+  readonly datasetId: string;
+  readonly actorDeviceId: string;
+  readonly dekVersion?: number;
+  readonly applyEvent?: typeof applyEvent;
+}
+
+export function createTransactionBulkAddLabelHandler(
+  deps: TransactionBulkAddLabelHandlerDeps,
+): (raw: unknown) => Promise<BulkAddLabelTransactionResponse> {
+  const apply = deps.applyEvent ?? applyEvent;
+
+  return async function handleTransactionBulkAddLabel(
+    raw: unknown,
+  ): Promise<BulkAddLabelTransactionResponse> {
+    try {
+      const parsed = bulkAddLabelTransactionRequestSchema.safeParse(raw);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          failures: [
+            {
+              id: '',
+              code: 'SCHEMA_INVALID',
+              message: parsed.error.issues
+                .map((i) => `${i.path.join('.')}: ${i.message}`)
+                .join('; '),
+            },
+          ],
+        };
+      }
+
+      const input: BulkAddLabelInput = {
+        ids: parsed.data.ids,
+        tagId: parsed.data.tagId,
+        correlationId: parsed.data.correlationId,
+      };
+
+      // SPEC-023 FR15 — skip split parents entirely in bulk operations.
+      const model = deps.getReadModel();
+      const filteredIds = input.ids.filter((id) => !model.splitParentIds.has(id));
+      const skippedSplitParentCount = input.ids.length - filteredIds.length;
+
+      // If every requested id is a split parent, the command would EMPTY_IDS;
+      // surface that as a non-error happy response with zero updates so the
+      // renderer can show the split-parent skipped notice without a failure.
+      if (filteredIds.length === 0) {
+        return {
+          ok: true,
+          results: [],
+          events: [],
+          updatedCount: 0,
+          skippedAlreadyHadCount: 0,
+          skippedSplitParentCount,
+        };
+      }
+
+      const result = bulkAddLabelToTransactions(
+        { ...input, ids: filteredIds },
+        {
+          now: deps.now,
+          newId: deps.newId,
+          readModel: deps.getReadModel(),
+          datasetId: deps.datasetId,
+          actorDeviceId: deps.actorDeviceId,
+          dekVersion: deps.dekVersion ?? 0,
+        },
+      );
+
+      if (!result.ok) {
+        return {
+          ok: false,
+          failures: result.failures.map((f) => ({
+            id: f.id,
+            code: f.code,
+            message: f.message,
+          })),
+        };
+      }
+
+      // Atomically append all events in a single write + fsync.
+      // If appendBatch fails, no events are persisted (all-or-nothing I/O).
+      if (result.events.length > 0) {
+        const before = (await deps.eventLog.load()).length;
+        await deps.eventLog.appendBatch(result.events);
+        const after = (await deps.eventLog.load()).length;
+        if (after > before) {
+          for (const event of result.events) {
+            apply(event);
+          }
+        }
+      }
+
+      const updatedSet = new Set(result.updatedIds);
+      const results = filteredIds.map((id) => ({
+        id,
+        status: (updatedSet.has(id) ? 'updated' : 'skipped') as 'updated' | 'skipped',
+      }));
+
+      return {
+        ok: true,
+        results,
+        events: result.events,
+        updatedCount: result.events.length,
+        skippedAlreadyHadCount: result.skippedIds.length,
         skippedSplitParentCount,
       };
     } catch (err) {

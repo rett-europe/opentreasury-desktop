@@ -6,3 +6,4 @@ export * from './transactionNote';
 export * from './updateTransaction';
 export * from './deleteTransaction';
 export * from './bulkUpdateTransactions';
+export * from './bulkAddLabelToTransactions';
