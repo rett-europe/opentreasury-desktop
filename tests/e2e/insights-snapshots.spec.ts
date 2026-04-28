@@ -42,7 +42,13 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..');
 const OUT_DIR_BEFORE = join(REPO_ROOT, 'docs', 'ux', 'insights-current-state');
 const OUT_DIR_AFTER = join(REPO_ROOT, 'docs', 'ux', 'insights-after');
-const OUT_DIR = OUT_DIR_AFTER;
+// Allow callers to redirect output to a sibling folder when capturing a new
+// round of "after" snapshots — keeps the prior round in place as the visual
+// "before" for diffing. Set OT_SNAPSHOTS_OUT to a relative path under repo
+// root, e.g. `docs/ux/insights-after-d-p1`.
+const OUT_DIR = process.env['OT_SNAPSHOTS_OUT']
+  ? resolve(REPO_ROOT, process.env['OT_SNAPSHOTS_OUT'])
+  : OUT_DIR_AFTER;
 
 // ---------------------------------------------------------------------------
 // userData root resolution (mirrors scripts/perf-seed.mjs)

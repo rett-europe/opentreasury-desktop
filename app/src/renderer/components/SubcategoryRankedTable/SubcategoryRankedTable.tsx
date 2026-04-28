@@ -12,7 +12,8 @@ import './SubcategoryRankedTable.css';
  * gastos and ingresos do not share subcategory keys, so any visual claim of
  * row-by-row pairing (as the prior diverging chart did) is misleading.
  *
- * Each row: rank pill | colour dot (linked to donut category colour) |
+ * Each row: tinted rank pill (rank number sits inside a chip tinted with the
+ * category colour from the donut, replacing the prior separate dot) |
  * breadcrumb label `Category › Subcategory` | inline horizontal magnitude bar
  * | amount | % of side total.
  *
@@ -316,15 +317,14 @@ function RankedRowItem({
 
   return (
     <li className="ot-subcategory-ranked__row" title={tooltip}>
-      <span className="ot-subcategory-ranked__rank" aria-hidden="true">
+      <span
+        className="ot-subcategory-ranked__rank"
+        style={{ ['--ot-rank-color' as string]: entry.colorVar }}
+        aria-hidden="true"
+      >
         {rank}
       </span>
       <span className="ot-subcategory-ranked__label">
-        <span
-          className="ot-subcategory-ranked__pill"
-          style={{ background: entry.colorVar }}
-          aria-hidden="true"
-        />
         <span className="ot-subcategory-ranked__name">{entry.label}</span>
       </span>
       <span className={amountClass}>{amountStr}</span>

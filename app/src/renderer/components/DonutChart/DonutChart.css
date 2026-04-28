@@ -56,28 +56,36 @@
   border: 0;
 }
 
-/* Color palette — deterministic mapping via CSS custom properties */
+/*
+ * Color palette — deterministic mapping via CSS custom properties.
+ *
+ * Palette P1 (Wide-hue OKLCH): 8 hues spaced at 45° with alternating lightness
+ * so adjacent slices differ in BOTH hue and luminance. This survives small-
+ * dot rendering and deuteranopia-style color perception. Tokens are the
+ * single source of truth shared by the donut slices, the legend swatches,
+ * and the SubcategoryRankedTable tinted rank pills.
+ */
 :root,
 :root[data-theme='light'] {
-  --color-donut-0: oklch(0.55 0.15 270); /* purple */
-  --color-donut-1: oklch(0.6 0.18 200); /* blue */
-  --color-donut-2: oklch(0.65 0.14 150); /* teal */
-  --color-donut-3: oklch(0.6 0.12 130); /* green */
-  --color-donut-4: oklch(0.7 0.14 80); /* yellow-green */
-  --color-donut-5: oklch(0.65 0.16 40); /* orange */
-  --color-donut-6: oklch(0.6 0.18 20); /* red-orange */
-  --color-donut-7: oklch(0.55 0.12 340); /* pink */
+  --color-donut-0: oklch(0.62 0.18 264); /* blue-violet */
+  --color-donut-1: oklch(0.68 0.16 195); /* cyan */
+  --color-donut-2: oklch(0.7 0.16 145); /* green */
+  --color-donut-3: oklch(0.78 0.16 95); /* yellow-green */
+  --color-donut-4: oklch(0.72 0.18 55); /* orange */
+  --color-donut-5: oklch(0.62 0.2 25); /* red */
+  --color-donut-6: oklch(0.55 0.2 350); /* magenta */
+  --color-donut-7: oklch(0.5 0.18 310); /* purple */
   --color-donut-otras: oklch(0.6 0.02 260); /* neutral gray */
 }
 
 :root[data-theme='dark'] {
-  --color-donut-0: oklch(0.65 0.15 270);
-  --color-donut-1: oklch(0.7 0.18 200);
-  --color-donut-2: oklch(0.75 0.14 150);
-  --color-donut-3: oklch(0.7 0.12 130);
-  --color-donut-4: oklch(0.8 0.14 80);
-  --color-donut-5: oklch(0.75 0.16 40);
-  --color-donut-6: oklch(0.7 0.18 20);
-  --color-donut-7: oklch(0.65 0.12 340);
+  --color-donut-0: oklch(0.72 0.18 264);
+  --color-donut-1: oklch(0.78 0.16 195);
+  --color-donut-2: oklch(0.8 0.16 145);
+  --color-donut-3: oklch(0.86 0.16 95);
+  --color-donut-4: oklch(0.82 0.18 55);
+  --color-donut-5: oklch(0.72 0.2 25);
+  --color-donut-6: oklch(0.65 0.2 350);
+  --color-donut-7: oklch(0.6 0.18 310);
   --color-donut-otras: oklch(0.7 0.02 260);
 }

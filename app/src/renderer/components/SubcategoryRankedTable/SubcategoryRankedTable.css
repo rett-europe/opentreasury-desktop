@@ -172,15 +172,26 @@
   grid-area: rank;
   font-variant-numeric: tabular-nums;
   font-size: var(--font-size-12);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
   width: 1.5rem;
   height: 1.5rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: var(--color-surface-secondary);
+  /*
+   * Tinted rank pill — the rank chip carries the category colour, replacing
+   * the prior standalone dot. Mirrors the Movements `ot-type-arrow` pattern:
+   * a low-alpha tint of the semantic colour over the surface, so the digit
+   * keeps WCAG-AA contrast against text-primary across every donut hue,
+   * including the brightest swatch (--color-donut-3 yellow at L=0.78).
+   */
+  background: color-mix(
+    in oklab,
+    var(--ot-rank-color, var(--color-donut-otras)) 22%,
+    var(--color-surface-primary, transparent)
+  );
 }
 
 .ot-subcategory-ranked__label {
@@ -189,13 +200,6 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-}
-
-.ot-subcategory-ranked__pill {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 
 .ot-subcategory-ranked__name {

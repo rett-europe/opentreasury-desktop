@@ -326,7 +326,7 @@ describe('SubcategoryRankedTable', () => {
     expect(within(expenseSide).getByRole('button', { name: 'Show less' })).toBeDefined();
   });
 
-  it('uses the parent category colour from the matching side map', () => {
+  it('uses the parent category colour from the matching side map as the rank-pill tint', () => {
     const { container } = render(
       <SubcategoryRankedTable
         rows={rows}
@@ -338,15 +338,34 @@ describe('SubcategoryRankedTable', () => {
         {...labels}
       />,
     );
-    const expensePill = container.querySelector(
-      '.ot-subcategory-ranked__side--expense .ot-subcategory-ranked__pill',
+    const expenseRank = container.querySelector(
+      '.ot-subcategory-ranked__side--expense .ot-subcategory-ranked__rank',
     ) as HTMLSpanElement | null;
-    expect(expensePill?.style.background ?? '').toContain('--color-donut-0');
+    expect(expenseRank?.style.getPropertyValue('--ot-rank-color') ?? '').toContain(
+      '--color-donut-0',
+    );
 
-    const incomePill = container.querySelector(
-      '.ot-subcategory-ranked__side--income .ot-subcategory-ranked__pill',
+    const incomeRank = container.querySelector(
+      '.ot-subcategory-ranked__side--income .ot-subcategory-ranked__rank',
     ) as HTMLSpanElement | null;
-    expect(incomePill?.style.background ?? '').toContain('--color-donut-0');
+    expect(incomeRank?.style.getPropertyValue('--ot-rank-color') ?? '').toContain(
+      '--color-donut-0',
+    );
+  });
+
+  it('does not render a separate dot/pill element next to the label', () => {
+    const { container } = render(
+      <SubcategoryRankedTable
+        rows={rows}
+        expenseCategoryColorMap={expenseColors}
+        incomeCategoryColorMap={incomeColors}
+        selectedCategoryId={null}
+        onClearSelection={() => {}}
+        locale="en-US"
+        {...labels}
+      />,
+    );
+    expect(container.querySelector('.ot-subcategory-ranked__pill')).toBeNull();
   });
 
   it('exposes accessible progress bars labelled with breadcrumb + amount + percent', () => {
