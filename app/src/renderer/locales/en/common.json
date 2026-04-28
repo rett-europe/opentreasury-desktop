@@ -55,7 +55,9 @@
       "logout": "Sign out"
     },
     "search": {
-      "placeholder": "Search transactions, categories, accounts…"
+      "placeholder": "Search transactions, categories, accounts…",
+      "ariaLabel": "Search transactions",
+      "clearAriaLabel": "Clear search"
     },
     "sidebar": {
       "collapse": "Collapse navigation",
@@ -277,6 +279,14 @@
       "clear-filters": "Clear filters",
       "widen-range": "Widen range",
       "first-tx": "Record first transaction"
+    },
+    "search": {
+      "resultCount": "{{matched}} of {{total}}",
+      "empty": {
+        "title": "No transactions match \"{{query}}\"",
+        "cta": "Clear search"
+      },
+      "splitMatchBadge": "split match"
     },
     "presets": {
       "this-month": "This month",

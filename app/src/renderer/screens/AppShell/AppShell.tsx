@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -35,6 +35,8 @@ export interface AppShellProps {
   readonly currentRoute: Route;
   readonly onNavigate: (next: Route) => void;
   readonly children: ReactNode;
+  readonly searchQuery?: string;
+  readonly onSearchQueryChange?: (query: string) => void;
 }
 
 interface NavItem {
@@ -114,9 +116,19 @@ const NAV_SECTIONS: readonly NavSection[] = [
   },
 ];
 
-export function AppShell({ currentRoute, onNavigate, children }: AppShellProps): JSX.Element {
+export function AppShell({
+  currentRoute,
+  onNavigate,
+  children,
+  searchQuery = '',
+  onSearchQueryChange,
+}: AppShellProps): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const { theme, setTheme } = useTheme();
+
+  // SPEC-024 — Search state
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchDebounceTimerRef = useRef<number | null>(null);
 
   const setLang = useCallback(
     (next: 'es' | 'en') => {
@@ -195,6 +207,99 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps):
     effectiveCollapsed ? 'shell.sidebar.expand' : 'shell.sidebar.collapse',
   );
 
+  // SPEC-024 — Search handlers
+  const triggerSearch = useCallback(
+    (query: string) => {
+      if (!query.trim()) return;
+
+      // FR14 — Navigate to movements with ?q param
+      // The App component will handle URL state management
+      if (currentRoute !== 'movements') {
+        onNavigate('movements');
+      }
+      // Movements screen will read query from searchQuery prop and apply filter
+    },
+    [currentRoute, onNavigate],
+  );
+
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      if (onSearchQueryChange) {
+        onSearchQueryChange(value);
+      }
+
+      // FR13 — Debounce 200ms trailing edge
+      if (searchDebounceTimerRef.current !== null) {
+        window.clearTimeout(searchDebounceTimerRef.current);
+      }
+
+      if (value.trim()) {
+        searchDebounceTimerRef.current = window.setTimeout(() => {
+          triggerSearch(value);
+        }, 200);
+      }
+    },
+    [onSearchQueryChange, triggerSearch],
+  );
+
+  const handleSearchKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (searchDebounceTimerRef.current !== null) {
+          window.clearTimeout(searchDebounceTimerRef.current);
+          searchDebounceTimerRef.current = null;
+        }
+        triggerSearch(searchQuery);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        if (searchQuery) {
+          // First Esc clears query
+          if (onSearchQueryChange) {
+            onSearchQueryChange('');
+          }
+        } else {
+          // Second Esc blurs
+          searchInputRef.current?.blur();
+        }
+      }
+    },
+    [searchQuery, onSearchQueryChange, triggerSearch],
+  );
+
+  const handleSearchClear = useCallback(() => {
+    if (onSearchQueryChange) {
+      onSearchQueryChange('');
+    }
+    searchInputRef.current?.focus();
+  }, [onSearchQueryChange]);
+
+  // FR12 — ⌘K / Ctrl+K global keyboard shortcut
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // ⌘K / Ctrl+K
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+    };
+  }, []);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceTimerRef.current !== null) {
+        window.clearTimeout(searchDebounceTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div className="ot-shell" data-sidebar-collapsed={effectiveCollapsed ? 'true' : undefined}>
       {/* ── Topbar ────────────────────────────────────────── */}
@@ -227,8 +332,26 @@ export function AppShell({ currentRoute, onNavigate, children }: AppShellProps):
 
         <label className="ot-shell__search">
           <Search size={16} aria-hidden="true" />
-          <input type="search" placeholder={t('shell.search.placeholder') satisfies string} />
-          <kbd>⌘K</kbd>
+          <input
+            ref={searchInputRef}
+            type="search"
+            placeholder={t('shell.search.placeholder') satisfies string}
+            aria-label={t('shell.search.ariaLabel') satisfies string}
+            value={searchQuery}
+            onChange={handleSearchChange}
+            onKeyDown={handleSearchKeyDown}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="ot-shell__search-clear"
+              onClick={handleSearchClear}
+              aria-label={t('shell.search.clearAriaLabel') satisfies string}
+            >
+              ✕
+            </button>
+          )}
+          {!searchQuery && <kbd>⌘K</kbd>}
         </label>
 
         <div

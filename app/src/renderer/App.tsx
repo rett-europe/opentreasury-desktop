@@ -47,6 +47,9 @@ export function App(): JSX.Element {
   const [movementsInitialFilters, setMovementsInitialFilters] =
     useState<MovementsInitialFilters | null>(null);
 
+  // SPEC-024 — Search query state
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
   const bumpConfigRevision = useCallback(() => {
     setConfigRevision((n) => n + 1);
   }, []);
@@ -73,6 +76,10 @@ export function App(): JSX.Element {
     setMovementsInitialFilters(null);
     if (next !== 'insights-detail') {
       setInsightsDetail(null);
+    }
+    // SPEC-024 — Clear search when navigating away from movements
+    if (next !== 'movements') {
+      setSearchQuery('');
     }
     setRoute(next);
   }, []);
@@ -121,10 +128,16 @@ export function App(): JSX.Element {
   };
 
   return (
-    <AppShell currentRoute={route} onNavigate={handleNavigate}>
+    <AppShell
+      currentRoute={route}
+      onNavigate={handleNavigate}
+      searchQuery={searchQuery}
+      onSearchQueryChange={setSearchQuery}
+    >
       {route === 'movements' ? (
         <MovementsScreen
           configRevision={configRevision}
+          searchQuery={searchQuery}
           {...(movementsInitialFilters ? { initialFilters: movementsInitialFilters } : {})}
         />
       ) : route === 'panel' ? (

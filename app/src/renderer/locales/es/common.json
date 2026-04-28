@@ -55,7 +55,9 @@
       "logout": "Cerrar sesión"
     },
     "search": {
-      "placeholder": "Buscar movimientos, categorías, cuentas…"
+      "placeholder": "Buscar movimientos, categorías, cuentas…",
+      "ariaLabel": "Buscar movimientos",
+      "clearAriaLabel": "Borrar búsqueda"
     },
     "sidebar": {
       "collapse": "Contraer navegación",
@@ -277,6 +279,14 @@
       "clear-filters": "Limpiar filtros",
       "widen-range": "Ampliar rango",
       "first-tx": "Registrar primer movimiento"
+    },
+    "search": {
+      "resultCount": "{{matched}} de {{total}}",
+      "empty": {
+        "title": "Ningún movimiento coincide con \"{{query}}\"",
+        "cta": "Limpiar búsqueda"
+      },
+      "splitMatchBadge": "coincide con desglose"
     },
     "presets": {
       "this-month": "Este mes",
