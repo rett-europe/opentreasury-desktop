@@ -2143,3 +2143,33 @@ Skill at `.squad/skills/donut-companion-bar/SKILL.md` documents the full pattern
 - Single-select picker is safer UX for irreversible bulk operations
 - Filtering archived items at render time (not request time) keeps modal responsive
 - Modal open state + selected IDs should live in screen component (not modal), matching established patterns
+
+---
+
+## 2026-04-28 — Close detail modal after edit-save (PR #140, post-#139)
+
+**Pedro confirmed PR #139 fixed the stale-data bug (the new label IS now showing on re-mount), then rejected the flow itself:**
+
+> "the edit modal after saving disappears for 1 sec or 2, and then the view modal shows-up... I want a different flow"
+
+**Pedro's chosen flow (via ask_user):** *"Close everything — return to the transaction list (simplest, no flash)"*
+
+**Fix:** In `MovementsScreen.tsx`'s `TransactionDetailModal` `onUpdate` handler, after the post-save `loadAll()`, call `setSelectedId(null)`. The detail modal unmounts entirely on the same render that applies the refreshed read-model. No "Cargando" flash visible (the modal was on top during loadAll, then unmounts cleanly when the list is already in 'loaded' state). User lands on the bare movements list.
+
+**Bulk flows untouched:** classify / add-label / approve operate on the multi-select set, not on `selectedId`, so they were never on the auto-reopen path. Verified before touching them.
+
+**Test contract change:** Replaced the second test in `MovementsScreen.staleModal.test.tsx` (which previously asserted the view modal shows the fresh record after save) with one that asserts the detail `<dialog>` is closed after `handleSaveEdit` and the table is rendered behind it. Kept the first test (derived-state freshness on external configRevision bump) — that contract is still required for non-save-driven loadAlls.
+
+### Learnings
+
+- **"Fix the bug" ≠ "fix the UX".** PR #133 introduced a regression, PR #139 fixed the data side, but the underlying flow was still wrong by Pedro's standards. The data-correctness invariant (modal reflects fresh data when it stays open) and the UX invariant (does the modal stay open at all?) are independent decisions; chase both.
+- **"No flash" can be achieved by inverting the order of close+refresh.** Conventional wisdom says "refresh in the background, keep UI responsive". Here the right answer was the opposite: `await loadAll()` while the edit modal is still on top hiding the loading flash, then close the modal once the list is already in 'loaded' state. User never sees the "Cargando" card because the modal occluded it during the await, and the list is already-rendered when the modal unmounts.
+- **Different `loadAll()` triggers warrant different modal lifecycles.** The derived-state machinery from PR #139 must keep the modal open on external refreshes (configRevision bumps from another panel, retry, etc.). The "close after save" rule is specifically about save-driven loadAlls. Captured this distinction as a decision-rule table in the `read-model-refresh-after-mutation` skill addendum.
+- **Verify "this also applies to X" before touching X.** Spec said to consider whether bulk-approve has the same problem. Quick check of the bulk handlers showed they don't touch `selectedId` (they use the multi-select `selected` set + their own modal state), so the auto-reopen bug never applied to them. No change needed — and the rule "do not change unrelated flows" took precedence.
+
+### Files touched
+
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.tsx` — added `setSelectedId(null)` after `loadAll()` in the detail-modal `onUpdate` handler.
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.staleModal.test.tsx` — updated header doc, retitled describe block, replaced test 2 with the close-after-save assertion.
+- `.squad/skills/read-model-refresh-after-mutation/SKILL.md` — addendum with the close-after-save policy and the trigger→lifecycle decision table.
+- `.squad/decisions/inbox/trinity-close-modals-after-save.md` — decision note for Scribe.

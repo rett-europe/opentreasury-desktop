@@ -1,30 +1,24 @@
 // @vitest-environment jsdom
 //
-// Regression test for the "stale-modal-after-edit-save" bug originally
-// fixed in PR #133 and reintroduced in production. Pedro's repro:
+// Tests for two layered contracts around the detail modal's data
+// freshness and post-save lifecycle:
 //
-//   1. Open a transaction (modal in view mode).
-//   2. Click "Editar" → edit mode.
-//   3. Save (e.g. after toggling a tag).
-//   4. The modal returns to view mode after loadAll() finishes — but
-//      it shows the *pre-save* snapshot. The newly added label only
-//      appears after closing and reopening the row.
+// 1) Derived-state freshness (PR #133 → #139). When the read-model
+//    is rebuilt while the detail modal is OPEN (e.g. an external
+//    configRevision bump from another panel), the modal MUST
+//    re-render against the freshly loaded record — never the
+//    snapshot frozen at row-click time. selectedTx / selectedRawRecord
+//    are derived from `selectedId` + `rawRecordById` so the lookup
+//    is always the source of truth.
 //
-// PR #133 attempted the fix with a sync `useEffect` that imperatively
-// pushed the freshly loaded MovementRecord into `selectedTx` /
-// `selectedRawRecord` state. Its bail-out check (`fresh ===
-// selectedRawRecord`) plus React effect ordering around the
-// loading→loaded flash meant the post-save view modal could still
-// remount holding the pre-save snapshot, especially when the modal
-// itself unmounts during the loading flash and remounts in view mode
-// with the stale `selectedTx` prop frozen at row-click time.
-//
-// The new fix derives `selectedTx` and `selectedRawRecord` directly
-// from `selectedId` + `rawRecordById` (the read-model lookup) —
-// single source of truth, no imperative sync, no race window. This
-// test pins that contract: when `loadAll()` rebuilds the read-model
-// with an updated record, the open detail modal MUST render the
-// freshest version, without anyone having to close-and-reopen it.
+// 2) Close-after-save UX (this PR). Pedro's directive (verbatim):
+//      "Close everything — return to the transaction list
+//       (simplest, no flash)"
+//    After a successful edit-save the detail modal MUST close
+//    entirely — selectedId cleared, no <dialog> rendered — so the
+//    user lands back on the bare movements list. Prior behaviour
+//    (modal remounts in view mode after loadAll()) caused a 1-2s
+//    "Cargando" flash and an unwanted view-modal re-appearance.
 //
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
@@ -95,7 +89,7 @@ function makeRecord(tagIds: readonly string[]): MovementRecord {
   };
 }
 
-describe('MovementsScreen — stale modal after edit-save (PR #133 regression)', () => {
+describe('MovementsScreen — detail modal freshness + close-after-save UX', () => {
   // jsdom doesn't implement <dialog>; stub showModal/close.
   const proto = HTMLDialogElement.prototype as unknown as {
     showModal: () => void;
@@ -179,13 +173,14 @@ describe('MovementsScreen — stale modal after edit-save (PR #133 regression)',
     // shows the "none" placeholder, not "calendario".
     expect(detailDialog.textContent ?? '').not.toContain(TAG_NAME);
 
-    // Now simulate the post-edit-save read-model refresh: queue a
-    // listMovements response that includes the "calendario" label,
-    // then bump `configRevision` so MovementsScreen re-runs loadAll.
-    // The detail modal stays open the entire time. This mirrors the
-    // sequence that follows handleSaveEdit() in production: the save
-    // command resolves → loadAll() refetches → rawRecordById is
-    // rebuilt with the updated record.
+    // Now simulate an external read-model refresh while the detail
+    // modal is open — e.g. a configRevision bump from another panel,
+    // or any non-save-driven loadAll. The modal stays open the
+    // entire time; queue a listMovements response that includes the
+    // "calendario" label, then bump configRevision so MovementsScreen
+    // re-runs loadAll. This pins the derived-state contract: the
+    // open modal MUST re-render against `rawRecordById.get(selectedId)`
+    // and reflect the fresh record without anyone closing/reopening.
     vi.mocked(listMovements).mockResolvedValueOnce([makeRecord([TAG_ID])]);
 
     rerender(
@@ -213,17 +208,12 @@ describe('MovementsScreen — stale modal after edit-save (PR #133 regression)',
     expect(listMovements).toHaveBeenCalledTimes(2);
   }, 10000);
 
-  it('view modal reflects the freshly loaded record after handleSaveEdit (Pedro flow, with realistic IPC latency)', async () => {
-    // Use REAL timers for this test so we can use setTimeout-backed
-    // delays to simulate IPC latency. fakeTimers (Date-only) breaks
-    // when waitFor relies on real-time setInterval polling.
+  it('closes the detail modal entirely after handleSaveEdit (Pedro flow: no auto-reopen)', async () => {
+    // Use REAL timers so the IPC-latency delays land on real time.
     vi.useRealTimers();
 
     // Simulate IPC latency — 30ms — so the loadAll() loading flash
-    // actually renders, exactly like in production. This is the
-    // pattern that exposed PR #133's effect-ordering bug: the modal
-    // unmounts during loading and remounts in view mode with the
-    // pre-save selectedTx snapshot.
+    // actually renders, exactly like in production.
     const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
     let listMovementsCallCount = 0;
@@ -271,8 +261,6 @@ describe('MovementsScreen — stale modal after edit-save (PR #133 regression)',
       return dlg;
     });
 
-    expect(detailDialog.textContent ?? '').not.toContain(TAG_NAME);
-
     const editBtn = within(detailDialog).getByRole('button', { name: /^editar$|^edit$/i });
     fireEvent.click(editBtn);
 
@@ -282,19 +270,35 @@ describe('MovementsScreen — stale modal after edit-save (PR #133 regression)',
 
     fireEvent.click(saveBtn);
 
-    // Wait for the full save→loadAll cycle to complete with realistic
-    // latency: updateTransaction (20ms) + loadAll (30ms) + render
-    // commits. Then the detail modal MUST display the newly applied
-    // "calendario" label.
+    // After the save→loadAll cycle completes the detail modal MUST
+    // be gone — Pedro's directive: close everything, return to the
+    // bare list. No view modal, no edit modal, no "Cargando" flash
+    // followed by a re-mount.
     await waitFor(
       () => {
         const dlg = document.querySelector(
           'dialog[aria-labelledby="ot-transaction-detail-title"]',
         ) as HTMLElement | null;
-        expect(dlg).not.toBeNull();
-        expect(dlg!.textContent ?? '').toContain(TAG_NAME);
+        // Either fully unmounted, or mounted-but-not-open. Both are
+        // acceptable as "closed"; the user-visible effect is the same.
+        if (dlg && dlg.hasAttribute('open')) {
+          throw new Error('detail modal still open after save');
+        }
       },
       { timeout: 5000 },
     );
+
+    // The transactions table is still rendered — user lands on the
+    // bare list, not on a loading screen. Wrap in waitFor since the
+    // post-save loadAll may still be flushing its final commit when
+    // the dialog-closed assertion above resolves.
+    await waitFor(() => {
+      expect(screen.queryByRole('table')).not.toBeNull();
+    });
+
+    // updateTransaction was called exactly once (the save), and the
+    // post-save loadAll fired the second listMovements (call #2).
+    expect(updateTransaction).toHaveBeenCalledTimes(1);
+    expect(listMovementsCallCount).toBeGreaterThanOrEqual(2);
   }, 15000);
 });

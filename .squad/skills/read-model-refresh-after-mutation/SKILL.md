@@ -130,3 +130,45 @@ must NOT be replaced by later read-model updates.
 - **Re-fix:** PR following this skill — derived-state migration in
   `MovementsScreen.tsx`. Removes the imperative sync effect entirely.
 - **Related skills:** `edit-modal-preserve-ids`, `modal-view-edit-parity`.
+
+## Addendum (PR #140) — Close-After-Save UX
+
+The derived-state pattern above makes "modal stays open with fresh data
+after save" *technically correct*, but Pedro rejected it as a UX flow:
+the edit modal disappears for 1-2s during `loadAll()` (loading flash),
+then the view modal re-mounts. Felt janky.
+
+**Team policy** for the post-edit-save flow on the movements screen:
+**clear the selection ID after a successful mutation** so the modal
+unmounts entirely and the user lands on the bare list:
+
+```tsx
+onUpdate={async (input) => {
+  const result = await updateTransaction(input);
+  if (!result.ok) throw new Error(result.error.message);
+  await loadAll();
+  setSelectedId(null); // ← close detail modal; no auto-reopen
+}}
+```
+
+The derived-state machinery from the main skill is **still required** —
+external `configRevision` bumps (e.g. another panel triggers a refresh
+while the modal is open) must still re-render against the freshest
+record. The "close on successful save" rule is specifically about the
+**save-driven** loadAll, not all loadAlls.
+
+### Decision rule
+
+| Trigger of `loadAll()`                  | Modal lifecycle                        |
+| --------------------------------------- | -------------------------------------- |
+| User clicked Save in the detail modal   | Close modal (`setSelectedId(null)`)    |
+| User clicked Delete in the detail modal | Close modal (already implemented)      |
+| External `configRevision` bump          | Keep modal open; derive fresh record   |
+| User-initiated refresh (manual/retry)   | Keep modal open; derive fresh record   |
+
+### Reference
+
+- **PR #140** — `fix(movements): close all modals after edit-save (no
+  auto-reopen)`. Pedro's directive: *"Close everything — return to the
+  transaction list (simplest, no flash)"*.
+
