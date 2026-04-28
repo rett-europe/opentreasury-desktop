@@ -2083,3 +2083,21 @@ Skill at `.squad/skills/donut-companion-bar/SKILL.md` documents the full pattern
 **Cross-agent notes:**
 - Morpheus: consider adding `txCount` to `subcategoryRowSchema` next contract-touch
 - Mouse: colour-pill ↔ donut-slice parity treatment — this is the first explicit link in codebase; feedback welcome on approach
+
+
+---
+
+## 2026-04-28 — Search perf fix (post-PR #132)
+
+**Symptom (Pedro):** typing in the global search felt like it waited for every character — 'c' 'ca' 'cal' 'calen' each lagged individually. ~10k transactions, NFR target sub-100ms.
+
+**Root cause:** the 200 ms debounce I shipped in PR #132 wrapped `triggerSearch` (which only navigates to /movements) — *not* the propagation of `searchQuery` to the consumer. The input's `onChange` called `onSearchQueryChange` (App's `setSearchQuery`) on every keystroke, which re-rendered `MovementsScreen`, re-ran the filter pipeline, and re-committed the filtered result tree. `searchMovements` itself is fast (~2-4 ms); the stall is React committing per keystroke. The debounce was on the *side effect*, not on the *expensive consumer*.
+
+**Fix:** AppShell now keeps a local `searchInputValue` for the `<input value=>` (instant typing, no parent rerender), and only writes to the parent on the trailing edge of the 200 ms timer. Enter / Esc / clear-button cancel the pending timer and dispatch (or clear) immediately. Prop → local sync is guarded by `lastDispatchedSearchRef` so the parent's own echoes don't clobber in-flight typing, while genuine external resets (App clearing the query when navigating away from movements) still flow into the input.
+
+### Learnings
+
+- **Debounce the applied state, not the side effect.** When an input drives a heavy downstream consumer, the *value the consumer reads* is the thing to debounce. Side effects (navigate, log, fetch) can debounce alongside it but are not the primary target. This is especially nasty in lifted-state setups where the input is in component A and the consumer is in sibling B — the parent is the bottleneck and that's exactly where the debounce belongs.
+- **'works in dev tests' is a red herring.** PR #132 had 36 search.test.ts unit tests + AppShell tests, all green. None caught this because they exercise `searchMovements` directly or assert the input ARIA/value, never the *render frequency* under realistic dataset sizes. Lesson: for perceived-perf bugs, the only reliable signal is profiling at the user's actual data volume.
+- **Local-input + debounced-parent + `lastDispatchedRef` is the right shape.** Simpler 'sync prop into local state on every prop change' loops or clobbers fast typing. Tracking the last value we dispatched, and skipping the sync when the prop matches it, cleanly separates 'this is our own echo' from 'parent reset us externally'.
+- **Symptom-to-cause mapping for this class of bug:** "typing N characters lags N times individually" → almost always per-keystroke parent rerender, not a slow filter. Don't chase virtualization or memo keys first; check whether the parent state updates per keystroke.
