@@ -103,6 +103,14 @@
   fill: var(--color-expense-default);
 }
 
+/* InsightsDetailScreen monthly evolution chart uses these short names */
+.ot-bar--income {
+  fill: var(--color-income-default);
+}
+.ot-bar--expense {
+  fill: var(--color-expense-default);
+}
+
 .ot-grouped-bar-chart__swatch--income-cy {
   background: var(--color-income-default);
 }
@@ -121,6 +129,14 @@
   opacity: 0.6;
 }
 .ot-grouped-bar-chart__swatch--expense-solo {
+  background: var(--color-expense-default);
+}
+
+/* InsightsDetailScreen monthly evolution legend uses these short names */
+.ot-grouped-bar-chart__swatch.ot-bar--income {
+  background: var(--color-income-default);
+}
+.ot-grouped-bar-chart__swatch.ot-bar--expense {
   background: var(--color-expense-default);
 }
 

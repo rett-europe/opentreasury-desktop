@@ -547,3 +547,22 @@ This ensures each agent gets `git worktree add` + isolated checkout, zero collis
 **Process:** First time writing a no-code concept doc post-PR. Format that worked: user-need-first, then failure-mode list (specific, not generic), then 3 concepts each with sketch+pros+cons+cost+fit, then a clear single recommendation, then open questions. Target length 1500–2500 words; landed ~1850.
 
 **Open with Pedro:** 7 questions — primary: which task dominates (top-N scan vs. drill)? Plus: keep top-10 cutoff? % of side vs. % of parent? Wait for Trinity snapshots before greenlight?
+
+---
+
+## 2025 — PR #130 rebase on main (post search-debounce/Enter-submit landing)
+
+**Task:** Rebase stale eat/search-i18n (search i18n keys + trial 1 what's-new) onto current main.
+
+**Outcome:** Clean rebase, single conflict, all gates green, force-pushed with lease, CI passed, PR comment posted. Not merged (Pedro merges after #142).
+
+**Conflict resolved:** pp/src/renderer/locales/es/common.json — shell.search.clearAriaLabel:
+  - main: ""Borrar búsqueda""
+  - PR:   ""Limpiar búsqueda""
+  - Chose ""Limpiar búsqueda"" for ES locale consistency. Audit of the file showed ""Limpiar"" is the canonical verb across the app (ctions.clear, 	ransactions.actions.clear-filters, 	ransactions.search.empty.cta, date.clear). ""Borrar"" is an outlier — flagged mentally; if it appears elsewhere later, normalize to ""Limpiar"".
+
+**i18n alignment check:** AppShell.tsx now uses SEARCH_DEBOUNCE_MS = 500 + Enter-key submit, but the user-visible strings still map to the same keys this PR already provides (shell.search.placeholder, shell.search.ariaLabel, shell.search.clearAriaLabel). No new strings required for the new debounce/Enter UX — the behavior changed, the copy didn't. The 	ransactions.search.{resultCount,empty.title,empty.cta} keys remain pre-wired for the next consumer (likely #142 or follow-up).
+
+**Lesson — locale audit before resolving translation conflicts:** When two valid translations conflict, run Select-String 'verb-stem' across the locale file (and ideally both EN/ES) before choosing. Consistency beats freshness.
+
+**Gates:** typecheck ✓ · lint ✓ · format:check ✓ · vitest 829 passed / 9 skipped · CI lint·typecheck·test ✓.
