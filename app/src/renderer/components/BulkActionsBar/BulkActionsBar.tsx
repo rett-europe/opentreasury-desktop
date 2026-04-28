@@ -11,6 +11,9 @@ export interface BulkActionsBarProps {
    *  backwards-compatibility — callers that don't supply it simply hide
    *  the Approve button. */
   readonly onApprove?: () => void;
+  /** Opens the bulk add-label modal. Optional — callers that don't supply
+   *  it hide the "Etiquetar" button. */
+  readonly onAddLabel?: () => void;
   /** Clears the current selection (no modal). */
   readonly onCancel: () => void;
 }
@@ -33,6 +36,7 @@ export function BulkActionsBar({
   selectedCount,
   onClassify,
   onApprove,
+  onAddLabel,
   onCancel,
 }: BulkActionsBarProps): JSX.Element | null {
   const { t } = useTranslation('common');
@@ -64,6 +68,11 @@ export function BulkActionsBar({
         {onApprove && (
           <Button variant="secondary" size="sm" onClick={onApprove}>
             {t('movements.bulk.approve.cta')}
+          </Button>
+        )}
+        {onAddLabel && (
+          <Button variant="secondary" size="sm" onClick={onAddLabel}>
+            {t('movements.bulk.addLabel.cta')}
           </Button>
         )}
         <Button variant="primary" size="sm" onClick={onClassify}>

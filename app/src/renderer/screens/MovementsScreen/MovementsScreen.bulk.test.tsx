@@ -48,6 +48,7 @@ vi.mock('../../services/transactionApi.js', () => ({
   updateTransaction: vi.fn(),
   deleteTransaction: vi.fn(),
   bulkUpdateTransactions: vi.fn(),
+  bulkAddLabelToTransactions: vi.fn(),
 }));
 vi.mock('../../services/panelApi.js', () => ({
   getAccounts: vi.fn(),

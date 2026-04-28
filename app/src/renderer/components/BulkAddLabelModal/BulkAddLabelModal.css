@@ -1,0 +1,83 @@
+/* BulkAddLabelModal — bulk add-label.
+ * Mirrors BulkClassifyModal: reuses the detail-modal shell and narrows it to
+ * a compact form (single label picker + footer). The shell is imported by
+ * the .tsx so these overrides win at equal specificity.
+ */
+
+.ot-bulk-add-label-modal {
+  width: 480px;
+}
+
+.ot-bulk-add-label-modal .ot-transaction-detail-modal__edit-body {
+  min-height: 160px;
+}
+
+.ot-bulk-add-label-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ot-bulk-add-label-modal__label {
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.ot-bulk-add-label-modal__empty {
+  font-size: var(--font-size-13);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.ot-bulk-add-label-modal__failures {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-danger, #e06b6b);
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--color-danger, #e06b6b) 8%, var(--color-surface-primary));
+}
+
+.ot-bulk-add-label-modal__failures-heading {
+  margin: 0 0 var(--space-2) 0;
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-semibold, 600);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+}
+
+.ot-bulk-add-label-modal__failures-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.ot-bulk-add-label-modal__failure-row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  font-size: var(--font-size-13);
+}
+
+.ot-bulk-add-label-modal__failure-code {
+  flex-shrink: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-12);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-primary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid var(--color-border-default);
+}
+
+.ot-bulk-add-label-modal__failure-message {
+  color: var(--color-text-primary);
+  word-break: break-word;
+}

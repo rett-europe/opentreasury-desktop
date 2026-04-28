@@ -356,6 +356,17 @@
         "partialToast": "Approved {{ok}} of {{total}}; {{failed}} failed.",
         "errorToast": "Could not approve the selection. Please try again."
       },
+      "addLabel": {
+        "cta": "Label…",
+        "title_one": "Label {{count}} transaction",
+        "title_other": "Label {{count}} transactions",
+        "fieldLabel": "Label",
+        "placeholder": "Pick a label…",
+        "noLabels": "No labels available. Create one in Settings.",
+        "successToast_one": "Label applied to {{count}} transaction.",
+        "successToast_other": "Label applied to {{count}} transactions.",
+        "errorToast": "Could not apply the label. Please try again."
+      },
       "success_one": "Updated {{count}} transaction.",
       "success_other": "Updated {{count}} transactions.",
       "failures": {

@@ -356,6 +356,17 @@
         "partialToast": "Se aprobaron {{ok}} de {{total}}; {{failed}} fallaron.",
         "errorToast": "No se pudo aprobar la selección. Inténtalo de nuevo."
       },
+      "addLabel": {
+        "cta": "Etiquetar…",
+        "title_one": "Etiquetar {{count}} movimiento",
+        "title_other": "Etiquetar {{count}} movimientos",
+        "fieldLabel": "Etiqueta",
+        "placeholder": "Selecciona una etiqueta…",
+        "noLabels": "No hay etiquetas disponibles. Crea una en Configuración.",
+        "successToast_one": "Etiqueta aplicada a {{count}} transacción.",
+        "successToast_other": "Etiqueta aplicada a {{count}} transacciones.",
+        "errorToast": "No se pudo aplicar la etiqueta. Inténtalo de nuevo."
+      },
       "success_one": "Se actualizó {{count}} movimiento.",
       "success_other": "Se actualizaron {{count}} movimientos.",
       "failures": {
