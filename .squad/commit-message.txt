@@ -1,0 +1,27 @@
+chore: scribe session log — Trinity PR #127 (SubcategoryDistributionPanel), decision merges
+
+Orchestration Log: Trinity's PR #127 shipped SubcategoryDistributionPanel on Insights
+drilldown with donut legend interaction, panel-local Gastos/Ingresos toggle, top-N=10
+ranked bars, colour parity, and i18n. 8 new tests, +779/-7 lines. sha c987202.
+
+Session Log: Pedro requested subcategory distribution; Trinity delivered Option 3 design
+with auto-switching on legend click. Panel toggle required (dual-donut layout has no
+inheritance). txCount tooltip deferred (Morpheus schema change needed).
+
+Decisions Merged:
+- Recent Transactions Sort Order (Morpheus PR #105): business date first, audit timestamp tiebreaker
+- PR #127 SubcategoryDistributionPanel: panel-local toggle rationale, txCount deferred, reusable pattern extracted
+- Income/Expense/Net Canonical Pattern (Mouse PR #104): locked .ot-kpi-strip recipe, 20px icons, canonical tokens
+- Chart Colors Pattern (Mouse): GroupedBarChart reuse with semantic colour tokens for income/expense
+
+Inbox Files Deleted:
+- trinity-chart-reuse.md
+- trinity-insights-subcategory.md
+- morpheus-recent-transactions-sort-pattern.md
+- niobe-insights-amendment.md
+
+Agent Histories Updated:
+- Trinity: added PR #127 session note (panel-local toggle decision, txCount deferred, reusable skill pattern)
+- Mouse: added PR #104–#105 shipped note (canonical patterns locked, Reuse-First team rule established)
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

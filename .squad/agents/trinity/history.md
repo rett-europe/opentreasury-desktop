@@ -2024,3 +2024,62 @@ Compare-mode (header + `--compare` row + `--compare` subrow + 1200px breakpoint)
 
 **Test matrix:** `npm run typecheck` ✅ `npm run lint` ✅ `npx vitest run` ✅ (755/755). `npm run format:check` shows pre-existing warnings in unrelated files only.
 
+
+
+## Learnings — PR #127 Insights subcategory distribution panel (2026-05-04)
+
+**Task:** Donut companion — ranked subcategory bar list on InsightsDetailScreen, respecting Gastos/Ingresos view + selection coupling with the donut.
+
+**Key gotcha — spec mismatch with actual screen:** The task brief assumed a single donut + view toggle, but the drilldown actually shows TWO donuts side-by-side (income + expense) with no Gastos/Ingresos selector. Resolution: added a 2-segment `SegmentedToggle` at panel scope (defaulting to `Gastos`), and made the donut legend rows interactive — clicking a legend row sets `selectedCategoryId` AND switches the panel view to match which donut was clicked. This preserves the "selection couples to donut" intent without modifying `DonutChart` itself (cheaper and lower risk than wiring SVG slice clicks).
+
+**Subcategory aggregation pattern:** No new `core/query` aggregator was needed — the IPC payload `insights:label-by-subcategory` already returns server-aggregated `SubcategoryRow[]` with `{ categoryId, categoryName, subcategoryId, subcategoryName, incomeCents, expenseCents }`. The renderer just filters by view (`incomeCents > 0` vs `expenseCents > 0`) + optional `selectedCategoryId`, sorts by absolute amount desc, and slices to top-N. Reusing the existing IPC pathway kept the bundle lean (no new dependency, no renderer-side reducer duplication). Note: `SubcategoryRow` does NOT carry per-row `txCount` — Pedro's "tooltip with absolute count of transactions" point couldn't be honoured without a backend schema change; documented as a deviation in the PR body.
+
+**Donut → bar list colour parity:** Donut slices are coloured by `var(--color-donut-${idx % 8})` based on slice ORDER, not category id. To make bar list pills match the donut visually, build a per-view `Map<categoryId, cssVar>` from the slice array and pass it as `categoryColorMap` prop. Each view (income vs expense) has its own ordering, so two maps are needed.
+
+**View inheritance pattern:** When a parent screen has multiple "view-equivalent" datasets (income donut + expense donut), an inherited view selector can be (a) reified at the screen level as a real toggle, or (b) implicit per-panel. Here option (a) was added to the new panel (not the screen) because retrofitting a screen-wide toggle would have meant collapsing the dual-donut layout. SegmentedToggle defaults to `Gastos` (most-common treasury use case). View-change resets the active selection to avoid stale filters.
+
+**Saldo grid pattern reused for amount column:** `grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) minmax(min-content, auto)` keeps the name ellipsis-truncatable, the bar flexible, and the amount `minmax(min-content, auto)` so locale-formatted amounts (Spanish thousands separator) are never clipped.
+
+**Test harness gotcha:** Repo uses `@testing-library/react` but does NOT install `@testing-library/jest-dom`, so matchers like `toHaveTextContent` / `toBeInTheDocument` are unavailable. Use plain `.textContent`, attribute checks, and `screen.getBy*` returning truthy nodes. 8 new tests added covering view filter, top-N + show-all toggle, selection chip clear, empty state, colour mapping, progressbar a11y, semantic colour classes.
+
+**Test matrix:** `npm run typecheck` ✅, `npm run lint` ✅, `npm run format:check` ✅ (touched files only — pre-existing warnings on 40+ unrelated files), `npm run test -- --run` 8/8 new tests pass; full-suite showed 2 unrelated flaky timeouts (`ImportWizard`, `MovementsScreen.bulk`) that both pass when re-run in isolation.
+
+## 2026-04-28 — PR #127: SubcategoryDistributionPanel on Insights Drilldown (merged)
+
+Delivered "Distribución por subcategoría" panel on InsightsDetailScreen per Option 3 design:
+
+**Core feature:**
+1. **Ranked bar list of subcategories** — top N=10 by amount with show-all toggle
+2. **Donut legend interaction** — clicking a category in the donut legend updates the bar list to show its subcategories
+3. **Panel-local Gastos/Ingresos toggle** — the screen has two donuts side-by-side (income + expense), so no parent toggle to inherit; toggle is scoped to the panel and couples to whichever donut legend was clicked
+4. **Colour parity** — donut-slice colour (deterministic hash) → bar-list pill colour
+5. **Locale formatting** — right-aligned amounts (EUR/USD/etc.)
+
+**Design decision — Panel-local toggle rationale:**
+InsightsDetailScreen renders two donuts simultaneously (not tabs). A screen-level toggle would not know which donut to filter. Solution: toggle lives in the panel, couples to whichever donut legend was clicked. Selection resets when the toggle changes. *Future pattern:* If a second view-bound panel lands (e.g., "Top counterparties"), lift toggle to screen and reuse it — avoid toggle proliferation.
+
+**Legend-row interaction (not SVG slices):**
+Selection wired through clickable legend rows (`<button aria-pressed>`), not SVG slice clicks. Cheaper, lower risk, fully keyboard-accessible. SVG slice clicks can be added to DonutChart later as an additive feature.
+
+**Known limit — txCount tooltip deferred:**
+Pedro requested "tooltip with transaction count per subcategory". `SubcategoryRow` IPC schema does not carry per-row `txCount` (only summary total). This requires Morpheus schema/projection change. For now, tooltip shows name + amount + percentage. Recommendation: next time the `subcategoryRowSchema` contract is touched, add `txCount` field to enable the tooltip without a new IPC round-trip.
+
+**Reusable pattern extracted:**
+Skill at `.squad/skills/donut-companion-bar/SKILL.md` documents the full pattern for future screens (Saldo per-account → counterparty breakdown, Movements per-tag → category breakdown). Covers: donut + companion ranked bar list, colour parity, view inheritance, selection coupling, Saldo amount-column grid rules, and a11y checklist.
+
+**Files touched:**
+- `app/src/renderer/screens/InsightsScreen/InsightsDetailScreen.tsx` — integrated panel
+- `app/src/renderer/components/SubcategoryDistributionPanel/` — new panel (component + tests)
+- `app/src/renderer/components/SubcategoryRow/` — ranked list row with colour pill + amount
+- `app/src/renderer/styles/insights.css` — panel layout (grid, spacing, colour parity)
+- `locales/{en,es}/common.json` — new i18n keys (`.insights.subcategory.*`)
+
+**Metrics:**
+- 8 new tests
+- +779 / −7 lines
+- Reviewed by Neo (no concurrent Morpheus changes)
+- PR #127 merged to main at sha c987202
+
+**Cross-agent notes:**
+- Morpheus: consider adding `txCount` to `subcategoryRowSchema` next contract-touch
+- Mouse: colour-pill ↔ donut-slice parity treatment — this is the first explicit link in codebase; feedback welcome on approach

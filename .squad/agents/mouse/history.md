@@ -974,3 +974,13 @@ This ensures each agent gets `git worktree add` + isolated checkout, zero collis
 - Dropped the descriptive body paragraph — title is the question. Skip-notice became a single muted line in `--color-text-secondary` (`--font-size-13`) tucked under the title.
 - Removed unused i18n keys `confirmBody_one/_other` from both `en` and `es` `common.json`; tightened `skipNotice` copy (`1 ya aprobado — se omitirá` / `1 already approved — will be skipped`). Updated `MovementsScreen.bulk.test.tsx` matcher to follow the new copy.
 - Lesson: when a confirm dialog only asks yes/no, avoid reusing form-modal shells. Wrote skill `compact-confirm-modal` so future yes/no confirms don't repeat this overshoot.
+
+## 2026-04-28 — Session Note: Canonical Patterns Landed (PR #104–#105 Shipped)
+
+**PR #104 — Income/Expense/Net Visual Consistency:**
+Locked the canonical `.ot-kpi-strip` pattern for all income/expense/net KPI presentations. Movements, Insights, and Saldo now all use the same component, icons (20px TrendingUp/Down/Calculator), and colour tokens (`--color-income-default`, `--color-expense-default`, `--color-brand-primary`). Root cause of drift: component CSS imported after `globals.css` shadows shared recipes silently. Fixed by moving all KPI styles to `globals.css`, not component files. This is now the canonical baseline — future features reuse `.ot-kpi-strip` instead of one-off icon/colour choices.
+
+**PR #105 — Dashboard Chart + Chart Colors Pattern:**
+Added `getMonthlyIncomeExpense` IPC query and `GroupedBarChart` reuse on Panel/Dashboard. Extended the canonical income/expense pattern to charts: when a `GroupedBarChart` shows income vs. expense semantically, pass `barClassNames` and `legend` overrides to use `.ot-grouped-bar-chart__bar--income-solo` / `--expense-solo` (filled with canonical tokens) instead of generic brand colours. Same component now appears on Saldo (year comparison) and Panel (monthly trend) with visual consistency.
+
+**Cross-agent note:** This establishes the "Reuse-First" team rule — when a component (KPIStrip, GroupedBarChart) solves a repeating pattern, reuse it instead of building one-offs. Reduces visual drift and maintenance burden. Pattern documented in Trinity's `.squad/skills/donut-companion-bar/SKILL.md` (reuse across Saldo, Movements when those features land) and reinforced by the canonical patterns locked in PR #104.
