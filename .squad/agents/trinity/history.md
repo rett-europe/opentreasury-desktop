@@ -2604,3 +2604,42 @@ So the variable IS the single contract — but the **definition** was in compone
 - `app/src/renderer/styles/tokens.css` — added donut palette to light, dark, and system blocks.
 - `app/src/renderer/components/DonutChart/DonutChart.css` — removed local `:root` definitions, replaced with explanatory comment.
 - `.squad/skills/design-token-single-source/SKILL.md` — new skill capturing the rule.
+
+## 2026-01-28 — Diagnosed and Fixed Monthly Evolution Chart Rendering (PR #142)
+
+**Context:** Pedro reported two issues on branch `squad/trinity-subcategory-ranked-tables`:
+1. Donut charts showing old palette instead of P1
+2. "Weird black charts" on Insights Detail screen
+
+**Investigation approach:**
+- Used Playwright `insights-snapshots.spec.ts` harness to capture actual rendered pixels
+- Set `OT_SNAPSHOTS=1` and `OT_SNAPSHOTS_OUT=docs/ux/insights-diag-20260428/`
+- Captured light/dark variants across 3 datasets (normal, skewed, sparse) × 2 viewports
+- Inspected DOM structure to determine actual class names being applied
+
+**Findings:**
+1. **Donut charts:** FALSE ALARM — P1 palette rendering correctly. Pedro's local build was stale.
+2. **Black charts:** CONFIRMED — Monthly evolution `GroupedBarChart` bars were solid black.
+
+**Root cause:**
+`InsightsDetailScreen.tsx` line 348 passes `barClassNames: ['ot-bar--income', 'ot-bar--expense']` to `GroupedBarChart`, but those CSS classes were never defined in `GroupedBarChart.css`. The component had CSS for full BEM names (`ot-grouped-bar-chart__bar--income-solo`, etc.) but not the abbreviated forms. SVG `<rect>` elements default to black fill when no matching CSS rule exists.
+
+**Fix:**
+Added missing CSS rules to `GroupedBarChart.css`:
+```css
+.ot-bar--income { fill: var(--color-income-default); }
+.ot-bar--expense { fill: var(--color-expense-default); }
+.ot-grouped-bar-chart__swatch.ot-bar--income { background: var(--color-income-default); }
+.ot-grouped-bar-chart__swatch.ot-bar--expense { background: var(--color-expense-default); }
+```
+
+**Key learning:**
+Even with `!important` and hardcoded hex colors, the bars stayed black during testing because the Electron app launched by Playwright was using a cached build from BEFORE the CSS changes. The CSS modifications only took effect after the changes were saved AND a new Electron instance was spawned (which triggers Vite's hot-reload/rebuild). This highlights the importance of clearing `node_modules/.vite` and `dist` when debugging rendering issues.
+
+**Deliverables:**
+- Commit 244b6f1: `fix: add missing CSS for monthly evolution chart bars`
+- 20 diagnostic screenshots in `docs/ux/insights-diag-20260428/`
+- PR comment with screenshots and restart instructions
+- All gates green (typecheck/lint/format)
+
+**Outcome:** Issue resolved. Pedro can verify after clearing build cache and restarting.
