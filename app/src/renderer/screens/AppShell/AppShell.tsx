@@ -208,6 +208,20 @@ export function AppShell({
   );
 
   // SPEC-024 — Search handlers
+  const triggerSearch = useCallback(
+    (query: string) => {
+      if (!query.trim()) return;
+
+      // FR14 — Navigate to movements with ?q param
+      // The App component will handle URL state management
+      if (currentRoute !== 'movements') {
+        onNavigate('movements');
+      }
+      // Movements screen will read query from searchQuery prop and apply filter
+    },
+    [currentRoute, onNavigate],
+  );
+
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
@@ -227,20 +241,6 @@ export function AppShell({
       }
     },
     [onSearchQueryChange, triggerSearch],
-  );
-
-  const triggerSearch = useCallback(
-    (query: string) => {
-      if (!query.trim()) return;
-
-      // FR14 — Navigate to movements with ?q param
-      // The App component will handle URL state management
-      if (currentRoute !== 'movements') {
-        onNavigate('movements');
-      }
-      // Movements screen will read query from searchQuery prop and apply filter
-    },
-    [currentRoute, onNavigate],
   );
 
   const handleSearchKeyDown = useCallback(
