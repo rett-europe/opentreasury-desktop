@@ -2101,3 +2101,45 @@ Skill at `.squad/skills/donut-companion-bar/SKILL.md` documents the full pattern
 - **'works in dev tests' is a red herring.** PR #132 had 36 search.test.ts unit tests + AppShell tests, all green. None caught this because they exercise `searchMovements` directly or assert the input ARIA/value, never the *render frequency* under realistic dataset sizes. Lesson: for perceived-perf bugs, the only reliable signal is profiling at the user's actual data volume.
 - **Local-input + debounced-parent + `lastDispatchedRef` is the right shape.** Simpler 'sync prop into local state on every prop change' loops or clobbers fast typing. Tracking the last value we dispatched, and skipping the sync when the prop matches it, cleanly separates 'this is our own echo' from 'parent reset us externally'.
 - **Symptom-to-cause mapping for this class of bug:** "typing N characters lags N times individually" → almost always per-keystroke parent rerender, not a slow filter. Don't chase virtualization or memo keys first; check whether the parent state updates per keystroke.
+---
+
+## 2026-04-28 — Bulk Add Label Modal & Integration (PR #137)
+
+**Status:** Merged. Frontend shipping with Morpheus PR #136.
+
+**Component Pattern:**
+```tsx
+<BulkAddLabelModal
+  isOpen={showBulkAddLabelModal}
+  selectedTxIds={selectedTransactionIds}
+  onClose={() => setShowBulkAddLabelModal(false)}
+  onConfirm={(labelId) => transactionApi.bulkAddLabelToTransactions(selectedTxIds, labelId)}
+/>
+```
+
+**UX Pattern (mirrors BulkClassifyModal):**
+- Single-select label picker (no multi-select in v1)
+- Archived labels filtered: `labels.filter(l => !l.archivedAt)`
+- Validate-all-then-apply: confirm button disabled until exactly one label selected
+- Success toast + read-model-refresh: after API response, refetch transactions
+
+**UI Integration:**
+- Button text: "Etiquetar…" (ES) / "Add Label…" (EN)
+- Placement: BulkActionsBar between "Aprobar" and "Clasificar" buttons
+- Gap fix: BulkActionsBar.css `gap: var(--space-7)` (was `--space-5` per Pedro feedback)
+
+**Files:**
+- Component: `app/src/renderer/components/BulkAddLabelModal/`
+- Integration: `app/src/renderer/components/BulkActionsBar/BulkActionsBar.tsx` + `.css`
+- Screen wiring: `MovementsScreen.tsx` (modal state + handler)
+- API call: `transactionApi.bulkAddLabelToTransactions` in `services/transactionApi.ts`
+
+**Related patterns:**
+- Read-model-refresh-after-mutation: apply same pattern as bulk-classify + bulk-approve
+- i18n key layout: `movements.bulk.addLabel.*` in both en/es common.json
+- No new TypeScript types needed: reuse `IpcResponse<TransactionUpdatedEvent[]>`
+
+**Lessons for next bulk modal:**
+- Single-select picker is safer UX for irreversible bulk operations
+- Filtering archived items at render time (not request time) keeps modal responsive
+- Modal open state + selected IDs should live in screen component (not modal), matching established patterns
