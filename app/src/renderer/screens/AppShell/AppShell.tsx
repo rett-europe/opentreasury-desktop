@@ -127,8 +127,21 @@ export function AppShell({
   const { theme, setTheme } = useTheme();
 
   // SPEC-024 — Search state
+  //
+  // PERF: the topbar input keeps a *local* immediate value (`searchInputValue`)
+  // and only propagates to the parent (`onSearchQueryChange`) on the trailing
+  // edge of a 200 ms debounce. Wiring the input straight to the parent setter
+  // re-renders MovementsScreen on every keystroke and re-runs the 10k-row
+  // filter pipeline ("c" → "ca" → "cal" …) which Pedro experienced as
+  // visible per-keystroke lag. The prop `searchQuery` is the *applied* query
+  // (debounced); the local state is the *typed* query (instantaneous).
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchDebounceTimerRef = useRef<number | null>(null);
+  const [searchInputValue, setSearchInputValue] = useState<string>(searchQuery);
+  // Tracks the most recent value we've dispatched to the parent so the prop
+  // → local sync effect can distinguish our own echoes (skip) from genuine
+  // external updates (e.g. App clearing the query on route change → adopt).
+  const lastDispatchedSearchRef = useRef<string>(searchQuery);
 
   const setLang = useCallback(
     (next: 'es' | 'en') => {
@@ -208,72 +221,78 @@ export function AppShell({
   );
 
   // SPEC-024 — Search handlers
-  const triggerSearch = useCallback(
+  //
+  // The debounce now wraps *both* the parent state propagation and the
+  // navigation. The input's `value` is local, so typing never re-renders
+  // MovementsScreen — only the trailing-edge dispatch does.
+  const dispatchSearch = useCallback(
     (query: string) => {
-      if (!query.trim()) return;
-
-      // FR14 — Navigate to movements with ?q param
-      // The App component will handle URL state management
-      if (currentRoute !== 'movements') {
+      lastDispatchedSearchRef.current = query;
+      if (onSearchQueryChange) {
+        onSearchQueryChange(query);
+      }
+      // FR14 — Navigate to movements with applied query. No-op on empty
+      // query (covers the "user typed then cleared" case) and when already
+      // on the movements route.
+      if (query.trim() && currentRoute !== 'movements') {
         onNavigate('movements');
       }
-      // Movements screen will read query from searchQuery prop and apply filter
     },
-    [currentRoute, onNavigate],
+    [currentRoute, onNavigate, onSearchQueryChange],
   );
+
+  const cancelPendingSearch = useCallback(() => {
+    if (searchDebounceTimerRef.current !== null) {
+      window.clearTimeout(searchDebounceTimerRef.current);
+      searchDebounceTimerRef.current = null;
+    }
+  }, []);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
-      if (onSearchQueryChange) {
-        onSearchQueryChange(value);
-      }
+      // Local state updates instantaneously — input feels responsive even
+      // while the (potentially expensive) filter is debounced.
+      setSearchInputValue(value);
 
-      // FR13 — Debounce 200ms trailing edge
-      if (searchDebounceTimerRef.current !== null) {
-        window.clearTimeout(searchDebounceTimerRef.current);
-      }
-
-      if (value.trim()) {
-        searchDebounceTimerRef.current = window.setTimeout(() => {
-          triggerSearch(value);
-        }, 200);
-      }
+      // FR13 — Trailing-edge 200ms debounce on the *applied* query.
+      cancelPendingSearch();
+      searchDebounceTimerRef.current = window.setTimeout(() => {
+        searchDebounceTimerRef.current = null;
+        dispatchSearch(value);
+      }, 200);
     },
-    [onSearchQueryChange, triggerSearch],
+    [cancelPendingSearch, dispatchSearch],
   );
 
   const handleSearchKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        if (searchDebounceTimerRef.current !== null) {
-          window.clearTimeout(searchDebounceTimerRef.current);
-          searchDebounceTimerRef.current = null;
-        }
-        triggerSearch(searchQuery);
+        cancelPendingSearch();
+        dispatchSearch(searchInputValue);
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        if (searchQuery) {
-          // First Esc clears query
-          if (onSearchQueryChange) {
-            onSearchQueryChange('');
-          }
+        if (searchInputValue) {
+          // First Esc clears the query (both local input and applied filter).
+          cancelPendingSearch();
+          setSearchInputValue('');
+          dispatchSearch('');
         } else {
-          // Second Esc blurs
+          // Second Esc blurs.
           searchInputRef.current?.blur();
         }
       }
     },
-    [searchQuery, onSearchQueryChange, triggerSearch],
+    [searchInputValue, cancelPendingSearch, dispatchSearch],
   );
 
   const handleSearchClear = useCallback(() => {
-    if (onSearchQueryChange) {
-      onSearchQueryChange('');
-    }
+    cancelPendingSearch();
+    setSearchInputValue('');
+    dispatchSearch('');
     searchInputRef.current?.focus();
-  }, [onSearchQueryChange]);
+  }, [cancelPendingSearch, dispatchSearch]);
 
   // FR12 — ⌘K / Ctrl+K global keyboard shortcut
   useEffect(() => {
@@ -299,6 +318,18 @@ export function AppShell({
       }
     };
   }, []);
+
+  // Sync external `searchQuery` prop changes into the local input value.
+  // We compare against `lastDispatchedSearchRef` so our own debounced echoes
+  // don't clobber the user's in-flight typing — e.g. if they type "ca" while
+  // an earlier "c" dispatch is just landing in the parent, the prop arrives
+  // as "c" but `lastDispatched === "c"` so we skip and leave "ca" intact.
+  // Genuine external resets (App clearing on route change) flow through.
+  useEffect(() => {
+    if (searchQuery === lastDispatchedSearchRef.current) return;
+    lastDispatchedSearchRef.current = searchQuery;
+    setSearchInputValue(searchQuery);
+  }, [searchQuery]);
 
   return (
     <div className="ot-shell" data-sidebar-collapsed={effectiveCollapsed ? 'true' : undefined}>
@@ -337,11 +368,11 @@ export function AppShell({
             type="search"
             placeholder={t('shell.search.placeholder') satisfies string}
             aria-label={t('shell.search.ariaLabel') satisfies string}
-            value={searchQuery}
+            value={searchInputValue}
             onChange={handleSearchChange}
             onKeyDown={handleSearchKeyDown}
           />
-          {searchQuery && (
+          {searchInputValue && (
             <button
               type="button"
               className="ot-shell__search-clear"
@@ -351,7 +382,7 @@ export function AppShell({
               ✕
             </button>
           )}
-          {!searchQuery && <kbd>⌘K</kbd>}
+          {!searchInputValue && <kbd>⌘K</kbd>}
         </label>
 
         <div
