@@ -2236,3 +2236,186 @@ These three locked answers unblock:
 - PR #101 (Drilldown implementation) — uses OR semantics + cross-screen handoff
 
 **PR ship order:** #98 → #99 → #100 → #101. MVP is #98–100 (landing only; drilldown deferred to follow-up).
+
+---
+
+## Decision: Recent Transactions Sort Order — Business Date First
+
+**Author:** Morpheus (Backend)  
+**Date:** 2026-04-27  
+**Status:** Implemented (PR #105)  
+**Issue:** Dashboard "Recent transactions" showed only one account's data  
+
+### Problem
+
+Query sorted by `createdAt` only, clustering same-import-batch transactions and hiding cross-account diversity.
+
+### Rule
+
+All user-facing "recent transactions" queries MUST sort by **business date first, audit timestamp as tiebreaker:**
+
+```typescript
+.sort((a, b) => {
+  if (a.date !== b.date) return b.date.localeCompare(a.date);      // primary: business date DESC
+  return b.createdAt.localeCompare(a.createdAt);                   // tiebreaker: audit timestamp DESC
+})
+```
+
+### Rationale
+
+- `createdAt` = when transaction was entered (import time, manual-entry time)
+- `date` = when transaction occurred in the real world
+- Users expect "recent" to mean "recent occurrence", not "recently imported"
+
+### Applies To
+
+Any query presenting "latest N transactions" or "recent movements" to the user. Does NOT apply to audit trails or system event logs.
+
+### Implementations
+
+- ✅ `app/src/main/ipc/handlers/movements.ts` — MovementsList query (PR #105)
+- ✅ `app/src/core/query/queries.ts` — queryRecentTransactions (PR #105)
+
+**Commit:** b56ee21  
+**PR:** #105
+
+---
+
+## Decision: Trinity PR #127 — Insights SubcategoryDistributionPanel
+
+**Author:** Trinity (Frontend)  
+**Date:** 2026-04-28  
+**Status:** Merged (sha c987202)  
+**PR:** #127  
+
+### What Shipped
+
+SubcategoryDistributionPanel on InsightsDetailScreen (Insights drilldown):
+1. Donut + companion ranked bar list of subcategories
+2. Panel-local Gastos/Ingresos toggle (dual-donut layout has no inheritance to leverage)
+3. Selection coupling (clicking donut legend updates bar list)
+4. Top N=10 with show-all toggle
+5. Colour parity (donut-slice colour → bar-list pill colour via deterministic hash)
+6. Locale-formatted right-aligned amounts
+
+### Design Decision: Panel-Local Toggle
+
+InsightsDetailScreen shows two donuts side-by-side (income + expense). Unlike tabbed UX with inherited selectors, the dual-donut layout required a **SegmentedToggle scoped to the panel**. 
+
+**Future pattern:** If a second view-bound panel lands (e.g., "Top counterparties"), lift toggle to screen-level and reuse — do not proliferate toggles.
+
+### Known Limit: txCount Tooltip
+
+Pedro's "transaction count per subcategory" deferred — requires Morpheus schema/projection change. Currently shows name + amount + percentage. **Recommendation:** Next time the `subcategoryRowSchema` contract is touched, add `txCount` field.
+
+### Reusable Pattern
+
+Skill documented at `.squad/skills/donut-companion-bar/SKILL.md`:
+- Donut + companion ranked bar list pattern
+- Colour parity, view inheritance, selection coupling
+- Reusable for Saldo (per-account → counterparty) and Movements (per-tag → category)
+
+### Metrics
+
+- 8 new tests
+- +779 / −7 lines
+- Reviewed by Neo (no concurrent Morpheus changes)
+
+---
+
+## Decision: Income/Expense/Net Canonical Visual Pattern
+
+**Author:** Mouse (UI Designer)  
+**Date:** 2026-04-27  
+**Status:** Locked (PR #104)  
+
+### Canonical Pattern
+
+All income/expense/net KPI presentations across the app MUST use the Dashboard (Panel) pattern:
+
+| Metric | Icon | Color Token | BGIcon Token |
+|--------|------|-------------|--------------|
+| Income | TrendingUp (20px) | `--color-income-default` | `--color-income-bg` |
+| Expense | TrendingDown (20px) | `--color-expense-default` | `--color-expense-bg` |
+| Net | Calculator (20px) | `--color-brand-primary` | `--color-brand-surface` |
+
+**Component:** `KPIStrip` in `app/src/renderer/components/KPIStrip/`  
+**Shared recipe:** `app/src/renderer/styles/globals.css` (lines 197–269)
+
+### Enforcement
+
+- All income/expense/net displays use `.ot-kpi-strip` + `.ot-kpi` classes from `globals.css`
+- Component CSS MUST NOT override `.ot-kpi-*` classes
+- Icon size: **20px only** (not 24px, not variable)
+- Color tokens: use modifiers (`.ot-kpi--income`, `.ot-kpi--expense`, `.ot-kpi--net`), not inline styles
+
+### Implementation (PR #104)
+
+**Fixes:**
+- ✅ Movements: Replaced custom `.ot-movements__totals` with `.ot-kpi-strip`; added icons; removed shadowing CSS
+- ✅ Insights: Fixed icon size (24 → 20); wrapped in `.ot-kpi__icon` div
+- ✅ Saldo: Already correct; no changes
+
+**Anti-pattern caught:** Component CSS imported after `globals.css` silently shadows shared recipes.
+
+**PR:** https://github.com/rett-europe/opentreasury-desktop/pull/104
+
+---
+
+## Decision: Chart Colors — Canonical Income/Expense Token Extension
+
+**Author:** Mouse (UI Designer)  
+**Date:** 2026-04-27  
+**Status:** Proposed  
+**Related:** PR #104 (canonical tokens), PR #105 (Dashboard chart)  
+
+### Rule
+
+When charts represent income vs. expense data semantically (monthly trends, category breakdowns, year-over-year), use canonical `--color-income-default` (green) and `--color-expense-default` (red) — NOT generic brand colors.
+
+### Pattern
+
+`GroupedBarChart` accepts color overrides via props:
+- `barClassNames` (per series) — CSS class names for bar fills
+- `legend` items — objects with `{ label, className }` to override swatch colors
+
+**CSS semantic classes:**
+```css
+.ot-grouped-bar-chart__bar--income-solo { fill: var(--color-income-default); }
+.ot-grouped-bar-chart__bar--expense-solo { fill: var(--color-expense-default); }
+.ot-grouped-bar-chart__swatch--income-solo { background: var(--color-income-default); }
+.ot-grouped-bar-chart__swatch--expense-solo { background: var(--color-expense-default); }
+```
+
+### Usage Examples
+
+**Saldo (year-over-year):**
+```tsx
+barClassNames: ['ot-grouped-bar-chart__bar--income-solo', 'ot-grouped-bar-chart__bar--expense-solo']
+legend: [
+  { label: t('saldo.chart.legend.income'), className: 'ot-grouped-bar-chart__swatch--income-solo' },
+  { label: t('saldo.chart.legend.expense'), className: 'ot-grouped-bar-chart__swatch--expense-solo' }
+]
+```
+
+### Rationale
+
+- **Visual consistency:** Income is green, expense is red everywhere
+- **Semantic correctness:** Colour encodes data type, not arbitrary series order
+- **User recognition:** Once-learned colour → meaning applies across entire app
+- **Accessibility:** Consistent colour reinforces screen-reader labels and ARIA
+
+### When NOT to Use
+
+Component stays flexible for non-income/expense contexts:
+- Multi-account comparison → use account colours
+- Custom analysis → use custom schemes
+- Generic data series → use brand primary/secondary
+
+### Files
+
+- Canonical tokens: `app/src/renderer/styles/tokens.css` (lines 66, 71, 314, 318, 399, 401)
+- Component: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.tsx`
+- Chart CSS: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.css` (lines 85–125)
+
+**PR:** https://github.com/rett-europe/opentreasury-desktop/pull/104, https://github.com/rett-europe/opentreasury-desktop/pull/105
