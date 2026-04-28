@@ -381,6 +381,15 @@
       "clear": "Clear range",
       "invalid": "\"To\" must be later than \"From\"."
     },
+    "search": {
+      "resultCount": "{{matched}} of {{total}}",
+      "empty": {
+        "title": "No transactions match \"{{query}}\"",
+        "cta": "Clear search"
+      },
+      "splitMatchBadge": "split match",
+      "markAriaLabel": "match"
+    },
     "form": {
       "title": "Add Transaction",
       "editTitle": "Edit Transaction",

@@ -57,7 +57,7 @@
     "search": {
       "placeholder": "Buscar movimientos, categorías, cuentas…",
       "ariaLabel": "Buscar movimientos",
-      "clearAriaLabel": "Borrar búsqueda"
+      "clearAriaLabel": "Limpiar búsqueda"
     },
     "sidebar": {
       "collapse": "Contraer navegación",
@@ -380,6 +380,15 @@
       "apply": "Aplicar rango",
       "clear": "Limpiar rango",
       "invalid": "La fecha «Hasta» debe ser posterior a «Desde»."
+    },
+    "search": {
+      "resultCount": "{{matched}} de {{total}}",
+      "empty": {
+        "title": "Ningún movimiento coincide con \"{{query}}\"",
+        "cta": "Limpiar búsqueda"
+      },
+      "splitMatchBadge": "coincide en desglose",
+      "markAriaLabel": "coincidencia"
     },
     "form": {
       "title": "Añadir Movimiento",
