@@ -200,6 +200,67 @@ describe('DonutChart', () => {
     expect(svg?.getAttribute('height')).toBe('200');
   });
 
+  it('rotates each multi-segment slice instead of using strokeDashoffset (Pac-Man regression)', () => {
+    // Regression: when one slice was 75%+ of the circle and rendered with
+    // strokeDashoffset = -C/4, the trailing portion of the dash overran the
+    // path's end and a wedge-shaped gap appeared. Each multi-segment slice
+    // must now be rotated to its start angle and use no dashoffset, so the
+    // dash always fits entirely within path positions [0, L].
+    const slices = [
+      createSlice('Casa', 9500, 'cat-house'),
+      createSlice('Comida', 300, 'cat-food'),
+      createSlice('Otros', 200, 'cat-other'),
+    ];
+
+    const { container } = render(
+      <DonutChart
+        slices={slices}
+        total={10000}
+        ariaLabel="Skewed chart"
+        locale={LOCALE}
+        currency={CURRENCY}
+      />,
+    );
+
+    const segments = container.querySelectorAll('circle.ot-donut-chart__segment');
+    expect(segments).toHaveLength(3);
+    segments.forEach((seg) => {
+      // No segment uses strokeDashoffset (which caused the wedge bug).
+      expect(seg.getAttribute('stroke-dashoffset')).toBeNull();
+      // Each segment is rotated to its start angle.
+      const transform = seg.getAttribute('transform') ?? '';
+      expect(transform).toMatch(/^rotate\(/);
+    });
+
+    // First segment must start at -90° (12 o'clock).
+    const firstTransform = segments[0]?.getAttribute('transform') ?? '';
+    expect(firstTransform).toContain('rotate(-90');
+  });
+
+  it('renders a near-100% dominant slice without losing the tail (Pac-Man regression)', () => {
+    // Two slices: 99.5% + 0.5%. Both must render with intact dasharrays and
+    // unique rotations — no implicit "almost-100%" merge into a single ring.
+    const slices = [createSlice('Mega', 9950, 'cat-mega'), createSlice('Tiny', 50, 'cat-tiny')];
+
+    const { container } = render(
+      <DonutChart
+        slices={slices}
+        total={10000}
+        ariaLabel="Near-full chart"
+        locale={LOCALE}
+        currency={CURRENCY}
+      />,
+    );
+
+    const segments = container.querySelectorAll('circle.ot-donut-chart__segment');
+    expect(segments).toHaveLength(2);
+    // Both segments carry a strokeDasharray (i.e., the full-ring shortcut did
+    // not eat the tail).
+    segments.forEach((seg) => {
+      expect(seg.getAttribute('stroke-dasharray')).not.toBeNull();
+    });
+  });
+
   it('uses deterministic colors via CSS custom properties', () => {
     const slices = [createSlice('Cat A', 100, 'cat-a'), createSlice('Cat B', 200, 'cat-b')];
 

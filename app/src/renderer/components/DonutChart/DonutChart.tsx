@@ -82,43 +82,41 @@ export function DonutChart({
     processedSlices = [...topSlices, othersBucket];
   }
 
-  // Calculate segments
-  let currentAngle = -90; // Start at top
+  // Calculate segments. Each segment is rendered as its own stroked <circle>
+  // rotated to its start angle, with a one-shot strokeDasharray of "L gap".
+  // We rotate per-segment instead of using strokeDashoffset to position
+  // slices, which avoids the classic "Pac-Man" bug: when a segment's dash
+  // begins at a non-zero path offset, the trailing portion of the dash can
+  // overrun the path's end (no wrap across the closing point of an SVG
+  // <circle>) and a wedge-shaped gap appears for any slice >= ~75% of the
+  // circumference. Rotating the circle so the dash always starts at path
+  // position 0 keeps the entire dash in-bounds for every fraction in [0, 1].
+  let currentAngle = -90; // degrees; -90 = 12 o'clock
   const segments = processedSlices.map((slice) => {
-    const percentage = (slice.value / total) * 100;
-    const dashLength = (percentage / 100) * circumference;
-    const angle = currentAngle;
-    currentAngle += (percentage / 100) * 360;
-
+    const fraction = total > 0 ? slice.value / total : 0;
+    const dashLength = fraction * circumference;
+    const startAngle = currentAngle;
+    currentAngle += fraction * 360;
     return {
       slice,
       dashLength,
-      dashOffset: circumference - dashLength,
-      angle,
-      percentage,
+      startAngle,
+      percentage: fraction * 100,
     };
   });
-
-  // Build SVG
-  let accumulatedOffset = 0;
 
   return (
     <div className="ot-donut-chart" role="img" aria-label={ariaLabel}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {segments.map((seg, idx) => {
-          const offset = -circumference / 4 - accumulatedOffset;
-          accumulatedOffset += seg.dashLength;
-
           const stroke =
             seg.slice.categoryId === '__otras__'
               ? 'var(--color-donut-otras)'
               : `var(--color-donut-${idx % 8})`;
 
-          // Edge case: a single segment covering the full circle. Using
-          // strokeDasharray with a non-zero strokeDashoffset clips part of the
-          // ring (classic "Pac-Man" bug), because the dash pattern is shifted
-          // along a path whose total length equals the dash length itself.
-          // Render a plain stroked circle instead — a complete ring.
+          // A segment that covers the full circle (only slice, percentage at
+          // 100% within float tolerance) is rendered as a plain stroked ring
+          // with no dasharray — keeps the SVG simple and avoids any seam.
           if (segments.length === 1 && seg.percentage >= 99.999) {
             return (
               <circle
@@ -146,11 +144,8 @@ export function DonutChart({
               stroke={stroke}
               strokeWidth={thickness}
               strokeDasharray={`${seg.dashLength} ${circumference}`}
-              strokeDashoffset={offset}
+              transform={`rotate(${seg.startAngle} ${center} ${center})`}
               className="ot-donut-chart__segment"
-              style={{
-                transformOrigin: `${center}px ${center}px`,
-              }}
             >
               <title>{`${seg.slice.label}: ${formatCurrency(seg.slice.value, locale, currency)} (${seg.percentage.toFixed(1)}%)`}</title>
             </circle>

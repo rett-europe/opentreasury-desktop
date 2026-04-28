@@ -2600,3 +2600,164 @@ Prototypes are quick explorations and often omit edge cases, error states, or ac
 - `app/src/renderer/AppShell.tsx` (nav sections)
 - `app/src/main/ipc/handlers/tags.ts` (existing tag handlers)
 - `app/src/shared/ipc-contracts/tags.ts` (tag contract)
+
+---
+
+## Directive: User directive — raise the bar on visual quality
+
+**Author:** Pedro (via Copilot)  
+**Date:** 2026-04-26T19:32:00Z  
+**Status:** Active  
+**Scope:** All visual/layout work claims of "done"
+
+### Rule
+
+Visual work must be **verified end-to-end before claiming done** — including expanding subcategories, resizing the window across the FULL viewport range (not just one width), and confirming the prototype reference matches at multiple breakpoints. "Tests green" + "looks aligned in my head" is not enough.
+
+### Rationale
+
+Three consecutive misses on the Saldo header/bar alignment bug (iter 3 Mouse, iter 6 Trinity) is unacceptable. Pattern of misses is eroding trust. Pedro is dogfooding every iteration; we're spending his time on bugs we should have caught.
+
+### Going forward
+
+- Visual/layout work claims of "done" must include explicit verification at: narrow (<960px), mid (~1200px), wide (1430px+), AND with subcategory rows expanded.
+- If a CSS recipe is being applied (e.g. a skill from `.squad/skills/`), the implementer must show evidence the recipe actually constrains the bug being fixed — not just "I followed the skill."
+- Niobe writes specs with measurable acceptance criteria for repeat-offender bugs.
+
+---
+
+## Directive: Prototype as inspiration, not copy-paste spec
+
+**Author:** Pedro (via Copilot)  
+**Date:** 2026-04-26T21:52:44Z  
+**Status:** Active  
+**Scope:** Prototype folder + Insights spec work
+
+### Rule
+
+The prototype folder now contains Insights pages as inspiration — but the team (Niobe especially) **MUST challenge every detail** rather than copying. Prototype is a reference point, not a spec.
+
+### Rationale
+
+User request — captured for team memory.
+
+---
+
+## Directive: Prefer component extraction over JSX duplication
+
+**Author:** Pedro (via Copilot)  
+**Date:** 2026-04-27  
+**Status:** Active  
+**Scope:** UI component architecture
+
+### Rule
+
+When the same UI structure is needed in multiple screens, reuse via shared components. Avoid JSX duplication — drift between copies has bitten us twice on PR #105 (column headers, then column widths).
+
+### Rationale
+
+Trinity flagged repeated drift; Pedro confirms reuse-first as a going-forward rule.
+
+---
+
+## Decision: Close detail modal after edit-save (Movements)
+
+**Author:** Trinity (Frontend Dev)  
+**Date:** 2026-04-28  
+**PR:** #140 — `fix(movements): close all modals after edit-save (no auto-reopen)`  
+**Refs:** #133, #139
+
+### Context
+
+PR #133 introduced "stale modal after edit-save" bug (modal shows pre-save snapshot). PR #139 fixed the data-freshness side by deriving `selectedTx` / `selectedRawRecord` from `selectedId` + `rawRecordById`. After that fix, Pedro confirmed the data was correct on re-mount but **rejected the flow itself**:
+
+> "the edit modal after saving disappears for 1 sec or 2, and then the view modal shows-up... I want a different flow"
+
+When asked to choose between options, Pedro picked:
+
+> "Close everything — return to the transaction list (simplest, no flash)"
+
+### Decision
+
+After a successful edit-save in `MovementsScreen` ↔ `TransactionDetailModal`, the screen now **clears `selectedId`** — the detail modal unmounts, the user lands on the bare movements list. No view-modal re-appearance. No "Cargando" flash visible.
+
+This rule applies specifically to the **save-driven** `loadAll()`. Other triggers (external `configRevision` bumps, retry, etc.) keep the modal open and rely on the derived-state machinery from the existing `read-model-refresh-after-mutation` skill.
+
+### Scope
+
+- Single-transaction edit-save flow ✅ (this PR)
+- Bulk flows (classify, add-label, approve) — **untouched**: they operate on the multi-select set, not on `selectedId`, so they were never on the auto-reopen path.
+- Delete flow — already cleared `selectedId`; unchanged.
+
+### Skill update
+
+`.squad/skills/read-model-refresh-after-mutation/SKILL.md` updated with an addendum describing the close-after-save policy and a decision-rule table mapping `loadAll()` triggers to modal lifecycle behaviour.
+
+### Validation
+
+- `npm run typecheck`, `npm run lint`, `npx prettier --check`, full `npm test` (824 passed) all green.
+- `MovementsScreen.staleModal.test.tsx`:
+  - Test 1 (derived-state freshness on external configRevision bump) — kept, retitled.
+  - Test 2 (Pedro flow) — replaced. Now asserts the detail `<dialog>` is closed after `handleSaveEdit`, table rendered behind it.
+
+### Open questions / follow-ups
+
+None for this PR. If a future requirement needs the modal to remain open after save (e.g. a "save & next" affordance), revisit per-screen rather than reverting the rule.
+
+---
+
+## Recommendation: TransactionsTable Duplication Drift (Trinity, 2026-04-29)
+
+**Author:** Trinity (Frontend Dev)  
+**Date:** 2026-04-29  
+**Status:** Recommendation (future refactor, not urgent)
+
+### Problem
+
+The recent-transactions table on Dashboard (`PanelScreen`) duplicates JSX from `MovementsScreen` instead of sharing a component. This has caused **two separate drift incidents** in PR #105:
+
+1. **Commit 2ef25df** — Dashboard was missing Tags + Status columns that Movements had
+2. **Commit fe45e7a** — Dashboard had incorrect column widths (STATUS too wide, DATE/ACCOUNT/DESCRIPTION wrong sizes)
+
+Both fixes required manually syncing the duplicate JSX and CSS to match MovementsScreen.
+
+### Current State
+
+**Canonical source:** `MovementsScreen.tsx` + `MovementsScreen.css` (lines 418-480 for column widths)
+
+**Duplicate:** `PanelScreen.tsx` columns array + `PanelScreen.css` nth-child width rules
+
+The tables share:
+- Same column order (type, date, account, description, category, subcategory, tags, status, amount)
+- Same rendering logic (type arrows, account pills, category/subcategory text or badges, tag chips, status badges, currency amounts)
+- Same column widths (except Dashboard omits select checkbox column)
+- Same table-layout: fixed + min-width + horizontal scroll behavior
+
+The only differences are:
+- Dashboard: no select column, no sortable, no row actions, 8-row limit
+- Movements: select column, sortable headers, row click → detail modal, full pagination
+
+### Risk
+
+Every future change to Movements table structure (new columns, width tweaks, rendering changes) must be manually propagated to Dashboard or they drift again. This is error-prone and wastes time on each fix.
+
+### Recommendation
+
+Extract a shared `<TransactionsTable>` component that accepts:
+- `data: Transaction[]`
+- `columns: Array<'select' | 'type' | 'date' | ...>` — configurable column set
+- `sortable?: boolean`
+- `onRowClick?: (tx) => void`
+- `selectedIds?: Set<string>`
+- `onToggleRow?: (id) => void`
+
+Both screens render this component with their respective column sets and handlers. Column widths live in the shared component CSS, not per-screen.
+
+This is a **future refactor**, not urgent — but the next drift incident should trigger it rather than another manual sync.
+
+### Files
+
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.tsx` (lines 560-740)
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.css` (lines 418-480)
+- `app/src/renderer/screens/PanelScreen/PanelScreen.tsx` (lines 240-385)
+- `app/src/renderer/screens/PanelScreen/PanelScreen.css` (lines 31-130)
