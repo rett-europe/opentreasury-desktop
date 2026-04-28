@@ -1042,10 +1042,13 @@
         "panelHeading": "Distribución por subcategoría",
         "viewAria": "Vista — gasto o ingreso",
         "empty": "Sin datos para esta vista",
-        "showAll": "Mostrar todo",
-        "showLess": "Mostrar menos",
+        "sideEmpty": "Sin datos",
+        "showAll": "Ver todas",
+        "showLess": "Ver menos",
         "filteredBy": "Filtrado por",
-        "clearSelectionAria": "Quitar filtro de categoría"
+        "clearSelectionAria": "Quitar filtro de categoría",
+        "amountColumn": "Importe",
+        "percentColumn": "% del total"
       }
     }
   },

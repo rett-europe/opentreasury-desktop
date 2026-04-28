@@ -2350,3 +2350,194 @@ progressbar `aria-label` for screen readers.
 3. **Breadcrumb labels for subcategory ambiguity.** When subcategory names
    recur under multiple parent categories, prefix with the parent and a
    U+203A chevron. Plain helper, plain string output, easy to test.
+
+
+## Insights drilldown — current-state snapshots (PR #141 review, 2026-04-28)
+
+**Requested by:** Pedro (post-PR #141 review). The pacman donut fix is
+approved; the diverging subcategory bar chart is "not well resolved at all,
+very confusing". Asked for Playwright snapshots so the team can see what
+shipped before Niobe redesigns.
+
+**Documentation-only task — zero production code touched.**
+
+### Deliverable
+
+- `tests/e2e/insights-snapshots.spec.ts` — Playwright + Electron harness.
+  Skipped by default (`test.skip(!process.env.OT_SNAPSHOTS, …)`); run with
+  `OT_SNAPSHOTS=1 npx playwright test tests/e2e/insights-snapshots.spec.ts`.
+- `docs/ux/insights-current-state/` — 12 PNGs (3 dataset shapes × 2 viewports
+  × {full, bars-only}) + `README.md` index with per-image captions and
+  observations on why the chart is confusing.
+- `.squad/skills/electron-ui-snapshots/SKILL.md` — reusable harness pattern.
+
+### Reusable patterns captured
+
+1. **Snapshot harness lives next to e2e tests but is opt-in.** The
+   `test.skip(!env)` guard keeps `npm run e2e` quiet while the spec is still
+   discoverable for manual runs and edits.
+
+2. **Three deterministic dataset shapes inline in the spec** (NORMAL /
+   SKEWED / SPARSE). Each writes its own NDJSON event log to a separate
+   `OT_DATA_DIR` under userData. The PRNG perf-seed couldn't produce the
+   shape variety needed; hand-curated shapes are clearer for visual review
+   anyway.
+
+3. **`args: ['.']` confirmed (again).** Same userData-resolution gotcha as
+   movements-perf — without it Electron writes to `%APPDATA%/Electron` and
+   never sees the seeded events.
+
+4. **ESM `__dirname` is undefined under Playwright.** Use
+   `fileURLToPath(import.meta.url)` to compute REPO_ROOT.
+
+5. **Combined-region screenshots via `boundingBox()` + `clip`.** Capture
+   donut row + diverging chart together by measuring both blocks and clipping
+   to their union. Always cap `clip.width/height` to `viewport - {x,y}` or
+   Playwright throws "clip area is out of viewport bounds".
+
+6. **Element close-ups via `locator.screenshot()`** are more robust than
+   manual clip math when you only want one element.
+
+7. **150–400 ms `waitForTimeout` after `scrollIntoViewIfNeeded()`** before
+   measuring boxes — Inter font reflow shifts label widths a few pixels
+   otherwise.
+
+### Findings handed to Niobe (input only — Niobe owns redesign)
+
+The chart's main legibility problems visible in the snapshots:
+- Cross-side `maxAbs` scaling crushes the smaller side when one side
+  dominates (skewed dataset: every income row is a near-identical stub).
+- Sub-1 % rows fall back to a 0.5 %-min lozenge → ranking unreadable
+  without the number column.
+- Pairing rows by index implies a relationship that doesn't exist.
+- No drawn zero baseline — the diverging metaphor reads as two adjacent
+  tables.
+- Asymmetric label/number reading direction across the axis.
+- Donut↔bar colour link is too washed-out to register.
+- Narrow-viewport collapse never fires at 900 px → breadcrumb labels
+  truncate, defeating their disambiguation purpose.
+- Sparse data wastes the layout (oversized bars for trivial values).
+
+### Validation
+
+- `npm run build` ✅
+- `OT_SNAPSHOTS=1 npx playwright test tests/e2e/insights-snapshots.spec.ts`
+  → 6/6 passed in ~66 s. 12 PNGs written under `docs/ux/insights-current-state/`.
+- Existing `npm run e2e` scope unchanged (spec skipped without
+  `OT_SNAPSHOTS=1`).
+
+
+
+---
+
+## 2026-05-04 — Subcategory ranked tables (Concept A) — squad/trinity-subcategory-ranked-tables
+
+### Task
+
+Replace the diverging subcategory bar chart from PR #141 with two
+side-by-side ranked tables (Concept A from Niobe's UX concept, recommended
+by Neo's decision). Single PR — revert + new component in one shot — to
+avoid a broken intermediate state on `main`. Pedro confirmed three blocking
+parameters: top-N scan as primary task (no drill variant), "% of side
+total" framing, top-10 default with "Ver todas" toggle.
+
+### What I shipped
+
+1. **Removed `DivergingSubcategoryChart/`** entirely — component, CSS,
+   tests, index. Kept the `formatBreadcrumbLabel` helper by re-exporting it
+   from the new `SubcategoryRankedTable` package; donut tooltips and any
+   future consumers still get a single source of truth for the U+203A
+   chevron format.
+2. **Added `SubcategoryRankedTable/`** under
+   `app/src/renderer/components/`. Two independent ranked tables, each
+   with its own scale, sort, "Ver todas" toggle, and "% of side total"
+   column. Per-side empty state ("Sin datos") when a side has zero rows.
+   Stacks to a single column at <900 px without changing metaphor. Reuses
+   the existing `--color-expense-*` / `--color-income-*` /  `--space-*` /
+   type tokens — zero new tokens.
+3. **i18n** — extended `insights.distribution.subcategory.*` with
+   `sideEmpty`, `amountColumn`, `percentColumn`. Updated `showAll`/
+   `showLess` from "Mostrar todo/menos" to "Ver todas/menos" per Pedro's
+   wording. EN unchanged ("Show all/less"). Existing keys (`empty`,
+   `filteredBy`, `clearSelectionAria`, `panelHeading`, `title`) reused.
+4. **Tests** — 14 unit tests cover sort + rank pills, % computation
+   rounded to 1 decimal, per-side bar scaling (no shared maxAbs),
+   `selectedCategoryId` filtering, top-10 toggle (independent per side),
+   global empty + per-side empty states, parent-category colour reuse,
+   accessible progressbar labelling. Removed the 8 diverging-chart tests.
+5. **Snapshot harness** — same
+   `tests/e2e/insights-snapshots.spec.ts` retargeted at the new
+   `.ot-subcategory-ranked` selector. Output split:
+   `docs/ux/insights-current-state/` keeps the diverging "before"
+   PNGs; `docs/ux/insights-after/` is the new home for Concept A. 12
+   PNGs captured (3 datasets × 2 viewports × 2 views).
+
+### Reusable lessons (lifted into skills)
+
+- **`disjoint-ranked-distributions/SKILL.md`** (new). The hard rule:
+  when two distributions don't share keys, render them as two
+  independent ranked tables, never as a diverging single chart.
+  Includes the eight implementation rules (independent scales, sorts,
+  toggles, empty states; one % column scoped to side total; top-N +
+  toggle; narrow stacks to one column; identical reading direction on
+  both sides).
+
+- **The ranked-list-with-inline-bar pattern is now a reusable
+  Insights primitive.** Any future breakdown panel — per-account,
+  per-tag, per-period top movers — should reach for
+  `SubcategoryRankedTable` (or a parametrised lift of it) before
+  inventing a new chart. Documented in the skill and in the decision
+  drop.
+
+### Things I learned the hard way (so the next agent doesn't have to)
+
+1. **Don't put the inline bar in the same row as the label.** First
+   pass tried `[rank][label][bar][amount][percent]` on one row and the
+   bar fought with the breadcrumb label for width — at 1000 px every
+   long subcategory ellipsis-clipped just to keep the bar 80 px wide.
+   Fixed by making the row a 2-row CSS grid: row 1 carries
+   label/amount/percent, row 2 spans the bar across columns 2–4. The
+   bar gets full content width; the label never truncates because of
+   it.
+
+2. **`Intl.NumberFormat({style:'percent'})` divides the value.** Spent
+   five minutes wondering why "44%" was rendering as "4400%" until I
+   remembered it expects the ratio (0.44), not the percent (44).
+
+3. **Per-side `useMemo` for `sideTotal` matters at high cardinality.**
+   Without it, scrolling the snapshot harness's narrow viewport
+   recomputed the sum on every hover. Now `sideTotal` is memoed by
+   `rows` reference.
+
+4. **Two `useState`s for show-all (one per side) is the right shape.**
+   First instinct was a single `showAll` boolean, but the spec calls
+   for independent toggles — and at sparse-skewed data shapes the user
+   genuinely wants to expand one side without touching the other.
+
+### Validation
+
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npx prettier --check` on changed files ✅
+- `npm test` — 832 passed / 9 skipped / 0 failed (vs. 822 baseline; +14
+  new, −5 diverging-chart tests, +1 transient flake recovered).
+- `OT_SNAPSHOTS=1 npx playwright test tests/e2e/insights-snapshots.spec.ts`
+  → 6/6 passed in ~66 s. 12 PNGs written under
+  `docs/ux/insights-after/`.
+- Manual smoke: app launched, donut click filters both tables;
+  "Ver todas" toggles per side independently; narrow viewport stacks
+  cleanly without re-scaling glitches.
+
+### Files I touched
+
+- `app/src/renderer/components/SubcategoryRankedTable/` (new — `.tsx`,
+  `.css`, `.test.tsx`, `index.ts`).
+- `app/src/renderer/components/DivergingSubcategoryChart/` — deleted.
+- `app/src/renderer/screens/InsightsDetailScreen/InsightsDetailScreen.tsx`
+  — swap import + props.
+- `app/src/renderer/locales/{es,en}/common.json` — i18n additions.
+- `tests/e2e/insights-snapshots.spec.ts` — retarget selector + output
+  dir.
+- `docs/ux/insights-after/README.md` (new) — index for after-shots.
+- `.squad/skills/disjoint-ranked-distributions/SKILL.md` (new).
+- `.squad/decisions/inbox/trinity-subcategory-ranked-tables.md` (new).

@@ -12,7 +12,7 @@ import {
 
 import { DonutChart } from '../../components/DonutChart/index.js';
 import { GroupedBarChart } from '../../components/GroupedBarChart/index.js';
-import { DivergingSubcategoryChart } from '../../components/DivergingSubcategoryChart/index.js';
+import { SubcategoryRankedTable } from '../../components/SubcategoryRankedTable/index.js';
 import {
   TagCombinerDropdown,
   type TagCombinerOption,
@@ -504,14 +504,17 @@ export function InsightsDetailScreen({
       </div>
 
       {/*
-        Diverging subcategory bar chart — single chart that mirrors the two
-        donuts above. Gastos rows extend left from the central zero baseline,
-        ingresos extend right. Replaces the previous toggleable single-direction
-        panel; gastos and ingresos do not share subcategories so a diverging
-        layout is more legible than a grouped/stacked one.
+        Subcategory ranked tables (Concept A — Neo's decision 2026-05-04).
+        Two independent ranked lists side-by-side: gastos (left) and ingresos
+        (right), each with its own scale, sort, and "% of side total" column.
+        Replaces the previous diverging-bar chart, which implied a paired
+        comparison that does not exist (the two sides share no subcategory
+        keys). See `docs/ux/insights-subcategory-decision.md` for the
+        rationale and `docs/ux/insights-subcategory-concept.md` §3 Concept A
+        for the visual spec.
       */}
       <h2 className="ot-section-label">{t('insights.distribution.subcategory.title')}</h2>
-      <DivergingSubcategoryChart
+      <SubcategoryRankedTable
         rows={data.subcategories}
         expenseCategoryColorMap={expenseColorMap}
         incomeCategoryColorMap={incomeColorMap}
@@ -521,10 +524,13 @@ export function InsightsDetailScreen({
         locale={locale}
         title={t('insights.distribution.subcategory.panelHeading')}
         emptyLabel={t('insights.distribution.subcategory.empty')}
+        sideEmptyLabel={t('insights.distribution.subcategory.sideEmpty')}
         showAllLabel={t('insights.distribution.subcategory.showAll')}
         showLessLabel={t('insights.distribution.subcategory.showLess')}
         chipClearAriaLabel={t('insights.distribution.subcategory.clearSelectionAria')}
         chipPrefixLabel={t('insights.distribution.subcategory.filteredBy')}
+        amountColumnLabel={t('insights.distribution.subcategory.amountColumn')}
+        percentColumnLabel={t('insights.distribution.subcategory.percentColumn')}
         expenseSideLabel={t('insights.detail.legend.expense')}
         incomeSideLabel={t('insights.detail.legend.income')}
       />

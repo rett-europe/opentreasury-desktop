@@ -1042,10 +1042,13 @@
         "panelHeading": "Distribution by subcategory",
         "viewAria": "View — expense or income",
         "empty": "No data for this view",
+        "sideEmpty": "No data",
         "showAll": "Show all",
         "showLess": "Show less",
         "filteredBy": "Filtered by",
-        "clearSelectionAria": "Clear category filter"
+        "clearSelectionAria": "Clear category filter",
+        "amountColumn": "Amount",
+        "percentColumn": "% of total"
       }
     }
   },

@@ -1,18 +1,21 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { DivergingSubcategoryChart, formatBreadcrumbLabel } from './DivergingSubcategoryChart.js';
+import { render, screen, fireEvent, within } from '@testing-library/react';
+import { SubcategoryRankedTable, formatBreadcrumbLabel } from './SubcategoryRankedTable.js';
 import type { SubcategoryRow } from '../../../shared/ipc-contracts/insights.js';
 
 const labels = {
   title: 'Distribution by subcategory',
+  expenseSideLabel: 'Expense',
+  incomeSideLabel: 'Income',
   emptyLabel: 'No data for this view',
+  sideEmptyLabel: 'No data',
   showAllLabel: 'Show all',
   showLessLabel: 'Show less',
   chipClearAriaLabel: 'Clear category filter',
   chipPrefixLabel: 'Filtered by',
-  expenseSideLabel: 'Expense',
-  incomeSideLabel: 'Income',
+  amountColumnLabel: 'Amount',
+  percentColumnLabel: '% of total',
 };
 
 const expenseColors = new Map<string, string>([
@@ -73,10 +76,10 @@ describe('formatBreadcrumbLabel', () => {
   });
 });
 
-describe('DivergingSubcategoryChart', () => {
+describe('SubcategoryRankedTable', () => {
   it('renders both sides simultaneously with breadcrumb labels', () => {
     render(
-      <DivergingSubcategoryChart
+      <SubcategoryRankedTable
         rows={rows}
         expenseCategoryColorMap={expenseColors}
         incomeCategoryColorMap={incomeColors}
@@ -93,9 +96,9 @@ describe('DivergingSubcategoryChart', () => {
     expect(screen.getByText(/Salary \u203A Base salary/)).toBeDefined();
   });
 
-  it('sorts each side by magnitude descending', () => {
+  it('sorts each side by magnitude descending and assigns rank pills 1..N', () => {
     const { container } = render(
-      <DivergingSubcategoryChart
+      <SubcategoryRankedTable
         rows={rows}
         expenseCategoryColorMap={expenseColors}
         incomeCategoryColorMap={incomeColors}
@@ -106,33 +109,46 @@ describe('DivergingSubcategoryChart', () => {
       />,
     );
 
-    const expenseCells = Array.from(
-      container.querySelectorAll('.ot-diverging-chart__cell--expense'),
-    )
-      .map((c) => c.textContent ?? '')
-      .filter((t) => t.length > 0);
+    const expenseSide = container.querySelector(
+      '.ot-subcategory-ranked__side--expense',
+    ) as HTMLElement;
+    const expenseLabels = Array.from(
+      expenseSide.querySelectorAll('.ot-subcategory-ranked__row .ot-subcategory-ranked__name'),
+    ).map((n) => n.textContent ?? '');
 
-    expect(expenseCells[0]).toContain('Groceries');
-    expect(expenseCells[1]).toContain('Fuel');
-    expect(expenseCells[2]).toContain('Restaurants');
+    expect(expenseLabels[0]).toContain('Groceries'); // 500
+    expect(expenseLabels[1]).toContain('Fuel'); // 300
+    expect(expenseLabels[2]).toContain('Restaurants'); // 200
+
+    const ranks = Array.from(
+      expenseSide.querySelectorAll('.ot-subcategory-ranked__row .ot-subcategory-ranked__rank'),
+    ).map((n) => n.textContent ?? '');
+    expect(ranks).toEqual(['1', '2', '3']);
   });
 
-  it('shows just the category name when subcategoryId is null', () => {
-    const rowsNoSub: SubcategoryRow[] = [
+  it('computes "% of side total" rounded to 1 decimal', () => {
+    const skewed: SubcategoryRow[] = [
       {
-        categoryId: 'cat-misc',
-        categoryName: 'Misc',
-        subcategoryId: null,
-        subcategoryName: 'Sin subcategoría',
+        categoryId: 'cat-food',
+        categoryName: 'Food',
+        subcategoryId: 'sub-a',
+        subcategoryName: 'A',
         incomeCents: 0,
-        expenseCents: 1000,
+        expenseCents: 4400,
+      },
+      {
+        categoryId: 'cat-food',
+        categoryName: 'Food',
+        subcategoryId: 'sub-b',
+        subcategoryName: 'B',
+        incomeCents: 0,
+        expenseCents: 5600,
       },
     ];
-    const colors = new Map<string, string>([['cat-misc', 'var(--color-donut-0)']]);
-    render(
-      <DivergingSubcategoryChart
-        rows={rowsNoSub}
-        expenseCategoryColorMap={colors}
+    const { container } = render(
+      <SubcategoryRankedTable
+        rows={skewed}
+        expenseCategoryColorMap={expenseColors}
         incomeCategoryColorMap={new Map()}
         selectedCategoryId={null}
         onClearSelection={() => {}}
@@ -140,13 +156,59 @@ describe('DivergingSubcategoryChart', () => {
         {...labels}
       />,
     );
-    expect(screen.getByText('Misc')).toBeDefined();
-    expect(screen.queryByText(/Misc \u203A/)).toBeNull();
+    const percents = Array.from(
+      container.querySelectorAll(
+        '.ot-subcategory-ranked__side--expense .ot-subcategory-ranked__percent',
+      ),
+    ).map((n) => n.textContent ?? '');
+    // Top row = 56%, second = 44%. en-US Intl percent w/ 1 decimal.
+    expect(percents[0]).toMatch(/56\.0\s?%/);
+    expect(percents[1]).toMatch(/44\.0\s?%/);
+  });
+
+  it('scales bars per-side independently (no shared maxAbs)', () => {
+    const mixed: SubcategoryRow[] = [
+      {
+        categoryId: 'cat-food',
+        categoryName: 'Food',
+        subcategoryId: 'sub-a',
+        subcategoryName: 'A',
+        incomeCents: 0,
+        expenseCents: 100,
+      },
+      {
+        categoryId: 'cat-salary',
+        categoryName: 'Salary',
+        subcategoryId: 'sub-base',
+        subcategoryName: 'Base',
+        incomeCents: 100000,
+        expenseCents: 0,
+      },
+    ];
+    const { container } = render(
+      <SubcategoryRankedTable
+        rows={mixed}
+        expenseCategoryColorMap={expenseColors}
+        incomeCategoryColorMap={incomeColors}
+        selectedCategoryId={null}
+        onClearSelection={() => {}}
+        locale="en-US"
+        {...labels}
+      />,
+    );
+    const expenseFill = container.querySelector(
+      '.ot-subcategory-ranked__side--expense .ot-subcategory-ranked__bar-fill',
+    ) as HTMLElement;
+    const incomeFill = container.querySelector(
+      '.ot-subcategory-ranked__side--income .ot-subcategory-ranked__bar-fill',
+    ) as HTMLElement;
+    expect(expenseFill.style.width).toMatch(/^100/);
+    expect(incomeFill.style.width).toMatch(/^100/);
   });
 
   it('shows the empty label when neither side has data', () => {
     render(
-      <DivergingSubcategoryChart
+      <SubcategoryRankedTable
         rows={[]}
         expenseCategoryColorMap={new Map()}
         incomeCategoryColorMap={new Map()}
@@ -159,10 +221,57 @@ describe('DivergingSubcategoryChart', () => {
     expect(screen.getByText('No data for this view')).toBeDefined();
   });
 
+  it('shows per-side empty state when only one side has rows', () => {
+    const onlyExpense: SubcategoryRow[] = [
+      {
+        categoryId: 'cat-food',
+        categoryName: 'Food',
+        subcategoryId: 'sub-a',
+        subcategoryName: 'A',
+        incomeCents: 0,
+        expenseCents: 1000,
+      },
+    ];
+    const { container } = render(
+      <SubcategoryRankedTable
+        rows={onlyExpense}
+        expenseCategoryColorMap={expenseColors}
+        incomeCategoryColorMap={new Map()}
+        selectedCategoryId={null}
+        onClearSelection={() => {}}
+        locale="en-US"
+        {...labels}
+      />,
+    );
+    const incomeSide = container.querySelector(
+      '.ot-subcategory-ranked__side--income',
+    ) as HTMLElement;
+    expect(within(incomeSide).getByText('No data')).toBeDefined();
+    const expenseSide = container.querySelector(
+      '.ot-subcategory-ranked__side--expense',
+    ) as HTMLElement;
+    expect(within(expenseSide).queryByText('No data')).toBeNull();
+  });
+
+  it('does not render the show-all toggle when both sides have <= topN rows', () => {
+    render(
+      <SubcategoryRankedTable
+        rows={rows}
+        expenseCategoryColorMap={expenseColors}
+        incomeCategoryColorMap={incomeColors}
+        selectedCategoryId={null}
+        onClearSelection={() => {}}
+        locale="en-US"
+        {...labels}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Show all' })).toBeNull();
+  });
+
   it('filters both sides by the selected category and exposes a clear chip', () => {
     const onClearSelection = vi.fn();
     render(
-      <DivergingSubcategoryChart
+      <SubcategoryRankedTable
         rows={rows}
         expenseCategoryColorMap={expenseColors}
         incomeCategoryColorMap={incomeColors}
@@ -183,7 +292,7 @@ describe('DivergingSubcategoryChart', () => {
     expect(onClearSelection).toHaveBeenCalledTimes(1);
   });
 
-  it('toggles to all rows via the show-all link when either side overflows topN', () => {
+  it('toggles the expense side independently of the income side via show-all/show-less', () => {
     const many: SubcategoryRow[] = Array.from({ length: 12 }, (_, i) => ({
       categoryId: 'cat-food',
       categoryName: 'Food',
@@ -194,8 +303,8 @@ describe('DivergingSubcategoryChart', () => {
     }));
     const colors = new Map<string, string>([['cat-food', 'var(--color-donut-0)']]);
 
-    render(
-      <DivergingSubcategoryChart
+    const { container } = render(
+      <SubcategoryRankedTable
         rows={many}
         expenseCategoryColorMap={colors}
         incomeCategoryColorMap={new Map()}
@@ -207,15 +316,19 @@ describe('DivergingSubcategoryChart', () => {
       />,
     );
 
-    expect(screen.getAllByRole('listitem')).toHaveLength(10);
-    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
-    expect(screen.getAllByRole('listitem')).toHaveLength(12);
-    expect(screen.getByRole('button', { name: 'Show less' })).toBeDefined();
+    const expenseSide = container.querySelector(
+      '.ot-subcategory-ranked__side--expense',
+    ) as HTMLElement;
+    expect(expenseSide.querySelectorAll('.ot-subcategory-ranked__row')).toHaveLength(10);
+
+    fireEvent.click(within(expenseSide).getByRole('button', { name: 'Show all' }));
+    expect(expenseSide.querySelectorAll('.ot-subcategory-ranked__row')).toHaveLength(12);
+    expect(within(expenseSide).getByRole('button', { name: 'Show less' })).toBeDefined();
   });
 
   it('uses the parent category colour from the matching side map', () => {
     const { container } = render(
-      <DivergingSubcategoryChart
+      <SubcategoryRankedTable
         rows={rows}
         expenseCategoryColorMap={expenseColors}
         incomeCategoryColorMap={incomeColors}
@@ -226,19 +339,19 @@ describe('DivergingSubcategoryChart', () => {
       />,
     );
     const expensePill = container.querySelector(
-      '.ot-diverging-chart__cell--expense .ot-diverging-chart__pill',
+      '.ot-subcategory-ranked__side--expense .ot-subcategory-ranked__pill',
     ) as HTMLSpanElement | null;
     expect(expensePill?.style.background ?? '').toContain('--color-donut-0');
 
     const incomePill = container.querySelector(
-      '.ot-diverging-chart__cell--income .ot-diverging-chart__pill',
+      '.ot-subcategory-ranked__side--income .ot-subcategory-ranked__pill',
     ) as HTMLSpanElement | null;
     expect(incomePill?.style.background ?? '').toContain('--color-donut-0');
   });
 
-  it('exposes accessible progress bars with the breadcrumb label', () => {
+  it('exposes accessible progress bars labelled with breadcrumb + amount + percent', () => {
     render(
-      <DivergingSubcategoryChart
+      <SubcategoryRankedTable
         rows={rows}
         expenseCategoryColorMap={expenseColors}
         incomeCategoryColorMap={incomeColors}
@@ -250,6 +363,7 @@ describe('DivergingSubcategoryChart', () => {
     );
     const bars = screen.getAllByRole('progressbar');
     const firstLabel = bars[0]?.getAttribute('aria-label') ?? '';
-    expect(firstLabel).toMatch(/Food \u203A Groceries/);
+    expect(firstLabel).toMatch(/\u203A/);
+    expect(firstLabel).toMatch(/%/);
   });
 });
