@@ -1014,6 +1014,18 @@
         "expense": "Expense"
       },
       "seeAllMovements": "See all transactions"
+    },
+    "distribution": {
+      "subcategory": {
+        "title": "DISTRIBUTION BY SUBCATEGORY",
+        "panelHeading": "Distribution by subcategory",
+        "viewAria": "View — expense or income",
+        "empty": "No data for this view",
+        "showAll": "Show all",
+        "showLess": "Show less",
+        "filteredBy": "Filtered by",
+        "clearSelectionAria": "Clear category filter"
+      }
     }
   },
   "datePresets": {

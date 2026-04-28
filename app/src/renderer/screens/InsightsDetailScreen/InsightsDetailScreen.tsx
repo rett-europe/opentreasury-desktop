@@ -12,6 +12,11 @@ import {
 
 import { DonutChart } from '../../components/DonutChart/index.js';
 import { GroupedBarChart } from '../../components/GroupedBarChart/index.js';
+import { SegmentedToggle } from '../../components/SegmentedToggle/index.js';
+import {
+  SubcategoryDistributionPanel,
+  type SubcategoryDistributionView,
+} from '../../components/SubcategoryDistributionPanel/index.js';
 import {
   TagCombinerDropdown,
   type TagCombinerOption,
@@ -107,6 +112,8 @@ export function InsightsDetailScreen({
   const [windowState, setWindowState] = useState<DrilldownWindow>(initialWindow);
   const [allTags, setAllTags] = useState<ReadonlyArray<TagRecord>>([]);
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
+  const [subcatView, setSubcatView] = useState<SubcategoryDistributionView>('gastos');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const reqIdRef = useRef(0);
 
   // ---- Tag list fetch (once) -------------------------------------------------
@@ -168,6 +175,11 @@ export function InsightsDetailScreen({
     void loadDetail();
   }, [loadDetail]);
 
+  // Reset cross-donut selection whenever the underlying data window changes.
+  useEffect(() => {
+    setSelectedCategoryId(null);
+  }, [tagIds, windowState.windowStart, windowState.windowEnd]);
+
   // ---- Date range picker wiring (Saldo parity) -----------------------------
 
   const presets: ReadonlyArray<DateRangePreset> = useMemo(() => {
@@ -219,6 +231,7 @@ export function InsightsDetailScreen({
 
   const onDateRangeChange = useCallback((next: DateRange) => {
     setWindowState({ windowStart: dateToIso(next.from), windowEnd: dateToIso(next.to) });
+    setSelectedCategoryId(null);
   }, []);
 
   // ---- Tag combiner ---------------------------------------------------------
@@ -345,6 +358,22 @@ export function InsightsDetailScreen({
     0,
   );
 
+  // Build per-view category → donut colour map so the subcategory bar list pills
+  // inherit the parent slice's colour. Each view orders categories independently.
+  const incomeColorMap = buildColorMap(incomeSlices.map((s) => s.categoryId));
+  const expenseColorMap = buildColorMap(expenseSlices.map((s) => s.categoryId));
+  const activeColorMap = subcatView === 'ingresos' ? incomeColorMap : expenseColorMap;
+
+  const selectedCategoryName = selectedCategoryId
+    ? (data.categories.find((c) => (c.categoryId ?? '__uncat__') === selectedCategoryId)
+        ?.categoryName ?? null)
+    : null;
+
+  const onCategorySelect = (categoryId: string, fromView: SubcategoryDistributionView) => {
+    setSubcatView(fromView);
+    setSelectedCategoryId((prev) => (prev === categoryId ? null : categoryId));
+  };
+
   return (
     <div className="ot-insights-detail">
       <DetailHeader title={headerTitle} onBack={onBack} backLabel={t('insights.detail.back')} />
@@ -465,6 +494,8 @@ export function InsightsDetailScreen({
           locale={locale}
           emptyLabel={t('insights.detail.donut.incomeEmpty')}
           ariaLabel={t('insights.detail.donut.incomeAria')}
+          selectedCategoryId={subcatView === 'ingresos' ? selectedCategoryId : null}
+          onCategoryClick={(id) => onCategorySelect(id, 'ingresos')}
         />
         <DonutPanel
           title={t('insights.detail.donut.expenseTitle')}
@@ -473,8 +504,44 @@ export function InsightsDetailScreen({
           locale={locale}
           emptyLabel={t('insights.detail.donut.expenseEmpty')}
           ariaLabel={t('insights.detail.donut.expenseAria')}
+          selectedCategoryId={subcatView === 'gastos' ? selectedCategoryId : null}
+          onCategoryClick={(id) => onCategorySelect(id, 'gastos')}
         />
       </div>
+
+      {/* Subcategory distribution panel — donut companion */}
+      <div className="ot-insights-detail__subcat-dist-row">
+        <h2 className="ot-section-label ot-insights-detail__subcat-dist-label">
+          {t('insights.distribution.subcategory.title')}
+        </h2>
+        <SegmentedToggle
+          options={[
+            { value: 'gastos', label: t('insights.detail.legend.expense') },
+            { value: 'ingresos', label: t('insights.detail.legend.income') },
+          ]}
+          value={subcatView}
+          onChange={(val) => {
+            setSubcatView(val as SubcategoryDistributionView);
+            setSelectedCategoryId(null);
+          }}
+          ariaLabel={t('insights.distribution.subcategory.viewAria')}
+        />
+      </div>
+      <SubcategoryDistributionPanel
+        rows={data.subcategories}
+        view={subcatView}
+        categoryColorMap={activeColorMap}
+        selectedCategoryId={selectedCategoryId}
+        selectedCategoryName={selectedCategoryName}
+        onClearSelection={() => setSelectedCategoryId(null)}
+        locale={locale}
+        title={t('insights.distribution.subcategory.panelHeading')}
+        emptyLabel={t('insights.distribution.subcategory.empty')}
+        showAllLabel={t('insights.distribution.subcategory.showAll')}
+        showLessLabel={t('insights.distribution.subcategory.showLess')}
+        chipClearAriaLabel={t('insights.distribution.subcategory.clearSelectionAria')}
+        chipPrefixLabel={t('insights.distribution.subcategory.filteredBy')}
+      />
 
       {/* Subcategory table */}
       <h2 className="ot-section-label">{t('insights.detail.section.subcategories')}</h2>
@@ -579,6 +646,8 @@ function DonutPanel({
   locale,
   emptyLabel,
   ariaLabel,
+  selectedCategoryId,
+  onCategoryClick,
 }: {
   readonly title: string;
   readonly slices: ReadonlyArray<{
@@ -590,6 +659,8 @@ function DonutPanel({
   readonly locale: string;
   readonly emptyLabel: string;
   readonly ariaLabel: string;
+  readonly selectedCategoryId?: string | null;
+  readonly onCategoryClick?: (categoryId: string) => void;
 }): JSX.Element {
   return (
     <div className="ot-donut-panel ot-p-card ot-p-card--padded">
@@ -606,18 +677,41 @@ function DonutPanel({
           <ul className="ot-donut-panel__legend">
             {slices.map((s, idx) => {
               const pct = total > 0 ? (s.value / total) * 100 : 0;
-              return (
-                <li key={s.categoryId} className="ot-donut-panel__legend-item">
-                  <span
-                    className="ot-donut-panel__legend-swatch"
-                    style={{ background: `var(--color-donut-${idx % 8})` }}
-                    aria-hidden="true"
-                  />
+              const isSelected = selectedCategoryId === s.categoryId;
+              const className = `ot-donut-panel__legend-item${
+                onCategoryClick ? ' ot-donut-panel__legend-item--clickable' : ''
+              }${isSelected ? ' ot-donut-panel__legend-item--selected' : ''}`;
+              const swatch = (
+                <span
+                  className="ot-donut-panel__legend-swatch"
+                  style={{ background: `var(--color-donut-${idx % 8})` }}
+                  aria-hidden="true"
+                />
+              );
+              const content = (
+                <>
+                  {swatch}
                   <span className="ot-donut-panel__legend-name">{s.label}</span>
                   <span className="ot-donut-panel__legend-value ot-tnum">
                     {formatCurrency(s.value, locale)}
                   </span>
                   <span className="ot-donut-panel__legend-pct ot-tnum">{pct.toFixed(0)}%</span>
+                </>
+              );
+              return (
+                <li key={s.categoryId} className={className}>
+                  {onCategoryClick ? (
+                    <button
+                      type="button"
+                      className="ot-donut-panel__legend-button"
+                      aria-pressed={isSelected}
+                      onClick={() => onCategoryClick(s.categoryId)}
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    content
+                  )}
                 </li>
               );
             })}
@@ -626,6 +720,22 @@ function DonutPanel({
       </div>
     </div>
   );
+}
+
+/**
+ * Maps each `categoryId` to its donut slice colour CSS variable (matching the
+ * `--color-donut-${idx % 8}` cycle used in the SVG donut). Order of the input
+ * array determines the colour assignment, so the bar list rows align visually
+ * with the donut's slices.
+ */
+function buildColorMap(categoryIds: ReadonlyArray<string>): Map<string, string> {
+  const map = new Map<string, string>();
+  categoryIds.forEach((id, idx) => {
+    if (!map.has(id)) {
+      map.set(id, `var(--color-donut-${idx % 8})`);
+    }
+  });
+  return map;
 }
 
 function SubcategoryTable({
