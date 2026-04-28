@@ -2541,3 +2541,44 @@ total" framing, top-10 default with "Ver todas" toggle.
 - `docs/ux/insights-after/README.md` (new) — index for after-shots.
 - `.squad/skills/disjoint-ranked-distributions/SKILL.md` (new).
 - `.squad/decisions/inbox/trinity-subcategory-ranked-tables.md` (new).
+
+---
+
+## 2026-04-28 — PR #142 polish: dot & palette mockup options (no code)
+
+**Context:** Pedro approved ranked subcategory tables layout in PR #142 but flagged two items: dots look bad, donut category colors too alike. Per UX-concept-first directive (.squad/decisions.md), produced mockup options for him to choose before touching production code.
+
+**Output:**
+- `docs/ux/dots-and-colors-options.md` — diagnosis + 3 dot alternatives + 3 palette alternatives + recommendations
+- `docs/ux/dots-options/index.html` (+ preview.png) — 4-panel dot comparison: A current 10px filled circle, B outlined ring, C left-edge stripe, D tinted rank pill
+- `docs/ux/colors-options/index.html` (+ preview.png) — 4-palette comparison: current OKLCH, Wide-hue OKLCH (45°+alt L), Tableau-10, Okabe-Ito; each shown as swatch row + applied 5-slice donut + ranked-table rows + zoomed adjacent-pair strip exposing collisions
+
+**Diagnosis (color):** current donut palette uses oklch with all 8 hues clustered, similar L (0.55-0.7) and C (0.12-0.18). d2 (teal 150°) ↔ d3 (green 130°) are only 20° apart — indistinguishable at 10px. Same for d4 (yellow-green 80°) ↔ d5 (orange 40°). Other pairs are fine (30°+ apart with luminance variation).
+
+**Diagnosis (dot):** 10×10 filled circle inline with label, no dedicated column, redundant with bar fill below the row that already carries the same color. Reads as ink speck.
+
+**Recommendation given:** Dot D (tinted rank pill — reuses existing element, no new UI primitive, matches Movements ot-type-arrow badge pattern) + Palette 1 (smallest fix: keep OKLCH, just respread hues to 45° apart with alternating L so adjacent slices break in both hue AND luminance, preserves v0.3 muted aesthetic).
+
+**Tooling note:** generated screenshots via Playwright chromium against local HTML — much cleaner than image-edit for "same data different style" comparisons. Captured as a reusable pattern.
+
+**State:** awaiting Pedro selection. On his pick (e.g., "Dot D + palette 1"), implement on PR #142 with before/after screenshots in PR body. Production code/CSS/tokens NOT touched.
+
+---
+
+## 2026-04-28 — PR #142 round 2: Dot D + Palette P1 shipped
+
+**Selected by Pedro:** Dot D (tinted rank pill) + Palette P1 (OKLCH wide-hue, 45° spacing, alternating L). Implemented on squad/trinity-subcategory-ranked-tables.
+
+**Implementation:**
+- Removed `.ot-subcategory-ranked__pill` span entirely from JSX. The dot element is gone — one fewer thing to render, lay out, and test.
+- Tinted rank chip via `color-mix(in oklab, var(--ot-rank-color) 22%, var(--color-surface-primary))` on `.ot-subcategory-ranked__rank`. Plumbed the colour as a CSS custom property (`--ot-rank-color`) inline-styled on the span, NOT as `background:` directly — keeps the tint formula in one CSS location, makes tests assert `style.getPropertyValue('--ot-rank-color')` instead of brittle string matching on a `color-mix()` background expression.
+- Palette tokens: just edited `DonutChart.css` (light + dark theme blocks). Single source of truth — DonutChart.tsx slices, InsightsDetailScreen legend swatches, and the new rank pills all consume the same `--color-donut-*`. No call site updates needed.
+- Rank text stays `--color-text-primary` (i.e. dark on light theme). 22% alpha tint over surface keeps WCAG AA on every hue including the brightest (donut-3 yellow at L=0.78). Avoided the alternative of swapping text-colour per swatch, which would have meant per-token bookkeeping.
+
+**Tests:** rewrote the `uses the parent category colour` test to read `--ot-rank-color` from the rank span instead of `background` from a now-deleted `.ot-subcategory-ranked__pill`. Added a regression test asserting the dot element no longer exists. 833 unit tests green.
+
+**Snapshot harness change:** added `OT_SNAPSHOTS_OUT` env var to `tests/e2e/insights-snapshots.spec.ts` so successive visual rounds can land in sibling folders (`insights-after/` -> `insights-after-d-p1/`) without overwriting prior 'before' state. This is the third time we've wanted this — making it permanent.
+
+**Pre-existing format-check warnings:** `npm run format:check` flags 37 unrelated files on baseline `c5d75e3`. Touched files are all prettier-clean. Documented in PR comment; not in scope for this round.
+
+**Outcome:** push 12ec777 -> PR #142, comment posted at https://github.com/rett-europe/opentreasury-desktop/pull/142#issuecomment-4337951219. Holding for explicit visual approval before merge.
