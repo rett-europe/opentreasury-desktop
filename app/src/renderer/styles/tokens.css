@@ -99,6 +99,24 @@
   --color-uncategorized: #9e9e9e;
   --color-uncategorized-bg: #f5f5f5;
 
+  /* ── Categorical chart palette — donut/legend/rank pill ────
+   * Palette P1 (Wide-hue OKLCH): 8 hues spaced ~45° with alternating
+   * lightness so adjacent slices differ in BOTH hue and luminance.
+   * Single source of truth shared by DonutChart slices, the legend
+   * swatches in InsightsDetailScreen, and the SubcategoryRankedTable
+   * tinted rank pills. Per .squad/skills/design-token-single-source —
+   * MUST live in tokens.css :root, never in component CSS, otherwise
+   * parallel consumers diverge. */
+  --color-donut-0: oklch(0.62 0.18 264); /* blue-violet */
+  --color-donut-1: oklch(0.68 0.16 195); /* cyan */
+  --color-donut-2: oklch(0.7 0.16 145); /* green */
+  --color-donut-3: oklch(0.78 0.16 95); /* yellow-green */
+  --color-donut-4: oklch(0.72 0.18 55); /* orange */
+  --color-donut-5: oklch(0.62 0.2 25); /* red */
+  --color-donut-6: oklch(0.55 0.2 350); /* magenta */
+  --color-donut-7: oklch(0.5 0.18 310); /* purple */
+  --color-donut-otras: oklch(0.6 0.02 260); /* neutral gray */
+
   /* ── Legacy aliases (danger/success/info map to semantic) ─ */
   --color-success-default: var(--color-income-default);
   --color-success-hover: #155c21;
@@ -336,6 +354,19 @@
   --color-uncategorized: #757575;
   --color-uncategorized-bg: #2a2a2a;
 
+  /* ── Categorical chart palette — donut/legend/rank pill ────
+   * Palette P1 dark: same hue spacing as light, lifted L for AA
+   * contrast on dark surfaces. */
+  --color-donut-0: oklch(0.72 0.18 264);
+  --color-donut-1: oklch(0.78 0.16 195);
+  --color-donut-2: oklch(0.8 0.16 145);
+  --color-donut-3: oklch(0.86 0.16 95);
+  --color-donut-4: oklch(0.82 0.18 55);
+  --color-donut-5: oklch(0.72 0.2 25);
+  --color-donut-6: oklch(0.65 0.2 350);
+  --color-donut-7: oklch(0.6 0.18 310);
+  --color-donut-otras: oklch(0.7 0.02 260);
+
   /* ── Legacy aliases ──────────────────────────────────────── */
   --color-success-default: var(--color-income-default);
   --color-success-hover: #8bdb96;
@@ -412,6 +443,17 @@
 
     --color-uncategorized: #757575;
     --color-uncategorized-bg: #2a2a2a;
+
+    /* Categorical chart palette — donut/legend/rank pill (system→dark) */
+    --color-donut-0: oklch(0.72 0.18 264);
+    --color-donut-1: oklch(0.78 0.16 195);
+    --color-donut-2: oklch(0.8 0.16 145);
+    --color-donut-3: oklch(0.86 0.16 95);
+    --color-donut-4: oklch(0.82 0.18 55);
+    --color-donut-5: oklch(0.72 0.2 25);
+    --color-donut-6: oklch(0.65 0.2 350);
+    --color-donut-7: oklch(0.6 0.18 310);
+    --color-donut-otras: oklch(0.7 0.02 260);
 
     --color-success-default: var(--color-income-default);
     --color-success-hover: #8bdb96;

@@ -2582,3 +2582,25 @@ total" framing, top-10 default with "Ver todas" toggle.
 **Pre-existing format-check warnings:** `npm run format:check` flags 37 unrelated files on baseline `c5d75e3`. Touched files are all prettier-clean. Documented in PR comment; not in scope for this round.
 
 **Outcome:** push 12ec777 -> PR #142, comment posted at https://github.com/rett-europe/opentreasury-desktop/pull/142#issuecomment-4337951219. Holding for explicit visual approval before merge.
+
+## Round 3 — single-source-of-truth fix for donut palette (PR #142)
+
+**Date:** 2026-04-28
+**Trigger:** Pedro reported "I see the new ranked tables with tinted pills, but NOT the new palette in the donuts." Round 2 had defined --color-donut-0..7 inside pp/src/renderer/components/DonutChart/DonutChart.css under a :root selector — technically global, but in practice the donut slices and the rank pills diverged.
+
+**Diagnosis.** Both consumers reference ar(--color-donut-N):
+- `DonutChart.tsx` strokes each <circle> with `stroke={ar(--color-donut-)}`.
+- `SubcategoryRankedTable.tsx` reads a colour map built in `InsightsDetailScreen.tsx::buildColorMap` that emits the same `var(--color-donut-)` strings, fed inline as `style={{ ['--ot-rank-color']: entry.colorVar }}`.
+
+So the variable IS the single contract — but the **definition** was in component CSS, not in the design-token file. Vite/Electron CSS bundling and HMR ordering can leave the SVG donut on a stale stroke while the freshly re-mounted rank-pill component picks up the new tokens. Architecturally it's worse: a later contributor deleting or scoping `DonutChart.css` would silently break every other consumer.
+
+**Fix.** Moved the P1 OKLCH palette into `app/src/renderer/styles/tokens.css` — added to all three blocks: `:root, :root[data-theme='light']`, `:root[data-theme='dark']`, and the system-mode `@media (prefers-color-scheme: dark) :root[data-theme='system']` block. Replaced the `:root` rule in `DonutChart.css` with a comment pointing at `tokens.css` and at the new `.squad/skills/design-token-single-source` skill. Token VALUES are byte-identical to round 2, so the captured PNGs in `docs/ux/insights-after-d-p1/` are still correct — the change is structural.
+
+**Lesson — pin this.** ALWAYS define palette tokens in `tokens.css` `:root` — component-scoped overrides only affect downstream components, not parallel consumers. Component CSS may set component-private custom properties (e.g. `--ot-rank-color`) that the component itself reads, but anything consumed by more than one component lives in `tokens.css`. Wrote `.squad/skills/design-token-single-source/SKILL.md` with the checklist.
+
+**Gates.** `npm run typecheck` ✓. `npm run lint` ✓ (0 warnings). `npm run test` ✓ (833 passed, 9 skipped, 92 files). `format:check` baseline unchanged — touched files do not appear in the warning list.
+
+**Files touched.**
+- `app/src/renderer/styles/tokens.css` — added donut palette to light, dark, and system blocks.
+- `app/src/renderer/components/DonutChart/DonutChart.css` — removed local `:root` definitions, replaced with explanatory comment.
+- `.squad/skills/design-token-single-source/SKILL.md` — new skill capturing the rule.

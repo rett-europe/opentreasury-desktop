@@ -57,35 +57,20 @@
 }
 
 /*
- * Color palette — deterministic mapping via CSS custom properties.
+ * Color palette note —
  *
- * Palette P1 (Wide-hue OKLCH): 8 hues spaced at 45° with alternating lightness
- * so adjacent slices differ in BOTH hue and luminance. This survives small-
- * dot rendering and deuteranopia-style color perception. Tokens are the
- * single source of truth shared by the donut slices, the legend swatches,
- * and the SubcategoryRankedTable tinted rank pills.
+ * Donut slice colours are NOT defined here. The Palette P1 (wide-hue OKLCH)
+ * tokens `--color-donut-0..7` and `--color-donut-otras` live in
+ * `app/src/renderer/styles/tokens.css` alongside every other design token
+ * (incomes, expenses, semantic colours). They are the single source of truth
+ * shared by:
+ *   - DonutChart slice strokes (this component)
+ *   - InsightsDetailScreen legend swatches
+ *   - SubcategoryRankedTable tinted rank pills
+ *
+ * Defining them in component CSS caused a divergence in PR #142 round 2:
+ * tokens.css was the consumer everyone loaded, but the override only landed
+ * in DonutChart.css — parallel consumers stayed on whatever was cascading
+ * before. Lesson: shared design tokens MUST live in tokens.css :root, never
+ * in component CSS. See `.squad/skills/design-token-single-source`.
  */
-:root,
-:root[data-theme='light'] {
-  --color-donut-0: oklch(0.62 0.18 264); /* blue-violet */
-  --color-donut-1: oklch(0.68 0.16 195); /* cyan */
-  --color-donut-2: oklch(0.7 0.16 145); /* green */
-  --color-donut-3: oklch(0.78 0.16 95); /* yellow-green */
-  --color-donut-4: oklch(0.72 0.18 55); /* orange */
-  --color-donut-5: oklch(0.62 0.2 25); /* red */
-  --color-donut-6: oklch(0.55 0.2 350); /* magenta */
-  --color-donut-7: oklch(0.5 0.18 310); /* purple */
-  --color-donut-otras: oklch(0.6 0.02 260); /* neutral gray */
-}
-
-:root[data-theme='dark'] {
-  --color-donut-0: oklch(0.72 0.18 264);
-  --color-donut-1: oklch(0.78 0.16 195);
-  --color-donut-2: oklch(0.8 0.16 145);
-  --color-donut-3: oklch(0.86 0.16 95);
-  --color-donut-4: oklch(0.82 0.18 55);
-  --color-donut-5: oklch(0.72 0.2 25);
-  --color-donut-6: oklch(0.65 0.2 350);
-  --color-donut-7: oklch(0.6 0.18 310);
-  --color-donut-otras: oklch(0.7 0.02 260);
-}
