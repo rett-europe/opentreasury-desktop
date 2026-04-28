@@ -2419,3 +2419,184 @@ Component stays flexible for non-income/expense contexts:
 - Chart CSS: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.css` (lines 85–125)
 
 **PR:** https://github.com/rett-europe/opentreasury-desktop/pull/104, https://github.com/rett-europe/opentreasury-desktop/pull/105
+
+---
+
+## DIRECTIVE: User Rule — Bulk Label Addition v1 Scope
+
+**Author:** Pedro Rocha (via Copilot)  
+**Date:** 2026-04-28  
+**Status:** Active  
+**Scope:** Bulk Add Label feature (PR #136–#137)  
+**Applies to:** Morpheus (backend), Trinity (frontend)
+
+### Rule
+
+**Single label at a time. Keep existing labels. No create-new in v1.**
+
+The bulk label operation appends a single user-selected label to the transaction(s), preserving all existing labels. This avoids massive bulk mistakes from multi-label apply or auto-creating invalid labels.
+
+- **v1 Scope:** Single label, append-only semantics (no remove, no batch-replace)
+- **v2 Future:** Multi-label support, create-new labels in picker, batch progress UI
+
+### Rationale
+
+Pedro's direct feedback after reviewing Morpheus bulk approval and Trinity bulk classify patterns: mass operations have high error cost. Starting with single-label append (reversible via label archive + refresh) is safer than multi-label or creation.
+
+### Implementation Notes
+
+- **Backend (Morpheus):** Command `bulkAddLabelToTransactions` uses append-set semantics. IPC contract: `IPC_TRANSACTION_BULK_ADD_LABEL`
+- **Frontend (Trinity):** Modal single-select picker, archived tags filtered, validate-all-then-apply
+- **Testing:** All-or-nothing on unknown transactions; per-tx idempotent skip
+
+### Files
+
+- Backend: `app/src/core/commands/bulkAddLabelToTransactions.ts`, handler in `transaction.ts`
+- Frontend: `BulkAddLabelModal` component, integrated in `BulkActionsBar`
+
+---
+
+## DIRECTIVE: User Rule — Visual Quality Verification Baseline
+
+**Author:** Pedro Rocha (via Copilot)  
+**Date:** 2026-04-26T19:32:00+02:00  
+**Status:** Active  
+**Scope:** All visual/layout work  
+**Applies to:** Trinity (frontend), Mouse (designer)
+
+### Rule
+
+**Tests green + looks aligned in my head is not enough.**
+
+Visual work claims of "done" must include explicit verification at:
+- Narrow viewport (<960px)
+- Mid viewport (~1200px)
+- Wide viewport (1430px+)
+- **AND with subcategory rows expanded** (if applicable)
+
+When a CSS recipe is being applied (e.g., from `.squad/skills/`), implementer must show evidence the recipe actually constrains the bug — not just "I followed the skill."
+
+### Rationale
+
+Three consecutive misses on the Saldo header/bar alignment bug (Mouse iter 3, Trinity iter 6) eroding trust. Pedro dogfoods every iteration; team must catch visual bugs end-to-end before claiming done.
+
+### Process
+
+- Niobe writes specs with **measurable acceptance criteria** for repeat-offender bugs.
+- Visual claims must include screenshots or demo showing all breakpoints + expanded rows.
+
+### Files
+
+- Related: `app/src/renderer/components/GroupedBarChart/GroupedBarChart.css` (alignment recipe)
+
+---
+
+## DIRECTIVE: User Rule — Component Reuse Over JSX Duplication
+
+**Author:** Pedro Rocha (via Copilot)  
+**Date:** 2026-04-27  
+**Status:** Active  
+**Scope:** Frontend component architecture  
+**Applies to:** Trinity (frontend)
+
+### Rule
+
+**When the same UI structure is needed in multiple screens, reuse via shared components. Avoid JSX duplication.**
+
+Drift between copies has bitten us twice on PR #105:
+1. Commit 2ef25df — Dashboard missing Tags + Status columns (Movements had them)
+2. Commit fe45e7a — Dashboard column widths wrong (STATUS too wide)
+
+Both required manual sync. This is error-prone and wastes time per fix.
+
+### Going Forward
+
+Extract shared components for cross-screen patterns (e.g., `<TransactionsTable>` for Dashboard + Movements). Column widths live in shared CSS, not per-screen.
+
+### Example: TransactionsTable Refactor
+
+**Target:** Extract canonical `<TransactionsTable>` accepting:
+- `data: Transaction[]`
+- `columns: Array<'select' | 'type' | 'date' | ...>` (configurable)
+- `sortable?: boolean`
+- `onRowClick?: (tx) => void`
+- `selectedIds?: Set<string>`
+- `onToggleRow?: (id) => void`
+
+Both Dashboard and Movements render this component with respective column sets and handlers.
+
+**Priority:** Low urgency (future refactor), but next drift incident should trigger it rather than another manual sync.
+
+### Files
+
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.tsx` (canonical: lines 560–740)
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.css` (canonical: lines 418–480)
+- `app/src/renderer/screens/PanelScreen/PanelScreen.tsx` (duplicate: lines 240–385)
+- `app/src/renderer/screens/PanelScreen/PanelScreen.css` (duplicate: lines 31–130)
+
+---
+
+## DIRECTIVE: User Rule — Prototype as Reference, Not Spec
+
+**Author:** Pedro Rocha (via Copilot)  
+**Date:** 2026-04-26T21:52:44+02:00  
+**Status:** Active  
+**Scope:** Insights implementation (WI-?, M4)  
+**Applies to:** Niobe (spec), Team (implementation)
+
+### Rule
+
+**Challenge every detail in the prototype folder. Prototype is a reference point, not a spec.**
+
+Prototype Insights pages exist as inspiration, but team must validate each pixel/interaction against UX-005 and product intent rather than copying verbatim.
+
+### Rationale
+
+Prototypes are quick explorations and often omit edge cases, error states, or accessibility considerations. A spec-first approach (Niobe) catches these before implementation.
+
+### Files
+
+- Prototype: `.squad/evidence/prototype/` (Insights pages)
+- Canonical spec: `UX-005` (Niobe ownership)
+
+---
+
+## SURVEY: Mouse Insights Read-Only Codebase Assessment
+
+**Author:** Mouse (UI Designer)  
+**Date:** 2026-04-27  
+**Status:** Informational  
+**Purpose:** Pre-implementation audit for Insights section (#69, M4) while Niobe amends UX-005. No code changes.
+
+### Key Findings
+
+**Missing:** InsightsScreen does not exist. Will be new sibling to SaldoScreen.
+
+**Routing integration needed:**
+- Add `'insights'` to `Route` union in `AppShell.tsx`
+- Add nav item to first section in `NAV_SECTIONS`, after `'balance'`
+- i18n keys: `shell.nav.insights` (ES: "Análisis", EN: "Insights")
+- Icon: `chart-line` from `lucide-react` (per UX-005 §6)
+- Wire route in `App.tsx` conditional chain
+
+**Data model (Tag/Label aggregation):**
+- Existing: CRUD handlers in `app/src/main/ipc/handlers/tags.ts`
+- Missing: Aggregation queries for Insights (per-tag YoY, category distribution)
+- Will need new IPC channels: `insights:label-yoy`, `insights:category-by-year`, etc.
+
+**Tag color storage:**
+- Already present in `TagRecord.color` (optional `string`, hex or CSS names)
+- No schema validation at wire level; format validation in handler
+
+### Scope Implications
+
+- Full survey doc: Mouse `mouse-insights-survey.md` (28.5 KB) in `.squad/decisions/inbox/`
+- Ready for Niobe spec refinement (UX-005 amendment)
+- Ready for Morpheus IPC contract design (aggregation queries)
+
+### Files Audited
+
+- `app/src/renderer/screens/` (structure)
+- `app/src/renderer/AppShell.tsx` (nav sections)
+- `app/src/main/ipc/handlers/tags.ts` (existing tag handlers)
+- `app/src/shared/ipc-contracts/tags.ts` (tag contract)

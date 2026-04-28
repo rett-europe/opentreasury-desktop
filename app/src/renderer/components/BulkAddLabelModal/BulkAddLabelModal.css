@@ -1,36 +1,39 @@
 /* BulkAddLabelModal — bulk add-label.
- * Mirrors BulkClassifyModal: reuses the detail-modal shell and narrows it to
- * a compact form (single label picker + footer). The shell is imported by
- * the .tsx so these overrides win at equal specificity.
+ * Mirrors BulkClassifyModal: reuses the detail-modal shell + the shared
+ * `ot-tx-fields__*` form-field classes (label/input/row) so this modal
+ * stays visually in lockstep with the Add / Edit / BulkClassify modals.
+ * The shell is imported by the .tsx so these overrides win at equal
+ * specificity.
  */
 
+/* Match BulkClassifyModal's shell width so both bulk modals feel like
+ * siblings — narrower than the 760px detail-modal default but wide enough
+ * to give the picker and footer comfortable breathing room. */
 .ot-bulk-add-label-modal {
-  width: 480px;
+  width: 560px;
 }
 
+/* Drop the 520px min-height reserved for the detail edit body, but keep a
+ * modest floor so the single picker + footer have breathing room. The
+ * failures panel self-scrolls (max-height: 200px) so the dialog still
+ * grows naturally only when failures appear. */
 .ot-bulk-add-label-modal .ot-transaction-detail-modal__edit-body {
   min-height: 160px;
 }
 
-.ot-bulk-add-label-modal__field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.ot-bulk-add-label-modal__label {
-  font-size: var(--font-size-13);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
-  letter-spacing: 0.02em;
-}
-
+/* Empty-state copy shown when no active labels exist. Muted tone so it
+ * reads as a quiet inline notice rather than an error. */
 .ot-bulk-add-label-modal__empty {
-  font-size: var(--font-size-13);
-  color: var(--color-text-secondary);
+  margin: 0;
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--color-text-muted);
   font-style: italic;
+  padding: var(--space-2) 0;
 }
 
+/* Failure panel — kept identical to BulkClassifyModal's failures panel
+ * so the "validate-all-then-apply" error list reads the same in every
+ * bulk flow. */
 .ot-bulk-add-label-modal__failures {
   margin-top: var(--space-4);
   padding: var(--space-4);

@@ -2584,3 +2584,44 @@ px prettier --check on only the files you touched is the actionable signal. My t
 - npx vitest run on transaction-splits.test.ts + transaction-splits.locks.test.ts: 23/23 pass, audit lines visible in output
 - npm test full suite: 741 pass, 9 skipped (pre-existing E2E skips)
 
+
+---
+
+## 2026-04-28 — Bulk Add Label: IPC Contract Pattern (PR #136–#137)
+
+**Status:** Merged. Backend (Morpheus PR #136) + Frontend (Trinity PR #137) shipping together.
+
+**IPC Contract Signature:**
+```
+Channel: IPC_TRANSACTION_BULK_ADD_LABEL
+Request:  { transactionIds: string[], labelId: string }
+Response: { ok: true, event: TransactionUpdatedEvent[] } | { ok: false, error: { code, message } }
+```
+
+**Command:** `bulkAddLabelToTransactions(txIds: string[], labelId: string) → Promise<Event[]>`
+- Append-set semantics: adds labelId to transaction's existing label set
+- Validate all, apply all-or-nothing: if any tx is unknown, fail the whole batch without modifying any tx
+- Per-transaction idempotent skip: if tx already has labelId, no event emitted for that tx
+- SPEC-023 FR15 coverage: split-parent txs skip (only leaf nodes receive label)
+
+**Backend (Morpheus) pattern notes:**
+- Pure command with strong typing: `command.ts` tests validate semantics before any IPC
+- Event reuse: `tx.updated` (no new event type needed)
+- Handler registration: `ipcMain.handle(IPC_TRANSACTION_BULK_ADD_LABEL, ...)` in transaction.ts
+- Audit: append-set operations log via structured audit lines after event append
+
+**Frontend (Trinity) pattern notes:**
+- Modal mirrors `BulkClassifyModal`: single-select, validate-all-then-apply
+- Archived labels filtered at render time
+- Read-model-refresh-after-mutation: after response, refetch transaction list to display updated labels
+- i18n keys: `movements.bulk.addLabel.title`, `movements.bulk.addLabel.selectLabel`, `movements.bulk.addLabel.successMessage`
+
+**Related skills / future use:**
+- Template for future bulk mutations: same validate-all-then-apply + event-per-change pattern
+- IPC contract shape reusable for `bulkAddCategories`, `bulkAddSubcategories` (if needed in v2+)
+- No new event type cost: append-set uses existing `tx.updated` event
+
+**Lessons for next bulk operation:**
+- Append semantics simpler than replace semantics (no "what was there before" comparison)
+- Idempotent-skip requires tx lookup *before* event append; add to tests
+- UI single-select reduces error surface vs. multi-select + create
