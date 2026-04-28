@@ -134,6 +134,30 @@ function mapMovementRecord(
   };
 }
 
+/**
+ * Map a MovementRecord (canonical wire shape) to the RecentTransaction shape
+ * consumed by the TransactionDetailModal. Centralised so the detail modal and
+ * the post-mutation refresh effect cannot drift out of sync.
+ */
+function recordToRecentTransaction(record: MovementRecord): RecentTransaction {
+  return {
+    id: record.id,
+    date: record.date,
+    type: record.type,
+    amount: record.amount,
+    currency: record.currency,
+    description: record.description,
+    accountId: record.accountId,
+    categoryId: record.categoryId,
+    subcategoryId: record.subcategoryId,
+    tagIds: record.tagIds.slice(),
+    status: record.status,
+    reference: record.reference ?? undefined,
+    details: record.details ?? undefined,
+    createdAt: record.createdAt,
+  };
+}
+
 function computeTotals(rows: readonly Movement[]): MovementTotals {
   let income = 0;
   let expense = 0;
@@ -492,6 +516,22 @@ export function MovementsScreen({
     if (state.kind !== 'loaded') return new Map<string, MovementRecord>();
     return new Map(state.rawRecords.map((r) => [r.id, r]));
   }, [state]);
+
+  // Keep the open detail modal in sync with the read-model. After a successful
+  // edit the modal stays open in view mode; without this effect it would hold
+  // the pre-save snapshot captured when the row was clicked, so newly added
+  // labels/categories would not appear until the user closed and re-opened the
+  // modal. Triggered whenever loadAll() rebuilds rawRecordById (the freshly
+  // applied event will be in state by then). If the selected record was
+  // deleted, leave selection untouched — the delete handler already clears it.
+  useEffect(() => {
+    if (!selectedTx) return;
+    const fresh = rawRecordById.get(selectedTx.id);
+    if (!fresh) return;
+    if (fresh === selectedRawRecord) return;
+    setSelectedRawRecord(fresh);
+    setSelectedTx(recordToRecentTransaction(fresh));
+  }, [rawRecordById, selectedTx, selectedRawRecord]);
 
   // Build lookup maps for TransactionsTable
   const accountLookup = useMemo(() => {
@@ -1271,23 +1311,7 @@ export function MovementsScreen({
                   // Convert TransactionRow to RecentTransaction for the detail modal
                   const record = rawRecordById.get(row.id);
                   if (!record) return;
-                  const tx: RecentTransaction = {
-                    id: record.id,
-                    date: record.date,
-                    type: record.type,
-                    amount: record.amount,
-                    currency: record.currency,
-                    description: record.description,
-                    accountId: record.accountId,
-                    categoryId: record.categoryId,
-                    subcategoryId: record.subcategoryId,
-                    tagIds: record.tagIds.slice(),
-                    status: record.status,
-                    reference: record.reference ?? undefined,
-                    details: record.details ?? undefined,
-                    createdAt: record.createdAt,
-                  };
-                  setSelectedTx(tx);
+                  setSelectedTx(recordToRecentTransaction(record));
                   setSelectedRawRecord(record);
                 }}
                 onSplitClick={(row) => {
