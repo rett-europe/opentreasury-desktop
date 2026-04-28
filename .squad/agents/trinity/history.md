@@ -2173,3 +2173,81 @@ Skill at `.squad/skills/donut-companion-bar/SKILL.md` documents the full pattern
 - `app/src/renderer/screens/MovementsScreen/MovementsScreen.staleModal.test.tsx` — updated header doc, retitled describe block, replaced test 2 with the close-after-save assertion.
 - `.squad/skills/read-model-refresh-after-mutation/SKILL.md` — addendum with the close-after-save policy and the trigger→lifecycle decision table.
 - `.squad/decisions/inbox/trinity-close-modals-after-save.md` — decision note for Scribe.
+
+---
+
+## 2026-04-28 — Modal UX Batch (PRs #138, #139, #140)
+
+**Context:** Three sequential PRs addressing modal styling, stale-data regression, and after-save UX flow.
+
+### PR #138 — BulkAddLabelModal Style Polish
+
+**Commit:** 4892249  
+**Date:** 2026-04-28T17:18:28Z
+
+Unified `BulkAddLabelModal` styles with `BulkClassifyModal`:
+- Standardized width to 560px (consistent small-modal baseline)
+- Shared form-field classes (`.ot-form-field`, `.ot-form-field__label`, `.ot-form-field__input`)
+- Removed redundant CSS rules; both modals now inherit modal-shell baseline
+
+**Validation:** npm run typecheck ✅ · npm run lint ✅ · npm test ✅
+
+### PR #139 — Stale View-Modal Regression Fix
+
+**Commit:** f6d88a9  
+**Date:** 2026-04-28T17:18:37Z
+
+Fixed PR #133 regression: detail modal displayed pre-save snapshot after edit completion.
+
+**Root cause:** Dual state vars (`selectedId` + `modalTx`) with sync-effect pattern kept `modalTx` stale during `loadAll()` round-trip.
+
+**Solution:** Replaced with derived state via `useMemo` keyed on `rawRecordById`. Single source of truth: read-model.
+
+```tsx
+const selectedTx = useMemo(() => 
+  selectedId && rawRecordById ? rawRecordById.get(selectedId) : null,
+  [selectedId, rawRecordById]
+);
+```
+
+**Pattern learned:** When a modal's display value depends on external state + a selection ID, derive it fresh on each render keyed to the authoritative data shape. Avoids stale-state races during async mutations.
+
+**Validation:** npm test (824 passed) ✅
+
+### PR #140 — After-Save UX Flow (Pedro Directive)
+
+**Commit:** ace58ef  
+**Date:** 2026-04-28T17:39:48Z  
+**Decision:** `.squad/decisions.md` § "Close detail modal after edit-save (Movements)"
+
+PR #139 fixed data freshness, but Pedro rejected the UX: modal disappears for 1–2 seconds, then view-modal re-opens. Felt wrong.
+
+**Pedro's directive (verbatim):** "Close everything — return to the transaction list (simplest, no flash)."
+
+**Implementation:**
+- After successful edit-save in `MovementsScreen` ↔ `TransactionDetailModal`, clear `selectedId` after `loadAll()` resolves
+- Detail modal unmounts → user lands on bare movements list
+- No view-modal re-appearance, no "Cargando" flash
+
+**Scope:**
+- Single-transaction edit-save ✅ (this PR)
+- Bulk flows (classify, add-label, approve) — untouched (operate on multi-select set)
+- Delete flow — unchanged (already cleared `selectedId`)
+
+**Skill update:** `.squad/skills/read-model-refresh-after-mutation/SKILL.md` added close-after-save policy + trigger→lifecycle decision table.
+
+**Test coverage:**
+- Test 1 (derived-state freshness on external configRevision bump) — kept, retitled
+- Test 2 (Pedro flow) — replaced. Asserts detail `<dialog>` is closed after `handleSaveEdit`, table rendered behind
+
+**Validation:** npm run typecheck ✅ · npm run lint ✅ · npx prettier --check ✅ · npm test (824 passed) ✅
+
+### Cross-Cutting Note: Parallel-Worktree Race
+
+During simultaneous execution of #138 and #139 (parallel fan-out), Trinity's working tree was switched mid-task by the coordinator. Confirms **`SQUAD_WORKTREES=1` required for parallel task isolation.**
+
+### Reusable Patterns
+
+1. **Derived state for modal content:** When a modal's display depends on external state + selection ID, use `useMemo` keyed to the authoritative data shape, not dual state vars with sync effects.
+2. **After-mutation UX contract:** Single-transaction edits close modals after `loadAll()`. Multi-select operations keep modals open. Bulk flows operate on different state shape (selectedIds vs selectedId).
+3. **Read-model-refresh skill:** Maintains both the derived-state pattern and the mutation-trigger→lifecycle decision table. Reusable across all screens with edit/delete/classify flows.
