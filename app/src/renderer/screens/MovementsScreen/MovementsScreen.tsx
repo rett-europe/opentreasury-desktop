@@ -52,6 +52,13 @@ import {
 } from '../../utils/movementsDateFilter.js';
 import { formatDateRange } from '../../utils/dateFormat.js';
 import { newUlid } from '../../utils/ulid.js';
+import {
+  buildHaystack,
+  searchMovements,
+  type SearchRow,
+  type LookupTables,
+  type Transaction,
+} from '../../search/search.js';
 import './MovementsScreen.css';
 
 /**
@@ -201,6 +208,11 @@ export interface MovementsScreenProps {
     readonly windowStart?: string;
     readonly windowEnd?: string;
   };
+  /**
+   * SPEC-024 — Search query from AppShell topbar.
+   * Applied as an additional filter (AND) after structured filters.
+   */
+  readonly searchQuery?: string;
 }
 
 /**
@@ -214,6 +226,7 @@ const VIRTUAL_ROW_THRESHOLD = 100;
 export function MovementsScreen({
   configRevision = 0,
   initialFilters,
+  searchQuery = '',
 }: MovementsScreenProps = {}): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
@@ -518,6 +531,42 @@ export function MovementsScreen({
     return map;
   }, [tags]);
 
+  // SPEC-024 — Build search index (haystack rows)
+  const searchIndex = useMemo<readonly SearchRow[]>(() => {
+    if (state.kind !== 'loaded') return [];
+
+    // Build lookup tables for search
+    const lookups: LookupTables = {
+      accountNameById: new Map(accounts.map((a) => [a.id, a.accountLabel])),
+      categoryNameById: new Map(categories.map((c) => [c.id, c.name])),
+      subcategoryNameById: new Map(
+        categories.flatMap((c) =>
+          (c.subcategories ?? []).map((s) => [s.id, s.name] as [string, string]),
+        ),
+      ),
+      tagNameById: new Map(tags.map((t) => [t.id, t.name])),
+      notesByTxId: new Map(), // Notes not yet in MovementRecord
+      splitsByTxId: new Map(), // TODO: Fetch splits separately for search
+    };
+
+    return state.rawRecords.map((record) => {
+      const tx: Transaction = {
+        id: record.id,
+        date: record.date,
+        type: record.type,
+        amount: record.amount,
+        description: record.description,
+        accountId: record.accountId,
+        categoryId: record.categoryId,
+        subcategoryId: record.subcategoryId,
+        tagIds: record.tagIds ?? [],
+        reference: record.reference ?? null,
+        details: record.details ?? null,
+      };
+      return buildHaystack(tx, lookups);
+    });
+  }, [state, accounts, categories, tags]);
+
   // Map Movement[] → TransactionRow[] for the shared table
   const transactionRows: readonly TransactionRow[] = useMemo(() => {
     if (state.kind !== 'loaded') return [];
@@ -587,7 +636,9 @@ export function MovementsScreen({
         tagIdsByMovementId.set(r.id, new Set(r.tagIds ?? []));
       }
     }
-    return allRows.filter((m) => {
+
+    // SPEC-024 — Apply structured filters first
+    const structuredFiltered = allRows.filter((m) => {
       if (typeFilter !== 'all' && m.type !== typeFilter) return false;
       if (accountFilter !== 'all' && m.account !== accountFilter) return false;
       // SPEC-023 FR10/AC6 — Category filter: include parent if parent OR any split matches.
@@ -617,6 +668,14 @@ export function MovementsScreen({
       }
       return true;
     });
+
+    // SPEC-024 FR8 — Apply search filter AFTER structured filters (AND composition)
+    if (searchQuery.trim()) {
+      const searchResult = searchMovements(searchQuery, searchIndex, locale);
+      return structuredFiltered.filter((m) => searchResult.matchedIds.has(m.id));
+    }
+
+    return structuredFiltered;
   }, [
     allRows,
     state,
@@ -629,6 +688,9 @@ export function MovementsScreen({
     minAmount,
     maxAmount,
     uncategorizedOnly,
+    searchQuery,
+    searchIndex,
+    locale,
   ]);
 
   // Filter TransactionRows for the table
