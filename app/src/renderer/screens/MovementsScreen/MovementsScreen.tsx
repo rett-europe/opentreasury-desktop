@@ -1395,8 +1395,21 @@ export function MovementsScreen({
               if (!result.ok) {
                 throw new Error(result.error.message);
               }
-              // Reload movements list to reflect changes
+              // UX: after a successful edit-save we close the detail
+              // modal entirely and return the user to the bare
+              // movements list. Pedro's directive (verbatim):
+              //   "Close everything — return to the transaction list
+              //    (simplest, no flash)"
+              // Prior behaviour relied on the modal staying open in
+              // view mode after save, which produced a 1-2s flash
+              // (edit modal disappears during the loadAll() loading
+              // state, then the view modal re-mounts with the fresh
+              // record). Clearing selectedId here makes the detail
+              // modal unmount synchronously in the same render that
+              // applies the refreshed read-model — no flash, no
+              // auto-reopen.
               await loadAll();
+              setSelectedId(null);
             }}
             onDelete={async (id: string) => {
               const result = await deleteTransaction({ id });
