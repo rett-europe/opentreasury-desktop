@@ -1014,6 +1014,18 @@
         "expense": "Gastos"
       },
       "seeAllMovements": "Ver todos los movimientos"
+    },
+    "distribution": {
+      "subcategory": {
+        "title": "DISTRIBUCIÓN POR SUBCATEGORÍA",
+        "panelHeading": "Distribución por subcategoría",
+        "viewAria": "Vista — gasto o ingreso",
+        "empty": "Sin datos para esta vista",
+        "showAll": "Mostrar todo",
+        "showLess": "Mostrar menos",
+        "filteredBy": "Filtrado por",
+        "clearSelectionAria": "Quitar filtro de categoría"
+      }
     }
   },
   "datePresets": {
