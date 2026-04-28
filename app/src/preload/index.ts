@@ -31,6 +31,7 @@ import {
   IPC_TRANSACTION_UPDATE,
   IPC_TRANSACTION_DELETE,
   IPC_TRANSACTION_BULK_UPDATE,
+  IPC_TRANSACTION_BULK_ADD_LABEL,
   type CreateTransactionRequest,
   type CreateTransactionResponse,
   type UpdateTransactionRequest,
@@ -39,6 +40,8 @@ import {
   type DeleteTransactionResponse,
   type BulkUpdateTransactionRequest,
   type BulkUpdateTransactionResponse,
+  type BulkAddLabelTransactionRequest,
+  type BulkAddLabelTransactionResponse,
 } from '../shared/ipc-contracts/transaction.js';
 import {
   IPC_MOVEMENTS_LIST,
@@ -217,6 +220,11 @@ const api = {
     },
     bulkUpdate: (req: BulkUpdateTransactionRequest): Promise<BulkUpdateTransactionResponse> => {
       return ipcRenderer.invoke(IPC_TRANSACTION_BULK_UPDATE, req);
+    },
+    bulkAddLabel: (
+      req: BulkAddLabelTransactionRequest,
+    ): Promise<BulkAddLabelTransactionResponse> => {
+      return ipcRenderer.invoke(IPC_TRANSACTION_BULK_ADD_LABEL, req);
     },
     note: {
       add: (req: AddNoteRequest): Promise<AddNoteResponse> => {

@@ -11,6 +11,7 @@ export const IPC_TRANSACTION_CREATE = 'transaction:create';
 export const IPC_TRANSACTION_UPDATE = 'transaction:update';
 export const IPC_TRANSACTION_DELETE = 'transaction:delete';
 export const IPC_TRANSACTION_BULK_UPDATE = 'transaction:bulkUpdate';
+export const IPC_TRANSACTION_BULK_ADD_LABEL = 'transaction:bulkAddLabel';
 
 // ----------------------------------------------------------------------------
 // Event schema — mirrors core/events/schemas.ts transactionCreatedEventSchema.
@@ -310,3 +311,64 @@ export const bulkUpdateTransactionResponseSchema = z.discriminatedUnion('ok', [
 ]);
 
 export type BulkUpdateTransactionResponse = z.infer<typeof bulkUpdateTransactionResponseSchema>;
+
+// ============================================================================
+// Bulk Add Label — append a single existing tag to N transactions.
+//
+// Mirrors the WI-31a bulk-update IPC shape but with append-set semantics:
+//   - tagId is appended to each tx's existing tagIds.
+//   - If a tx already carries the tag, it is silently skipped (no event).
+//   - Validate-all-then-apply: any unknown tx id ⇒ zero events emitted.
+// ============================================================================
+
+export const bulkAddLabelTransactionRequestSchema = z.object({
+  ids: z.array(z.string().min(1)).min(1),
+  tagId: z.string().min(1),
+  correlationId: z.string().min(1),
+});
+
+export type BulkAddLabelTransactionRequest = z.infer<typeof bulkAddLabelTransactionRequestSchema>;
+
+export const bulkAddLabelFailureCodeSchema = z.enum([
+  'EMPTY_IDS',
+  'TAG_NOT_FOUND',
+  'TX_NOT_FOUND',
+  'SCHEMA_INVALID',
+  'INTERNAL',
+]);
+
+export type BulkAddLabelFailureCode = z.infer<typeof bulkAddLabelFailureCodeSchema>;
+
+export const bulkAddLabelTransactionFailureSchema = z.object({
+  id: z.string(),
+  code: bulkAddLabelFailureCodeSchema,
+  message: z.string(),
+});
+
+export type BulkAddLabelTransactionFailure = z.infer<typeof bulkAddLabelTransactionFailureSchema>;
+
+export const bulkAddLabelResultEntrySchema = z.object({
+  id: z.string(),
+  status: z.enum(['updated', 'skipped']),
+});
+
+export type BulkAddLabelResultEntry = z.infer<typeof bulkAddLabelResultEntrySchema>;
+
+export const bulkAddLabelTransactionResponseSchema = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    results: z.array(bulkAddLabelResultEntrySchema),
+    events: z.array(transactionUpdatedEventMirrorSchema),
+    updatedCount: z.number().int().nonnegative(),
+    // Per-tx idempotency: txs that already carried the tag are reported here.
+    skippedAlreadyHadCount: z.number().int().nonnegative(),
+    // SPEC-023 FR15 — split parents are excluded entirely from bulk operations.
+    skippedSplitParentCount: z.number().int().nonnegative(),
+  }),
+  z.object({
+    ok: z.literal(false),
+    failures: z.array(bulkAddLabelTransactionFailureSchema),
+  }),
+]);
+
+export type BulkAddLabelTransactionResponse = z.infer<typeof bulkAddLabelTransactionResponseSchema>;
