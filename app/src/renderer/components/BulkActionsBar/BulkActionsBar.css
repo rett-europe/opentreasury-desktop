@@ -39,8 +39,11 @@
   white-space: nowrap;
 }
 
+/* Comfortable gap between bulk action buttons. Was --space-5 (10px) which
+ * felt cramped once 3+ buttons sat side-by-side; --space-7 (16px) gives
+ * each pill room to breathe without widening the toolbar. */
 .ot-bulk-actions-bar__right {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-7);
 }

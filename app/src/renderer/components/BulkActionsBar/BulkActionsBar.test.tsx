@@ -8,11 +8,13 @@ import { BulkActionsBar } from './BulkActionsBar.js';
 function renderBar(props: Partial<React.ComponentProps<typeof BulkActionsBar>> = {}) {
   const onClassify = props.onClassify ?? vi.fn();
   const onApprove = props.onApprove;
+  const onAddLabel = props.onAddLabel;
   const onCancel = props.onCancel ?? vi.fn();
   const selectedCount = props.selectedCount ?? 0;
   return {
     onClassify,
     onApprove,
+    onAddLabel,
     onCancel,
     ...render(
       <I18nextProvider i18n={i18n}>
@@ -20,6 +22,7 @@ function renderBar(props: Partial<React.ComponentProps<typeof BulkActionsBar>> =
           selectedCount={selectedCount}
           onClassify={onClassify}
           onApprove={onApprove}
+          onAddLabel={onAddLabel}
           onCancel={onCancel}
         />
       </I18nextProvider>,
@@ -82,5 +85,19 @@ describe('BulkActionsBar', () => {
     const onApprove = vi.fn();
     renderBar({ selectedCount: 0, onApprove });
     expect(screen.queryByRole('button', { name: /^(approve|aprobar)$/i })).toBeNull();
+  });
+
+  it('hides the AddLabel button when onAddLabel is not provided', () => {
+    renderBar({ selectedCount: 2 });
+    expect(screen.queryByRole('button', { name: /label…|etiquetar…/i })).toBeNull();
+  });
+
+  it('renders the AddLabel button and invokes onAddLabel when clicked', () => {
+    const onAddLabel = vi.fn();
+    renderBar({ selectedCount: 4, onAddLabel });
+    const btn = screen.getByRole('button', { name: /label…|etiquetar…/i });
+    expect(btn).not.toBeNull();
+    fireEvent.click(btn);
+    expect(onAddLabel).toHaveBeenCalledTimes(1);
   });
 });

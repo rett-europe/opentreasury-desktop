@@ -20,11 +20,13 @@ import { TransactionDetailModal } from '../../components/TransactionDetailModal/
 import { BulkActionsBar } from '../../components/BulkActionsBar/index.js';
 import { BulkClassifyModal } from '../../components/BulkClassifyModal/index.js';
 import { BulkApproveConfirmModal } from '../../components/BulkApproveConfirmModal/index.js';
+import { BulkAddLabelModal } from '../../components/BulkAddLabelModal/index.js';
 import { SplitTransactionModal } from '../../components/SplitTransactionModal/index.js';
 import { TransactionsTable } from '../../components/TransactionsTable/index.js';
 import type { TransactionRow } from '../../components/TransactionsTable/index.js';
 import { listMovements } from '../../services/movementsApi.js';
 import {
+  bulkAddLabelToTransactions,
   bulkUpdateTransactions,
   createTransaction,
   updateTransaction,
@@ -309,6 +311,8 @@ export function MovementsScreen({
   // current selection; on success we clear `selected` and re-run loadAll()
   // (same invalidation pattern as the detail modal's onUpdate).
   const [isBulkClassifyOpen, setIsBulkClassifyOpen] = useState(false);
+  // Bulk add-label modal state — same lifecycle as classify above.
+  const [isBulkAddLabelOpen, setIsBulkAddLabelOpen] = useState(false);
   const [bulkSuccessMessage, setBulkSuccessMessage] = useState<string | null>(null);
 
   // Bulk-approve confirmation state. We snapshot the {pendingIds, skipped}
@@ -334,6 +338,14 @@ export function MovementsScreen({
 
   const closeBulkClassify = useCallback(() => {
     setIsBulkClassifyOpen(false);
+  }, []);
+
+  const openBulkAddLabel = useCallback(() => {
+    setIsBulkAddLabelOpen(true);
+  }, []);
+
+  const closeBulkAddLabel = useCallback(() => {
+    setIsBulkAddLabelOpen(false);
   }, []);
 
   const openSplitModal = useCallback((record: MovementRecord) => {
@@ -894,6 +906,7 @@ export function MovementsScreen({
         selectedCount={selected.size}
         onClassify={openBulkClassify}
         onApprove={openBulkApprove}
+        onAddLabel={openBulkAddLabel}
         onCancel={clearSelection}
       />
 
@@ -920,6 +933,33 @@ export function MovementsScreen({
             const msg = t('splits.bulk.skipped', { count: skippedSplitParentCount });
             setBulkSuccessMessage(msg);
             setTimeout(() => setBulkSuccessMessage(null), 5000);
+          }
+        }}
+      />
+
+      <BulkAddLabelModal
+        isOpen={isBulkAddLabelOpen}
+        onClose={closeBulkAddLabel}
+        selectedIds={Array.from(selected)}
+        tags={tags}
+        onBulkAddLabel={bulkAddLabelToTransactions}
+        onSuccess={async ({ updatedCount, skippedSplitParentCount }) => {
+          closeBulkAddLabel();
+          clearSelection();
+          // Read-model refresh after mutation: re-fetch movements so the
+          // detail modal (and any other consumer) sees the new tag when the
+          // user re-opens an affected transaction.
+          await loadAll();
+          const msg = t('movements.bulk.addLabel.successToast', { count: updatedCount });
+          setBulkSuccessMessage(msg);
+          setTimeout(() => setBulkSuccessMessage(null), 5000);
+          // SPEC-023 FR15 — surface skipped split-parents on a follow-up
+          // toast so the count discrepancy isn't silent.
+          if (skippedSplitParentCount > 0) {
+            setTimeout(() => {
+              setBulkSuccessMessage(t('splits.bulk.skipped', { count: skippedSplitParentCount }));
+              setTimeout(() => setBulkSuccessMessage(null), 5000);
+            }, 5100);
           }
         }}
       />

@@ -6,6 +6,8 @@
 // the renderer does NOT re-validate — it just surfaces the typed result.
 
 import type {
+  BulkAddLabelTransactionRequest,
+  BulkAddLabelTransactionResponse,
   BulkUpdateTransactionRequest,
   BulkUpdateTransactionResponse,
   CreateTransactionRequest,
@@ -68,4 +70,22 @@ export async function bulkUpdateTransactions(
   input: BulkUpdateTransactionRequest,
 ): Promise<BulkUpdateTransactionResponse> {
   return window.opentreasury.transaction.bulkUpdate(input);
+}
+
+/**
+ * Bulk add-label — append a single existing tag to N transactions.
+ *
+ * Mirrors `bulkUpdateTransactions` in shape but with append-set semantics
+ * server-side: a tx that already carries the tag is silently skipped (and
+ * counted in `skippedAlreadyHadCount`); validation is all-or-nothing per
+ * the contract — any unknown tx id ⇒ zero events emitted.
+ *
+ * Resolves with discriminated-union result:
+ *  - `{ ok: true, results, events, updatedCount, skippedAlreadyHadCount, skippedSplitParentCount }` on success.
+ *  - `{ ok: false, failures }` on validation failure (zero events applied).
+ */
+export async function bulkAddLabelToTransactions(
+  input: BulkAddLabelTransactionRequest,
+): Promise<BulkAddLabelTransactionResponse> {
+  return window.opentreasury.transaction.bulkAddLabel(input);
 }
