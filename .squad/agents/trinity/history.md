@@ -2251,3 +2251,84 @@ During simultaneous execution of #138 and #139 (parallel fan-out), Trinity's wor
 1. **Derived state for modal content:** When a modal's display depends on external state + selection ID, use `useMemo` keyed to the authoritative data shape, not dual state vars with sync effects.
 2. **After-mutation UX contract:** Single-transaction edits close modals after `loadAll()`. Multi-select operations keep modals open. Bulk flows operate on different state shape (selectedIds vs selectedId).
 3. **Read-model-refresh skill:** Maintains both the derived-state pattern and the mutation-trigger→lifecycle decision table. Reusable across all screens with edit/delete/classify flows.
+
+
+## Insights Detail Polish — squad/trinity-insights-detail-polish (post-WI-19/PR #114)
+
+**Requested by:** Pedro (dogfooding the insights drilldown)
+
+**Three issues, one PR.**
+
+### 1. "Gastos" donut rendering as Pac-Man
+
+**Root cause (reusable insight):** the original DonutChart positioned each
+slice with `strokeDashoffset = -C/4 - sum(prevDashLengths)` and dasharray
+`"L C"`. This works for evenly distributed data, but SVG `<circle>` strokes
+do **not** wrap continuously across the closing point of the path. When a
+slice's dash region begins at a non-zero path offset and extends past the
+end of the path, the trailing portion is silently clipped → wedge-shaped
+gap. Triggers on:
+- any single slice ≥ ~75% of circumference, even with multiple segments,
+- the existing 99.999% special-case did **not** cover slices in [75%, 100%).
+
+Pedro's gastos data had a dominant category (>75%) → visible Pac-Man.
+Ingresos had a more even distribution and stayed below the threshold.
+
+**Fix:** rotate each segment to its start angle via
+`transform="rotate(startAngle, cx, cy)"` and start every dash at path
+position 0 (no `strokeDashoffset`). The whole dash now lives in [0, L]
+for any fraction in [0, 1]. The full-ring (~100%) special case was kept
+for cleanliness (no seam).
+
+### 2. Unified diverging bar chart
+
+Replaced `SubcategoryDistributionPanel` (one chart with a `SegmentedToggle`
+between gastos / ingresos) with **`DivergingSubcategoryChart`**: a single
+chart where gastos extend left from a central zero baseline and ingresos
+extend right. Each side is independently sorted by magnitude. Layout reuses
+the Saldo `minmax(0, …) | minmax(min-content, auto)` grid pattern so amounts
+are never truncated. Narrow viewports (<720 px) collapse the diverging
+metaphor and stack the two sides vertically.
+
+**Why diverging > grouped/stacked:** gastos and ingresos do **not** share
+subcategories (a "Salario" subcategory only contributes to incomes; "Casa
+› Alquiler" only to expenses). Grouped/stacked would require synthetic
+zero rows on one side and obscure the magnitude comparison.
+
+**Removed:** SegmentedToggle import, `subcatView` state, `activeColorMap`
+selection, `.ot-insights-detail__subcat-dist-row` CSS, and the entire
+`SubcategoryDistributionPanel` component (only ever used here).
+
+### 3. Breadcrumb labels
+
+`Category › Subcategory` using **U+203A** (`\u203A` — single right-pointing
+angle quotation mark), NOT the ASCII `>`. Implemented as a tiny
+`formatBreadcrumbLabel(categoryName, subcategoryName, subcategoryId)`
+helper exported from the chart for reuse and direct testing. When
+`subcategoryId == null`, only the category name is shown (no chevron).
+
+The donut tooltips were checked: they already render category names only
+(donuts are category-level, not subcategory-level), so no change needed
+there. The breadcrumb is applied to bar labels, hover tooltips, and the
+progressbar `aria-label` for screen readers.
+
+### Validation
+
+- typecheck ✅ · lint ✅ · prettier --check ✅
+- 838 tests, 829 passed / 9 skipped ✅
+- New tests: 11 for DivergingSubcategoryChart (incl. breadcrumb, sort,
+  filter, side colours, a11y), 2 Pac-Man regressions for DonutChart.
+
+### Reusable patterns
+
+1. **Per-segment rotation > cumulative dashoffset** for SVG donut/pie
+   charts. Updated `.squad/skills/svg-donut-chart/SKILL.md` with the
+   rationale and Pac-Man trigger conditions so future agents don't
+   regress.
+2. **Diverging horizontal bars when two distributions don't share keys**
+   are clearer than grouped/stacked. The Saldo `minmax(...)` grid wisdom
+   carries over: keep amount columns at `minmax(min-content, auto)` and
+   names at `minmax(0, ...)` so amounts never truncate.
+3. **Breadcrumb labels for subcategory ambiguity.** When subcategory names
+   recur under multiple parent categories, prefix with the parent and a
+   U+203A chevron. Plain helper, plain string output, easy to test.

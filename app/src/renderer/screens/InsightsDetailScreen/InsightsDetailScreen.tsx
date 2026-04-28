@@ -12,11 +12,7 @@ import {
 
 import { DonutChart } from '../../components/DonutChart/index.js';
 import { GroupedBarChart } from '../../components/GroupedBarChart/index.js';
-import { SegmentedToggle } from '../../components/SegmentedToggle/index.js';
-import {
-  SubcategoryDistributionPanel,
-  type SubcategoryDistributionView,
-} from '../../components/SubcategoryDistributionPanel/index.js';
+import { DivergingSubcategoryChart } from '../../components/DivergingSubcategoryChart/index.js';
 import {
   TagCombinerDropdown,
   type TagCombinerOption,
@@ -112,7 +108,6 @@ export function InsightsDetailScreen({
   const [windowState, setWindowState] = useState<DrilldownWindow>(initialWindow);
   const [allTags, setAllTags] = useState<ReadonlyArray<TagRecord>>([]);
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
-  const [subcatView, setSubcatView] = useState<SubcategoryDistributionView>('gastos');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const reqIdRef = useRef(0);
 
@@ -358,19 +353,18 @@ export function InsightsDetailScreen({
     0,
   );
 
-  // Build per-view category → donut colour map so the subcategory bar list pills
-  // inherit the parent slice's colour. Each view orders categories independently.
+  // Build per-side category → donut colour map so the diverging chart's row
+  // pills inherit the parent slice's colour. Each side orders categories
+  // independently (matching the donut above it).
   const incomeColorMap = buildColorMap(incomeSlices.map((s) => s.categoryId));
   const expenseColorMap = buildColorMap(expenseSlices.map((s) => s.categoryId));
-  const activeColorMap = subcatView === 'ingresos' ? incomeColorMap : expenseColorMap;
 
   const selectedCategoryName = selectedCategoryId
     ? (data.categories.find((c) => (c.categoryId ?? '__uncat__') === selectedCategoryId)
         ?.categoryName ?? null)
     : null;
 
-  const onCategorySelect = (categoryId: string, fromView: SubcategoryDistributionView) => {
-    setSubcatView(fromView);
+  const onCategorySelect = (categoryId: string) => {
     setSelectedCategoryId((prev) => (prev === categoryId ? null : categoryId));
   };
 
@@ -494,8 +488,8 @@ export function InsightsDetailScreen({
           locale={locale}
           emptyLabel={t('insights.detail.donut.incomeEmpty')}
           ariaLabel={t('insights.detail.donut.incomeAria')}
-          selectedCategoryId={subcatView === 'ingresos' ? selectedCategoryId : null}
-          onCategoryClick={(id) => onCategorySelect(id, 'ingresos')}
+          selectedCategoryId={selectedCategoryId}
+          onCategoryClick={onCategorySelect}
         />
         <DonutPanel
           title={t('insights.detail.donut.expenseTitle')}
@@ -504,33 +498,23 @@ export function InsightsDetailScreen({
           locale={locale}
           emptyLabel={t('insights.detail.donut.expenseEmpty')}
           ariaLabel={t('insights.detail.donut.expenseAria')}
-          selectedCategoryId={subcatView === 'gastos' ? selectedCategoryId : null}
-          onCategoryClick={(id) => onCategorySelect(id, 'gastos')}
+          selectedCategoryId={selectedCategoryId}
+          onCategoryClick={onCategorySelect}
         />
       </div>
 
-      {/* Subcategory distribution panel — donut companion */}
-      <div className="ot-insights-detail__subcat-dist-row">
-        <h2 className="ot-section-label ot-insights-detail__subcat-dist-label">
-          {t('insights.distribution.subcategory.title')}
-        </h2>
-        <SegmentedToggle
-          options={[
-            { value: 'gastos', label: t('insights.detail.legend.expense') },
-            { value: 'ingresos', label: t('insights.detail.legend.income') },
-          ]}
-          value={subcatView}
-          onChange={(val) => {
-            setSubcatView(val as SubcategoryDistributionView);
-            setSelectedCategoryId(null);
-          }}
-          ariaLabel={t('insights.distribution.subcategory.viewAria')}
-        />
-      </div>
-      <SubcategoryDistributionPanel
+      {/*
+        Diverging subcategory bar chart — single chart that mirrors the two
+        donuts above. Gastos rows extend left from the central zero baseline,
+        ingresos extend right. Replaces the previous toggleable single-direction
+        panel; gastos and ingresos do not share subcategories so a diverging
+        layout is more legible than a grouped/stacked one.
+      */}
+      <h2 className="ot-section-label">{t('insights.distribution.subcategory.title')}</h2>
+      <DivergingSubcategoryChart
         rows={data.subcategories}
-        view={subcatView}
-        categoryColorMap={activeColorMap}
+        expenseCategoryColorMap={expenseColorMap}
+        incomeCategoryColorMap={incomeColorMap}
         selectedCategoryId={selectedCategoryId}
         selectedCategoryName={selectedCategoryName}
         onClearSelection={() => setSelectedCategoryId(null)}
@@ -541,6 +525,8 @@ export function InsightsDetailScreen({
         showLessLabel={t('insights.distribution.subcategory.showLess')}
         chipClearAriaLabel={t('insights.distribution.subcategory.clearSelectionAria')}
         chipPrefixLabel={t('insights.distribution.subcategory.filteredBy')}
+        expenseSideLabel={t('insights.detail.legend.expense')}
+        incomeSideLabel={t('insights.detail.legend.income')}
       />
 
       {/* Subcategory table */}

@@ -225,20 +225,6 @@
   border-radius: var(--radius-xs);
 }
 
-/* Subcategory distribution row: section label + segmented toggle */
-.ot-insights-detail__subcat-dist-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  margin-top: var(--space-2);
-}
-
-.ot-insights-detail__subcat-dist-label {
-  margin: 0;
-}
-
 /* Subcategory table */
 .ot-insights-detail__subcat-table table {
   width: 100%;
