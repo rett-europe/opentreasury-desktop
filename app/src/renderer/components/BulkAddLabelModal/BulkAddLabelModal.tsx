@@ -12,6 +12,9 @@ import { newUlid } from '../../utils/ulid.js';
 // Reuse the detail-modal shell — same dialog styling as view / add / edit /
 // bulk-classify.
 import '../TransactionDetailModal/TransactionDetailModal.css';
+// Shared form-field classes (label/input/row layout) used across the
+// add/edit/bulk-classify flows so this modal stays visually in lockstep.
+import '../TransactionFormFields/TransactionFormFields.css';
 import './BulkAddLabelModal.css';
 
 export interface BulkAddLabelModalProps {
@@ -198,8 +201,8 @@ export function BulkAddLabelModal({
             )}
 
             <div className="ot-tx-fields">
-              <div className="ot-bulk-add-label-modal__field">
-                <label htmlFor={selectId} className="ot-bulk-add-label-modal__label">
+              <div className="ot-tx-fields__field">
+                <label htmlFor={selectId} className="ot-tx-fields__label">
                   {t('movements.bulk.addLabel.fieldLabel')}
                 </label>
                 {availableTags.length === 0 ? (
@@ -209,7 +212,7 @@ export function BulkAddLabelModal({
                 ) : (
                   <select
                     id={selectId}
-                    className="ot-input"
+                    className="ot-tx-fields__input"
                     value={tagId}
                     onChange={(e) => setTagId(e.target.value)}
                     disabled={isSubmitting}
