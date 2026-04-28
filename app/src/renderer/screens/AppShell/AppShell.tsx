@@ -81,6 +81,14 @@ function readStoredSidebarCollapsed(): boolean {
  */
 const NARROW_VIEWPORT_QUERY = '(max-width: 960px)';
 
+/**
+ * SPEC-024 — Trailing-edge debounce window for the global search input.
+ * Pedro feedback: 200ms felt too eager (filter pipeline kicked in mid-word);
+ * 500ms gives more breathing room while still feeling responsive.
+ * Enter / Esc / clear paths flush immediately and bypass this delay.
+ */
+const SEARCH_DEBOUNCE_MS = 500;
+
 function readInitialNarrowViewport(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return false;
@@ -130,7 +138,7 @@ export function AppShell({
   //
   // PERF: the topbar input keeps a *local* immediate value (`searchInputValue`)
   // and only propagates to the parent (`onSearchQueryChange`) on the trailing
-  // edge of a 200 ms debounce. Wiring the input straight to the parent setter
+  // edge of a 500 ms debounce. Wiring the input straight to the parent setter
   // re-renders MovementsScreen on every keystroke and re-runs the 10k-row
   // filter pipeline ("c" → "ca" → "cal" …) which Pedro experienced as
   // visible per-keystroke lag. The prop `searchQuery` is the *applied* query
@@ -255,12 +263,12 @@ export function AppShell({
       // while the (potentially expensive) filter is debounced.
       setSearchInputValue(value);
 
-      // FR13 — Trailing-edge 200ms debounce on the *applied* query.
+      // FR13 — Trailing-edge 500ms debounce on the *applied* query.
       cancelPendingSearch();
       searchDebounceTimerRef.current = window.setTimeout(() => {
         searchDebounceTimerRef.current = null;
         dispatchSearch(value);
-      }, 200);
+      }, SEARCH_DEBOUNCE_MS);
     },
     [cancelPendingSearch, dispatchSearch],
   );
