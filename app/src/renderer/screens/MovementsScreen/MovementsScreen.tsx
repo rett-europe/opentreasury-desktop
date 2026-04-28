@@ -269,8 +269,7 @@ export function MovementsScreen({
 
   // Selected transaction for detail modal — now includes the raw record
   // so we can check hasSplits and access split metadata.
-  const [selectedTx, setSelectedTx] = useState<RecentTransaction | null>(null);
-  const [selectedRawRecord, setSelectedRawRecord] = useState<MovementRecord | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Filter state
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
@@ -529,21 +528,23 @@ export function MovementsScreen({
     return new Map(state.rawRecords.map((r) => [r.id, r]));
   }, [state]);
 
-  // Keep the open detail modal in sync with the read-model. After a successful
-  // edit the modal stays open in view mode; without this effect it would hold
-  // the pre-save snapshot captured when the row was clicked, so newly added
-  // labels/categories would not appear until the user closed and re-opened the
-  // modal. Triggered whenever loadAll() rebuilds rawRecordById (the freshly
-  // applied event will be in state by then). If the selected record was
-  // deleted, leave selection untouched — the delete handler already clears it.
-  useEffect(() => {
-    if (!selectedTx) return;
-    const fresh = rawRecordById.get(selectedTx.id);
-    if (!fresh) return;
-    if (fresh === selectedRawRecord) return;
-    setSelectedRawRecord(fresh);
-    setSelectedTx(recordToRecentTransaction(fresh));
-  }, [rawRecordById, selectedTx, selectedRawRecord]);
+  // Modal selection is fully derived from `selectedId` + `rawRecordById`. This
+  // is the single source of truth for the open detail modal — both view and
+  // edit modes ALWAYS render the freshest record from the read-model. PR #133
+  // attempted to fix the same regression with a sync `useEffect`, but its
+  // bail-out check (`fresh === selectedRawRecord`) plus React effect ordering
+  // around the loadAll() loading→loaded flash meant the post-save view modal
+  // could remount holding the pre-save `selectedTx` snapshot. Deriving from
+  // the read-model removes the race entirely.
+  const selectedRawRecord = useMemo<MovementRecord | null>(() => {
+    if (!selectedId) return null;
+    return rawRecordById.get(selectedId) ?? null;
+  }, [selectedId, rawRecordById]);
+
+  const selectedTx = useMemo<RecentTransaction | null>(
+    () => (selectedRawRecord ? recordToRecentTransaction(selectedRawRecord) : null),
+    [selectedRawRecord],
+  );
 
   // Build lookup maps for TransactionsTable
   const accountLookup = useMemo(() => {
@@ -1348,11 +1349,11 @@ export function MovementsScreen({
                 allSelected={allVisibleSelected}
                 someSelected={someVisibleSelected}
                 onRowClick={(row) => {
-                  // Convert TransactionRow to RecentTransaction for the detail modal
-                  const record = rawRecordById.get(row.id);
-                  if (!record) return;
-                  setSelectedTx(recordToRecentTransaction(record));
-                  setSelectedRawRecord(record);
+                  // Selection is just an ID; selectedTx/selectedRawRecord are
+                  // derived from rawRecordById, so the modal always renders
+                  // the freshest record.
+                  if (!rawRecordById.has(row.id)) return;
+                  setSelectedId(row.id);
                 }}
                 onSplitClick={(row) => {
                   const record = rawRecordById.get(row.id);
@@ -1382,8 +1383,7 @@ export function MovementsScreen({
           <TransactionDetailModal
             isOpen={selectedTx !== null}
             onClose={() => {
-              setSelectedTx(null);
-              setSelectedRawRecord(null);
+              setSelectedId(null);
             }}
             transaction={selectedTx}
             rawRecord={selectedRawRecord}
@@ -1405,8 +1405,7 @@ export function MovementsScreen({
               }
               // Reload movements list to reflect changes
               await loadAll();
-              setSelectedTx(null);
-              setSelectedRawRecord(null);
+              setSelectedId(null);
             }}
             onOpenSplit={() => {
               if (selectedRawRecord) {
