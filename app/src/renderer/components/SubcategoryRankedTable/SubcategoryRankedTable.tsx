@@ -173,12 +173,12 @@ export function SubcategoryRankedTable({
       ) : (
         <div className="ot-subcategory-ranked__grid">
           <RankedSide
-            side="expense"
-            sideLabel={expenseSideLabel}
-            rows={expenseRows}
+            side="income"
+            sideLabel={incomeSideLabel}
+            rows={incomeRows}
             topN={topN}
-            showAll={showAllExpense}
-            onToggleShowAll={() => setShowAllExpense((v) => !v)}
+            showAll={showAllIncome}
+            onToggleShowAll={() => setShowAllIncome((v) => !v)}
             locale={locale}
             sideEmptyLabel={sideEmptyLabel}
             showAllLabel={showAllLabel}
@@ -187,12 +187,12 @@ export function SubcategoryRankedTable({
             percentColumnLabel={percentColumnLabel}
           />
           <RankedSide
-            side="income"
-            sideLabel={incomeSideLabel}
-            rows={incomeRows}
+            side="expense"
+            sideLabel={expenseSideLabel}
+            rows={expenseRows}
             topN={topN}
-            showAll={showAllIncome}
-            onToggleShowAll={() => setShowAllIncome((v) => !v)}
+            showAll={showAllExpense}
+            onToggleShowAll={() => setShowAllExpense((v) => !v)}
             locale={locale}
             sideEmptyLabel={sideEmptyLabel}
             showAllLabel={showAllLabel}
