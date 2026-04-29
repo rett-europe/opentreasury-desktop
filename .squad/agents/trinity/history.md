@@ -17,6 +17,25 @@ The cloud version has an Angular 19 frontend with:
 - Multi-language (Spanish + English)
 - MSAL-based authentication with Entra ID
 
+## Learnings
+
+**2026-05-04 — PR #174: Trial-readiness PR-A (squad/settings-corp-enforcement)**
+
+Fixed two Settings-related trial-readiness blockers for Pedro's manual validation:
+
+1. **"Data folder" showed "(default)" instead of the real path:** Extended `config:get` IPC response to include `effectiveDataDir: string` (the actually-in-use absolute path). Added `getEffectiveEventLogDir()` getter to `bootstrap.ts` to expose the resolved path after applying config/env/defaults. Updated `SettingsScreen.tsx` to always display `effectiveDataDir` in the `<code>` block, with a small "(default location)" badge when `dataDir === null` (replacing the redundant double "(default)" rendering).
+
+2. **Folder picker was too permissive:** Created `classifySyncRoot(path): SyncRootKind` utility (`app/src/renderer/utils/syncRoot.ts`) to detect OneDrive Business vs Personal vs SharePoint vs local/other. Detection rules (Windows-first; macOS later):
+   - **OneDrive for Business:** `/OneDrive\s*-\s*[^/\\]+/` (case-insensitive)
+   - **SharePoint sync:** heuristic for sync-client patterns (e.g., `Tenant\... - Library` or `TenantName - SiteName`)
+   - **OneDrive Personal:** `/OneDrive(?:\/|$)/` without " - " suffix → REJECT
+   - **Other:** Desktop/Documents/USB/etc. → REJECT with new `NOT_CORP_LOCATION` error
+   Updated validation flow to reject anything except OneDrive Business or SharePoint. Updated dialog picker title to "Select OneDrive for Business or SharePoint folder".
+
+**Pattern learned:** When the renderer needs the "effective" value of a config that has fallback logic (env override → config → default), expose it explicitly via the IPC contract rather than duplicating the resolution logic renderer-side. The main process already resolves `resolveEventLogDir()` at bootstrap; adding `effectiveDataDir` to the response keeps a single source of truth and eliminates the "(default)" placeholder hack.
+
+**Testing discipline:** Created focused unit test suite for `classifySyncRoot` (7 test cases covering OneDrive Business/Personal, SharePoint, local paths, edge cases, cross-platform). All 8 existing SettingsScreen tests updated to handle the new `effectiveDataDir` field in the mock response. 997 tests passed.
+
 ## Core Context
 
 **CANONICAL KPI PATTERN (2026-04-27):** Mouse established reusable `.ot-kpi-strip` recipe in PR #104 (`squad/visual-consistency-income-expense-net`) for income/expense/net cards. Pattern: TrendingUp/TrendingDown/Calculator icons @ 20px + --color-income-default / --color-expense-default / --color-brand-primary via shared CSS recipe in `globals.css`. Grid template: `repeat(auto-fit, minmax(240px, 1fr))` — responsive flow prevents awkward wraps at intermediate viewports. Aligned across Movements, Insights; Saldo already matched. This is the canonical visual baseline for all KPI indicators going forward — future features reuse this pattern instead of one-off icon/color choices.
