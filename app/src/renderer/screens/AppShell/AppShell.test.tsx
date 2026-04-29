@@ -5,6 +5,25 @@ import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
 import { AppShell } from './AppShell.js';
 
+// Mock ProfileSetupModal to always complete immediately with a test profile.
+// This bypasses the render gate at AppShell.tsx:354-356 that shows the modal
+// when profile === null. For sidebar tests, we need the shell to render.
+vi.mock('../ProfileSetupModal/index.js', () => ({
+  ProfileSetupModal: ({
+    onComplete,
+  }: {
+    onComplete: (profile: { name: string; role: string; ngo: string }) => void;
+  }) => {
+    // Immediately call onComplete to set the profile state
+    React.useEffect(() => {
+      onComplete({ name: 'Test User', role: 'treasurer', ngo: 'Test NGO' });
+    }, [onComplete]);
+    return null;
+  },
+}));
+
+import * as React from 'react';
+
 const STORAGE_KEY = 'opentreasury.sidebar.collapsed';
 
 /**
