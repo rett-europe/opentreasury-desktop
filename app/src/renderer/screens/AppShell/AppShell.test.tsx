@@ -5,24 +5,29 @@ import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
 import { AppShell } from './AppShell.js';
 
-// Mock ProfileSetupModal to always complete immediately with a test profile.
-// This bypasses the render gate at AppShell.tsx:354-356 that shows the modal
-// when profile === null. For sidebar tests, we need the shell to render.
-vi.mock('../ProfileSetupModal/index.js', () => ({
-  ProfileSetupModal: ({
-    onComplete,
-  }: {
-    onComplete: (profile: { name: string; role: string; ngo: string }) => void;
-  }) => {
-    // Immediately call onComplete to set the profile state
-    React.useEffect(() => {
-      onComplete({ name: 'Test User', role: 'treasurer', ngo: 'Test NGO' });
-    }, [onComplete]);
-    return null;
-  },
-}));
+// P1-1: AppShell loads the user profile from `window.opentreasury.profile.get()`
+// on mount and shows the ProfileSetupModal until a profile resolves. For the
+// sidebar tests we stub the IPC bridge so the shell renders immediately with a
+// valid profile in memory — bypassing the modal render-gate at AppShell.tsx:391.
+const TEST_PROFILE = {
+  userId: '01TESTUSERIDXXXXXXXXXXXXXX',
+  name: 'Test User',
+  role: 'treasurer' as const,
+  ngoName: 'Test NGO',
+  identitySource: 'local' as const,
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
 
-import * as React from 'react';
+function installOpentreasuryStub(): void {
+  // @ts-expect-error - partial window.opentreasury mock; only the surface
+  //                   AppShell consumes is provided.
+  window.opentreasury = {
+    profile: {
+      get: vi.fn().mockResolvedValue({ ok: true, profile: TEST_PROFILE }),
+      save: vi.fn().mockResolvedValue({ ok: true, profile: TEST_PROFILE }),
+    },
+  };
+}
 
 const STORAGE_KEY = 'opentreasury.sidebar.collapsed';
 
@@ -91,15 +96,16 @@ describe('AppShell — sidebar collapse/expand toggle (issue #95)', () => {
   beforeEach(() => {
     localStorage.clear();
     mql = installMatchMediaStub();
+    installOpentreasuryStub();
   });
 
   afterEach(() => {
     localStorage.clear();
   });
 
-  it('starts expanded by default and flips collapsed on click', () => {
+  it('starts expanded by default and flips collapsed on click', async () => {
     renderShell();
-    const brand = screen.getByRole('button', { name: /collapse navigation|contraer/i });
+    const brand = await screen.findByRole('button', { name: /collapse navigation|contraer/i });
     expect(brand.getAttribute('aria-expanded')).toBe('true');
 
     fireEvent.click(brand);
@@ -109,21 +115,23 @@ describe('AppShell — sidebar collapse/expand toggle (issue #95)', () => {
     expect(collapsed.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('persists the preference to localStorage and restores it on remount', () => {
+  it('persists the preference to localStorage and restores it on remount', async () => {
     const { unmount } = renderShell();
-    fireEvent.click(screen.getByRole('button', { name: /collapse navigation|contraer/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /collapse navigation|contraer/i }));
     expect(localStorage.getItem(STORAGE_KEY)).toBe('true');
     unmount();
 
     renderShell();
-    const restored = screen.getByRole('button', { name: /expand navigation|expandir/i });
+    const restored = await screen.findByRole('button', {
+      name: /expand navigation|expandir/i,
+    });
     expect(restored.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('reports collapsed state truthfully at ≤960px even when preference is "expanded"', () => {
+  it('reports collapsed state truthfully at ≤960px even when preference is "expanded"', async () => {
     // Preference says "expanded" (default). CSS auto-collapses at narrow widths.
     renderShell();
-    const brand = screen.getByRole('button', { name: /collapse navigation|contraer/i });
+    const brand = await screen.findByRole('button', { name: /collapse navigation|contraer/i });
     expect(brand.getAttribute('aria-expanded')).toBe('true');
 
     // Simulate the viewport crossing the breakpoint.
@@ -138,14 +146,14 @@ describe('AppShell — sidebar collapse/expand toggle (issue #95)', () => {
     expect((narrowBrand as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('cross-tab sync ignores key removal (does not silently expand)', () => {
+  it('cross-tab sync ignores key removal (does not silently expand)', async () => {
     // Start with a stored "collapsed" preference.
     localStorage.setItem(STORAGE_KEY, 'true');
     renderShell();
     expect(
-      screen
-        .getByRole('button', { name: /expand navigation|expandir/i })
-        .getAttribute('aria-expanded'),
+      (await screen.findByRole('button', { name: /expand navigation|expandir/i })).getAttribute(
+        'aria-expanded',
+      ),
     ).toBe('false');
 
     // Another tab clears the key. `StorageEvent.newValue` is `null`.
@@ -167,12 +175,12 @@ describe('AppShell — sidebar collapse/expand toggle (issue #95)', () => {
     ).toBe('false');
   });
 
-  it('cross-tab sync applies "true"/"false" updates from other windows', () => {
+  it('cross-tab sync applies "true"/"false" updates from other windows', async () => {
     renderShell();
     expect(
-      screen
-        .getByRole('button', { name: /collapse navigation|contraer/i })
-        .getAttribute('aria-expanded'),
+      (await screen.findByRole('button', { name: /collapse navigation|contraer/i })).getAttribute(
+        'aria-expanded',
+      ),
     ).toBe('true');
 
     act(() => {
