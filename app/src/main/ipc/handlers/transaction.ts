@@ -40,6 +40,7 @@ import {
   bulkAddLabelTransactionRequestSchema,
   type BulkAddLabelTransactionResponse,
 } from '../../../shared/ipc-contracts/transaction.js';
+import { ReadOnlyEventLogError } from '../../eventLog-readonly-wrapper.js';
 
 export interface TransactionCreateHandlerDeps {
   readonly eventLog: EventLog;
@@ -119,13 +120,21 @@ export function createTransactionCreateHandler(
 
       return { ok: true, event: result.value };
     } catch (err) {
+      // P1-3: Catch ReadOnlyEventLogError and map to EVENT_LOG_READONLY
+      if (err instanceof ReadOnlyEventLogError) {
+        return {
+          ok: false,
+          error: {
+            code: 'EVENT_LOG_READONLY',
+            message: err.message,
+          },
+        };
+      }
       const message = err instanceof Error ? err.message : String(err);
       return { ok: false, error: { code: 'INTERNAL', message } };
     }
   };
 }
-
-// WI-20 — Update Transaction Handler
 export interface TransactionUpdateHandlerDeps {
   readonly eventLog: EventLog;
   readonly getReadModel: () => ReadModel;
@@ -220,6 +229,16 @@ export function createTransactionUpdateHandler(
 
       return { ok: true, event: result.value };
     } catch (err) {
+      // P1-3: Catch ReadOnlyEventLogError and map to EVENT_LOG_READONLY
+      if (err instanceof ReadOnlyEventLogError) {
+        return {
+          ok: false,
+          error: {
+            code: 'EVENT_LOG_READONLY',
+            message: err.message,
+          },
+        };
+      }
       const message = err instanceof Error ? err.message : String(err);
       return { ok: false, error: { code: 'INTERNAL', message } };
     }
@@ -293,6 +312,16 @@ export function createTransactionDeleteHandler(
 
       return { ok: true, event: result.value };
     } catch (err) {
+      // P1-3: Catch ReadOnlyEventLogError and map to EVENT_LOG_READONLY
+      if (err instanceof ReadOnlyEventLogError) {
+        return {
+          ok: false,
+          error: {
+            code: 'EVENT_LOG_READONLY',
+            message: err.message,
+          },
+        };
+      }
       const message = err instanceof Error ? err.message : String(err);
       return { ok: false, error: { code: 'INTERNAL', message } };
     }
@@ -397,6 +426,13 @@ export function createTransactionBulkUpdateHandler(
         skippedSplitParentCount,
       };
     } catch (err) {
+      // P1-3: Catch ReadOnlyEventLogError and map to EVENT_LOG_READONLY
+      if (err instanceof ReadOnlyEventLogError) {
+        return {
+          ok: false,
+          failures: [{ id: '', code: 'EVENT_LOG_READONLY', message: err.message }],
+        };
+      }
       const message = err instanceof Error ? err.message : String(err);
       return {
         ok: false,
@@ -524,6 +560,13 @@ export function createTransactionBulkAddLabelHandler(
         skippedSplitParentCount,
       };
     } catch (err) {
+      // P1-3: Catch ReadOnlyEventLogError and map to EVENT_LOG_READONLY
+      if (err instanceof ReadOnlyEventLogError) {
+        return {
+          ok: false,
+          failures: [{ id: '', code: 'EVENT_LOG_READONLY', message: err.message }],
+        };
+      }
       const message = err instanceof Error ? err.message : String(err);
       return {
         ok: false,

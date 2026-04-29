@@ -108,6 +108,7 @@ export const transactionValidationErrorCodeSchema = z.enum([
   'TX_HAS_ACTIVE_SPLITS', // SPEC-023 FR14 — reject parent amount edit when splits exist
   'SCHEMA_INVALID',
   'INTERNAL',
+  'EVENT_LOG_READONLY', // P1-3 trial-readiness — blocks writes in read-only mode
 ]);
 
 export type TransactionValidationErrorCode = z.infer<typeof transactionValidationErrorCodeSchema>;
@@ -193,6 +194,7 @@ export const updateTransactionValidationErrorCodeSchema = z.enum([
   'TX_HAS_ACTIVE_SPLITS', // SPEC-023 FR14 — reject parent amount edit when splits exist
   'SCHEMA_INVALID',
   'INTERNAL',
+  'EVENT_LOG_READONLY', // P1-3 trial-readiness — blocks writes in read-only mode
 ]);
 
 export type UpdateTransactionValidationErrorCode = z.infer<
@@ -241,6 +243,7 @@ export const deleteTransactionValidationErrorCodeSchema = z.enum([
   'TX_NOT_FOUND',
   'SCHEMA_INVALID',
   'INTERNAL',
+  'EVENT_LOG_READONLY', // P1-3 trial-readiness — blocks writes in read-only mode
 ]);
 
 export type DeleteTransactionValidationErrorCode = z.infer<
@@ -335,6 +338,7 @@ export const bulkAddLabelFailureCodeSchema = z.enum([
   'TX_NOT_FOUND',
   'SCHEMA_INVALID',
   'INTERNAL',
+  'EVENT_LOG_READONLY', // P1-3 trial-readiness — blocks writes in read-only mode
 ]);
 
 export type BulkAddLabelFailureCode = z.infer<typeof bulkAddLabelFailureCodeSchema>;
