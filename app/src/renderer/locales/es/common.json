@@ -1142,7 +1142,7 @@
       "es": "Español"
     },
     "dataset": {
-      "title": "Conjunto de datos actual",
+      "title": "Conjunto de datos",
       "idLabel": "ID del conjunto de datos",
       "locationLabel": "Ubicación",
       "defaultBadge": "(ubicación predeterminada)",
@@ -1168,13 +1168,6 @@
     "about": {
       "title": "Acerca de",
       "version": "Versión {{version}}"
-    },
-    "switchDataset": {
-      "button": "Cambiar a un conjunto de datos diferente…",
-      "confirmTitle": "¿Cambiar a otro conjunto de datos?",
-      "confirmBody": "Estás a punto de salir del conjunto de datos actual y seleccionar una nueva carpeta de datos. La aplicación se reiniciará y tendrás que configurar tu perfil nuevamente si la nueva carpeta no contiene un archivo profile.json. Tu conjunto de datos actual permanecerá intacto.",
-      "confirmStay": "Permanecer en el conjunto actual",
-      "confirmSwitch": "Cambiar conjunto de datos"
     }
   },
   "settings": {

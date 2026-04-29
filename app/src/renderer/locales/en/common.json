@@ -1142,7 +1142,7 @@
       "es": "Español"
     },
     "dataset": {
-      "title": "Current Dataset",
+      "title": "Dataset",
       "idLabel": "Dataset ID",
       "locationLabel": "Location",
       "defaultBadge": "(default location)",
@@ -1168,13 +1168,6 @@
     "about": {
       "title": "About",
       "version": "Version {{version}}"
-    },
-    "switchDataset": {
-      "button": "Switch to a different dataset…",
-      "confirmTitle": "Switch to a different dataset?",
-      "confirmBody": "You are about to leave the current dataset and select a new data folder. The app will relaunch, and you'll need to set up your profile again if the new folder doesn't contain a profile.json file. Your current dataset will remain untouched.",
-      "confirmStay": "Stay in current dataset",
-      "confirmSwitch": "Switch dataset"
     }
   },
   "settings": {
