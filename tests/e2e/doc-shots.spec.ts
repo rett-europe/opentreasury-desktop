@@ -1,0 +1,249 @@
+import {
+  test,
+  expect,
+  _electron as electron,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test';
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+// ---------------------------------------------------------------------------
+// Doc-shots harness — Issue #163 (P2-5)
+// ---------------------------------------------------------------------------
+// Generates the seven illustrated waypoints that Oracle embeds in the end-user
+// guide under docs/guides/. Output PNGs land in docs/guides/screenshots/ and
+// are committed to the repo so the markdown is immediately publishable.
+//
+// CRITICAL: Electron is launched with `args: ['.', `--user-data-dir=${ISO}`]`.
+//   - `.` makes Electron resolve our package.json so app.getName() returns
+//     "opentreasury-desktop" (NEVER pass a path to a built script — that path
+//     turns into the app name and userData falls back to %APPDATA%\Electron,
+//     making your seeded profile.json invisible). See PR #46 / movements-perf.
+//   - `--user-data-dir=…` (Chromium switch, honoured by Electron) sandboxes
+//     userData under an OS temp folder so we can freely overwrite
+//     profile.json / app-config.json without touching the dogfood install.
+// ---------------------------------------------------------------------------
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(HERE, '..', '..');
+const SCREENSHOT_DIR = path.join(REPO_ROOT, 'docs', 'guides', 'screenshots');
+const SEED_SCRIPT = path.join(REPO_ROOT, 'scripts', 'perf-seed.mjs');
+
+const VIEWPORT = { width: 1280, height: 800 } as const;
+
+// Seed a small, dataset (vs. perf's 5k) — guides only need a few-screen-worth
+// of rows so the table demonstrates virtualisation without dwarfing the row
+// detail. 400 keeps screenshots quick and the categories well-populated.
+const SEED_TX_COUNT = 400;
+
+// Profile fixture per acceptance criteria — Spanish NGO treasurer persona.
+const PROFILE = {
+  // 26-char Crockford base32 (ULID shape) — the schema enforces length 26.
+  userId: '01J9MARIARODRIGUEZ00000000',
+  name: 'Maria Rodríguez',
+  role: 'Treasurer',
+  ngoName: 'Casa Esperanza',
+  identitySource: 'local' as const,
+  createdAt: '2026-01-15T09:00:00.000Z',
+};
+
+// Sidebar nav selectors (mirrors movements-perf.spec.ts:32 — anchored to the
+// `nav[aria-label="Primary"]` landmark for resilience against locale shifts).
+const NAV_PRIMARY = 'nav[aria-label="Primary"]';
+const NAV_PANEL = `${NAV_PRIMARY} > div:nth-child(1) > ul > li:nth-child(1) > button`;
+const NAV_MOVEMENTS = `${NAV_PRIMARY} > div:nth-child(1) > ul > li:nth-child(2) > button`;
+const NAV_BALANCE = `${NAV_PRIMARY} > div:nth-child(1) > ul > li:nth-child(3) > button`;
+const NAV_INSIGHTS = `${NAV_PRIMARY} > div:nth-child(1) > ul > li:nth-child(4) > button`;
+
+// Settings is the gear icon in the top-right of the topbar; it is the only
+// `.ot-shell__icon-btn` in the header.
+const NAV_SETTINGS_GEAR = '.ot-shell__icon-btn';
+
+// First non-virtualised data row in the movements table.
+const FIRST_DATA_ROW = 'table.ot-table tbody tr:not([aria-hidden="true"])';
+
+interface IsolatedEnv {
+  readonly userDataDir: string;
+  readonly dataDir: string;
+}
+
+function makeIsolatedEnv(): IsolatedEnv {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ot-doc-shots-'));
+  const dataDir = path.join(root, 'doc-events');
+  fs.mkdirSync(dataDir, { recursive: true });
+  return { userDataDir: root, dataDir };
+}
+
+function writeProfile(userDataDir: string): void {
+  const filePath = path.join(userDataDir, 'profile.json');
+  fs.writeFileSync(filePath, JSON.stringify(PROFILE, null, 2), 'utf8');
+}
+
+function deleteProfile(userDataDir: string): void {
+  const filePath = path.join(userDataDir, 'profile.json');
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+}
+
+function writeAppConfig(userDataDir: string, dataDir: string): void {
+  const filePath = path.join(userDataDir, 'app-config.json');
+  const config = { version: 1, dataDir, readOnly: false };
+  fs.writeFileSync(filePath, JSON.stringify(config, null, 2), 'utf8');
+}
+
+function seedDataset(dataDir: string): void {
+  const out = path.join(dataDir, 'events.ndjson');
+  const result = spawnSync(
+    'node',
+    [SEED_SCRIPT, `--count=${String(SEED_TX_COUNT)}`, `--out=${out}`],
+    { stdio: 'inherit', cwd: REPO_ROOT },
+  );
+  if (result.status !== 0) {
+    throw new Error(`perf-seed.mjs failed with exit code ${String(result.status)}`);
+  }
+}
+
+async function launchApp(userDataDir: string): Promise<ElectronApplication> {
+  return electron.launch({
+    args: ['.', `--user-data-dir=${userDataDir}`],
+    env: {
+      ...process.env,
+      // Suppress the dev-seed auto-write — we already shaped the dataset
+      // ourselves via perf-seed.mjs.
+      OT_SEED: 'none',
+      // Ensure renderer i18n picks Spanish so screenshots match the persona.
+      // (i18next-browser-languagedetector also reads localStorage; we set that
+      // explicitly below for belt-and-braces determinism.)
+      LANG: 'es_ES.UTF-8',
+    },
+  });
+}
+
+async function preparePage(app: ElectronApplication): Promise<Page> {
+  const page = await app.firstWindow();
+  await page.waitForLoadState('domcontentloaded');
+  await page.setViewportSize(VIEWPORT);
+  return page;
+}
+
+async function forceSpanishAndReload(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    try {
+      // Key matches `detection.lookupLocalStorage` in app/src/renderer/i18n/index.ts.
+      window.localStorage.setItem('opentreasury.locale', 'es');
+    } catch {
+      /* private mode / quota — ignore */
+    }
+  });
+  await page.reload();
+  await page.waitForLoadState('domcontentloaded');
+}
+
+async function shoot(page: Page, file: string): Promise<void> {
+  const target = path.join(SCREENSHOT_DIR, file);
+  await page.screenshot({ path: target, fullPage: true });
+  // eslint-disable-next-line no-console
+  console.log(`[doc-shots] wrote ${path.relative(REPO_ROOT, target)}`);
+}
+
+test.describe('doc-shots — illustrated end-user guide screenshots', () => {
+  // Serial: every test below mutates the same isolated userData dir and runs
+  // its own Electron process. Parallel runs would race on the file system.
+  test.describe.configure({ mode: 'serial' });
+
+  let env: IsolatedEnv;
+
+  test.beforeAll(() => {
+    fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+    env = makeIsolatedEnv();
+    seedDataset(env.dataDir);
+    writeAppConfig(env.userDataDir, env.dataDir);
+  });
+
+  test('01 — fresh first launch shows the profile setup modal', async () => {
+    deleteProfile(env.userDataDir);
+
+    const app = await launchApp(env.userDataDir);
+    try {
+      const page = await preparePage(app);
+      // Modal renders inside a <dialog> element with our class.
+      await page.waitForSelector('dialog.ot-profile-setup-modal', { state: 'visible' });
+      // Wait one frame for the dialog backdrop to settle so the screenshot
+      // doesn't catch the open animation mid-flight.
+      await page.waitForTimeout(250);
+      await shoot(page, '01-profile-setup.png');
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('02–07 — drive through the shell with the seeded profile', async () => {
+    // Restore the persona profile so the modal stays out of the way.
+    writeProfile(env.userDataDir);
+
+    const app = await launchApp(env.userDataDir);
+    try {
+      const page = await preparePage(app);
+
+      // Wait for the AppShell sidebar before the first nav click.
+      await page.waitForSelector('.ot-shell__sidebar', { state: 'visible' });
+      await forceSpanishAndReload(page);
+      await page.waitForSelector('.ot-shell__sidebar', { state: 'visible' });
+
+      // ── 02: Dashboard / Panel — header should show "Casa Esperanza" ────
+      await page.click(NAV_PANEL);
+      // Tenant name renders synchronously once the profile loads.
+      await expect(page.locator('.ot-shell__tenant')).toHaveText(PROFILE.ngoName);
+      // Allow any panel widgets to settle (charts / counters).
+      await page.waitForTimeout(400);
+      await shoot(page, '02-dashboard.png');
+
+      // ── 03: Saldo (collapsed categories) ───────────────────────────────
+      await page.click(NAV_BALANCE);
+      // Wait for at least one category panel to render.
+      await page.waitForSelector('[aria-labelledby^="saldo-panel-"]', { state: 'visible' });
+      await page.waitForTimeout(400);
+      await shoot(page, '03-saldo.png');
+
+      // ── 04: Saldo (subcategories expanded) ─────────────────────────────
+      // Toggle pills are scoped per panel; click both income and expense.
+      const incomeToggle = page.locator('[data-testid="saldo-subcategories-toggle-income"]');
+      const expenseToggle = page.locator('[data-testid="saldo-subcategories-toggle-expense"]');
+      if (await incomeToggle.count()) await incomeToggle.first().click();
+      if (await expenseToggle.count()) await expenseToggle.first().click();
+      await page.waitForTimeout(400);
+      await shoot(page, '04-saldo-expanded.png');
+
+      // ── 05: Movements list ─────────────────────────────────────────────
+      await page.click(NAV_MOVEMENTS);
+      await page.waitForSelector(FIRST_DATA_ROW, { state: 'visible', timeout: 30_000 });
+      await page.waitForTimeout(300);
+      await shoot(page, '05-movements.png');
+
+      // ── 06: Insights ───────────────────────────────────────────────────
+      await page.click(NAV_INSIGHTS);
+      // Insights screen has its own root element; wait for the main content
+      // area to swap content rather than pinning to a specific class which
+      // may evolve.
+      await page.waitForFunction(() => {
+        const main = document.querySelector('main.ot-shell__main');
+        return !!main && main.textContent !== null && main.textContent.length > 0;
+      });
+      await page.waitForTimeout(500);
+      await shoot(page, '06-insights.png');
+
+      // ── 07: Settings → Data folder row + readOnly badge area ───────────
+      await page.click(NAV_SETTINGS_GEAR);
+      await page.waitForSelector('.ot-settings', { state: 'visible' });
+      // The data-folder row anchors the "Change…" button + readonly badge.
+      await page.waitForSelector('.ot-settings__row', { state: 'visible' });
+      await page.waitForTimeout(300);
+      await shoot(page, '07-settings-data-folder.png');
+    } finally {
+      await app.close();
+    }
+  });
+});
