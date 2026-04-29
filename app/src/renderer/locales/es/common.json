@@ -26,7 +26,8 @@
       "configuracion": "Configuración",
       "cuentas": "Cuentas",
       "categorias": "Categorías",
-      "etiquetas": "Etiquetas"
+      "etiquetas": "Etiquetas",
+      "preferences": "Preferencias"
     },
     "theme": {
       "label": "Tema",
@@ -46,16 +47,20 @@
     },
     "sections": {
       "main": "Principal",
-      "config": "Configuración",
+      "config": "Catálogos",
       "datos": "Datos"
     },
     "user": {
       "roles": {
-        "treasurer": "Tesorero",
-        "admin": "Admin",
+        "treasurer": "Tesorero/a",
+        "accountant": "Contador/a",
+        "financemanager": "Gerente de Finanzas",
+        "executivedirector": "Director/a Ejecutivo/a",
+        "boardmember": "Miembro de la Junta",
+        "volunteer": "Voluntario/a",
+        "admin": "Administrador/a",
         "viewer": "Observador"
-      },
-      "logout": "Cerrar sesión"
+      }
     },
     "search": {
       "placeholder": "Buscar movimientos, categorías, cuentas…",
@@ -66,10 +71,7 @@
       "collapse": "Contraer navegación",
       "expand": "Expandir navegación"
     },
-    "brand": "OpenTreasury",
-    "settings": {
-      "label": "Configuración"
-    }
+    "brand": "OpenTreasury"
   },
   "panel": {
     "title": "Panel",
@@ -1086,11 +1088,93 @@
     "submitting": "Configurando…",
     "errors": {
       "nameRequired": "El nombre es obligatorio",
-      "nameTooLong": "El nombre debe tener 80 caracteres o menos",
+      "nameTooLong": "El nombre debe tener 100 caracteres o menos",
       "roleRequired": "El rol es obligatorio",
       "roleTooLong": "El rol debe tener 50 caracteres o menos",
       "ngoNameRequired": "El nombre de la organización es obligatorio",
-      "ngoNameTooLong": "El nombre de la organización debe tener 120 caracteres o menos"
+      "ngoNameTooLong": "El nombre de la organización debe tener 200 caracteres o menos"
+    }
+  },
+  "profile": {
+    "roles": {
+      "treasurer": "Tesorero/a",
+      "accountant": "Contador/a",
+      "financeManager": "Gerente de Finanzas",
+      "executiveDirector": "Director/a Ejecutivo/a",
+      "boardMember": "Miembro de la Junta",
+      "volunteer": "Voluntario/a",
+      "admin": "Administrador/a",
+      "other": "Otro (especificar)"
+    },
+    "otherRoleLabel": "Especifique su rol"
+  },
+  "preferences": {
+    "title": "Preferencias",
+    "profile": {
+      "title": "Perfil",
+      "nameLabel": "Tu nombre",
+      "roleLabel": "Tu rol",
+      "ngoLabel": "Nombre de la organización",
+      "saveButton": "Guardar cambios",
+      "saving": "Guardando…",
+      "saved": "¡Guardado!",
+      "errors": {
+        "nameRequired": "El nombre es obligatorio",
+        "nameTooLong": "El nombre debe tener 100 caracteres o menos",
+        "roleRequired": "El rol es obligatorio",
+        "roleTooLong": "El rol debe tener 50 caracteres o menos",
+        "ngoNameRequired": "El nombre de la organización es obligatorio",
+        "ngoNameTooLong": "El nombre de la organización debe tener 200 caracteres o menos",
+        "saveFailed": "Error al guardar el perfil. Por favor, inténtalo de nuevo."
+      }
+    },
+    "appearance": {
+      "title": "Apariencia",
+      "themeLabel": "Tema",
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    },
+    "language": {
+      "title": "Idioma",
+      "label": "Idioma de visualización",
+      "en": "English",
+      "es": "Español"
+    },
+    "dataset": {
+      "title": "Conjunto de datos actual",
+      "idLabel": "ID del conjunto de datos",
+      "locationLabel": "Ubicación",
+      "defaultBadge": "(ubicación predeterminada)",
+      "readonlyBadge": "Solo lectura"
+    },
+    "dataFolder": {
+      "title": "Carpeta de datos",
+      "defaultLocationNote": "(ubicación predeterminada)",
+      "requirement": "Los datos deben almacenarse en OneDrive para empresas o una biblioteca de SharePoint sincronizada.",
+      "changeButton": "Cambiar…",
+      "readonlyBadge": "Modo de solo lectura",
+      "restarting": "Reiniciando aplicación…",
+      "errors": {
+        "oneDrivePersonal": "OneDrive Personal no es compatible con v1. Por favor, selecciona una carpeta en OneDrive para empresas o SharePoint. El soporte para OneDrive Personal está planeado para v1.x.",
+        "notCorpLocation": "Los datos de OpenTreasury deben residir en una carpeta de OneDrive para empresas o SharePoint para que los administradores puedan compartir el acceso. Las carpetas locales, el Escritorio, las unidades USB y OneDrive personal no son compatibles. Selecciona una carpeta en 'OneDrive - {tu organización}' o una biblioteca de SharePoint sincronizada.",
+        "sameDir": "La carpeta seleccionada es la misma que la carpeta de datos actual.",
+        "invalidLocation": "La carpeta de datos no debe estar en la carpeta interna de la aplicación. Elige una carpeta externa, por ejemplo, en OneDrive para empresas o SharePoint.",
+        "notWritable": "La carpeta seleccionada no tiene permisos de escritura. Por favor, elige otra ubicación.",
+        "datasetMismatch": "La carpeta seleccionada ya contiene datos de otra tesorería. Por favor, elige una carpeta vacía o la carpeta de la tesorería actual.",
+        "generic": "Error al cambiar carpeta de datos"
+      }
+    },
+    "about": {
+      "title": "Acerca de",
+      "version": "Versión {{version}}"
+    },
+    "switchDataset": {
+      "button": "Cambiar a un conjunto de datos diferente…",
+      "confirmTitle": "¿Cambiar a otro conjunto de datos?",
+      "confirmBody": "Estás a punto de salir del conjunto de datos actual y seleccionar una nueva carpeta de datos. La aplicación se reiniciará y tendrás que configurar tu perfil nuevamente si la nueva carpeta no contiene un archivo profile.json. Tu conjunto de datos actual permanecerá intacto.",
+      "confirmStay": "Permanecer en el conjunto actual",
+      "confirmSwitch": "Cambiar conjunto de datos"
     }
   },
   "settings": {
