@@ -574,7 +574,13 @@ export function AppShell({
               {profileLoading
                 ? '…'
                 : profile?.role
-                  ? t(`shell.user.roles.${profile.role}` satisfies string)
+                  ? (() => {
+                      const key = `shell.user.roles.${profile.role.toLowerCase()}`;
+                      const translated = t(key satisfies string);
+                      // i18next returns the key itself when no translation exists.
+                      // Fall back to the user's freeform role string in that case.
+                      return translated === key ? profile.role : translated;
+                    })()
                   : '—'}
             </div>
           </div>
