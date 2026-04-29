@@ -63,7 +63,10 @@
       "collapse": "Collapse navigation",
       "expand": "Expand navigation"
     },
-    "brand": "OpenTreasury"
+    "brand": "OpenTreasury",
+    "settings": {
+      "label": "Settings"
+    }
   },
   "panel": {
     "title": "Dashboard",
@@ -1085,6 +1088,17 @@
       "roleTooLong": "Role must be 50 characters or less",
       "ngoNameRequired": "Organization name is required",
       "ngoNameTooLong": "Organization name must be 120 characters or less"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "dataFolder": {
+      "title": "Data folder",
+      "defaultMarker": "(default)",
+      "changeButton": "Change…",
+      "readonlyBadge": "Read-only mode",
+      "changeDisabledTooltip": "Data folder change will be available with the next release",
+      "changeComingSoon": "Folder picker arrives with the next release (P1-2)."
     }
   }
 }

@@ -63,7 +63,10 @@
       "collapse": "Contraer navegación",
       "expand": "Expandir navegación"
     },
-    "brand": "OpenTreasury"
+    "brand": "OpenTreasury",
+    "settings": {
+      "label": "Configuración"
+    }
   },
   "panel": {
     "title": "Panel",
@@ -1085,6 +1088,17 @@
       "roleTooLong": "El rol debe tener 50 caracteres o menos",
       "ngoNameRequired": "El nombre de la organización es obligatorio",
       "ngoNameTooLong": "El nombre de la organización debe tener 120 caracteres o menos"
+    }
+  },
+  "settings": {
+    "title": "Configuración",
+    "dataFolder": {
+      "title": "Carpeta de datos",
+      "defaultMarker": "(predeterminada)",
+      "changeButton": "Cambiar…",
+      "readonlyBadge": "Modo de solo lectura",
+      "changeDisabledTooltip": "El cambio de carpeta de datos estará disponible en la próxima versión",
+      "changeComingSoon": "El selector de carpeta llegará con la próxima versión (P1-2)."
     }
   }
 }
