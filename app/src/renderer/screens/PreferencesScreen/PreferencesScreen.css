@@ -117,12 +117,22 @@
 }
 
 .ot-preferences__button:hover:not(:disabled) {
-  background: var(--color-brand-hover);
+  background: var(--color-brand-primary-light);
 }
 
 .ot-preferences__button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.ot-preferences__button--secondary {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-default);
+}
+
+.ot-preferences__button--secondary:hover:not(:disabled) {
+  background: var(--color-row-hover);
 }
 
 .ot-preferences__button--danger-ghost {
@@ -139,7 +149,8 @@
 }
 
 .ot-preferences__segmented {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -161,8 +172,8 @@
   border-right: none;
 }
 
-.ot-preferences__segment:hover {
-  background: var(--color-bg-hover);
+.ot-preferences__segment:hover:not(.ot-preferences__segment--active) {
+  background: var(--color-row-hover);
 }
 
 .ot-preferences__segment--active {
@@ -244,82 +255,4 @@
   font-size: 14px;
   color: var(--color-text-muted);
   margin: 0;
-}
-
-.ot-preferences__footer {
-  margin-top: var(--space-12);
-  padding-top: var(--space-12);
-  border-top: 1px solid var(--color-border-subtle);
-  display: flex;
-  justify-content: center;
-}
-
-/* Modal */
-.ot-preferences__modal {
-  border: none;
-  border-radius: var(--radius-lg);
-  box-shadow:
-    0 20px 25px -5px rgba(0, 0, 0, 0.1),
-    0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  padding: 0;
-  max-width: 500px;
-  width: 90%;
-}
-
-.ot-preferences__modal::backdrop {
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.ot-preferences__modal-content {
-  padding: var(--space-8);
-}
-
-.ot-preferences__modal-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0 0 var(--space-4) 0;
-}
-
-.ot-preferences__modal-body {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  margin: 0 0 var(--space-7) 0;
-  line-height: 1.5;
-}
-
-.ot-preferences__modal-actions {
-  display: flex;
-  gap: var(--space-3);
-  justify-content: flex-end;
-}
-
-.ot-preferences__modal-button {
-  padding: 8px 16px;
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.ot-preferences__modal-button--primary {
-  background: var(--color-brand-primary);
-  color: var(--color-brand-on-primary);
-  border-color: var(--color-brand-primary);
-}
-
-.ot-preferences__modal-button--primary:hover {
-  background: var(--color-brand-hover);
-}
-
-.ot-preferences__modal-button--danger {
-  background: transparent;
-  color: var(--color-error-default);
-  border-color: var(--color-error-default);
-}
-
-.ot-preferences__modal-button--danger:hover {
-  background: var(--color-danger-subtle);
 }

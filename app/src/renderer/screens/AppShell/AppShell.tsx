@@ -8,16 +8,12 @@ import {
   FolderOpen,
   Landmark,
   LayoutDashboard,
-  Monitor,
-  Moon,
   Scale,
   Search,
   Settings,
-  Sun,
   Tag,
   Upload,
 } from 'lucide-react';
-import { useTheme } from '../../hooks/useTheme.js';
 import { ProfileSetupModal } from '../ProfileSetupModal/index.js';
 import type { ProfileSetupData } from '../ProfileSetupModal/index.js';
 import './AppShell.css';
@@ -153,8 +149,7 @@ export function AppShell({
   searchQuery = '',
   onSearchQueryChange,
 }: AppShellProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const { theme, setTheme } = useTheme();
+  const { t } = useTranslation('common');
 
   // P1-1: Load profile from IPC on mount
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -192,15 +187,6 @@ export function AppShell({
   // → local sync effect can distinguish our own echoes (skip) from genuine
   // external updates (e.g. App clearing the query on route change → adopt).
   const lastDispatchedSearchRef = useRef<string>(searchQuery);
-
-  const setLang = useCallback(
-    (next: 'es' | 'en') => {
-      void i18n.changeLanguage(next);
-    },
-    [i18n],
-  );
-
-  const activeLang = i18n.language.startsWith('es') ? 'es' : 'en';
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(readStoredSidebarCollapsed);
   const [viewportNarrow, setViewportNarrow] = useState<boolean>(readInitialNarrowViewport);
@@ -465,63 +451,6 @@ export function AppShell({
           )}
           {!searchInputValue && <kbd>⌘K</kbd>}
         </label>
-
-        <div
-          className="ot-shell__control-group"
-          role="radiogroup"
-          aria-label={t('shell.language.label') satisfies string}
-        >
-          <button
-            type="button"
-            className="ot-shell__control-btn"
-            aria-pressed={activeLang === 'es'}
-            onClick={() => setLang('es')}
-          >
-            ES
-          </button>
-          <button
-            type="button"
-            className="ot-shell__control-btn"
-            aria-pressed={activeLang === 'en'}
-            onClick={() => setLang('en')}
-          >
-            EN
-          </button>
-        </div>
-
-        <div
-          className="ot-shell__control-group"
-          role="radiogroup"
-          aria-label={t('shell.theme.label') satisfies string}
-        >
-          <button
-            type="button"
-            className="ot-shell__control-btn"
-            aria-pressed={theme === 'system'}
-            onClick={() => setTheme('system')}
-            title={t('shell.theme.system') satisfies string}
-          >
-            <Monitor size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="ot-shell__control-btn"
-            aria-pressed={theme === 'light'}
-            onClick={() => setTheme('light')}
-            title={t('shell.theme.light') satisfies string}
-          >
-            <Sun size={14} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className="ot-shell__control-btn"
-            aria-pressed={theme === 'dark'}
-            onClick={() => setTheme('dark')}
-            title={t('shell.theme.dark') satisfies string}
-          >
-            <Moon size={14} aria-hidden="true" />
-          </button>
-        </div>
       </header>
 
       {/* ── Sidebar ───────────────────────────────────────── */}

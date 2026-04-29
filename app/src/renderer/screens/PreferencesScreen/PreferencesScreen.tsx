@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LogOut } from 'lucide-react';
 import { classifySyncRoot } from '../../utils/syncRoot.js';
 import './PreferencesScreen.css';
 
@@ -80,10 +79,6 @@ export function PreferencesScreen(): JSX.Element {
     if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
     return 'system';
   });
-
-  // Switch dataset modal
-  const [showSwitchModal, setShowSwitchModal] = useState(false);
-  const switchModalRef = useRef<HTMLDialogElement>(null);
 
   // Load config on mount
   useEffect(() => {
@@ -317,23 +312,6 @@ export function PreferencesScreen(): JSX.Element {
     }
   }, [profileChanged, profileState]);
 
-  // Switch dataset modal control
-  useEffect(() => {
-    const dialog = switchModalRef.current;
-    if (!dialog) return;
-    if (showSwitchModal && !dialog.open) {
-      dialog.showModal();
-    } else if (!showSwitchModal && dialog.open) {
-      dialog.close();
-    }
-  }, [showSwitchModal]);
-
-  const handleSwitchDataset = async () => {
-    setShowSwitchModal(false);
-    // Trigger folder picker → validation → setDataDir → relaunch
-    await handleChangeFolder();
-  };
-
   if (state === 'loading') {
     return (
       <div className="ot-preferences">
@@ -524,7 +502,7 @@ export function PreferencesScreen(): JSX.Element {
           </div>
         </section>
 
-        {/* Card 4: Current Dataset */}
+        {/* Card 4: Dataset (merged: dataset info + folder location & change) */}
         <section className="ot-preferences__card">
           <h2 className="ot-preferences__card-title">{t('preferences.dataset.title')}</h2>
           <div className="ot-preferences__card-content">
@@ -544,17 +522,12 @@ export function PreferencesScreen(): JSX.Element {
                 </span>
               )}
             </div>
-          </div>
-        </section>
 
-        {/* Card 5: Data folder */}
-        <section className="ot-preferences__card">
-          <h2 className="ot-preferences__card-title">{t('preferences.dataFolder.title')}</h2>
-          <div className="ot-preferences__card-content">
             <p className="ot-preferences__hint">{t('preferences.dataFolder.requirement')}</p>
+
             <button
               type="button"
-              className="ot-preferences__button"
+              className="ot-preferences__button ot-preferences__button--secondary"
               disabled={changeState !== 'idle' || configData.readOnly}
               onClick={handleChangeFolder}
             >
@@ -593,7 +566,7 @@ export function PreferencesScreen(): JSX.Element {
           </div>
         </section>
 
-        {/* Card 6: About */}
+        {/* Card 5: About */}
         <section className="ot-preferences__card">
           <h2 className="ot-preferences__card-title">{t('preferences.about.title')}</h2>
           <div className="ot-preferences__card-content">
@@ -603,49 +576,6 @@ export function PreferencesScreen(): JSX.Element {
           </div>
         </section>
       </div>
-
-      {/* Footer: Switch dataset */}
-      <div className="ot-preferences__footer">
-        <button
-          type="button"
-          className="ot-preferences__button ot-preferences__button--danger-ghost"
-          onClick={() => setShowSwitchModal(true)}
-        >
-          <LogOut size={16} aria-hidden="true" />
-          {t('preferences.switchDataset.button')}
-        </button>
-      </div>
-
-      {/* Switch dataset confirm modal */}
-      <dialog
-        ref={switchModalRef}
-        className="ot-preferences__modal"
-        onClose={() => setShowSwitchModal(false)}
-      >
-        <div className="ot-preferences__modal-content">
-          <h2 className="ot-preferences__modal-title">
-            {t('preferences.switchDataset.confirmTitle')}
-          </h2>
-          <p className="ot-preferences__modal-body">{t('preferences.switchDataset.confirmBody')}</p>
-          <div className="ot-preferences__modal-actions">
-            <button
-              type="button"
-              className="ot-preferences__modal-button ot-preferences__modal-button--primary"
-              onClick={() => setShowSwitchModal(false)}
-              autoFocus
-            >
-              {t('preferences.switchDataset.confirmStay')}
-            </button>
-            <button
-              type="button"
-              className="ot-preferences__modal-button ot-preferences__modal-button--danger"
-              onClick={handleSwitchDataset}
-            >
-              {t('preferences.switchDataset.confirmSwitch')}
-            </button>
-          </div>
-        </div>
-      </dialog>
     </div>
   );
 }

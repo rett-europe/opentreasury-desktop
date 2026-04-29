@@ -63,15 +63,14 @@ describe('PreferencesScreen', () => {
     resolve(makeConfigResponse());
   });
 
-  it('renders the data folder card', async () => {
+  it('renders the dataset card', async () => {
     mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
     mockProfileGet.mockResolvedValue({ ok: false });
     renderWithI18n();
 
     await waitFor(() => {
-      // Should show the data folder card heading (scoped to avoid matching the
-      // confirm-modal body copy that also mentions "data folder")
-      expect(screen.getByRole('heading', { name: /data folder|carpeta de datos/i })).toBeDefined();
+      // Should show the dataset card heading
+      expect(screen.getByRole('heading', { name: /^dataset$|^conjunto de datos$/i })).toBeDefined();
     });
   });
 
