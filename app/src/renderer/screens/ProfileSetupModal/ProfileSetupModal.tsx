@@ -31,10 +31,22 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   const [name, setName] = useState('');
-  const [role, setRole] = useState('');
+  const [selectedRole, setSelectedRole] = useState('');
+  const [otherRoleText, setOtherRoleText] = useState('');
   const [ngoName, setNgoName] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [submitting, setSubmitting] = useState(false);
+
+  const ROLE_OPTIONS = [
+    'treasurer',
+    'accountant',
+    'financeManager',
+    'executiveDirector',
+    'boardMember',
+    'volunteer',
+    'admin',
+    'other',
+  ] as const;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -65,17 +77,18 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
   const validate = useCallback((): boolean => {
     const next: Errors = {};
     if (!name.trim()) next.name = t('profileSetup.errors.nameRequired');
-    else if (name.trim().length > 80) next.name = t('profileSetup.errors.nameTooLong');
+    else if (name.trim().length > 100) next.name = t('profileSetup.errors.nameTooLong');
 
-    if (!role.trim()) next.role = t('profileSetup.errors.roleRequired');
-    else if (role.trim().length > 50) next.role = t('profileSetup.errors.roleTooLong');
+    const effectiveRole = selectedRole === 'other' ? otherRoleText : selectedRole;
+    if (!effectiveRole.trim()) next.role = t('profileSetup.errors.roleRequired');
+    else if (effectiveRole.trim().length > 50) next.role = t('profileSetup.errors.roleTooLong');
 
     if (!ngoName.trim()) next.ngoName = t('profileSetup.errors.ngoNameRequired');
-    else if (ngoName.trim().length > 120) next.ngoName = t('profileSetup.errors.ngoNameTooLong');
+    else if (ngoName.trim().length > 200) next.ngoName = t('profileSetup.errors.ngoNameTooLong');
 
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [name, role, ngoName, t]);
+  }, [name, selectedRole, otherRoleText, ngoName, t]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -87,9 +100,10 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
         // userId is a 26-char ULID (matches profileSchema in shared/ipc-contracts/profile.ts).
         // crypto.randomUUID() would produce a 36-char UUID and fail schema validation.
         const userId = newUlid();
+        const effectiveRole = selectedRole === 'other' ? otherRoleText.trim() : selectedRole;
         const profile: ProfileSetupData = {
           name: name.trim(),
-          role: role.trim(),
+          role: effectiveRole,
           ngoName: ngoName.trim(),
           userId,
         };
@@ -102,7 +116,7 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
         setSubmitting(false);
       }
     },
-    [validate, name, role, ngoName, onComplete],
+    [validate, name, selectedRole, otherRoleText, ngoName, onComplete],
   );
 
   return (
@@ -125,7 +139,7 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
               className="ot-profile-setup-modal__input"
               type="text"
               value={name}
-              maxLength={80}
+              maxLength={100}
               onChange={(e) => setName(e.target.value)}
               aria-invalid={Boolean(errors.name)}
               aria-describedby={errors.name ? 'profile-name-err' : undefined}
@@ -142,17 +156,38 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
             <label htmlFor="profile-role" className="ot-profile-setup-modal__label">
               {t('profileSetup.roleLabel')}
             </label>
-            <input
+            <select
               id="profile-role"
               className="ot-profile-setup-modal__input"
-              type="text"
-              value={role}
-              maxLength={50}
-              placeholder={t('profileSetup.rolePlaceholder')}
-              onChange={(e) => setRole(e.target.value)}
+              value={selectedRole}
+              onChange={(e) => {
+                setSelectedRole(e.target.value);
+                if (e.target.value !== 'other') {
+                  setOtherRoleText('');
+                }
+              }}
               aria-invalid={Boolean(errors.role)}
               aria-describedby={errors.role ? 'profile-role-err' : undefined}
-            />
+            >
+              <option value="">{t('profileSetup.rolePlaceholder')}</option>
+              {ROLE_OPTIONS.map((roleKey) => (
+                <option key={roleKey} value={roleKey}>
+                  {t(`profile.roles.${roleKey}`)}
+                </option>
+              ))}
+            </select>
+            {selectedRole === 'other' && (
+              <input
+                type="text"
+                className="ot-profile-setup-modal__input"
+                placeholder={t('profile.otherRoleLabel')}
+                value={otherRoleText}
+                maxLength={50}
+                onChange={(e) => setOtherRoleText(e.target.value)}
+                aria-label={t('profile.otherRoleLabel')}
+                style={{ marginTop: 'var(--space-3)' }}
+              />
+            )}
             {errors.role ? (
               <span id="profile-role-err" className="ot-profile-setup-modal__field-error">
                 {errors.role}
@@ -169,7 +204,7 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
               className="ot-profile-setup-modal__input"
               type="text"
               value={ngoName}
-              maxLength={120}
+              maxLength={200}
               onChange={(e) => setNgoName(e.target.value)}
               aria-invalid={Boolean(errors.ngoName)}
               aria-describedby={errors.ngoName ? 'profile-ngo-err' : undefined}
