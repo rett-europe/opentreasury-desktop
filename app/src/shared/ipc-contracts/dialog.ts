@@ -16,12 +16,8 @@ export type DialogPickFolderRequest = z.infer<typeof dialogPickFolderRequestSche
 export const dialogPickFolderResponseSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
-    path: z.string(),
-  }),
-  z.object({
-    ok: z.literal(true),
-    path: z.null(),
-    cancelled: z.literal(true),
+    path: z.string().nullable(),
+    cancelled: z.boolean().optional(),
   }),
   z.object({
     ok: z.literal(false),
