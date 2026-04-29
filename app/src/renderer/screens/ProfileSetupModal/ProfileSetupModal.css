@@ -1,0 +1,131 @@
+/* ProfileSetupModal — first-launch profile setup (P1-4) */
+
+.ot-profile-setup-modal {
+  max-width: 540px;
+  width: 90%;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dialog, var(--shadow-card));
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+}
+
+.ot-profile-setup-modal::backdrop {
+  background: var(--color-surface-overlay);
+  backdrop-filter: blur(2px);
+}
+
+.ot-profile-setup-modal__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.ot-profile-setup-modal__header {
+  padding: var(--space-8) var(--space-7) var(--space-6);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.ot-profile-setup-modal__header-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ot-profile-setup-modal__title {
+  margin: 0;
+  font-size: var(--font-size-24);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.ot-profile-setup-modal__subtitle {
+  margin: 0;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.ot-profile-setup-modal__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: 0 var(--space-7);
+}
+
+.ot-profile-setup-modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-profile-setup-modal__label {
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.ot-profile-setup-modal__input {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-14);
+  font-family: inherit;
+  transition:
+    border-color var(--motion-duration-fast) var(--motion-easing-standard),
+    box-shadow var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-profile-setup-modal__input:focus {
+  outline: none;
+  border-color: var(--color-focus-ring);
+  box-shadow: 0 0 0 3px var(--color-focus-ring-alpha);
+}
+
+.ot-profile-setup-modal__input[aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+
+.ot-profile-setup-modal__field-error {
+  font-size: var(--font-size-13);
+  color: var(--color-error);
+}
+
+.ot-profile-setup-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-6) 0 var(--space-7);
+}
+
+.ot-profile-setup-modal__submit {
+  padding: var(--space-3) var(--space-6);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-brand);
+  color: #fff;
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background var(--motion-duration-fast) var(--motion-easing-standard),
+    opacity var(--motion-duration-fast) var(--motion-easing-standard);
+}
+
+.ot-profile-setup-modal__submit:hover:not(:disabled) {
+  background: var(--color-brand-hover);
+}
+
+.ot-profile-setup-modal__submit:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ot-profile-setup-modal__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

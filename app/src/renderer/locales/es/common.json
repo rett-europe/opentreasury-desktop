@@ -1068,5 +1068,23 @@
     "thisYear": "Este año",
     "lastYear": "Año pasado",
     "last12Months": "Últimos 12 meses"
+  },
+  "profileSetup": {
+    "title": "Bienvenida a OpenTreasury",
+    "subtitle": "Configuremos tu perfil para comenzar con tu tesorería.",
+    "nameLabel": "Tu nombre",
+    "roleLabel": "Tu rol",
+    "rolePlaceholder": "p. ej. Tesorera, Administradora",
+    "ngoLabel": "Nombre de la organización",
+    "submit": "Comenzar",
+    "submitting": "Configurando…",
+    "errors": {
+      "nameRequired": "El nombre es obligatorio",
+      "nameTooLong": "El nombre debe tener 80 caracteres o menos",
+      "roleRequired": "El rol es obligatorio",
+      "roleTooLong": "El rol debe tener 50 caracteres o menos",
+      "ngoNameRequired": "El nombre de la organización es obligatorio",
+      "ngoNameTooLong": "El nombre de la organización debe tener 120 caracteres o menos"
+    }
   }
 }

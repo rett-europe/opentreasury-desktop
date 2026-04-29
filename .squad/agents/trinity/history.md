@@ -2660,3 +2660,71 @@ All analysis in .squad/decisions/decisions.md under three new sections:
 **Action:** May touch Trinity (settings UI row for data folder), Niobe (first-run UX specs), Mouse (if visual work needed). Stand by for Pedro go-ahead.
 
 **Files:** Orchestration logs in .squad/orchestration-log/2026-04-29T10-24-31-{link,switch,morpheus}.md. Session log in .squad/log/2026-04-29T10-24-31-trial-readiness-analysis.md.
+
+
+---
+
+## Learnings — PR #157 Profile setup modal (P1-4, 2026-04-29)
+
+**Task:** Scaffold first-launch profile setup screen as minimal subset of UX-001. Capture name, role, ngoName, userId on first launch. Wired as render-gate in AppShell — if profile null, show modal instead of shell.
+
+**Scope boundaries — parallel work context:**
+- Morpheus concurrently working P0-1 (#145) on \squad/145-actor-user-id-schema\, modifying event schemas + IPC contracts for \ctorUserId\ + \ctorIdentitySource\ fields
+- Charter: **DO NOT touch event schemas or main-process IPC contracts** — stay strictly in renderer-land
+- Branched from \main\ (NOT Morpheus's branch), stubbed IPC with placeholder type, commented \TODO(P0-2): wire to profile.json schema once #146 lands\
+
+**Implementation pattern — ConfigModal reuse:**
+Examined \ConfigModals/ConfigModalShell.tsx\ + \AddAccountModal.tsx\ to match existing modal patterns:
+- Native \<dialog>\ element with \showModal()\ / \close()\ + backdrop click handling
+- Escape / cancel event preventDefault to avoid accidental dismissal (profile setup is mandatory)
+- Focus management: \dialog.showModal()\ → auto-focus first input field
+- CSS pattern: \::backdrop\ with blur, modal-specific BEM classes (\ot-profile-setup-modal__*\), consistent border-radius / shadow / spacing tokens
+- Form validation: local state errors, field-level \ria-invalid\ + \ria-describedby\ → error spans
+- i18n: **always both en + es** strings under new \profileSetup.*\ namespace (title, subtitle, labels, placeholders, errors)
+
+**Render-gate pattern in AppShell:**
+Added \const [profile, setProfile] = useState<ProfileSetupData | null>(null)\ at AppShell top-level. Before main return, early-return \<ProfileSetupModal isOpen={true} onComplete={handleProfileComplete} />\ if \profile === null\. Stubbed \handleProfileComplete\ to call \setProfile(profileData)\ + TODO comment for \window.api.profile.save(profileData)\ once P0-2 lands.
+
+**i18n strings added:**
+- EN: \profileSetup.{title, subtitle, nameLabel, roleLabel, rolePlaceholder, ngoLabel, submit, submitting, errors.*}\
+- ES: Parallel Spanish translations under same namespace (persona femenina default: \
+Tesorera\, \Administradora\)
+
+**Validation approach:**
+Client-side only (server validation arrives with P0-2 IPC wiring). Max-length constraints: name 80 chars, role 50 chars, ngoName 120 chars. Required-field checks with localized error messages.
+
+**Test suite impact (known, out-of-scope):**
+8 tests failed due to render-gate change (AppShell tests now hit the profile modal, JSDOM doesn't support \dialog.showModal()\). **P2-1 (Cypher) covers test updates** — charter explicitly states \OUT
+OF
+SCOPE:
+Any
+test
+file
+updates
+—
+P2-1
+covers
+that.\
+
+**Concurrent typecheck failures (Morpheus's work):**
+6 typecheck errors in \pp/src/main/ipc/handlers/transaction.ts\ — missing \ctorUserId\ + \ctorIdentitySource\ on command deps. These are from Morpheus's concurrent P0-1 work, NOT my responsibility. ProfileSetupModal is purely renderer-side + correctly stubbed.
+
+**Lesson — branch hygiene with concurrent agents:**
+Initially landed on wrong branch (\squad/145-actor-user-id-schema\) during git operations. Fixed: \git reset && git checkout squad/151-profile-setup-modal\, then \git checkout -- app/src/core app/src/main\ to discard Morpheus's changes before committing only renderer changes.
+
+**Files touched:**
+- \pp/src/renderer/screens/ProfileSetupModal/ProfileSetupModal.tsx\ (new)
+- \pp/src/renderer/screens/ProfileSetupModal/ProfileSetupModal.css\ (new)
+- \pp/src/renderer/screens/ProfileSetupModal/index.ts\ (new)
+- \pp/src/renderer/locales/en/common.json\ (added \profileSetup.*\)
+- \pp/src/renderer/locales/es/common.json\ (added \profileSetup.*\)
+- \pp/src/renderer/screens/AppShell/AppShell.tsx\ (import ProfileSetupModal, add profile state, render-gate logic)
+
+**Pattern for future modal components:**
+1. Match existing modal CSS patterns (\::backdrop\, BEM classes, token-based spacing)
+2. Focus management on \showModal()\ — query first input, call \.focus()\
+3. Escape closes by default — call \preventDefault()\ on \cancel\ event if mandatory
+4. i18n: **always both en + es** in same commit
+5. Client validation: local state errors + \ria-invalid\ + \ria-describedby\ pattern
+6. Stubbed IPC: use placeholder types + \TODO(issue)\ comments for wiring
+
