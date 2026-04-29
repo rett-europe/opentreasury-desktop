@@ -20,7 +20,6 @@ The cloud version has an Angular 19 frontend with:
 ## Core Context
 
 **CANONICAL KPI PATTERN (2026-04-27):** Mouse established reusable `.ot-kpi-strip` recipe in PR #104 (`squad/visual-consistency-income-expense-net`) for income/expense/net cards. Pattern: TrendingUp/TrendingDown/Calculator icons @ 20px + --color-income-default / --color-expense-default / --color-brand-primary via shared CSS recipe in `globals.css`. Grid template: `repeat(auto-fit, minmax(240px, 1fr))` — responsive flow prevents awkward wraps at intermediate viewports. Aligned across Movements, Insights; Saldo already matched. This is the canonical visual baseline for all KPI indicators going forward — future features reuse this pattern instead of one-off icon/color choices.
-**CANONICAL KPI PATTERN (2026-04-27):** Mouse established reusable `.ot-kpi-strip` recipe in PR #104 (`squad/visual-consistency-income-expense-net`) for income/expense/net cards. Pattern: TrendingUp/TrendingDown/Calculator icons @ 20px + --color-income-default / --color-expense-default / --color-brand-primary via shared CSS recipe in `globals.css`. Aligned across Movements, Insights; Saldo already matched. This is the canonical visual baseline for all KPI indicators going forward — future features reuse this pattern instead of one-off icon/color choices.
 
 **WI-17 Orientation (2026-04-20):** Import wizard UI spec frozen in `.squad/decisions.md` under "WI-17 v2 — Generic Column-Mapping Importer". Niobe's 6-step UX flow (account selector → upload → sheet picker → mapping dropdowns → dry-run preview → progress) is the authoritative spec; Neo's technical spec defines the IPC contract boundaries. Your task: build the wizard modal (Entry point: Configuración → DATOS tab), mapping UI with pre-fill from `importApi.lastMapping()`, dry-run preview table showing 5 sample rows + duplicates/errors tabs, and commit flow with success/failure states. All i18n keys pre-populated (EN/ES parity required). See decisions.md §"WI-17 v2" for full spec + work decomposition WI-17.3.
 
@@ -45,6 +44,25 @@ Shipped so far: Movements screen (WI-13), Add-Transaction modal, Panel rendering
 **WI-22 Saldo shipped (2026-04-22):** PR #7 (Morpheus backend S1–S3) merged to main. PR #9 (Niobe i18n, 72 ES/EN keys) merged to main. S4 (Trinity chart primitive) complete; S5 (SaldoScreen wiring) in progress. Last `<ComingSoonScreen />` on M1 route now removed — Internal Alpha gate open. Property test verified all 8 invariants hold (I8: Saldo ≡ Movements proven sound).
 
 ## Learnings
+
+**2026-04-28 — PR #141: Insights Detail Polish (squad/trinity-insights-detail-polish)**
+
+Shipped three improvements to Insights detail screen (Pedro dogfooding feedback):
+
+1. **Pac-Man donut SVG fix (reusable pattern):** Original `DonutChart` used cumulative `strokeDashoffset` positioning, which silently clipped dashes exceeding path end position. Any slice ≥ ~75% circumference would show a wedge-shaped gap (Pac-Man mouth). Root cause: the [75%, 100%) range was not covered by the 100%-single-slice shortcut. **Fix:** rotate each segment to its start angle via `transform="rotate(startAngle, cx, cy)"` and start every dash at path position 0 (no offset). This ensures any fraction [0, 1] always fits in [0, L] path regardless of distribution. **Locked rule for future agents:** Per-segment rotation is the canonical approach for SVG circumference rendering (donut, pie, polar). Updated `.squad/skills/svg-donut-chart/SKILL.md`.
+
+2. **Diverging bar chart (reusable pattern):** Replaced dual toggleable bar charts (one for gastos, one for ingresos) with single `DivergingSubcategoryChart`. Rationale: gastos and ingresos do NOT share subcategories (e.g., "Salario › Base" is income-only; "Casa › Alquiler" is expense-only). Grouped/stacked layouts require synthetic zero rows and obscure magnitude comparisons. Diverging horizontal bars (gastos left, ingresos right) let users read both distributions in one glance, mirroring donut row above. Uses canonical `--color-expense-default` / `--color-income-default` tokens for side legends. Narrow viewports (<720px) collapse diverging metaphor and stack vertically. **Locked rule:** When two categorical distributions share no keys, use diverging layout.
+
+3. **Breadcrumb label format (locked rule):** Bar row labels, tooltips, and progressbar ARIA labels now show `Category › Subcategory` format using U+203A SINGLE RIGHT-POINTING ANGLE QUOTATION MARK (NOT ASCII `>`). Implemented as `formatBreadcrumbLabel(categoryName, subcategoryName, subcategoryId)`; when `subcategoryId == null`, only category name is shown (no chevron). Verified donut tooltips are category-level only (keyed on `categoryId`), so no breadcrumb applied there.
+
+**Files changed:**
+- `app/src/renderer/components/DonutChart/DonutChart.tsx` — rotation-based rendering, +2 Pac-Man regression tests
+- `app/src/renderer/components/DivergingSubcategoryChart/` — new component (tsx, css, test, index)
+- `app/src/renderer/screens/InsightsDetailScreen/InsightsDetailScreen.tsx` — drops `SegmentedToggle` + `subcatView` state, wires both donuts to single `selectedCategoryId`
+- `app/src/renderer/components/SubcategoryDistributionPanel/` — removed (no other consumers)
+- `.squad/skills/svg-donut-chart/SKILL.md` — corrected core technique
+
+**Validation:** 829 tests passing (full suite green), +13 new tests (Pac-Man regressions, breadcrumb formatting, diverging chart rendering). Commit 6a092b8 on main.
 
 **2026-05-03 — PR #121: Splits Wave B (squad/59-splits-wave-b)**
 
@@ -2332,3 +2350,296 @@ progressbar `aria-label` for screen readers.
 3. **Breadcrumb labels for subcategory ambiguity.** When subcategory names
    recur under multiple parent categories, prefix with the parent and a
    U+203A chevron. Plain helper, plain string output, easy to test.
+
+
+## Insights drilldown — current-state snapshots (PR #141 review, 2026-04-28)
+
+**Requested by:** Pedro (post-PR #141 review). The pacman donut fix is
+approved; the diverging subcategory bar chart is "not well resolved at all,
+very confusing". Asked for Playwright snapshots so the team can see what
+shipped before Niobe redesigns.
+
+**Documentation-only task — zero production code touched.**
+
+### Deliverable
+
+- `tests/e2e/insights-snapshots.spec.ts` — Playwright + Electron harness.
+  Skipped by default (`test.skip(!process.env.OT_SNAPSHOTS, …)`); run with
+  `OT_SNAPSHOTS=1 npx playwright test tests/e2e/insights-snapshots.spec.ts`.
+- `docs/ux/insights-current-state/` — 12 PNGs (3 dataset shapes × 2 viewports
+  × {full, bars-only}) + `README.md` index with per-image captions and
+  observations on why the chart is confusing.
+- `.squad/skills/electron-ui-snapshots/SKILL.md` — reusable harness pattern.
+
+### Reusable patterns captured
+
+1. **Snapshot harness lives next to e2e tests but is opt-in.** The
+   `test.skip(!env)` guard keeps `npm run e2e` quiet while the spec is still
+   discoverable for manual runs and edits.
+
+2. **Three deterministic dataset shapes inline in the spec** (NORMAL /
+   SKEWED / SPARSE). Each writes its own NDJSON event log to a separate
+   `OT_DATA_DIR` under userData. The PRNG perf-seed couldn't produce the
+   shape variety needed; hand-curated shapes are clearer for visual review
+   anyway.
+
+3. **`args: ['.']` confirmed (again).** Same userData-resolution gotcha as
+   movements-perf — without it Electron writes to `%APPDATA%/Electron` and
+   never sees the seeded events.
+
+4. **ESM `__dirname` is undefined under Playwright.** Use
+   `fileURLToPath(import.meta.url)` to compute REPO_ROOT.
+
+5. **Combined-region screenshots via `boundingBox()` + `clip`.** Capture
+   donut row + diverging chart together by measuring both blocks and clipping
+   to their union. Always cap `clip.width/height` to `viewport - {x,y}` or
+   Playwright throws "clip area is out of viewport bounds".
+
+6. **Element close-ups via `locator.screenshot()`** are more robust than
+   manual clip math when you only want one element.
+
+7. **150–400 ms `waitForTimeout` after `scrollIntoViewIfNeeded()`** before
+   measuring boxes — Inter font reflow shifts label widths a few pixels
+   otherwise.
+
+### Findings handed to Niobe (input only — Niobe owns redesign)
+
+The chart's main legibility problems visible in the snapshots:
+- Cross-side `maxAbs` scaling crushes the smaller side when one side
+  dominates (skewed dataset: every income row is a near-identical stub).
+- Sub-1 % rows fall back to a 0.5 %-min lozenge → ranking unreadable
+  without the number column.
+- Pairing rows by index implies a relationship that doesn't exist.
+- No drawn zero baseline — the diverging metaphor reads as two adjacent
+  tables.
+- Asymmetric label/number reading direction across the axis.
+- Donut↔bar colour link is too washed-out to register.
+- Narrow-viewport collapse never fires at 900 px → breadcrumb labels
+  truncate, defeating their disambiguation purpose.
+- Sparse data wastes the layout (oversized bars for trivial values).
+
+### Validation
+
+- `npm run build` ✅
+- `OT_SNAPSHOTS=1 npx playwright test tests/e2e/insights-snapshots.spec.ts`
+  → 6/6 passed in ~66 s. 12 PNGs written under `docs/ux/insights-current-state/`.
+- Existing `npm run e2e` scope unchanged (spec skipped without
+  `OT_SNAPSHOTS=1`).
+
+
+
+---
+
+## 2026-05-04 — Subcategory ranked tables (Concept A) — squad/trinity-subcategory-ranked-tables
+
+### Task
+
+Replace the diverging subcategory bar chart from PR #141 with two
+side-by-side ranked tables (Concept A from Niobe's UX concept, recommended
+by Neo's decision). Single PR — revert + new component in one shot — to
+avoid a broken intermediate state on `main`. Pedro confirmed three blocking
+parameters: top-N scan as primary task (no drill variant), "% of side
+total" framing, top-10 default with "Ver todas" toggle.
+
+### What I shipped
+
+1. **Removed `DivergingSubcategoryChart/`** entirely — component, CSS,
+   tests, index. Kept the `formatBreadcrumbLabel` helper by re-exporting it
+   from the new `SubcategoryRankedTable` package; donut tooltips and any
+   future consumers still get a single source of truth for the U+203A
+   chevron format.
+2. **Added `SubcategoryRankedTable/`** under
+   `app/src/renderer/components/`. Two independent ranked tables, each
+   with its own scale, sort, "Ver todas" toggle, and "% of side total"
+   column. Per-side empty state ("Sin datos") when a side has zero rows.
+   Stacks to a single column at <900 px without changing metaphor. Reuses
+   the existing `--color-expense-*` / `--color-income-*` /  `--space-*` /
+   type tokens — zero new tokens.
+3. **i18n** — extended `insights.distribution.subcategory.*` with
+   `sideEmpty`, `amountColumn`, `percentColumn`. Updated `showAll`/
+   `showLess` from "Mostrar todo/menos" to "Ver todas/menos" per Pedro's
+   wording. EN unchanged ("Show all/less"). Existing keys (`empty`,
+   `filteredBy`, `clearSelectionAria`, `panelHeading`, `title`) reused.
+4. **Tests** — 14 unit tests cover sort + rank pills, % computation
+   rounded to 1 decimal, per-side bar scaling (no shared maxAbs),
+   `selectedCategoryId` filtering, top-10 toggle (independent per side),
+   global empty + per-side empty states, parent-category colour reuse,
+   accessible progressbar labelling. Removed the 8 diverging-chart tests.
+5. **Snapshot harness** — same
+   `tests/e2e/insights-snapshots.spec.ts` retargeted at the new
+   `.ot-subcategory-ranked` selector. Output split:
+   `docs/ux/insights-current-state/` keeps the diverging "before"
+   PNGs; `docs/ux/insights-after/` is the new home for Concept A. 12
+   PNGs captured (3 datasets × 2 viewports × 2 views).
+
+### Reusable lessons (lifted into skills)
+
+- **`disjoint-ranked-distributions/SKILL.md`** (new). The hard rule:
+  when two distributions don't share keys, render them as two
+  independent ranked tables, never as a diverging single chart.
+  Includes the eight implementation rules (independent scales, sorts,
+  toggles, empty states; one % column scoped to side total; top-N +
+  toggle; narrow stacks to one column; identical reading direction on
+  both sides).
+
+- **The ranked-list-with-inline-bar pattern is now a reusable
+  Insights primitive.** Any future breakdown panel — per-account,
+  per-tag, per-period top movers — should reach for
+  `SubcategoryRankedTable` (or a parametrised lift of it) before
+  inventing a new chart. Documented in the skill and in the decision
+  drop.
+
+### Things I learned the hard way (so the next agent doesn't have to)
+
+1. **Don't put the inline bar in the same row as the label.** First
+   pass tried `[rank][label][bar][amount][percent]` on one row and the
+   bar fought with the breadcrumb label for width — at 1000 px every
+   long subcategory ellipsis-clipped just to keep the bar 80 px wide.
+   Fixed by making the row a 2-row CSS grid: row 1 carries
+   label/amount/percent, row 2 spans the bar across columns 2–4. The
+   bar gets full content width; the label never truncates because of
+   it.
+
+2. **`Intl.NumberFormat({style:'percent'})` divides the value.** Spent
+   five minutes wondering why "44%" was rendering as "4400%" until I
+   remembered it expects the ratio (0.44), not the percent (44).
+
+3. **Per-side `useMemo` for `sideTotal` matters at high cardinality.**
+   Without it, scrolling the snapshot harness's narrow viewport
+   recomputed the sum on every hover. Now `sideTotal` is memoed by
+   `rows` reference.
+
+4. **Two `useState`s for show-all (one per side) is the right shape.**
+   First instinct was a single `showAll` boolean, but the spec calls
+   for independent toggles — and at sparse-skewed data shapes the user
+   genuinely wants to expand one side without touching the other.
+
+### Validation
+
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npx prettier --check` on changed files ✅
+- `npm test` — 832 passed / 9 skipped / 0 failed (vs. 822 baseline; +14
+  new, −5 diverging-chart tests, +1 transient flake recovered).
+- `OT_SNAPSHOTS=1 npx playwright test tests/e2e/insights-snapshots.spec.ts`
+  → 6/6 passed in ~66 s. 12 PNGs written under
+  `docs/ux/insights-after/`.
+- Manual smoke: app launched, donut click filters both tables;
+  "Ver todas" toggles per side independently; narrow viewport stacks
+  cleanly without re-scaling glitches.
+
+### Files I touched
+
+- `app/src/renderer/components/SubcategoryRankedTable/` (new — `.tsx`,
+  `.css`, `.test.tsx`, `index.ts`).
+- `app/src/renderer/components/DivergingSubcategoryChart/` — deleted.
+- `app/src/renderer/screens/InsightsDetailScreen/InsightsDetailScreen.tsx`
+  — swap import + props.
+- `app/src/renderer/locales/{es,en}/common.json` — i18n additions.
+- `tests/e2e/insights-snapshots.spec.ts` — retarget selector + output
+  dir.
+- `docs/ux/insights-after/README.md` (new) — index for after-shots.
+- `.squad/skills/disjoint-ranked-distributions/SKILL.md` (new).
+- `.squad/decisions/inbox/trinity-subcategory-ranked-tables.md` (new).
+
+---
+
+## 2026-04-28 — PR #142 polish: dot & palette mockup options (no code)
+
+**Context:** Pedro approved ranked subcategory tables layout in PR #142 but flagged two items: dots look bad, donut category colors too alike. Per UX-concept-first directive (.squad/decisions.md), produced mockup options for him to choose before touching production code.
+
+**Output:**
+- `docs/ux/dots-and-colors-options.md` — diagnosis + 3 dot alternatives + 3 palette alternatives + recommendations
+- `docs/ux/dots-options/index.html` (+ preview.png) — 4-panel dot comparison: A current 10px filled circle, B outlined ring, C left-edge stripe, D tinted rank pill
+- `docs/ux/colors-options/index.html` (+ preview.png) — 4-palette comparison: current OKLCH, Wide-hue OKLCH (45°+alt L), Tableau-10, Okabe-Ito; each shown as swatch row + applied 5-slice donut + ranked-table rows + zoomed adjacent-pair strip exposing collisions
+
+**Diagnosis (color):** current donut palette uses oklch with all 8 hues clustered, similar L (0.55-0.7) and C (0.12-0.18). d2 (teal 150°) ↔ d3 (green 130°) are only 20° apart — indistinguishable at 10px. Same for d4 (yellow-green 80°) ↔ d5 (orange 40°). Other pairs are fine (30°+ apart with luminance variation).
+
+**Diagnosis (dot):** 10×10 filled circle inline with label, no dedicated column, redundant with bar fill below the row that already carries the same color. Reads as ink speck.
+
+**Recommendation given:** Dot D (tinted rank pill — reuses existing element, no new UI primitive, matches Movements ot-type-arrow badge pattern) + Palette 1 (smallest fix: keep OKLCH, just respread hues to 45° apart with alternating L so adjacent slices break in both hue AND luminance, preserves v0.3 muted aesthetic).
+
+**Tooling note:** generated screenshots via Playwright chromium against local HTML — much cleaner than image-edit for "same data different style" comparisons. Captured as a reusable pattern.
+
+**State:** awaiting Pedro selection. On his pick (e.g., "Dot D + palette 1"), implement on PR #142 with before/after screenshots in PR body. Production code/CSS/tokens NOT touched.
+
+---
+
+## 2026-04-28 — PR #142 round 2: Dot D + Palette P1 shipped
+
+**Selected by Pedro:** Dot D (tinted rank pill) + Palette P1 (OKLCH wide-hue, 45° spacing, alternating L). Implemented on squad/trinity-subcategory-ranked-tables.
+
+**Implementation:**
+- Removed `.ot-subcategory-ranked__pill` span entirely from JSX. The dot element is gone — one fewer thing to render, lay out, and test.
+- Tinted rank chip via `color-mix(in oklab, var(--ot-rank-color) 22%, var(--color-surface-primary))` on `.ot-subcategory-ranked__rank`. Plumbed the colour as a CSS custom property (`--ot-rank-color`) inline-styled on the span, NOT as `background:` directly — keeps the tint formula in one CSS location, makes tests assert `style.getPropertyValue('--ot-rank-color')` instead of brittle string matching on a `color-mix()` background expression.
+- Palette tokens: just edited `DonutChart.css` (light + dark theme blocks). Single source of truth — DonutChart.tsx slices, InsightsDetailScreen legend swatches, and the new rank pills all consume the same `--color-donut-*`. No call site updates needed.
+- Rank text stays `--color-text-primary` (i.e. dark on light theme). 22% alpha tint over surface keeps WCAG AA on every hue including the brightest (donut-3 yellow at L=0.78). Avoided the alternative of swapping text-colour per swatch, which would have meant per-token bookkeeping.
+
+**Tests:** rewrote the `uses the parent category colour` test to read `--ot-rank-color` from the rank span instead of `background` from a now-deleted `.ot-subcategory-ranked__pill`. Added a regression test asserting the dot element no longer exists. 833 unit tests green.
+
+**Snapshot harness change:** added `OT_SNAPSHOTS_OUT` env var to `tests/e2e/insights-snapshots.spec.ts` so successive visual rounds can land in sibling folders (`insights-after/` -> `insights-after-d-p1/`) without overwriting prior 'before' state. This is the third time we've wanted this — making it permanent.
+
+**Pre-existing format-check warnings:** `npm run format:check` flags 37 unrelated files on baseline `c5d75e3`. Touched files are all prettier-clean. Documented in PR comment; not in scope for this round.
+
+**Outcome:** push 12ec777 -> PR #142, comment posted at https://github.com/rett-europe/opentreasury-desktop/pull/142#issuecomment-4337951219. Holding for explicit visual approval before merge.
+
+## Round 3 — single-source-of-truth fix for donut palette (PR #142)
+
+**Date:** 2026-04-28
+**Trigger:** Pedro reported "I see the new ranked tables with tinted pills, but NOT the new palette in the donuts." Round 2 had defined --color-donut-0..7 inside pp/src/renderer/components/DonutChart/DonutChart.css under a :root selector — technically global, but in practice the donut slices and the rank pills diverged.
+
+**Diagnosis.** Both consumers reference ar(--color-donut-N):
+- `DonutChart.tsx` strokes each <circle> with `stroke={ar(--color-donut-)}`.
+- `SubcategoryRankedTable.tsx` reads a colour map built in `InsightsDetailScreen.tsx::buildColorMap` that emits the same `var(--color-donut-)` strings, fed inline as `style={{ ['--ot-rank-color']: entry.colorVar }}`.
+
+So the variable IS the single contract — but the **definition** was in component CSS, not in the design-token file. Vite/Electron CSS bundling and HMR ordering can leave the SVG donut on a stale stroke while the freshly re-mounted rank-pill component picks up the new tokens. Architecturally it's worse: a later contributor deleting or scoping `DonutChart.css` would silently break every other consumer.
+
+**Fix.** Moved the P1 OKLCH palette into `app/src/renderer/styles/tokens.css` — added to all three blocks: `:root, :root[data-theme='light']`, `:root[data-theme='dark']`, and the system-mode `@media (prefers-color-scheme: dark) :root[data-theme='system']` block. Replaced the `:root` rule in `DonutChart.css` with a comment pointing at `tokens.css` and at the new `.squad/skills/design-token-single-source` skill. Token VALUES are byte-identical to round 2, so the captured PNGs in `docs/ux/insights-after-d-p1/` are still correct — the change is structural.
+
+**Lesson — pin this.** ALWAYS define palette tokens in `tokens.css` `:root` — component-scoped overrides only affect downstream components, not parallel consumers. Component CSS may set component-private custom properties (e.g. `--ot-rank-color`) that the component itself reads, but anything consumed by more than one component lives in `tokens.css`. Wrote `.squad/skills/design-token-single-source/SKILL.md` with the checklist.
+
+**Gates.** `npm run typecheck` ✓. `npm run lint` ✓ (0 warnings). `npm run test` ✓ (833 passed, 9 skipped, 92 files). `format:check` baseline unchanged — touched files do not appear in the warning list.
+
+**Files touched.**
+- `app/src/renderer/styles/tokens.css` — added donut palette to light, dark, and system blocks.
+- `app/src/renderer/components/DonutChart/DonutChart.css` — removed local `:root` definitions, replaced with explanatory comment.
+- `.squad/skills/design-token-single-source/SKILL.md` — new skill capturing the rule.
+
+## 2026-01-28 — Diagnosed and Fixed Monthly Evolution Chart Rendering (PR #142)
+
+**Context:** Pedro reported two issues on branch `squad/trinity-subcategory-ranked-tables`:
+1. Donut charts showing old palette instead of P1
+2. "Weird black charts" on Insights Detail screen
+
+**Investigation approach:**
+- Used Playwright `insights-snapshots.spec.ts` harness to capture actual rendered pixels
+- Set `OT_SNAPSHOTS=1` and `OT_SNAPSHOTS_OUT=docs/ux/insights-diag-20260428/`
+- Captured light/dark variants across 3 datasets (normal, skewed, sparse) × 2 viewports
+- Inspected DOM structure to determine actual class names being applied
+
+**Findings:**
+1. **Donut charts:** FALSE ALARM — P1 palette rendering correctly. Pedro's local build was stale.
+2. **Black charts:** CONFIRMED — Monthly evolution `GroupedBarChart` bars were solid black.
+
+**Root cause:**
+`InsightsDetailScreen.tsx` line 348 passes `barClassNames: ['ot-bar--income', 'ot-bar--expense']` to `GroupedBarChart`, but those CSS classes were never defined in `GroupedBarChart.css`. The component had CSS for full BEM names (`ot-grouped-bar-chart__bar--income-solo`, etc.) but not the abbreviated forms. SVG `<rect>` elements default to black fill when no matching CSS rule exists.
+
+**Fix:**
+Added missing CSS rules to `GroupedBarChart.css`:
+```css
+.ot-bar--income { fill: var(--color-income-default); }
+.ot-bar--expense { fill: var(--color-expense-default); }
+.ot-grouped-bar-chart__swatch.ot-bar--income { background: var(--color-income-default); }
+.ot-grouped-bar-chart__swatch.ot-bar--expense { background: var(--color-expense-default); }
+```
+
+**Key learning:**
+Even with `!important` and hardcoded hex colors, the bars stayed black during testing because the Electron app launched by Playwright was using a cached build from BEFORE the CSS changes. The CSS modifications only took effect after the changes were saved AND a new Electron instance was spawned (which triggers Vite's hot-reload/rebuild). This highlights the importance of clearing `node_modules/.vite` and `dist` when debugging rendering issues.
+
+**Deliverables:**
+- Commit 244b6f1: `fix: add missing CSS for monthly evolution chart bars`
+- 20 diagnostic screenshots in `docs/ux/insights-diag-20260428/`
+- PR comment with screenshots and restart instructions
+- All gates green (typecheck/lint/format)
+
+**Outcome:** Issue resolved. Pedro can verify after clearing build cache and restarting.

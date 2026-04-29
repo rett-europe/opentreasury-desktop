@@ -386,3 +386,18 @@ PR #51 (wi23-legacy-fixture-gate tests) closed as redundant — PR #50 already i
 - `npx playwright test tests/e2e/split-transactions-bulk.spec.ts -g "ES-03"`
 - `gh pr create --base main --head squad/59-splits-e2e-unskip --body-file pr-body.md`
 
+
+
+## 2026-04-28 — PR #131 rebase + alignment to current search UX
+
+- Rebased `feat/search-tests` onto origin/main cleanly (no conflicts).
+- Realigned SPEC-024 AC1-AC12 test cases to the *current* search UX:
+  - AppShell now keeps a local `searchInputValue` state and trailing-edge debounces the *applied* query by `SEARCH_DEBOUNCE_MS = 500ms`.
+  - Enter submits immediately (cancels the debounce); first Esc clears, second Esc blurs.
+- E2E `searchFor()` helper now fills + presses Enter (deterministic, no 500ms sleep per query). AC10 still exercises live keystrokes + Esc/Ctrl+K. AC11 perf comments now distinguish keystroke→input-paint latency (local) from filter cost (one trailing-edge run).
+- Lint fix: replaced single-line `// eslint-disable-next-line` over a multi-line `searchMovements?` signature in `search.test.ts` with a `/* eslint-disable @typescript-eslint/no-explicit-any */` block. The single-line form only suppresses the immediately following line, which is brittle for multi-arg signatures with `any` on each line — prefer block disables there.
+- Gates: typecheck ✅ · lint ✅ · format:check ✅ · vitest 829 passed / 63 skipped ✅.
+- Marked PR #131 ready for review and dropped the requested comment. Not merging — Pedro merges after #142 lands.
+
+**Lesson:** When an implementation lands ahead of the test PR (here: search UX shifted to local-state + 500ms debounce + Enter-submit), grep the impl for the named constant (`SEARCH_DEBOUNCE_MS`) and the local state symbol (`searchInputValue`) before touching the tests. Faster than reading the diff, and the names point straight at the contract the tests must encode.
+

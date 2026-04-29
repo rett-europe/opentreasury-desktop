@@ -56,28 +56,20 @@
   border: 0;
 }
 
-/* Color palette — deterministic mapping via CSS custom properties */
-:root,
-:root[data-theme='light'] {
-  --color-donut-0: oklch(0.55 0.15 270); /* purple */
-  --color-donut-1: oklch(0.6 0.18 200); /* blue */
-  --color-donut-2: oklch(0.65 0.14 150); /* teal */
-  --color-donut-3: oklch(0.6 0.12 130); /* green */
-  --color-donut-4: oklch(0.7 0.14 80); /* yellow-green */
-  --color-donut-5: oklch(0.65 0.16 40); /* orange */
-  --color-donut-6: oklch(0.6 0.18 20); /* red-orange */
-  --color-donut-7: oklch(0.55 0.12 340); /* pink */
-  --color-donut-otras: oklch(0.6 0.02 260); /* neutral gray */
-}
-
-:root[data-theme='dark'] {
-  --color-donut-0: oklch(0.65 0.15 270);
-  --color-donut-1: oklch(0.7 0.18 200);
-  --color-donut-2: oklch(0.75 0.14 150);
-  --color-donut-3: oklch(0.7 0.12 130);
-  --color-donut-4: oklch(0.8 0.14 80);
-  --color-donut-5: oklch(0.75 0.16 40);
-  --color-donut-6: oklch(0.7 0.18 20);
-  --color-donut-7: oklch(0.65 0.12 340);
-  --color-donut-otras: oklch(0.7 0.02 260);
-}
+/*
+ * Color palette note —
+ *
+ * Donut slice colours are NOT defined here. The Palette P1 (wide-hue OKLCH)
+ * tokens `--color-donut-0..7` and `--color-donut-otras` live in
+ * `app/src/renderer/styles/tokens.css`, scoped to `.ot-insights-detail`
+ * per Pedro's directive (copilot-directive-20260429-081320.md). P1 is a
+ * screen-level decision: it applies only on the Insights Detail screen.
+ * They are the single source of truth shared by:
+ *   - DonutChart slice strokes (this component)
+ *   - InsightsDetailScreen legend swatches
+ *   - SubcategoryRankedTable tinted rank pills
+ *
+ * All three render inside `.ot-insights-detail`, so the scoped tokens
+ * cascade correctly. Outside that container, `var(--color-donut-*)` is
+ * undefined — which is intentional.
+ */

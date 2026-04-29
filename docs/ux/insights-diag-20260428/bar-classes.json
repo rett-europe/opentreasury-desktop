@@ -1,0 +1,18 @@
+[
+  {
+    "class": "ot-grouped-bar-chart__bar ot-bar--income",
+    "fill": "rgb(0, 0, 0)"
+  },
+  {
+    "class": "ot-grouped-bar-chart__bar ot-bar--expense",
+    "fill": "rgb(0, 0, 0)"
+  },
+  {
+    "class": "ot-grouped-bar-chart__bar ot-bar--income",
+    "fill": "rgb(0, 0, 0)"
+  },
+  {
+    "class": "ot-grouped-bar-chart__bar ot-bar--expense",
+    "fill": "rgb(0, 0, 0)"
+  }
+]

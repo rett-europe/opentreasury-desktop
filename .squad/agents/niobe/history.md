@@ -522,3 +522,47 @@ export SQUAD_WORKTREES=1
 ```
 
 This ensures each agent gets `git worktree add` + isolated checkout, zero collision risk. Update your spawn checklist.
+
+
+### 2026-05-04 — Insights subcategory panel UX concept (post-PR #141 dogfood)
+
+**Trigger:** Pedro: diverging-bar subcategory chart "not well resolved at all… very confusing." New team rule: visual/UX changes require a concept proposal before implementation.
+
+**Outcome:** `docs/ux/insights-subcategory-concept.md` + decision inbox `niobe-subcategory-concept.md`. NO CODE.
+
+**Diagnosis (locked):** Diverging chart fails because gastos/ingresos subcategories share no keys → the diverging metaphor implies a comparison that doesn't exist. Central zero baseline is decorative; breadcrumb labels truncate at ~280 px label cells on 1280 px viewports; gastos side `flex-direction: row-reverse` inverts standard label→bar→amount reading order; donut→panel link is severed; <720 px responsive collapse is a different chart entirely.
+
+**Three concepts evaluated:**
+- A. Two ranked tables with inline magnitude bars — low cost, recommended.
+- B. Donut drill-down (clicked slice transforms donut to subcategories) — medium cost, biggest IA shift.
+- C. Stacked bar per category with subcategory segments — medium cost, fits low-cardinality only.
+
+**Recommendation:** Concept A. Strong second: A + donut click collapses table to single-column.
+
+**Reusable principles captured:**
+1. **Diverging bars require shared category keys.** When the two sides have disjoint keys, diverging is decoration — pick parallel ranked lists or a hierarchy-aware layout instead. (This *contradicts* the 2026-04-28 generalisation in `.squad/decisions.md`; my concept doc names this contradiction explicitly. Pedro to arbitrate.)
+2. **Match the visualisation to the user's actual cognitive task.** Rank-and-scan ≠ compare-pairs ≠ part-of-whole. The 2026-04-28 decision optimised for "single glance" symmetry; the user task is "what's biggest on each side" — a ranking task.
+3. **Concept docs should name the contradicting prior decision.** When proposing to walk back a previously locked rule, cite the entry by date/author and explain what changed (here: dogfood signal trumps theoretical generality).
+
+**Process:** First time writing a no-code concept doc post-PR. Format that worked: user-need-first, then failure-mode list (specific, not generic), then 3 concepts each with sketch+pros+cons+cost+fit, then a clear single recommendation, then open questions. Target length 1500–2500 words; landed ~1850.
+
+**Open with Pedro:** 7 questions — primary: which task dominates (top-N scan vs. drill)? Plus: keep top-10 cutoff? % of side vs. % of parent? Wait for Trinity snapshots before greenlight?
+
+---
+
+## 2025 — PR #130 rebase on main (post search-debounce/Enter-submit landing)
+
+**Task:** Rebase stale eat/search-i18n (search i18n keys + trial 1 what's-new) onto current main.
+
+**Outcome:** Clean rebase, single conflict, all gates green, force-pushed with lease, CI passed, PR comment posted. Not merged (Pedro merges after #142).
+
+**Conflict resolved:** pp/src/renderer/locales/es/common.json — shell.search.clearAriaLabel:
+  - main: ""Borrar búsqueda""
+  - PR:   ""Limpiar búsqueda""
+  - Chose ""Limpiar búsqueda"" for ES locale consistency. Audit of the file showed ""Limpiar"" is the canonical verb across the app (ctions.clear, 	ransactions.actions.clear-filters, 	ransactions.search.empty.cta, date.clear). ""Borrar"" is an outlier — flagged mentally; if it appears elsewhere later, normalize to ""Limpiar"".
+
+**i18n alignment check:** AppShell.tsx now uses SEARCH_DEBOUNCE_MS = 500 + Enter-key submit, but the user-visible strings still map to the same keys this PR already provides (shell.search.placeholder, shell.search.ariaLabel, shell.search.clearAriaLabel). No new strings required for the new debounce/Enter UX — the behavior changed, the copy didn't. The 	ransactions.search.{resultCount,empty.title,empty.cta} keys remain pre-wired for the next consumer (likely #142 or follow-up).
+
+**Lesson — locale audit before resolving translation conflicts:** When two valid translations conflict, run Select-String 'verb-stem' across the locale file (and ideally both EN/ES) before choosing. Consistency beats freshness.
+
+**Gates:** typecheck ✓ · lint ✓ · format:check ✓ · vitest 829 passed / 9 skipped · CI lint·typecheck·test ✓.

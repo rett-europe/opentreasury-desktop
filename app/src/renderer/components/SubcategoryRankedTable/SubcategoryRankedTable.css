@@ -1,0 +1,289 @@
+.ot-subcategory-ranked {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  /* Saldo responsive-panel pattern: prevent overflow within grid track */
+  min-width: 0;
+}
+
+.ot-subcategory-ranked__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.ot-subcategory-ranked__title {
+  margin: 0;
+  font-size: var(--font-size-15);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.ot-subcategory-ranked__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  font-size: var(--font-size-12);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.ot-subcategory-ranked__chip:hover {
+  background: var(--color-surface-tertiary, var(--color-surface-secondary));
+}
+
+.ot-subcategory-ranked__chip:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.ot-subcategory-ranked__chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.ot-subcategory-ranked__empty {
+  margin: 0;
+  padding: var(--space-5) 0;
+  color: var(--color-text-muted);
+  text-align: center;
+  font-size: var(--font-size-13);
+}
+
+/* Two columns: gastos | ingresos. Each side is a self-contained ranked list. */
+.ot-subcategory-ranked__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.ot-subcategory-ranked__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.ot-subcategory-ranked__side-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ot-subcategory-ranked__side-title {
+  margin: 0;
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.ot-subcategory-ranked__side--expense .ot-subcategory-ranked__side-title {
+  color: var(--color-expense-default);
+}
+
+.ot-subcategory-ranked__side--income .ot-subcategory-ranked__side-title {
+  color: var(--color-income-default);
+}
+
+.ot-subcategory-ranked__side-empty {
+  margin: 0;
+  padding: var(--space-5) 0;
+  color: var(--color-text-muted);
+  text-align: center;
+  font-size: var(--font-size-13);
+}
+
+.ot-subcategory-ranked__col-headers {
+  display: grid;
+  grid-template-columns:
+    24px minmax(0, 1fr) minmax(min-content, auto)
+    minmax(min-content, 3.25rem);
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ot-subcategory-ranked__col-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ot-subcategory-ranked__col-percent {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ot-subcategory-ranked__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/*
+ * Row layout:
+ *   row 1: rank | (pill + label) | amount | percent
+ *   row 2: bar spans columns 2..4 so it grows the full content width without
+ *          truncating the label above.
+ */
+.ot-subcategory-ranked__row {
+  display: grid;
+  grid-template-columns:
+    24px minmax(0, 1fr) minmax(min-content, auto)
+    minmax(min-content, 3.25rem);
+  grid-template-areas:
+    'rank label amount percent'
+    'rank bar bar bar';
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-13);
+}
+
+/* Match the Movimientos list-row hover/focus pattern for cross-app consistency. */
+.ot-subcategory-ranked__row:hover {
+  background: var(--color-surface-secondary);
+}
+
+.ot-subcategory-ranked__rank {
+  grid-area: rank;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  width: 1.5rem;
+  height: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  /*
+   * Tinted rank pill — the rank chip carries the category colour, replacing
+   * the prior standalone dot. Mirrors the Movements `ot-type-arrow` pattern:
+   * a low-alpha tint of the semantic colour over the surface, so the digit
+   * keeps WCAG-AA contrast against text-primary across every donut hue,
+   * including the brightest swatch (--color-donut-3 yellow at L=0.78).
+   */
+  background: color-mix(
+    in oklab,
+    var(--ot-rank-color, var(--color-donut-otras)) 22%,
+    var(--color-surface-primary, transparent)
+  );
+}
+
+.ot-subcategory-ranked__label {
+  grid-area: label;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ot-subcategory-ranked__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-primary);
+}
+
+.ot-subcategory-ranked__amount {
+  grid-area: amount;
+  white-space: nowrap;
+  text-align: right;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ot-subcategory-ranked__amount--income {
+  color: var(--color-income-default);
+}
+
+.ot-subcategory-ranked__amount--expense {
+  color: var(--color-expense-default);
+}
+
+.ot-subcategory-ranked__percent {
+  grid-area: percent;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-12);
+}
+
+.ot-subcategory-ranked__bar-track {
+  grid-area: bar;
+  position: relative;
+  height: 6px;
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.ot-subcategory-ranked__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-xs);
+  transition: width 200ms ease;
+}
+
+.ot-subcategory-ranked__footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ot-subcategory-ranked__show-all {
+  border: 0;
+  background: transparent;
+  color: var(--color-link, var(--color-text-primary));
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.ot-subcategory-ranked__show-all:hover {
+  background: var(--color-surface-secondary);
+}
+
+.ot-subcategory-ranked__show-all:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+/*
+ * Narrow viewports: stack the two sides vertically into a single column. The
+ * ranked-list pattern stays identical on each side — no metaphor switch.
+ */
+@media (max-width: 900px) {
+  .ot-subcategory-ranked__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+  }
+}

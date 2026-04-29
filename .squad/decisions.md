@@ -2,6 +2,71 @@
 
 ## Active Decisions
 
+### 2026-04-28: Insights Detail Page Polish — Pac-Man SVG Fix, Diverging Bars, Breadcrumb Labels (Trinity, PR #141)
+
+**Date:** 2026-04-28  
+**Status:** ✅ SHIPPED (PR #141, commit 6a092b8)  
+**Agent:** Trinity (Frontend UI)  
+**Related Issue:** Pedro dogfooding Insights drilldown (PR #114 / WI-19 checkpoints 33–39)
+
+#### Decision
+
+Three issues fixed in single PR:
+
+**1. Pac-Man Donut Bug — SVG Rotation Fix**
+
+Root cause: SVG `<circle>` stroke-dasharray positioning fails when a single slice exceeds ~75% of the circumference. Original `DonutChart` used cumulative `strokeDashoffset = -C/4 - sum(prevDashLengths)` positioning, which silently clips trailing dashes when start offset plus dash length exceeds path end position. The [75%, 100%) range was not covered by the 100%-single-slice shortcut.
+
+**Fix:** Rotate each segment to its start angle via `transform="rotate(startAngle, cx, cy)"` and start every dash at path position 0 (no `strokeDashoffset`). This ensures any fraction in [0, 1] always fits in [0, L] of the path, regardless of distribution shape.
+
+**2. Dual Bar Charts → Diverging Horizontal Chart**
+
+Rationale: Gastos and ingresos do NOT share subcategories (e.g., "Salario › Base" only in incomes; "Casa › Alquiler" only in expenses). Grouped/stacked layouts require synthetic zero rows and obscure magnitude comparisons. Diverging horizontal bars allow users to read both distributions in one glance, mirroring the donut row above.
+
+**Implementation:** New `DivergingSubcategoryChart` component replaces `SubcategoryDistributionPanel` + `SegmentedToggle`. Uses canonical `--color-expense-default` / `--color-income-default` tokens for side legends and `--color-donut-N` cycle for row pills. Narrow viewports (<720px) collapse diverging metaphor and stack vertically.
+
+**3. Breadcrumb Format for Hierarchical Category Labels**
+
+Format: `Category › Subcategory` using U+203A SINGLE RIGHT-POINTING ANGLE QUOTATION MARK (NOT ASCII `>`). Implemented as `formatBreadcrumbLabel(categoryName, subcategoryName, subcategoryId)`; when `subcategoryId == null`, only category name is shown. Applied to:
+- Bar row labels in `DivergingSubcategoryChart`
+- Hover tooltips
+- Progressbar `aria-label` for screen readers
+
+Donut tooltips checked and found to be category-level only (keyed on `categoryId`, not subcategory), so no breadcrumb is appropriate there.
+
+#### Rationale & Generalization
+
+**Pac-Man fix (locked rule):** Per-segment SVG rotation is the canonical approach for any circumference-based rendering (donut, pie, polar charts). Future agents must use per-segment rotation, not cumulative dashoffset. Skill updated: `.squad/skills/svg-donut-chart/SKILL.md`.
+
+**Diverging bars (reusable pattern):** When two categorical distributions share no keys (income/expense, debit/credit, etc.), diverging horizontal layout lets users compare magnitudes without synthetic padding. Applies to any income-vs-expense drilldown.
+
+**Breadcrumb labels (locked rule):** Hierarchical references use U+203A with no trailing chevron when subcategory is null. Consistent across all drilldown/detail screens that blend category + subcategory.
+
+#### Files Changed
+
+| File | Changes |
+|------|---------|
+| `app/src/renderer/components/DonutChart/DonutChart.tsx` | Rotation-based rendering, +2 Pac-Man regression tests |
+| `app/src/renderer/components/DivergingSubcategoryChart/` | New component (tsx, css, test, index) |
+| `app/src/renderer/screens/InsightsDetailScreen/InsightsDetailScreen.tsx` | Drops `SegmentedToggle` + `subcatView` state; wires both donuts to single `selectedCategoryId` |
+| `app/src/renderer/components/SubcategoryDistributionPanel/` | Removed (no other consumers) |
+| `.squad/skills/svg-donut-chart/SKILL.md` | Corrected core technique (per-segment rotation) |
+
+#### Validation
+
+- ✅ `npm run typecheck`
+- ✅ `npm run lint` (max-warnings 0)
+- ✅ `npx prettier --check`
+- ✅ `npm test` — 829 passed / 9 skipped (838 total)
+- ✅ +13 new tests (Pac-Man regressions, diverging chart, breadcrumb formatting)
+
+#### Cross-References
+
+- Skills: `svg-donut-chart`, `donut-companion-bar`
+- WI-19 / PR #114 (original donut + bar chart era, checkpoints 33–39)
+
+---
+
 ### 2026-04-27: Pattern — Recent Transactions Sort Order (Morpheus, PR #105 Wave 2)
 
 **Date:** 2026-04-27  

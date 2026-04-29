@@ -223,6 +223,25 @@ PR #50 (Morpheus WI-23 legacy backfill) + PR #53 (categories usage counter) appr
 
 **Artifact:** `.squad/orchestration-log/2026-04-21T20-44-08Z-{morpheus,trinity}.md`
 
+## 2026-05-04 — Design-gate cycle: diverging-bar rejection → snapshot evidence + concept + lead synthesis
+
+**Trigger:** Pedro rejected PR #141's diverging-bar subcategory chart as "very confusing." New team directive: visual/UX changes need a concept proposal with screenshots BEFORE implementation lands.
+
+**What happened (new team rhythm):**
+1. **Trinity** captured Playwright snapshots of the current broken state (`docs/ux/insights-current-state/`, 12 PNGs across 3 dataset shapes × 2 viewports). Evidence-first, no opinions.
+2. **Niobe** wrote a UX concept doc (`docs/ux/insights-subcategory-concept.md`) diagnosing 6 failure modes and proposing 3 alternatives with cost/risk/fit analysis. Recommended Concept A (ranked tables).
+3. **Neo** synthesised both into a single decision doc (`docs/ux/insights-subcategory-decision.md`): tightened the problem statement, picked the 3 most damning screenshots, compared alternatives in one table, made a single recommendation (Concept A), cut Niobe's 7 open questions to 3 blocking ones, and defined the path-to-ship.
+
+**Learnings:**
+- The "rejected design → snapshot evidence + UX concept + lead synthesis" cycle worked well. Trinity and Niobe ran in parallel; Neo's synthesis took one pass. Total elapsed: hours, not days.
+- Snapshot evidence is critical — without it, diagnosis is inference from code. Trinity's harness (`tests/e2e/insights-snapshots.spec.ts`) is reusable for future visual gates.
+- Niobe's 7 open questions were real but only 3 were blocking. Lead's job is triage: cut the list so Pedro isn't paralysed by questions, but don't suppress anything — defer the rest to PR review.
+- The diverging-bar failure was predictable from the data shape (disjoint keys on the two sides). Future rule of thumb: before choosing a comparison chart, verify the data actually has paired keys.
+
+**New skill captured:** `.squad/skills/visual-design-gate/SKILL.md` — reusable pattern for this cycle.
+
+**Artifact:** `.squad/decisions/inbox/neo-insights-subcategory-decision.md`
+
 ## Team Updates
 
 - **WI-19 shipped:** Neo scoped, Pedro approved, Morpheus + Trinity delivered. All gates green (345/345 tests). TransactionDetailModal + NotesThread + import wizard mapping live on main. Contract deviations (noteId + id split, transactionsByReference projection) documented in decisions.md.

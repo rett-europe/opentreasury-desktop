@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Donut category palette — alternatives (PR #142 polish)</title>
+    <style>
+      :root {
+        --bg: #fbfbfb;
+        --surface: #ffffff;
+        --surface-2: #f3f4f6;
+        --border: #e5e7eb;
+        --text: #111827;
+        --muted: #6b7280;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 32px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        line-height: 1.4;
+      }
+      h1 { margin: 0 0 4px; font-size: 22px; }
+      h2 { margin: 32px 0 8px; font-size: 16px; }
+      .lede { color: var(--muted); margin: 0 0 8px; }
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .panel h3 { margin: 0 0 4px; font-size: 15px; }
+      .panel .desc { margin: 0 0 16px; color: var(--muted); font-size: 12px; }
+
+      .swatches {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 6px;
+        margin-bottom: 16px;
+      }
+      .swatch {
+        height: 56px;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 6px 8px;
+        font-size: 10px;
+        font-weight: 600;
+        color: rgba(0, 0, 0, 0.65);
+      }
+      .swatch.dark-text { color: rgba(255, 255, 255, 0.95); }
+
+      /* Donut + sample */
+      .demo {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 24px;
+        align-items: center;
+      }
+      .donut {
+        width: 220px;
+        height: 220px;
+      }
+      .demo .rows {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr) 60px;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+        padding: 4px 6px;
+      }
+      .rank {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--surface-2);
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .row .lbl { display: flex; align-items: center; gap: 8px; }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .pct { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+      /* Adjacent-pair zoom */
+      .zoom {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 4px;
+        margin-top: 12px;
+      }
+      .zoom .pair {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px;
+        background: var(--surface-2);
+        border-radius: 4px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .zoom .pair .pd {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Donut category palette — alternatives</h1>
+    <p class="lede">
+      Pedro: "the colors on the category are very alike". Below: 4 palettes (current
+      + 3 proposals) shown as swatch row, applied to a 5-slice donut, applied to
+      ranked-table rows, and zoomed adjacent-pair previews to expose the failure mode.
+    </p>
+
+    <!-- ───────────────────────────────────────────────── 0. CURRENT ─── -->
+    <section class="panel" style="
+      --d0: oklch(0.55 0.15 270);
+      --d1: oklch(0.6 0.18 200);
+      --d2: oklch(0.65 0.14 150);
+      --d3: oklch(0.6 0.12 130);
+      --d4: oklch(0.7 0.14 80);
+      --d5: oklch(0.65 0.16 40);
+      --d6: oklch(0.6 0.18 20);
+      --d7: oklch(0.55 0.12 340);
+    ">
+      <h3>Current palette (light theme)</h3>
+      <p class="desc">
+        8 hues spread across the wheel, mostly L=0.55–0.7, C=0.12–0.18. Adjacent pairs
+        d2/d3 (teal/green, 20° apart) and d4/d5 (yellow-green/orange) collapse at
+        small dot sizes.
+      </p>
+      <div class="swatches">
+        <div class="swatch dark-text" style="background: var(--d0)">d0 270°</div>
+        <div class="swatch dark-text" style="background: var(--d1)">d1 200°</div>
+        <div class="swatch dark-text" style="background: var(--d2)">d2 150°</div>
+        <div class="swatch dark-text" style="background: var(--d3)">d3 130°</div>
+        <div class="swatch" style="background: var(--d4)">d4 80°</div>
+        <div class="swatch" style="background: var(--d5)">d5 40°</div>
+        <div class="swatch dark-text" style="background: var(--d6)">d6 20°</div>
+        <div class="swatch dark-text" style="background: var(--d7)">d7 340°</div>
+      </div>
+      <div class="demo">
+        <svg class="donut" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d0)" stroke-width="14" stroke-dasharray="50 220" stroke-dashoffset="0" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d1)" stroke-width="14" stroke-dasharray="45 220" stroke-dashoffset="-50" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d2)" stroke-width="14" stroke-dasharray="40 220" stroke-dashoffset="-95" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d3)" stroke-width="14" stroke-dasharray="38 220" stroke-dashoffset="-135" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d4)" stroke-width="14" stroke-dasharray="47 220" stroke-dashoffset="-173" transform="rotate(-90 50 50)"/>
+        </svg>
+        <div class="rows">
+          <div class="row"><span class="rank">1</span><span class="lbl"><span class="dot" style="background: var(--d0)"></span>Alimentación</span><span class="pct">22,7%</span></div>
+          <div class="row"><span class="rank">2</span><span class="lbl"><span class="dot" style="background: var(--d1)"></span>Hogar</span><span class="pct">20,4%</span></div>
+          <div class="row"><span class="rank">3</span><span class="lbl"><span class="dot" style="background: var(--d2)"></span>Transporte</span><span class="pct">18,1%</span></div>
+          <div class="row"><span class="rank">4</span><span class="lbl"><span class="dot" style="background: var(--d3)"></span>Ocio</span><span class="pct">17,2%</span></div>
+          <div class="row"><span class="rank">5</span><span class="lbl"><span class="dot" style="background: var(--d4)"></span>Salud</span><span class="pct">21,3%</span></div>
+        </div>
+      </div>
+      <div class="zoom">
+        <div class="pair"><span class="pd" style="background: var(--d0)"></span><span class="pd" style="background: var(--d1)"></span>0↔1</div>
+        <div class="pair"><span class="pd" style="background: var(--d1)"></span><span class="pd" style="background: var(--d2)"></span>1↔2</div>
+        <div class="pair"><span class="pd" style="background: var(--d2)"></span><span class="pd" style="background: var(--d3)"></span><b style="color:#b00">2↔3 ⚠</b></div>
+        <div class="pair"><span class="pd" style="background: var(--d3)"></span><span class="pd" style="background: var(--d4)"></span>3↔4</div>
+        <div class="pair"><span class="pd" style="background: var(--d4)"></span><span class="pd" style="background: var(--d5)"></span><b style="color:#b00">4↔5 ⚠</b></div>
+        <div class="pair"><span class="pd" style="background: var(--d5)"></span><span class="pd" style="background: var(--d6)"></span>5↔6</div>
+        <div class="pair"><span class="pd" style="background: var(--d6)"></span><span class="pd" style="background: var(--d7)"></span>6↔7</div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────────────────────────────── 1. WIDE-HUE OKLCH ─── -->
+    <section class="panel" style="
+      --d0: oklch(0.62 0.18 264);
+      --d1: oklch(0.68 0.16 195);
+      --d2: oklch(0.70 0.16 145);
+      --d3: oklch(0.78 0.16 95);
+      --d4: oklch(0.72 0.18 55);
+      --d5: oklch(0.62 0.20 25);
+      --d6: oklch(0.55 0.20 350);
+      --d7: oklch(0.50 0.18 310);
+    ">
+      <h3>Palette 1 — Wide-hue OKLCH (45° spacing, alternating L)</h3>
+      <p class="desc">
+        Same OKLCH model, but hues spread to 45° apart and lightness alternates
+        (0.62 / 0.68 / 0.70 / 0.78 …) so adjacent slices differ in <em>both</em> hue
+        AND luminance — survives deuteranopia and small-dot rendering. Still works on
+        either side (gastos/ingresos) since donut is <em>category-mixed</em> not
+        gastos-vs-ingresos.
+      </p>
+      <div class="swatches">
+        <div class="swatch dark-text" style="background: var(--d0)">d0 264°</div>
+        <div class="swatch dark-text" style="background: var(--d1)">d1 195°</div>
+        <div class="swatch dark-text" style="background: var(--d2)">d2 145°</div>
+        <div class="swatch" style="background: var(--d3)">d3 95°</div>
+        <div class="swatch" style="background: var(--d4)">d4 55°</div>
+        <div class="swatch dark-text" style="background: var(--d5)">d5 25°</div>
+        <div class="swatch dark-text" style="background: var(--d6)">d6 350°</div>
+        <div class="swatch dark-text" style="background: var(--d7)">d7 310°</div>
+      </div>
+      <div class="demo">
+        <svg class="donut" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d0)" stroke-width="14" stroke-dasharray="50 220" stroke-dashoffset="0" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d1)" stroke-width="14" stroke-dasharray="45 220" stroke-dashoffset="-50" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d2)" stroke-width="14" stroke-dasharray="40 220" stroke-dashoffset="-95" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d3)" stroke-width="14" stroke-dasharray="38 220" stroke-dashoffset="-135" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d4)" stroke-width="14" stroke-dasharray="47 220" stroke-dashoffset="-173" transform="rotate(-90 50 50)"/>
+        </svg>
+        <div class="rows">
+          <div class="row"><span class="rank">1</span><span class="lbl"><span class="dot" style="background: var(--d0)"></span>Alimentación</span><span class="pct">22,7%</span></div>
+          <div class="row"><span class="rank">2</span><span class="lbl"><span class="dot" style="background: var(--d1)"></span>Hogar</span><span class="pct">20,4%</span></div>
+          <div class="row"><span class="rank">3</span><span class="lbl"><span class="dot" style="background: var(--d2)"></span>Transporte</span><span class="pct">18,1%</span></div>
+          <div class="row"><span class="rank">4</span><span class="lbl"><span class="dot" style="background: var(--d3)"></span>Ocio</span><span class="pct">17,2%</span></div>
+          <div class="row"><span class="rank">5</span><span class="lbl"><span class="dot" style="background: var(--d4)"></span>Salud</span><span class="pct">21,3%</span></div>
+        </div>
+      </div>
+      <div class="zoom">
+        <div class="pair"><span class="pd" style="background: var(--d0)"></span><span class="pd" style="background: var(--d1)"></span>0↔1</div>
+        <div class="pair"><span class="pd" style="background: var(--d1)"></span><span class="pd" style="background: var(--d2)"></span>1↔2</div>
+        <div class="pair"><span class="pd" style="background: var(--d2)"></span><span class="pd" style="background: var(--d3)"></span>2↔3 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d3)"></span><span class="pd" style="background: var(--d4)"></span>3↔4 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d4)"></span><span class="pd" style="background: var(--d5)"></span>4↔5</div>
+        <div class="pair"><span class="pd" style="background: var(--d5)"></span><span class="pd" style="background: var(--d6)"></span>5↔6</div>
+        <div class="pair"><span class="pd" style="background: var(--d6)"></span><span class="pd" style="background: var(--d7)"></span>6↔7</div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────────────────────────────── 2. TABLEAU 10 ─── -->
+    <section class="panel" style="
+      --d0: #4e79a7;
+      --d1: #f28e2b;
+      --d2: #59a14f;
+      --d3: #e15759;
+      --d4: #b07aa1;
+      --d5: #76b7b2;
+      --d6: #edc948;
+      --d7: #ff9da7;
+    ">
+      <h3>Palette 2 — Tableau-10 (battle-tested categorical)</h3>
+      <p class="desc">
+        Industry-standard categorical palette designed for chart categories. Maximum
+        adjacent contrast by construction; CB-friendly. Trades OKLCH consistency for
+        proven legibility. Does not match the muted income/expense semantic tokens —
+        donut is its own visual layer.
+      </p>
+      <div class="swatches">
+        <div class="swatch dark-text" style="background: var(--d0)">d0 #4e79a7</div>
+        <div class="swatch dark-text" style="background: var(--d1)">d1 #f28e2b</div>
+        <div class="swatch dark-text" style="background: var(--d2)">d2 #59a14f</div>
+        <div class="swatch dark-text" style="background: var(--d3)">d3 #e15759</div>
+        <div class="swatch dark-text" style="background: var(--d4)">d4 #b07aa1</div>
+        <div class="swatch dark-text" style="background: var(--d5)">d5 #76b7b2</div>
+        <div class="swatch" style="background: var(--d6)">d6 #edc948</div>
+        <div class="swatch" style="background: var(--d7)">d7 #ff9da7</div>
+      </div>
+      <div class="demo">
+        <svg class="donut" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d0)" stroke-width="14" stroke-dasharray="50 220" stroke-dashoffset="0" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d1)" stroke-width="14" stroke-dasharray="45 220" stroke-dashoffset="-50" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d2)" stroke-width="14" stroke-dasharray="40 220" stroke-dashoffset="-95" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d3)" stroke-width="14" stroke-dasharray="38 220" stroke-dashoffset="-135" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d4)" stroke-width="14" stroke-dasharray="47 220" stroke-dashoffset="-173" transform="rotate(-90 50 50)"/>
+        </svg>
+        <div class="rows">
+          <div class="row"><span class="rank">1</span><span class="lbl"><span class="dot" style="background: var(--d0)"></span>Alimentación</span><span class="pct">22,7%</span></div>
+          <div class="row"><span class="rank">2</span><span class="lbl"><span class="dot" style="background: var(--d1)"></span>Hogar</span><span class="pct">20,4%</span></div>
+          <div class="row"><span class="rank">3</span><span class="lbl"><span class="dot" style="background: var(--d2)"></span>Transporte</span><span class="pct">18,1%</span></div>
+          <div class="row"><span class="rank">4</span><span class="lbl"><span class="dot" style="background: var(--d3)"></span>Ocio</span><span class="pct">17,2%</span></div>
+          <div class="row"><span class="rank">5</span><span class="lbl"><span class="dot" style="background: var(--d4)"></span>Salud</span><span class="pct">21,3%</span></div>
+        </div>
+      </div>
+      <div class="zoom">
+        <div class="pair"><span class="pd" style="background: var(--d0)"></span><span class="pd" style="background: var(--d1)"></span>0↔1 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d1)"></span><span class="pd" style="background: var(--d2)"></span>1↔2 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d2)"></span><span class="pd" style="background: var(--d3)"></span>2↔3 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d3)"></span><span class="pd" style="background: var(--d4)"></span>3↔4 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d4)"></span><span class="pd" style="background: var(--d5)"></span>4↔5 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d5)"></span><span class="pd" style="background: var(--d6)"></span>5↔6 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d6)"></span><span class="pd" style="background: var(--d7)"></span>6↔7 ✓</div>
+      </div>
+    </section>
+
+    <!-- ───────────────────────────────────────────────── 3. OKABE-ITO ─── -->
+    <section class="panel" style="
+      --d0: #0072B2; /* blue */
+      --d1: #E69F00; /* orange */
+      --d2: #009E73; /* green */
+      --d3: #CC79A7; /* pink */
+      --d4: #56B4E9; /* sky blue */
+      --d5: #D55E00; /* vermilion */
+      --d6: #F0E442; /* yellow */
+      --d7: #999999; /* neutral gray */
+    ">
+      <h3>Palette 3 — Okabe-Ito (gold-standard CB-safe)</h3>
+      <p class="desc">
+        Designed by Okabe & Ito specifically for color-vision deficiencies. 8 colors
+        guaranteed distinguishable under deuteranopia/protanopia/tritanopia. Slightly
+        more saturated than the current muted look — louder on the donut.
+      </p>
+      <div class="swatches">
+        <div class="swatch dark-text" style="background: var(--d0)">d0 #0072B2</div>
+        <div class="swatch dark-text" style="background: var(--d1)">d1 #E69F00</div>
+        <div class="swatch dark-text" style="background: var(--d2)">d2 #009E73</div>
+        <div class="swatch dark-text" style="background: var(--d3)">d3 #CC79A7</div>
+        <div class="swatch dark-text" style="background: var(--d4)">d4 #56B4E9</div>
+        <div class="swatch dark-text" style="background: var(--d5)">d5 #D55E00</div>
+        <div class="swatch" style="background: var(--d6)">d6 #F0E442</div>
+        <div class="swatch dark-text" style="background: var(--d7)">d7 #999999</div>
+      </div>
+      <div class="demo">
+        <svg class="donut" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d0)" stroke-width="14" stroke-dasharray="50 220" stroke-dashoffset="0" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d1)" stroke-width="14" stroke-dasharray="45 220" stroke-dashoffset="-50" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d2)" stroke-width="14" stroke-dasharray="40 220" stroke-dashoffset="-95" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d3)" stroke-width="14" stroke-dasharray="38 220" stroke-dashoffset="-135" transform="rotate(-90 50 50)"/>
+          <circle cx="50" cy="50" r="35" fill="none" stroke="var(--d4)" stroke-width="14" stroke-dasharray="47 220" stroke-dashoffset="-173" transform="rotate(-90 50 50)"/>
+        </svg>
+        <div class="rows">
+          <div class="row"><span class="rank">1</span><span class="lbl"><span class="dot" style="background: var(--d0)"></span>Alimentación</span><span class="pct">22,7%</span></div>
+          <div class="row"><span class="rank">2</span><span class="lbl"><span class="dot" style="background: var(--d1)"></span>Hogar</span><span class="pct">20,4%</span></div>
+          <div class="row"><span class="rank">3</span><span class="lbl"><span class="dot" style="background: var(--d2)"></span>Transporte</span><span class="pct">18,1%</span></div>
+          <div class="row"><span class="rank">4</span><span class="lbl"><span class="dot" style="background: var(--d3)"></span>Ocio</span><span class="pct">17,2%</span></div>
+          <div class="row"><span class="rank">5</span><span class="lbl"><span class="dot" style="background: var(--d4)"></span>Salud</span><span class="pct">21,3%</span></div>
+        </div>
+      </div>
+      <div class="zoom">
+        <div class="pair"><span class="pd" style="background: var(--d0)"></span><span class="pd" style="background: var(--d1)"></span>0↔1 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d1)"></span><span class="pd" style="background: var(--d2)"></span>1↔2 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d2)"></span><span class="pd" style="background: var(--d3)"></span>2↔3 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d3)"></span><span class="pd" style="background: var(--d4)"></span>3↔4 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d4)"></span><span class="pd" style="background: var(--d5)"></span>4↔5 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d5)"></span><span class="pd" style="background: var(--d6)"></span>5↔6 ✓</div>
+        <div class="pair"><span class="pd" style="background: var(--d6)"></span><span class="pd" style="background: var(--d7)"></span>6↔7 ✓</div>
+      </div>
+    </section>
+  </body>
+</html>
