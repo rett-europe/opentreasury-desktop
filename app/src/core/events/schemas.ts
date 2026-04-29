@@ -6,6 +6,8 @@ export const eventEnvelopeSchema = z.object({
   type: z.string(),
   datasetId: z.string().length(26), // ULID
   actorDeviceId: z.string().length(26), // ULID
+  actorUserId: z.string().length(26), // ULID — P0-1 trial-readiness
+  actorIdentitySource: z.enum(['local', 'aad']), // P0-1 trial-readiness
   createdAt: z.string().datetime(), // ISO 8601 UTC
   dekVersion: z.number().int().nonnegative(),
   version: z.number().int().positive().default(1),
@@ -488,6 +490,8 @@ export const transactionDeletedEventSchema = z.object({
   deletedAt: z.string().datetime(),
   datasetId: z.string().length(26),
   actorDeviceId: z.string().length(26),
+  actorUserId: z.string().length(26), // P0-1 trial-readiness
+  actorIdentitySource: z.enum(['local', 'aad']), // P0-1 trial-readiness
   dekVersion: z.number().int().nonnegative(),
   version: z.number().int().positive().default(1),
 });

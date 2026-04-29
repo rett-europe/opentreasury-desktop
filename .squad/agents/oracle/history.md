@@ -33,3 +33,20 @@ Roadmap v1 published at docs/product/roadmap-v1.md. PRD plan at docs/product/prd
 - Docs are **bilingual (ES + EN) from v1**.
 - Pilot NGO is **Rett Spain** (Spanish-first).
 
+
+---
+
+## 2026-04-29 — Trial Readiness Work (Team Alert from Scribe)
+
+**Status:** Background analysis complete. Pedro has decision pending on three proposals (auth, storage, first-run UX).
+
+Link completed **product framing** for trial user profile (NGO treasurer + 1 co-reviewer), identity model (implicit Graph /me identity, role placeholder), and storage scope (shared OneDrive for Business / SharePoint). Switch completed **security recommendation** ranking three options: Option A (local profile, ~1 day) for trial now, Option B (Graph-derived, M2 dependent) for GA, Option C (full MSAL login) deferred. Morpheus completed **storage configurability spec** — propose relaxing OT_DATA_DIR + app-config.json + IPC + read-only flag; trial posture = one writer per dataset.
+
+All analysis in .squad/decisions/decisions.md under three new sections:
+- "Decision: Trial Readiness — Product Framing (Link)"
+- "Decision: Trial Identity & Auth — Security Recommendation (Pedro → Switch)"
+- "Decision: Trial Configuration — Data-storage location (Pedro → Morpheus)"
+
+**Action:** May touch Trinity (settings UI row for data folder), Niobe (first-run UX specs), Mouse (if visual work needed). Stand by for Pedro go-ahead.
+
+**Files:** Orchestration logs in .squad/orchestration-log/2026-04-29T10-24-31-{link,switch,morpheus}.md. Session log in .squad/log/2026-04-29T10-24-31-trial-readiness-analysis.md.

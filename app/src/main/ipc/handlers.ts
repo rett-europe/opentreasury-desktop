@@ -210,7 +210,7 @@ import {
 } from './handlers/insights.js';
 import { getEventLog } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
-import { ACTOR_DEVICE_ID, DATASET_ID, newUlid } from '../ids.js';
+import { ACTOR_DEVICE_ID, ACTOR_USER_ID, DATASET_ID, newUlid } from '../ids.js';
 
 export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('app:ping', (_event, raw: unknown) => {
@@ -316,6 +316,8 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     newId: newUlid,
     datasetId: DATASET_ID,
     actorDeviceId: ACTOR_DEVICE_ID,
+    actorUserId: ACTOR_USER_ID, // P0-1 trial-readiness — placeholder until P0-2
+    actorIdentitySource: 'local' as const, // P0-1 trial-readiness — always 'local' for trial
     dekVersion: 0,
   };
 

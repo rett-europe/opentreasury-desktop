@@ -75,6 +75,22 @@ Cypher's E2E branch created before PR #117 merged — no dep conflict, but manag
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-05-05 — P0-1: Actor User ID Schema (PR #158, issue #145)
+
+**Trial-Readiness deliverable:** Added `actorUserId` (ULID) and `actorIdentitySource` ('local' | 'aad') to event base schema.
+
+**Scope shipped:**
+- Extended `eventEnvelopeSchema` with two new required fields (P0-1 spec: keep BOTH actorDeviceId and actorUserId)
+- Extended `transactionDeletedEventSchema` (flat event with own structure, not envelope-based)
+- Updated all transaction command Deps interfaces: Create/Update/Delete/BulkUpdate/BulkAddLabel
+- Updated all IPC handler Deps interfaces in `handlers/transaction.ts`
+- Added `ACTOR_USER_ID` placeholder constant in `ids.ts` (fakeUlid('USER01')) — replaced in P0-2 with profile.json
+- Updated `devSeed.ts` to stamp all tx.created events with USER_ID + 'local'
+
+**Decision confirmed:** Fresh start posture (no backfill). Trial begins with clean events.ndjson; old local testing data gets nuked. All new events stamped with actorUserId from day 1. P0-2 loads from profile.json; until then, placeholder fakeUlid('USER01') + 'local' identity source.
+
+**Gotcha:** When switching branches mid-work, staged edits can be lost if they weren't committed. Lesson: commit frequently on feature branches or stash explicitly before switching.
+
 ---
 
 ## Historical Archive (Pre-2026-04-22)

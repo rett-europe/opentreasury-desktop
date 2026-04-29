@@ -2761,3 +2761,360 @@ This is a **future refactor**, not urgent — but the next drift incident should
 - `app/src/renderer/screens/MovementsScreen/MovementsScreen.css` (lines 418-480)
 - `app/src/renderer/screens/PanelScreen/PanelScreen.tsx` (lines 240-385)
 - `app/src/renderer/screens/PanelScreen/PanelScreen.css` (lines 31-130)
+
+---
+
+## Decision: Trial Readiness — Product Framing (Link, Link — PM)
+
+# Trial Readiness: Product Framing (Link — PM)
+
+**Date:** 2026-04-21  
+**Blocker context:** Pedro → "Login shows my name + ADMIN; data storage scope unclear"  
+**Decision source:** Product vision (docs/product/vision.md), architecture decisions (ADR-001/002), security sign-off (docs/security/security-requirements-v0.2.md)
+
+## Trial User Profile
+
+**Primary:** NGO treasurer + 1 optional co-reviewer (board member or accountant)  
+- Single NGO, shared OneDrive for Business / SharePoint folder
+- Small enough to fit desktop-first workflow (no team hub required)
+- Realistic NGO setup = Rett Spain template (M365 tenant, shared folder as DAO)
+
+**Secondary users (validation only, not MVP):** power user = treasuerer on different NGO (test multi-org folder/secret data isolation)
+
+**NOT yet tested in trial:** multi-device sync, conflict resolution, revocation workflows, offline-first scenarios
+
+---
+
+## Identity Model for Trial: Minimum-Viable Answer
+
+**Current state:** Hard-coded "Link" + "ADMIN" in prototype — this is UNSHIPPABLE for trial.
+
+**What trial actually needs:**
+
+1. **Implicit Microsoft account identity** (= folder owner/contributor). App reads:
+   - `https://graph.microsoft.com/v1.0/me` at first launch → display real name in shell (sidebar, audit log)
+   - No login dialog, no session mgmt. SSO via OneDrive folder access
+   - **Acceptance:** Treasurer opens app → app shows "Maria López (Treasurer)" in audit log, not "Link (ADMIN)"
+
+2. **Role placeholder for trial only:**
+   - Hardcode first-launch user as "Admin" (folder co-owner)
+   - Second user enrolling into existing folder = "Contributor"
+   - This is a UI tag, not a permission system (folder ACL is the real gate)
+   - **Not stored:** roles are NOT persisted or synced; re-derive from folder ownership on each launch
+   - **Defer role editor** to v1.x (M4)
+
+3. **Why not full RBAC?**
+   - M365 folder permissions already enforce boundary; custom role DB = false layering
+   - OneDrive ACL is the source of truth; replicating it locally breaks
+   - Keep the design principle: folder structure = access control
+
+---
+
+## Storage Scope Clarification: OneDrive for Business / SharePoint
+
+**The ask** ("OneDrive or SharePoint?") was actually **two separate questions** rolled into one. Disentangling:
+
+### Q1: Sharing vs. Sync (Product Design)
+- **Sharing = YES.** Multiple treasurers in one NGO read/write **same dataset** in a shared folder
+- **Sync = Secondary.** Single treasurer device-hopping (desktop → laptop) is *nice-to-have*, not *must-have* for trial
+- **This is fundamentally different from personal backup.** Design consequence: event-sourcing + conflict resolution must be baked in M1 (not M2)
+
+### Q2: OneDrive Personal vs. Business (v1 Scope Gate)
+- **Decision already made:** v1 = **Business + SharePoint only**. Personal deferred to v1.x (see decisions.md 2026-04-19)
+- **Why:** NGOs live in M365 tenants; Business/SharePoint provides org-grade ACLs; Rett Spain env uses Business
+- **For trial:** Rett's test folder = Business path. Works. Consumer OneDrive paths are explicitly rejected at folder-picker.
+
+### Q3: Where do encrypted events live?
+- **Answer:** Same shared folder. Events are immutable, UUID-named files → zero write conflicts on OneDrive
+- **DEK (data encryption key)** wrapped per user in `.treasury/keys.json` in the same folder
+- **Consequence:** new treasurer enrolling in existing folder auto-downloads her copy of keys.json, decrypts with her Microsoft account → both see same data
+
+---
+
+## Trial Success Criteria (Blockers to Close)
+
+| Blocker | Trial Answer | Deferred to |
+|---------|--------------|-------------|
+| Login shows hardcoded name/role | Read MS account name at launch; derive role from folder owner via Graph API | v1.x: persistent user prefs |
+| Identity for multi-user | Implicit (folder membership). First user = Admin tag (folder co-owner); subsequent = Contributor tag | v1.x: full RBAC |
+| Data storage location (ambiguous) | **Shared folder = database** (not backup). M1 must handle concurrent writes in same folder → event-sourcing + conflict resolution non-negotiable | Already committed (ADR-001) |
+| Where does encryption sit? | Event files in shared folder. DEK wrapped per user. Search breaks (by design); audit log works | M1 blocker (crypto wiring in progress) |
+
+---
+
+## NOT Needed for Trial (Defer Fearlessly)
+
+1. **Role editor** → v1.x. Folder ACL is sufficient.
+2. **Enrollment revocation** → v1.x (M2 has basic enroll; revoke is M4).
+3. **Device sync conflict UI** → v1.x. Trial = single active device per user (no offline handoff).
+4. **Full audit viewer** → v1 (M2 ships basic; full queries v1.x).
+5. **OneDrive Personal** → v1.x (explicit rejection at first-run).
+6. **Backup / disaster recovery** → v1.x (out of scope; OneDrive versioning is the backup).
+7. **Offline work** → v1.x. Trial assumes connectivity to folder.
+
+---
+
+## Next Steps (For Switch & Morpheus)
+
+- **Switch:** Validate that implicit Graph API identity + folder-ACL-as-auth closes the auth blocker. Document any PII surface (real names in audit log = within threat model?).
+- **Morpheus:** WI-4 (folder picker), WI-5 (crypto wiring) must include: `GET /me` → display name in shell, derive admin flag from folder owner via Graph. No session table. No login form.
+- **Niobe:** First-run UX must reject Personal OneDrive paths with clear v1.x message. Shell must display logged-in user name + trial note (not "Link" + "ADMIN").
+
+**Decision owner:** Link (PM)  
+**Stakeholders:** Pedro (product owner), Switch (security), Morpheus (core), Niobe (UX), Neo (architecture)
+
+
+---
+
+## Decision: Trial Identity & Auth — Security Recommendation (Pedro → Switch)
+
+# Trial Identity & Auth — Security Recommendation
+
+**Author:** Switch (Security Engineer)
+**Date:** 2026-04-21
+**Requested by:** Pedro
+**Related:** `link-trial-readiness.md` (Link/PM, same date), ADR-001/002, `docs/security/security-requirements-v0.2.md`
+**Status:** Proposed — needs Pedro's lock + Morpheus sequencing
+
+---
+
+## 1. Current State (what's wired today)
+
+The "my name and ADMIN" Pedro sees is **100% hardcoded**. There is no auth, no session, no user entity, no login flow.
+
+### UI surface
+- `app/src/renderer/locales/en/common.json:52-55` and `…/es/common.json:52-55` — keys `shell.user.name = "Pedro Rocha"` and `shell.user.role = "Admin"`. These are translation strings, not user data.
+- `app/src/renderer/screens/AppShell/AppShell.tsx:495-496` — renders `t('shell.user.name')` / `t('shell.user.role')` in the sidebar user-strip.
+- `app/src/renderer/screens/AppShell/AppShell.tsx:368` — tenant label `"Demo NGO"` is also hardcoded inline.
+- `Sign out` button (line 500) is a visual stub — no handler.
+
+### Event/audit surface
+- `app/src/main/ids.ts` defines two **module-level constants**: `DATASET_ID = fakeUlid('DATASET01')` and `ACTOR_DEVICE_ID = fakeUlid('DEVICE01')`. These are deterministic — *every event from every install ever written by this codebase carries identical IDs*.
+- The file's own comment: *"Until M2 ships proper account provisioning these use the same deterministic 'fake ULID' values."*
+- `app/src/core/events/schemas.ts:8` — `actorDeviceId` is the **only** identity field on every `DomainEvent` envelope. There is no `actorUserId`, no display name, no tenant id.
+- No event signing. No tamper detection. Append-only NDJSON is the only integrity guarantee.
+- `app/src/main/devSeed.ts` references `'Administrativo'` — that's a Spanish *category name* ("administration expenses"), unrelated to roles. False hit.
+
+### Net assessment
+Trial cannot start with this. Two concrete blockers:
+
+1. **UX blocker (visible):** Every treasurer sees "Pedro Rocha / Admin". Unshippable.
+2. **Audit blocker (invisible but worse):** Even if two real users shared a OneDrive folder today, every event they write would be attributed to the same `DEVICE01` ULID. The audit trail is a single anonymous voice — useless for the very compliance story we sell to NGOs.
+
+The audit blocker is the one a security review would actually fail on. The UI string is cosmetic.
+
+---
+
+## 2. Trial Options — Ranked
+
+### Option A — **Local Profile on First Launch** (RECOMMENDED for trial)
+
+**What:** First-run modal collects `displayName`, `role` (Admin / Contributor / Viewer label), `ngoName`. Persisted to `<userData>/profile.json` with a generated `userId` ULID. UI reads from profile; events stamp `actorUserId` + `actorDisplayName`.
+
+**Build cost:** ~1 dev-day.
+- New main-process `profile` module (read/write/IPC).
+- 1 first-run React modal (name + role select + NGO name).
+- Add `actorUserId: string` (ULID) to `DomainEvent` schema in `core/events/schemas.ts`. Optional `actorDisplayName` for offline rendering.
+- Replace 2 i18n keys + the `Demo NGO` literal in `AppShell.tsx`.
+- Update `ids.ts` to seed `ACTOR_DEVICE_ID` from profile.
+
+**Security trade-offs:**
+- ✅ **Per-user audit attribution** is now real. Each install has a stable, unique `actorUserId`.
+- ✅ **No new attack surface.** No tokens, no network, no secret store.
+- ✅ **Aligned with offline-first threat model.** In a single-user-per-device deployment, the OS account *is* the trust boundary. Self-asserted identity is acceptable for the same reason a local Word doc trusts the OS user.
+- ⚠️ **Self-asserted = spoofable.** A user can claim any name/role. For a single-NGO trial of ≤3 trusted users this is acceptable; the folder ACL (M365) is the real authorization gate, not the app's role label.
+- ⚠️ **No event signing** — anyone with NDJSON write access can forge `actorUserId`. Same risk as today, just now the field exists and can be signed in GA.
+- ❌ Doesn't solve multi-user-per-NGO out of the box: if two treasurers share a folder, both go through their own first-launch and self-pick "Admin". The role label is cosmetic — but folder ACL still enforces the real boundary.
+
+**What changes for GA:** Replace self-asserted identity with Graph-derived (Option B below). `actorUserId` field stays — only its source changes.
+
+---
+
+### Option B — **Implicit Microsoft Graph Identity** (Link's recommendation)
+
+**What:** Once the OneDrive folder picker (M2, WI-4) lands, call MS Graph `/me` with the same token. Cache `oid` (immutable AAD object id GUID), `displayName`, `userPrincipalName`, `tenantId`. Stamp `actorUserId = oid`. Derive role from folder owner via `/drive/items/{id}/permissions`.
+
+**Build cost:** ~3–5 dev-days *on top of* M2 MSAL/OneDrive wiring. **Cannot ship before M2.**
+
+**Security trade-offs:**
+- ✅ Real per-user attribution backed by Entra ID.
+- ✅ No bespoke role DB — folder ACL is the source of truth.
+- ✅ Tenant-scoped: `tenantId` on events lets us reject cross-tenant data leakage.
+- ⚠️ Graph token cache is sensitive — must use Electron `safeStorage` (DPAPI on Windows), not plain disk. Adds review surface.
+- ⚠️ Still no event signing — folder co-owner can forge `actorUserId` in their local NDJSON before sync. Acceptable for trial; **must** ship signing before GA.
+- ❌ Hard dependency: blocked on M2 OneDrive wiring. Pedro wants to start trial *now*.
+
+**Verdict:** This is the right destination, not the right starting point.
+
+---
+
+### Option C — **Full MSAL Electron Login** (Entra ID parity with cloud)
+
+**What:** Interactive PKCE flow via `@azure/msal-node` + system browser, login screen, refresh tokens, logout, multi-tenant.
+
+**Build cost:** 1–2 dev-weeks done correctly (PKCE, token cache encryption, refresh, logout, error UX, account switching).
+
+**Security trade-offs:**
+- ✅ Cloud product parity — same identity model end-to-end.
+- ❌ **Friction without value for offline-first.** A login screen on a desktop app whose data lives in a OneDrive folder you already authenticated against = double auth. The folder ACL is the authoritative gate; an in-app login that doesn't grant any additional capability is theatre.
+- ❌ Token storage now holds long-lived refresh tokens — bigger blast radius if exfiltrated.
+- ❌ Doesn't ship faster than Option B; same MSAL dependency, more code.
+
+**Verdict:** Overkill for trial. Premature for GA. Reconsider only if/when we add a server-side component the desktop talks to directly.
+
+---
+
+## 3. Recommendation
+
+**Ship Option A for trial. Graduate to Option B when M2 OneDrive lands. Defer Option C indefinitely.**
+
+### Rationale
+1. **Pedro can start trial this week.** Option A is ~1 day of work and unblocks both visible and audit blockers.
+2. **Schema-forward.** The `actorUserId` field added in Option A is the same field Option B will populate later. No event migration when we upgrade — only the value's *source* changes (`profile.json` → Graph `oid`). Plan for this now: make `actorUserId` opaque (string ULID/GUID), and reserve `actorIdentitySource: 'local' | 'aad'` so we can distinguish trial-era events from GA events in the audit log.
+3. **Honest about the threat model.** In offline-first single-user-per-device, identity verification cannot come from the app — it comes from the OS account and (later) the folder ACL. Self-asserted identity in the app is honest; a login screen that doesn't actually gate anything is theatre.
+4. **Audit becomes useful immediately.** Events stop being attributed to `DEVICE01` and start being attributed to a real (if self-asserted) user.
+
+### Concrete asks
+
+**Niobe (UX):**
+- First-run modal: name (required), role select (Admin / Contributor / Viewer — *cosmetic label, not an authorization*), NGO name (required). Copy must say "this is how your changes will be labelled" — no implication that role grants permissions.
+- Settings screen entry to edit profile after first launch (rename, role re-pick).
+
+**Morpheus (Core):**
+- Add `actorUserId: z.string().length(26)` and optional `actorDisplayName: z.string().max(120)` and `actorIdentitySource: z.enum(['local','aad'])` to event envelope in `app/src/core/events/schemas.ts`. Keep `actorDeviceId` — it's still useful for "which install".
+- Remove module-level `ACTOR_DEVICE_ID` constant from `ids.ts`. Generate per-install on first launch and persist in `profile.json`. Remove `DATASET_ID` constant likewise — datasetId belongs on the dataset, not the binary.
+- New IPC: `profile:get`, `profile:set`, `profile:isFirstLaunch`. Profile file lives in `app.getPath('userData')`, mode `0600` on POSIX (Windows ACL inherits — fine).
+
+**Niobe + me:** review the role-label copy together so we don't accidentally promise enforcement we don't deliver.
+
+### What changes for GA (must, not nice-to-have)
+1. **Option B integration** — replace self-asserted profile with Graph `/me` once M2 ships. `actorIdentitySource` flips to `'aad'`, `actorUserId` ← Graph `oid`.
+2. **Event signing** — every event signed with a per-user key (Ed25519 device key wrapped via DPAPI / safeStorage, or HMAC with DEK-derived subkey). Without this, audit trail is forgeable by any folder co-writer. **This is the single biggest GA blocker** and it's independent of which identity option we pick — note it for the GA security checklist regardless.
+3. **Tenant binding** — `tenantId` on events; reject events whose `tenantId` doesn't match folder tenant on read. Prevents cross-NGO data confusion.
+4. **Settings UX for re-keying** — when a contributor leaves an NGO, the remaining users need to rotate the DEK. Out of scope for trial; on the M4 list.
+
+---
+
+## 4. Open questions for Pedro
+
+1. **Role label scope** — do we want 3 labels (Admin / Contributor / Viewer) or just 2 (Admin / Member)? Link's framing suggests Admin + Contributor. I'll defer to product but recommend matching cloud product vocabulary, whatever that is.
+2. **Multiple profiles on one device** — out of scope for trial? (My recommendation: yes, single profile per OS user. Anyone needing to test multi-user uses different machines or different OS accounts.)
+3. **Telemetry** — does the `displayName` on events get included if/when we add error reporting? Default to **no** unless you explicitly opt in. Real names in crash dumps = GDPR surface.
+
+---
+
+**Decision owner:** Pedro
+**Stakeholders:** Switch (security — author), Link (PM — aligned), Morpheus (impl), Niobe (UX), Neo (architecture)
+
+
+---
+
+## Decision: Trial Configuration — Data-storage location (Pedro → Morpheus)
+
+# Morpheus → Inbox: Data-storage location configurability for real-user trials
+
+**By:** Morpheus (backend)
+**Trigger:** Pedro asked, while preparing real-user trials, how the events.ndjson location is configured and whether it can live in OneDrive for Business / SharePoint (per the original vision).
+**Status:** Proposal — awaiting Pedro decision on M1.5 trial scope; touches Trinity (settings UI), Niobe (UX-001 first-run), Switch (multi-writer threat model), Neo (ADR alignment).
+
+---
+
+## 1. Current state (as of this writing)
+
+**Resolution path** — `app/src/main/bootstrap.ts::resolveEventLogDir()`:
+
+```ts
+const override = process.env['OT_DATA_DIR']?.trim();
+const subdir = (override && !/[\\/]/.test(override) && !path.isAbsolute(override))
+  ? override : 'dev-events';
+return path.join(app.getPath('userData'), subdir);
+```
+
+- Single resolution rule: `<userData>/<subdir>/events.ndjson`.
+- `OT_DATA_DIR` env var **only accepts a plain folder name** — absolute paths and path separators are explicitly rejected (kept inside userData by design, for dev-sandbox isolation).
+- No settings UI, no folder picker, no CLI flag (other than the env var).
+- `userData` resolves to `%APPDATA%/opentreasury-desktop/` on Windows (provided Electron is launched with `args: ['.']` so package.json is read — see PR #46 history).
+- Only consumers of `OT_DATA_DIR` today: `scripts/perf-seed.mjs`, `scripts/reset-dogfood-data.mjs`, e2e specs. **The desktop app itself currently has no in-product way to point at a different folder.**
+- `JsonFileEventLog` is path-agnostic; it accepts an absolute `dir` from its caller. Bootstrap is the only choke point.
+
+**User-facing reality today:** a real user cannot put their dataset on OneDrive without (a) editing an env var before launch, (b) rebuilding, or (c) the launcher script being modified. The env var also can't point at OneDrive even if they tried — separator check rejects it.
+
+## 2. Configurability proposal (smallest change, trial-grade)
+
+### 2.1 Drop the "no separators / no absolute" restriction in `OT_DATA_DIR`
+Change `resolveEventLogDir()` to accept an absolute path when given, and only fall through to `<userData>/dev-events` otherwise. This unblocks dogfood/trial users immediately — they set `OT_DATA_DIR=C:\Users\X\OneDrive - Rett\OpenTreasury\ngo-rett-spain` in the shortcut and ship.
+
+**File:** `app/src/main/bootstrap.ts` — relax the `subdir` guard, add `path.isAbsolute(override)` branch.
+
+### 2.2 Persist the choice in a tiny `app-config.json` under `userData`
+A 5-line JSON file (`<userData>/app-config.json`) with `{ "dataDir": "<absolute path>" }` overrides env var and dev-events default. This is the bridge to a real settings UI without scope-creeping it now.
+
+- Resolution precedence: `OT_DATA_DIR` env var > `app-config.json::dataDir` > `<userData>/dev-events`.
+- The file is written by a future first-run wizard (UX-001) or, for trials, by hand / by a tiny "Choose data folder…" menu item Trinity can wire up in ~50 LOC (`dialog.showOpenDialog` → write JSON → relaunch).
+- Non-encrypted, **per-device preference only** — matches the precedent already set by `docs/architecture/adr-003-i18n-framework.md` for locale settings (`userData`-resident, no PII, orthogonal to the OneDrive dataset).
+
+**Files involved:**
+- `app/src/main/bootstrap.ts` — read `app-config.json` between env-var and default branches.
+- New `app/src/main/services/appConfig.ts` — `readAppConfig()` / `writeAppConfig(patch)`. Schema-validated with Zod. Tolerant of missing/corrupt file (fall back to default, log warning).
+- New IPC handler `app:setDataDir(absolutePath)` — validates, writes, requires `app.relaunch()` (we cannot swap the event log mid-flight without re-hydrating reducers; relaunch is honest and simple).
+
+### 2.3 Validation rules at folder selection
+- Path is **absolute** and writable (probe write `.otwrite-probe`, then unlink).
+- If folder is empty → OK, will create `events.ndjson` on first append.
+- If folder contains an `events.ndjson` → run a dry `JsonFileEventLog.load()` to ensure it's valid (catches WI-23 boot-guard failures **before** committing the choice). Reject with the same `LEGACY_EVENT_TYPE_REJECTED` message we already surface.
+- If folder contains `events.ndjson` AND any conflict-copy siblings (`events-Pedro's PC.ndjson`, `events (1).ndjson`, etc.) → **block** with explicit "OneDrive conflict detected — resolve before opening" message. (See §3.)
+- Reject Personal-OneDrive paths in v1, per decisions.md 2026-04-19 §5 ("OneDrive for Business / SharePoint only"). Detection: heuristic on path containing `OneDrive - <tenant>` (Business) vs. plain `OneDrive` (Personal). Imperfect; document the limitation.
+
+### 2.4 First-launch UX (defer to Niobe + Trinity, but unblock today)
+- **Trial-grade (now):** a Settings → "Data folder" item showing current path + "Change…" button. Plus the env var. That's enough for Pedro to onboard 2–3 trial users.
+- **Product-grade (M2):** the UX-001 first-run wizard already specced (`docs/ux/specs/ux-001-first-run-setup.md`) — admin-create vs. join-existing flows, posture gate, Personal-OneDrive rejection. Wire `app-config.json` write into that wizard's completion step.
+
+### 2.5 "Switch dataset" UX
+With `app-config.json` + relaunch in place, "open another NGO's data" = Settings → Change… → pick folder → relaunch. No multi-tenant-in-one-process complexity. Good enough for trials and probably good enough for v1 (NGOs rarely switch contexts).
+
+## 3. OneDrive / SharePoint feasibility — the honest answer
+
+**Single-user, single-device:** ✅ works today modulo the path-separator restriction. OneDrive is just a synced folder; `JsonFileEventLog.append()` does `open('a') + write + fsync + close`, which OneDrive will pick up and sync. No code change needed beyond §2.1.
+
+**Single user, multiple devices (sequential, never concurrent):** ⚠️ works **if** the user is disciplined about closing the app on device A before opening on device B and waiting for OneDrive to settle. Otherwise:
+- OneDrive on Windows uses the Files-On-Demand placeholder model — `events.ndjson` may be a placeholder until first read; `fs.open('a')` will hydrate it (acceptable, just slow first time).
+- OneDrive does **not** propagate appends as deltas — it re-uploads the whole file on close-handle change detection. With our `open/write/fsync/close` per event, every single appended event triggers a full file re-upload. At trial scale (hundreds of events) this is fine; at 10k events × ~600 bytes = 6 MB re-upload per event would be painful. **Mitigation for trials:** acceptable. **Mitigation for v1:** consider keeping the file open longer or batching, but that's a separate ticket.
+- Two devices both writing while OneDrive hasn't fully synced → OneDrive creates a **conflict copy** (`events-PCNAME.ndjson`). Our code does not detect or merge these. The dataset silently diverges.
+
+**Multi-user concurrent (the original vision goal):** ❌ **not safe** with the current single-file NDJSON design.
+- Append-only buys us a lot — there's no overwrite, only end-of-file extension — but OneDrive isn't a real shared filesystem. It's eventually-consistent file sync. Two users appending offline → two conflict-copy files, no automatic merge.
+- A correct multi-writer story needs one of:
+  - Per-writer files (`events-{deviceId}.ndjson`) merged on read by timestamp/lamport — closer to the **original ADR-001 Option A** (UUID-named immutable event files, zero-conflict by construction). Decisions.md §2026-04-15 explicitly notes Option B "single binary file cannot survive multi-writer offline edits on a shared folder — dealbreaker." We are currently on Option B for M1.5 and that was a deliberate scope cut.
+  - OR: a soft lock-file convention (`events.ndjson.lock` with owner/heartbeat) + UI that puts everyone else into read-only when the lock is held. Crude but trial-viable.
+  - OR: full CRDT/vector-clock merge — out of scope for trial.
+- This is exactly the ground covered by `.squad/decisions.md` lines 1219, 1623, 1746 (10k-files-in-OneDrive stress spike), and the M2 column of the M1.5 design doc. **It is a known deferred risk, not a new finding.**
+
+### Trial-grade recommendation (Pedro to confirm)
+
+> **One writer at a time per dataset.** Each NGO trial gets one OneDrive folder shared with its team. The treasurer is the active writer; everyone else opens the app **read-only** (we add a `--read-only` flag or an `app-config.json::readOnly: true` toggle that disables all `eventLog.append` calls in IPC handlers — Switch should review). Pedro communicates this constraint explicitly in trial onboarding. Multi-writer concurrency is a v1 / M2 problem to be resolved by re-introducing per-writer files.
+
+This is honest, ships in a sprint, and matches the deferral already on file in decisions.md.
+
+## 4. Smallest concrete change set (estimated)
+
+| # | File | Change | Size |
+|---|------|--------|------|
+| 1 | `app/src/main/bootstrap.ts` | Allow absolute paths in `OT_DATA_DIR`; layer in `app-config.json` lookup between env var and default. | ~30 LOC + tests |
+| 2 | `app/src/main/services/appConfig.ts` (new) | Read/write `<userData>/app-config.json` with Zod validation; tolerant of missing/corrupt. | ~80 LOC + tests |
+| 3 | `app/src/main/ipc/handlers/appConfig.ts` (new) | `app:getDataDir`, `app:setDataDir(path)` (validates writability + dry-load + conflict-copy check, then writes config and `app.relaunch()`). | ~120 LOC + tests |
+| 4 | `app/src/preload/index.cjs` + renderer API surface | Expose the two IPC calls. | ~10 LOC |
+| 5 | Trinity: a Settings page row "Data folder: \<path\>  [Change…]" with a confirm-then-relaunch dialog. | UI work | ~80 LOC |
+| 6 | (Optional, recommended) `--read-only` flag → `appConfig.readOnly` → IPC handler middleware that throws on any `*.append` write attempt. | ~40 LOC + tests |
+| 7 | Docs: `docs/ops/data-folder.md` describing trial constraints (one active writer; OneDrive-Business/SharePoint only; no concurrent edits; conflict-copy handling). | ~1 page |
+
+No changes needed to `JsonFileEventLog`, the read model, or any reducer — the abstraction already accepts an arbitrary `dir`. This is purely a bootstrap/config concern.
+
+## 5. Decisions Pedro needs to make
+
+1. **Trial concurrency posture:** confirm "one active writer per dataset" for the trial. If yes, ship items 1–6 above. If you want concurrent multi-user even in trial, we need to reopen ADR-001 Option A (per-writer files) and that is a much bigger piece of work.
+2. **Settings UI scope:** is a minimal Settings → Data folder row OK for trial, or do you want the full UX-001 first-run wizard before any user touches the build? I recommend the minimal row first.
+3. **Read-only mode (item 6):** opt in for trial? Strongly recommended — it's the cheapest insurance against silent OneDrive divergence.
+4. **Personal OneDrive detection heuristic:** good-enough warning, or strict block? Decisions.md §2026-04-19 §5 says strict block in v1; should the trial enforce the same?
+
+If any of these conflict with prior team decisions (Niobe's UX-001, Switch's threat model, Neo's ADR-001/002), this proposal yields — flag it and we re-spec.
+

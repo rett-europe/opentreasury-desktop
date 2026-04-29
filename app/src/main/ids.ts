@@ -20,6 +20,8 @@ function fakeUlid(seedKey: string): string {
 
 export const DATASET_ID = fakeUlid('DATASET01');
 export const ACTOR_DEVICE_ID = fakeUlid('DEVICE01');
+// P0-1 trial-readiness — temporary placeholder until P0-2 profile.json loads this
+export const ACTOR_USER_ID = fakeUlid('USER01');
 
 export function newUlid(): string {
   let time = Date.now();

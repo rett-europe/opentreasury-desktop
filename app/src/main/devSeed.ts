@@ -20,6 +20,7 @@ function fakeUlid(seedKey: string): string {
 
 const DATASET_ID = fakeUlid('DATASET01');
 const DEVICE_ID = fakeUlid('DEVICE01');
+const USER_ID = fakeUlid('USER01'); // P0-1 trial-readiness
 
 interface AccountSeed {
   key: string; // short prototype id, used to derive ULID deterministically
@@ -775,6 +776,8 @@ export function buildDevSeedEvents(): DomainEvent[] {
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
+      actorUserId: USER_ID, // P0-1 trial-readiness
+      actorIdentitySource: 'local', // P0-1 trial-readiness
       createdAt,
       dekVersion: 0,
       version: 1,
