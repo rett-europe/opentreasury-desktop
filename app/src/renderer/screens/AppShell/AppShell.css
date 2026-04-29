@@ -318,6 +318,12 @@
   color: var(--color-brand-primary);
 }
 
+.ot-shell__nav-divider {
+  height: 1px;
+  background: var(--color-border-subtle);
+  margin: var(--space-4) var(--space-6);
+}
+
 .ot-shell__sidebar-spacer {
   flex: 1;
 }
