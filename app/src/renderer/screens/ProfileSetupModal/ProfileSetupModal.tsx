@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { newUlid } from '../../utils/ulid.js';
 import './ProfileSetupModal.css';
 
 export interface ProfileSetupData {
@@ -83,9 +84,9 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
 
       setSubmitting(true);
       try {
-        // TODO(P0-2): wire to profile.json schema once #146 lands
-        // For now, generate a placeholder userId and call the stubbed IPC
-        const userId = crypto.randomUUID();
+        // userId is a 26-char ULID (matches profileSchema in shared/ipc-contracts/profile.ts).
+        // crypto.randomUUID() would produce a 36-char UUID and fail schema validation.
+        const userId = newUlid();
         const profile: ProfileSetupData = {
           name: name.trim(),
           role: role.trim(),

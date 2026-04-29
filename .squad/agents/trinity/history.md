@@ -2760,3 +2760,26 @@ Initially landed on wrong branch (\squad/145-actor-user-id-schema\) during git o
 5. Client validation: local state errors + \ria-invalid\ + \ria-describedby\ pattern
 6. Stubbed IPC: use placeholder types + \TODO(issue)\ comments for wiring
 
+
+**2026-05-XX — PR #169: Dynamic profile sidebar + folder picker wiring (squad/156-trial-ui-finishing-v2)**
+
+Completed three trial-readiness UI tasks (issue #156):
+
+1. **Dynamic profile rendering in AppShell sidebar:** Replaced hardcoded 'PR' initials and static name/role with values from the loaded profile state (already wired via P1-1 PR #165). Created getInitials() helper that computes 2-letter initials from first+last word of name, with defensive null checks. Added i18n role keys (shell.user.roles.{treasurer|admin|viewer}) in both EN+ES locales. Shows '…' during loading, '—' if profile is null. Removed obsolete shell.user.name and shell.user.role static keys.
+
+2. **Folder picker dialog IPC (minimal main-process addition):** Created shared/ipc-contracts/dialog.ts with IPC_DIALOG_PICK_FOLDER contract (request: empty, response: discriminated union of path | cancelled | error). Added main/ipc/handlers/dialog.ts wrapping Electron's dialog.showOpenDialog with properties: ['openDirectory', 'createDirectory']. Registered in main/ipc/handlers.ts. Exposed window.opentreasury.dialog.pickFolder() in preload. This is the canonical pattern for exposing Electron dialogs to the renderer — keep handlers minimal, return discriminated unions, never expose Electron types across the IPC boundary.
+
+3. **Settings folder change button (P2-4 #156):** Removed disabled attribute and obsolete 'coming soon' note. Added isOneDrivePersonal() helper that detects OneDrive Personal paths (looks for /onedrive/ without  -  org suffix) and rejects per UX-001 E1 spec. Button flow: call pickFolder() → if path is null (cancelled), no-op → if path is OneDrive Personal, show inline error card with settings.dataFolder.errors.oneDrivePersonal message → otherwise call setDataDir({ newDir: path }) → on success show 'Restarting…', on error show inline error card with decoded error code (SAME_DIR, INVALID_LOCATION, NOT_WRITABLE, DATASET_MISMATCH, generic fallback). Added i18n keys for all error messages in EN+ES. Added CSS for .ot-settings__error-card (red border + background tint) and .ot-settings__note--info variant (blue tint for restarting message). Updated SettingsScreen tests: replaced "button is disabled" with "button enabled when not readonly" + "disabled in readonly mode" tests.
+
+**Key file paths:**
+- OneDrive detection logic: pp/src/renderer/screens/SettingsScreen/SettingsScreen.tsx lines 7-17 (inline helper, could be extracted to utils if reused elsewhere)
+- Initials computation: pp/src/renderer/screens/AppShell/AppShell.tsx lines 26-42
+- Dialog IPC contract: pp/src/shared/ipc-contracts/dialog.ts
+- Dialog handler: pp/src/main/ipc/handlers/dialog.ts
+- Role i18n keys: pp/src/renderer/locales/en/common.json shell.user.roles.*
+- Settings error keys: pp/src/renderer/locales/en/common.json settings.dataFolder.errors.*
+
+**OneDrive Personal detection pattern:** The heuristic checks for /onedrive/ (case-insensitive, normalized slashes) without  -  org suffix. OneDrive Business paths on Windows typically look like C:\Users\{user}\OneDrive - MyOrg\..., while Personal paths are C:\Users\{user}\OneDrive\.... This is a best-effort detection — edge cases (custom OneDrive folder names, network paths) may require refinement in v1.x. The rejection message cites UX-001 E1 spec and points users to Business/SharePoint as the supported alternative.
+
+**Testing:** All 926 tests passing. SettingsScreen tests updated to reflect enabled button state.
+
