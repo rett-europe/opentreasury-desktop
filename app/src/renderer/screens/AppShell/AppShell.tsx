@@ -18,6 +18,8 @@ import {
   Upload,
 } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme.js';
+import { ProfileSetupModal } from '../ProfileSetupModal/index.js';
+import type { ProfileSetupData } from '../ProfileSetupModal/index.js';
 import './AppShell.css';
 
 export type Route =
@@ -133,6 +135,10 @@ export function AppShell({
 }: AppShellProps): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const { theme, setTheme } = useTheme();
+
+  // TODO(P0-2): Replace with real profile loading from IPC once #146 lands
+  // For P1-4, stub with local state — null triggers first-run modal
+  const [profile, setProfile] = useState<ProfileSetupData | null>(null);
 
   // SPEC-024 — Search state
   //
@@ -338,6 +344,16 @@ export function AppShell({
     lastDispatchedSearchRef.current = searchQuery;
     setSearchInputValue(searchQuery);
   }, [searchQuery]);
+
+  const handleProfileComplete = useCallback((profileData: ProfileSetupData) => {
+    setProfile(profileData);
+    // TODO(P0-2): Call window.api.profile.save(profileData) here once IPC is wired
+  }, []);
+
+  // Render-gate: if no profile, show setup modal instead of shell
+  if (profile === null) {
+    return <ProfileSetupModal isOpen={true} onComplete={handleProfileComplete} />;
+  }
 
   return (
     <div className="ot-shell" data-sidebar-collapsed={effectiveCollapsed ? 'true' : undefined}>

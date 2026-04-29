@@ -1068,5 +1068,23 @@
     "thisYear": "This year",
     "lastYear": "Last year",
     "last12Months": "Last 12 months"
+  },
+  "profileSetup": {
+    "title": "Welcome to OpenTreasury",
+    "subtitle": "Let's set up your profile to get started with your treasury.",
+    "nameLabel": "Your name",
+    "roleLabel": "Your role",
+    "rolePlaceholder": "e.g. Treasurer, Administrator",
+    "ngoLabel": "Organization name",
+    "submit": "Get started",
+    "submitting": "Setting up…",
+    "errors": {
+      "nameRequired": "Name is required",
+      "nameTooLong": "Name must be 80 characters or less",
+      "roleRequired": "Role is required",
+      "roleTooLong": "Role must be 50 characters or less",
+      "ngoNameRequired": "Organization name is required",
+      "ngoNameTooLong": "Organization name must be 120 characters or less"
+    }
   }
 }
