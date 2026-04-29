@@ -136,7 +136,9 @@ describe('PreferencesScreen', () => {
 
     // Mock window.location.reload to prevent actual reload in test
     const originalLocation = window.location;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (window as any).location;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     window.location = { ...originalLocation, reload: vi.fn() } as any;
 
     renderWithI18n();
