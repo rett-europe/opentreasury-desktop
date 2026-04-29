@@ -217,9 +217,9 @@ import {
 import { handleProfileGet, handleProfileSave } from './handlers/profile.js';
 import { IPC_CONFIG_GET, configGetResponseSchema } from '../../shared/ipc-contracts/config.js';
 import { handleConfigGet } from './handlers/config.js';
-import { getEventLog, getProfile } from '../bootstrap.js';
+import { getEventLog, getProfile, getDeviceId, getDatasetId } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
-import { ACTOR_DEVICE_ID, DATASET_ID, newUlid } from '../ids.js';
+import { newUlid } from '../ids.js';
 
 export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('app:ping', (_event, raw: unknown) => {
@@ -342,9 +342,9 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     getReadModel,
     now: () => new Date(),
     newId: newUlid,
-    datasetId: DATASET_ID,
-    actorDeviceId: ACTOR_DEVICE_ID,
-    // P0-2: Use profile.userId if available, otherwise sentinel for profile-pending state
+    datasetId: getDatasetId(),
+    actorDeviceId: getDeviceId(),
+    // P1-1: Use profile.userId if available, otherwise block writes at IPC level
     actorUserId: profile?.userId ?? 'PROFILE_PENDING000000000',
     actorIdentitySource: (profile?.identitySource ?? 'local') as 'local' | 'aad',
     dekVersion: 0,

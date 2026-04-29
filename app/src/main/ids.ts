@@ -1,14 +1,10 @@
-// Main-process runtime IDs + ULID generator — WI-12.
+// Main-process runtime ULID generator — WI-12.
 //
-// `datasetId` / `actorDeviceId` are stable per-app identifiers that stamp every
-// DomainEvent envelope. Until M2 ships proper account provisioning these use
-// the same deterministic "fake ULID" values that devSeed.ts writes, so new
-// transactions sit in the same dataset as the seeded ones.
-//
-// P0-2 trial-readiness: `actorUserId` now comes from profile.json (loaded at
-// bootstrap), NOT from a constant. The handlers.ts transactionDeps wiring reads
-// `getProfile().userId` and passes it to every command. These constants remain
-// for DATASET_ID and ACTOR_DEVICE_ID only (replaced in P1-1).
+// P1-1 trial-readiness: The `DATASET_ID` and `ACTOR_DEVICE_ID` constants have
+// been removed. These values are now sourced from:
+//   - device.json (per-laptop device ID) — loaded at bootstrap
+//   - dataset.json (per-data-folder dataset ID) — loaded at bootstrap
+//   - profile.json (per-user actor ID) — loaded at bootstrap (P0-2)
 //
 // `newUlid()` returns a real 26-char Crockford-base32 ULID (ADR-001 C11):
 // 10 timestamp chars + 16 cryptographically random chars. Kept in main/ since
@@ -17,17 +13,6 @@
 import { randomBytes } from 'node:crypto';
 
 const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-
-function fakeUlid(seedKey: string): string {
-  const upper = seedKey.toUpperCase().replace(/[^0-9A-HJKMNP-TV-Z]/g, '0');
-  return (upper + '0'.repeat(26)).slice(0, 26);
-}
-
-export const DATASET_ID = fakeUlid('DATASET01');
-export const ACTOR_DEVICE_ID = fakeUlid('DEVICE01');
-// P0-2 note: ACTOR_USER_ID removed — now sourced from profile.json via
-// getProfile().userId in handlers.ts. See P1-1 (#148) for DATASET_ID /
-// ACTOR_DEVICE_ID replacement.
 
 export function newUlid(): string {
   let time = Date.now();

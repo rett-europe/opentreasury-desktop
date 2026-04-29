@@ -23,10 +23,20 @@ import { buildDevSeedEvents } from './devSeed.js';
 import { loadProfile, type Profile } from './profile.js';
 import { loadAppConfig, type AppConfig } from './config.js';
 import { createReadOnlyEventLog } from './eventLog-readonly-wrapper.js';
+import { loadDeviceId } from './device.js';
+import { loadDatasetId } from './dataset.js';
+
+// Helper for dev-seed fallback when no profile exists yet
+function fakeUlid(seedKey: string): string {
+  const upper = seedKey.toUpperCase().replace(/[^0-9A-HJKMNP-TV-Z]/g, '0');
+  return (upper + '0'.repeat(26)).slice(0, 26);
+}
 
 let eventLogInstance: EventLog | null = null;
 let profileInstance: Profile | null = null;
 let appConfigInstance: AppConfig | null = null;
+let deviceIdInstance: string | null = null;
+let datasetIdInstance: string | null = null;
 let bootstrapped = false;
 
 export function getEventLog(): EventLog {
@@ -78,6 +88,26 @@ export function getAppConfig(): AppConfig {
  */
 export function setAppConfig(config: AppConfig): void {
   appConfigInstance = config;
+}
+
+/**
+ * Get the loaded device ID (per-laptop stable ID).
+ */
+export function getDeviceId(): string {
+  if (!bootstrapped || deviceIdInstance === null) {
+    throw new Error('[bootstrap] getDeviceId() called before initializeApp() resolved');
+  }
+  return deviceIdInstance;
+}
+
+/**
+ * Get the loaded dataset ID (per-data-folder stable ID).
+ */
+export function getDatasetId(): string {
+  if (!bootstrapped || datasetIdInstance === null) {
+    throw new Error('[bootstrap] getDatasetId() called before initializeApp() resolved');
+  }
+  return datasetIdInstance;
 }
 
 /**
@@ -229,7 +259,17 @@ export async function initializeApp(): Promise<void> {
     `[bootstrap] loaded app config (dataDir: ${appConfigInstance.dataDir ?? 'default'}, readOnly: ${appConfigInstance.readOnly})`,
   );
 
+  // P1-1: Load per-laptop device ID from userData/device.json
+  deviceIdInstance = await loadDeviceId(userDataDir);
+  // eslint-disable-next-line no-console
+  console.log(`[bootstrap] loaded device ID: ${deviceIdInstance}`);
+
   const dir = await resolveEventLogDir(userDataDir, appConfigInstance);
+
+  // P1-1: Load per-dataset ID from <dataDir>/dataset.json
+  datasetIdInstance = await loadDatasetId(dir);
+  // eslint-disable-next-line no-console
+  console.log(`[bootstrap] loaded dataset ID: ${datasetIdInstance}`);
   const innerLog = new JsonFileEventLog({ dir });
 
   // P1-3: Wrap in read-only proxy when appConfig.readOnly === true
@@ -238,7 +278,11 @@ export async function initializeApp(): Promise<void> {
   let events = await log.load();
 
   if (events.length === 0 && shouldSeed()) {
-    const seedEvents = buildDevSeedEvents();
+    const seedEvents = buildDevSeedEvents({
+      datasetId: datasetIdInstance,
+      actorDeviceId: deviceIdInstance,
+      actorUserId: profileInstance?.userId ?? fakeUlid('USER01'),
+    });
     for (const evt of seedEvents) {
       await log.append(evt);
     }
