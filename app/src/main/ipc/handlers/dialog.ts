@@ -17,7 +17,7 @@ export async function handleDialogPickFolder(raw: unknown): Promise<DialogPickFo
     const focusedWindow = BrowserWindow.getFocusedWindow();
     const result = await dialog.showOpenDialog(focusedWindow ?? undefined!, {
       properties: ['openDirectory', 'createDirectory'],
-      title: 'Select data folder',
+      title: 'Select OneDrive for Business or SharePoint folder',
     });
 
     if (result.canceled) {

@@ -18,14 +18,20 @@ import {
   type AppConfig,
 } from '../../../shared/ipc-contracts/config.js';
 import { saveAppConfig } from '../../config.js';
-import { getAppConfig, getDatasetId, setAppConfig } from '../../bootstrap.js';
+import {
+  getAppConfig,
+  getDatasetId,
+  setAppConfig,
+  getEffectiveEventLogDir,
+} from '../../bootstrap.js';
 
 export async function handleConfigGet(raw: unknown): Promise<ConfigGetResponse> {
   // Validate request (even though it's empty, belt-and-suspenders)
   configGetRequestSchema.parse(raw);
 
   const config = getAppConfig();
-  return { ok: true, config };
+  const effectiveDataDir = getEffectiveEventLogDir();
+  return { ok: true, config, effectiveDataDir };
 }
 
 /**
