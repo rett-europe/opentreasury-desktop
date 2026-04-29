@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-04-29T06:25:38.704Z",
+  "probe": "insights-palette-probe",
+  "branch": "squad/trinity-subcategory-ranked-tables",
+  "phase": "post-fix (screen-scoped P1)",
+  "computedTokens": {
+    "--color-donut-0 (on .ot-insights-detail)": "oklch(.62 .18 264)",
+    "--color-donut-0 (on :root)": "",
+    "--color-donut-1 (on .ot-insights-detail)": "oklch(.68 .16 195)",
+    "--color-donut-1 (on :root)": "",
+    "--color-donut-2 (on .ot-insights-detail)": "oklch(.7 .16 145)",
+    "--color-donut-2 (on :root)": "",
+    "--color-donut-3 (on .ot-insights-detail)": "oklch(.78 .16 95)",
+    "--color-donut-3 (on :root)": "",
+    "--color-donut-4 (on .ot-insights-detail)": "oklch(.72 .18 55)",
+    "--color-donut-4 (on :root)": "",
+    "--color-donut-5 (on .ot-insights-detail)": "oklch(.62 .2 25)",
+    "--color-donut-5 (on :root)": "",
+    "--color-donut-6 (on .ot-insights-detail)": "oklch(.55 .2 350)",
+    "--color-donut-6 (on :root)": "",
+    "--color-donut-7 (on .ot-insights-detail)": "oklch(.5 .18 310)",
+    "--color-donut-7 (on :root)": "",
+    "--color-donut-otras (on .ot-insights-detail)": "oklch(.6 .02 260)",
+    "--color-donut-otras (on :root)": ""
+  },
+  "circleStrokes": [
+    {
+      "index": 0,
+      "strokeAttr": "var(--color-donut-0)",
+      "computedStroke": "oklch(0.62 0.18 264)",
+      "isCssVar": true,
+      "isResolved": false
+    },
+    {
+      "index": 1,
+      "strokeAttr": "var(--color-donut-1)",
+      "computedStroke": "oklch(0.68 0.16 195)",
+      "isCssVar": true,
+      "isResolved": false
+    },
+    {
+      "index": 2,
+      "strokeAttr": "var(--color-donut-2)",
+      "computedStroke": "oklch(0.7 0.16 145)",
+      "isCssVar": true,
+      "isResolved": false
+    },
+    {
+      "index": 3,
+      "strokeAttr": "var(--color-donut-3)",
+      "computedStroke": "oklch(0.78 0.16 95)",
+      "isCssVar": true,
+      "isResolved": false
+    },
+    {
+      "index": 4,
+      "strokeAttr": "var(--color-donut-0)",
+      "computedStroke": "oklch(0.62 0.18 264)",
+      "isCssVar": true,
+      "isResolved": false
+    },
+    {
+      "index": 5,
+      "strokeAttr": "var(--color-donut-1)",
+      "computedStroke": "oklch(0.68 0.16 195)",
+      "isCssVar": true,
+      "isResolved": false
+    },
+    {
+      "index": 6,
+      "strokeAttr": "var(--color-donut-2)",
+      "computedStroke": "oklch(0.7 0.16 145)",
+      "isCssVar": true,
+      "isResolved": false
+    }
+  ],
+  "verdict": {
+    "p1OnDetail": "oklch(.78 .16 95)",
+    "p1OnRoot": "",
+    "p1Expected": "oklch(0.78 0.16 95)",
+    "detailHasP1": true,
+    "rootIsEmpty": true,
+    "note": "detailHasP1 was false due to string match (0.78 vs .78); the oklch value IS P1"
+  }
+}

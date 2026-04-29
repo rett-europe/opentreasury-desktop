@@ -61,16 +61,15 @@
  *
  * Donut slice colours are NOT defined here. The Palette P1 (wide-hue OKLCH)
  * tokens `--color-donut-0..7` and `--color-donut-otras` live in
- * `app/src/renderer/styles/tokens.css` alongside every other design token
- * (incomes, expenses, semantic colours). They are the single source of truth
- * shared by:
+ * `app/src/renderer/styles/tokens.css`, scoped to `.ot-insights-detail`
+ * per Pedro's directive (copilot-directive-20260429-081320.md). P1 is a
+ * screen-level decision: it applies only on the Insights Detail screen.
+ * They are the single source of truth shared by:
  *   - DonutChart slice strokes (this component)
  *   - InsightsDetailScreen legend swatches
  *   - SubcategoryRankedTable tinted rank pills
  *
- * Defining them in component CSS caused a divergence in PR #142 round 2:
- * tokens.css was the consumer everyone loaded, but the override only landed
- * in DonutChart.css — parallel consumers stayed on whatever was cascading
- * before. Lesson: shared design tokens MUST live in tokens.css :root, never
- * in component CSS. See `.squad/skills/design-token-single-source`.
+ * All three render inside `.ot-insights-detail`, so the scoped tokens
+ * cascade correctly. Outside that container, `var(--color-donut-*)` is
+ * undefined — which is intentional.
  */
