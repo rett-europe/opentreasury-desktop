@@ -10,7 +10,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { DonutChart } from '../../components/DonutChart/index.js';
+import { DonutChart, donutColorIndex } from '../../components/DonutChart/index.js';
 import { GroupedBarChart } from '../../components/GroupedBarChart/index.js';
 import { SubcategoryRankedTable } from '../../components/SubcategoryRankedTable/index.js';
 import {
@@ -676,7 +676,9 @@ function DonutPanel({
               const swatch = (
                 <span
                   className="ot-donut-panel__legend-swatch"
-                  style={{ background: `var(--color-donut-${idx % 8})` }}
+                  style={{
+                    background: `var(--color-donut-${donutColorIndex(idx, slices.length)})`,
+                  }}
                   aria-hidden="true"
                 />
               );
@@ -715,17 +717,23 @@ function DonutPanel({
 }
 
 /**
- * Maps each `categoryId` to its donut slice colour CSS variable (matching the
- * `--color-donut-${idx % 8}` cycle used in the SVG donut). Order of the input
- * array determines the colour assignment, so the bar list rows align visually
- * with the donut's slices.
+ * Maps each `categoryId` to its donut slice colour CSS variable. Uses the
+ * same `donutColorIndex` stride helper as the donut chart so the bar list,
+ * legend, and donut slices all align visually — a 3-category dataset gets
+ * 3 visually distinct slots (0/2/5 — blue/green/red) instead of three
+ * adjacent cool-end slots (0/1/2 — blue/cyan/green).
  */
 function buildColorMap(categoryIds: ReadonlyArray<string>): Map<string, string> {
   const map = new Map<string, string>();
-  categoryIds.forEach((id, idx) => {
+  const uniqueIds: string[] = [];
+  for (const id of categoryIds) {
     if (!map.has(id)) {
-      map.set(id, `var(--color-donut-${idx % 8})`);
+      map.set(id, '');
+      uniqueIds.push(id);
     }
+  }
+  uniqueIds.forEach((id, idx) => {
+    map.set(id, `var(--color-donut-${donutColorIndex(idx, uniqueIds.length)})`);
   });
   return map;
 }
