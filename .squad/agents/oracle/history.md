@@ -50,3 +50,45 @@ All analysis in .squad/decisions/decisions.md under three new sections:
 **Action:** May touch Trinity (settings UI row for data folder), Niobe (first-run UX specs), Mouse (if visual work needed). Stand by for Pedro go-ahead.
 
 **Files:** Orchestration logs in .squad/orchestration-log/2026-04-29T10-24-31-{link,switch,morpheus}.md. Session log in .squad/log/2026-04-29T10-24-31-trial-readiness-analysis.md.
+
+---
+
+## 2026-04-29 — Trial Deployment Guide (P2-3 Completed)
+
+**Status:** Completed; PR #164 (draft).
+
+**File:** `docs/guides/trial-deployment.md` (1,800 words, 8 sections, NGO-staff audience).
+
+**Scope delivered:**
+- **Part 1:** First install & profile setup (Windows 10+, OneDrive/SharePoint prerequisites).
+- **Part 2:** Shared data location setup (OneDrive Business vs. Personal distinction explicit; app-config flow conceptual).
+- **Part 3:** One-writer rule explained plainly (Maria/Pablo examples; read-only mode toggle; conflict-file recovery).
+- **Part 4:** Adding team members (profile per laptop; role setup; auto-detection of read-only).
+- **Part 5:** Trial expectations (what's working: movements, saldo, shared data, read-only multi-user; deferred: encryption, role-based perms, SSO, undo, CSV import, splits, mobile).
+- **Part 6:** Encryption posture (plain-text in trial; AEAD in v1; security practices for shared folders).
+- **Part 7:** Troubleshooting & FAQ (8 Q&As: read-only mode, data location, conflict files, OneDrive Personal, undo/delete, export, performance, platform support, end-of-trial).
+- **Part 8:** Getting help (in-app help, email, GitHub issues, feedback).
+
+**Key learnings:**
+1. **Concrete examples win.** Maria, Pablo, Sofia names + their roles made the one-writer rule stick. Avoid abstract "user A" / "user B" in NGO docs.
+2. **Distinguish OneDrive Personal vs Business early.** The trial enforces Business/SharePoint only; call it out explicitly in prerequisites and folder-picker copy.
+3. **Conflict files are not an edge case.** Document the hazard, recovery steps, and prevention workflow upfront (Part 3 + Part 7 FAQ).
+4. **Plain-text security posture needs explicit reassurance.** Explain *why* (speed of feedback), what to do (folder access controls), and when it changes (v1 encryption). Transparently defers vs. hides it.
+5. **Trial timeline + migration clarity matter.** NGOs need to know this is 4–8 weeks, data stays in their folder, and v1 will have a migration path. Build confidence, not concern.
+6. **Reader-first structure.** Parts numbered 1–8; each section has what-you-need, how-to, example, gotchas. No devs-only copy. Bilingual-ready format (EN only for this draft; ES translation is P2-4 work or later).
+
+**Cross-links added:**
+- UX-001 first-run spec (profile, folder validation technical details).
+- Roadmap v1 (what's deferred).
+- Security Requirements v0.1 (R20 checklist, encryption roadmap).
+- App Configuration schemas (app-config.json, profile.json internal reference).
+
+**Limitations acknowledged:**
+- No screenshots (PDFs/images deferred; would need visual designer review per Mouse/design standards).
+- Bilingual split deferred (EN only; ES translation + layout risk mitigation to follow in P2-4 or i18n pass).
+- First-run wizard (UX-001 full flow) not covered — trial uses minimal profile modal only.
+
+**Decision made:**
+- Tone: Friendly, concrete, patient. No jargon (no "escrow", "crypto", "IPC", "AEAD" in user prose; only in security/technical sections).
+- Audience: NGO admins, treasurers, non-technical coordinators. Assume PC/Windows literacy but not technical depth.
+- Structure: Single file, not split across multiple pages (single-doc posture for trial phase simplicity).
