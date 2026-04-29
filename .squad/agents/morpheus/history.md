@@ -2724,3 +2724,88 @@ Each test creates a unique temp directory (Date.now() + Math.random()) under os.
 - P1-1 (#148): Replace DATASET_ID/ACTOR_DEVICE_ID constants with profile-sourced values
 - P1-4: ProfileSetupModal renderer component (Trinity)
 - P2-1 (#153): Update ~50 test files for new actor ID pattern (Cypher)
+
+---
+
+## 2026-05-05 — P0-3 shipped: app-config.json schema + relaxed dataDir resolution (#147)
+
+**Status:** Shipped on PR #160 (`squad/147-app-config-schema`).
+
+**Context:** Trial-readiness P0-3. Establishes the app-config.json schema (dataDir, readOnly fields) and relaxes the event-log path resolution to accept absolute paths from config or env var. Unblocks one-active-writer posture for trial (P1-2 will add setDataDir IPC + relaunch; P1-3 adds readOnly enforcement middleware).
+
+**Delivered:**
+
+1. **app-config.json schema** (`app/src/main/config.ts`):
+   - Zod schema: `{ version: number (default 1), dataDir: string | null (default null), readOnly: boolean (default false) }`
+   - `loadAppConfig(userDataDir)` — returns defaults if file missing or parse fails (logs warning, never crashes)
+   - `saveAppConfig(userDataDir, config)` — atomic write (tmp → fsync → rename), same pattern as profile.ts
+   - `createDefaultAppConfig()` — returns schema defaults
+
+2. **Relaxed `resolveEventLogDir()` in bootstrap.ts**:
+   - Priority: `OT_DATA_DIR` env var > `appConfig.dataDir` > default `<userData>/dev-events`
+   - Now accepts absolute paths (was sandbox-only before)
+   - Validates path exists; attempts `mkdir -p` if missing; falls back to default on failure
+   - Rejects: empty string, null bytes, paths pointing to files (not dirs)
+   - Works for both config and env override
+
+3. **IPC: config:get handler** (`app/src/shared/ipc-contracts/config.ts`, `app/src/main/ipc/handlers/config.ts`):
+   - Returns loaded AppConfig (read-only for now)
+   - Mirrored profile.ts contract structure
+   - Wired into handlers.ts registration
+
+4. **Wired into bootstrap.ts**:
+   - Loads app config after profile, before event log initialization
+   - Passes appConfig to resolveEventLogDir for path resolution
+   - Exports getAppConfig() / setAppConfig() for IPC handlers
+
+5. **Tests** (38 new tests):
+   - config.test.ts: 22 tests (load defaults, atomic save, schema validation, path handling)
+   - bootstrap.test.ts: 16 tests (absolute/relative paths, priority order, validation edge cases, env var handling)
+   - All tests pass
+
+### Learnings
+
+**Relaxing path validation while keeping security:**
+The original resolveEventLogDir rejected absolute paths as a dev-sandbox guard. For trial one-writer posture, we need to support shared folders (OneDrive Business, network drives). The new pattern: accept absolute paths but validate they exist and are directories (not files); attempt mkdir -p on ENOENT; reject obvious red flags (null bytes, empty string). Falls back to default if validation fails — never crashes the app.
+
+**Config-defaults-on-failure pattern:**
+Unlike profile.json (where null = first-launch UX), app-config.json should always return defaults when missing/invalid. This lets the app start with sensible behavior even if the file is corrupted. Pattern: `loadAppConfig()` catches parse errors, logs a warning, returns `appConfigSchema.parse({})` (which fills in defaults). Applied to both JSON parse errors and Zod validation failures.
+
+**Priority order for path resolution:**
+Three sources: env var (OT_DATA_DIR), config file (appConfig.dataDir), default. Env var takes precedence (useful for tests/perf-seed scripts). Config is second (persistent user choice via Settings). Default is fallback. This ordering is explicit in resolveEventLogDir and tested in bootstrap.test.ts.
+
+**Validation + mkdir pattern for dataDir:**
+When user sets a custom dataDir, we need to handle three cases: (1) exists and is a directory → use it, (2) doesn't exist → create it (mkdir -p), (3) invalid (is a file, permission denied, etc.) → log error and fall back to default. The validateAndCreateDir helper encapsulates this. Key: use `fs.stat()` not `fs.access()` to distinguish "doesn't exist" from "permission denied".
+
+**Test isolation with os.tmpdir():**
+Same pattern as profile.test.ts: each test creates a unique temp directory (`Date.now() + Math.random()`) under os.tmpdir(). Tests for mkdir behavior, path validation, and file-vs-directory rejection all rely on controlled temp dirs. Cleanup is best-effort (`try/catch` on `fs.rm`).
+
+**Schema version field for future migrations:**
+Added `version: number` field (default 1) to support future migrations if config schema changes. Not used yet, but establishes the pattern. When we add new fields (e.g., syncEnabled), we can bump version and write migration logic in loadAppConfig.
+
+**Bootstrap order matters:**
+Config is loaded AFTER profile but BEFORE event log. This order ensures: (1) profile.userId is available when transactionDeps are constructed (P0-2 contract), (2) appConfig.dataDir is available when resolveEventLogDir runs. If loadAppConfig() fails (disk full, permission denied), bootstrap fails early with a clear error.
+
+### Files Changed
+
+- app/src/main/config.ts (new)
+- app/src/main/config.test.ts (new)
+- app/src/shared/ipc-contracts/config.ts (new)
+- app/src/main/ipc/handlers/config.ts (new)
+- app/src/main/bootstrap.ts (load appConfig, relax resolveEventLogDir, export getAppConfig/setAppConfig)
+- app/src/main/bootstrap.test.ts (new)
+- app/src/main/ipc/handlers.ts (registered config:get handler)
+
+### Validation
+
+✅ npm run typecheck  
+✅ npm run lint (max-warnings 0)  
+✅ npm run format:check  
+✅ npm test — 887 passed (+38 from config and bootstrap tests)
+
+### Next Steps (out of scope for P0-3)
+
+- P1-2 (#149): `config:setDataDir` IPC handler + app relaunch logic
+- P1-3 (#150): readOnly middleware that blocks eventLog.append (Switch)
+- P1-5 (#152): Settings UI row to display/change dataDir (Trinity)
+- P2-4 (#156): Block OneDrive Personal in Settings folder picker (Trinity)

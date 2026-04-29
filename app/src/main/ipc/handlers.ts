@@ -215,6 +215,8 @@ import {
   profileSaveResponseSchema,
 } from '../../shared/ipc-contracts/profile.js';
 import { handleProfileGet, handleProfileSave } from './handlers/profile.js';
+import { IPC_CONFIG_GET, configGetResponseSchema } from '../../shared/ipc-contracts/config.js';
+import { handleConfigGet } from './handlers/config.js';
 import { getEventLog, getProfile } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { ACTOR_DEVICE_ID, DATASET_ID, newUlid } from '../ids.js';
@@ -239,6 +241,12 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_PROFILE_SAVE, async (_event, raw: unknown) => {
     const response = await handleProfileSave(raw);
     return profileSaveResponseSchema.parse(response);
+  });
+
+  // P0-3 Config handlers — trial-readiness
+  ipcMain.handle(IPC_CONFIG_GET, async (_event, raw: unknown) => {
+    const response = await handleConfigGet(raw);
+    return configGetResponseSchema.parse(response);
   });
 
   // Panel handlers — WI-2 mock implementations
