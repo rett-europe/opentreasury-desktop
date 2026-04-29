@@ -497,44 +497,53 @@
    All three render inside `.ot-insights-detail`.
    ══════════════════════════════════════════════════════════════ */
 
-/* Light mode (default) */
+/* Light mode (default).
+ *
+ * Hex values pixel-sampled from `docs/ux/colors-options/preview.png`
+ * (Palette 1 swatch row at y=1326–1398). Pedro selected this exact
+ * palette from the mockup; using sRGB hex (not oklch) guarantees the
+ * rendered colour matches preview.png byte-for-byte regardless of
+ * display colour profile or Chromium gamut-mapping behaviour. Earlier
+ * oklch tokens rendered duller than the mockup on some configurations,
+ * because oklch out-of-gamut values get gamut-mapped non-deterministically. */
 .ot-insights-detail {
-  --color-donut-0: oklch(0.62 0.18 264); /* blue-violet */
-  --color-donut-1: oklch(0.68 0.16 195); /* cyan */
-  --color-donut-2: oklch(0.7 0.16 145); /* green */
-  --color-donut-3: oklch(0.78 0.16 95); /* yellow — P1 fingerprint */
-  --color-donut-4: oklch(0.72 0.18 55); /* orange */
-  --color-donut-5: oklch(0.62 0.2 25); /* red */
-  --color-donut-6: oklch(0.55 0.2 350); /* magenta */
-  --color-donut-7: oklch(0.5 0.18 310); /* purple */
-  --color-donut-otras: oklch(0.6 0.02 260); /* neutral gray */
+  --color-donut-0: #4d7ff1; /* vivid blue */
+  --color-donut-1: #00b5b7; /* cyan */
+  --color-donut-2: #54b85b; /* green */
+  --color-donut-3: #d8b501; /* gold/yellow — P1 fingerprint */
+  --color-donut-4: #f77f00; /* orange */
+  --color-donut-5: #e64343; /* red */
+  --color-donut-6: #bf2a82; /* magenta */
+  --color-donut-7: #823bae; /* purple */
+  --color-donut-otras: #9aa0a6; /* neutral gray */
 }
 
-/* Dark mode (manual override) */
+/* Dark mode (manual override).
+ * Lightened ~15% from light-mode hex to keep contrast on dark surfaces. */
 :root[data-theme='dark'] .ot-insights-detail {
-  --color-donut-0: oklch(0.72 0.18 264);
-  --color-donut-1: oklch(0.78 0.16 195);
-  --color-donut-2: oklch(0.8 0.16 145);
-  --color-donut-3: oklch(0.86 0.16 95);
-  --color-donut-4: oklch(0.82 0.18 55);
-  --color-donut-5: oklch(0.72 0.2 25);
-  --color-donut-6: oklch(0.65 0.2 350);
-  --color-donut-7: oklch(0.6 0.18 310);
-  --color-donut-otras: oklch(0.7 0.02 260);
+  --color-donut-0: #7a9cf5;
+  --color-donut-1: #4dcfd0;
+  --color-donut-2: #84cf89;
+  --color-donut-3: #ecd13e;
+  --color-donut-4: #ff9e3d;
+  --color-donut-5: #ed7575;
+  --color-donut-6: #d063a3;
+  --color-donut-7: #a26bc4;
+  --color-donut-otras: #b6bcc2;
 }
 
 /* Dark mode (system preference) */
 @media (prefers-color-scheme: dark) {
   :root[data-theme='system'] .ot-insights-detail {
-    --color-donut-0: oklch(0.72 0.18 264);
-    --color-donut-1: oklch(0.78 0.16 195);
-    --color-donut-2: oklch(0.8 0.16 145);
-    --color-donut-3: oklch(0.86 0.16 95);
-    --color-donut-4: oklch(0.82 0.18 55);
-    --color-donut-5: oklch(0.72 0.2 25);
-    --color-donut-6: oklch(0.65 0.2 350);
-    --color-donut-7: oklch(0.6 0.18 310);
-    --color-donut-otras: oklch(0.7 0.02 260);
+    --color-donut-0: #7a9cf5;
+    --color-donut-1: #4dcfd0;
+    --color-donut-2: #84cf89;
+    --color-donut-3: #ecd13e;
+    --color-donut-4: #ff9e3d;
+    --color-donut-5: #ed7575;
+    --color-donut-6: #d063a3;
+    --color-donut-7: #a26bc4;
+    --color-donut-otras: #b6bcc2;
   }
 }
 
