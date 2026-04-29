@@ -172,7 +172,13 @@ import {
   type InsightsLabelByAccountRequest,
   type InsightsLabelByAccountResponse,
 } from '../shared/ipc-contracts/insights.js';
-import { IPC_CONFIG_GET, type ConfigGetResponse } from '../shared/ipc-contracts/config.js';
+import {
+  IPC_CONFIG_GET,
+  IPC_CONFIG_SET_DATA_DIR,
+  type ConfigGetResponse,
+  type ConfigSetDataDirRequest,
+  type ConfigSetDataDirResponse,
+} from '../shared/ipc-contracts/config.js';
 import {
   IPC_PROFILE_GET,
   IPC_PROFILE_SAVE,
@@ -387,6 +393,9 @@ const api = {
   config: {
     get: (): Promise<ConfigGetResponse> => {
       return ipcRenderer.invoke(IPC_CONFIG_GET);
+    },
+    setDataDir: (req: ConfigSetDataDirRequest): Promise<ConfigSetDataDirResponse> => {
+      return ipcRenderer.invoke(IPC_CONFIG_SET_DATA_DIR, req);
     },
   },
   profile: {

@@ -215,8 +215,17 @@ import {
   profileSaveResponseSchema,
 } from '../../shared/ipc-contracts/profile.js';
 import { handleProfileGet, handleProfileSave } from './handlers/profile.js';
-import { IPC_CONFIG_GET, configGetResponseSchema } from '../../shared/ipc-contracts/config.js';
-import { handleConfigGet } from './handlers/config.js';
+import {
+  IPC_CONFIG_GET,
+  IPC_CONFIG_SET_DATA_DIR,
+  configGetResponseSchema,
+  configSetDataDirResponseSchema,
+} from '../../shared/ipc-contracts/config.js';
+import {
+  handleConfigGet,
+  createConfigSetDataDirHandler,
+  buildProductionSetDataDirDeps,
+} from './handlers/config.js';
 import { getEventLog, getProfile, getDeviceId, getDatasetId } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { newUlid } from '../ids.js';
@@ -247,6 +256,18 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_CONFIG_GET, async (_event, raw: unknown) => {
     const response = await handleConfigGet(raw);
     return configGetResponseSchema.parse(response);
+  });
+
+  // P1-2 (#149) — config:setDataDir validates a candidate folder, persists
+  // it to app-config.json, and schedules an app relaunch. Deps (Electron's
+  // `app`) are resolved lazily so the rest of the handler stays test-friendly.
+  let setDataDirHandler: ReturnType<typeof createConfigSetDataDirHandler> | null = null;
+  ipcMain.handle(IPC_CONFIG_SET_DATA_DIR, async (_event, raw: unknown) => {
+    if (setDataDirHandler === null) {
+      setDataDirHandler = createConfigSetDataDirHandler(await buildProductionSetDataDirDeps());
+    }
+    const response = await setDataDirHandler(raw);
+    return configSetDataDirResponseSchema.parse(response);
   });
 
   // Panel handlers — WI-2 mock implementations
