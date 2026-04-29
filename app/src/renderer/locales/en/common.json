@@ -26,7 +26,8 @@
       "configuracion": "Settings",
       "cuentas": "Accounts",
       "categorias": "Categories",
-      "etiquetas": "Tags"
+      "etiquetas": "Tags",
+      "preferences": "Preferences"
     },
     "theme": {
       "label": "Theme",
@@ -46,16 +47,20 @@
     },
     "sections": {
       "main": "Main",
-      "config": "Settings",
+      "config": "Catalogs",
       "datos": "Data"
     },
     "user": {
       "roles": {
         "treasurer": "Treasurer",
-        "admin": "Admin",
+        "accountant": "Accountant",
+        "financemanager": "Finance Manager",
+        "executivedirector": "Executive Director",
+        "boardmember": "Board Member",
+        "volunteer": "Volunteer",
+        "admin": "Administrator",
         "viewer": "Viewer"
-      },
-      "logout": "Sign out"
+      }
     },
     "search": {
       "placeholder": "Search transactions, categories, accounts…",
@@ -66,10 +71,7 @@
       "collapse": "Collapse navigation",
       "expand": "Expand navigation"
     },
-    "brand": "OpenTreasury",
-    "settings": {
-      "label": "Settings"
-    }
+    "brand": "OpenTreasury"
   },
   "panel": {
     "title": "Dashboard",
@@ -1086,11 +1088,93 @@
     "submitting": "Setting up…",
     "errors": {
       "nameRequired": "Name is required",
-      "nameTooLong": "Name must be 80 characters or less",
+      "nameTooLong": "Name must be 100 characters or less",
       "roleRequired": "Role is required",
       "roleTooLong": "Role must be 50 characters or less",
       "ngoNameRequired": "Organization name is required",
-      "ngoNameTooLong": "Organization name must be 120 characters or less"
+      "ngoNameTooLong": "Organization name must be 200 characters or less"
+    }
+  },
+  "profile": {
+    "roles": {
+      "treasurer": "Treasurer",
+      "accountant": "Accountant",
+      "financeManager": "Finance Manager",
+      "executiveDirector": "Executive Director",
+      "boardMember": "Board Member",
+      "volunteer": "Volunteer",
+      "admin": "Administrator",
+      "other": "Other (specify)"
+    },
+    "otherRoleLabel": "Specify your role"
+  },
+  "preferences": {
+    "title": "Preferences",
+    "profile": {
+      "title": "Profile",
+      "nameLabel": "Your name",
+      "roleLabel": "Your role",
+      "ngoLabel": "Organization name",
+      "saveButton": "Save changes",
+      "saving": "Saving…",
+      "saved": "Saved!",
+      "errors": {
+        "nameRequired": "Name is required",
+        "nameTooLong": "Name must be 100 characters or less",
+        "roleRequired": "Role is required",
+        "roleTooLong": "Role must be 50 characters or less",
+        "ngoNameRequired": "Organization name is required",
+        "ngoNameTooLong": "Organization name must be 200 characters or less",
+        "saveFailed": "Failed to save profile. Please try again."
+      }
+    },
+    "appearance": {
+      "title": "Appearance",
+      "themeLabel": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "language": {
+      "title": "Language",
+      "label": "Display language",
+      "en": "English",
+      "es": "Español"
+    },
+    "dataset": {
+      "title": "Current Dataset",
+      "idLabel": "Dataset ID",
+      "locationLabel": "Location",
+      "defaultBadge": "(default location)",
+      "readonlyBadge": "Read-only"
+    },
+    "dataFolder": {
+      "title": "Data folder",
+      "defaultLocationNote": "(default location)",
+      "requirement": "Data must be stored in OneDrive for Business or a synced SharePoint library.",
+      "changeButton": "Change…",
+      "readonlyBadge": "Read-only mode",
+      "restarting": "Restarting application…",
+      "errors": {
+        "oneDrivePersonal": "OneDrive Personal is not supported in v1. Please pick a folder inside OneDrive for Business or SharePoint. Support for Personal OneDrive is planned for v1.x.",
+        "notCorpLocation": "OpenTreasury data must live inside an OneDrive for Business or SharePoint folder so the trustees can share access. Local folders, Desktop, USB drives, and personal OneDrive are not supported. Pick a folder under 'OneDrive - {your organization}' or a synced SharePoint library.",
+        "sameDir": "The selected folder is the same as the current data folder.",
+        "invalidLocation": "Data folder must not be under the app's internal folder. Choose an external folder, e.g., on OneDrive for Business or SharePoint.",
+        "notWritable": "The selected folder is not writable. Please choose a different location.",
+        "datasetMismatch": "The selected folder already contains a different treasury's data. Please choose an empty folder or the current treasury folder.",
+        "generic": "Failed to change data folder"
+      }
+    },
+    "about": {
+      "title": "About",
+      "version": "Version {{version}}"
+    },
+    "switchDataset": {
+      "button": "Switch to a different dataset…",
+      "confirmTitle": "Switch to a different dataset?",
+      "confirmBody": "You are about to leave the current dataset and select a new data folder. The app will relaunch, and you'll need to set up your profile again if the new folder doesn't contain a profile.json file. Your current dataset will remain untouched.",
+      "confirmStay": "Stay in current dataset",
+      "confirmSwitch": "Switch dataset"
     }
   },
   "settings": {

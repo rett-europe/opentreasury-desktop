@@ -8,7 +8,6 @@ import {
   FolderOpen,
   Landmark,
   LayoutDashboard,
-  LogOut,
   Monitor,
   Moon,
   Scale,
@@ -52,7 +51,7 @@ export type Route =
   | 'cuentas'
   | 'categorias'
   | 'etiquetas'
-  | 'settings';
+  | 'preferences';
 
 export interface AppShellProps {
   readonly currentRoute: Route;
@@ -523,16 +522,6 @@ export function AppShell({
             <Moon size={14} aria-hidden="true" />
           </button>
         </div>
-
-        <button
-          type="button"
-          className="ot-shell__icon-btn"
-          title={t('shell.settings.label') satisfies string}
-          aria-label={t('shell.settings.label') satisfies string}
-          onClick={() => onNavigate('settings')}
-        >
-          <Settings size={18} aria-hidden="true" />
-        </button>
       </header>
 
       {/* ── Sidebar ───────────────────────────────────────── */}
@@ -562,6 +551,24 @@ export function AppShell({
 
         <div className="ot-shell__sidebar-spacer" />
 
+        {/* Bottom-anchored Preferences entry */}
+        <div className="ot-shell__nav-divider" />
+        <ul className="ot-shell__nav">
+          <li>
+            <button
+              type="button"
+              className="ot-shell__nav-item"
+              aria-current={currentRoute === 'preferences' ? 'page' : undefined}
+              onClick={() => onNavigate('preferences')}
+            >
+              <span className="ot-shell__nav-icon" aria-hidden="true">
+                <Settings size={18} />
+              </span>
+              <span className="ot-shell__nav-label">{t('shell.nav.preferences')}</span>
+            </button>
+          </li>
+        </ul>
+
         <div className="ot-shell__user-strip">
           <div className="ot-shell__user-avatar" aria-hidden="true">
             {profileLoading ? '…' : getInitials(profile?.name)}
@@ -584,14 +591,6 @@ export function AppShell({
                   : '—'}
             </div>
           </div>
-          <button
-            type="button"
-            className="ot-shell__user-logout"
-            title={t('shell.user.logout') satisfies string}
-            aria-label={t('shell.user.logout') satisfies string}
-          >
-            <LogOut size={14} aria-hidden="true" />
-          </button>
         </div>
       </nav>
 
