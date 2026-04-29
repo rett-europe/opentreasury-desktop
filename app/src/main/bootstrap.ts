@@ -14,15 +14,18 @@
 
 import { app } from 'electron';
 import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
 import { JsonFileEventLog } from '../core/eventLog/index.js';
 import type { EventLog, DomainEvent } from '../core/eventLog/index.js';
 import { replayEvents, getReadModel } from '../core/query/reducers.js';
 import type { ReadModel } from '../core/query/types.js';
 import { buildDevSeedEvents } from './devSeed.js';
 import { loadProfile, type Profile } from './profile.js';
+import { loadAppConfig, type AppConfig } from './config.js';
 
 let eventLogInstance: EventLog | null = null;
 let profileInstance: Profile | null = null;
+let appConfigInstance: AppConfig | null = null;
 let bootstrapped = false;
 
 export function getEventLog(): EventLog {
@@ -59,28 +62,116 @@ export function setProfile(profile: Profile | null): void {
 }
 
 /**
- * Resolve the event-log directory under Electron's userData path.
+ * Get the loaded app config.
+ */
+export function getAppConfig(): AppConfig {
+  if (!bootstrapped || appConfigInstance === null) {
+    throw new Error('[bootstrap] getAppConfig() called before initializeApp() resolved');
+  }
+  return appConfigInstance;
+}
+
+/**
+ * Update the in-memory app config cache after a save. Called by the
+ * config:setDataDir IPC handler (P1-2 #149) after writing to disk.
+ */
+export function setAppConfig(config: AppConfig): void {
+  appConfigInstance = config;
+}
+
+/**
+ * Resolve the event-log directory from app config, env override, or default.
  *
- * The sub-directory name defaults to `dev-events` (the historical demo-seed
- * location), but can be overridden via the `OT_DATA_DIR` env var. This lets
- * contributors run the app against an isolated data folder (e.g. a personal
- * dogfood sandbox) without wiping the demo seed — and lets them switch back
- * and forth by only changing the launch command.
+ * Priority order (highest to lowest):
+ *   1. OT_DATA_DIR env var (relaxed to accept absolute paths in P0-3)
+ *   2. appConfig.dataDir (from userData/app-config.json)
+ *   3. Default: <userData>/dev-events
  *
- * The value is treated as a plain folder name, joined relative to the
- * Electron userData path. Absolute paths and path separators are rejected to
- * keep every dataset scoped under userData.
+ * P0-3 trial-readiness changes:
+ *   - Absolute paths are now allowed (for trial one-writer posture)
+ *   - Validates the path exists; attempts mkdir -p if missing
+ *   - Falls back to default on validation failure
  *
  * NOTE: app.getPath('userData') must be called AFTER app.whenReady() resolves
  * — before that the path can change (Electron initializes it as part of the
  * bootstrap sequence). initializeApp() is therefore only safe to invoke inside
  * the whenReady() callback in main/index.ts.
  */
-function resolveEventLogDir(): string {
-  const override = process.env['OT_DATA_DIR']?.trim();
-  const subdir =
-    override && !/[\\/]/.test(override) && !path.isAbsolute(override) ? override : 'dev-events';
-  return path.join(app.getPath('userData'), subdir);
+async function resolveEventLogDir(userDataDir: string, appConfig: AppConfig): Promise<string> {
+  const envOverride = process.env['OT_DATA_DIR']?.trim();
+  const configPath = appConfig.dataDir;
+
+  // Priority 1: OT_DATA_DIR env var (now accepts absolute paths)
+  if (envOverride) {
+    const candidate = path.isAbsolute(envOverride)
+      ? envOverride
+      : path.join(userDataDir, envOverride);
+
+    // Validate and ensure directory exists
+    const validated = await validateAndCreateDir(candidate, 'OT_DATA_DIR env override');
+    if (validated) return validated;
+  }
+
+  // Priority 2: appConfig.dataDir (from app-config.json)
+  if (configPath) {
+    const candidate = path.isAbsolute(configPath) ? configPath : path.join(userDataDir, configPath);
+
+    // Validate and ensure directory exists
+    const validated = await validateAndCreateDir(candidate, 'app-config.json dataDir');
+    if (validated) return validated;
+  }
+
+  // Priority 3: Default (<userData>/dev-events)
+  const defaultPath = path.join(userDataDir, 'dev-events');
+  const validated = await validateAndCreateDir(defaultPath, 'default dev-events');
+  if (validated) return validated;
+
+  // Fallback: return default path even if mkdir failed (JsonFileEventLog will handle it)
+  return defaultPath;
+}
+
+/**
+ * Validate a directory path and create it if it doesn't exist.
+ * Returns the path if valid, null if validation/creation fails.
+ */
+async function validateAndCreateDir(dirPath: string, source: string): Promise<string | null> {
+  // Reject obvious red flags
+  if (!dirPath || dirPath.includes('\0')) {
+    // eslint-disable-next-line no-console
+    console.warn(`[bootstrap] Invalid dataDir from ${source}: empty or contains null bytes`);
+    return null;
+  }
+
+  try {
+    // Check if directory exists
+    const stats = await fs.stat(dirPath);
+    if (!stats.isDirectory()) {
+      // eslint-disable-next-line no-console
+      console.warn(`[bootstrap] dataDir from ${source} exists but is not a directory: ${dirPath}`);
+      return null;
+    }
+    return dirPath;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      // Directory doesn't exist — attempt to create it
+      try {
+        await fs.mkdir(dirPath, { recursive: true });
+        // eslint-disable-next-line no-console
+        console.log(`[bootstrap] Created dataDir from ${source}: ${dirPath}`);
+        return dirPath;
+      } catch (mkdirErr) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[bootstrap] Failed to create dataDir from ${source} (${dirPath}): ${mkdirErr}`,
+        );
+        return null;
+      }
+    }
+    // Other stat errors (permission denied, etc.) — log and reject
+    // eslint-disable-next-line no-console
+    console.warn(`[bootstrap] Failed to access dataDir from ${source} (${dirPath}): ${err}`);
+    return null;
+  }
 }
 
 /**
@@ -105,11 +196,12 @@ function shouldSeed(): boolean {
  * Steps:
  *   1. Load profile.json from userData (P0-2). If missing, profile === null
  *      and the renderer's ProfileSetupModal will show.
- *   2. Construct the JsonFileEventLog under %APPDATA%/opentreasury/dev-events.
- *   3. Load existing events from disk.
- *   4. If the log is empty AND NODE_ENV !== 'production', emit the dev-seed
+ *   2. Load app-config.json from userData (P0-3). If missing, use defaults.
+ *   3. Construct the JsonFileEventLog under the resolved dataDir.
+ *   4. Load existing events from disk.
+ *   5. If the log is empty AND NODE_ENV !== 'production', emit the dev-seed
  *      events through append() so the app has prototype-shaped data to show.
- *   5. Replay the final event list into the reducer singleton.
+ *   6. Replay the final event list into the reducer singleton.
  */
 export async function initializeApp(): Promise<void> {
   if (bootstrapped) return;
@@ -129,7 +221,14 @@ export async function initializeApp(): Promise<void> {
     console.log('[bootstrap] no profile.json found — first-launch setup required');
   }
 
-  const dir = resolveEventLogDir();
+  // P0-3: Load app config (dataDir, readOnly). If missing, use defaults.
+  appConfigInstance = await loadAppConfig(userDataDir);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[bootstrap] loaded app config (dataDir: ${appConfigInstance.dataDir ?? 'default'}, readOnly: ${appConfigInstance.readOnly})`,
+  );
+
+  const dir = await resolveEventLogDir(userDataDir, appConfigInstance);
   const log = new JsonFileEventLog({ dir });
 
   let events = await log.load();
