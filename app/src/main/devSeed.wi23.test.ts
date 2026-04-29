@@ -21,6 +21,15 @@ import { applyEvent, getReadModel, resetReadModel } from '../core/query/reducers
 import type { DomainEvent } from '../core/events/schemas';
 import { buildDevSeedEvents } from './devSeed';
 
+// Stable test inputs — replay-only, no envelope validation distinguishes
+// these from real ULIDs. The shape (datasetId/actorDeviceId/actorUserId) is
+// what `buildDevSeedEvents` requires post-P1-1.
+const TEST_DEPS = {
+  datasetId: '01TESTDATASETIDXXXXXXXXXXX',
+  actorDeviceId: '01TESTDEVICEIDXXXXXXXXXXX',
+  actorUserId: '01TESTUSERIDXXXXXXXXXXXXXX',
+} as const;
+
 function replayAll(events: readonly DomainEvent[]): void {
   for (const e of events) applyEvent(e);
 }
@@ -31,7 +40,7 @@ describe('WI-23 replay invariants over devSeed stream', () => {
   });
 
   it('I1 — every config entity id is referenced by at least one transaction (ID continuity)', () => {
-    const events = buildDevSeedEvents();
+    const events = buildDevSeedEvents(TEST_DEPS);
     replayAll(events);
     const model = getReadModel();
 
@@ -65,7 +74,7 @@ describe('WI-23 replay invariants over devSeed stream', () => {
   });
 
   it('I2 — every transaction references a known account/category/tags (no-orphan)', () => {
-    const events = buildDevSeedEvents();
+    const events = buildDevSeedEvents(TEST_DEPS);
     replayAll(events);
     const model = getReadModel();
 
@@ -93,14 +102,14 @@ describe('WI-23 replay invariants over devSeed stream', () => {
   });
 
   it('dev-seed emits no legacy event types (account.created | category.created | tag.created)', () => {
-    const events = buildDevSeedEvents();
+    const events = buildDevSeedEvents(TEST_DEPS);
     const legacyTypes = new Set(['account.created', 'category.created', 'tag.created']);
     const offenders = events.filter((e) => legacyTypes.has(String((e as { type: string }).type)));
     expect(offenders).toHaveLength(0);
   });
 
   it('every dev-seed AccountCreated / CategoryCreated / TagCreated event carries sortOrder', () => {
-    const events = buildDevSeedEvents();
+    const events = buildDevSeedEvents(TEST_DEPS);
     for (const e of events) {
       const t = (e as { type: string }).type;
       if (t === 'AccountCreated' || t === 'CategoryCreated' || t === 'TagCreated') {
