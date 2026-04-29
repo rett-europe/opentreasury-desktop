@@ -8,6 +8,7 @@ import { InsightsDetailScreen } from './screens/InsightsDetailScreen/index.js';
 import { MovementsScreen } from './screens/MovementsScreen/index.js';
 import { PanelScreen } from './screens/PanelScreen/index.js';
 import { SaldoScreen } from './screens/SaldoScreen/index.js';
+import { SettingsScreen } from './screens/SettingsScreen/index.js';
 import { thisYear } from './utils/datePresets.js';
 
 /**
@@ -162,6 +163,8 @@ export function App(): JSX.Element {
           onImportComplete={bumpConfigRevision}
           onNavigateToMovements={() => setRoute('movements')}
         />
+      ) : route === 'settings' ? (
+        <SettingsScreen />
       ) : (
         <SaldoScreen />
       )}

@@ -31,7 +31,8 @@ export type Route =
   | 'datos'
   | 'cuentas'
   | 'categorias'
-  | 'etiquetas';
+  | 'etiquetas'
+  | 'settings';
 
 export interface AppShellProps {
   readonly currentRoute: Route;
@@ -469,8 +470,9 @@ export function AppShell({
         <button
           type="button"
           className="ot-shell__icon-btn"
-          title={t('shell.theme.label') satisfies string}
-          aria-label="Settings"
+          title={t('shell.settings.label') satisfies string}
+          aria-label={t('shell.settings.label') satisfies string}
+          onClick={() => onNavigate('settings')}
         >
           <Settings size={18} aria-hidden="true" />
         </button>

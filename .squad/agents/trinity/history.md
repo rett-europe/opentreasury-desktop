@@ -98,6 +98,38 @@ Delivered 6 v1-quality bar items for SPEC-023 splits feature (issue #59):
 - Morpheus PR #117 (IPC handlers) merged ✅ to unblock this wave
 - Parallel checkout race with Cypher E2E avoided by staggered branch creation (day-old lesson documented in history)
 - Cypher's E2E PR #119 closed (false-green detection) — will re-open post-Wave-B-merge with real assertions
+
+**2026-04-29 — PR #162: Settings screen with data folder row (squad/152-settings-data-folder)**
+
+Delivered P1-5 (trial-readiness) — Settings screen with data folder display and read-only mode indicator.
+
+1. **New 'settings' route:** Added to `Route` union type in AppShell. Settings button in topbar now navigates to the settings route instead of being a dead button.
+
+2. **SettingsScreen component:** Shows current `dataDir` from `window.opentreasury.config.get()`. When `dataDir === null`, displays "(default)" marker (the actual default path `<userData>/dev-events` is computed server-side in bootstrap.ts). When `appConfig.readOnly === true`, shows a "Read-only mode" badge.
+
+3. **"Change..." button stub:** The button is disabled with a tooltip explaining that the folder picker + `setDataDir` IPC will arrive in P1-2 (#149). Once that lands, this screen will call `window.opentreasury.config.setDataDir()` and trigger an app relaunch. For now, a note explains "Folder picker arrives with the next release (P1-2)."
+
+4. **IPC wiring:** Extended `app/src/preload/index.ts` to expose `window.opentreasury.config.get()` (the `config:get` handler was already registered by Morpheus in P0-3).
+
+5. **i18n:** Added `settings.dataFolder.*` keys to `en/common.json` and `es/common.json` — title, defaultMarker, changeButton, readonlyBadge, changeDisabledTooltip, changeComingSoon. Also added `shell.settings.label` for the topbar button tooltip.
+
+6. **Component tests:** 7 tests covering loading state, error state, default path, custom path, readonly badge presence/absence, and disabled button state.
+
+**Files changed:**
+- `app/src/preload/index.ts` — added `config.get()` to API surface
+- `app/src/renderer/App.tsx` — imported SettingsScreen, added route case
+- `app/src/renderer/screens/AppShell/AppShell.tsx` — added 'settings' to Route type, wired Settings button onClick
+- `app/src/renderer/screens/SettingsScreen/*` — new component (tsx, css, test, index)
+- `app/src/renderer/locales/{en,es}/common.json` — added settings.* and shell.settings.* keys
+
+**Validation:** All tests pass (7/7 SettingsScreen tests, full suite green). Typecheck, lint, format all pass.
+
+**Out of scope (as planned):**
+- Folder picker UI + `config:setDataDir` IPC → P1-2 (Morpheus, #149)
+- OneDrive Personal blocklist → P2-4 (Trinity, separate ticket)
+- Relaunch flow → P1-2 (Morpheus)
+
+**Coordination note:** Avoided touching main-process files — Switch is concurrently working on `squad/150-readonly-middleware` (P1-3). No file overlap.
 - Shared TransactionsTable component (PR #105) now single source of truth for tx list UI across screens (Reuse-First team rule adopted)
 
 **2026-05-02 — PR #105: Tag colors, dashboard chart (squad/dashboard-bugs-tags-recent-chart)**

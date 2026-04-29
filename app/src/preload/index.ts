@@ -172,6 +172,7 @@ import {
   type InsightsLabelByAccountRequest,
   type InsightsLabelByAccountResponse,
 } from '../shared/ipc-contracts/insights.js';
+import { IPC_CONFIG_GET, type ConfigGetResponse } from '../shared/ipc-contracts/config.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -374,6 +375,11 @@ const api = {
     },
     getLastMapping: (req: LastMappingRequest): Promise<LastMappingResponse> => {
       return ipcRenderer.invoke(IPC_IMPORT_LAST_MAPPING, req);
+    },
+  },
+  config: {
+    get: (): Promise<ConfigGetResponse> => {
+      return ipcRenderer.invoke(IPC_CONFIG_GET);
     },
   },
 } as const;
