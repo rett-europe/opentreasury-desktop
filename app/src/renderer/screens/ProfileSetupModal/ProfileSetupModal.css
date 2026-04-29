@@ -106,8 +106,8 @@
   padding: var(--space-3) var(--space-6);
   border: none;
   border-radius: var(--radius-md);
-  background: var(--color-brand);
-  color: #fff;
+  background: var(--color-brand-primary);
+  color: var(--color-brand-on-primary);
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -117,7 +117,7 @@
 }
 
 .ot-profile-setup-modal__submit:hover:not(:disabled) {
-  background: var(--color-brand-hover);
+  background: var(--color-brand-primary-light);
 }
 
 .ot-profile-setup-modal__submit:focus-visible {
