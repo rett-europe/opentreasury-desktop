@@ -37,6 +37,7 @@ let profileInstance: Profile | null = null;
 let appConfigInstance: AppConfig | null = null;
 let deviceIdInstance: string | null = null;
 let datasetIdInstance: string | null = null;
+let effectiveEventLogDir: string | null = null;
 let bootstrapped = false;
 
 export function getEventLog(): EventLog {
@@ -108,6 +109,17 @@ export function getDatasetId(): string {
     throw new Error('[bootstrap] getDatasetId() called before initializeApp() resolved');
   }
   return datasetIdInstance;
+}
+
+/**
+ * Get the effective event log directory (the actual absolute path in use).
+ * This is the resolved path after applying config, env overrides, and defaults.
+ */
+export function getEffectiveEventLogDir(): string {
+  if (!bootstrapped || effectiveEventLogDir === null) {
+    throw new Error('[bootstrap] getEffectiveEventLogDir() called before initializeApp() resolved');
+  }
+  return effectiveEventLogDir;
 }
 
 /**
@@ -265,6 +277,7 @@ export async function initializeApp(): Promise<void> {
   console.log(`[bootstrap] loaded device ID: ${deviceIdInstance}`);
 
   const dir = await resolveEventLogDir(userDataDir, appConfigInstance);
+  effectiveEventLogDir = dir;
 
   // P1-1: Load per-dataset ID from <dataDir>/dataset.json
   datasetIdInstance = await loadDatasetId(dir);

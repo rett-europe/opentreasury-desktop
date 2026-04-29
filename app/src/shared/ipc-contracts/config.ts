@@ -26,6 +26,7 @@ export const configGetRequestSchema = z.undefined().or(z.null()).or(z.object({})
 export const configGetResponseSchema = z.object({
   ok: z.literal(true),
   config: appConfigSchema,
+  effectiveDataDir: z.string(),
 });
 
 export type ConfigGetResponse = z.infer<typeof configGetResponseSchema>;

@@ -30,6 +30,7 @@ function makeConfigResponse(
       dataDir,
       readOnly,
     },
+    effectiveDataDir: dataDir ?? 'C:\\Users\\TestUser\\AppData\\Local\\OpenTreasury\\dev-events',
   };
 }
 
@@ -61,9 +62,13 @@ describe('SettingsScreen', () => {
     renderWithI18n();
 
     await waitFor(() => {
-      // Should show "(default)" marker
-      const markers = screen.queryAllByText(/default|predeterminada/i);
-      expect(markers.length).toBeGreaterThan(0);
+      // Should show the effective default path
+      expect(
+        screen.getByText('C:\\Users\\TestUser\\AppData\\Local\\OpenTreasury\\dev-events'),
+      ).toBeDefined();
+      // Should show "(default location)" badge
+      const badges = screen.queryAllByText(/default location|ubicación predeterminada/i);
+      expect(badges.length).toBeGreaterThan(0);
     });
   });
 
@@ -73,7 +78,10 @@ describe('SettingsScreen', () => {
     renderWithI18n();
 
     await waitFor(() => {
+      // Should display the effectiveDataDir (which equals the custom path)
       expect(screen.getByText(customPath)).toBeDefined();
+      // Should NOT show the default location note
+      expect(screen.queryByText(/default location/i)).toBeNull();
     });
   });
 

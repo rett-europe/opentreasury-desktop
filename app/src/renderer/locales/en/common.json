@@ -1098,11 +1098,14 @@
     "dataFolder": {
       "title": "Data folder",
       "defaultMarker": "(default)",
+      "defaultLocationNote": "(default location)",
+      "requirement": "Data must be stored in OneDrive for Business or a synced SharePoint library.",
       "changeButton": "Change…",
       "readonlyBadge": "Read-only mode",
       "restarting": "Restarting application…",
       "errors": {
         "oneDrivePersonal": "OneDrive Personal is not supported in v1. Please pick a folder inside OneDrive for Business or SharePoint. Support for Personal OneDrive is planned for v1.x.",
+        "notCorpLocation": "OpenTreasury data must live inside an OneDrive for Business or SharePoint folder so the trustees can share access. Local folders, Desktop, USB drives, and personal OneDrive are not supported. Pick a folder under 'OneDrive - {your organization}' or a synced SharePoint library.",
         "sameDir": "The selected folder is the same as the current data folder.",
         "invalidLocation": "Data folder must not be under the app's internal folder. Choose an external folder, e.g., on OneDrive for Business or SharePoint.",
         "notWritable": "The selected folder is not writable. Please choose a different location.",
