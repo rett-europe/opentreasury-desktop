@@ -102,8 +102,19 @@ describe('SettingsScreen', () => {
     expect(badge).toBeNull();
   });
 
-  it('renders the Change button as disabled', async () => {
+  it('renders the Change button (enabled when not readonly)', async () => {
     mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
+    renderWithI18n();
+
+    await waitFor(() => {
+      const changeButton = screen.getByRole('button', { name: /change|cambiar/i });
+      expect(changeButton).toBeDefined();
+      expect(changeButton.hasAttribute('disabled')).toBe(false);
+    });
+  });
+
+  it('disables the Change button when readonly mode is active', async () => {
+    mockConfigGet.mockResolvedValue(makeConfigResponse(null, true));
     renderWithI18n();
 
     await waitFor(() => {

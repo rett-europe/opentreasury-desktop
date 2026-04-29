@@ -50,8 +50,11 @@
       "datos": "Datos"
     },
     "user": {
-      "name": "Pedro Rocha",
-      "role": "Admin",
+      "roles": {
+        "treasurer": "Tesorero",
+        "admin": "Admin",
+        "viewer": "Observador"
+      },
       "logout": "Cerrar sesión"
     },
     "search": {
@@ -1097,8 +1100,15 @@
       "defaultMarker": "(predeterminada)",
       "changeButton": "Cambiar…",
       "readonlyBadge": "Modo de solo lectura",
-      "changeDisabledTooltip": "El cambio de carpeta de datos estará disponible en la próxima versión",
-      "changeComingSoon": "El selector de carpeta llegará con la próxima versión (P1-2)."
+      "restarting": "Reiniciando aplicación…",
+      "errors": {
+        "oneDrivePersonal": "OneDrive Personal no es compatible con v1. Por favor, selecciona una carpeta en OneDrive para empresas o SharePoint. El soporte para OneDrive Personal está planeado para v1.x.",
+        "sameDir": "La carpeta seleccionada es la misma que la carpeta de datos actual.",
+        "invalidLocation": "La carpeta de datos no debe estar en la carpeta interna de la aplicación. Elige una carpeta externa, por ejemplo, en OneDrive para empresas o SharePoint.",
+        "notWritable": "La carpeta seleccionada no tiene permisos de escritura. Por favor, elige otra ubicación.",
+        "datasetMismatch": "La carpeta seleccionada ya contiene datos de otra tesorería. Por favor, elige una carpeta vacía o la carpeta de la tesorería actual.",
+        "generic": "Error al cambiar carpeta de datos"
+      }
     }
   }
 }
