@@ -5,6 +5,11 @@
 // the same deterministic "fake ULID" values that devSeed.ts writes, so new
 // transactions sit in the same dataset as the seeded ones.
 //
+// P0-2 trial-readiness: `actorUserId` now comes from profile.json (loaded at
+// bootstrap), NOT from a constant. The handlers.ts transactionDeps wiring reads
+// `getProfile().userId` and passes it to every command. These constants remain
+// for DATASET_ID and ACTOR_DEVICE_ID only (replaced in P1-1).
+//
 // `newUlid()` returns a real 26-char Crockford-base32 ULID (ADR-001 C11):
 // 10 timestamp chars + 16 cryptographically random chars. Kept in main/ since
 // it depends on node:crypto which is unavailable in the renderer (C7).
@@ -20,8 +25,9 @@ function fakeUlid(seedKey: string): string {
 
 export const DATASET_ID = fakeUlid('DATASET01');
 export const ACTOR_DEVICE_ID = fakeUlid('DEVICE01');
-// P0-1 trial-readiness — temporary placeholder until P0-2 profile.json loads this
-export const ACTOR_USER_ID = fakeUlid('USER01');
+// P0-2 note: ACTOR_USER_ID removed — now sourced from profile.json via
+// getProfile().userId in handlers.ts. See P1-1 (#148) for DATASET_ID /
+// ACTOR_DEVICE_ID replacement.
 
 export function newUlid(): string {
   let time = Date.now();

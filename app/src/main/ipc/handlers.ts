@@ -208,9 +208,16 @@ import {
   handleInsightsLabelMonthlyEvolution,
   handleInsightsLabelByAccount,
 } from './handlers/insights.js';
-import { getEventLog } from '../bootstrap.js';
+import {
+  IPC_PROFILE_GET,
+  IPC_PROFILE_SAVE,
+  profileGetResponseSchema,
+  profileSaveResponseSchema,
+} from '../../shared/ipc-contracts/profile.js';
+import { handleProfileGet, handleProfileSave } from './handlers/profile.js';
+import { getEventLog, getProfile } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
-import { ACTOR_DEVICE_ID, ACTOR_USER_ID, DATASET_ID, newUlid } from '../ids.js';
+import { ACTOR_DEVICE_ID, DATASET_ID, newUlid } from '../ids.js';
 
 export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('app:ping', (_event, raw: unknown) => {
@@ -221,6 +228,17 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     const response = { ok: true as const, ts: Date.now() };
     // TODO(C13): validate the response too — belt-and-suspenders on the main side.
     return IpcSchemas['app:ping'].response.parse(response);
+  });
+
+  // P0-2 Profile handlers — trial-readiness
+  ipcMain.handle(IPC_PROFILE_GET, async (_event, raw: unknown) => {
+    const response = await handleProfileGet(raw);
+    return profileGetResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_PROFILE_SAVE, async (_event, raw: unknown) => {
+    const response = await handleProfileSave(raw);
+    return profileSaveResponseSchema.parse(response);
   });
 
   // Panel handlers — WI-2 mock implementations
@@ -309,6 +327,8 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
 
   // WI-12 — transaction.create + movements.list
   // WI-20 — transaction.update + transaction.delete
+  // P0-2 — actorUserId from loaded profile, not placeholder
+  const profile = getProfile();
   const transactionDeps = {
     eventLog: getEventLog(),
     getReadModel,
@@ -316,8 +336,9 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     newId: newUlid,
     datasetId: DATASET_ID,
     actorDeviceId: ACTOR_DEVICE_ID,
-    actorUserId: ACTOR_USER_ID, // P0-1 trial-readiness — placeholder until P0-2
-    actorIdentitySource: 'local' as const, // P0-1 trial-readiness — always 'local' for trial
+    // P0-2: Use profile.userId if available, otherwise sentinel for profile-pending state
+    actorUserId: profile?.userId ?? 'PROFILE_PENDING000000000',
+    actorIdentitySource: (profile?.identitySource ?? 'local') as 'local' | 'aad',
     dekVersion: 0,
   };
 

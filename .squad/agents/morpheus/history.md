@@ -2641,3 +2641,86 @@ Response: { ok: true, event: TransactionUpdatedEvent[] } | { ok: false, error: {
 - Append semantics simpler than replace semantics (no "what was there before" comparison)
 - Idempotent-skip requires tx lookup *before* event append; add to tests
 - UI single-select reduces error surface vs. multi-select + create
+
+---
+
+## 2026-05-05 — P0-2: Profile.json Schema + Bootstrap Load + IPC Handlers (PR #159)
+
+**Branch:** squad/146-profile-json-schema  
+**PR:** #159 (draft)  
+**Status:** Complete — awaiting review
+
+### Scope
+
+Implements trial-readiness P0-2: profile.json schema, bootstrap integration, and IPC handlers for profile:get / profile:save.
+
+### What Shipped
+
+1. **profile.ts** (new file):
+   - Zod schema: userId (26-char ULID), name, role, ngoName, identitySource ('local'|'aad'), createdAt (ISO timestamp)
+   - loadProfile(userDataDir): reads profile.json, returns null if missing/invalid (doesn't throw)
+   - saveProfile(userDataDir, profile): atomic writes (tmp → fsync → rename) for crash safety
+   - createDefaultProfile(): generates fresh ULID, empty name/role/ngoName fields (filled by ProfileSetupModal in P1-4)
+   - Exported TypeScript Profile type
+
+2. **bootstrap.ts wiring**:
+   - Loads profile at app start (after resolving userData path)
+   - Exposes getProfile(): Profile | null and setProfile(profile) for IPC handlers
+   - If profile is null, app proceeds — renderer's ProfileSetupModal (P1-4) will show
+
+3. **IPC handlers** (handlers/profile.ts):
+   - profile:get — returns { ok: true, profile: Profile | null }
+   - profile:save — validates with Zod, writes atomically, updates in-memory cache, returns saved profile
+   - Registered in handlers.ts after ping handler
+
+4. **Actor ID replacement**:
+   - Removed ACTOR_USER_ID constant from ids.ts
+   - Updated transactionDeps in handlers.ts to read actorUserId from getProfile().userId
+   - If profile is null, uses sentinel 'PROFILE_PENDING000000000' (fresh-start posture — no events before profile setup)
+   - devSeed.ts unchanged (already had local USER_ID constant)
+
+5. **Tests** (profile.test.ts):
+   - 16 new tests covering loadProfile/saveProfile/createDefaultProfile/schema validation
+   - Tests for atomic writes, tmp file cleanup, invalid JSON handling, missing/invalid schema cases
+   - All tests pass (849 total, +16 from profile tests)
+
+### Learnings
+
+**Atomic file write pattern (tmp → fsync → rename):**
+Critical for config files that must survive crashes. The pattern: write to .tmp, call fh.sync() to flush OS buffers, then fs.rename() for atomic replacement. If the app crashes mid-write, the .tmp is orphaned but the original file is intact. Used for profile.json; reusable for app-config.json (P0-3) and any future config persistence.
+
+**Profile load gating:**
+The profile is loaded BEFORE event log initialization in bootstrap.ts. This ensures profile.userId is available when transactionDeps are constructed. If loadProfile() throws (permission denied, disk full), bootstrap fails early with a clear error — better than silently proceeding with a sentinel ID.
+
+**IPC contract conventions reused:**
+Followed the existing discriminated-union pattern ({ ok: true, ... } | { ok: false, error: { code, message } }) for profile:save. Error codes: SCHEMA_INVALID (Zod parse failure), WRITE_FAILED (fs errors). profile:get is simpler (always succeeds, returns { ok: true, profile: ... }).
+
+**Zod schema flexibility:**
+Originally required min(1) for name/role/ngoName, but createDefaultProfile returns empty strings (filled by ProfileSetupModal later). Changed to max-only validation so the schema accepts both fresh-install state (empty fields) and filled state. This avoids a two-schema approach (create vs. save).
+
+**Test isolation with os.tmpdir():**
+Each test creates a unique temp directory (Date.now() + Math.random()) under os.tmpdir() for file I/O tests. Cleanup is best-effort (try/catch on fs.rm). Avoids test pollution and doesn't leave artifacts in the repo.
+
+### Files Changed
+
+- app/src/main/profile.ts (new)
+- app/src/main/profile.test.ts (new)
+- app/src/shared/ipc-contracts/profile.ts (new)
+- app/src/main/ipc/handlers/profile.ts (new)
+- app/src/main/bootstrap.ts (added profile loading + getProfile/setProfile exports)
+- app/src/main/ids.ts (removed ACTOR_USER_ID constant, updated comments)
+- app/src/main/ipc/handlers.ts (registered profile:get/profile:save, updated transactionDeps to use profile.userId)
+
+### Validation
+
+✅ npm run typecheck  
+✅ npm run lint (max-warnings 0)  
+✅ npm run format:check  
+✅ npm test — 849 passed (+16 from profile.test.ts)
+
+### Next Steps (out of scope for P0-2)
+
+- P0-3 (#147): app-config.json schema (dataDir, readOnly)
+- P1-1 (#148): Replace DATASET_ID/ACTOR_DEVICE_ID constants with profile-sourced values
+- P1-4: ProfileSetupModal renderer component (Trinity)
+- P2-1 (#153): Update ~50 test files for new actor ID pattern (Cypher)

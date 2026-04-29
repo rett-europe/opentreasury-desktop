@@ -19,8 +19,10 @@ import type { EventLog, DomainEvent } from '../core/eventLog/index.js';
 import { replayEvents, getReadModel } from '../core/query/reducers.js';
 import type { ReadModel } from '../core/query/types.js';
 import { buildDevSeedEvents } from './devSeed.js';
+import { loadProfile, type Profile } from './profile.js';
 
 let eventLogInstance: EventLog | null = null;
+let profileInstance: Profile | null = null;
 let bootstrapped = false;
 
 export function getEventLog(): EventLog {
@@ -35,6 +37,25 @@ export function getHydratedReadModel(): ReadModel {
     throw new Error('[bootstrap] getHydratedReadModel() called before initializeApp() resolved');
   }
   return getReadModel();
+}
+
+/**
+ * Get the loaded profile. Returns null if no profile exists yet (first launch).
+ * The renderer's ProfileSetupModal (P1-4) handles the first-launch UX.
+ */
+export function getProfile(): Profile | null {
+  if (!bootstrapped) {
+    throw new Error('[bootstrap] getProfile() called before initializeApp() resolved');
+  }
+  return profileInstance;
+}
+
+/**
+ * Update the in-memory profile cache after a save. Called by the profile:save
+ * IPC handler after writing to disk.
+ */
+export function setProfile(profile: Profile | null): void {
+  profileInstance = profile;
 }
 
 /**
@@ -82,14 +103,31 @@ function shouldSeed(): boolean {
  * One-shot bootstrap. Safe to call multiple times (second call is a no-op).
  *
  * Steps:
- *   1. Construct the JsonFileEventLog under %APPDATA%/opentreasury/dev-events.
- *   2. Load existing events from disk.
- *   3. If the log is empty AND NODE_ENV !== 'production', emit the dev-seed
+ *   1. Load profile.json from userData (P0-2). If missing, profile === null
+ *      and the renderer's ProfileSetupModal will show.
+ *   2. Construct the JsonFileEventLog under %APPDATA%/opentreasury/dev-events.
+ *   3. Load existing events from disk.
+ *   4. If the log is empty AND NODE_ENV !== 'production', emit the dev-seed
  *      events through append() so the app has prototype-shaped data to show.
- *   4. Replay the final event list into the reducer singleton.
+ *   5. Replay the final event list into the reducer singleton.
  */
 export async function initializeApp(): Promise<void> {
   if (bootstrapped) return;
+
+  const userDataDir = app.getPath('userData');
+
+  // P0-2: Load profile before initializing event log. If missing, the app
+  // continues with profile === null; the renderer will show ProfileSetupModal.
+  profileInstance = await loadProfile(userDataDir);
+  if (profileInstance) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[bootstrap] loaded profile for ${profileInstance.name} (${profileInstance.userId})`,
+    );
+  } else {
+    // eslint-disable-next-line no-console
+    console.log('[bootstrap] no profile.json found — first-launch setup required');
+  }
 
   const dir = resolveEventLogDir();
   const log = new JsonFileEventLog({ dir });
