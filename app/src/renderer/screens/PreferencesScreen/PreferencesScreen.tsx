@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { classifySyncRoot } from '../../utils/syncRoot.js';
+import type { Profile } from '../../../shared/ipc-contracts/profile.js';
 import './PreferencesScreen.css';
 
 type LoadState = 'loading' | 'loaded' | 'error';
@@ -69,6 +70,7 @@ export function PreferencesScreen(): JSX.Element {
     role: '',
     ngoName: '',
   });
+  const [fullProfile, setFullProfile] = useState<Profile | null>(null); // Store full profile for save
   const [profileErrors, setProfileErrors] = useState<ProfileErrors>({});
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [otherRoleText, setOtherRoleText] = useState<string>('');
@@ -124,6 +126,7 @@ export function PreferencesScreen(): JSX.Element {
           const profileSnapshot = { name, role, ngoName };
           setProfileData(profileSnapshot);
           setProfileOriginal(profileSnapshot);
+          setFullProfile(response.profile); // Store full profile
 
           // Parse role into dropdown selection
           const normalizedRole = role.toLowerCase();
@@ -258,21 +261,28 @@ export function PreferencesScreen(): JSX.Element {
       return;
     }
 
+    if (!fullProfile) {
+      console.error('[PreferencesScreen] Cannot save: full profile not loaded');
+      setProfileState('error');
+      return;
+    }
+
     setProfileState('saving');
 
     try {
       const effectiveRole = selectedRole === 'other' ? otherRoleText.trim() : selectedRole;
 
       const response = await window.opentreasury.profile.save({
-        userId: '', // Server will preserve existing userId
+        userId: fullProfile.userId,
         name: profileData.name.trim(),
         role: effectiveRole,
         ngoName: profileData.ngoName.trim(),
-        identitySource: 'local',
-        createdAt: new Date().toISOString(),
+        identitySource: fullProfile.identitySource,
+        createdAt: fullProfile.createdAt,
       });
 
       if (!response.ok) {
+        console.error('[PreferencesScreen] Profile save failed:', response.error);
         setProfileState('error');
         return;
       }
@@ -284,6 +294,7 @@ export function PreferencesScreen(): JSX.Element {
       };
       setProfileData(updatedData);
       setProfileOriginal(updatedData);
+      setFullProfile(response.profile); // Update full profile with response
       setProfileState('saved');
 
       setTimeout(() => {
@@ -296,7 +307,7 @@ export function PreferencesScreen(): JSX.Element {
       console.error('[PreferencesScreen] Failed to save profile:', err);
       setProfileState('error');
     }
-  }, [profileData, selectedRole, otherRoleText, validateProfile]);
+  }, [profileData, selectedRole, otherRoleText, fullProfile, validateProfile]);
 
   // Detect if profile changed
   const profileChanged =
@@ -433,6 +444,10 @@ export function PreferencesScreen(): JSX.Element {
                   ? t('preferences.profile.saved')
                   : t('preferences.profile.saveButton')}
             </button>
+
+            {profileState === 'error' && (
+              <p className="ot-preferences__error-msg">{t('preferences.profile.saveFailed')}</p>
+            )}
           </div>
         </section>
 
