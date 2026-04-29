@@ -48,6 +48,8 @@ export interface TransactionCreateHandlerDeps {
   readonly newId: () => string;
   readonly datasetId: string;
   readonly actorDeviceId: string;
+  readonly actorUserId: string; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
   readonly dekVersion?: number;
   /** Override for tests — defaults to core reducer's applyEvent singleton. */
   readonly applyEvent?: typeof applyEvent;
@@ -89,6 +91,8 @@ export function createTransactionCreateHandler(
         readModel: deps.getReadModel(),
         datasetId: deps.datasetId,
         actorDeviceId: deps.actorDeviceId,
+        actorUserId: deps.actorUserId,
+        actorIdentitySource: deps.actorIdentitySource,
         dekVersion: deps.dekVersion ?? 0,
       });
 
@@ -129,6 +133,8 @@ export interface TransactionUpdateHandlerDeps {
   readonly newId: () => string;
   readonly datasetId: string;
   readonly actorDeviceId: string;
+  readonly actorUserId: string; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
   readonly dekVersion?: number;
   readonly applyEvent?: typeof applyEvent;
 }
@@ -189,6 +195,8 @@ export function createTransactionUpdateHandler(
         readModel: deps.getReadModel(),
         datasetId: deps.datasetId,
         actorDeviceId: deps.actorDeviceId,
+        actorUserId: deps.actorUserId,
+        actorIdentitySource: deps.actorIdentitySource,
         dekVersion: deps.dekVersion ?? 0,
       });
 
@@ -226,6 +234,8 @@ export interface TransactionDeleteHandlerDeps {
   readonly newId: () => string;
   readonly datasetId: string;
   readonly actorDeviceId: string;
+  readonly actorUserId: string; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
   readonly dekVersion?: number;
   readonly applyEvent?: typeof applyEvent;
 }
@@ -258,6 +268,8 @@ export function createTransactionDeleteHandler(
         readModel: deps.getReadModel(),
         datasetId: deps.datasetId,
         actorDeviceId: deps.actorDeviceId,
+        actorUserId: deps.actorUserId,
+        actorIdentitySource: deps.actorIdentitySource,
         dekVersion: deps.dekVersion ?? 0,
       });
 
@@ -295,6 +307,8 @@ export interface TransactionBulkUpdateHandlerDeps {
   readonly newId: () => string;
   readonly datasetId: string;
   readonly actorDeviceId: string;
+  readonly actorUserId: string; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
   readonly dekVersion?: number;
   readonly applyEvent?: typeof applyEvent;
 }
@@ -346,6 +360,8 @@ export function createTransactionBulkUpdateHandler(
           readModel: deps.getReadModel(),
           datasetId: deps.datasetId,
           actorDeviceId: deps.actorDeviceId,
+          actorUserId: deps.actorUserId,
+          actorIdentitySource: deps.actorIdentitySource,
           dekVersion: deps.dekVersion ?? 0,
         },
       );
@@ -399,6 +415,8 @@ export interface TransactionBulkAddLabelHandlerDeps {
   readonly newId: () => string;
   readonly datasetId: string;
   readonly actorDeviceId: string;
+  readonly actorUserId: string; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
   readonly dekVersion?: number;
   readonly applyEvent?: typeof applyEvent;
 }
@@ -461,6 +479,8 @@ export function createTransactionBulkAddLabelHandler(
           readModel: deps.getReadModel(),
           datasetId: deps.datasetId,
           actorDeviceId: deps.actorDeviceId,
+          actorUserId: deps.actorUserId,
+          actorIdentitySource: deps.actorIdentitySource,
           dekVersion: deps.dekVersion ?? 0,
         },
       );

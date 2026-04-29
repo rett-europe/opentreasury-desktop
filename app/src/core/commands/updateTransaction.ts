@@ -29,6 +29,8 @@ export interface UpdateTransactionDeps {
   readonly readModel: ReadModel;
   readonly datasetId: string;
   readonly actorDeviceId: string;
+  readonly actorUserId: string; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
   readonly dekVersion?: number;
 }
 
@@ -187,6 +189,8 @@ export function updateTransaction(
     type: 'tx.updated',
     datasetId: deps.datasetId,
     actorDeviceId: deps.actorDeviceId,
+    actorUserId: deps.actorUserId,
+    actorIdentitySource: deps.actorIdentitySource,
     createdAt: updatedAt, // Event timestamp is when the edit occurred
     dekVersion: deps.dekVersion ?? 1,
     version: 1,

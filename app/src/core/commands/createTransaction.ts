@@ -39,6 +39,8 @@ export interface CreateTransactionDeps {
   readonly readModel: ReadModel;
   readonly datasetId: string; // ULID of the active dataset
   readonly actorDeviceId: string; // ULID of the current device
+  readonly actorUserId: string; // ULID of the current user — P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
   readonly dekVersion?: number; // defaults to 1 for M1.5
 }
 
@@ -181,6 +183,8 @@ export function createTransaction(
     type: 'tx.created',
     datasetId: deps.datasetId,
     actorDeviceId: deps.actorDeviceId,
+    actorUserId: deps.actorUserId,
+    actorIdentitySource: deps.actorIdentitySource,
     createdAt,
     dekVersion: deps.dekVersion ?? 1,
     version: 1,

@@ -30,6 +30,8 @@ export interface BulkAddLabelDeps {
   readonly readModel: ReadModel;
   readonly datasetId: string;
   readonly actorDeviceId: string;
+  readonly actorUserId: string; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
   readonly dekVersion?: number;
 }
 
@@ -134,6 +136,8 @@ export function bulkAddLabelToTransactions(
       type: 'tx.updated',
       datasetId: deps.datasetId,
       actorDeviceId: deps.actorDeviceId,
+      actorUserId: deps.actorUserId,
+      actorIdentitySource: deps.actorIdentitySource,
       createdAt: updatedAt,
       dekVersion: deps.dekVersion ?? 0,
       version: 1,
