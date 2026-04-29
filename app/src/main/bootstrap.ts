@@ -22,6 +22,7 @@ import type { ReadModel } from '../core/query/types.js';
 import { buildDevSeedEvents } from './devSeed.js';
 import { loadProfile, type Profile } from './profile.js';
 import { loadAppConfig, type AppConfig } from './config.js';
+import { createReadOnlyEventLog } from './eventLog-readonly-wrapper.js';
 
 let eventLogInstance: EventLog | null = null;
 let profileInstance: Profile | null = null;
@@ -229,7 +230,10 @@ export async function initializeApp(): Promise<void> {
   );
 
   const dir = await resolveEventLogDir(userDataDir, appConfigInstance);
-  const log = new JsonFileEventLog({ dir });
+  const innerLog = new JsonFileEventLog({ dir });
+
+  // P1-3: Wrap in read-only proxy when appConfig.readOnly === true
+  const log = appConfigInstance.readOnly ? createReadOnlyEventLog(innerLog) : innerLog;
 
   let events = await log.load();
 
