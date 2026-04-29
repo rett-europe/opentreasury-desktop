@@ -2809,3 +2809,19 @@ Config is loaded AFTER profile but BEFORE event log. This order ensures: (1) pro
 - P1-3 (#150): readOnly middleware that blocks eventLog.append (Switch)
 - P1-5 (#152): Settings UI row to display/change dataDir (Trinity)
 - P2-4 (#156): Block OneDrive Personal in Settings folder picker (Trinity)
+
+### Per-laptop device identity pattern (P1-1, 2026-04-29)
+
+When a user runs the app on multiple devices (e.g., work laptop + home laptop), each device gets its own stable `actorDeviceId` persisted in `userData/device.json`. This ID is a real ULID, generated on first launch, and reused across app restarts. The atomic write pattern (tmp → fsync → rename) ensures crash safety even during power loss.
+
+**Why per-device matters:** When analyzing audit trails, "which laptop wrote this event?" is a security/debugging question distinct from "which person?". Device ID + user ID together give complete actor context.
+
+### Per-folder dataset identity pattern (P1-1, 2026-04-29)
+
+When a user changes `dataDir` (P1-2), the new folder becomes a separate workspace with its own `dataset.json`. This means:
+- Treasurer working on 2025 audit: `C:\NGO\2025\` → one dataset ID
+- Same treasurer working on 2026 budget: `C:\NGO\2026\` → different dataset ID
+
+Events from different datasets never merge — each folder is isolated. The `datasetId` field stamps every event with "which workspace am I part of?", enabling future multi-dataset queries (e.g., "compare 2025 vs 2026 spending by category").
+
+The dataset ID is persisted to `<dataDir>/dataset.json` on first event-log creation using the same atomic write pattern as device.json.

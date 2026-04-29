@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { Profile } from '../../../shared/ipc-contracts/profile.js';
 import {
   ArrowLeftRight,
   ChartLine,
@@ -137,9 +138,25 @@ export function AppShell({
   const { t, i18n } = useTranslation('common');
   const { theme, setTheme } = useTheme();
 
-  // TODO(P0-2): Replace with real profile loading from IPC once #146 lands
-  // For P1-4, stub with local state — null triggers first-run modal
-  const [profile, setProfile] = useState<ProfileSetupData | null>(null);
+  // P1-1: Load profile from IPC on mount
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await window.opentreasury.profile.get();
+        if (response.ok) {
+          setProfile(response.profile);
+        }
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[AppShell] failed to load profile:', err);
+      } finally {
+        setProfileLoading(false);
+      }
+    })();
+  }, []);
 
   // SPEC-024 — Search state
   //
@@ -346,13 +363,32 @@ export function AppShell({
     setSearchInputValue(searchQuery);
   }, [searchQuery]);
 
-  const handleProfileComplete = useCallback((profileData: ProfileSetupData) => {
-    setProfile(profileData);
-    // TODO(P0-2): Call window.api.profile.save(profileData) here once IPC is wired
+  const handleProfileComplete = useCallback(async (profileData: ProfileSetupData) => {
+    try {
+      // P1-1: Save profile via IPC (includes generated userId from ProfileSetupModal)
+      const response = await window.opentreasury.profile.save({
+        userId: profileData.userId,
+        name: profileData.name,
+        role: profileData.role,
+        ngoName: profileData.ngoName,
+        identitySource: 'local',
+        createdAt: new Date().toISOString(),
+      });
+
+      if (response.ok) {
+        setProfile(response.profile);
+      } else {
+        // eslint-disable-next-line no-console
+        console.error('[AppShell] failed to save profile:', response.error);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[AppShell] failed to save profile:', err);
+    }
   }, []);
 
   // Render-gate: if no profile, show setup modal instead of shell
-  if (profile === null) {
+  if (!profileLoading && profile === null) {
     return <ProfileSetupModal isOpen={true} onComplete={handleProfileComplete} />;
   }
 
@@ -382,7 +418,9 @@ export function AppShell({
         </button>
 
         <span className="ot-shell__divider-v" aria-hidden="true" />
-        <span className="ot-shell__tenant">Demo NGO</span>
+        <span className="ot-shell__tenant">
+          {profileLoading ? '…' : (profile?.ngoName ?? 'OpenTreasury')}
+        </span>
 
         <div className="ot-shell__topbar-spacer" />
 

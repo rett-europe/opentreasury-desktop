@@ -7,6 +7,11 @@
 // 26-char length required by the event envelope schema). This keeps seed
 // runs reproducible across restarts while still satisfying z.string().length(26).
 // Real production data will use crypto-random ULIDs (ADR-001 C11).
+//
+// P1-1: The fake IDs here are ONLY for seed entity IDs (accounts, categories, etc.).
+// The datasetId, actorDeviceId, actorUserId are now sourced from the real
+// bootstrap-loaded values (device.json, dataset.json, profile.json) — those are
+// passed into buildDevSeedEvents() from bootstrap.ts.
 
 import type { DomainEvent } from '../core/eventLog/index.js';
 
@@ -17,10 +22,6 @@ function fakeUlid(seedKey: string): string {
   const upper = seedKey.toUpperCase().replace(/[^0-9A-HJKMNP-TV-Z]/g, '0');
   return (upper + '0'.repeat(26)).slice(0, 26);
 }
-
-const DATASET_ID = fakeUlid('DATASET01');
-const DEVICE_ID = fakeUlid('DEVICE01');
-const USER_ID = fakeUlid('USER01'); // P0-1 trial-readiness
 
 interface AccountSeed {
   key: string; // short prototype id, used to derive ULID deterministically
@@ -693,7 +694,15 @@ function txCreatedAt(date: string, ordinal: number): string {
   return `${date}T12:00:${String(ordinal).padStart(2, '0')}.000Z`;
 }
 
-export function buildDevSeedEvents(): DomainEvent[] {
+export interface DevSeedDeps {
+  datasetId: string;
+  actorDeviceId: string;
+  actorUserId: string;
+}
+
+export function buildDevSeedEvents(deps: DevSeedDeps): DomainEvent[] {
+  const { datasetId, actorDeviceId, actorUserId } = deps;
+
   const events: DomainEvent[] = [];
   let envOrdinal = 0;
 
@@ -774,9 +783,9 @@ export function buildDevSeedEvents(): DomainEvent[] {
     events.push({
       id: fakeUlid(`EVT${tx.id.toUpperCase()}`),
       type: 'tx.created',
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      actorUserId: USER_ID, // P0-1 trial-readiness
+      datasetId,
+      actorDeviceId,
+      actorUserId,
       actorIdentitySource: 'local', // P0-1 trial-readiness
       createdAt,
       dekVersion: 0,

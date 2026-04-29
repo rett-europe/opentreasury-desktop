@@ -173,6 +173,13 @@ import {
   type InsightsLabelByAccountResponse,
 } from '../shared/ipc-contracts/insights.js';
 import { IPC_CONFIG_GET, type ConfigGetResponse } from '../shared/ipc-contracts/config.js';
+import {
+  IPC_PROFILE_GET,
+  IPC_PROFILE_SAVE,
+  type ProfileGetResponse,
+  type ProfileSaveResponse,
+  type Profile,
+} from '../shared/ipc-contracts/profile.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -380,6 +387,14 @@ const api = {
   config: {
     get: (): Promise<ConfigGetResponse> => {
       return ipcRenderer.invoke(IPC_CONFIG_GET);
+    },
+  },
+  profile: {
+    get: (): Promise<ProfileGetResponse> => {
+      return ipcRenderer.invoke(IPC_PROFILE_GET);
+    },
+    save: (profile: Profile): Promise<ProfileSaveResponse> => {
+      return ipcRenderer.invoke(IPC_PROFILE_SAVE, profile);
     },
   },
 } as const;
