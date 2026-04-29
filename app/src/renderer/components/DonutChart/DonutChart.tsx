@@ -22,6 +22,20 @@ export type DonutChartProps = {
 const DEFAULT_SIZE = 120;
 const DEFAULT_THICKNESS = 22;
 const MAX_SLICES = 5;
+const PALETTE_SIZE = 8;
+
+/**
+ * Maps a 0-based slice index to a donut palette slot (0..7), striding across
+ * the full palette when there are fewer slices than slots. With N=3 segments
+ * sequential assignment yielded slots 0/1/2 (blue/cyan/green — three cool
+ * shades that read as "the same"); striding gives 0/2/5 (blue/green/red —
+ * visually distinct). For N>=8 the math collapses back to `idx % 8`.
+ */
+export function donutColorIndex(idx: number, count: number): number {
+  if (count >= PALETTE_SIZE) return idx % PALETTE_SIZE;
+  if (count <= 0) return 0;
+  return Math.floor((idx * PALETTE_SIZE) / count);
+}
 
 /**
  * Pure SVG donut chart for category distribution visualization.
@@ -112,7 +126,7 @@ export function DonutChart({
           const stroke =
             seg.slice.categoryId === '__otras__'
               ? 'var(--color-donut-otras)'
-              : `var(--color-donut-${idx % 8})`;
+              : `var(--color-donut-${donutColorIndex(idx, segments.length)})`;
 
           // A segment that covers the full circle (only slice, percentage at
           // 100% within float tolerance) is rendered as a plain stroked ring
