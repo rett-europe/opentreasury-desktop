@@ -180,6 +180,10 @@ import {
   type ConfigSetDataDirResponse,
 } from '../shared/ipc-contracts/config.js';
 import {
+  IPC_DIALOG_PICK_FOLDER,
+  type DialogPickFolderResponse,
+} from '../shared/ipc-contracts/dialog.js';
+import {
   IPC_PROFILE_GET,
   IPC_PROFILE_SAVE,
   type ProfileGetResponse,
@@ -396,6 +400,11 @@ const api = {
     },
     setDataDir: (req: ConfigSetDataDirRequest): Promise<ConfigSetDataDirResponse> => {
       return ipcRenderer.invoke(IPC_CONFIG_SET_DATA_DIR, req);
+    },
+  },
+  dialog: {
+    pickFolder: (): Promise<DialogPickFolderResponse> => {
+      return ipcRenderer.invoke(IPC_DIALOG_PICK_FOLDER);
     },
   },
   profile: {

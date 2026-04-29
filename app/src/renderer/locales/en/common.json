@@ -50,8 +50,11 @@
       "datos": "Data"
     },
     "user": {
-      "name": "Pedro Rocha",
-      "role": "Admin",
+      "roles": {
+        "treasurer": "Treasurer",
+        "admin": "Admin",
+        "viewer": "Viewer"
+      },
       "logout": "Sign out"
     },
     "search": {
@@ -1097,8 +1100,15 @@
       "defaultMarker": "(default)",
       "changeButton": "Change…",
       "readonlyBadge": "Read-only mode",
-      "changeDisabledTooltip": "Data folder change will be available with the next release",
-      "changeComingSoon": "Folder picker arrives with the next release (P1-2)."
+      "restarting": "Restarting application…",
+      "errors": {
+        "oneDrivePersonal": "OneDrive Personal is not supported in v1. Please pick a folder inside OneDrive for Business or SharePoint. Support for Personal OneDrive is planned for v1.x.",
+        "sameDir": "The selected folder is the same as the current data folder.",
+        "invalidLocation": "Data folder must not be under the app's internal folder. Choose an external folder, e.g., on OneDrive for Business or SharePoint.",
+        "notWritable": "The selected folder is not writable. Please choose a different location.",
+        "datasetMismatch": "The selected folder already contains a different treasury's data. Please choose an empty folder or the current treasury folder.",
+        "generic": "Failed to change data folder"
+      }
     }
   }
 }

@@ -23,6 +23,25 @@ import { ProfileSetupModal } from '../ProfileSetupModal/index.js';
 import type { ProfileSetupData } from '../ProfileSetupModal/index.js';
 import './AppShell.css';
 
+// Helper to compute 2-letter initials from a name
+function getInitials(name: string | null | undefined): string {
+  if (!name || name.trim() === '') return '?';
+  const words = name.trim().split(/\s+/);
+  if (words.length === 0) return '?';
+  if (words.length === 1) {
+    // Single word: take first 2 chars
+    const word = words[0];
+    if (!word) return '?';
+    return word.length >= 2 ? word.slice(0, 2).toUpperCase() : (word[0] ?? '').toUpperCase();
+  }
+  // Multiple words: first letter of first word + first letter of last word
+  const firstWord = words[0];
+  const lastWord = words[words.length - 1];
+  const first = firstWord?.[0] ?? '';
+  const last = lastWord?.[0] ?? '';
+  return (first + last).toUpperCase();
+}
+
 export type Route =
   | 'panel'
   | 'movements'
@@ -545,11 +564,19 @@ export function AppShell({
 
         <div className="ot-shell__user-strip">
           <div className="ot-shell__user-avatar" aria-hidden="true">
-            PR
+            {profileLoading ? '…' : getInitials(profile?.name)}
           </div>
           <div className="ot-shell__user-meta">
-            <div className="ot-shell__user-name">{t('shell.user.name')}</div>
-            <div className="ot-shell__user-role">{t('shell.user.role')}</div>
+            <div className="ot-shell__user-name">
+              {profileLoading ? '…' : (profile?.name ?? '—')}
+            </div>
+            <div className="ot-shell__user-role">
+              {profileLoading
+                ? '…'
+                : profile?.role
+                  ? t(`shell.user.roles.${profile.role}` satisfies string)
+                  : '—'}
+            </div>
           </div>
           <button
             type="button"

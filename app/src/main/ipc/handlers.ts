@@ -226,6 +226,11 @@ import {
   createConfigSetDataDirHandler,
   buildProductionSetDataDirDeps,
 } from './handlers/config.js';
+import {
+  IPC_DIALOG_PICK_FOLDER,
+  dialogPickFolderResponseSchema,
+} from '../../shared/ipc-contracts/dialog.js';
+import { handleDialogPickFolder } from './handlers/dialog.js';
 import { getEventLog, getProfile, getDeviceId, getDatasetId } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { newUlid } from '../ids.js';
@@ -268,6 +273,12 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     }
     const response = await setDataDirHandler(raw);
     return configSetDataDirResponseSchema.parse(response);
+  });
+
+  // P2-4 (#156) — dialog:pickFolder exposes Electron's folder picker to the renderer
+  ipcMain.handle(IPC_DIALOG_PICK_FOLDER, async (_event, raw: unknown) => {
+    const response = await handleDialogPickFolder(raw);
+    return dialogPickFolderResponseSchema.parse(response);
   });
 
   // Panel handlers — WI-2 mock implementations
