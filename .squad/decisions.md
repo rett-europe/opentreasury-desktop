@@ -2,6 +2,21 @@
 
 ## Active Decisions
 
+### 2026-04-30: Drop Corp-Storage Validator — Delete `syncRoot.ts` (Morpheus, PR #199)
+
+**Date:** 2026-04-30  
+**Status:** ✅ SHIPPED (PR #199, stacked on PR #195)  
+**Agent:** Morpheus (Backend Dev)  
+**Related Issue:** #198 — drop corp-storage validator
+
+**Decision:** Delete `app/src/renderer/utils/syncRoot.ts` entirely (module + tests) rather than stubbing as no-op. Folder validation now centralized in main-process `config:setDataDir` handler.
+
+**Rationale:** Single consumer (`PreferencesScreen.tsx`), no other references. No-op stub is dead code. Future corp-detection (e.g., via registry enumeration, #197) will be registry-driven/async and won't reuse this regex logic.
+
+**Consequences:** Renderer simplified; all folder-validation logic (writability, same-dir check, dataset mismatch) unified main-side.
+
+---
+
 ### 2026-04-28: Insights Detail Page Polish — Pac-Man SVG Fix, Diverging Bars, Breadcrumb Labels (Trinity, PR #141)
 
 **Date:** 2026-04-28  
