@@ -49,6 +49,8 @@ describe('classifySyncRoot', () => {
     expect(classifySyncRoot('\\\\server\\share\\OT')).toBe('other');
     // Root of drive
     expect(classifySyncRoot('C:\\OT')).toBe('other');
+    // c:\temp (Pedro's exact case from bug report)
+    expect(classifySyncRoot('c:\\temp')).toBe('other');
   });
 
   it('handles edge cases gracefully', () => {
