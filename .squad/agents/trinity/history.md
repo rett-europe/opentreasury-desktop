@@ -2943,3 +2943,30 @@ Implemented user-initiated dataset export (backup) feature. Non-destructive copy
 
 **Follow-up doc PR #184:**
 - Updated docs/architecture/dataset-and-storage.md with export section
+
+
+**2026-04-30 — PR #188: Corp-storage allowlist leak fix (squad/preferences-corp-storage-allowlist)**
+
+Fixed a critical security vulnerability in the corp-storage validator that allowed local folders to bypass the OneDrive-for-Business requirement if they had a dash in their name.
+
+**Bug reproduction (Pedro's report):**
+1. First attempt: picked C:\Users\{user}\Desktop\OT → blocked with corp-storage error ✅
+2. Second attempt: picked C:\Users\{user}\Treasury - Backup → **ALLOWED** ❌ (should have been blocked)
+
+**Root cause:** The SharePoint heuristic in classifySyncRoot() detected SharePoint-synced libraries by looking for " - " (dash-space-dash) in folder names under C:\Users\{user}\. This leaked: ANY user-created folder with a dash in the name was falsely classified as 'sharepoint' and allowed through.
+
+**Fix:** Converted to **strict allowlist model**:
+- ONLY paths matching /OneDrive\s*-\s*[^/]+/ (OneDrive for Business) are allowed
+- ALL other paths are blocked with NOT_CORP_LOCATION error
+- Removed the SharePoint heuristic entirely (too permissive, can't distinguish real SharePoint sync from user-created folders with dashes)
+
+**Pattern learned:** Security validators must use **allowlists, not denylists**. Heuristics (like "detect SharePoint by looking for dashes in folder names") are too easy to fool. Either detect actual sync roots via registry (HKCU\Software\Microsoft\OneDrive\Accounts\Business*) or enforce a strict pattern match on known-good paths (OneDrive for Business folder name pattern).
+
+**PreferencesScreen validation gate changed:** from if (kind === 'other') block() to if (kind !== 'onedrive-business') block() — strict allowlist, only one classification allowed.
+
+**Files touched:**
+- app/src/renderer/utils/syncRoot.ts — removed SharePoint heuristic loop
+- app/src/renderer/utils/syncRoot.test.ts — updated tests (7/7 passing)
+- app/src/renderer/screens/PreferencesScreen/PreferencesScreen.tsx — strict allowlist check
+
+**Future:** If SharePoint-synced library support is needed, implement registry-based detection instead of heuristics.
