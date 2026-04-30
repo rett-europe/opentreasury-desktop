@@ -4,9 +4,11 @@ Zero-infrastructure treasury app for small NGOs. **OneDrive is the database.** N
 no custom auth. Built on Electron + React + TypeScript, with event-sourced data at rest encrypted
 per NGO dataset.
 
-See [`docs/product/vision.md`](./docs/product/vision.md) for the product bet, and
-[`docs/architecture/`](./docs/architecture/) for the architectural decisions (ADR-001 tech stack,
-ADR-002 repo structure, ADR-003 i18n framework).
+## How it works
+
+The app is **event-sourced**: all state (transactions, accounts, categories, tags, notes, splits) is persisted as an append-only log of immutable domain events in NDJSON format. On boot, events are replayed to hydrate an in-memory read model. The event log lives in a user-selected folder (OneDrive, SharePoint, or local disk) — no backend server or database needed. See [`docs/architecture/event-model.md`](./docs/architecture/event-model.md) for the event catalog and [`docs/architecture/dataset-and-storage.md`](./docs/architecture/dataset-and-storage.md) for dataset switching and multi-user workflows.
+
+For the product bet and architectural decisions (tech stack, repo structure, i18n), see [`docs/product/vision.md`](./docs/product/vision.md) and [`docs/architecture/`](./docs/architecture/).
 
 ## Getting started
 

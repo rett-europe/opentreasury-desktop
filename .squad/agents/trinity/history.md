@@ -19,6 +19,22 @@ The cloud version has an Angular 19 frontend with:
 
 ## Learnings
 
+**2026-04-29 — PR #178: Profile Save button no-op fix (squad/preferences-profile-save-fix)**
+
+Fixed the Profile Save button in PreferencesScreen, which was silently failing when users changed their name, role, or organization. Root cause: the save handler passed an **empty `userId` string** (`''`) to the IPC call, violating the `profileSchema` requirement for a 26-character ULID. The main process rejected the save with `SCHEMA_INVALID`, but the renderer never displayed any error feedback to the user.
+
+**Pattern learned:** When the renderer displays a subset of an IPC object's fields for editing, always store the *full object* (including immutable fields like `userId`, `identitySource`, `createdAt`) when loading from IPC. On save, merge the edited fields with the preserved originals so Zod validation succeeds. Never hard-code or discard required fields that the schema expects.
+
+**Error feedback discipline:** Every IPC mutation with `response.ok: false` must produce visible UI feedback (toast, inline error message, or form-level error text). Silent failures are unacceptable. Always add `console.error()` for error paths so "nothing happens" reports are debuggable.
+
+**Fix details:**
+- Added `fullProfile: Profile | null` state to store the complete profile object
+- Updated `handleSaveProfile` to preserve `userId`, `identitySource`, `createdAt` when calling `profile.save()`
+- Added visible error message when `response.ok === false` (translation keys already existed)
+- Added console.error for all failure paths (missing profile, IPC error, validation error)
+
+**Testing:** New tests verify (a) IPC is called with preserved fields and (b) error UI appears when save fails. All 6 PreferencesScreen tests pass. Installed `@testing-library/user-event` for interaction tests.
+
 **2026-05-04 — PR #174: Trial-readiness PR-A (squad/settings-corp-enforcement)**
 
 Fixed two Settings-related trial-readiness blockers for Pedro's manual validation:
@@ -2801,4 +2817,24 @@ Completed three trial-readiness UI tasks (issue #156):
 **OneDrive Personal detection pattern:** The heuristic checks for /onedrive/ (case-insensitive, normalized slashes) without  -  org suffix. OneDrive Business paths on Windows typically look like C:\Users\{user}\OneDrive - MyOrg\..., while Personal paths are C:\Users\{user}\OneDrive\.... This is a best-effort detection — edge cases (custom OneDrive folder names, network paths) may require refinement in v1.x. The rejection message cites UX-001 E1 spec and points users to Business/SharePoint as the supported alternative.
 
 **Testing:** All 926 tests passing. SettingsScreen tests updated to reflect enabled button state.
+
+
+**2026-04-29 — PR #177: Preferences Screen Polish (squad/preferences-polish-1)**
+
+Fixed five dogfooding issues reported by Pedro after PR #176 (unified Preferences screen):
+
+1. **Removed duplicate language + theme controls from AppShell header:** Language/theme appeared in both the top header (small icon buttons) and the new Preferences screen. Removed all header controls (2 radiogroup divs + unused icons/hooks). Preferences is now the canonical home for both settings.
+
+2. **Fixed Appearance segmented control sizing:** The 'System' button stretched wider than Light/Dark due to content-based flex sizing. Changed layout from `display: inline-flex` to `display: grid; grid-template-columns: repeat(3, 1fr)` for equal widths. Pattern applies to any multi-label segmented control where label lengths vary across locales.
+
+3. **Merged 'Current Dataset' + 'Data folder' cards:** Split was confusing (one informational, one action). Consolidated into single 'Dataset' card with location display + badges + hint + Change button. Updated i18n title from 'Current Dataset' to 'Dataset' / 'Conjunto de datos'. PreferencesScreen now has 5 cards total (was 6).
+
+4. **Removed 'Switch to a different dataset...' footer button:** Pedro confirmed the footer button was off-brand. Removed footer section, confirmation modal, divider, and `preferences.switchDataset.*` i18n keys. The 'Change…' button in the Dataset card remains the only data-folder action.
+
+5. **Fixed button hover styles that made buttons disappear:** Two token bugs: (a) primary button hover used non-existent `--color-brand-hover` → fixed to `--color-brand-primary-light`, (b) segmented control hover used non-existent `--color-bg-hover` → fixed to `--color-row-hover`. Added `:not(.ot-preferences__segment--active)` guard to prevent hover state from conflicting with active state.
+
+**Patterns learned:**
+- **Segmented control equal-width recipe:** Use `grid` + `grid-template-columns: repeat(N, 1fr)` instead of `inline-flex` when labels vary in length (e.g., 'System' vs 'Light'). This prevents the longest label from stretching its segment. Always verify in both EN and ES.
+- **Hover contrast rule:** Hover background must produce visible contrast against the surrounding container background. For ghost/secondary buttons inside cards (card bg = `--color-surface-primary`), use `--color-row-hover` (NOT the same surface token again). For brand-filled buttons, use `--color-brand-primary-light` (light theme) — check `tokens.css` for the correct hover variant. Always test in both light and dark mode.
+- **Token validation habit:** When CSS references a token, grep `tokens.css` to confirm it exists. Non-existent tokens silently fail or fall back to inherited values, causing invisible hover states.
 

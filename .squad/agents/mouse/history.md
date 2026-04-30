@@ -48,6 +48,132 @@ Language: ES + EN parity mandatory (`locales/{en,es}/common.json`). Target user:
 
 ## Learnings
 
+### 2026-05-02: Preferences Screen Extension — Profile, Appearance, Language Sections
+
+**Task:** Extend the Settings screen spec (renamed "Preferences") to cover Profile editing, Appearance (theme), and Language selection alongside the existing Dataset status / Data folder / Switch dataset sections.
+
+**Context:**
+- Original spec (mouse-settings-layout.md v1.0) covered Dataset-centric sections only
+- Niobe's IA spec (niobe-sidebar-ia.md) broadened scope to include user preferences
+- Pedro approved "Catalogs / Catálogos" as the new sidebar taxonomy group name
+- PR-B will ship all sections in one go (all-in-one sequencing approved)
+
+**Design Decisions:**
+
+1. **Card Order — Identity-First Heuristic:**
+   - Profile → Appearance → Language → Current Dataset → Data Folder → About → Switch Dataset
+   - Rationale: NGO users need to establish identity (Profile) before configuring workspace (Appearance, Language). Dataset context (status, folder) comes next, followed by admin escape hatch (Switch).
+   - Rejected "frequency of access" heuristic (which would put Appearance first) because Profile is a first-launch dependency — every other section assumes a valid profile exists.
+
+2. **Profile Section — Explicit Save Model:**
+   - Chose explicit "Save changes" button OVER auto-save-on-blur
+   - Rationale: NGO finance staff expect predictable commit points. Auto-save feels "magic" and risky in audit contexts. Explicit save also batches multi-field edits (e.g., name + role update) into one IPC call.
+   - Validation: Client-side validation on save attempt (same pattern as ProfileSetupModal), server errors shown in danger card below button.
+
+3. **Appearance Section — Segmented Control for Theme:**
+   - Three options: Light / Dark / System (auto-follow OS)
+   - Visual: Horizontal segmented control (not radio cards) for compactness
+   - Token readiness: Dark palette already exists in tokens.css (lines 378–450), no new tokens needed
+   - Immediate apply: No "Save" button — theme switches on click (live preview)
+   - Flagged for Trinity: Smoke-test dark mode contrast on all cards; if any token breaks, ship Light + System only and gray out Dark with "Coming soon" label
+
+4. **Language Section — Dropdown Over Toggle:**
+   - Chose labeled `<select>` dropdown OVER two-button toggle
+   - Rationale: Scalability (adding French/Portuguese later requires zero redesign). Mixed-label pattern ("English" / "Español" hardcoded, not i18n keys) ensures both languages are recognizable in all contexts.
+   - Immediate apply: Same as Appearance — hot-swap via `i18n.changeLanguage()`, no page reload
+
+5. **No Explicit Grouping:**
+   - All sections (Profile through About) flow as a single vertical stack with `--space-9` (24px) between cards
+   - Only visual break: 1px divider before "Switch dataset" footer action
+   - Rationale: Card order already provides semantic clustering (personal → global → dataset → admin → escape). Adding group headers ("User Preferences" / "Dataset Configuration") would introduce hierarchy depth that slows visual scan.
+
+6. **Microcopy — NGO-Friendly Tone:**
+   - "Your profile" (not "Profile") — warmer, emphasizes personal ownership
+   - Hint text: "This information appears in audit logs and exported reports" — clarifies scope, reduces support friction
+   - "System matches your operating system's theme preference" — demystifies tech jargon
+
+**Open Questions Flagged for Pedro (High Priority):**
+
+1. **Profile schema discrepancies:**
+   - `name`: Modal enforces maxLength=80, schema allows max(100)
+   - `ngoName`: Modal enforces maxLength=120, schema allows max(200)
+   - Which is correct? Trinity needs reconciliation before implementing validation.
+
+2. **Persistence layer for theme + language:**
+   - Where do preferences live? localStorage (fast, v1-friendly), profile.json (new fields, requires schema migration), or new preferences.json + IPC contract (clean separation)?
+   - Recommended localStorage for v1, migrate to dedicated IPC in follow-up if roaming across datasets is desired.
+
+3. **Profile role field — freeform vs. dropdown:**
+   - Current: Freeform text (flexible but creates variance in audit logs)
+   - Alternative: Dropdown of common NGO roles (Treasurer, Accountant, Finance Director, etc.) + "Other (specify)" option
+   - Trade-off: Predictability vs. edge-case coverage ("Interim CFO", "Volunteer Bookkeeper")
+
+**Files Created:**
+- `.copilot/session-state/e4b11bde-20cd-431a-b140-160a1f9db25a/files/mouse-preferences-extension.md` — Full spec (Sections 1–7: IA overview, Profile, Appearance, Language, visual hierarchy deltas, open questions, implementation notes)
+
+**Key Patterns Established:**
+
+- **Immediate-apply preference controls:** Theme and Language sections use live preview (no "Save" button). Changes persist in background via IPC or localStorage. This is the canonical pattern for non-destructive UI preferences — users expect instant feedback, not explicit commit.
+
+- **Explicit-save data editing:** Profile section (identity fields) uses explicit "Save changes" button. This is the canonical pattern for structured data that appears in audit logs — users expect a deliberate commit point.
+
+- **Segmented control for 2-4 mutually-exclusive visual modes:** Appearance (Light/Dark/System) uses horizontal segmented control. This is the established desktop pattern (macOS System Preferences, GitHub theme picker). Reserve radio cards for options that need long labels or explanatory microcopy.
+
+- **Mixed-label dropdown for locales:** Language dropdown shows each language name in its own script ("English" / "Español", not translated). This ensures both current and target languages are recognizable — critical for users who accidentally switch to the wrong locale.
+
+**Reusable for Future Preferences:**
+
+- If Pedro adds more preferences later (e.g., "Default currency display format", "Export file format"), follow this pattern:
+  - Immediate-apply controls (toggles, segmented controls, dropdowns) for UI preferences that don't affect data integrity
+  - Explicit-save controls (inputs + "Save" button) for structured data that affects audit trails or export formats
+  - Stack new cards in the Profile → Appearance → Language → … sequence, keeping destructive actions (Switch dataset) at the bottom
+
+**Next Steps:**
+- Trinity implements the spec (mouse-preferences-extension.md) once Pedro resolves the three high-priority open questions (schema reconciliation, persistence layer, role field UX)
+- Mouse will audit dark mode contrast if Trinity flags any broken tokens during smoke testing
+
+---
+
+### 2026-04-29: Settings Screen Layout Overhaul — Three-Card IA, Dataset Status Visibility (PR-B prep)
+
+**Context:** Pedro flagged the Settings screen (PR #174) as "quite poor" — sparse layout, flat hierarchy, no dataset status visibility. Trinity will implement redesign in PR-B alongside the new "Switch dataset" flow.
+
+**What shipped (design spec only, no code yet):**
+- ✅ Three-section IA: (1) Current Dataset status card (read-only info), (2) Data Folder action card (change location), (3) Switch Dataset footer action (destructive)
+- ✅ Dataset status now surfaces: dataset ID (UUID, monospace), read-only badge, location path + default-location badge, optional last-event timestamp + event count (pending Pedro's decision)
+- ✅ Destructive "Switch dataset" action isolated in footer with divider, danger-tone ghost button, anti-misclick confirmation modal (PRIMARY = stay, SECONDARY = switch)
+- ✅ Visual hierarchy: cards use `--shadow-card`, proper spacing scale (`--space-8` card padding, `--space-9` inter-card gap, `--space-12` pre-footer gap)
+- ✅ Confirm modal copy alternatives provided (concise vs. step-by-step) for Pedro to pick
+- ✅ 10 open questions flagged for Pedro (event count source, read-only interaction, sidebar icon fate, button placement, etc.)
+
+**Design rationale:**
+1. **Three-card split (not two):** Dataset identity (§1.1) is **read-only context** ("what dataset am I in?"). Data folder location (§1.2) is an **administrative action** ("move the data within this dataset"). Merging them would flatten the mental model distinction. "Switch dataset" (§1.3) is **destructive navigation** ("leave this dataset entirely") — spatially isolated in footer to prevent accidental clicks.
+
+2. **Dataset ID always visible:** NGO trustees need the UUID for support/access-sharing coordination. Hiding it as "too technical" would force users into DevTools or config files.
+
+3. **Footer placement for "Switch dataset":** Destructive actions should be spatially distant from safe config. Large vertical gap + divider creates a visual "danger zone" below the fold.
+
+4. **Anti-misclick modal pattern:** PRIMARY = "Stay" (brand color, right side, default focus) vs. SECONDARY = "Switch" (danger text, left side). Mirrors the "Cancel vs. Delete" pattern from other screens.
+
+5. **Token inconsistency caught:** Current `SettingsScreen.css` uses `--spacing-lg`, `--spacing-md`, etc., but `tokens.css` only defines `--space-0` through `--space-13`. Trinity must fix this when implementing.
+
+**Pending decisions (blocked on Pedro):**
+- Show event count + last-updated timestamp in dataset status card?
+- Disable "Switch dataset" in read-only mode, or allow it (navigation ≠ mutation)?
+- Remove sidebar "Sign out" icon, repurpose it, or keep both?
+- Confirm modal copy: concise (Option A) or step-by-step (Option B)?
+- Button alignment: centered or left-aligned?
+- Ship language switcher in PR-B or defer?
+
+**Files:**
+- Design spec: `.copilot/session-state/e4b11bde-20cd-431a-b140-160a1f9db25a/files/mouse-settings-layout.md`
+- Reference (current impl): `app/src/renderer/screens/SettingsScreen/SettingsScreen.tsx`, `SettingsScreen.css`
+- Design system: `app/src/renderer/styles/tokens.css`, `globals.css`
+
+**Validation:** None yet — spec only, no code changes.
+
+**PR:** Spec created for PR-B (Trinity's PR, not yet opened).
+
 ### 2026-XX-XX: PR #104 Income/Expense/Net Visual Consistency — Dashboard Pattern Locked
 
 **Context:** Pedro reported visual inconsistency across four screens (Dashboard, Movements, Saldo, Insights) for income/expense/net presentation. Dashboard (Panel) was the canonical reference.
