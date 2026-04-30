@@ -2838,3 +2838,36 @@ Fixed five dogfooding issues reported by Pedro after PR #176 (unified Preference
 - **Hover contrast rule:** Hover background must produce visible contrast against the surrounding container background. For ghost/secondary buttons inside cards (card bg = `--color-surface-primary`), use `--color-row-hover` (NOT the same surface token again). For brand-filled buttons, use `--color-brand-primary-light` (light theme) — check `tokens.css` for the correct hover variant. Always test in both light and dark mode.
 - **Token validation habit:** When CSS references a token, grep `tokens.css` to confirm it exists. Non-existent tokens silently fail or fall back to inherited values, causing invisible hover states.
 
+---
+
+**2026-05-13 — PR #182: Preferences Dataset Switch Confirmation (squad/181-dataset-mismatch-confirm)**
+
+Implemented confirmation modal for issue #181. When user picks a folder via Preferences → Dataset → Change… that contains a different dataset, show confirmation modal instead of hard error.
+
+**Main process changes (`app/src/main/ipc/handlers/config.ts`):**
+- Added `confirmDatasetSwitch?: boolean` field to IPC request schema (optional, default false)
+- Updated `detectDatasetMismatch` to return both error message and `newDatasetId` when mismatch detected
+- When DATASET_MISMATCH occurs AND `confirmDatasetSwitch: true`, allow the switch to proceed (bypass the dataset-id check)
+- Other validation failures (under userData, unwritable, etc.) still error out — confirmation is NOT a force-flag for those
+- Return `{ currentDatasetId, newDatasetId }` details in DATASET_MISMATCH error so renderer can show context
+
+**Renderer changes (`PreferencesScreen.tsx`):**
+- Added dataset switch confirmation modal with "Cancel" / "Switch workspace" buttons + modal CSS
+- On DATASET_MISMATCH error: open modal, store `pendingFolderPath`
+- On Cancel: close modal, reset state
+- On Confirm: retry `setDataDir` with `confirmDatasetSwitch: true`, app relaunches into different workspace
+- Empty folder & same-dataset folder: unchanged (no modal)
+
+**IPC contract backward-compatibility:**
+✅ Yes — `confirmDatasetSwitch` is optional and defaults to false. Existing callers work unchanged.
+
+**Pattern learned — Renderer-driven confirmation + opt-in main-side bypass:**
+When an operation is dangerous but sometimes legitimate:
+1. Main process enforces safety by default (reject DATASET_MISMATCH)
+2. Renderer collects explicit user consent via modal
+3. Renderer retries with confirmation flag to signal "user knows what they're doing"
+4. Main process honors the flag ONLY for the specific safety check that triggered the modal (not a general force-flag)
+
+This pattern is reusable for other "dangerous but legitimate" operations (e.g., overwriting files, deleting data with confirmation).
+
+

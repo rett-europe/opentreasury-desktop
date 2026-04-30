@@ -212,4 +212,8 @@ describe('PreferencesScreen', () => {
       expect(errorText).toBeDefined();
     });
   });
+
+  // TODO: Add tests for dataset switch confirmation modal (issue #181)
+  // These require mocking dialog.pickFolder and config.setDataDir IPC calls
+  // which needs a more comprehensive test setup.
 });

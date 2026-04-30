@@ -34,6 +34,7 @@ export type ConfigGetResponse = z.infer<typeof configGetResponseSchema>;
 // config:setDataDir — caller supplies the candidate absolute path.
 export const configSetDataDirRequestSchema = z.object({
   newDir: z.string().min(1),
+  confirmDatasetSwitch: z.boolean().optional(),
 });
 
 export type ConfigSetDataDirRequest = z.infer<typeof configSetDataDirRequestSchema>;
@@ -64,6 +65,12 @@ export const configSetDataDirResponseSchema = z.discriminatedUnion('ok', [
     error: z.object({
       code: configSetDataDirErrorCodeSchema,
       message: z.string(),
+      details: z
+        .object({
+          currentDatasetId: z.string().optional(),
+          newDatasetId: z.string().optional(),
+        })
+        .optional(),
     }),
   }),
 ]);

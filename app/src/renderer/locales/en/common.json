@@ -1155,6 +1155,12 @@
       "changeButton": "Change…",
       "readonlyBadge": "Read-only mode",
       "restarting": "Restarting application…",
+      "confirmSwitch": {
+        "title": "Switch to a different workspace?",
+        "body": "This folder belongs to a different OpenTreasury workspace. If you continue, the app will switch to that workspace. Your current dataset stays where it is and you can switch back any time.",
+        "cancel": "Cancel",
+        "confirm": "Switch workspace"
+      },
       "errors": {
         "oneDrivePersonal": "OneDrive Personal is not supported in v1. Please pick a folder inside OneDrive for Business or SharePoint. Support for Personal OneDrive is planned for v1.x.",
         "notCorpLocation": "OpenTreasury data must live inside an OneDrive for Business or SharePoint folder so the trustees can share access. Local folders, Desktop, USB drives, and personal OneDrive are not supported. Pick a folder under 'OneDrive - {your organization}' or a synced SharePoint library.",

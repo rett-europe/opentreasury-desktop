@@ -79,7 +79,7 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
       };
     }
 
-    const { newDir } = parsed.data;
+    const { newDir, confirmDatasetSwitch = false } = parsed.data;
     const userDataDir = deps.userDataDir();
     const candidate = path.resolve(newDir);
 
@@ -142,18 +142,30 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
     //    target folder, peek the first line and confirm its datasetId matches
     //    the currently-active dataset. A foreign datasetId means the folder
     //    belongs to another workspace and we refuse to co-mingle.
-    const mismatch = await detectDatasetMismatch(
-      candidate,
-      (deps.getCurrentDatasetId ?? defaultGetCurrentDatasetId)(),
-    );
+    const currentDatasetId = (deps.getCurrentDatasetId ?? defaultGetCurrentDatasetId)();
+    const mismatch = await detectDatasetMismatch(candidate, currentDatasetId);
     if (mismatch !== null) {
-      return {
-        ok: false,
-        error: {
-          code: 'DATASET_MISMATCH',
-          message: mismatch,
-        },
-      };
+      // If there's a dataset ID mismatch and confirmDatasetSwitch is true, allow the switch.
+      // Otherwise, return error with details.
+      const isDatasetIdMismatch = mismatch.newDatasetId !== undefined;
+      if (isDatasetIdMismatch && confirmDatasetSwitch) {
+        // User confirmed — proceed with the switch
+      } else {
+        return {
+          ok: false,
+          error: {
+            code: 'DATASET_MISMATCH',
+            message: mismatch.error,
+            details:
+              isDatasetIdMismatch && mismatch.newDatasetId
+                ? {
+                    currentDatasetId,
+                    newDatasetId: mismatch.newDatasetId,
+                  }
+                : undefined,
+          },
+        };
+      }
     }
 
     // 6. Persist new dataDir to app-config.json atomically.
@@ -243,7 +255,7 @@ function errMessage(err: unknown): string {
 async function detectDatasetMismatch(
   dir: string,
   currentDatasetId: string,
-): Promise<string | null> {
+): Promise<{ error: string; newDatasetId?: string } | null> {
   const eventsPath = path.join(dir, 'events.ndjson');
 
   let raw: string;
@@ -253,7 +265,7 @@ async function detectDatasetMismatch(
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
     // Unreadable existing file — treat as foreign data; safer to refuse than
     // to silently overwrite.
-    return `Cannot read existing events.ndjson at ${eventsPath}: ${errMessage(err)}`;
+    return { error: `Cannot read existing events.ndjson at ${eventsPath}: ${errMessage(err)}` };
   }
 
   const firstLine = raw.split('\n').find((line) => line.trim().length > 0);
@@ -263,7 +275,9 @@ async function detectDatasetMismatch(
   try {
     parsed = JSON.parse(firstLine);
   } catch {
-    return `Existing events.ndjson at ${eventsPath} is not valid JSON; refusing to overwrite.`;
+    return {
+      error: `Existing events.ndjson at ${eventsPath} is not valid JSON; refusing to overwrite.`,
+    };
   }
 
   const datasetId =
@@ -272,11 +286,16 @@ async function detectDatasetMismatch(
       : undefined;
 
   if (typeof datasetId !== 'string') {
-    return `Existing events.ndjson at ${eventsPath} has no datasetId; refusing to overwrite.`;
+    return {
+      error: `Existing events.ndjson at ${eventsPath} has no datasetId; refusing to overwrite.`,
+    };
   }
 
   if (datasetId !== currentDatasetId) {
-    return `Folder already contains events for a different dataset (${datasetId}). Choose an empty folder.`;
+    return {
+      error: `Folder already contains events for a different dataset (${datasetId}). Choose an empty folder.`,
+      newDatasetId: datasetId,
+    };
   }
 
   return null;
