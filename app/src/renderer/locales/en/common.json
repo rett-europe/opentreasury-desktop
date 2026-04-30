@@ -1146,7 +1146,8 @@
       "idLabel": "Dataset ID",
       "locationLabel": "Location",
       "defaultBadge": "(default location)",
-      "readonlyBadge": "Read-only"
+      "readonlyBadge": "Read-only",
+      "driftWarning": "⚠️ Active data folder differs from configured: {{effectivePath}}. Likely cause: OT_DATA_DIR env override."
     },
     "dataFolder": {
       "title": "Data folder",

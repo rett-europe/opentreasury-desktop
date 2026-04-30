@@ -1146,7 +1146,8 @@
       "idLabel": "ID del conjunto de datos",
       "locationLabel": "Ubicación",
       "defaultBadge": "(ubicación predeterminada)",
-      "readonlyBadge": "Solo lectura"
+      "readonlyBadge": "Solo lectura",
+      "driftWarning": "⚠️ La carpeta de datos activa difiere de la configurada: {{effectivePath}}. Causa probable: variable de entorno OT_DATA_DIR."
     },
     "dataFolder": {
       "title": "Carpeta de datos",
