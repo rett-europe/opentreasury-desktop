@@ -310,6 +310,8 @@ export async function initializeApp(): Promise<void> {
     appConfigInstance,
   );
   effectiveEventLogDir = dir;
+  // eslint-disable-next-line no-console
+  console.log(`[bootstrap] resolved event log directory: ${dir}`);
 
   // If recovery fallback happened, persist the recovered state to disk
   if (configChanged && newConfig) {
