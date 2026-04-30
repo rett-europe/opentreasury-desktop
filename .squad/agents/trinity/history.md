@@ -19,6 +19,24 @@ The cloud version has an Angular 19 frontend with:
 
 ## Learnings
 
+**2026-05-05 — PR #190: Corp-storage error silent failure (squad/preferences-dataset-switch-silent-rejection)**
+
+Fixed regression from PR #188 where picking a non-corporate folder (e.g., Pedro's exact case: `c:\temp`) showed no error — user clicked "Cambiar", picked folder, got silently returned to Preferences with no feedback.
+
+**Root cause:** PR #188 tightened `syncRoot.ts` classification from denylist to strict allowlist (only `OneDrive - {Org}` allowed), but the dataset-switch handler in `PreferencesScreen.tsx` never set `changeState = 'error'` when setting `changeError`. Since the error div only renders when `changeState === 'error'` (line 730), all validation failures silently swallowed. The `finally` block unconditionally reset state to `'idle'`, wiping out any error set earlier in the handler.
+
+**Critical lesson:** Tightening a classifier (denylist→allowlist) is a **contract change**. Every consumer's switch/if must be re-audited for unhandled values. Always end async UX handlers with an explicit state assignment — never an implicit return. **EVERY exit path of a click handler must produce a visible outcome.** No silent failures.
+
+**Fix pattern:**
+1. Set `changeState = 'error'` alongside **every** `setChangeError` call (5 locations: picker failed, OneDrive Personal, NOT_CORP_LOCATION, unexpected error, attemptSetDataDir IPC error)
+2. Update `finally` block to preserve `'error'` state: `setChangeState((current) => (current === 'restarting' || current === 'error' ? current : 'idle'))`
+3. Enable button in BOTH `'idle'` AND `'error'` states so user can retry: `disabled={(changeState !== 'idle' && changeState !== 'error') || configData.readOnly}`
+4. Add defensive comment: `// Every exit path must show user feedback.`
+
+**Audit findings:** Only call-site of `classifySyncRoot` is PreferencesScreen (fixed). No other switch/if regressions from #188's contract change.
+
+**Testing:** Updated 2 corp-storage tests to use `c:\temp` (Pedro's case) and verify error renders without calling IPC (renderer validates locally post-#188). Added `c:\temp` test case to `syncRoot.test.ts`. All 18 PreferencesScreen tests pass, full suite 937 tests pass.
+
 **2026-05-04 — Profile validation UX fix (squad/preferences-profile-save-ux-fix)**
 
 Fixed two validation UX bugs in PreferencesScreen profile form discovered by Pedro during manual testing:
