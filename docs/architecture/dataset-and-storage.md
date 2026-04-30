@@ -91,6 +91,57 @@ When the app starts, the bootstrap sequence:
 
 This process is **synchronous and fast** — even with ~2,000 events, the app boots in under 1 second on modern hardware. See `app/src/main/bootstrap.ts:249-300`.
 
+## Exporting / backing up a dataset
+
+Users can export (back up) the active dataset to any folder via **Preferences → Dataset → Export…** (UI added in PR #183, issue #180). This is a **non-destructive copy** operation:
+
+1. User clicks "Export…" button.
+2. The app opens a folder picker.
+3. User selects a destination folder (can be empty or a new folder).
+4. The app copies:
+   - `events.ndjson` (the complete event log)
+   - `dataset.json` (if present — the dataset ID + metadata)
+5. The app verifies the copy (size match + last line equality).
+6. The app writes an `export-manifest.json` in the destination folder:
+   ```json
+   {
+     "exportedAt": "2026-04-20T12:00:00.000Z",
+     "datasetId": "01HQEP4JR2TNJYBSY5AX75XG16",
+     "sourceEventCount": 1024,
+     "appVersion": "0.1.0"
+   }
+   ```
+
+### Export success
+
+On success, the app displays:
+- Number of files copied
+- Total size (prettified: KB/MB)
+- Destination path
+- "Open folder" link to view the export in the file browser
+
+The active dataset remains unchanged; export is a **copy**, not a migration or switch.
+
+### Export error codes
+
+The export handler (`app/src/main/ipc/handlers/dataset.ts:handleDatasetExport()`) validates and returns specific error codes:
+
+- **`EXPORT_TARGET_INVALID`** — destination is under userData, equals source, or inside/contains source.
+- **`EXPORT_TARGET_NOT_EMPTY`** — destination already contains an `events.ndjson` (refuses to overwrite).
+- **`EXPORT_DISK_FULL`** — not enough disk space at destination.
+- **`EXPORT_PERMISSION_DENIED`** — cannot write to destination folder.
+- **`EXPORT_VERIFY_FAILED`** — copy completed but size/content mismatch detected.
+
+All error paths clean up partial files to avoid leaving incomplete datasets.
+
+### Relationship to dataset switch
+
+Export is **independent** of the dataset switch flow:
+- **Export** = copy current dataset to a folder (non-destructive backup).
+- **Switch** = change the app's active dataset folder (persistent config change + app restart).
+
+In the future (M2 multi-device sync), the export format will support a "restore from export" flow to seed a new device.
+
 ## Read-only mode
 
 The app can operate in **read-only mode** if the event log is on a file system the user cannot write to. This mode is useful for:
