@@ -99,6 +99,24 @@ Cypher's E2E branch created before PR #117 merged — no dep conflict, but manag
 
 **Dataset migration policy decision:** When user switches `dataDir`, existing events do NOT auto-migrate. New folder = new empty dataset. Old events remain in old folder, accessible by switching back. Rationale: auto-copy risks data corruption (in-flight writes), OneDrive sync conflicts, and doesn't match trial use case (corporate compliance switch). Documented in `.squad/decisions/morpheus-dataset-migration.md`.
 
+### 2026-05-05 — Recovery State Persistence + OneDrive Allowlist Tightening (PR #195)
+
+**Three intertwined fixes addressing Pedro's crash:**
+
+1. **Persist post-recovery state:** When bootstrap auto-recovers from a broken `dataDir`, it now rewrites `app-config.json` so the persisted `dataDir` matches the effective path (e.g., `my-data`). Added `previousDataDir` field to track the failed path for diagnostics. This ensures the UI shows the truth, not the stale config value.
+
+2. **Tighten OneDrive Business allowlist:** Updated `syncRoot.ts` regex to **require a subfolder** beneath the OneDrive Business root. Old regex matched `C:\Users\X\OneDrive - Org` (the entire org OneDrive) → crash when bootstrap tried to init `dataset.json` at the root. New regex: `/\/onedrive\s*-\s*[^/\\]+\/[^/\\]+/i` rejects the root, accepts subfolders like `OneDrive - Org\Treasurer`.
+
+3. **Compare against effective path:** Fixed `config:setDataDir` handler to compare candidate folder against `getEffectiveEventLogDir()` instead of `appConfig.dataDir`. This catches the "same folder" case even when the persisted config is stale (e.g., after auto-recovery).
+
+**Decision:** Auto-recovery now persists the recovered state immediately (not on next launch). This differs from PR #193's approach (which retries on next launch). Both approaches are valid; immediate persistence is simpler and ensures UI consistency right away.
+
+**Learning:** When bootstrap applies a fallback, always persist the effective state to disk. Silent recovery without persistence creates a mismatch between runtime state and persisted config → confusing UX (UI shows wrong path) and bugs (comparison logic sees stale values).
+
+**Schema change:** Added `previousDataDir: string | null` to `AppConfig` (optional field). Tests updated to provide default effective path in mocks.
+
+**Tests:** 938 core tests pass. Added OneDrive root rejection cases to `syncRoot.test.ts`. Updated `config.test.ts` to assert `previousDataDir` is persisted when user switches folders.
+
 **Key learning:** ESM gotcha is subtle — `moduleResolution: "Bundler"` + `verbatimModuleSyntax: true` means `.js` extensions are REQUIRED in source for Node ESM output, even though they reference compiled files not source. This is standard Node ESM when not using a bundler at runtime.
 
 **Testing:** Core tests pass (134), bootstrap tests pass (16). Renderer test timeouts are pre-existing flake. Manual testing required by Pedro (PR #194) to verify app launches without crash and logs show correct paths.
