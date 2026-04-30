@@ -5,6 +5,43 @@
 - **Stack:** Electron (frontend), rest TBD. Reference app: Angular 19 + Python FastAPI + Cosmos DB + Entra ID on Azure.
 - **Created:** 2026-04-19
 
+## Recent Work
+
+### 2026-05-02 — Sidebar IA Overhaul (Spec: niobe-sidebar-ia.md)
+
+**Context:** Pedro flagged the "SETTINGS" sidebar group as misnamed — it contains Categories/Tags/Accounts (reference data / taxonomy), NOT app settings. Real settings (theme, language, profile, dataset config) live in a separate `/settings` route accessed via a top-right gear icon. This creates semantic confusion.
+
+**Key decisions made:**
+
+1. **Rename "SETTINGS" group → "CATALOGS"** (EN) / "CATÁLOGOS" (ES)  
+   Rationale: Categories, Tags, and Accounts are taxonomies — structured vocabularies users maintain. "Catalogs" is NGO-friendly plain English that accurately describes "editable reference lists."
+
+2. **Add bottom-anchored "Preferences" sidebar entry** for app configuration  
+   Rationale: Consolidates all navigation in the sidebar (vs. top-right gear icon). Follows desktop app conventions (VS Code, Figma, Slack) where settings are spatially separated at the bottom.
+
+3. **Rename `/settings` route → `/preferences`**  
+   Rationale: Semantic clarity. "Preferences" = user choices (theme, language, profile). "Settings" was polluted by the taxonomy group label.
+
+4. **Remove top-right gear icon + dead "Sign out" LogOut icon**  
+   Rationale: Gear icon becomes redundant (Preferences is now in sidebar). Sign out icon is placeholder from pre-dataset-switching era (Mouse's spec includes proper "Switch dataset" action in Preferences screen).
+
+**Top 3 naming candidates evaluated:**
+- "Catalogs" / "Catálogos" (RECOMMENDED) — semantically accurate, NGO-friendly
+- "Reference" / "Referencia" — accurate but slightly technical
+- "Setup" / "Configuración Inicial" — misleading (implies one-time vs. continuous maintenance)
+
+**Acceptance test applied:** Can a non-technical NGO trustee guess where each thing lives without help? "Catalogs" = ✅ PASS. "Setup" = ❌ FAIL.
+
+**Spec output:** `.copilot/session-state/.../niobe-sidebar-ia.md` (6 sections: audit, proposed structure, naming, entry point, migration plan, open questions)
+
+**Open questions for Pedro:**
+1. Approve "Catalogs" label (or prefer alternative)?
+2. Deep link backward compatibility for `/settings` → `/preferences`?
+3. Preferences screen title: "Preferences" or "App Settings"?
+4. User area visual treatment post-LogOut-removal?
+
+**Reusable IA principle extracted:** Sidebar groups should be named by their **content semantics**, not their **implementation role**. "Settings" is a role (configuration UI), not a content descriptor. "Catalogs" describes what's inside (taxonomies). This prevents semantic pollution when multiple "settings-like" concepts exist in the same app.
+
 ## Canonical Patterns
 
 **CANONICAL KPI PATTERN (2026-04-27):** Mouse established reusable `.ot-kpi-strip` recipe in PR #104 for income/expense/net cards. Pattern: TrendingUp/TrendingDown/Calculator icons @ 20px + --color-income-default / --color-expense-default / --color-brand-primary. Shared CSS recipe in `globals.css`. This is the baseline for all KPI indicators — reuse when i18n strings or icons for value indicators land in future WIs.
