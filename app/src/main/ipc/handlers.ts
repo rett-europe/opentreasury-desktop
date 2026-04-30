@@ -231,6 +231,11 @@ import {
   dialogPickFolderResponseSchema,
 } from '../../shared/ipc-contracts/dialog.js';
 import { handleDialogPickFolder } from './handlers/dialog.js';
+import {
+  IPC_DATASET_EXPORT,
+  datasetExportResponseSchema,
+} from '../../shared/ipc-contracts/dataset.js';
+import { handleDatasetExport } from './handlers/dataset.js';
 import { getEventLog, getProfile, getDeviceId, getDatasetId } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { newUlid } from '../ids.js';
@@ -279,6 +284,12 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_DIALOG_PICK_FOLDER, async (_event, raw: unknown) => {
     const response = await handleDialogPickFolder(raw);
     return dialogPickFolderResponseSchema.parse(response);
+  });
+
+  // #180 — dataset:export copies the active dataset to a chosen folder
+  ipcMain.handle(IPC_DATASET_EXPORT, async (_event, raw: unknown) => {
+    const response = await handleDatasetExport(raw);
+    return datasetExportResponseSchema.parse(response);
   });
 
   // Panel handlers — WI-2 mock implementations

@@ -1155,6 +1155,21 @@
       "changeButton": "Change…",
       "readonlyBadge": "Read-only mode",
       "restarting": "Restarting application…",
+      "export": {
+        "button": "Export…",
+        "description": "Save a copy of your dataset to another folder.",
+        "inProgress": "Exporting…",
+        "success": "Exported {{count}} files ({{size}}) to {{path}}.",
+        "openFolder": "Open folder",
+        "errors": {
+          "targetNotEmpty": "That folder already contains a dataset. Please choose an empty folder.",
+          "targetInvalid": "That folder cannot be used as an export target.",
+          "diskFull": "Not enough disk space at the destination.",
+          "permissionDenied": "Permission denied. Choose a different folder or run with appropriate access.",
+          "verifyFailed": "Export completed but verification failed. Please try again.",
+          "generic": "Export failed"
+        }
+      },
       "confirmSwitch": {
         "title": "Switch to a different workspace?",
         "body": "This folder belongs to a different OpenTreasury workspace. If you continue, the app will switch to that workspace. Your current dataset stays where it is and you can switch back any time.",
