@@ -365,18 +365,19 @@ describe('PreferencesScreen', () => {
     expect((saveButton as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('re-enables dataset switch button after corp-storage validation error', async () => {
+  it('forwards picked folder to setDataDir without renderer-side allowlist gating', async () => {
     mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
     mockProfileGet.mockResolvedValue({ ok: true, profile: null });
 
-    // Mock picking c:\temp (Pedro's exact reproduction case)
+    // A plain local folder — pre-#198 this would have been rejected in the
+    // renderer with NOT_CORP_LOCATION. After #198 the renderer trusts the
+    // user's choice and lets the main process validate.
     mockPickFolder.mockResolvedValue({
       ok: true,
       path: 'c:\\temp',
       cancelled: false,
     });
-
-    // IPC should NOT be called — renderer validates locally now
+    mockConfigSetDataDir.mockResolvedValue({ ok: true, dataDir: 'c:\\temp' });
 
     renderWithI18n();
 
@@ -384,48 +385,101 @@ describe('PreferencesScreen', () => {
       expect(screen.getByRole('heading', { name: /^dataset$|^conjunto de datos$/i })).toBeDefined();
     });
 
-    // Find the Change button (labeled "Change..." or "Cambiar...")
     const changeButton = screen.getByRole('button', { name: /^change|^cambiar/i });
-
-    // Button should be enabled initially
-    expect((changeButton as HTMLButtonElement).disabled).toBe(false);
-
-    // Click the button
     await userEvent.click(changeButton);
 
-    // Wait for error to appear (Spanish: "deben residir en", English: "must live inside")
+    await waitFor(() => {
+      expect(mockConfigSetDataDir).toHaveBeenCalledWith({
+        newDir: 'c:\\temp',
+        confirmDatasetSwitch: false,
+      });
+    });
+
+    // No corp-storage error should be shown.
+    expect(
+      screen.queryByText(
+        /must live inside.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
+      ),
+    ).toBeNull();
+  });
+
+  it('surfaces NOT_WRITABLE error returned by main process', async () => {
+    mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
+    mockProfileGet.mockResolvedValue({ ok: true, profile: null });
+
+    mockPickFolder.mockResolvedValue({
+      ok: true,
+      path: 'c:\\readonly',
+      cancelled: false,
+    });
+    mockConfigSetDataDir.mockResolvedValue({
+      ok: false,
+      error: { code: 'NOT_WRITABLE', message: 'Folder is not writable' },
+    });
+
+    renderWithI18n();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /^dataset$|^conjunto de datos$/i })).toBeDefined();
+    });
+
+    const changeButton = screen.getByRole('button', { name: /^change|^cambiar/i });
+    await userEvent.click(changeButton);
+
+    await waitFor(() => {
+      const errorText = screen.queryByText(/not writable|no tiene permisos de escritura/i);
+      expect(errorText).toBeDefined();
+      expect(errorText).not.toBeNull();
+    });
+
+    // Button should be re-enabled to allow retry.
+    expect((changeButton as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('surfaces SAME_DIR error returned by main process', async () => {
+    mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
+    mockProfileGet.mockResolvedValue({ ok: true, profile: null });
+
+    mockPickFolder.mockResolvedValue({
+      ok: true,
+      path: 'c:\\Users\\TestUser\\AppData\\Local\\OpenTreasury\\dev-events',
+      cancelled: false,
+    });
+    mockConfigSetDataDir.mockResolvedValue({
+      ok: false,
+      error: { code: 'SAME_DIR', message: 'Same as current data folder' },
+    });
+
+    renderWithI18n();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /^dataset$|^conjunto de datos$/i })).toBeDefined();
+    });
+
+    const changeButton = screen.getByRole('button', { name: /^change|^cambiar/i });
+    await userEvent.click(changeButton);
+
     await waitFor(() => {
       const errorText = screen.queryByText(
-        /must live inside.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
+        /same as the current data folder|misma que la carpeta de datos actual/i,
       );
-      expect(errorText).toBeDefined();
+      expect(errorText).not.toBeNull();
     });
-
-    // Button should be enabled again (not stuck disabled)
-    expect((changeButton as HTMLButtonElement).disabled).toBe(false);
-
-    // setDataDir should NOT have been called (validation happens in renderer)
-    expect(mockConfigSetDataDir).not.toHaveBeenCalled();
-
-    // Click again to retry
-    await userEvent.click(changeButton);
-
-    // Should call picker again but still not call setDataDir
-    await waitFor(() => {
-      expect(mockPickFolder).toHaveBeenCalledTimes(2);
-    });
-    expect(mockConfigSetDataDir).not.toHaveBeenCalled();
   });
 
   it('clears previous error when starting new dataset switch attempt', async () => {
     mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
     mockProfileGet.mockResolvedValue({ ok: true, profile: null });
 
-    // First attempt: c:\temp (local folder — renderer validates)
+    // First attempt: main process rejects as NOT_WRITABLE
     mockPickFolder.mockResolvedValueOnce({
       ok: true,
-      path: 'c:\\temp',
+      path: 'c:\\readonly',
       cancelled: false,
+    });
+    mockConfigSetDataDir.mockResolvedValueOnce({
+      ok: false,
+      error: { code: 'NOT_WRITABLE', message: 'Folder is not writable' },
     });
 
     renderWithI18n();
@@ -436,32 +490,24 @@ describe('PreferencesScreen', () => {
 
     const changeButton = screen.getByRole('button', { name: /^change|^cambiar/i });
 
-    // First click
     await userEvent.click(changeButton);
 
-    // Wait for first error (Spanish: "deben residir en", English: "must live inside")
     await waitFor(() => {
-      const errorText = screen.queryByText(
-        /must live inside.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
-      );
-      expect(errorText).toBeDefined();
+      const errorText = screen.queryByText(/not writable|no tiene permisos de escritura/i);
+      expect(errorText).not.toBeNull();
     });
 
-    // Second attempt: user cancels
+    // Second attempt: user cancels picker
     mockPickFolder.mockResolvedValueOnce({
       ok: true,
       path: null,
       cancelled: true,
     });
 
-    // Click again
     await userEvent.click(changeButton);
 
-    // Previous error should be gone
     await waitFor(() => {
-      const errorText = screen.queryByText(
-        /must live inside.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
-      );
+      const errorText = screen.queryByText(/not writable|no tiene permisos de escritura/i);
       expect(errorText).toBeNull();
     });
   });
