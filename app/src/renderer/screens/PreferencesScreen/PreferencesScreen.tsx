@@ -223,7 +223,8 @@ export function PreferencesScreen(): JSX.Element {
         setChangeError({ code: 'ONEDRIVE_PERSONAL', message: '' });
         return;
       }
-      if (kind === 'other') {
+      // Strict allowlist: only 'onedrive-business' is allowed
+      if (kind !== 'onedrive-business') {
         setChangeError({ code: 'NOT_CORP_LOCATION', message: '' });
         return;
       }
