@@ -25,20 +25,23 @@ async function testResolveEventLogDir(
 
     const configPath = appConfig.dataDir;
 
-    // Priority 1: OT_DATA_DIR env var
-    if (process.env['OT_DATA_DIR']) {
-      const envValue = process.env['OT_DATA_DIR'].trim();
-      const candidate = path.isAbsolute(envValue) ? envValue : path.join(userDataDir, envValue);
-
-      const validated = await validateAndCreateDir(candidate);
-      if (validated) return validated;
-    }
-
-    // Priority 2: appConfig.dataDir
+    // Priority 1: appConfig.dataDir (user's deliberate choice via Preferences UI)
     if (configPath) {
       const candidate = path.isAbsolute(configPath)
         ? configPath
         : path.join(userDataDir, configPath);
+
+      const validated = await validateAndCreateDir(candidate);
+      if (validated) {
+        // If OT_DATA_DIR env var is set AND differs, would warn (but still use config)
+        return validated;
+      }
+    }
+
+    // Priority 2: OT_DATA_DIR env var (dev bootstrap escape hatch; only when appConfig.dataDir is unset or failed)
+    if (process.env['OT_DATA_DIR']) {
+      const envValue = process.env['OT_DATA_DIR'].trim();
+      const candidate = path.isAbsolute(envValue) ? envValue : path.join(userDataDir, envValue);
 
       const validated = await validateAndCreateDir(candidate);
       if (validated) return validated;
@@ -199,10 +202,19 @@ describe('bootstrap.ts — resolveEventLogDir path resolution', () => {
   });
 
   describe('priority order', () => {
-    it('should prefer OT_DATA_DIR over appConfig.dataDir', async () => {
+    it('should prefer appConfig.dataDir over OT_DATA_DIR (user config wins)', async () => {
       const envPath = path.join(testDir, 'env-priority');
       const configPath = path.join(testDir, 'config-priority');
       const config: AppConfig = { version: 1, dataDir: configPath, readOnly: false };
+
+      const resolved = await testResolveEventLogDir(testDir, config, envPath);
+      // NEW: appConfig.dataDir (user's deliberate choice) wins over env var
+      expect(resolved).toBe(configPath);
+    });
+
+    it('should use OT_DATA_DIR when appConfig.dataDir is not set (escape hatch)', async () => {
+      const envPath = path.join(testDir, 'env-fallback');
+      const config: AppConfig = { version: 1, dataDir: null, readOnly: false };
 
       const resolved = await testResolveEventLogDir(testDir, config, envPath);
       expect(resolved).toBe(envPath);

@@ -252,6 +252,16 @@
   margin: 0;
 }
 
+.ot-preferences__warning {
+  padding: var(--space-5);
+  background: var(--color-warning-subtle, #fff3cd);
+  border: 1px solid var(--color-warning-default, #ffc107);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  margin-top: var(--space-3);
+}
+
 .ot-preferences__success-card {
   padding: var(--space-5);
   background: var(--color-success-subtle, #efe);

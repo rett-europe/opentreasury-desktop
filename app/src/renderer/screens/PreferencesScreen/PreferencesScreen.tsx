@@ -688,6 +688,16 @@ export function PreferencesScreen(): JSX.Element {
                   {t('preferences.dataset.readonlyBadge')}
                 </span>
               )}
+              {/* Drift warning: configured path differs from effective path */}
+              {configData.dataDir !== null &&
+                configData.dataDir.toLowerCase().replace(/\\/g, '/') !==
+                  configData.effectiveDataDir.toLowerCase().replace(/\\/g, '/') && (
+                  <div className="ot-preferences__warning">
+                    {t('preferences.dataset.driftWarning', {
+                      effectivePath: configData.effectiveDataDir,
+                    })}
+                  </div>
+                )}
             </div>
 
             <div className="ot-preferences__button-group">

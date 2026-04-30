@@ -126,8 +126,8 @@ export function getEffectiveEventLogDir(): string {
  * Resolve the event-log directory from app config, env override, or default.
  *
  * Priority order (highest to lowest):
- *   1. OT_DATA_DIR env var (relaxed to accept absolute paths in P0-3)
- *   2. appConfig.dataDir (from userData/app-config.json)
+ *   1. appConfig.dataDir (from userData/app-config.json — user's deliberate choice via Preferences UI)
+ *   2. OT_DATA_DIR env var (dev bootstrap escape hatch; only applies when appConfig.dataDir is unset)
  *   3. Default: <userData>/dev-events
  *
  * P0-3 trial-readiness changes:
@@ -157,7 +157,38 @@ async function resolveEventLogDir(
   const envOverride = process.env['OT_DATA_DIR']?.trim();
   const configPath = appConfig.dataDir;
 
-  // Priority 1: OT_DATA_DIR env var (now accepts absolute paths)
+  // Priority 1: appConfig.dataDir (user's deliberate choice via Preferences UI)
+  if (configPath) {
+    const candidate = path.isAbsolute(configPath) ? configPath : path.join(userDataDir, configPath);
+
+    // Validate and ensure directory exists
+    const validated = await validateAndCreateDir(candidate, 'app-config.json dataDir');
+    if (validated) {
+      // If OT_DATA_DIR env var is set AND differs from config, warn (but still use config)
+      if (envOverride) {
+        const envCandidate = path.isAbsolute(envOverride)
+          ? envOverride
+          : path.join(userDataDir, envOverride);
+        const normalizedEnv = path.normalize(envCandidate).toLowerCase();
+        const normalizedConfig = path.normalize(validated).toLowerCase();
+        if (normalizedEnv !== normalizedConfig) {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[bootstrap] ⚠️  OT_DATA_DIR env var (${envCandidate}) ignored — appConfig.dataDir (${validated}) takes precedence. Unset OT_DATA_DIR or update Preferences if intended.`,
+          );
+        }
+      }
+      return { dir: validated, configChanged: false };
+    }
+
+    // RECOVERY: appConfig.dataDir failed validation. Fall back to default below.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[bootstrap] ⚠️  RECOVERY: dataDir from config failed validation (${candidate}). Falling back to default. User data is safe.`,
+    );
+  }
+
+  // Priority 2: OT_DATA_DIR env var (dev bootstrap escape hatch; only when appConfig.dataDir is unset or failed)
   if (envOverride) {
     const candidate = path.isAbsolute(envOverride)
       ? envOverride
@@ -168,20 +199,6 @@ async function resolveEventLogDir(
     if (validated) return { dir: validated, configChanged: false };
   }
 
-  // Priority 2: appConfig.dataDir (from app-config.json)
-  if (configPath) {
-    const candidate = path.isAbsolute(configPath) ? configPath : path.join(userDataDir, configPath);
-
-    // Validate and ensure directory exists
-    const validated = await validateAndCreateDir(candidate, 'app-config.json dataDir');
-    if (validated) return { dir: validated, configChanged: false };
-
-    // RECOVERY: appConfig.dataDir failed validation. Fall back to default.
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[bootstrap] ⚠️  RECOVERY: dataDir from config failed validation (${candidate}). Falling back to default. User data is safe.`,
-    );
-  }
 
   // Priority 3: Default (<userData>/dev-events)
   const defaultPath = path.join(userDataDir, 'dev-events');
