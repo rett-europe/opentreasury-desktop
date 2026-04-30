@@ -100,6 +100,8 @@ export function PreferencesScreen(): JSX.Element {
   const [profileErrors, setProfileErrors] = useState<ProfileErrors>({});
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [otherRoleText, setOtherRoleText] = useState<string>('');
+  const [saveAttemptFailed, setSaveAttemptFailed] = useState(false); // Track failed save/validation to re-enable button
+  const [validationAttempted, setValidationAttempted] = useState(false); // Track that user tried to save at least once
 
   // Theme state (localStorage)
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(() => {
@@ -377,14 +379,18 @@ export function PreferencesScreen(): JSX.Element {
 
   // Save profile
   const handleSaveProfile = useCallback(async () => {
+    setValidationAttempted(true); // User attempted to save
+
     if (!validateProfile()) {
-      setProfileState('error');
+      // Validation failed — field errors are already set by validateProfile
+      // Don't set profileState to 'error' (that's for IPC failures)
       return;
     }
 
     if (!fullProfile) {
       console.error('[PreferencesScreen] Cannot save: full profile not loaded');
       setProfileState('error');
+      setSaveAttemptFailed(true);
       return;
     }
 
@@ -405,6 +411,7 @@ export function PreferencesScreen(): JSX.Element {
       if (!response.ok) {
         console.error('[PreferencesScreen] Profile save failed:', response.error);
         setProfileState('error');
+        setSaveAttemptFailed(true);
         return;
       }
 
@@ -417,6 +424,8 @@ export function PreferencesScreen(): JSX.Element {
       setProfileOriginal(updatedData);
       setFullProfile(response.profile); // Update full profile with response
       setProfileState('saved');
+      setSaveAttemptFailed(false);
+      setValidationAttempted(false); // Reset on successful save
 
       setTimeout(() => {
         setProfileState('idle');
@@ -427,6 +436,7 @@ export function PreferencesScreen(): JSX.Element {
     } catch (err) {
       console.error('[PreferencesScreen] Failed to save profile:', err);
       setProfileState('error');
+      setSaveAttemptFailed(true);
     }
   }, [profileData, selectedRole, otherRoleText, fullProfile, validateProfile]);
 
@@ -437,6 +447,34 @@ export function PreferencesScreen(): JSX.Element {
     (selectedRole === 'other'
       ? otherRoleText !== profileOriginal.role
       : selectedRole !== profileOriginal.role);
+
+  // Clear errors when user edits any field (but keep saveAttemptFailed to allow retry)
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProfileData({ ...profileData, name: e.target.value });
+    setProfileErrors({});
+    setProfileState('idle');
+  };
+
+  const handleNgoNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setProfileData({ ...profileData, ngoName: e.target.value });
+    setProfileErrors({});
+    setProfileState('idle');
+  };
+
+  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedRole(e.target.value);
+    if (e.target.value !== 'other') {
+      setOtherRoleText('');
+    }
+    setProfileErrors({});
+    setProfileState('idle');
+  };
+
+  const handleOtherRoleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setOtherRoleText(e.target.value);
+    setProfileErrors({});
+    setProfileState('idle');
+  };
 
   useEffect(() => {
     if (profileChanged && profileState === 'idle') {
@@ -489,7 +527,7 @@ export function PreferencesScreen(): JSX.Element {
                 className="ot-preferences__input"
                 value={profileData.name}
                 maxLength={100}
-                onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                onChange={handleNameChange}
                 aria-invalid={!!profileErrors.name}
               />
               {profileErrors.name && (
@@ -505,12 +543,7 @@ export function PreferencesScreen(): JSX.Element {
                 id="pref-role"
                 className="ot-preferences__select"
                 value={selectedRole}
-                onChange={(e) => {
-                  setSelectedRole(e.target.value);
-                  if (e.target.value !== 'other') {
-                    setOtherRoleText('');
-                  }
-                }}
+                onChange={handleRoleChange}
                 aria-invalid={!!profileErrors.role}
               >
                 {ROLE_OPTIONS.map((roleKey) => (
@@ -526,7 +559,7 @@ export function PreferencesScreen(): JSX.Element {
                   placeholder={t('profile.otherRoleLabel')}
                   value={otherRoleText}
                   maxLength={50}
-                  onChange={(e) => setOtherRoleText(e.target.value)}
+                  onChange={handleOtherRoleChange}
                   aria-label={t('profile.otherRoleLabel')}
                 />
               )}
@@ -545,7 +578,7 @@ export function PreferencesScreen(): JSX.Element {
                 className="ot-preferences__input"
                 value={profileData.ngoName}
                 maxLength={200}
-                onChange={(e) => setProfileData({ ...profileData, ngoName: e.target.value })}
+                onChange={handleNgoNameChange}
                 aria-invalid={!!profileErrors.ngoName}
               />
               {profileErrors.ngoName && (
@@ -556,7 +589,10 @@ export function PreferencesScreen(): JSX.Element {
             <button
               type="button"
               className="ot-preferences__button"
-              disabled={!profileChanged || profileState === 'saving'}
+              disabled={
+                (!profileChanged && !saveAttemptFailed && !validationAttempted) ||
+                profileState === 'saving'
+              }
               onClick={handleSaveProfile}
             >
               {profileState === 'saving'
@@ -566,8 +602,10 @@ export function PreferencesScreen(): JSX.Element {
                   : t('preferences.profile.saveButton')}
             </button>
 
-            {profileState === 'error' && (
-              <p className="ot-preferences__error-msg">{t('preferences.profile.saveFailed')}</p>
+            {profileState === 'error' && Object.keys(profileErrors).length === 0 && (
+              <p className="ot-preferences__error-msg">
+                {t('preferences.profile.errors.saveFailed')}
+              </p>
             )}
           </div>
         </section>
