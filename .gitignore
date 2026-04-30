@@ -6,6 +6,9 @@
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
 
+# Copilot CLI: per-session state (plans, checkpoints, drafts) — never committed
+.copilot/session-state/
+
 # Dependencies
 node_modules/
 
