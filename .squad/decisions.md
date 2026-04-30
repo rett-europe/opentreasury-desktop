@@ -7142,3 +7142,71 @@ PR #98 (scaffolding) → #99 (DonutChart + SegmentedToggle) → #100 (landing) �
 #### Key Learning: Prototype Critique Authority
 
 When Pedro says "challenge everything," exercise design authority — don't just translate mockups. This is different mode than mockup-translation: made opinionated KEEP/REJECT/MODIFY calls on 10 elements. The prototype-as-inspiration directive gave license to be opinionated. Future prototypes should get the same critical treatment.
+
+---
+
+### 2026-04-30T19:52Z: User directive — dataset storage scope
+
+**By:** Pedro (via Copilot)
+
+**What:**
+- Drop the corp-storage requirement for the dataset folder. The user may store the dataset on **any local folder OR any OneDrive folder** (personal OneDrive included, not just OneDrive Business / SharePoint).
+- The current allowlist validator (`syncRoot.classifySyncRoot`) and the rejection messaging it produces are out of scope going forward — the app should accept any writable folder the user picks.
+- First-run experience must be an **onboarding wizard** that asks the user to pick a storage location. The wizard offers two paths: **Local** or **OneDrive**. No silent default to `%APPDATA%`.
+- Native OneDrive integration (synced-folder discovery dropdown — option 2 from coordinator's compare table) remains a desired follow-up, but is NOT a blocker for ship.
+
+**Why:** User scope decision — corp-storage enforcement was over-constrained for the trial audience and was the root cause of the recent dataset-switch bug cascade (#186-#195). Simpler model: trust the user's folder choice, validate only that it's writable. Captured for team memory.
+
+---
+
+### 2026-04-30T19:56Z: User decision — PR #195 + wizard scope
+
+**By:** Pedro (via Copilot)
+
+**What:**
+- **PR #195 → Option B:** repurpose. Keep the post-recovery state-persistence + ⚠️ RECOVERY logging. **Drop** the OneDrive allowlist tightening (subfolder requirement). The allowlist is going away entirely in a follow-up.
+- **Onboarding wizard scope (first version):** **Local folder only.** No OneDrive-specific path yet. Trial users who want OneDrive will simply pick their synced OneDrive folder via the Local picker — that's good enough.
+- **Native OneDrive integration (option 2 — synced-folder discovery dropdown):** still desired, but explicitly deferred until after the trial. P1 follow-up, not blocking ship.
+
+**Why:** Pedro's call after coordinator presented the trade-offs. Confirms the storage-scope directive captured earlier in this session and sequences the work: ship recovery fixes now, drop validator next, then wizard, OneDrive integration last.
+
+---
+
+### 2026-04-30T20:04Z: PR #195 repurposed — allowlist tightening reverted, bootstrap-hygiene kept
+
+**Date:** 2026-04-30  
+**Status:** ✅ IN REVIEW (squad/recovery-persist-and-tight-allowlist)  
+**Agent:** Morpheus (Backend Dev)  
+**PR:** #195
+
+#### Decision
+
+PR #195 was originally three intertwined fixes (post-recovery persistence + OneDrive Business allowlist tightening + effective-path comparison). Per Pedro's storage-scope directive today, the OneDrive Business allowlist tightening was **reverted out of this PR**. The bootstrap-hygiene fixes remain.
+
+#### Non-obvious Choices
+
+1. **Surgical revert via `git checkout main -- <files>`, not `git revert`.**
+   - The allowlist tightening sat in the same commit (`8d31527`) as the bootstrap persistence + comparison-fix work. A full `git revert` of that commit would have ripped out the kept work too.
+   - Instead, restored only `app/src/renderer/utils/syncRoot.ts` and `app/src/renderer/utils/syncRoot.test.ts` from `main`, then committed as a forward "revert" commit (`2c269cc`). No interactive rebase, no force-push — branch history stays linear and reviewable.
+   - Verified post-revert: those two files are byte-identical to `main`.
+
+2. **Did not rewrite the prior history entry** in `.squad/agents/morpheus/history.md` describing the original three-part fix. Appended a new dated entry documenting the scope change instead. Rationale: history.md is append-only by convention; the original entry remains accurate as the record of what was *originally* shipped on the branch, the new entry records what *finally* shipped on the PR.
+
+3. **Kept the `previousDataDir` schema field even though the validator is being removed.**
+   - The field is a *diagnostic* (records the path that failed during auto-recovery), not a *validation input*. It's still useful when the validator goes away, because it tells users which path the bootstrap had to abandon. Independent of validator removal.
+
+4. **Did not pre-emptively update the `AppConfig` JSDoc or migration docs** to reflect the upcoming validator removal. That's the follow-up issue's job; landing speculative doc changes for a not-yet-merged follow-up creates merge friction.
+
+#### Verification
+
+- ✅ `npm run typecheck`
+- ✅ `npm run lint`
+- ✅ `npm run format:check`
+- ✅ `npm run test -- --run` (937 passed, 63 skipped)
+- ✅ Push successful, PR title + body updated, scope-change comment posted
+
+#### Follow-ups Filed
+
+1. **#198 (P0, squad:morpheus):** Remove corp-storage allowlist entirely from `syncRoot.ts`
+2. **#196 (P0, squad:trinity):** Onboarding wizard — Local-only path for first cut
+3. **#197 (P1, squad:trinity):** OneDrive synced-folder discovery (deferred, native integration)

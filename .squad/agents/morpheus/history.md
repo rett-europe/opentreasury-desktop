@@ -2855,3 +2855,37 @@ When a user changes `dataDir` (P1-2), the new folder becomes a separate workspac
 Events from different datasets never merge — each folder is isolated. The `datasetId` field stamps every event with "which workspace am I part of?", enabling future multi-dataset queries (e.g., "compare 2025 vs 2026 spending by category").
 
 The dataset ID is persisted to `<dataDir>/dataset.json` on first event-log creation using the same atomic write pattern as device.json.
+
+
+### 2026-05-05 (later) — PR #195 repurposed: allowlist tightening REVERTED, bootstrap-hygiene KEPT
+
+**Final scope of PR #195** (after Pedro's storage-scope directive today):
+
+**Kept:**
+- Post-recovery state persistence in `bootstrap.ts` — when fallback to `previousDataDir` kicks in, `app-config.json` is rewritten so `dataDir` = recovered path and `previousDataDir` = the path that just failed.
+- Loud `⚠️ RECOVERY` `console.warn` so silent recoveries are visible.
+- `config:setDataDir` comparison against `getEffectiveEventLogDir()` (handles stale persisted config).
+- `AppConfig.previousDataDir: string | null` (optional schema field).
+
+**Reverted out (commit 2c269cc):**
+- The OneDrive Business allowlist tightening in `app/src/renderer/utils/syncRoot.ts` (regex requiring a subfolder beneath the OneDrive root).
+- The matching `rejects OneDrive for Business root (no subfolder)` test case in `syncRoot.test.ts` and the nested-subfolder case.
+- `syncRoot.ts` and `syncRoot.test.ts` are now identical to `main` (post-#188).
+
+**Rationale (storage-scope directive supersedes the tightening):**
+Pedro decided today that the entire corp-storage allowlist is being removed in a follow-up, and the `dataDir` validator is being removed in another follow-up (Link is filing both). Tightening the allowlist this week and deleting it next week is wasted work, including any `less-strict-but-still-present` middle ground. The bootstrap-hygiene fixes are independently valuable and ship on their own.
+
+**Verification:** `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run format:check` ✅ · `npm run test -- --run` ✅ (937 passed, 63 skipped).
+
+**PR title updated to:** `fix(bootstrap): persist post-recovery state + visible recovery log`.
+
+**Durable lesson:** When a feature is intertwined with a policy decision still in flight, prefer landing the *infra-hygiene* part (logging, persistence of effective state) on its own and letting the *policy-shaped* part (regex tightenings, validator rules) wait until the policy is settled. Saves rework when the policy flips.
+
+---
+
+## 2026-04-30T20:04Z — Team Update (Scribe)
+
+Link filed issue #198 (P0, this sprint — drop corp-storage validator from syncRoot.ts) generated from storage-scope directive captured today. PR #195 scope is now final per Pedro's decision: keep recovery-persistence + RECOVERY logging, drop allowlist tightening. All verification steps green (937 tests). Ready for review.
+
+No action needed now — Link's follow-up will consume #198 next.
+

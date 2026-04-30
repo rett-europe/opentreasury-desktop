@@ -3009,3 +3009,12 @@ When `dataDir` is relative, the comparison called `path.resolve(currentDataDir)`
 - `app/src/main/ipc/handlers/config.ts` (2 lines)
 - `app/src/main/ipc/handlers/config.test.ts` (1 test added)
 
+
+---
+
+## 2026-04-30T20:04Z — Team Update (Scribe)
+
+**Heads-up:** Link filed issues #196 (P0, this sprint — onboarding wizard local-only path) and #197 (P1, deferred — OneDrive synced-folder discovery). Both cross-linked from PR #195 and generated from today's storage-scope directive. Expect squad/morpheus to push recovery fixes today; both Trinity issues are ready to pick up after that merges.
+
+No action needed now — just awareness. Original scope decisions captured in decisions.md.
+
