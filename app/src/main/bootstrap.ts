@@ -278,6 +278,8 @@ export async function initializeApp(): Promise<void> {
 
   const dir = await resolveEventLogDir(userDataDir, appConfigInstance);
   effectiveEventLogDir = dir;
+  // eslint-disable-next-line no-console
+  console.log(`[bootstrap] resolved event log directory: ${dir}`);
 
   // P1-1: Load per-dataset ID from <dataDir>/dataset.json
   datasetIdInstance = await loadDatasetId(dir);
