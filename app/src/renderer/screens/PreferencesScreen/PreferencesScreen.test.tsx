@@ -13,21 +13,29 @@ import type {
 
 // Mock the window.opentreasury APIs
 const mockConfigGet = vi.fn();
+const mockConfigSetDataDir = vi.fn();
 const mockProfileGet = vi.fn();
 const mockProfileSave = vi.fn();
+const mockPickFolder = vi.fn();
 
 beforeEach(() => {
   mockConfigGet.mockReset();
+  mockConfigSetDataDir.mockReset();
   mockProfileGet.mockReset();
   mockProfileSave.mockReset();
+  mockPickFolder.mockReset();
   // @ts-expect-error - partial window.opentreasury mock
   window.opentreasury = {
     config: {
       get: mockConfigGet,
+      setDataDir: mockConfigSetDataDir,
     },
     profile: {
       get: mockProfileGet,
       save: mockProfileSave,
+    },
+    dialog: {
+      pickFolder: mockPickFolder,
     },
   };
 });
@@ -357,7 +365,114 @@ describe('PreferencesScreen', () => {
     expect((saveButton as HTMLButtonElement).disabled).toBe(false);
   });
 
-  // TODO: Add tests for dataset switch confirmation modal (issue #181)
-  // These require mocking dialog.pickFolder and config.setDataDir IPC calls
-  // which needs a more comprehensive test setup.
+  it('re-enables dataset switch button after corp-storage validation error', async () => {
+    mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
+    mockProfileGet.mockResolvedValue({ ok: true, profile: null });
+
+    // Mock picking a local folder (not OneDrive for Business)
+    mockPickFolder.mockResolvedValue({
+      ok: true,
+      path: 'C:\\Users\\TestUser\\Documents\\LocalFolder',
+      cancelled: false,
+    });
+
+    // Mock setDataDir returning corp-storage error
+    mockConfigSetDataDir.mockResolvedValue({
+      ok: false,
+      error: {
+        code: 'NOT_CORP_LOCATION',
+        message: 'Not a corporate storage location',
+      },
+    });
+
+    renderWithI18n();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /^dataset$|^conjunto de datos$/i })).toBeDefined();
+    });
+
+    // Find the Change button (labeled "Change..." or "Cambiar...")
+    const changeButton = screen.getByRole('button', { name: /^change|^cambiar/i });
+
+    // Button should be enabled initially
+    expect((changeButton as HTMLButtonElement).disabled).toBe(false);
+
+    // Click the button
+    await userEvent.click(changeButton);
+
+    // Wait for error to appear
+    await waitFor(() => {
+      const errorText = screen.queryByText(
+        /must reside in.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
+      );
+      expect(errorText).toBeDefined();
+    });
+
+    // Button should be enabled again (not stuck disabled)
+    expect((changeButton as HTMLButtonElement).disabled).toBe(false);
+
+    // Click again to retry
+    await userEvent.click(changeButton);
+
+    // Should call picker and setDataDir again
+    await waitFor(() => {
+      expect(mockPickFolder).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('clears previous error when starting new dataset switch attempt', async () => {
+    mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
+    mockProfileGet.mockResolvedValue({ ok: true, profile: null });
+
+    // First attempt: local folder error
+    mockPickFolder.mockResolvedValueOnce({
+      ok: true,
+      path: 'C:\\Users\\TestUser\\Documents\\LocalFolder',
+      cancelled: false,
+    });
+    mockConfigSetDataDir.mockResolvedValueOnce({
+      ok: false,
+      error: {
+        code: 'NOT_CORP_LOCATION',
+        message: 'Not a corporate storage location',
+      },
+    });
+
+    renderWithI18n();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /^dataset$|^conjunto de datos$/i })).toBeDefined();
+    });
+
+    const changeButton = screen.getByRole('button', { name: /^change|^cambiar/i });
+
+    // First click
+    await userEvent.click(changeButton);
+
+    // Wait for first error
+    await waitFor(() => {
+      const errorText = screen.queryByText(
+        /must reside in.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
+      );
+      expect(errorText).toBeDefined();
+    });
+
+    // Second attempt: user cancels
+    mockPickFolder.mockResolvedValueOnce({
+      ok: true,
+      path: null,
+      cancelled: true,
+    });
+
+    // Click again
+    await userEvent.click(changeButton);
+
+    // Previous error should be gone
+    await waitFor(() => {
+      const errorText = screen.queryByText(
+        /must reside in.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
+      );
+      expect(errorText).toBeNull();
+    });
+  });
 });

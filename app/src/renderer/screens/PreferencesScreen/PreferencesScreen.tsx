@@ -205,39 +205,36 @@ export function PreferencesScreen(): JSX.Element {
       const pickerResult = await window.opentreasury.dialog.pickFolder();
 
       if (!pickerResult.ok) {
-        setChangeState('error');
         setChangeError({ code: 'PICKER_FAILED', message: pickerResult.error });
         return;
       }
 
       if (pickerResult.path === null) {
-        setChangeState('idle');
         return;
       }
 
       const selectedPath = pickerResult.path;
       if (!selectedPath) {
-        setChangeState('idle');
         return;
       }
 
       const kind = classifySyncRoot(selectedPath);
       if (kind === 'onedrive-personal') {
-        setChangeState('error');
         setChangeError({ code: 'ONEDRIVE_PERSONAL', message: '' });
         return;
       }
       if (kind === 'other') {
-        setChangeState('error');
         setChangeError({ code: 'NOT_CORP_LOCATION', message: '' });
         return;
       }
 
       await attemptSetDataDir(selectedPath, false);
     } catch (err) {
-      setChangeState('error');
       const message = err instanceof Error ? err.message : String(err);
       setChangeError({ code: 'UNEXPECTED', message });
+    } finally {
+      // Reset to idle unless we're in the success path (restarting state is set by attemptSetDataDir)
+      setChangeState((current) => (current === 'restarting' ? current : 'idle'));
     }
   };
 
@@ -253,12 +250,10 @@ export function PreferencesScreen(): JSX.Element {
       if (setDirResult.error.code === 'DATASET_MISMATCH' && !confirmDatasetSwitch) {
         setPendingFolderPath(path);
         setShowDatasetSwitchModal(true);
-        setChangeState('idle');
         return;
       }
 
       // Other errors
-      setChangeState('error');
       const errorData: ChangeError = {
         code: setDirResult.error.code,
         message: setDirResult.error.message,
