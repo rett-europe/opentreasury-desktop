@@ -162,6 +162,25 @@ describe('config:setDataDir handler', () => {
     if (!result.ok) expect(result.error.code).toBe('SAME_DIR');
   });
 
+  it('correctly compares against effective dataDir, not raw config value', async () => {
+    // Regression test for #192 recovery bug: if app-config.json contains a
+    // relative path like "default" but the effective dataDir is an absolute
+    // path, SAME_DIR check must compare against the effective path, not the
+    // raw config value (which would resolve to CWD, not userData).
+    const effectiveDir = path.join(externalRoot, 'my-data');
+    const differentDir = path.join(externalRoot, 'onedrive-path');
+    await fs.mkdir(effectiveDir, { recursive: true });
+    await fs.mkdir(differentDir, { recursive: true });
+
+    // getCurrentDataDir returns the effective absolute path (as fixed in this PR)
+    const { deps } = makeDeps({ userDataDir, currentDataDir: effectiveDir });
+    const handler = createConfigSetDataDirHandler(deps);
+
+    // User selects a different folder — should NOT trigger SAME_DIR
+    const result = await handler({ newDir: differentDir });
+    expect(result.ok).toBe(true);
+  });
+
   it('refuses when target events.ndjson belongs to a different dataset (DATASET_MISMATCH)', async () => {
     const newDir = path.join(externalRoot, 'foreign');
     await fs.mkdir(newDir, { recursive: true });

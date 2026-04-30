@@ -98,7 +98,7 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
 
     // 3. Reject no-op (same as currently active dataDir).
     const currentDataDir = (deps.getCurrentDataDir ?? defaultGetCurrentDataDir)();
-    if (currentDataDir !== null && pathsEqual(candidate, path.resolve(currentDataDir))) {
+    if (currentDataDir !== null && pathsEqual(candidate, currentDataDir)) {
       return {
         ok: false,
         error: {
@@ -220,8 +220,8 @@ function defaultGetCurrentConfig(): AppConfig {
   return getAppConfig();
 }
 
-function defaultGetCurrentDataDir(): string | null {
-  return getAppConfig().dataDir;
+function defaultGetCurrentDataDir(): string {
+  return getEffectiveEventLogDir();
 }
 
 function defaultGetCurrentDatasetId(): string {
