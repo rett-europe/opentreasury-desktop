@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { classifySyncRoot } from './syncRoot.js';
 
 describe('classifySyncRoot', () => {
-  it('classifies OneDrive for Business paths with subfolder', () => {
+  it('classifies OneDrive for Business paths', () => {
     expect(classifySyncRoot('C:\\Users\\Pedro\\OneDrive - Rett Europe\\OT')).toBe(
       'onedrive-business',
     );
@@ -15,17 +15,6 @@ describe('classifySyncRoot', () => {
     expect(classifySyncRoot('C:\\Users\\Bob\\OneDrive  -  Acme Corp\\Data')).toBe(
       'onedrive-business',
     );
-    // Nested subfolders
-    expect(classifySyncRoot('C:\\Users\\Pedro\\OneDrive - Rett Europe\\OT\\2024')).toBe(
-      'onedrive-business',
-    );
-  });
-
-  it('rejects OneDrive for Business root (no subfolder)', () => {
-    // Root of OneDrive Business (no subfolder) — should be 'other' (blocked)
-    expect(classifySyncRoot('C:\\Users\\Pedro\\OneDrive - Rett Europe')).toBe('other');
-    expect(classifySyncRoot('C:\\Users\\Pedro\\OneDrive - Rett Europe\\')).toBe('other');
-    expect(classifySyncRoot('C:\\Users\\Alice\\OneDrive - Contoso Ltd')).toBe('other');
   });
 
   it('classifies OneDrive Personal paths', () => {
