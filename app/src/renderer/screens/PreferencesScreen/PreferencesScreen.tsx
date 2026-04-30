@@ -205,6 +205,7 @@ export function PreferencesScreen(): JSX.Element {
       const pickerResult = await window.opentreasury.dialog.pickFolder();
 
       if (!pickerResult.ok) {
+        setChangeState('error');
         setChangeError({ code: 'PICKER_FAILED', message: pickerResult.error });
         return;
       }
@@ -220,11 +221,13 @@ export function PreferencesScreen(): JSX.Element {
 
       const kind = classifySyncRoot(selectedPath);
       if (kind === 'onedrive-personal') {
+        setChangeState('error');
         setChangeError({ code: 'ONEDRIVE_PERSONAL', message: '' });
         return;
       }
       // Strict allowlist: only 'onedrive-business' is allowed
       if (kind !== 'onedrive-business') {
+        setChangeState('error');
         setChangeError({ code: 'NOT_CORP_LOCATION', message: '' });
         return;
       }
@@ -232,10 +235,14 @@ export function PreferencesScreen(): JSX.Element {
       await attemptSetDataDir(selectedPath, false);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      setChangeState('error');
       setChangeError({ code: 'UNEXPECTED', message });
     } finally {
-      // Reset to idle unless we're in the success path (restarting state is set by attemptSetDataDir)
-      setChangeState((current) => (current === 'restarting' ? current : 'idle'));
+      // Reset to idle unless we're in error or success path
+      // Every exit path must show user feedback.
+      setChangeState((current) =>
+        current === 'restarting' || current === 'error' ? current : 'idle',
+      );
     }
   };
 
@@ -262,6 +269,7 @@ export function PreferencesScreen(): JSX.Element {
       if (setDirResult.error.details) {
         errorData.details = setDirResult.error.details;
       }
+      setChangeState('error');
       setChangeError(errorData);
       return;
     }
@@ -699,7 +707,9 @@ export function PreferencesScreen(): JSX.Element {
               <button
                 type="button"
                 className="ot-preferences__button ot-preferences__button--secondary"
-                disabled={changeState !== 'idle' || configData.readOnly}
+                disabled={
+                  (changeState !== 'idle' && changeState !== 'error') || configData.readOnly
+                }
                 onClick={handleChangeFolder}
               >
                 {changeState === 'picking' || changeState === 'changing'

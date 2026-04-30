@@ -369,21 +369,14 @@ describe('PreferencesScreen', () => {
     mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
     mockProfileGet.mockResolvedValue({ ok: true, profile: null });
 
-    // Mock picking a local folder (not OneDrive for Business)
+    // Mock picking c:\temp (Pedro's exact reproduction case)
     mockPickFolder.mockResolvedValue({
       ok: true,
-      path: 'C:\\Users\\TestUser\\Documents\\LocalFolder',
+      path: 'c:\\temp',
       cancelled: false,
     });
 
-    // Mock setDataDir returning corp-storage error
-    mockConfigSetDataDir.mockResolvedValue({
-      ok: false,
-      error: {
-        code: 'NOT_CORP_LOCATION',
-        message: 'Not a corporate storage location',
-      },
-    });
+    // IPC should NOT be called — renderer validates locally now
 
     renderWithI18n();
 
@@ -400,10 +393,10 @@ describe('PreferencesScreen', () => {
     // Click the button
     await userEvent.click(changeButton);
 
-    // Wait for error to appear
+    // Wait for error to appear (Spanish: "deben residir en", English: "must live inside")
     await waitFor(() => {
       const errorText = screen.queryByText(
-        /must reside in.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
+        /must live inside.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
       );
       expect(errorText).toBeDefined();
     });
@@ -411,31 +404,28 @@ describe('PreferencesScreen', () => {
     // Button should be enabled again (not stuck disabled)
     expect((changeButton as HTMLButtonElement).disabled).toBe(false);
 
+    // setDataDir should NOT have been called (validation happens in renderer)
+    expect(mockConfigSetDataDir).not.toHaveBeenCalled();
+
     // Click again to retry
     await userEvent.click(changeButton);
 
-    // Should call picker and setDataDir again
+    // Should call picker again but still not call setDataDir
     await waitFor(() => {
       expect(mockPickFolder).toHaveBeenCalledTimes(2);
     });
+    expect(mockConfigSetDataDir).not.toHaveBeenCalled();
   });
 
   it('clears previous error when starting new dataset switch attempt', async () => {
     mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
     mockProfileGet.mockResolvedValue({ ok: true, profile: null });
 
-    // First attempt: local folder error
+    // First attempt: c:\temp (local folder — renderer validates)
     mockPickFolder.mockResolvedValueOnce({
       ok: true,
-      path: 'C:\\Users\\TestUser\\Documents\\LocalFolder',
+      path: 'c:\\temp',
       cancelled: false,
-    });
-    mockConfigSetDataDir.mockResolvedValueOnce({
-      ok: false,
-      error: {
-        code: 'NOT_CORP_LOCATION',
-        message: 'Not a corporate storage location',
-      },
     });
 
     renderWithI18n();
@@ -449,10 +439,10 @@ describe('PreferencesScreen', () => {
     // First click
     await userEvent.click(changeButton);
 
-    // Wait for first error
+    // Wait for first error (Spanish: "deben residir en", English: "must live inside")
     await waitFor(() => {
       const errorText = screen.queryByText(
-        /must reside in.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
+        /must live inside.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
       );
       expect(errorText).toBeDefined();
     });
@@ -470,7 +460,7 @@ describe('PreferencesScreen', () => {
     // Previous error should be gone
     await waitFor(() => {
       const errorText = screen.queryByText(
-        /must reside in.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
+        /must live inside.*OneDrive for Business|deben residir en.*OneDrive para empresas/i,
       );
       expect(errorText).toBeNull();
     });
