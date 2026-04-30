@@ -3,7 +3,7 @@
 //
 // Scaffold: exposes a stub `window.opentreasury` surface so the renderer can compile
 // against it. Real handlers land with feature work.
-import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, shell } from 'electron';
 import {
   IPC_PANEL_GET_ACCOUNTS,
   IPC_PANEL_GET_ACCOUNT_BALANCES,
@@ -183,6 +183,11 @@ import {
   IPC_DIALOG_PICK_FOLDER,
   type DialogPickFolderResponse,
 } from '../shared/ipc-contracts/dialog.js';
+import {
+  IPC_DATASET_EXPORT,
+  type DatasetExportRequest,
+  type DatasetExportResponse,
+} from '../shared/ipc-contracts/dataset.js';
 import {
   IPC_PROFILE_GET,
   IPC_PROFILE_SAVE,
@@ -402,6 +407,11 @@ const api = {
       return ipcRenderer.invoke(IPC_CONFIG_SET_DATA_DIR, req);
     },
   },
+  dataset: {
+    export: (req: DatasetExportRequest): Promise<DatasetExportResponse> => {
+      return ipcRenderer.invoke(IPC_DATASET_EXPORT, req);
+    },
+  },
   dialog: {
     pickFolder: (): Promise<DialogPickFolderResponse> => {
       return ipcRenderer.invoke(IPC_DIALOG_PICK_FOLDER);
@@ -413,6 +423,11 @@ const api = {
     },
     save: (profile: Profile): Promise<ProfileSaveResponse> => {
       return ipcRenderer.invoke(IPC_PROFILE_SAVE, profile);
+    },
+  },
+  shell: {
+    openPath: (path: string): Promise<string> => {
+      return shell.openPath(path);
     },
   },
 } as const;

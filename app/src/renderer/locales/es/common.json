@@ -1155,6 +1155,21 @@
       "changeButton": "Cambiar…",
       "readonlyBadge": "Modo de solo lectura",
       "restarting": "Reiniciando aplicación…",
+      "export": {
+        "button": "Exportar…",
+        "description": "Guarda una copia de tu conjunto de datos en otra carpeta.",
+        "inProgress": "Exportando…",
+        "success": "Se exportaron {{count}} archivos ({{size}}) a {{path}}.",
+        "openFolder": "Abrir carpeta",
+        "errors": {
+          "targetNotEmpty": "Esa carpeta ya contiene un conjunto de datos. Por favor, elige una carpeta vacía.",
+          "targetInvalid": "Esa carpeta no se puede utilizar como destino de exportación.",
+          "diskFull": "No hay suficiente espacio en disco en el destino.",
+          "permissionDenied": "Permiso denegado. Elige una carpeta diferente o ejecuta con el acceso apropiado.",
+          "verifyFailed": "La exportación se completó pero la verificación falló. Por favor, inténtalo de nuevo.",
+          "generic": "Error al exportar"
+        }
+      },
       "confirmSwitch": {
         "title": "¿Cambiar a otro espacio de trabajo?",
         "body": "Esta carpeta pertenece a otro espacio de trabajo de OpenTreasury. Si continúas, la aplicación cambiará a ese espacio de trabajo. Tu conjunto de datos actual permanecerá donde está y podrás volver en cualquier momento.",
