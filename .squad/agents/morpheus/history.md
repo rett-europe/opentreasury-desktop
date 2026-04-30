@@ -2908,3 +2908,32 @@ No action needed now — Link's follow-up will consume #198 next.
 **Stacking note in PR body:** explicit instruction that #199 is stacked on #195 and that GitHub will reconcile whichever order they land.
 
 **Decision logged:** `.squad/decisions/inbox/morpheus-198-validator-removed.md` — chose deletion over a no-op stub.
+
+### 2026-05-06 — P0 Data-Dir Priority Fix (PR #202, issue #201)
+
+**Trial-Readiness P0 blocker:** Fixed split-brain dataset state where OT_DATA_DIR env var silently overrode user-configured dataDir from Preferences, causing config file and actual data folder to disagree.
+
+**Symptom:** Pedro launched with `npm run dev:empty -- --port 5174` (sets `OT_DATA_DIR=my-data`). User configured data folder via Preferences to `C:\temp\opentreasury`. App relaunched, but on next boot, events loaded from `my-data` (env var) instead of `C:\temp\opentreasury` (configured path). No warning, silent divergence.
+
+**Root cause:** `resolveEventLogDir()` in `bootstrap.ts` gave Priority 1 to OT_DATA_DIR env var, overriding appConfig.dataDir (user's deliberate choice via Preferences UI). This was backwards — env var should be a dev bootstrap escape hatch, not a hijack.
+
+**Solution shipped:**
+1. **Priority flip in bootstrap.ts:** appConfig.dataDir (user config) now wins over OT_DATA_DIR. Env var only applies when appConfig.dataDir is unset or fails validation.
+2. **Warning log:** When both are set and differ, log: `[bootstrap] ⚠️ OT_DATA_DIR env var ({env}) ignored — appConfig.dataDir ({config}) takes precedence.`
+3. **UI drift detection in PreferencesScreen:** Added warning row when configured path differs from effective path: `⚠️ Active data folder differs from configured: {effectivePath}. Likely cause: OT_DATA_DIR env override.`
+4. **i18n:** Added `preferences.dataset.driftWarning` to en/es common.json.
+5. **CSS:** Added `.ot-preferences__warning` style (yellow/orange border, similar to error card).
+6. **Tests:** Updated `bootstrap.test.ts` to reflect new priority. New test: `should prefer appConfig.dataDir over OT_DATA_DIR (user config wins)`. All 938 tests pass.
+
+**Validation:** typecheck ✓, lint ✓, format:check ✓, test ✓.
+
+**Impact:** Users can now trust that the data-folder picker works as advertised. No more silent data divergence. Preferences UI shows the truth (with drift warning if env override is active). Dev/prod behavior is consistent.
+
+**Related:** PR #199 (storage-scope pivot), P0-3 trial-readiness milestone.
+
+## Learnings
+
+**Config priority precedence pattern (user config > env override):** When config can come from multiple sources (env, file, default), user-deliberate input (UI-saved config) MUST outrank developer escape-hatches (env vars). Env vars are dev-only escape hatches for fresh-start scenarios; user config from UI is always authoritative. When sources diverge, surface the effective state in the UI, never silently. Applied to `resolveEventLogDir()` in PR #202. Generalizes to any future config-source conflicts (e.g., command-line flags vs saved config).
+
+**Effective-path-vs-configured-path drift detection:** When displaying configured paths in UI (e.g., Preferences), always compare against the effective path actually in use. If they differ, show a warning explaining the discrepancy (env override, fallback, etc.). Prevents user confusion when config file and runtime state disagree. Applied to PreferencesScreen in PR #202.
+
