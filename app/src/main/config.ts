@@ -16,6 +16,7 @@ import { z } from 'zod';
 export const appConfigSchema = z.object({
   version: z.number().int().positive().default(1), // for future migrations
   dataDir: z.string().nullable().default(null), // null = use default <userData>/dev-events
+  previousDataDir: z.string().nullable().default(null), // fallback on bootstrap failure
   readOnly: z.boolean().default(false), // blocks domain event writes (not config/profile writes)
 });
 

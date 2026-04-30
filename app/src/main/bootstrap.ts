@@ -21,7 +21,7 @@ import { replayEvents, getReadModel } from '../core/query/reducers.js';
 import type { ReadModel } from '../core/query/types.js';
 import { buildDevSeedEvents } from './devSeed.js';
 import { loadProfile, type Profile } from './profile.js';
-import { loadAppConfig, type AppConfig } from './config.js';
+import { loadAppConfig, saveAppConfig, type AppConfig } from './config.js';
 import { createReadOnlyEventLog } from './eventLog-readonly-wrapper.js';
 import { loadDeviceId } from './device.js';
 import { loadDatasetId } from './dataset.js';
@@ -245,12 +245,62 @@ function shouldSeed(): boolean {
  *   5. If the log is empty AND NODE_ENV !== 'production', emit the dev-seed
  *      events through append() so the app has prototype-shaped data to show.
  *   6. Replay the final event list into the reducer singleton.
+ *
+ * Recovery mechanism:
+ *   If bootstrap fails with a configured dataDir (e.g., OneDrive folder is
+ *   inaccessible), attempts to fall back to previousDataDir and re-bootstrap.
+ *   If fallback also fails, rethrows the error for the caller to handle.
  */
 export async function initializeApp(): Promise<void> {
   if (bootstrapped) return;
 
   const userDataDir = app.getPath('userData');
 
+  try {
+    await bootstrapWithConfig(userDataDir);
+  } catch (err) {
+    // Bootstrap failed with the configured dataDir. Attempt fallback to
+    // previousDataDir if it exists and is different from the failed dataDir.
+    const config = appConfigInstance;
+    if (config && config.previousDataDir && config.previousDataDir !== config.dataDir) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[bootstrap] Failed to initialize with dataDir ${config.dataDir}: ${errMessage(err)}`,
+      );
+      // eslint-disable-next-line no-console
+      console.warn(`[bootstrap] Attempting fallback to previousDataDir: ${config.previousDataDir}`);
+
+      // Update config to revert to previous dataDir
+      const fallbackConfig: AppConfig = {
+        ...config,
+        dataDir: config.previousDataDir,
+        previousDataDir: null,
+      };
+      appConfigInstance = fallbackConfig;
+
+      try {
+        // Persist the fallback config so next launch uses the working path
+        await saveAppConfig(userDataDir, fallbackConfig);
+        // eslint-disable-next-line no-console
+        console.log('[bootstrap] Reverted to previousDataDir in app-config.json');
+      } catch (saveErr) {
+        // eslint-disable-next-line no-console
+        console.warn(`[bootstrap] Failed to persist fallback config: ${errMessage(saveErr)}`);
+      }
+
+      // Retry bootstrap with the previous dataDir
+      await bootstrapWithConfig(userDataDir);
+    } else {
+      // No fallback available — rethrow original error
+      throw err;
+    }
+  }
+}
+
+/**
+ * Internal bootstrap logic extracted for retry mechanism.
+ */
+async function bootstrapWithConfig(userDataDir: string): Promise<void> {
   // P0-2: Load profile before initializing event log. If missing, the app
   // continues with profile === null; the renderer will show ProfileSetupModal.
   profileInstance = await loadProfile(userDataDir);
@@ -316,4 +366,8 @@ export async function initializeApp(): Promise<void> {
 
   // eslint-disable-next-line no-console
   console.log(`[bootstrap] hydrated ${events.length} events from ${dir}`);
+}
+
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

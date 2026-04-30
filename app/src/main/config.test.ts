@@ -37,6 +37,7 @@ describe('config.ts', () => {
       expect(result.success).toBe(true);
       expect(config.version).toBe(1);
       expect(config.dataDir).toBeNull();
+      expect(config.previousDataDir).toBeNull();
       expect(config.readOnly).toBe(false);
     });
   });
@@ -46,6 +47,7 @@ describe('config.ts', () => {
       const config = await loadAppConfig(testDir);
       expect(config.version).toBe(1);
       expect(config.dataDir).toBeNull();
+      expect(config.previousDataDir).toBeNull();
       expect(config.readOnly).toBe(false);
     });
 
@@ -53,6 +55,7 @@ describe('config.ts', () => {
       const validConfig: AppConfig = {
         version: 1,
         dataDir: 'C:\\MyNGO\\Treasury',
+        previousDataDir: null,
         readOnly: true,
       };
 
@@ -69,6 +72,7 @@ describe('config.ts', () => {
       const loaded = await loadAppConfig(testDir);
       expect(loaded.version).toBe(1);
       expect(loaded.dataDir).toBeNull();
+      expect(loaded.previousDataDir).toBeNull();
       expect(loaded.readOnly).toBe(false);
     });
 
@@ -79,6 +83,7 @@ describe('config.ts', () => {
       const loaded = await loadAppConfig(testDir);
       expect(loaded.version).toBe(1);
       expect(loaded.dataDir).toBeNull();
+      expect(loaded.previousDataDir).toBeNull();
       expect(loaded.readOnly).toBe(false);
     });
 
@@ -90,6 +95,7 @@ describe('config.ts', () => {
       const loaded = await loadAppConfig(testDir);
       expect(loaded.version).toBe(1);
       expect(loaded.dataDir).toBeNull();
+      expect(loaded.previousDataDir).toBeNull();
       expect(loaded.readOnly).toBe(false);
     });
 
@@ -97,6 +103,7 @@ describe('config.ts', () => {
       const config: AppConfig = {
         version: 1,
         dataDir: 'D:\\Shared\\OpenTreasury',
+        previousDataDir: null,
         readOnly: false,
       };
 
@@ -110,6 +117,7 @@ describe('config.ts', () => {
       const config: AppConfig = {
         version: 1,
         dataDir: 'my-dataset',
+        previousDataDir: null,
         readOnly: false,
       };
 
@@ -123,6 +131,7 @@ describe('config.ts', () => {
       const config: AppConfig = {
         version: 1,
         dataDir: null,
+        previousDataDir: null,
         readOnly: true,
       };
 
@@ -139,6 +148,7 @@ describe('config.ts', () => {
       const config: AppConfig = {
         version: 1,
         dataDir: 'C:\\Data\\Events',
+        previousDataDir: null,
         readOnly: false,
       };
 
@@ -155,6 +165,7 @@ describe('config.ts', () => {
       const config1: AppConfig = {
         version: 1,
         dataDir: 'first-path',
+        previousDataDir: null,
         readOnly: false,
       };
       await saveAppConfig(testDir, config1);
@@ -162,12 +173,14 @@ describe('config.ts', () => {
       const config2: AppConfig = {
         version: 1,
         dataDir: 'second-path',
+        previousDataDir: 'first-path',
         readOnly: true,
       };
       await saveAppConfig(testDir, config2);
 
       const loaded = await loadAppConfig(testDir);
       expect(loaded.dataDir).toBe('second-path');
+      expect(loaded.previousDataDir).toBe('first-path');
       expect(loaded.readOnly).toBe(true);
     });
 

@@ -100,10 +100,29 @@ function installCspHeader(): void {
 
 void app.whenReady().then(async () => {
   installCspHeader();
+
   // WI-4′ — hydrate the read model from the local NDJSON event log BEFORE
   // handlers are registered, so the first IPC query sees real data (and the
   // dev-seed has run on first launch).
-  await initializeApp();
+  //
+  // If bootstrap fails (e.g., dataDir is inaccessible), attempt fallback to
+  // previousDataDir. If that also fails, log the error and exit — we cannot
+  // proceed without a working dataset.
+  try {
+    await initializeApp();
+  } catch (err) {
+    console.error('[main] Bootstrap failed:', err);
+    console.error('[main] Cannot start app without a working dataset. Exiting.');
+    // Show a native error dialog before exiting
+    const { dialog } = await import('electron');
+    await dialog.showErrorBox(
+      'OpenTreasury Bootstrap Error',
+      `Failed to initialize the application:\n\n${err instanceof Error ? err.message : String(err)}\n\nThe app will now exit. Please check the console logs for details.`,
+    );
+    app.exit(1);
+    return;
+  }
+
   registerIpcHandlers(ipcMain);
   createMainWindow();
 

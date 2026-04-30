@@ -169,8 +169,13 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
     }
 
     // 6. Persist new dataDir to app-config.json atomically.
+    //    Save the current dataDir as previousDataDir for recovery.
     const currentConfig = (deps.getCurrentConfig ?? defaultGetCurrentConfig)();
-    const next: AppConfig = { ...currentConfig, dataDir: candidate };
+    const next: AppConfig = {
+      ...currentConfig,
+      dataDir: candidate,
+      previousDataDir: currentDataDir, // fallback on bootstrap failure
+    };
     try {
       await (deps.saveConfig ?? saveAppConfig)(userDataDir, next);
     } catch (err) {
