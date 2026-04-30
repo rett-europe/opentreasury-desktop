@@ -310,6 +310,23 @@ export async function initializeApp(): Promise<void> {
     appConfigInstance,
   );
   effectiveEventLogDir = dir;
+
+  // If recovery fallback happened, persist the recovered state to disk
+  if (configChanged && newConfig) {
+    try {
+      await saveAppConfig(userDataDir, newConfig);
+      appConfigInstance = newConfig;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[bootstrap] ✅ Persisted recovery state (dataDir: ${newConfig.dataDir}, previousDataDir: ${newConfig.previousDataDir})`,
+      );
+    } catch (err) {
+      // Log error but continue — app can still run with in-memory config
+      // eslint-disable-next-line no-console
+      console.error(`[bootstrap] ❌ Failed to persist recovery state: ${err}`);
+    }
+  }
+
   // eslint-disable-next-line no-console
   console.log(`[bootstrap] resolved event log directory: ${dir}`);
 
