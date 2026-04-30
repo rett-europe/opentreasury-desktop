@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { classifySyncRoot } from '../../utils/syncRoot.js';
 import type { Profile } from '../../../shared/ipc-contracts/profile.js';
 import './PreferencesScreen.css';
 
@@ -67,7 +66,7 @@ const ROLE_OPTIONS = [
  * 2. Appearance (Light/Dark/System)
  * 3. Language (English/Español)
  * 4. Current Dataset (read-only display)
- * 5. Data folder (change button with corp-folder enforcement)
+ * 5. Data folder (change button — accepts any writable folder)
  * 6. About (version)
  *
  * Plus a footer with Switch Dataset button.
@@ -219,19 +218,9 @@ export function PreferencesScreen(): JSX.Element {
         return;
       }
 
-      const kind = classifySyncRoot(selectedPath);
-      if (kind === 'onedrive-personal') {
-        setChangeState('error');
-        setChangeError({ code: 'ONEDRIVE_PERSONAL', message: '' });
-        return;
-      }
-      // Strict allowlist: only 'onedrive-business' is allowed
-      if (kind !== 'onedrive-business') {
-        setChangeState('error');
-        setChangeError({ code: 'NOT_CORP_LOCATION', message: '' });
-        return;
-      }
-
+      // No allowlist gating: trust the user's folder choice. The main-process
+      // setDataDir handler enforces (a) writability via a probe write and
+      // (b) not-same-as-current-effective-dataDir.
       await attemptSetDataDir(selectedPath, false);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -701,8 +690,6 @@ export function PreferencesScreen(): JSX.Element {
               )}
             </div>
 
-            <p className="ot-preferences__hint">{t('preferences.dataFolder.requirement')}</p>
-
             <div className="ot-preferences__button-group">
               <button
                 type="button"
@@ -739,11 +726,7 @@ export function PreferencesScreen(): JSX.Element {
 
             {changeState === 'error' && changeError && (
               <div className="ot-preferences__error-card">
-                {changeError.code === 'ONEDRIVE_PERSONAL' ? (
-                  <p>{t('preferences.dataFolder.errors.oneDrivePersonal')}</p>
-                ) : changeError.code === 'NOT_CORP_LOCATION' ? (
-                  <p>{t('preferences.dataFolder.errors.notCorpLocation')}</p>
-                ) : changeError.code === 'SAME_DIR' ? (
+                {changeError.code === 'SAME_DIR' ? (
                   <p>{t('preferences.dataFolder.errors.sameDir')}</p>
                 ) : changeError.code === 'INVALID_LOCATION' ? (
                   <p>{t('preferences.dataFolder.errors.invalidLocation')}</p>

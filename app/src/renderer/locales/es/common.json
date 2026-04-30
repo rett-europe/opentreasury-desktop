@@ -1151,7 +1151,6 @@
     "dataFolder": {
       "title": "Carpeta de datos",
       "defaultLocationNote": "(ubicación predeterminada)",
-      "requirement": "Los datos deben almacenarse en OneDrive para empresas o una biblioteca de SharePoint sincronizada.",
       "changeButton": "Cambiar…",
       "readonlyBadge": "Modo de solo lectura",
       "restarting": "Reiniciando aplicación…",
@@ -1177,10 +1176,8 @@
         "confirm": "Cambiar espacio de trabajo"
       },
       "errors": {
-        "oneDrivePersonal": "OneDrive Personal no es compatible con v1. Por favor, selecciona una carpeta en OneDrive para empresas o SharePoint. El soporte para OneDrive Personal está planeado para v1.x.",
-        "notCorpLocation": "Los datos de OpenTreasury deben residir en una carpeta de OneDrive para empresas o SharePoint para que los administradores puedan compartir el acceso. Las carpetas locales, el Escritorio, las unidades USB y OneDrive personal no son compatibles. Selecciona una carpeta en 'OneDrive - {tu organización}' o una biblioteca de SharePoint sincronizada.",
         "sameDir": "La carpeta seleccionada es la misma que la carpeta de datos actual.",
-        "invalidLocation": "La carpeta de datos no debe estar en la carpeta interna de la aplicación. Elige una carpeta externa, por ejemplo, en OneDrive para empresas o SharePoint.",
+        "invalidLocation": "La carpeta de datos no debe estar en la carpeta interna de la aplicación. Elige una carpeta externa.",
         "notWritable": "La carpeta seleccionada no tiene permisos de escritura. Por favor, elige otra ubicación.",
         "datasetMismatch": "La carpeta seleccionada ya contiene datos de otra tesorería. Por favor, elige una carpeta vacía o la carpeta de la tesorería actual.",
         "generic": "Error al cambiar carpeta de datos"
@@ -1200,9 +1197,8 @@
       "readonlyBadge": "Modo de solo lectura",
       "restarting": "Reiniciando aplicación…",
       "errors": {
-        "oneDrivePersonal": "OneDrive Personal no es compatible con v1. Por favor, selecciona una carpeta en OneDrive para empresas o SharePoint. El soporte para OneDrive Personal está planeado para v1.x.",
         "sameDir": "La carpeta seleccionada es la misma que la carpeta de datos actual.",
-        "invalidLocation": "La carpeta de datos no debe estar en la carpeta interna de la aplicación. Elige una carpeta externa, por ejemplo, en OneDrive para empresas o SharePoint.",
+        "invalidLocation": "La carpeta de datos no debe estar en la carpeta interna de la aplicación. Elige una carpeta externa.",
         "notWritable": "La carpeta seleccionada no tiene permisos de escritura. Por favor, elige otra ubicación.",
         "datasetMismatch": "La carpeta seleccionada ya contiene datos de otra tesorería. Por favor, elige una carpeta vacía o la carpeta de la tesorería actual.",
         "generic": "Error al cambiar carpeta de datos"

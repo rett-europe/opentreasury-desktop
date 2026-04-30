@@ -2889,3 +2889,22 @@ Link filed issue #198 (P0, this sprint — drop corp-storage validator from sync
 
 No action needed now — Link's follow-up will consume #198 next.
 
+
+
+---
+
+## 2026-04-30 — #198: drop corp-storage validator → PR #199 (draft → ready, CI green)
+
+**Branch:** `squad/198-drop-corp-storage-validator` stacked on `squad/recovery-persist-and-tight-allowlist` (PR #195). Targets `main`.
+
+**Scope shipped:**
+- Deleted `app/src/renderer/utils/syncRoot.ts` and its test file (only consumer was PreferencesScreen — module gone, not stubbed).
+- `PreferencesScreen.handleChangeFolder` now forwards picks straight to `config:setDataDir`. Validation (writability + not-same-as-current via `getEffectiveEventLogDir`) lives in the main-process handler, so no duplicate logic in the renderer.
+- Stripped `oneDrivePersonal`, `notCorpLocation`, and `requirement` strings from en/es common.json (preferences and dead settings trees both); softened `invalidLocation` to drop OneDrive-specific suggestion.
+- Replaced two corp-storage tests with three covering the surviving behavior: forwards-without-gating, NOT_WRITABLE surfaced, SAME_DIR surfaced; retained error-clearing-on-retry test retargeted at NOT_WRITABLE.
+
+**Gates:** typecheck / lint / format:check / test (932 passing, 63 skipped) all green locally; GitHub CI `lint · typecheck · test` green; perf gate skipped (main-only).
+
+**Stacking note in PR body:** explicit instruction that #199 is stacked on #195 and that GitHub will reconcile whichever order they land.
+
+**Decision logged:** `.squad/decisions/inbox/morpheus-198-validator-removed.md` — chose deletion over a no-op stub.
