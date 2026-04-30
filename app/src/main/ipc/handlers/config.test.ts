@@ -40,9 +40,12 @@ function makeDeps(opts: {
   const relaunch = vi.fn();
   const exit = vi.fn();
   const updateCachedConfig = vi.fn();
+  // Default currentDataDir to <userData>/dev-events if not provided (matches bootstrap default)
+  const effectiveCurrentDataDir = opts.currentDataDir ?? path.join(opts.userDataDir, 'dev-events');
   const currentConfig: AppConfig = {
     version: 1,
     dataDir: opts.currentDataDir ?? null,
+    previousDataDir: null,
     readOnly: false,
   };
   return {
@@ -55,7 +58,7 @@ function makeDeps(opts: {
       relaunch,
       exit,
       getCurrentConfig: () => currentConfig,
-      getCurrentDataDir: () => opts.currentDataDir ?? null,
+      getCurrentDataDir: () => effectiveCurrentDataDir,
       getCurrentDatasetId: () => opts.currentDatasetId ?? CURRENT_DATASET_ID,
       saveConfig: opts.saveConfigOverride ?? saveAppConfig,
       updateCachedConfig,
@@ -90,15 +93,19 @@ describe('config:setDataDir handler', () => {
     const result = await handler({ newDir });
     expect(result).toEqual({ ok: true });
 
-    // app-config.json was written with the new dataDir
+    // app-config.json was written with the new dataDir AND previousDataDir
     const written = JSON.parse(
       await fs.readFile(path.join(userDataDir, 'app-config.json'), 'utf-8'),
     );
     expect(written.dataDir).toBe(path.resolve(newDir));
+    expect(written.previousDataDir).toBe(path.join(userDataDir, 'dev-events')); // default
 
     // In-memory cache updated via the injected hook
     expect(updateCachedConfig).toHaveBeenCalledTimes(1);
     expect(updateCachedConfig.mock.calls[0]?.[0]?.dataDir).toBe(path.resolve(newDir));
+    expect(updateCachedConfig.mock.calls[0]?.[0]?.previousDataDir).toBe(
+      path.join(userDataDir, 'dev-events'),
+    );
 
     // Relaunch + exit scheduled via setImmediate (not yet fired)
     expect(relaunch).not.toHaveBeenCalled();

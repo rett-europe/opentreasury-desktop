@@ -48,9 +48,9 @@ export interface SetDataDirDeps {
   /** Returns the current full app config (defaults to bootstrap.getAppConfig).
    *  Exposed for tests; production should not pass this. */
   getCurrentConfig?(): AppConfig;
-  /** In-memory current dataDir resolver (defaults to bootstrap.getAppConfig).
+  /** In-memory current dataDir resolver (defaults to bootstrap.getEffectiveEventLogDir).
    *  Exposed for tests; production should not pass this. */
-  getCurrentDataDir?(): string | null;
+  getCurrentDataDir?(): string;
   /** Current datasetId (defaults to bootstrap.getDatasetId).
    *  Exposed for tests; production should not pass this. */
   getCurrentDatasetId?(): string;
@@ -98,12 +98,12 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
 
     // 3. Reject no-op (same as currently active dataDir).
     const currentDataDir = (deps.getCurrentDataDir ?? defaultGetCurrentDataDir)();
-    if (currentDataDir !== null && pathsEqual(candidate, path.resolve(currentDataDir))) {
+    if (pathsEqual(candidate, currentDataDir)) {
       return {
         ok: false,
         error: {
           code: 'SAME_DIR',
-          message: 'New data folder is the same as the current data folder.',
+          message: 'The selected folder is the same as the current data folder.',
         },
       };
     }
@@ -169,8 +169,13 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
     }
 
     // 6. Persist new dataDir to app-config.json atomically.
+    //    Save the current dataDir as previousDataDir for recovery.
     const currentConfig = (deps.getCurrentConfig ?? defaultGetCurrentConfig)();
-    const next: AppConfig = { ...currentConfig, dataDir: candidate };
+    const next: AppConfig = {
+      ...currentConfig,
+      dataDir: candidate,
+      previousDataDir: currentDataDir, // fallback on bootstrap failure
+    };
     try {
       await (deps.saveConfig ?? saveAppConfig)(userDataDir, next);
     } catch (err) {
@@ -215,8 +220,8 @@ function defaultGetCurrentConfig(): AppConfig {
   return getAppConfig();
 }
 
-function defaultGetCurrentDataDir(): string | null {
-  return getAppConfig().dataDir;
+function defaultGetCurrentDataDir(): string {
+  return getEffectiveEventLogDir();
 }
 
 function defaultGetCurrentDatasetId(): string {

@@ -2988,3 +2988,24 @@ Fixed a critical security vulnerability in the corp-storage validator that allow
 - app/src/renderer/screens/PreferencesScreen/PreferencesScreen.tsx — strict allowlist check
 
 **Future:** If SharePoint-synced library support is needed, implement registry-based detection instead of heuristics.
+
+**2026-05-05 — PR #193: Fix stale dataDir comparison bug (squad/preferences-stale-currentdatadir)**
+
+After PR #192's dataset-switch crash (white window), Pedro manually reverted `app-config.json` to `dataDir: "default"`. The app bootstrapped correctly and loaded data from `my-data`, but when he tried to switch to the OneDrive folder again, Preferences rejected it with "The selected folder is the same as the current data folder."
+
+**Root cause:** The SAME_DIR check in `config:setDataDir` (main process) compared the user's selection against `getAppConfig().dataDir` — the **raw config value** like `"default"`, not the **effective absolute path** where data actually lives (`C:\Users\perocha\AppData\Roaming\opentreasury-desktop\my-data`).
+
+When `dataDir` is relative, the comparison called `path.resolve(currentDataDir)`, which resolved it relative to CWD (`C:\rettx\opentreasury-desktop\default`), not userData. This broke the comparison logic.
+
+**Fix:** Changed `defaultGetCurrentDataDir()` to return `getEffectiveEventLogDir()` (the actual absolute path computed at bootstrap) instead of the raw config value. Also removed the `path.resolve()` call since the effective path is already absolute.
+
+**Pattern learned:** When comparing filesystem paths, always use **effective resolved paths**, never raw config values. Config can contain relative paths (`"default"`, `"my-data"`), env var shortcuts, or symbolic links — the source of truth for "where is the data?" is the bootstrap-time resolution logic, not the persisted string.
+
+**Testing:** Added regression test covering the relative-path scenario. All 938 tests pass.
+
+**Impact:** Zero behavior change for normal operation (absolute paths in config). Fixes the bug for relative paths after manual config edits or auto-recovery (PR #192).
+
+**Files touched:**
+- `app/src/main/ipc/handlers/config.ts` (2 lines)
+- `app/src/main/ipc/handlers/config.test.ts` (1 test added)
+

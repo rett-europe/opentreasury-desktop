@@ -91,6 +91,18 @@ Cypher's E2E branch created before PR #117 merged — no dep conflict, but manag
 
 **Gotcha:** When switching branches mid-work, staged edits can be lost if they weren't committed. Lesson: commit frequently on feature branches or stash explicitly before switching.
 
+### 2026-05-04 — ESM Import Fix + Dataset Migration Policy (PR #194)
+
+**P0 BLOCKER fix:** App crashed on launch with `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../dist/core/query/types'`. Root cause: Node ESM requires explicit `.js` extensions for relative imports, even in TypeScript files with `moduleResolution: "Bundler"`. TypeScript preserves imports literally — `import './types'` compiles to `import './types'` (no `.js` added). Fixed all barrel files (`app/src/core/**`) by adding `.js` to relative imports.
+
+**Hydration path visibility:** Bootstrap logs showed conflicting paths (config said OneDrive, hydration used `my-data`). This was auto-recovery fallback (PR #192) kicking in silently when OneDrive folder write failed. Added explicit logging: `[bootstrap] resolved event log directory: ...` so fallback is visible.
+
+**Dataset migration policy decision:** When user switches `dataDir`, existing events do NOT auto-migrate. New folder = new empty dataset. Old events remain in old folder, accessible by switching back. Rationale: auto-copy risks data corruption (in-flight writes), OneDrive sync conflicts, and doesn't match trial use case (corporate compliance switch). Documented in `.squad/decisions/morpheus-dataset-migration.md`.
+
+**Key learning:** ESM gotcha is subtle — `moduleResolution: "Bundler"` + `verbatimModuleSyntax: true` means `.js` extensions are REQUIRED in source for Node ESM output, even though they reference compiled files not source. This is standard Node ESM when not using a bundler at runtime.
+
+**Testing:** Core tests pass (134), bootstrap tests pass (16). Renderer test timeouts are pre-existing flake. Manual testing required by Pedro (PR #194) to verify app launches without crash and logs show correct paths.
+
 ---
 
 ## Historical Archive (Pre-2026-04-22)

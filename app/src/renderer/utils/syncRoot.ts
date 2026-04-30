@@ -13,9 +13,10 @@ export type SyncRootKind = 'onedrive-business' | 'sharepoint' | 'onedrive-person
  *
  * Detection rules (Windows-first; macOS later):
  *
- * 1. **OneDrive for Business:** path matches /OneDrive\s*-\s*[^/\\]+/ (case-insensitive).
- *    The "OneDrive - {Org}" pattern is the canonical sync-folder name created by
- *    OneDrive for Business.
+ * 1. **OneDrive for Business:** path matches /OneDrive\s*-\s*[^/\\]+\/[^/\\]+/
+ *    (case-insensitive). The "OneDrive - {Org}" pattern is the canonical sync-folder
+ *    name created by OneDrive for Business. REQUIRES a subfolder beneath the org root
+ *    to prevent users from selecting the entire corporate OneDrive as the data folder.
  *
  * 2. **SharePoint sync:** REMOVED in favor of strict allowlist. SharePoint libraries
  *    synced via OneDrive typically live under the OneDrive Business folder or a
@@ -37,15 +38,20 @@ export function classifySyncRoot(path: string): SyncRootKind {
   // Normalize to forward slashes and lowercase for pattern matching
   const normalized = path.replace(/\\/g, '/').toLowerCase();
 
-  // Rule 1: OneDrive for Business (has " - " after OneDrive)
-  if (/\/onedrive\s*-\s*[^/]+/i.test(normalized)) {
+  // Rule 1: OneDrive for Business (has " - " after OneDrive) + REQUIRES SUBFOLDER
+  // Pattern: /OneDrive - Org/Subfolder (at least one path segment after the org root)
+  // Match: C:\Users\X\OneDrive - Org\Treasurer ✅
+  // Reject: C:\Users\X\OneDrive - Org ❌
+  // Reject: C:\Users\X\OneDrive - Org\ ❌ (trailing slash, still root)
+  const businessMatch = /\/onedrive\s*-\s*[^/\\]+\/[^/\\]+/i.test(normalized);
+  if (businessMatch) {
     return 'onedrive-business';
   }
 
   // Rule 3: OneDrive Personal (no " - " after OneDrive)
   const onedriveMatch = /\/onedrive(?:\/|$)/i.test(normalized);
-  const businessMatch = /\/onedrive\s*-\s*/i.test(normalized);
-  if (onedriveMatch && !businessMatch) {
+  const hasDash = /\/onedrive\s*-\s*/i.test(normalized);
+  if (onedriveMatch && !hasDash) {
     return 'onedrive-personal';
   }
 
