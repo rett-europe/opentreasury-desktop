@@ -24,13 +24,16 @@ describe('classifySyncRoot', () => {
     expect(classifySyncRoot('C:\\Users\\Bob\\OneDrive')).toBe('onedrive-personal');
   });
 
-  it('classifies SharePoint sync paths', () => {
-    // Pattern: Tenant \ ... - Library
+  it('classifies former SharePoint heuristic paths as "other" (strict allowlist)', () => {
+    // SharePoint heuristic removed — these are now blocked unless under OneDrive Business
+    // Pattern: Tenant \ ... - Library (was classified as SharePoint, now 'other')
     expect(classifySyncRoot('C:\\Users\\Pedro\\Rett Europe\\Finance - Documents\\OT')).toBe(
-      'sharepoint',
+      'other',
     );
-    // Pattern: TenantName - SiteName
-    expect(classifySyncRoot('C:\\Users\\Alice\\Contoso - Finance Site\\Data')).toBe('sharepoint');
+    // Pattern: TenantName - SiteName (was classified as SharePoint, now 'other')
+    expect(classifySyncRoot('C:\\Users\\Alice\\Contoso - Finance Site\\Data')).toBe('other');
+    // The vulnerability: user-created local folder with dash in name
+    expect(classifySyncRoot('C:\\Users\\Pedro\\Treasury - Backup\\OT')).toBe('other');
   });
 
   it('classifies local and other paths as "other"', () => {

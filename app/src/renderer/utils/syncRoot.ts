@@ -8,23 +8,27 @@ export type SyncRootKind = 'onedrive-business' | 'sharepoint' | 'onedrive-person
 /**
  * Classify a path as OneDrive Business, SharePoint, OneDrive Personal, or other.
  *
+ * **Allowlist model (strict):** Only paths under OneDrive for Business sync roots
+ * or verified SharePoint sync roots are allowed. Everything else is blocked.
+ *
  * Detection rules (Windows-first; macOS later):
  *
  * 1. **OneDrive for Business:** path matches /OneDrive\s*-\s*[^/\\]+/ (case-insensitive).
  *    The "OneDrive - {Org}" pattern is the canonical sync-folder name created by
  *    OneDrive for Business.
  *
- * 2. **SharePoint sync:** path lives under a folder created by OneDrive sync of a
- *    SharePoint document library. Two common patterns:
- *    - <UserProfile>\<Tenant>\... - <Library> (e.g. C:\Users\Pedro\Contoso\Finance - Documents\...)
- *    - <UserProfile>\<TenantName> - <SiteName>\... (older sync-client layout)
- *    Heuristic: any path under %USERPROFILE% whose first or second segment contains
- *    " - " AND is NOT a known non-sync folder (Desktop, Documents, Downloads, Pictures,
- *    Videos, Music, OneDrive itself without org).
+ * 2. **SharePoint sync:** REMOVED in favor of strict allowlist. SharePoint libraries
+ *    synced via OneDrive typically live under the OneDrive Business folder or a
+ *    separate top-level folder. The old heuristic (detect " - " in folder names)
+ *    was too permissive and leaked local folders like "Treasury - Backup".
+ *
+ *    Future improvement: Use Windows registry (HKCU\Software\Microsoft\OneDrive\Accounts\Business*)
+ *    to enumerate actual sync roots. For now, require OneDrive Business path only.
  *
  * 3. **OneDrive Personal:** path matches /OneDrive(?:\/|$)/ without the " - " suffix.
+ *    This is explicitly blocked (not corp storage).
  *
- * 4. Anything else → 'other' (local Desktop, Documents, USB, etc.)
+ * 4. Anything else → 'other' (local Desktop, Documents, USB, network shares, etc.)
  *
  * @param path - Absolute path to classify (Windows or POSIX)
  * @returns Classification result
@@ -45,38 +49,12 @@ export function classifySyncRoot(path: string): SyncRootKind {
     return 'onedrive-personal';
   }
 
-  // Rule 2: SharePoint sync heuristic
-  // Extract path segments (split by / and filter empties)
-  const segments = normalized.split('/').filter((s) => s.length > 0);
+  // Rule 2: SharePoint sync — REMOVED (heuristic was too permissive).
+  // Any path that doesn't match OneDrive Business or OneDrive Personal is now
+  // classified as 'other' and will be blocked by the corp-storage requirement.
+  //
+  // Future: Add registry-based detection for SharePoint sync roots if needed.
 
-  // Known non-sync folders that live under user profile
-  const knownNonSyncFolders = new Set([
-    'desktop',
-    'documents',
-    'downloads',
-    'pictures',
-    'videos',
-    'music',
-    'appdata',
-    'onedrive', // OneDrive without org suffix (already handled above)
-  ]);
-
-  // Look for " - " pattern in first or second segment after user profile
-  // Typical structure: C: / Users / Pedro / {Tenant or TenantName - SiteName} / ...
-  // We check segments starting from index 3 (after C:, Users, Username)
-  for (let i = 3; i < Math.min(segments.length, 5); i++) {
-    const segment = segments[i];
-    if (!segment) continue;
-
-    // Skip known non-sync folders
-    if (knownNonSyncFolders.has(segment.toLowerCase())) continue;
-
-    // Check if this segment contains " - " (SharePoint pattern)
-    if (segment.includes(' - ')) {
-      return 'sharepoint';
-    }
-  }
-
-  // Default: local or other
+  // Default: local or other (BLOCKED by corp-storage requirement)
   return 'other';
 }
