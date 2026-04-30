@@ -15,6 +15,7 @@ export const IPC_CONFIG_SET_DATA_DIR = 'config:setDataDir';
 export const appConfigSchema = z.object({
   version: z.number().int().positive().default(1),
   dataDir: z.string().nullable().default(null),
+  previousDataDir: z.string().nullable().optional(),
   readOnly: z.boolean().default(false),
 });
 

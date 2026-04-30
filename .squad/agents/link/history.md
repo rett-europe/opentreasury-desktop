@@ -193,3 +193,26 @@ With WI-21 merged (PR #4, edae3e8), only one M1 exit-criterion surface remains u
 **Rationale for sequencing user-facing before platform:** Internal Alpha gate is a confidence moment; Pedro is the dogfooder; Saldo is the board-meeting surface treasurers ask for. Config plumbing cleanup can happen next with zero visible regression. Kept scope honest — resisted bundling bulk actions, CSV export, or global search into the Saldo slice.
 
 Recommendation written to `.squad/decisions/inbox/link-next-wi-recommendation.md`.
+
+### 2026-04-30: Three follow-up issues filed — storage scope & onboarding wizard roadmap
+
+**Decision basis:** .squad/decisions/inbox/copilot-directive-20260430-storage-scope.md + copilot-directive-20260430-pr195-and-wizard.md
+
+Filed three issues to operationalize Pedro's storage-scope simplification and onboarding wizard decisions:
+
+1. **Issue #198** (P0, squad:morpheus) — `feat(preferences): drop corp-storage validator — accept any writable folder`
+   - Remove syncRoot allowlist gating; trust user's folder choice
+   - Keep ONLY writeability + non-duplication checks
+   - Root cause fix for #186–#195 cascade
+
+2. **Issue #196** (P0, squad:trinity) — `feat(onboarding): first-run wizard — Local folder picker (OneDrive integration deferred)`
+   - Replace silent default to %APPDATA% with explicit wizard
+   - Local path only; OneDrive discovery deferred to Issue #197
+   - Unblocks from Issue #198
+
+3. **Issue #197** (P1 post-trial, squad:trinity) — `feat(onboarding): native OneDrive synced-folder discovery dropdown`
+   - Registry-based discovery of synced OneDrive/SharePoint libraries
+   - Graceful fallback on macOS; no OAuth or Azure dependency
+   - Polish follow-up post-ship, not blocking trial
+
+**Dependencies:** #198 -> #196 -> #197. All three linked to PR #195 comment for reverse-link traceability.

@@ -21,7 +21,7 @@ import { replayEvents, getReadModel } from '../core/query/reducers.js';
 import type { ReadModel } from '../core/query/types.js';
 import { buildDevSeedEvents } from './devSeed.js';
 import { loadProfile, type Profile } from './profile.js';
-import { loadAppConfig, type AppConfig } from './config.js';
+import { loadAppConfig, saveAppConfig, type AppConfig } from './config.js';
 import { createReadOnlyEventLog } from './eventLog-readonly-wrapper.js';
 import { loadDeviceId } from './device.js';
 import { loadDatasetId } from './dataset.js';
@@ -135,12 +135,25 @@ export function getEffectiveEventLogDir(): string {
  *   - Validates the path exists; attempts mkdir -p if missing
  *   - Falls back to default on validation failure
  *
+ * Recovery persistence (squad/recovery-persist-and-tight-allowlist):
+ *   - When fallback happens, persist the recovered path to app-config.json
+ *   - Set previousDataDir to the path that failed (for diagnostics)
+ *   - This ensures the UI shows the effective path, not the broken one
+ *
  * NOTE: app.getPath('userData') must be called AFTER app.whenReady() resolves
  * — before that the path can change (Electron initializes it as part of the
  * bootstrap sequence). initializeApp() is therefore only safe to invoke inside
  * the whenReady() callback in main/index.ts.
+ *
+ * Returns an object with { dir, configChanged, newConfig } where:
+ *   - dir: the resolved event log directory path
+ *   - configChanged: true if recovery fallback happened and config should be persisted
+ *   - newConfig: the updated config (only set if configChanged is true)
  */
-async function resolveEventLogDir(userDataDir: string, appConfig: AppConfig): Promise<string> {
+async function resolveEventLogDir(
+  userDataDir: string,
+  appConfig: AppConfig,
+): Promise<{ dir: string; configChanged: boolean; newConfig?: AppConfig }> {
   const envOverride = process.env['OT_DATA_DIR']?.trim();
   const configPath = appConfig.dataDir;
 
@@ -152,7 +165,7 @@ async function resolveEventLogDir(userDataDir: string, appConfig: AppConfig): Pr
 
     // Validate and ensure directory exists
     const validated = await validateAndCreateDir(candidate, 'OT_DATA_DIR env override');
-    if (validated) return validated;
+    if (validated) return { dir: validated, configChanged: false };
   }
 
   // Priority 2: appConfig.dataDir (from app-config.json)
@@ -161,16 +174,32 @@ async function resolveEventLogDir(userDataDir: string, appConfig: AppConfig): Pr
 
     // Validate and ensure directory exists
     const validated = await validateAndCreateDir(candidate, 'app-config.json dataDir');
-    if (validated) return validated;
+    if (validated) return { dir: validated, configChanged: false };
+
+    // RECOVERY: appConfig.dataDir failed validation. Fall back to default.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[bootstrap] ⚠️  RECOVERY: dataDir from config failed validation (${candidate}). Falling back to default. User data is safe.`,
+    );
   }
 
   // Priority 3: Default (<userData>/dev-events)
   const defaultPath = path.join(userDataDir, 'dev-events');
   const validated = await validateAndCreateDir(defaultPath, 'default dev-events');
-  if (validated) return validated;
+  const recoveredPath = validated ?? defaultPath;
 
-  // Fallback: return default path even if mkdir failed (JsonFileEventLog will handle it)
-  return defaultPath;
+  // If we had a configured dataDir that failed, persist the recovery state
+  if (configPath) {
+    const newConfig: AppConfig = {
+      ...appConfig,
+      dataDir: recoveredPath,
+      previousDataDir: configPath,
+    };
+    return { dir: recoveredPath, configChanged: true, newConfig };
+  }
+
+  // Normal default path (no recovery)
+  return { dir: recoveredPath, configChanged: false };
 }
 
 /**
@@ -276,8 +305,30 @@ export async function initializeApp(): Promise<void> {
   // eslint-disable-next-line no-console
   console.log(`[bootstrap] loaded device ID: ${deviceIdInstance}`);
 
-  const dir = await resolveEventLogDir(userDataDir, appConfigInstance);
+  const { dir, configChanged, newConfig } = await resolveEventLogDir(
+    userDataDir,
+    appConfigInstance,
+  );
   effectiveEventLogDir = dir;
+
+  // If recovery fallback happened, persist the recovered state to disk
+  if (configChanged && newConfig) {
+    try {
+      await saveAppConfig(userDataDir, newConfig);
+      appConfigInstance = newConfig;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[bootstrap] ✅ Persisted recovery state (dataDir: ${newConfig.dataDir}, previousDataDir: ${newConfig.previousDataDir})`,
+      );
+    } catch (err) {
+      // Log error but continue — app can still run with in-memory config
+      // eslint-disable-next-line no-console
+      console.error(`[bootstrap] ❌ Failed to persist recovery state: ${err}`);
+    }
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(`[bootstrap] resolved event log directory: ${dir}`);
 
   // P1-1: Load per-dataset ID from <dataDir>/dataset.json
   datasetIdInstance = await loadDatasetId(dir);

@@ -91,6 +91,36 @@ Cypher's E2E branch created before PR #117 merged — no dep conflict, but manag
 
 **Gotcha:** When switching branches mid-work, staged edits can be lost if they weren't committed. Lesson: commit frequently on feature branches or stash explicitly before switching.
 
+### 2026-05-04 — ESM Import Fix + Dataset Migration Policy (PR #194)
+
+**P0 BLOCKER fix:** App crashed on launch with `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../dist/core/query/types'`. Root cause: Node ESM requires explicit `.js` extensions for relative imports, even in TypeScript files with `moduleResolution: "Bundler"`. TypeScript preserves imports literally — `import './types'` compiles to `import './types'` (no `.js` added). Fixed all barrel files (`app/src/core/**`) by adding `.js` to relative imports.
+
+**Hydration path visibility:** Bootstrap logs showed conflicting paths (config said OneDrive, hydration used `my-data`). This was auto-recovery fallback (PR #192) kicking in silently when OneDrive folder write failed. Added explicit logging: `[bootstrap] resolved event log directory: ...` so fallback is visible.
+
+**Dataset migration policy decision:** When user switches `dataDir`, existing events do NOT auto-migrate. New folder = new empty dataset. Old events remain in old folder, accessible by switching back. Rationale: auto-copy risks data corruption (in-flight writes), OneDrive sync conflicts, and doesn't match trial use case (corporate compliance switch). Documented in `.squad/decisions/morpheus-dataset-migration.md`.
+
+### 2026-05-05 — Recovery State Persistence + OneDrive Allowlist Tightening (PR #195)
+
+**Three intertwined fixes addressing Pedro's crash:**
+
+1. **Persist post-recovery state:** When bootstrap auto-recovers from a broken `dataDir`, it now rewrites `app-config.json` so the persisted `dataDir` matches the effective path (e.g., `my-data`). Added `previousDataDir` field to track the failed path for diagnostics. This ensures the UI shows the truth, not the stale config value.
+
+2. **Tighten OneDrive Business allowlist:** Updated `syncRoot.ts` regex to **require a subfolder** beneath the OneDrive Business root. Old regex matched `C:\Users\X\OneDrive - Org` (the entire org OneDrive) → crash when bootstrap tried to init `dataset.json` at the root. New regex: `/\/onedrive\s*-\s*[^/\\]+\/[^/\\]+/i` rejects the root, accepts subfolders like `OneDrive - Org\Treasurer`.
+
+3. **Compare against effective path:** Fixed `config:setDataDir` handler to compare candidate folder against `getEffectiveEventLogDir()` instead of `appConfig.dataDir`. This catches the "same folder" case even when the persisted config is stale (e.g., after auto-recovery).
+
+**Decision:** Auto-recovery now persists the recovered state immediately (not on next launch). This differs from PR #193's approach (which retries on next launch). Both approaches are valid; immediate persistence is simpler and ensures UI consistency right away.
+
+**Learning:** When bootstrap applies a fallback, always persist the effective state to disk. Silent recovery without persistence creates a mismatch between runtime state and persisted config → confusing UX (UI shows wrong path) and bugs (comparison logic sees stale values).
+
+**Schema change:** Added `previousDataDir: string | null` to `AppConfig` (optional field). Tests updated to provide default effective path in mocks.
+
+**Tests:** 938 core tests pass. Added OneDrive root rejection cases to `syncRoot.test.ts`. Updated `config.test.ts` to assert `previousDataDir` is persisted when user switches folders.
+
+**Key learning:** ESM gotcha is subtle — `moduleResolution: "Bundler"` + `verbatimModuleSyntax: true` means `.js` extensions are REQUIRED in source for Node ESM output, even though they reference compiled files not source. This is standard Node ESM when not using a bundler at runtime.
+
+**Testing:** Core tests pass (134), bootstrap tests pass (16). Renderer test timeouts are pre-existing flake. Manual testing required by Pedro (PR #194) to verify app launches without crash and logs show correct paths.
+
 ---
 
 ## Historical Archive (Pre-2026-04-22)
@@ -2825,3 +2855,37 @@ When a user changes `dataDir` (P1-2), the new folder becomes a separate workspac
 Events from different datasets never merge — each folder is isolated. The `datasetId` field stamps every event with "which workspace am I part of?", enabling future multi-dataset queries (e.g., "compare 2025 vs 2026 spending by category").
 
 The dataset ID is persisted to `<dataDir>/dataset.json` on first event-log creation using the same atomic write pattern as device.json.
+
+
+### 2026-05-05 (later) — PR #195 repurposed: allowlist tightening REVERTED, bootstrap-hygiene KEPT
+
+**Final scope of PR #195** (after Pedro's storage-scope directive today):
+
+**Kept:**
+- Post-recovery state persistence in `bootstrap.ts` — when fallback to `previousDataDir` kicks in, `app-config.json` is rewritten so `dataDir` = recovered path and `previousDataDir` = the path that just failed.
+- Loud `⚠️ RECOVERY` `console.warn` so silent recoveries are visible.
+- `config:setDataDir` comparison against `getEffectiveEventLogDir()` (handles stale persisted config).
+- `AppConfig.previousDataDir: string | null` (optional schema field).
+
+**Reverted out (commit 2c269cc):**
+- The OneDrive Business allowlist tightening in `app/src/renderer/utils/syncRoot.ts` (regex requiring a subfolder beneath the OneDrive root).
+- The matching `rejects OneDrive for Business root (no subfolder)` test case in `syncRoot.test.ts` and the nested-subfolder case.
+- `syncRoot.ts` and `syncRoot.test.ts` are now identical to `main` (post-#188).
+
+**Rationale (storage-scope directive supersedes the tightening):**
+Pedro decided today that the entire corp-storage allowlist is being removed in a follow-up, and the `dataDir` validator is being removed in another follow-up (Link is filing both). Tightening the allowlist this week and deleting it next week is wasted work, including any `less-strict-but-still-present` middle ground. The bootstrap-hygiene fixes are independently valuable and ship on their own.
+
+**Verification:** `npm run typecheck` ✅ · `npm run lint` ✅ · `npm run format:check` ✅ · `npm run test -- --run` ✅ (937 passed, 63 skipped).
+
+**PR title updated to:** `fix(bootstrap): persist post-recovery state + visible recovery log`.
+
+**Durable lesson:** When a feature is intertwined with a policy decision still in flight, prefer landing the *infra-hygiene* part (logging, persistence of effective state) on its own and letting the *policy-shaped* part (regex tightenings, validator rules) wait until the policy is settled. Saves rework when the policy flips.
+
+---
+
+## 2026-04-30T20:04Z — Team Update (Scribe)
+
+Link filed issue #198 (P0, this sprint — drop corp-storage validator from syncRoot.ts) generated from storage-scope directive captured today. PR #195 scope is now final per Pedro's decision: keep recovery-persistence + RECOVERY logging, drop allowlist tightening. All verification steps green (937 tests). Ready for review.
+
+No action needed now — Link's follow-up will consume #198 next.
+
