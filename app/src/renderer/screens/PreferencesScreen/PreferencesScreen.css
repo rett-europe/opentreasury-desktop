@@ -256,3 +256,47 @@
   color: var(--color-text-muted);
   margin: 0;
 }
+
+/* Dataset switch confirmation modal */
+.ot-preferences__modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.ot-preferences__modal {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-7);
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.ot-preferences__modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-5) 0;
+}
+
+.ot-preferences__modal-body {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin: 0 0 var(--space-7) 0;
+}
+
+.ot-preferences__modal-actions {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: flex-end;
+}

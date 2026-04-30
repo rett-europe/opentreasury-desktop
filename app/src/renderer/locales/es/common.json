@@ -1155,6 +1155,12 @@
       "changeButton": "Cambiar…",
       "readonlyBadge": "Modo de solo lectura",
       "restarting": "Reiniciando aplicación…",
+      "confirmSwitch": {
+        "title": "¿Cambiar a otro espacio de trabajo?",
+        "body": "Esta carpeta pertenece a otro espacio de trabajo de OpenTreasury. Si continúas, la aplicación cambiará a ese espacio de trabajo. Tu conjunto de datos actual permanecerá donde está y podrás volver en cualquier momento.",
+        "cancel": "Cancelar",
+        "confirm": "Cambiar espacio de trabajo"
+      },
       "errors": {
         "oneDrivePersonal": "OneDrive Personal no es compatible con v1. Por favor, selecciona una carpeta en OneDrive para empresas o SharePoint. El soporte para OneDrive Personal está planeado para v1.x.",
         "notCorpLocation": "Los datos de OpenTreasury deben residir en una carpeta de OneDrive para empresas o SharePoint para que los administradores puedan compartir el acceso. Las carpetas locales, el Escritorio, las unidades USB y OneDrive personal no son compatibles. Selecciona una carpeta en 'OneDrive - {tu organización}' o una biblioteca de SharePoint sincronizada.",

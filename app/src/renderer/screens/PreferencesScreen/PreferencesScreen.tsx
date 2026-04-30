@@ -17,6 +17,10 @@ interface ConfigData {
 interface ChangeError {
   code: string;
   message: string;
+  details?: {
+    currentDatasetId?: string | undefined;
+    newDatasetId?: string | undefined;
+  };
 }
 
 interface ProfileData {
@@ -61,6 +65,10 @@ export function PreferencesScreen(): JSX.Element {
   const [configData, setConfigData] = useState<ConfigData | null>(null);
   const [changeState, setChangeState] = useState<ChangeState>('idle');
   const [changeError, setChangeError] = useState<ChangeError | null>(null);
+
+  // Dataset switch confirmation modal
+  const [showDatasetSwitchModal, setShowDatasetSwitchModal] = useState(false);
+  const [pendingFolderPath, setPendingFolderPath] = useState<string | null>(null);
 
   // Profile state
   const [profileState, setProfileState] = useState<ProfileState>('idle');
@@ -205,26 +213,58 @@ export function PreferencesScreen(): JSX.Element {
         return;
       }
 
-      setChangeState('changing');
-      const setDirResult = await window.opentreasury.config.setDataDir({
-        newDir: selectedPath,
-      });
-
-      if (!setDirResult.ok) {
-        setChangeState('error');
-        setChangeError({
-          code: setDirResult.error.code,
-          message: setDirResult.error.message,
-        });
-        return;
-      }
-
-      setChangeState('restarting');
+      await attemptSetDataDir(selectedPath, false);
     } catch (err) {
       setChangeState('error');
       const message = err instanceof Error ? err.message : String(err);
       setChangeError({ code: 'UNEXPECTED', message });
     }
+  };
+
+  const attemptSetDataDir = async (path: string, confirmDatasetSwitch: boolean): Promise<void> => {
+    setChangeState('changing');
+    const setDirResult = await window.opentreasury.config.setDataDir({
+      newDir: path,
+      confirmDatasetSwitch,
+    });
+
+    if (!setDirResult.ok) {
+      // If it's a dataset mismatch and we haven't confirmed yet, show the modal
+      if (setDirResult.error.code === 'DATASET_MISMATCH' && !confirmDatasetSwitch) {
+        setPendingFolderPath(path);
+        setShowDatasetSwitchModal(true);
+        setChangeState('idle');
+        return;
+      }
+
+      // Other errors
+      setChangeState('error');
+      const errorData: ChangeError = {
+        code: setDirResult.error.code,
+        message: setDirResult.error.message,
+      };
+      if (setDirResult.error.details) {
+        errorData.details = setDirResult.error.details;
+      }
+      setChangeError(errorData);
+      return;
+    }
+
+    setChangeState('restarting');
+  };
+
+  const handleConfirmDatasetSwitch = async (): Promise<void> => {
+    if (!pendingFolderPath) return;
+
+    setShowDatasetSwitchModal(false);
+    await attemptSetDataDir(pendingFolderPath, true);
+    setPendingFolderPath(null);
+  };
+
+  const handleCancelDatasetSwitch = (): void => {
+    setShowDatasetSwitchModal(false);
+    setPendingFolderPath(null);
+    setChangeState('idle');
   };
 
   // Validate profile
@@ -591,6 +631,36 @@ export function PreferencesScreen(): JSX.Element {
           </div>
         </section>
       </div>
+
+      {/* Dataset switch confirmation modal */}
+      {showDatasetSwitchModal && (
+        <div className="ot-preferences__modal-overlay" onClick={handleCancelDatasetSwitch}>
+          <div className="ot-preferences__modal" onClick={(e) => e.stopPropagation()}>
+            <h2 className="ot-preferences__modal-title">
+              {t('preferences.dataFolder.confirmSwitch.title')}
+            </h2>
+            <p className="ot-preferences__modal-body">
+              {t('preferences.dataFolder.confirmSwitch.body')}
+            </p>
+            <div className="ot-preferences__modal-actions">
+              <button
+                type="button"
+                className="ot-preferences__button ot-preferences__button--secondary"
+                onClick={handleCancelDatasetSwitch}
+              >
+                {t('preferences.dataFolder.confirmSwitch.cancel')}
+              </button>
+              <button
+                type="button"
+                className="ot-preferences__button ot-preferences__button--primary"
+                onClick={handleConfirmDatasetSwitch}
+              >
+                {t('preferences.dataFolder.confirmSwitch.confirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
