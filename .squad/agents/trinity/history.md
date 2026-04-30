@@ -19,6 +19,23 @@ The cloud version has an Angular 19 frontend with:
 
 ## Learnings
 
+**2026-05-04 — Profile validation UX fix (squad/preferences-profile-save-ux-fix)**
+
+Fixed two validation UX bugs in PreferencesScreen profile form discovered by Pedro during manual testing:
+
+1. **Raw i18n key rendering:** User saw literal `preferences.profile.saveFailed` instead of friendly error message. Root cause: generic `saveFailed` message was rendering for validation failures (which should show per-field errors). Fix: only show generic `saveFailed` when `profileState === 'error' && Object.keys(profileErrors).length === 0` (actual IPC save failure, not validation failure).
+
+2. **Stale validation + disabled button:** After validation failure, error message persisted and Save button stayed disabled even when user typed back the valid value. Root cause: errors cleared on input change, but button disabled logic only checked `profileChanged` (which is false when value matches original). Fix: introduced `validationAttempted` flag set on first save attempt, cleared on successful save. Button disabled logic: `(!profileChanged && !saveAttemptFailed && !validationAttempted) || profileState === 'saving'`. This keeps button enabled after ANY save attempt (validation or IPC failure) until successful save, even if user types back to original value.
+
+**Pattern learned:** Renderer error UX requires THREE layers:
+(a) Per-field friendly messages keyed by error code — already existed in i18n (`preferences.profile.errors.ngoNameRequired`, etc.)
+(b) Generic fallback for IPC failures — only show when no field errors exist
+(c) NEVER render raw translation keys — if the key resolves to itself, treat as missing-key bug.
+
+Plus stale validation must clear on user input. Errors cleared via dedicated change handlers (`handleNameChange`, `handleNgoNameChange`, `handleRoleChange`, `handleOtherRoleChange`) that call `setProfileErrors({})` and `setProfileState('idle')`. Save button logic tracks both `saveAttemptFailed` (IPC error) and `validationAttempted` (validation error) to allow retry even when values revert to original.
+
+**Testing:** Added 3 new tests: (1) empty ngoName → save → field error appears → type back → error clears + button enables; (2) same for name field; (3) IPC save fails → type original value back → button stays enabled. All 9 PreferencesScreen tests passing. Full suite: 935 tests passing.
+
 **2026-04-29 — PR #178: Profile Save button no-op fix (squad/preferences-profile-save-fix)**
 
 Fixed the Profile Save button in PreferencesScreen, which was silently failing when users changed their name, role, or organization. Root cause: the save handler passed an **empty `userId` string** (`''`) to the IPC call, violating the `profileSchema` requirement for a 26-character ULID. The main process rejected the save with `SCHEMA_INVALID`, but the renderer never displayed any error feedback to the user.
@@ -2871,3 +2888,58 @@ When an operation is dangerous but sometimes legitimate:
 This pattern is reusable for other "dangerous but legitimate" operations (e.g., overwriting files, deleting data with confirmation).
 
 
+
+---
+
+## PR #183 — Dataset export (issue #180)
+**Date:** 2026-04-20
+**Branch:** squad/180-export-dataset
+**Status:** Merged
+
+Implemented user-initiated dataset export (backup) feature. Non-destructive copy of active dataset to a chosen folder, working in both read-write and read-only modes.
+
+**Main process:**
+- Created new IPC handler dataset:export in app/src/main/ipc/handlers/dataset.ts
+- Validation: target must exist/writable, NOT under userData, NOT equal to/inside source
+- Copies: events.ndjson, dataset.json (if present)
+- Verification: byte-size match + last line equality (cleans up partial files on failure)
+- Writes: export-manifest.json with { exportedAt, datasetId, sourceEventCount, appVersion }
+- Returns: { ok: true, targetDir, fileCount, totalBytes } on success
+- Error codes: EXPORT_TARGET_INVALID, EXPORT_TARGET_NOT_EMPTY, EXPORT_DISK_FULL, EXPORT_PERMISSION_DENIED, EXPORT_VERIFY_FAILED, EXPORT_FAILED
+
+**Renderer:**
+- Added Export… button in Preferences → Dataset card (button-group layout with Change…)
+- Folder picker → dataset:export IPC → inline progress spinner
+- Success: displays file count, size, target path + Open folder link (via shell.openPath)
+- Error: friendly error messages per error code
+- Works in read-only mode (export is a copy out, not a write)
+
+**IPC contracts:**
+- New app/src/shared/ipc-contracts/dataset.ts with DatasetExportRequest/DatasetExportResponse schemas
+- Exposed dataset.export(req) and shell.openPath(path) in preload API
+
+**i18n:**
+- Added EN + ES keys under preferences.dataFolder.export.* (button, description, inProgress, success, openFolder, errors.*)
+
+**CSS:**
+- .ot-preferences__button-group: flexbox for side-by-side buttons
+- .ot-preferences__success-card: green success message styling
+- .ot-preferences__button--link: link-style button for Open folder
+
+**Key pattern:**
+- Validate-then-copy-then-verify recipe: all error paths clean up partial files to avoid leaving incomplete datasets
+- WI-19 error shape: { code, message, details? }
+- Auto-dismiss success message after 10 seconds
+
+**Files touched (8):**
+- app/src/main/ipc/handlers.ts — registered IPC_DATASET_EXPORT handler
+- app/src/main/ipc/handlers/dataset.ts — new handler (322 lines)
+- app/src/preload/index.ts — exposed dataset.export() and shell.openPath()
+- app/src/shared/ipc-contracts/dataset.ts — new contract (54 lines)
+- app/src/renderer/screens/PreferencesScreen/PreferencesScreen.tsx — UI logic (155 lines added)
+- app/src/renderer/screens/PreferencesScreen/PreferencesScreen.css — button-group + success-card styles
+- app/src/renderer/locales/en/common.json — EN i18n keys
+- app/src/renderer/locales/es/common.json — ES i18n keys
+
+**Follow-up doc PR #184:**
+- Updated docs/architecture/dataset-and-storage.md with export section

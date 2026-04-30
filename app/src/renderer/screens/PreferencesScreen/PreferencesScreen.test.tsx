@@ -206,11 +206,155 @@ describe('PreferencesScreen', () => {
     const saveButton = screen.getByRole('button', { name: /save changes|guardar cambios/i });
     await userEvent.click(saveButton);
 
-    // Verify error message appears (key or translated text)
+    // Verify error message appears (translated text, not raw key)
     await waitFor(() => {
-      const errorText = screen.queryByText(/saveFailed/i) || screen.queryByText(/failed to save/i);
+      const errorText =
+        screen.queryByText(/failed to save profile/i) ||
+        screen.queryByText(/error al guardar el perfil/i);
+      expect(errorText).toBeDefined();
+      // Ensure we're NOT showing the raw i18n key
+      expect(screen.queryByText('preferences.profile.saveFailed')).toBeNull();
+    });
+  });
+
+  it('shows per-field error when ngoName is empty and clears on input', async () => {
+    mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
+    mockProfileGet.mockResolvedValue(makeProfileGetResponse());
+
+    renderWithI18n();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/organization name|nombre de la organización/i)).toBeDefined();
+    });
+
+    const ngoInput = screen.getByLabelText(
+      /organization name|nombre de la organización/i,
+    ) as HTMLInputElement;
+
+    // Clear the ngo name
+    await userEvent.clear(ngoInput);
+
+    // Click save
+    const saveButton = screen.getByRole('button', { name: /save changes|guardar cambios/i });
+    await userEvent.click(saveButton);
+
+    // Verify field-specific error appears (not raw key)
+    await waitFor(() => {
+      const errorText =
+        screen.queryByText(/organization name is required/i) ||
+        screen.queryByText(/nombre de la organización es obligatorio/i);
+      expect(errorText).toBeDefined();
+      // Ensure we're NOT showing raw keys
+      expect(screen.queryByText(/preferences\.profile/)).toBeNull();
+    });
+
+    // Now type the org name back — error should clear immediately
+    await userEvent.type(ngoInput, 'Test NGO');
+
+    await waitFor(() => {
+      const errorText =
+        screen.queryByText(/organization name is required/i) ||
+        screen.queryByText(/nombre de la organización es obligatorio/i);
+      expect(errorText).toBeNull();
+    });
+
+    // Save button should be enabled
+    expect((saveButton as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('shows per-field error when name is empty and clears on input', async () => {
+    mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
+    mockProfileGet.mockResolvedValue(makeProfileGetResponse());
+
+    renderWithI18n();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/your name|tu nombre/i)).toBeDefined();
+    });
+
+    const nameInput = screen.getByLabelText(/your name|tu nombre/i) as HTMLInputElement;
+
+    // Clear the name
+    await userEvent.clear(nameInput);
+
+    // Click save
+    const saveButton = screen.getByRole('button', { name: /save changes|guardar cambios/i });
+    await userEvent.click(saveButton);
+
+    // Verify field-specific error appears
+    await waitFor(() => {
+      const errorText =
+        screen.queryByText(/^name is required$/i) ||
+        screen.queryByText(/^el nombre es obligatorio$/i);
       expect(errorText).toBeDefined();
     });
+
+    // Type the name back — error should clear
+    await userEvent.type(nameInput, 'Test User');
+
+    await waitFor(() => {
+      const errorText =
+        screen.queryByText(/^name is required$/i) ||
+        screen.queryByText(/^el nombre es obligatorio$/i);
+      expect(errorText).toBeNull();
+    });
+
+    // Save button should be enabled
+    expect((saveButton as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('enables save button after failed save when user retypes same value', async () => {
+    mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
+    mockProfileGet.mockResolvedValue(makeProfileGetResponse());
+    const mockErrorResponse: ProfileSaveResponse = {
+      ok: false,
+      error: {
+        code: 'WRITE_FAILED',
+        message: 'Disk error',
+      },
+    };
+    mockProfileSave.mockResolvedValue(mockErrorResponse);
+
+    renderWithI18n();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/organization name|nombre de la organización/i)).toBeDefined();
+    });
+
+    const ngoInput = screen.getByLabelText(
+      /organization name|nombre de la organización/i,
+    ) as HTMLInputElement;
+
+    // Clear and trigger save failure
+    await userEvent.clear(ngoInput);
+    await userEvent.type(ngoInput, 'Different NGO');
+
+    const saveButton = screen.getByRole('button', { name: /save changes|guardar cambios/i });
+    await userEvent.click(saveButton);
+
+    // Wait for error to appear
+    await waitFor(() => {
+      const errorText =
+        screen.queryByText(/failed to save profile/i) ||
+        screen.queryByText(/error al guardar el perfil/i);
+      expect(errorText).toBeDefined();
+    });
+
+    // Now type back the original value
+    await userEvent.clear(ngoInput);
+    await userEvent.type(ngoInput, 'Test NGO');
+
+    // Error should clear
+    await waitFor(() => {
+      const errorText =
+        screen.queryByText(/failed to save profile/i) ||
+        screen.queryByText(/error al guardar el perfil/i);
+      expect(errorText).toBeNull();
+    });
+
+    // Save button should be enabled even though value matches original
+    // (because a save attempt failed, user is trying to retry)
+    expect((saveButton as HTMLButtonElement).disabled).toBe(false);
   });
 
   // TODO: Add tests for dataset switch confirmation modal (issue #181)
