@@ -18,6 +18,28 @@ Documentation needs:
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-05-01 — Illustrated End-User Guide Complete (Issue #163, PR #230 + #231)
+
+**Status:** ✅ SHIPPED. Guide + 7 screenshots merged to main.
+
+**File:** `docs/guides/user-guide.md` with embedded PNGs from `docs/guides/screenshots/`.
+
+**Outcomes:**
+- EN user-guide prose finalized (NGO staff audience: treasurers, auditors, transaction reviewers)
+- 7 screenshots (01-profile-setup through 07-settings-data-folder) regenerated at 1800x1100, EN locale
+- Screenshots match prose narrative (first-launch → dashboard → saldo → movements → insights → settings)
+- Cross-links to trial-deployment.md (admin/setup topics)
+- Screenshot naming convention (2-digit section + kebab-case descriptor) established for future illustrated guides
+
+**Coordination model proven:**
+- Writers (Oracle) can reference screenshots before they're generated (Cypher's Playwright runs async)
+- Agreed naming convention (`01-`, `02-`, etc.) auto-resolves links on merge
+- Relative paths (./screenshots/{name}.png) make guides portable
+
+**Follow-up:** Issue #232 filed — ES-language guide variant (blocked by #163, now open for WI-25). Owners: Oracle+Cypher.
+
+**Pattern for team:** Documented in .squad/decisions.md §"Screenshot Naming Convention for Illustrated Guides". Applies to trial-deployment.md updates, admin guide (if visual), developer onboarding (if screenshots needed).
+
 ## 2026-04-19 — Team Context Update (from Scribe)
 - ADR-001 (Proposed) at `docs/architecture/adr-001-tech-stack.md` — Neo recommends Option A (React+TS, append-only event-sourced JSON, `age` encryption).
 - Security Requirements v0.1 at `docs/security/security-requirements-v0.1.md` — Switch: 20 requirements, 15 stack constraints, 8 accepted risks, 6 open questions for Pedro.

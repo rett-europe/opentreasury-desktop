@@ -2,6 +2,50 @@
 
 ## Active Decisions
 
+### 2026-05-01: Screenshot Naming Convention for Illustrated Guides (Oracle, PR #230 & #231)
+
+**Date:** 2026-05-01  
+**Status:** ✅ APPLIED (PR #230 & #231 merged)  
+**Agent:** Oracle (Docs/Feature Writer)  
+**Related Issue:** #163 (end-user guide)
+
+#### Decision
+
+**Screenshot naming convention for illustrated docs:**
+
+```
+{section-number}-{descriptor}.png
+```
+
+- **Section number:** 2-digit prefix (01, 02, …, 99) indicating UI flow order
+- **Descriptor:** kebab-case description of what the screenshot shows
+- **Extension:** `.png`
+
+**Examples:**
+- `01-profile-setup.png` — profile setup modal on first launch
+- `02-dashboard.png` — dashboard showing account activity cards
+- `03-saldo.png` — saldo screen with categories collapsed
+- `04-saldo-expanded.png` — saldo screen with subcategories expanded
+- `05-movements.png` — movements list view
+- `06-insights.png` — insights screen with donut/bar charts
+- `07-settings-data-folder.png` — settings showing data folder row
+
+#### Rationale
+
+1. **Alphabetically sorted = UI flow order.** Directory listing shows flow sequence.
+2. **Descriptive names.** More meaningful than `screenshot2.png`.
+3. **Zero-friction stitching.** Writers can reference images before they exist; auto-resolve on merge.
+4. **Collision-free slots.** 99 slots with flexibility for intermediates (`02a-`, `02b-`).
+
+#### Pattern for Future Guides
+
+1. Coordinate filenames upfront (issue or decision note)
+2. Use relative paths: `./screenshots/{name}.png`
+3. Write guide first if needed; generate screenshots later
+4. No orphan images — delete obsolete screenshots and update guide
+
+---
+
 ### 2026-05-01: Dashboard Rolling 90-Day Window + Real Account Counts (Trinity, PR #224 & #225)
 
 **Date:** 2026-05-01  
