@@ -47,6 +47,9 @@
     "sodium-native": "^4.1.0",
     "zod": "^3.23.0"
   },
+  "overrides": {
+    "uuid": "^14.0.0"
+  },
   "devDependencies": {
     "@playwright/test": "^1.44.0",
     "@testing-library/dom": "^10.4.1",
