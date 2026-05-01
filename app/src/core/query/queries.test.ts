@@ -158,49 +158,35 @@ describe('Event-sourced read model', () => {
       expense: 0,
       net: 0,
       transactionCount: 0,
-      accountTransactionCounts: {},
     });
   });
 
   it('getAccountBalancesInRange filters by date range (inclusive)', () => {
-    // Seed account.created and multiple transactions across two accounts + date ranges
+    // Seed AccountCreated config events + multiple transactions across two accounts + date ranges.
+    // Note: legacy `account.created` envelope events are no-ops in the reducer (WI-23);
+    // configAccounts is populated only by `AccountCreated` config events.
+    applyEvent({
+      type: 'AccountCreated',
+      id: ulid('ACC1'),
+      name: 'CaixaBank',
+      bankName: 'CaixaBank',
+      currency: 'EUR',
+      openingBalance: 0,
+      sortOrder: 1,
+      createdAt: '2026-03-01T10:00:00.000Z',
+    } as unknown as DomainEvent);
+    applyEvent({
+      type: 'AccountCreated',
+      id: ulid('ACC2'),
+      name: 'Santander',
+      bankName: 'Santander',
+      currency: 'EUR',
+      openingBalance: 0,
+      sortOrder: 2,
+      createdAt: '2026-03-01T10:00:00.000Z',
+    } as unknown as DomainEvent);
+
     const events: DomainEvent[] = [
-      {
-        id: ulid('ENV1'),
-        type: 'account.created',
-        datasetId: ulid('DATA'),
-        actorDeviceId: ulid('DEV1'),
-        createdAt: '2026-03-01T10:00:00Z',
-        dekVersion: 1,
-        version: 1,
-        payload: {
-          id: ulid('ACC1'),
-          name: 'CaixaBank',
-          bankName: 'CaixaBank',
-          label: null,
-          color: null,
-          sortOrder: 1,
-          createdAt: '2026-03-01T10:00:00Z',
-        },
-      },
-      {
-        id: ulid('ENV2'),
-        type: 'account.created',
-        datasetId: ulid('DATA'),
-        actorDeviceId: ulid('DEV1'),
-        createdAt: '2026-03-01T10:00:00Z',
-        dekVersion: 1,
-        version: 2,
-        payload: {
-          id: ulid('ACC2'),
-          name: 'Santander',
-          bankName: 'Santander',
-          label: null,
-          color: null,
-          sortOrder: 2,
-          createdAt: '2026-03-01T10:00:00Z',
-        },
-      },
       // Transaction in ACC1, inside range
       {
         id: ulid('ENV3'),
@@ -327,29 +313,17 @@ describe('Event-sourced read model', () => {
   });
 
   it('getAccountBalancesInRange includes accounts with zero activity in range', () => {
-    // Seed one account with no transactions in the range
-    const events: DomainEvent[] = [
-      {
-        id: ulid('ENV1'),
-        type: 'account.created',
-        datasetId: ulid('DATA'),
-        actorDeviceId: ulid('DEV1'),
-        createdAt: '2026-03-01T10:00:00Z',
-        dekVersion: 1,
-        version: 1,
-        payload: {
-          id: ulid('ACC1'),
-          name: 'CaixaBank',
-          bankName: 'CaixaBank',
-          label: null,
-          color: null,
-          sortOrder: 1,
-          createdAt: '2026-03-01T10:00:00Z',
-        },
-      },
-    ];
-
-    events.forEach((e) => applyEvent(e));
+    // Seed one AccountCreated config event with no transactions in the range
+    applyEvent({
+      type: 'AccountCreated',
+      id: ulid('ACC1'),
+      name: 'CaixaBank',
+      bankName: 'CaixaBank',
+      currency: 'EUR',
+      openingBalance: 0,
+      sortOrder: 1,
+      createdAt: '2026-03-01T10:00:00.000Z',
+    } as unknown as DomainEvent);
 
     const balances = _getAccountBalancesInRange('2026-04-01', '2026-04-30');
 
