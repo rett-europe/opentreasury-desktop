@@ -120,7 +120,7 @@ const mockCategories: CategoryRecord[] = [
 function makeMovement(i: number): MovementRecord {
   return {
     id: TX_IDS[i]!,
-    date: `2026-04-2${i}`,
+    date: `2026-05-0${i + 1}`, // May 2026 (current month)
     type: i % 2 === 0 ? 'expense' : 'income',
     amount: 100 + i * 10,
     currency: 'EUR',
@@ -130,7 +130,7 @@ function makeMovement(i: number): MovementRecord {
     subcategoryId: null,
     tagIds: [],
     status: 'approved',
-    createdAt: `2026-04-20T10:0${i}:00Z`,
+    createdAt: `2026-05-01T10:0${i}:00Z`,
   };
 }
 const mockMovements: readonly MovementRecord[] = TX_IDS.map((_id, i) => makeMovement(i));
@@ -171,9 +171,13 @@ afterAll(async () => {
 });
 
 async function renderScreen(): Promise<void> {
+  // Mock localStorage to default to "all" time range instead of "this-month"
+  // so the test movements (May 2026) aren't filtered out.
+  localStorage.setItem('opentreasury:movements:dateFilter', JSON.stringify({ kind: 'all' }));
+
   render(
     <I18nextProvider i18n={i18n}>
-      <MovementsScreen />
+      <MovementsScreen configRevision={0} />
     </I18nextProvider>,
   );
   await waitFor(() => {
