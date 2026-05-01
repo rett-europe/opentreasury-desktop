@@ -250,7 +250,7 @@ export function PanelScreen(): JSX.Element {
   const accountsWithBalances = accounts.map((acc) => {
     const balance = balances.find((b) => b.accountId === acc.id);
     const sparkline = sparklines.get(acc.id);
-    const displayName = acc.bankNameShort ?? acc.bankName;
+    const displayName = acc.accountLabel ?? acc.bankNameShort ?? acc.bankName;
     const txCount = accountTransactionCounts[acc.id] ?? 0;
     return {
       ...acc,

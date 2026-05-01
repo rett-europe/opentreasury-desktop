@@ -30,6 +30,7 @@ export interface Movement {
   readonly currency: 'EUR'; // Rett Spain pilot. Multi-currency deferred.
   readonly description: string;
   readonly account: string; // Display name (e.g. "Banco Santander"). Real impl: account_id → account lookup.
+  readonly accountId: string; // Stable identifier for filtering.
   /**
    * Category label, or `null` when the row has not been categorised yet.
    * `null` is the canonical "uncategorised" signal; the Movements filter bar

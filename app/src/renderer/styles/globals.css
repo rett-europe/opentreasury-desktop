@@ -341,6 +341,7 @@ a:hover {
   font-size: var(--font-size-16);
   color: var(--color-text-primary);
   line-height: 1.1;
+  overflow-wrap: break-word;
 }
 .ot-account-card__count {
   font-size: var(--font-size-11);

@@ -467,6 +467,15 @@ const SEED: readonly Seed[] = [
   },
 ];
 
+// Map account display names to stable mock account IDs.
+// Real impl: accountId comes from the event log; this is just for mocks.
+const ACCOUNT_NAME_TO_ID: Record<string, string> = {
+  'Banco Santander': 'acc-santander',
+  Bizum: 'acc-bizum',
+  PayPal: 'acc-paypal',
+  Caja: 'acc-caja',
+};
+
 function newId(): string {
   // crypto.randomUUID is available in modern Node (>=19) and in browsers.
   // Real impl: ULID per crypto-spec §11.
@@ -516,6 +525,7 @@ const ALL: readonly Movement[] = SEED.map((seed, index) => ({
   id: newId(),
   currency: 'EUR' as const,
   category: UNCATEGORIZED_INDICES.has(index) ? null : seed.category,
+  accountId: ACCOUNT_NAME_TO_ID[seed.account] ?? 'acc-unknown',
   tags: pickTags(index),
   status: pickStatus(index),
 }));
