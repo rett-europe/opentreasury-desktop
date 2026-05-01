@@ -244,7 +244,13 @@ import {
   shellOpenPathResponseSchema,
 } from '../../shared/ipc-contracts/shell.js';
 import { handleShellOpenPath } from './handlers/shell.js';
-import { getEventLog, getProfile, getDeviceId, getDatasetId } from '../bootstrap.js';
+import {
+  getEventLog,
+  getProfile,
+  getDeviceId,
+  getDatasetId,
+  isOnboardingPending,
+} from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { newUlid } from '../ids.js';
 
@@ -401,6 +407,22 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   // WI-12 — transaction.create + movements.list
   // WI-20 — transaction.update + transaction.delete
   // P0-2 — actorUserId from loaded profile, not placeholder
+  //
+  // First-run gate (#196): when bootstrap deferred the event log because no
+  // `dataDir` is configured yet, skip every handler that depends on
+  // `getEventLog()` / `getDatasetId()`. The renderer mounts only the
+  // onboarding wizard in this state; the wizard relies solely on
+  // `app:needsOnboarding`, `dialog:pickFolder`, and `config:setDataDir`,
+  // all registered above. After the user picks a folder, `setDataDir`
+  // relaunches the process and the next boot registers the full set.
+  if (isOnboardingPending()) {
+    // eslint-disable-next-line no-console
+    console.log(
+      '[ipc] onboarding pending — skipping data IPC handler registration until a data folder is chosen',
+    );
+    return;
+  }
+
   const profile = getProfile();
   const transactionDeps = {
     eventLog: getEventLog(),

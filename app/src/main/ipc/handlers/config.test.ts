@@ -419,4 +419,100 @@ describe('config:setDataDir handler', () => {
     const entries = await fs.readdir(newDir);
     expect(entries.filter((e) => e.startsWith('.ot-write-probe-'))).toEqual([]);
   });
+
+  // First-run / onboarding wizard branch (#196 / dev:empty regression).
+  // When bootstrap defers the event log because no dataDir is configured,
+  // the handler must still accept the wizard's pick: there is no current
+  // dataDir to compare against (skip SAME_DIR), no current datasetId to
+  // protect (skip datasetId-mismatch), and no previousDataDir to record.
+  describe('first-run (onboarding wizard)', () => {
+    function makeFirstRunDeps(opts: { userDataDir: string }) {
+      const base = makeDeps({ userDataDir: opts.userDataDir, currentDataDir: null });
+      // Override the deps to model bootstrap's onboarding-pending state:
+      // both the effective dataDir and the datasetId are unknown until the
+      // user picks a folder.
+      base.deps.getCurrentDataDir = () => null;
+      base.deps.getCurrentDatasetId = () => null;
+      return base;
+    }
+
+    it('accepts an empty folder when there is no current workspace', async () => {
+      const newDir = path.join(externalRoot, 'first-run-empty');
+      const { deps, relaunch, exit, updateCachedConfig } = makeFirstRunDeps({ userDataDir });
+      const handler = createConfigSetDataDirHandler(deps);
+
+      const result = await handler({ newDir });
+      expect(result).toEqual({ ok: true });
+
+      // Persisted config has the new dataDir and NO predecessor recorded
+      // (nothing existed before to fall back to). The base config carries
+      // `previousDataDir: null`; we must not overwrite it with the (also
+      // null) "current" path.
+      expect(updateCachedConfig).toHaveBeenCalledTimes(1);
+      const persisted = updateCachedConfig.mock.calls[0]?.[0] as AppConfig;
+      expect(persisted.dataDir).toBe(newDir);
+      expect(persisted.previousDataDir ?? null).toBeNull();
+
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(relaunch).toHaveBeenCalledTimes(1);
+      expect(exit).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not raise SAME_DIR when current dataDir is null (no predecessor)', async () => {
+      const newDir = path.join(externalRoot, 'first-run-no-same-dir');
+      const { deps } = makeFirstRunDeps({ userDataDir });
+      const handler = createConfigSetDataDirHandler(deps);
+
+      const result = await handler({ newDir });
+      // No SAME_DIR error — the handler proceeds to persistence.
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('adopts an existing workspace (folder with dataset.json) without DATASET_MISMATCH on first run', async () => {
+      // The wizard's "pick existing folder" path must work: a folder already
+      // owned by another datasetId is fine because there is nothing to
+      // switch FROM. No `confirmDatasetSwitch` should be required.
+      const newDir = path.join(externalRoot, 'first-run-existing');
+      await writeDatasetJson(newDir, { datasetId: OTHER_DATASET_ID });
+      const { deps } = makeFirstRunDeps({ userDataDir });
+      const handler = createConfigSetDataDirHandler(deps);
+
+      const result = await handler({ newDir });
+      expect(result).toEqual({ ok: true });
+    });
+
+    it('still refuses SCHEMA_TOO_NEW even on first run (schema check is absolute)', async () => {
+      const newDir = path.join(externalRoot, 'first-run-future-schema');
+      await writeDatasetJson(newDir, { datasetId: OTHER_DATASET_ID, schemaVersion: 999 });
+      const { deps } = makeFirstRunDeps({ userDataDir });
+      const handler = createConfigSetDataDirHandler(deps);
+
+      const result = await handler({ newDir });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('SCHEMA_TOO_NEW');
+      }
+    });
+
+    it('still refuses a foreign events.ndjson without dataset.json on first run', async () => {
+      // Even on first run we must not adopt a folder whose contents we
+      // cannot identify. The user has to pick an empty folder or one with a
+      // valid dataset.json.
+      const newDir = path.join(externalRoot, 'first-run-legacy');
+      await fs.mkdir(newDir, { recursive: true });
+      await fs.writeFile(
+        path.join(newDir, 'events.ndjson'),
+        '{"type":"AccountCreated"}\n',
+        'utf-8',
+      );
+      const { deps } = makeFirstRunDeps({ userDataDir });
+      const handler = createConfigSetDataDirHandler(deps);
+
+      const result = await handler({ newDir });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('DATASET_MISMATCH');
+      }
+    });
+  });
 });
