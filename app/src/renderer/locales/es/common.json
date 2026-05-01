@@ -75,20 +75,17 @@
   },
   "panel": {
     "title": "Panel",
-    "subtitle": "Vista general de los últimos 30 días",
+    "subtitle": "Vista general de los últimos 90 días",
     "cta": {
       "new-movement": "Nuevo Movimiento",
-      "date-range": "Últimos 30 días",
+      "date-range": "Últimos 90 días",
       "view-all-movements": "Ver todos los movimientos"
     },
     "sections": {
-      "accounts": "Saldos por cuenta",
-      "summary": "Resumen de los últimos 30 días",
+      "accounts": "Actividad por cuenta · Últimos 90 días",
+      "summary": "Resumen de los últimos 90 días",
       "monthly-trend": "Ingresos vs. Gastos · Últimos 12 meses",
       "recent": "Últimos movimientos"
-    },
-    "range": {
-      "last-30-days": "Últimos 30 días"
     },
     "skeleton": "Aún no hay movimientos. En cuanto registres alguno, verás aquí tu flujo de caja.",
     "card": {
@@ -298,11 +295,6 @@
         "cta": "Limpiar búsqueda"
       },
       "splitMatchBadge": "coincide con desglose"
-    },
-    "presets": {
-      "this-month": "Este mes",
-      "last-30-days": "Últimos 30 días",
-      "ytd": "Lo que va de año"
     },
     "filters": {
       "aria-label": "Filtros de movimientos",

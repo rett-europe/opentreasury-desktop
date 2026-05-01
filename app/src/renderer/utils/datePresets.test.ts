@@ -78,7 +78,6 @@ describe('datePresets', () => {
   it('getPresetRange dispatches by id', () => {
     expect(getPresetRange('this-month', REF)).toEqual({ from: '2026-04-01', to: '2026-04-25' });
     expect(getPresetRange('last-year', REF)).toEqual({ from: '2025-01-01', to: '2025-12-31' });
-    expect(getPresetRange('last-30-days', REF)).toEqual({ from: '2026-03-27', to: '2026-04-25' });
   });
 
   it('exposes all preset ids in declaration order', () => {
@@ -89,8 +88,6 @@ describe('datePresets', () => {
       'this-year',
       'last-year',
       'last-12-months',
-      'last-30-days',
-      'last-90-days',
     ]);
   });
 });
