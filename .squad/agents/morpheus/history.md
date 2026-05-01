@@ -18,7 +18,25 @@ The cloud version's backend (Python FastAPI) features:
 
 The desktop version needs equivalent functionality with local persistence (no cloud DB).
 
-## Core Context
+## Learnings
+
+**2026-05-08 — PR #216: dev:empty semantics + onboarding hydration (squad/fix-dev-empty-onboarding-regression)**
+
+Fixed two coupled regressions in first-run UX:
+
+1. **Wizard hydration race:** Bootstrap was synthesizing default event log location before wizard rendered, blocking the dataDir-selection flow. Now defers all hydration when `appConfig.dataDir === null`. `scripts/dev-empty.mjs` wipes userData state (app-config.json, dev-events/, my-data/) so `npm run dev:empty` reliably reproduces first-run.
+
+2. **IPC registration gating:** Handlers depending on `getEventLog()` / `getDatasetId()` are only registered post-bootstrap. During wizard-pending state, only wizard-needed handlers are live: `app:needsOnboarding`, `dialog:pickFolder`, `config:setDataDir`, `config:get`, `profile:*`, `shell:*`.
+
+3. **`config:setDataDir` null-tolerance:** First-run path skips SAME_DIR, datasetId-mismatch, and previousDataDir checks. Schema-too-new and foreign-events.ndjson refusals remain absolute.
+
+**Outcome:** Wizard fires cleanly with empty read model. Production bootstrap-on-null-dataDir path fixed as side effect (was masked by dev-only logic).
+
+## Cross-Agent Learning (2026-04-22)
+
+**From Trinity (WI-21 config CRUD):** Strong typing per-method with `MethodBridge<Req,Res>` is a durable IPC pattern. Trinity's PR #4 renderer fixes relied on the strongly-typed bridges — when Morpheus diverged from the spec (e.g., nested subcategory path), TypeScript surface-area tests immediately flagged it without needing manual e2e testing. Future IPC work in WI-22+ should use the same strongly-typed bridge pattern rather than generic request/response wrappers. Applied to all config mutation channels in WI-21; validated in practice by PR #4's catch rate.
+
+**WI-22 Saldo shipped (2026-04-22):** PR #7 merged with backend (S1–S3 complete: IPC contract, aggregation query, projection logic, handler). 436 tests pass. On-demand aggregation <5ms at 1k events. Property test (Cypher) verified all 8 invariants (I8: Saldo ≡ Movements holds). Skill drafted: `read-model-aggregation` (reusable pattern for future queries). Trinity S5 (SaldoScreen) unblocked; Niobe i18n (PR #9) merged with 72 ES/EN keys locked.
 
 **WI-17 Orientation (2026-04-20):** Generic column-mapping importer spec frozen in `.squad/decisions.md` under "WI-17 v2 — Generic Column-Mapping Importer". Neo's spec (IPC contracts, SHA-256 row-hash dedup, 6-step flow), Niobe's UX flow (EN/ES/WCAG), and Mouse's panel-polish audit all merged to decisions. Key handoff: You'll implement `import/stage-file`, `import/preview`, `import/commit` IPC handlers + file parsing (XLSX via SheetJS, CSV via papaparse), row-hash dedup logic, and `movement.imported` event + `import.mapping.updated` event. See decisions.md §"WI-17 v2" for full frozen spec (work decomposition WI-17.1 through WI-17.4).
 
