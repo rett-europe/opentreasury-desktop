@@ -3061,3 +3061,37 @@ No action needed now — just awareness. Original scope decisions captured in de
 **Modal recipe (no shared component yet):** scrim = `--color-surface-overlay`; card = `--color-surface-primary` + `--color-border-default` + `--shadow-dialog` + `--radius-lg`; primary button = `--color-brand-primary` / `--color-brand-on-primary`; focus = `--color-focus-ring` outline. If we keep hand-rolling this, it's worth proposing a shared `.ot-modal` recipe to Niobe/Mouse — flagged but not done in this PR.
 
 **Validation note:** `MovementsScreen.staleModal.test.tsx` is currently flaky on `main` (timing-related `waitFor` on table render). Confirmed pre-existing by stashing my diff and re-running. Worth a separate ticket.
+
+**2026-05-11 — PR #224: Dashboard account balance cards scoped to rolling 30-day window (squad/dashboard-account-balances-30day)**
+
+Fixed time-scope inconsistency in dashboard account cards after PRs #221 and #222 landed. Cards were showing:
+- **Transaction count**: rolling 30 days (real data from #222)
+- **Balance amount**: all-time (from `getAccountBalances()`)
+
+Result: CaixaBank account displaying "0 transactions / €10,254" — internally inconsistent.
+
+Pedro chose resolution: make the whole card fully 30-day scoped. "Balances by account" section becomes part of the 30-day view.
+
+**Backend pattern:** Added `getAccountBalancesInRange(from, to)` in `core/query/queries.ts` (lines 93-128), mirroring `getAccountBalances()` but filtering transactions by inclusive date range (`tx.date >= from && tx.date <= to`). Same lexicographic `YYYY-MM-DD` comparison pattern as `getRangeKPIs`. Includes all known accounts (with zeroes when no activity).
+
+**IPC contract:** `panel:get-account-balances-in-range` with Zod schemas `GetAccountBalancesInRangeRequest/Response` in `shared/ipc-contracts/panel.ts` (lines 71-93). Wired through `main/ipc/handlers/panel.ts`, `main/ipc/handlers.ts`, `preload/index.ts`, and `renderer/services/panelApi.ts`.
+
+**Frontend change:** `PanelScreen.tsx` now calls `panelApi.getAccountBalancesInRange(range.from, range.to)` (line 69) using the same rolling 30-day window computed for KPIs. Cards show 30-day income−expense per account, consistent with transaction counts.
+
+**i18n updates:** Renamed section header for clarity:
+- `panel.sections.accounts`: "Balances by account" → "Account activity · Last 30 days" (en)
+- `panel.sections.accounts`: "Saldos por cuenta" → "Actividad por cuenta · Últimos 30 días" (es)
+
+**All-time query preserved:** The original `getAccountBalances()` function remains unchanged. Grep shows only two callers (both tests: `reducers.test.ts`, `bulkUpdate.integration.test.ts`). No other surfaces depend on it. Available for future screens that need all-time balances.
+
+**Test coverage:** Added two unit tests in `core/query/queries.test.ts`:
+1. Filters by inclusive date range (transactions inside and outside window, multiple accounts)
+2. Includes accounts with zero activity in range
+
+All 104 test files passing. Pre-push gates (typecheck/lint/format/test) all green.
+
+**For Trinity:**
+- Date-range query pattern: When extending an existing all-time aggregate query, add a parallel in-range variant (don't modify the original). Follow the `getRangeKPIs` pattern: mirror aggregation logic, filter on `tx.date >= from && tx.date <= to`, add IPC contract + handler + preload + panelApi wrapper.
+- Section header clarity: When a dashboard section switches from all-time to a rolling window, update the i18n key to make the scope explicit (e.g., "Last 30 days" suffix).
+- Preservation vs modification: Always grep for existing callers before deciding whether to modify or extend. If only tests use the old function, preserve it for safety unless explicitly removing it is in scope.
+

@@ -151,3 +151,15 @@ Example: Dashboard needed a rolling 30-day window to avoid the calendar-cliff bu
 - ❌ **Using `new Date()` directly in the screen component** — makes tests non-deterministic. Always wrap in a preset factory that accepts `today: Date`.
 - ❌ **Forgetting to update `DATE_PRESET_IDS` assertion in tests** — causes test failures when a new preset is added but the list isn't updated.
 - ❌ **Parsing date strings with `Date` objects for comparison** — use lexicographic comparison (`tx.date >= from && tx.date <= to`) for YYYY-MM-DD strings. It's safe, fast, and avoids timezone pitfalls.
+
+
+## Additional Examples
+
+- **PR #224:** Added `getAccountBalancesInRange(from, to)` for dashboard account cards
+  - Core query: `app/src/core/query/queries.ts` lines 93-128
+  - IPC contract: `app/src/shared/ipc-contracts/panel.ts` lines 71-93
+  - Handler: `app/src/main/ipc/handlers/panel.ts` lines 63-66
+  - Preload: `app/src/preload/index.ts` lines 212-217
+  - Renderer API: `app/src/renderer/services/panelApi.ts` lines 37-49
+  - Usage: `app/src/renderer/screens/PanelScreen/PanelScreen.tsx` line 69
+  - Pattern: Mirrored `getAccountBalances()` but filtered by date range; preserved all-time query for other callers
