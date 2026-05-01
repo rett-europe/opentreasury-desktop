@@ -10,6 +10,8 @@ import type {
   GetAccountsResponse,
   GetAccountBalancesRequest,
   GetAccountBalancesResponse,
+  GetAccountBalancesInRangeRequest,
+  GetAccountBalancesInRangeResponse,
   GetMonthKPIsRequest,
   GetMonthKPIsResponse,
   GetRangeKPIsRequest,
@@ -24,6 +26,7 @@ import type {
 import {
   getAccounts as coreGetAccounts,
   getAccountBalances as coreGetAccountBalances,
+  getAccountBalancesInRange as coreGetAccountBalancesInRange,
   getMonthKPIs as coreGetMonthKPIs,
   getRangeKPIs as coreGetRangeKPIs,
   getAccountSparklines as coreGetAccountSparklines,
@@ -58,6 +61,12 @@ export async function handleGetAccountBalances(
   _request: GetAccountBalancesRequest,
 ): Promise<GetAccountBalancesResponse> {
   return { balances: coreGetAccountBalances() };
+}
+
+export async function handleGetAccountBalancesInRange(
+  request: GetAccountBalancesInRangeRequest,
+): Promise<GetAccountBalancesInRangeResponse> {
+  return { balances: coreGetAccountBalancesInRange(request.from, request.to) };
 }
 
 export async function handleGetMonthKPIs(

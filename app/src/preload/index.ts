@@ -7,6 +7,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import {
   IPC_PANEL_GET_ACCOUNTS,
   IPC_PANEL_GET_ACCOUNT_BALANCES,
+  IPC_PANEL_GET_ACCOUNT_BALANCES_IN_RANGE,
   IPC_PANEL_GET_MONTH_KPIS,
   IPC_PANEL_GET_RANGE_KPIS,
   IPC_PANEL_GET_ACCOUNT_SPARKLINES,
@@ -14,6 +15,8 @@ import {
   IPC_PANEL_GET_MONTHLY_INCOME_EXPENSE,
   type GetAccountsResponse,
   type GetAccountBalancesResponse,
+  type GetAccountBalancesInRangeRequest,
+  type GetAccountBalancesInRangeResponse,
   type GetMonthKPIsRequest,
   type GetMonthKPIsResponse,
   type GetRangeKPIsRequest,
@@ -211,6 +214,11 @@ const api = {
     },
     getAccountBalances: (): Promise<GetAccountBalancesResponse> => {
       return ipcRenderer.invoke(IPC_PANEL_GET_ACCOUNT_BALANCES);
+    },
+    getAccountBalancesInRange: (
+      req: GetAccountBalancesInRangeRequest,
+    ): Promise<GetAccountBalancesInRangeResponse> => {
+      return ipcRenderer.invoke(IPC_PANEL_GET_ACCOUNT_BALANCES_IN_RANGE, req);
     },
     getMonthKPIs: (req: GetMonthKPIsRequest): Promise<GetMonthKPIsResponse> => {
       return ipcRenderer.invoke(IPC_PANEL_GET_MONTH_KPIS, req);

@@ -82,7 +82,7 @@
       "view-all-movements": "View all transactions"
     },
     "sections": {
-      "accounts": "Balances by account",
+      "accounts": "Account activity · Last 30 days",
       "summary": "Last 30 days summary",
       "monthly-trend": "Income vs. Expense · Last 12 months",
       "recent": "Recent transactions"

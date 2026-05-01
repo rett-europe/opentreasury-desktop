@@ -82,7 +82,7 @@
       "view-all-movements": "Ver todos los movimientos"
     },
     "sections": {
-      "accounts": "Saldos por cuenta",
+      "accounts": "Actividad por cuenta · Últimos 30 días",
       "summary": "Resumen de los últimos 30 días",
       "monthly-trend": "Ingresos vs. Gastos · Últimos 12 meses",
       "recent": "Últimos movimientos"

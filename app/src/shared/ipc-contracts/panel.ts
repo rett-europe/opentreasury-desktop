@@ -69,6 +69,29 @@ export type GetAccountBalancesResponse = z.infer<typeof getAccountBalancesRespon
 export const GetAccountBalancesResponseSchema = getAccountBalancesResponseSchema;
 
 // ============================================================================
+// 2b. getAccountBalancesInRange — Aggregate income/expense/net per account (date range)
+// ============================================================================
+
+export const IPC_PANEL_GET_ACCOUNT_BALANCES_IN_RANGE = 'panel:get-account-balances-in-range';
+
+export const getAccountBalancesInRangeRequestSchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
+});
+
+export type GetAccountBalancesInRangeRequest = z.infer<
+  typeof getAccountBalancesInRangeRequestSchema
+>;
+
+export const getAccountBalancesInRangeResponseSchema = z.object({
+  balances: z.array(accountBalanceSchema),
+});
+
+export type GetAccountBalancesInRangeResponse = z.infer<
+  typeof getAccountBalancesInRangeResponseSchema
+>;
+
+// ============================================================================
 // 3. getMonthKPIs — Current month's Income/Expense/Net
 // ============================================================================
 

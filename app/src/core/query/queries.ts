@@ -90,6 +90,43 @@ export function getAccountBalances(): AccountBalance[] {
   return result.sort((a, b) => a.accountLabel.localeCompare(b.accountLabel));
 }
 
+// Query 2b: Get account balances in date range (from/to inclusive)
+export function getAccountBalancesInRange(from: string, to: string): AccountBalance[] {
+  const model = getReadModel();
+
+  const balanceMap = new Map<string, { income: number; expense: number }>();
+  for (const tx of model.transactions) {
+    // Filter transactions by inclusive date range (lexicographic YYYY-MM-DD)
+    if (tx.date >= from && tx.date <= to) {
+      const amounts = effectiveAmounts(tx, model);
+      for (const ea of amounts) {
+        const entry = balanceMap.get(tx.accountId) ?? { income: 0, expense: 0 };
+        if (tx.type === 'income') {
+          entry.income += ea.amount;
+        } else {
+          entry.expense += ea.amount;
+        }
+        balanceMap.set(tx.accountId, entry);
+      }
+    }
+  }
+
+  // Include every known account, even with zero activity — Panel renders one
+  // card per account regardless of transaction volume.
+  const result: AccountBalance[] = model.configAccounts.map((account: ConfigAccount) => {
+    const { income, expense } = balanceMap.get(account.id) ?? { income: 0, expense: 0 };
+    return {
+      accountId: account.id,
+      accountLabel: accountDisplayLabel(account),
+      income: Math.round(income * 100) / 100,
+      expense: Math.round(expense * 100) / 100,
+      net: Math.round((income - expense) * 100) / 100,
+    };
+  });
+
+  return result.sort((a, b) => a.accountLabel.localeCompare(b.accountLabel));
+}
+
 // Query 3: Get month KPIs (YYYY-MM format)
 export interface MonthKPIs {
   readonly yearMonth: string; // YYYY-MM

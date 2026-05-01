@@ -6,6 +6,8 @@ import {
   type GetAccountsResponse,
   getAccountBalancesResponseSchema,
   type GetAccountBalancesResponse,
+  getAccountBalancesInRangeResponseSchema,
+  type GetAccountBalancesInRangeResponse,
   getMonthKPIsResponseSchema,
   type GetMonthKPIsResponse,
   getRangeKPIsResponseSchema,
@@ -32,6 +34,19 @@ export async function getAccounts(): Promise<GetAccountsResponse> {
 export async function getAccountBalances(): Promise<GetAccountBalancesResponse> {
   const raw = await window.opentreasury.panel.getAccountBalances();
   return getAccountBalancesResponseSchema.parse(raw);
+}
+
+/**
+ * Get aggregate balance (income/expense/net) for each account in date range.
+ * @param from - YYYY-MM-DD format, e.g., "2026-04-01"
+ * @param to - YYYY-MM-DD format, e.g., "2026-04-30"
+ */
+export async function getAccountBalancesInRange(
+  from: string,
+  to: string,
+): Promise<GetAccountBalancesInRangeResponse> {
+  const raw = await window.opentreasury.panel.getAccountBalancesInRange({ from, to });
+  return getAccountBalancesInRangeResponseSchema.parse(raw);
 }
 
 /**

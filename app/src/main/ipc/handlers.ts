@@ -8,6 +8,7 @@ import { IpcSchemas } from './schemas.js';
 import {
   IPC_PANEL_GET_ACCOUNTS,
   IPC_PANEL_GET_ACCOUNT_BALANCES,
+  IPC_PANEL_GET_ACCOUNT_BALANCES_IN_RANGE,
   IPC_PANEL_GET_MONTH_KPIS,
   IPC_PANEL_GET_RANGE_KPIS,
   IPC_PANEL_GET_ACCOUNT_SPARKLINES,
@@ -17,6 +18,8 @@ import {
   getAccountsResponseSchema,
   getAccountBalancesRequestSchema,
   getAccountBalancesResponseSchema,
+  getAccountBalancesInRangeRequestSchema,
+  getAccountBalancesInRangeResponseSchema,
   getMonthKPIsRequestSchema,
   getMonthKPIsResponseSchema,
   getRangeKPIsRequestSchema,
@@ -126,6 +129,7 @@ import {
 import {
   handleGetAccounts,
   handleGetAccountBalances,
+  handleGetAccountBalancesInRange,
   handleGetMonthKPIs,
   handleGetRangeKPIs,
   handleGetAccountSparklines,
@@ -335,6 +339,12 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     const request = getAccountBalancesRequestSchema.parse(raw ?? {});
     const response = await handleGetAccountBalances(request);
     return getAccountBalancesResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_PANEL_GET_ACCOUNT_BALANCES_IN_RANGE, async (_event, raw: unknown) => {
+    const request = getAccountBalancesInRangeRequestSchema.parse(raw);
+    const response = await handleGetAccountBalancesInRange(request);
+    return getAccountBalancesInRangeResponseSchema.parse(response);
   });
 
   ipcMain.handle(IPC_PANEL_GET_MONTH_KPIS, async (_event, raw: unknown) => {
