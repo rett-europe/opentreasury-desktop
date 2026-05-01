@@ -20,6 +20,9 @@ interface ChangeError {
   details?: {
     currentDatasetId?: string | undefined;
     newDatasetId?: string | undefined;
+    schemaVersion?: number | undefined;
+    folderSchemaVersion?: number | undefined;
+    appSchemaVersion?: number | undefined;
   };
 }
 
@@ -243,8 +246,16 @@ export function PreferencesScreen(): JSX.Element {
     });
 
     if (!setDirResult.ok) {
-      // If it's a dataset mismatch and we haven't confirmed yet, show the modal
-      if (setDirResult.error.code === 'DATASET_MISMATCH' && !confirmDatasetSwitch) {
+      // If it's a switchable dataset mismatch (carries a newDatasetId from a
+      // valid dataset.json) and we haven't confirmed yet, show the modal.
+      // The "foreign" sub-case (events.ndjson without dataset.json) returns
+      // DATASET_MISMATCH but with no details — surface it as a hard error
+      // instead of showing an unbypassable confirm dialog.
+      if (
+        setDirResult.error.code === 'DATASET_MISMATCH' &&
+        !confirmDatasetSwitch &&
+        setDirResult.error.details?.newDatasetId
+      ) {
         setPendingFolderPath(path);
         setShowDatasetSwitchModal(true);
         return;
@@ -744,6 +755,15 @@ export function PreferencesScreen(): JSX.Element {
                   <p>{t('preferences.dataFolder.errors.notWritable')}</p>
                 ) : changeError.code === 'DATASET_MISMATCH' ? (
                   <p>{t('preferences.dataFolder.errors.datasetMismatch')}</p>
+                ) : changeError.code === 'SCHEMA_TOO_NEW' ? (
+                  <p>
+                    {t('preferences.dataFolder.errors.schemaTooNew', {
+                      folderSchemaVersion: changeError.details?.folderSchemaVersion ?? '?',
+                      appSchemaVersion: changeError.details?.appSchemaVersion ?? '?',
+                    })}
+                  </p>
+                ) : changeError.code === 'DATASET_CORRUPT' ? (
+                  <p>{t('preferences.dataFolder.errors.datasetCorrupt')}</p>
                 ) : (
                   <p>
                     {t('preferences.dataFolder.errors.generic')}: {changeError.message}

@@ -199,7 +199,6 @@ async function resolveEventLogDir(
     if (validated) return { dir: validated, configChanged: false };
   }
 
-
   // Priority 3: Default (<userData>/dev-events)
   const defaultPath = path.join(userDataDir, 'dev-events');
   const validated = await validateAndCreateDir(defaultPath, 'default dev-events');
@@ -367,7 +366,18 @@ export async function initializeApp(): Promise<void> {
   console.log(`[bootstrap] resolved event log directory: ${dir}`);
 
   // P1-1: Load per-dataset ID from <dataDir>/dataset.json
-  datasetIdInstance = await loadDatasetId(dir);
+  // Best-effort: stamp the writing app's version into freshly-created
+  // dataset.json files. Never override an existing appVersion.
+  let appVersionForStamp: string | undefined;
+  try {
+    appVersionForStamp = app.getVersion();
+  } catch {
+    appVersionForStamp = undefined;
+  }
+  datasetIdInstance = await loadDatasetId(
+    dir,
+    appVersionForStamp !== undefined ? { appVersion: appVersionForStamp } : {},
+  );
   // eslint-disable-next-line no-console
   console.log(`[bootstrap] loaded dataset ID: ${datasetIdInstance}`);
   const innerLog = new JsonFileEventLog({ dir });

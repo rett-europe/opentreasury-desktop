@@ -45,8 +45,16 @@ export type ConfigSetDataDirRequest = z.infer<typeof configSetDataDirRequestSche
 //   SAME_DIR          — newDir is the same as the currently-active dataDir
 //   INVALID_LOCATION  — path is under userData (data must be external)
 //   NOT_WRITABLE      — directory cannot be created or written to
-//   DATASET_MISMATCH  — target folder already contains an events.ndjson
-//                       belonging to a different dataset
+//   DATASET_MISMATCH  — target folder already contains a workspace whose
+//                       datasetId differs from the current one. Bypassable
+//                       via `confirmDatasetSwitch: true` when the folder
+//                       carries a valid dataset.json.
+//   SCHEMA_TOO_NEW    — target folder's dataset.json declares a schemaVersion
+//                       higher than this app build supports. NOT bypassable —
+//                       user must update the app.
+//   DATASET_CORRUPT   — target folder has a dataset.json that cannot be
+//                       parsed (invalid JSON or fails schema validation).
+//                       NOT bypassable.
 //   WRITE_FAILED      — persisting app-config.json failed (disk full, etc.)
 export const configSetDataDirErrorCodeSchema = z.enum([
   'SCHEMA_INVALID',
@@ -54,6 +62,8 @@ export const configSetDataDirErrorCodeSchema = z.enum([
   'INVALID_LOCATION',
   'NOT_WRITABLE',
   'DATASET_MISMATCH',
+  'SCHEMA_TOO_NEW',
+  'DATASET_CORRUPT',
   'WRITE_FAILED',
 ]);
 
@@ -70,6 +80,9 @@ export const configSetDataDirResponseSchema = z.discriminatedUnion('ok', [
         .object({
           currentDatasetId: z.string().optional(),
           newDatasetId: z.string().optional(),
+          schemaVersion: z.number().int().optional(),
+          folderSchemaVersion: z.number().int().optional(),
+          appSchemaVersion: z.number().int().optional(),
         })
         .optional(),
     }),
