@@ -4,7 +4,7 @@ import {
   getPresetRange,
   last12Months,
   last3Months,
-  last30Days,
+  last90Days,
   lastMonth,
   lastYear,
   thisMonth,
@@ -58,21 +58,21 @@ describe('datePresets', () => {
     expect(last12Months(feb29)).toEqual({ from: '2023-03-02', to: '2024-02-29' });
   });
 
-  it('last30Days: rolling 30 days ending today (inclusive)', () => {
-    // 2026-04-25 minus 29 days = 2026-03-27 (30 days total: Mar 27 through Apr 25)
-    expect(last30Days(REF)).toEqual({ from: '2026-03-27', to: '2026-04-25' });
+  it('last90Days: rolling 90 days ending today (inclusive)', () => {
+    // 2026-04-25 minus 89 days = 2026-01-26 (90 days total: Jan 26 through Apr 25)
+    expect(last90Days(REF)).toEqual({ from: '2026-01-26', to: '2026-04-25' });
   });
 
-  it('last30Days: handles month boundaries correctly', () => {
+  it('last90Days: handles month boundaries correctly', () => {
     const may1 = new Date('2026-05-01T00:00:00Z');
-    // May 1 minus 29 days = Apr 2 (30 days: Apr 2 through May 1)
-    expect(last30Days(may1)).toEqual({ from: '2026-04-02', to: '2026-05-01' });
+    // May 1 minus 89 days = Feb 1 (90 days: Feb 1 through May 1)
+    expect(last90Days(may1)).toEqual({ from: '2026-02-01', to: '2026-05-01' });
   });
 
   it('getPresetRange dispatches by id', () => {
     expect(getPresetRange('this-month', REF)).toEqual({ from: '2026-04-01', to: '2026-04-25' });
     expect(getPresetRange('last-year', REF)).toEqual({ from: '2025-01-01', to: '2025-12-31' });
-    expect(getPresetRange('last-30-days', REF)).toEqual({ from: '2026-03-27', to: '2026-04-25' });
+    expect(getPresetRange('last-90-days', REF)).toEqual({ from: '2026-01-26', to: '2026-04-25' });
   });
 
   it('exposes all preset ids in declaration order', () => {
@@ -83,7 +83,7 @@ describe('datePresets', () => {
       'this-year',
       'last-year',
       'last-12-months',
-      'last-30-days',
+      'last-90-days',
     ]);
   });
 });

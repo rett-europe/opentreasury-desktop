@@ -8,7 +8,7 @@ import { GroupedBarChart } from '../../components/GroupedBarChart/index.js';
 import { TransactionsTable } from '../../components/TransactionsTable/index.js';
 import type { TransactionRow } from '../../components/TransactionsTable/index.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
-import { last30Days } from '../../utils/datePresets.js';
+import { last90Days } from '../../utils/datePresets.js';
 import type {
   Account,
   AccountBalance,
@@ -65,7 +65,7 @@ export function PanelScreen(): JSX.Element {
     try {
       setState('skeleton');
 
-      const range = last30Days(new Date());
+      const range = last90Days(new Date());
 
       const [
         accountsResp,
@@ -292,7 +292,7 @@ export function PanelScreen(): JSX.Element {
         income={kpis.income}
         expense={kpis.expense}
         net={kpis.net}
-        month={t('panel.range.last-30-days')}
+        month={t('panel.range.last-90-days')}
       />
 
       <div className="ot-section-label">{t('panel.sections.monthly-trend')}</div>

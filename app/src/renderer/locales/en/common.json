@@ -75,20 +75,20 @@
   },
   "panel": {
     "title": "Dashboard",
-    "subtitle": "Last 30 days overview",
+    "subtitle": "Last 90 days overview",
     "cta": {
       "new-movement": "New Transaction",
-      "date-range": "Last 30 days",
+      "date-range": "Last 90 days",
       "view-all-movements": "View all transactions"
     },
     "sections": {
-      "accounts": "Account activity · Last 30 days",
-      "summary": "Last 30 days summary",
+      "accounts": "Account activity · Last 90 days",
+      "summary": "Last 90 days summary",
       "monthly-trend": "Income vs. Expense · Last 12 months",
       "recent": "Recent transactions"
     },
     "range": {
-      "last-30-days": "Last 30 days"
+      "last-90-days": "Last 90 days"
     },
     "skeleton": "No transactions yet. Once you add some, your cashflow will appear here.",
     "card": {
@@ -301,7 +301,7 @@
     },
     "presets": {
       "this-month": "This month",
-      "last-30-days": "Last 30 days",
+      "last-90-days": "Last 90 days",
       "ytd": "Year to date"
     },
     "filters": {
