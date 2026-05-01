@@ -32,7 +32,6 @@ export function OnboardingScreen(): JSX.Element {
   const [status, setStatus] = useState<Status>('loading');
   const [defaultDataDir, setDefaultDataDir] = useState<string>('');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [usingDefault, setUsingDefault] = useState(false);
   const [error, setError] = useState<ErrorState | null>(null);
 
   useEffect(() => {
@@ -65,7 +64,6 @@ export function OnboardingScreen(): JSX.Element {
       }
       if (result.path === null) return; // user cancelled the OS dialog
       setSelectedPath(result.path);
-      setUsingDefault(false);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError({ code: 'PICKER_FAILED', message });
@@ -75,7 +73,6 @@ export function OnboardingScreen(): JSX.Element {
   const handleUseDefault = useCallback(() => {
     setError(null);
     setSelectedPath(defaultDataDir);
-    setUsingDefault(true);
   }, [defaultDataDir]);
 
   const handleConfirm = useCallback(async () => {
@@ -89,9 +86,6 @@ export function OnboardingScreen(): JSX.Element {
         // rather than refusing. There is no current workspace to switch from
         // on first run, so the bypass is safe.
         confirmDatasetSwitch: true,
-        // Allow `<userData>/my-data` (the default-button path). The
-        // Preferences "Change folder" flow keeps this check enabled.
-        bypassLocationCheck: usingDefault,
       });
       if (!result.ok) {
         setError({ code: result.error.code, message: result.error.message });
@@ -106,7 +100,7 @@ export function OnboardingScreen(): JSX.Element {
       setError({ code: 'UNEXPECTED', message });
       setStatus('error');
     }
-  }, [selectedPath, usingDefault]);
+  }, [selectedPath]);
 
   const isBusy = status === 'submitting' || status === 'restarting';
 

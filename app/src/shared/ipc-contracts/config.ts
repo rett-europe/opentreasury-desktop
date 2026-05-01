@@ -36,15 +36,6 @@ export type ConfigGetResponse = z.infer<typeof configGetResponseSchema>;
 export const configSetDataDirRequestSchema = z.object({
   newDir: z.string().min(1),
   confirmDatasetSwitch: z.boolean().optional(),
-  /**
-   * When true, skips the rule that data must not live under Electron's
-   * userData directory. Reserved for the first-run onboarding wizard (#196),
-   * which intentionally offers `<userData>/my-data` as the "Use default
-   * location" affordance — preserving the original silent-default behavior
-   * as one explicit click. Should remain `false`/unset for the Preferences
-   * "Change folder" flow, where data-wiped-on-uninstall is a real risk.
-   */
-  bypassLocationCheck: z.boolean().optional(),
 });
 
 export type ConfigSetDataDirRequest = z.infer<typeof configSetDataDirRequestSchema>;
