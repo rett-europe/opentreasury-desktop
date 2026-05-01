@@ -90,6 +90,31 @@ export function getAccountBalances(): AccountBalance[] {
   return result.sort((a, b) => a.accountLabel.localeCompare(b.accountLabel));
 }
 
+// Query 2c: Get account transaction counts in date range (from/to inclusive)
+export function getAccountTransactionCountsInRange(
+  from: string,
+  to: string,
+): Record<string, number> {
+  const model = getReadModel();
+
+  const countMap = new Map<string, number>();
+  for (const tx of model.transactions) {
+    // Filter transactions by inclusive date range (lexicographic YYYY-MM-DD)
+    if (tx.date >= from && tx.date <= to) {
+      const current = countMap.get(tx.accountId) ?? 0;
+      countMap.set(tx.accountId, current + 1);
+    }
+  }
+
+  // Include every known account with zero counts for those with no transactions
+  const result: Record<string, number> = {};
+  for (const account of model.configAccounts) {
+    result[account.id] = countMap.get(account.id) ?? 0;
+  }
+
+  return result;
+}
+
 // Query 3: Get month KPIs (YYYY-MM format)
 export interface MonthKPIs {
   readonly yearMonth: string; // YYYY-MM

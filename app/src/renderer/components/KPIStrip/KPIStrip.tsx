@@ -7,7 +7,7 @@ export interface KPIStripProps {
   readonly income: number;
   readonly expense: number;
   readonly net: number;
-  readonly month: string;
+  readonly month?: string;
 }
 
 /**
@@ -28,7 +28,7 @@ export function KPIStrip({ income, expense, net, month }: KPIStripProps): JSX.El
         <div>
           <div className="ot-kpi__label">{t('movements.totals.income')}</div>
           <div className="ot-kpi__value">{format(income)}</div>
-          <div className="ot-kpi__delta">{month}</div>
+          {month && <div className="ot-kpi__delta">{month}</div>}
         </div>
       </div>
       <div className="ot-kpi ot-kpi--expense">
@@ -38,7 +38,7 @@ export function KPIStrip({ income, expense, net, month }: KPIStripProps): JSX.El
         <div>
           <div className="ot-kpi__label">{t('movements.totals.expense')}</div>
           <div className="ot-kpi__value">{format(expense)}</div>
-          <div className="ot-kpi__delta">{month}</div>
+          {month && <div className="ot-kpi__delta">{month}</div>}
         </div>
       </div>
       <div className="ot-kpi ot-kpi--net">
@@ -48,7 +48,7 @@ export function KPIStrip({ income, expense, net, month }: KPIStripProps): JSX.El
         <div>
           <div className="ot-kpi__label">{t('movements.totals.net')}</div>
           <div className="ot-kpi__value">{format(net)}</div>
-          <div className="ot-kpi__delta">{month}</div>
+          {month && <div className="ot-kpi__delta">{month}</div>}
         </div>
       </div>
     </div>

@@ -6,6 +6,8 @@ import {
   type GetAccountsResponse,
   getAccountBalancesResponseSchema,
   type GetAccountBalancesResponse,
+  getAccountTransactionCountsInRangeResponseSchema,
+  type GetAccountTransactionCountsInRangeResponse,
   getMonthKPIsResponseSchema,
   type GetMonthKPIsResponse,
   getRangeKPIsResponseSchema,
@@ -32,6 +34,19 @@ export async function getAccounts(): Promise<GetAccountsResponse> {
 export async function getAccountBalances(): Promise<GetAccountBalancesResponse> {
   const raw = await window.opentreasury.panel.getAccountBalances();
   return getAccountBalancesResponseSchema.parse(raw);
+}
+
+/**
+ * Get per-account transaction counts in date range.
+ * @param from - YYYY-MM-DD format, e.g., "2026-04-01"
+ * @param to - YYYY-MM-DD format, e.g., "2026-04-30"
+ */
+export async function getAccountTransactionCountsInRange(
+  from: string,
+  to: string,
+): Promise<GetAccountTransactionCountsInRangeResponse> {
+  const raw = await window.opentreasury.panel.getAccountTransactionCountsInRange({ from, to });
+  return getAccountTransactionCountsInRangeResponseSchema.parse(raw);
 }
 
 /**

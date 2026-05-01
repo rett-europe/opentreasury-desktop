@@ -8,7 +8,7 @@ import { GroupedBarChart } from '../../components/GroupedBarChart/index.js';
 import { TransactionsTable } from '../../components/TransactionsTable/index.js';
 import type { TransactionRow } from '../../components/TransactionsTable/index.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
-import { last30Days } from '../../utils/datePresets.js';
+import { last90Days } from '../../utils/datePresets.js';
 import type {
   Account,
   AccountBalance,
@@ -36,18 +36,8 @@ interface PanelData {
   categories: CategoryRecord[];
   tags: TagRecord[];
   monthlyData: MonthlyIncomeExpense[];
+  accountTransactionCounts: Record<string, number>;
 }
-
-// Mock per-account transaction counts mirroring prototype/data.js. Replaced
-// with a real aggregate once Morpheus exposes a per-account count field on
-// the balance contract (WI-6).
-const MOCK_TX_COUNTS: Readonly<Record<string, number>> = {
-  unicaja: 703,
-  'caixa-ops': 5,
-  'caixa-fin': 1,
-  'caixa-0951': 1,
-  paypal: 13,
-};
 
 /**
  * Panel (Dashboard) — landing screen showing account balances, current-month
@@ -65,7 +55,7 @@ export function PanelScreen(): JSX.Element {
     try {
       setState('skeleton');
 
-      const range = last30Days(new Date());
+      const range = last90Days(new Date());
 
       const [
         accountsResp,
@@ -75,6 +65,7 @@ export function PanelScreen(): JSX.Element {
         categoriesResp,
         tagsResp,
         monthlyResp,
+        countsResp,
       ] = await Promise.all([
         panelApi.getAccounts(),
         panelApi.getAccountBalances(),
@@ -83,6 +74,7 @@ export function PanelScreen(): JSX.Element {
         listCategories(),
         listTags(),
         panelApi.getMonthlyIncomeExpense(),
+        panelApi.getAccountTransactionCountsInRange(range.from, range.to),
       ]);
 
       const sparklinePromises = accountsResp.accounts.map((acc) =>
@@ -99,6 +91,7 @@ export function PanelScreen(): JSX.Element {
         categories: categoriesResp.categories,
         tags: tagsResp.tags,
         monthlyData: monthlyResp.months,
+        accountTransactionCounts: countsResp.counts,
       });
       setState('loaded');
     } catch (err) {
@@ -243,13 +236,22 @@ export function PanelScreen(): JSX.Element {
     );
   }
 
-  const { accounts, balances, kpis, sparklines, transactions, categories, tags } = data;
+  const {
+    accounts,
+    balances,
+    kpis,
+    sparklines,
+    transactions,
+    categories,
+    tags,
+    accountTransactionCounts,
+  } = data;
 
   const accountsWithBalances = accounts.map((acc) => {
     const balance = balances.find((b) => b.accountId === acc.id);
     const sparkline = sparklines.get(acc.id);
     const displayName = acc.bankNameShort ?? acc.bankName;
-    const txCount = MOCK_TX_COUNTS[acc.id] ?? kpis.transactionCount;
+    const txCount = accountTransactionCounts[acc.id] ?? 0;
     return {
       ...acc,
       displayName,
@@ -288,12 +290,7 @@ export function PanelScreen(): JSX.Element {
       </div>
 
       <div className="ot-section-label">{t('panel.sections.summary')}</div>
-      <KPIStrip
-        income={kpis.income}
-        expense={kpis.expense}
-        net={kpis.net}
-        month={t('panel.range.last-30-days')}
-      />
+      <KPIStrip income={kpis.income} expense={kpis.expense} net={kpis.net} />
 
       <div className="ot-section-label">{t('panel.sections.monthly-trend')}</div>
       <GroupedBarChart

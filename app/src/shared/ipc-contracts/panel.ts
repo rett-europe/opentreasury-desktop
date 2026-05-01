@@ -69,6 +69,29 @@ export type GetAccountBalancesResponse = z.infer<typeof getAccountBalancesRespon
 export const GetAccountBalancesResponseSchema = getAccountBalancesResponseSchema;
 
 // ============================================================================
+// 2b. getAccountTransactionCountsInRange — Per-account transaction counts (date range)
+// ============================================================================
+
+export const IPC_PANEL_GET_ACCOUNT_TX_COUNTS_IN_RANGE = 'panel:get-account-tx-counts-in-range';
+
+export const getAccountTransactionCountsInRangeRequestSchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
+});
+
+export type GetAccountTransactionCountsInRangeRequest = z.infer<
+  typeof getAccountTransactionCountsInRangeRequestSchema
+>;
+
+export const getAccountTransactionCountsInRangeResponseSchema = z.object({
+  counts: z.record(z.string(), z.number().int().nonnegative()),
+});
+
+export type GetAccountTransactionCountsInRangeResponse = z.infer<
+  typeof getAccountTransactionCountsInRangeResponseSchema
+>;
+
+// ============================================================================
 // 3. getMonthKPIs — Current month's Income/Expense/Net
 // ============================================================================
 
