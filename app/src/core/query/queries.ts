@@ -137,6 +137,7 @@ export interface RangeKPIs {
   readonly expense: number;
   readonly net: number;
   readonly transactionCount: number;
+  readonly accountTransactionCounts: ReadonlyMap<string, number>; // accountId → count
 }
 
 export function getRangeKPIs(from: string, to: string): RangeKPIs {
@@ -145,6 +146,7 @@ export function getRangeKPIs(from: string, to: string): RangeKPIs {
   let income = 0;
   let expense = 0;
   let count = 0;
+  const accountCounts = new Map<string, number>();
 
   for (const tx of model.transactions) {
     // Lexicographic comparison is safe for YYYY-MM-DD strings
@@ -158,6 +160,10 @@ export function getRangeKPIs(from: string, to: string): RangeKPIs {
         }
       }
       count += 1;
+
+      // Tally per-account counts
+      const current = accountCounts.get(tx.accountId) ?? 0;
+      accountCounts.set(tx.accountId, current + 1);
     }
   }
 
@@ -168,6 +174,7 @@ export function getRangeKPIs(from: string, to: string): RangeKPIs {
     expense: Math.round(expense * 100) / 100,
     net: Math.round((income - expense) * 100) / 100,
     transactionCount: count,
+    accountTransactionCounts: accountCounts,
   };
 }
 

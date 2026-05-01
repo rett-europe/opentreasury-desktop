@@ -38,17 +38,6 @@ interface PanelData {
   monthlyData: MonthlyIncomeExpense[];
 }
 
-// Mock per-account transaction counts mirroring prototype/data.js. Replaced
-// with a real aggregate once Morpheus exposes a per-account count field on
-// the balance contract (WI-6).
-const MOCK_TX_COUNTS: Readonly<Record<string, number>> = {
-  unicaja: 703,
-  'caixa-ops': 5,
-  'caixa-fin': 1,
-  'caixa-0951': 1,
-  paypal: 13,
-};
-
 /**
  * Panel (Dashboard) — landing screen showing account balances, current-month
  * KPIs, a 12-month trend chart placeholder, and the latest 8 transactions.
@@ -249,7 +238,7 @@ export function PanelScreen(): JSX.Element {
     const balance = balances.find((b) => b.accountId === acc.id);
     const sparkline = sparklines.get(acc.id);
     const displayName = acc.bankNameShort ?? acc.bankName;
-    const txCount = MOCK_TX_COUNTS[acc.id] ?? kpis.transactionCount;
+    const txCount = kpis.accountTransactionCounts[acc.id] ?? 0;
     return {
       ...acc,
       displayName,

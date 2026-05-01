@@ -329,6 +329,7 @@
           "this-year": "Year to date",
           "last-year": "Last year",
           "last-12-months": "Last 12 months",
+          "last-30-days": "Last 30 days",
           "custom": "Custom",
           "all": "All time"
         },

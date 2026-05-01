@@ -2989,3 +2989,16 @@ No action needed now — Link's follow-up will consume #198 next.
 Generalizable rule for first-run flows: when a UI gate (here: the onboarding wizard) decides whether to render the main app, the data layer behind it must NOT have already loaded anything. Otherwise the gate becomes cosmetic — the side effects already happened. Bootstrap should peek at the gate's input (the persisted choice) FIRST and skip the data path when the gate would force the wizard.
 
 I extracted this into `.squad/skills/wizard-before-hydration/SKILL.md` so future first-run flows (multi-account, profile setup, etc.) inherit the rule.
+
+## 2025-01-XX — PR #192 / #193 Triage (April 30 PRs Conflicting)
+
+**Mission:** Triage two open PRs from April 30 with CONFLICTING status against current main after merged storage-stack work.
+
+**PR #193** (ix(preferences): compare dataDir against effective path, not raw config value) — **OBSOLETE**. The fix (using getEffectiveEventLogDirOrNull() in defaultGetCurrentDataDir() instead of raw ppConfig.dataDir, and removing path.resolve() from SAME_DIR check) is already in main. Came through either PR #195 (recovery-persist) or storage-stack checkpoint work. Closed with explanation, deleted branch squad/preferences-stale-currentdatadir.
+
+**PR #192** (ix(bootstrap): initialize new dataset folders + recover on bootstrap failure) — **OBSOLETE** with different design in main. Schema changes (previousDataDir field, saving on dataset switch) already shipped via PR #195. Bootstrap recovery mechanism exists but uses **different strategy**: PR #192 wanted fallback to previousDataDir then fail; main (PR #195) falls back to default <userData>/dev-events (always succeeds). Main's design is more resilient. The error-dialog piece from index.ts (try-catch + native error on catastrophic failure) would still be useful for edge cases (userData inaccessible, disk full), but doesn't warrant rebasing entire PR. Recommended filing separate tiny PR if that edge-case matters. Closed with full explanation, deleted branch squad/dataset-switch-bootstrap-recovery.
+
+**Evidence:** Current main bootstrap.ts:200-266 esolveEventLogDir() has full recovery (validate configPath → warn + fall back to default → persist recovery state). config.ts handler line 232 saves previousDataDir on switch. index.ts line 106 has no try-catch (gap from #192 still exists but low-priority). Both PR diffs showed previousDataDir schema field matching main exactly.
+
+**Outcome:** Both PRs closed. No rebase needed. Pedro can proceed with trial-readiness work without conflict noise.
+

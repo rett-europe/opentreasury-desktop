@@ -69,7 +69,13 @@ export async function handleGetMonthKPIs(
 export async function handleGetRangeKPIs(
   request: GetRangeKPIsRequest,
 ): Promise<GetRangeKPIsResponse> {
-  return { kpis: coreGetRangeKPIs(request.from, request.to) };
+  const rangeKPIs = coreGetRangeKPIs(request.from, request.to);
+  return {
+    kpis: {
+      ...rangeKPIs,
+      accountTransactionCounts: Object.fromEntries(rangeKPIs.accountTransactionCounts),
+    },
+  };
 }
 
 export async function handleGetAccountSparklines(

@@ -138,25 +138,23 @@ describe('Event-sourced read model', () => {
     // Range: 2026-04-01 through 2026-04-30 (includes TX01 and TX02, excludes TX03)
     const kpis = _getRangeKPIs('2026-04-01', '2026-04-30');
 
-    expect(kpis).toEqual({
-      from: '2026-04-01',
-      to: '2026-04-30',
-      income: 1000.0,
-      expense: 300.0,
-      net: 700.0,
-      transactionCount: 2,
-    });
+    expect(kpis.from).toBe('2026-04-01');
+    expect(kpis.to).toBe('2026-04-30');
+    expect(kpis.income).toBe(1000.0);
+    expect(kpis.expense).toBe(300.0);
+    expect(kpis.net).toBe(700.0);
+    expect(kpis.transactionCount).toBe(2);
+    expect(kpis.accountTransactionCounts.get(ulid('ACC1'))).toBe(2);
   });
 
   it('getRangeKPIs returns zero totals for empty range', () => {
     const kpis = _getRangeKPIs('2026-01-01', '2026-01-31');
-    expect(kpis).toEqual({
-      from: '2026-01-01',
-      to: '2026-01-31',
-      income: 0,
-      expense: 0,
-      net: 0,
-      transactionCount: 0,
-    });
+    expect(kpis.from).toBe('2026-01-01');
+    expect(kpis.to).toBe('2026-01-31');
+    expect(kpis.income).toBe(0);
+    expect(kpis.expense).toBe(0);
+    expect(kpis.net).toBe(0);
+    expect(kpis.transactionCount).toBe(0);
+    expect(kpis.accountTransactionCounts.size).toBe(0);
   });
 });

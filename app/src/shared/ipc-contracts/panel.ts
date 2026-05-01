@@ -117,6 +117,7 @@ export const rangeKPIsSchema = z.object({
   expense: z.number().nonnegative(),
   net: z.number(),
   transactionCount: z.number().int().nonnegative(),
+  accountTransactionCounts: z.record(z.string(), z.number().int().nonnegative()),
 });
 
 export type RangeKPIs = z.infer<typeof rangeKPIsSchema>;
