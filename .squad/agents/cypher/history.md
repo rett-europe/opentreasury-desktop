@@ -401,3 +401,13 @@ PR #51 (wi23-legacy-fixture-gate tests) closed as redundant — PR #50 already i
 
 **Lesson:** When an implementation lands ahead of the test PR (here: search UX shifted to local-state + 500ms debounce + Enter-submit), grep the impl for the named constant (`SEARCH_DEBOUNCE_MS`) and the local state symbol (`searchInputValue`) before touching the tests. Faster than reading the diff, and the names point straight at the contract the tests must encode.
 
+
+## Learnings — #163 doc-shots Playwright spec (2026-04-29)
+
+- **Launch rule confirmed**: lectron.launch({ args: ['.', \--user-data-dir=${ISO}] }). The bare . is what makes `app.getName()` return `opentreasury-desktop`; without it, userData falls back to `%APPDATA%\Electron` and seeded `profile.json` is invisible. Adding `--user-data-dir=<abs>` gave full sandbox isolation so I could freely wipe/recreate `profile.json` between waypoints without nuking the dogfood install.
+- **Seeding shortcut**: `scripts/perf-seed.mjs` already takes `--out=<absolute>`. Spawning it as a subprocess is cleaner than copy-pasting envelope shapes into the spec, and stays in lockstep with `devSeed.ts` automatically.
+- **Locale gotcha**: `app/src/renderer/i18n/index.ts` uses `detection.lookupLocalStorage = 'opentreasury.locale'`, NOT the i18next default `'i18nextLng'`. First run came out in English on my Win10 box because of this. Set the right key + `page.reload()` and the shell flipped to Spanish as expected.
+- **Saldo expand**: per-panel toggles `[data-testid="saldo-subcategories-toggle-{income,expense}"]` — click both for the expanded shot, otherwise the panel you didn't click stays collapsed and the waypoint is misleading.
+- **AppShell user-strip cosmetic gap**: bottom-left still shows hardcoded `Pedro Rocha / ADMIN` from i18n placeholder `shell.user.name`, not the real profile. Out of scope for #163; flag for a follow-up — header NGO name is correctly wired via `profile?.ngoName` (acceptance only required header).
+- **Working-tree hazard**: this machine runs concurrent Squad agents. Mid-task another agent committed onto a different branch (squad/149) and silently switched HEAD. Always re-check `git branch --show-current` before staging/commit when running long operations on shared workstations.
+- **Pre-existing test debt**: `AppShell.test.tsx` (5 failures: missing `window.opentreasury.profile` mock) and `devSeed.wi23.test.ts` (4 failures) fail on a clean `origin/main`. Not introduced by this PR; verified by re-running `vitest` against `origin/main` directly.
