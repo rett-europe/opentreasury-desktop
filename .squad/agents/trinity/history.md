@@ -19,6 +19,31 @@ The cloud version has an Angular 19 frontend with:
 
 ## Learnings
 
+**2026-05-11 — PR #221: Dashboard rolling 30-day window (squad/dashboard-rolling-30-days)**
+
+Replaced Dashboard's "current month" default with a rolling 30-day window to fix the calendar-cliff bug (dashboard appearing empty on the 1st of every month).
+
+**Date logic location:** Dashboard KPIs were fetched in `PanelScreen.tsx` (line 68) via `panelApi.getMonthKPIs(currentMonth)` which called the IPC handler `panel:get-month-kpis`. The backend query `getMonthKPIs` in `core/query/queries.ts` filtered transactions by `tx.date.startsWith(yearMonth)` (line 110) — a month-prefix match.
+
+**Date-filter contract shape:** The datePresets module (`renderer/utils/datePresets.ts`) exports a discriminated union of preset IDs and factory functions that return `{ from: string, to: string }` (YYYY-MM-DD format). Each preset is a pure function accepting `today: Date` for deterministic testing. The `getPresetRange(id, today)` dispatcher resolves any preset ID to a concrete range. I extended this with `last-30-days` → `last30Days(today)` factory (line 89-95).
+
+**New IPC method:** Rather than modifying `getMonthKPIs` (other screens might depend on month-anchored logic), I added a parallel `getRangeKPIs(from, to)` query in `core/query/queries.ts` (lines 133-169), mirroring the month-based aggregation but filtering on inclusive date boundaries (`tx.date >= from && tx.date <= to`, line 149). New IPC contract: `panel:get-range-kpis` with Zod schemas `GetRangeKPIsRequest/Response` in `shared/ipc-contracts/panel.ts` (lines 105-133). Wired through `main/ipc/handlers.ts` (lines 11, 16, 346-350) and `preload/index.ts` (lines 11, 16, 215-217).
+
+**i18n key path conventions:** Panel screen strings live under `panel.*` in `locales/{en,es}/common.json`. Key updates:
+- `panel.subtitle`: "Month overview" → "Last 30 days overview" (en), "Vista general del mes" → "Vista general de los últimos 30 días" (es)
+- `panel.cta.date-range`: Static "April 2026" → "Last 30 days" / "Últimos 30 días"
+- `panel.sections.summary`: "Month summary" → "Last 30 days summary" / "Resumen de los últimos 30 días"
+- Added `panel.range.last-30-days`: "Last 30 days" / "Últimos 30 días" (consumed by `KPIStrip.month` prop, line 295)
+
+**Test coverage:** Added `getRangeKPIs` unit test in `core/query/queries.test.ts` (3 transactions across dates, filter 2026-04-01 through 2026-04-30, verify inclusive boundaries + empty range). Added `last30Days` preset tests in `renderer/utils/datePresets.test.ts` (basic case + month-boundary edge case). Updated `DATE_PRESET_IDS` assertion to include `'last-30-days'`. All 104 test files green.
+
+**Movements screen unchanged:** PR scope explicitly excluded Movements filter behavior (still defaults to `this-month` per `movementsDateFilter.ts` line 23). Flagged for future review in `.squad/decisions/inbox/`.
+
+**For Trinity:**
+- Date-range queries: Use the `getRangeKPIs(from, to)` pattern for any future aggregations over user-selected windows. Month-anchored `getMonthKPIs` is still available for fixed calendar periods.
+- Preset extension: To add a new preset (e.g., "last 7 days"), add the ID to `DATE_PRESET_IDS`, write a factory function in `datePresets.ts`, register it in `FACTORIES`, and add test cases covering edge boundaries (month/year rollover). Always use `utcToday(today)` for timezone-safe math.
+- i18n pattern: Dashboard copy keys follow `panel.{category}.{key}` structure. New time-range labels go under `panel.range.*` for reuse across components.
+
 **2026-05-08 — PR #216: dev:empty semantics + onboarding hydration (squad/fix-dev-empty-onboarding-regression)**
 
 Wizard now safe to test in dev mode. `npm run dev:empty` reliably reproduces first-run state with clean wizard render (no pre-filled read model). Bootstrap defers all hydration when `appConfig.dataDir === null`, preventing the race condition where seed events would load before wizard renders. 
