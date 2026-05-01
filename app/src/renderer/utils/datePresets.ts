@@ -17,6 +17,7 @@ export const DATE_PRESET_IDS = [
   'last-year',
   'last-12-months',
   'last-30-days',
+  'last-90-days',
 ] as const;
 
 export type DatePresetId = (typeof DATE_PRESET_IDS)[number];
@@ -97,6 +98,14 @@ export function last30Days(today: Date): IsoDateRange {
   return { from: toIsoDate(start), to: toIsoDate(t) };
 }
 
+export function last90Days(today: Date): IsoDateRange {
+  // Rolling 90 days ending today (inclusive).
+  const t = utcToday(today);
+  const start = new Date(t.getTime());
+  start.setUTCDate(start.getUTCDate() - 89); // 90 days inclusive: today + 89 days ago
+  return { from: toIsoDate(start), to: toIsoDate(t) };
+}
+
 const FACTORIES: Readonly<Record<DatePresetId, (today: Date) => IsoDateRange>> = {
   'this-month': thisMonth,
   'last-month': lastMonth,
@@ -105,6 +114,7 @@ const FACTORIES: Readonly<Record<DatePresetId, (today: Date) => IsoDateRange>> =
   'last-year': lastYear,
   'last-12-months': last12Months,
   'last-30-days': last30Days,
+  'last-90-days': last90Days,
 };
 
 export function getPresetRange(id: DatePresetId, today: Date = new Date()): IsoDateRange {

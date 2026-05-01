@@ -5,6 +5,7 @@ import {
   last12Months,
   last3Months,
   last30Days,
+  last90Days,
   lastMonth,
   lastYear,
   thisMonth,
@@ -69,6 +70,11 @@ describe('datePresets', () => {
     expect(last30Days(may1)).toEqual({ from: '2026-04-02', to: '2026-05-01' });
   });
 
+  it('last90Days: rolling 90 days ending today (inclusive)', () => {
+    // 2026-04-25 minus 89 days = 2026-01-26
+    expect(last90Days(REF)).toEqual({ from: '2026-01-26', to: '2026-04-25' });
+  });
+
   it('getPresetRange dispatches by id', () => {
     expect(getPresetRange('this-month', REF)).toEqual({ from: '2026-04-01', to: '2026-04-25' });
     expect(getPresetRange('last-year', REF)).toEqual({ from: '2025-01-01', to: '2025-12-31' });
@@ -84,6 +90,7 @@ describe('datePresets', () => {
       'last-year',
       'last-12-months',
       'last-30-days',
+      'last-90-days',
     ]);
   });
 });
