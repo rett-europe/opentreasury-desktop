@@ -57,6 +57,12 @@ function accountDisplayLabel(a: ConfigAccount): string {
   return a.label ?? a.name;
 }
 
+/**
+ * getAccountBalances — Aggregate income/expense/net per account (all-time).
+ *
+ * Excludes opening balances; only sums transaction amounts across entire history.
+ * For range-scoped balance summaries, see future getAccountBalancesInRange(from, to).
+ */
 export function getAccountBalances(): AccountBalance[] {
   const model = getReadModel();
 
