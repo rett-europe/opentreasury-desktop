@@ -797,6 +797,8 @@ export function PreferencesScreen(): JSX.Element {
                   <p>{t('preferences.dataFolder.export.errors.targetNotEmpty')}</p>
                 ) : exportError.code === 'EXPORT_TARGET_INVALID' ? (
                   <p>{t('preferences.dataFolder.export.errors.targetInvalid')}</p>
+                ) : exportError.code === 'EXPORT_SOURCE_EMPTY' ? (
+                  <p>{t('preferences.dataFolder.export.errors.sourceEmpty')}</p>
                 ) : exportError.code === 'EXPORT_DISK_FULL' ? (
                   <p>{t('preferences.dataFolder.export.errors.diskFull')}</p>
                 ) : exportError.code === 'EXPORT_PERMISSION_DENIED' ? (

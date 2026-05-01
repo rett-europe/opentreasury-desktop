@@ -138,7 +138,30 @@ export async function handleDatasetExport(raw: unknown): Promise<DatasetExportRe
     }
   }
 
-  // 5. Identify files to copy: events.ndjson (required), dataset.json (if present)
+  // 5. Pre-flight: source events.ndjson must exist (otherwise nothing to export)
+  const sourceEventsPath = path.join(sourceDir, 'events.ndjson');
+  try {
+    await fs.access(sourceEventsPath);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return {
+        ok: false,
+        error: {
+          code: 'EXPORT_SOURCE_EMPTY',
+          message: "There's nothing to export yet — record some data first.",
+        },
+      };
+    }
+    return {
+      ok: false,
+      error: {
+        code: 'EXPORT_FAILED',
+        message: `Cannot read current dataset: ${errMessage(err)}`,
+      },
+    };
+  }
+
+  // 6. Identify files to copy: events.ndjson (required), dataset.json (if present)
   const filesToCopy = ['events.ndjson'];
   const datasetJsonPath = path.join(sourceDir, 'dataset.json');
   try {
@@ -148,7 +171,7 @@ export async function handleDatasetExport(raw: unknown): Promise<DatasetExportRe
     // dataset.json doesn't exist or not readable — skip it
   }
 
-  // 6. Copy files
+  // 7. Copy files
   let totalBytes = 0;
   const copiedFiles: string[] = [];
 
@@ -197,7 +220,7 @@ export async function handleDatasetExport(raw: unknown): Promise<DatasetExportRe
     }
   }
 
-  // 7. Verify: size match for events.ndjson + last line equality
+  // 8. Verify: size match for events.ndjson + last line equality
   const srcEventsPath = path.join(sourceDir, 'events.ndjson');
   const destEventsPath = path.join(targetPath, 'events.ndjson');
 
@@ -257,7 +280,7 @@ export async function handleDatasetExport(raw: unknown): Promise<DatasetExportRe
     };
   }
 
-  // 8. Write export-manifest.json
+  // 9. Write export-manifest.json
   const datasetId = getDatasetId();
   const eventCount = await countLines(srcEventsPath);
   const appVersion = app.getVersion();
@@ -277,7 +300,7 @@ export async function handleDatasetExport(raw: unknown): Promise<DatasetExportRe
     console.warn('[dataset:export] Failed to write export-manifest.json:', err);
   }
 
-  // 9. Success
+  // 10. Success
   return {
     ok: true,
     targetDir: targetPath,

@@ -19,6 +19,7 @@ export type DatasetExportRequest = z.infer<typeof datasetExportRequestSchema>;
 // Error codes the renderer can pattern-match on (WI-19 shape)
 //   EXPORT_TARGET_INVALID      — path is under userData / equals source / non-writable
 //   EXPORT_TARGET_NOT_EMPTY    — target contains an existing events.ndjson
+//   EXPORT_SOURCE_EMPTY        — dataset has no events yet
 //   EXPORT_DISK_FULL           — ENOSPC bubbled up
 //   EXPORT_PERMISSION_DENIED   — EACCES/EPERM
 //   EXPORT_VERIFY_FAILED       — post-copy verification failed
@@ -26,6 +27,7 @@ export type DatasetExportRequest = z.infer<typeof datasetExportRequestSchema>;
 export const datasetExportErrorCodeSchema = z.enum([
   'EXPORT_TARGET_INVALID',
   'EXPORT_TARGET_NOT_EMPTY',
+  'EXPORT_SOURCE_EMPTY',
   'EXPORT_DISK_FULL',
   'EXPORT_PERMISSION_DENIED',
   'EXPORT_VERIFY_FAILED',
