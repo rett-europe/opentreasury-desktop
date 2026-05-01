@@ -16,8 +16,6 @@ export const DATE_PRESET_IDS = [
   'this-year',
   'last-year',
   'last-12-months',
-  'last-30-days',
-  'last-90-days',
 ] as const;
 
 export type DatePresetId = (typeof DATE_PRESET_IDS)[number];
@@ -113,8 +111,6 @@ const FACTORIES: Readonly<Record<DatePresetId, (today: Date) => IsoDateRange>> =
   'this-year': thisYear,
   'last-year': lastYear,
   'last-12-months': last12Months,
-  'last-30-days': last30Days,
-  'last-90-days': last90Days,
 };
 
 export function getPresetRange(id: DatePresetId, today: Date = new Date()): IsoDateRange {

@@ -19,6 +19,41 @@ The cloud version has an Angular 19 frontend with:
 
 ## Learnings
 
+**2026-05-15 — PR #226: Complete 30→90 day i18n rollout (squad/dashboard-i18n-90day-audit)**
+
+**Problem:** PR #224 claimed to update all i18n strings from 30 to 90 days, but the actual string changes never landed in the committed files. Meanwhile, PR #225 added both `last-30-days` AND `last-90-days` to `DATE_PRESET_IDS`, causing Movements filter to render TWO broken raw-key chips.
+
+**Root cause:** Git merge/rebase conflict during the PR sequence. Commit 586a62e (PR #224) correctly updated all i18n strings 30→90, but commit 5775b36 (an earlier-dated fix that merged later) re-added `last-30-days` keys to the movements presets block. The final merge kept the stale 30-day strings in the panel section and left both preset IDs in the array.
+
+**Fixes applied:**
+1. **Dashboard i18n (en + es):**
+   - `panel.subtitle`: `"Last 30 days overview"` → `"Last 90 days overview"`
+   - `panel.cta.date-range`: `"Last 30 days"` → `"Last 90 days"`
+   - `panel.sections.accounts`: `"Balances by account"` → `"Account activity · Last 90 days"` (scope-explicit, as originally intended in PR #224)
+   - `panel.sections.summary`: `"Last 30 days summary"` → `"Last 90 days summary"`
+   - Removed unused `panel.range.last-30-days` key (never referenced in code)
+   - Spanish equivalents updated identically
+
+2. **Movements filter chip cleanup:**
+   - Removed BOTH `'last-30-days'` AND `'last-90-days'` from `DATE_PRESET_IDS` in `datePresets.ts`
+   - Rationale: Movements already offers "Last 3 months" (~90 days). Having both short-day presets is redundant and was causing two broken chips to render.
+   - Removed both from `FACTORIES` object
+   - Kept `last30Days()` and `last90Days()` factory functions exported (PanelScreen uses `last90Days` directly via import, not via the chip list)
+   - Updated `datePresets.test.ts` to match new ID list
+   - Removed old unused `movements.presets` section from both locale files (dead keys from early prototype)
+
+3. **Documentation:**
+   - Added JSDoc comment to `getAccountBalances()` clarifying: "Excludes opening balances; only sums transaction amounts across entire history."
+   - Noted that future range-scoped query can be added as `getAccountBalancesInRange(from, to)` when needed
+
+**Lesson for Trinity:**
+- **Always grep-verify i18n changes after editing locale JSON files.** This is the second time in this session (first was PR #141 breadcrumb labels) where a "rename" was claimed but the actual strings didn't land in the committed diff.
+- **Pattern to follow:** After editing locale files, run `grep -r "old string pattern" app/src/renderer/locales/` to confirm zero matches before committing.
+- **Root cause awareness:** When multiple PRs touch the same i18n keys (especially during refactors or renames), merge conflicts in JSON can silently keep stale values. The solution is verification, not assumption.
+- **Chip list hygiene:** When preset IDs appear in filter chips (via `DATE_PRESET_IDS`), every ID MUST have a corresponding `movements.filters.dateRange.presets.{id}` i18n key, OR it should not be in the list. Don't add a preset ID "just because the factory exists" — only expose it if users should see it as a chip.
+
+Validation gates: typecheck ✓, lint ✓, format:check ✓, npm test ✓ (101 test files passed | 3 skipped, 962 tests passed | 63 skipped).
+
 **2026-05-11 — PR #221: Dashboard rolling 30-day window (squad/dashboard-rolling-30-days)**
 
 Replaced Dashboard's "current month" default with a rolling 30-day window to fix the calendar-cliff bug (dashboard appearing empty on the 1st of every month).
