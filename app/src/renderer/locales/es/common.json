@@ -1180,7 +1180,9 @@
         "sameDir": "La carpeta seleccionada es la misma que la carpeta de datos actual.",
         "invalidLocation": "La carpeta de datos no debe estar en la carpeta interna de la aplicación. Elige una carpeta externa.",
         "notWritable": "La carpeta seleccionada no tiene permisos de escritura. Por favor, elige otra ubicación.",
-        "datasetMismatch": "La carpeta seleccionada ya contiene datos de otra tesorería. Por favor, elige una carpeta vacía o la carpeta de la tesorería actual.",
+        "datasetMismatch": "La carpeta seleccionada ya contiene datos de otra tesorería. Si querías cambiar de espacio de trabajo, confirma en el diálogo. Si no, elige una carpeta vacía.",
+        "schemaTooNew": "Esta carpeta fue escrita por una versión más reciente de OpenTreasury (v{{folderSchemaVersion}}). Actualiza la aplicación para poder usarla.",
+        "datasetCorrupt": "Los metadatos de esta carpeta no se pueden leer. Pueden estar corruptos — elige otra carpeta o restaura desde una copia de seguridad.",
         "generic": "Error al cambiar carpeta de datos"
       }
     },
@@ -1201,7 +1203,9 @@
         "sameDir": "La carpeta seleccionada es la misma que la carpeta de datos actual.",
         "invalidLocation": "La carpeta de datos no debe estar en la carpeta interna de la aplicación. Elige una carpeta externa.",
         "notWritable": "La carpeta seleccionada no tiene permisos de escritura. Por favor, elige otra ubicación.",
-        "datasetMismatch": "La carpeta seleccionada ya contiene datos de otra tesorería. Por favor, elige una carpeta vacía o la carpeta de la tesorería actual.",
+        "datasetMismatch": "La carpeta seleccionada ya contiene datos de otra tesorería. Si querías cambiar de espacio de trabajo, confirma en el diálogo. Si no, elige una carpeta vacía.",
+        "schemaTooNew": "Esta carpeta fue escrita por una versión más reciente de OpenTreasury (v{{folderSchemaVersion}}). Actualiza la aplicación para poder usarla.",
+        "datasetCorrupt": "Los metadatos de esta carpeta no se pueden leer. Pueden estar corruptos — elige otra carpeta o restaura desde una copia de seguridad.",
         "generic": "Error al cambiar carpeta de datos"
       }
     }

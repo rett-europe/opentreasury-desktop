@@ -24,6 +24,7 @@ import {
   setAppConfig,
   getEffectiveEventLogDir,
 } from '../../bootstrap.js';
+import { CURRENT_SCHEMA_VERSION, loadDatasetMetadata } from '../../dataset.js';
 
 export async function handleConfigGet(raw: unknown): Promise<ConfigGetResponse> {
   // Validate request (even though it's empty, belt-and-suspenders)
@@ -137,33 +138,69 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
       await fs.rm(probePath, { force: true }).catch(() => undefined);
     }
 
-    // 5. Dataset-mismatch guard: if events.ndjson already exists in the
-    //    target folder, peek the first line and confirm its datasetId matches
-    //    the currently-active dataset. A foreign datasetId means the folder
-    //    belongs to another workspace and we refuse to co-mingle.
+    // 5. Dataset-mismatch guard: read the target folder's canonical
+    //    dataset.json. A foreign datasetId is bypassable via the renderer's
+    //    confirm dialog (Pedro flow). A schemaVersion newer than this app
+    //    supports, a corrupt dataset.json, or a folder containing an old
+    //    events.ndjson without dataset.json are all hard refusals.
     const currentDatasetId = (deps.getCurrentDatasetId ?? defaultGetCurrentDatasetId)();
     const mismatch = await detectDatasetMismatch(candidate, currentDatasetId);
     if (mismatch !== null) {
-      // If there's a dataset ID mismatch and confirmDatasetSwitch is true, allow the switch.
-      // Otherwise, return error with details.
-      const isDatasetIdMismatch = mismatch.newDatasetId !== undefined;
-      if (isDatasetIdMismatch && confirmDatasetSwitch) {
-        // User confirmed — proceed with the switch
-      } else {
-        return {
-          ok: false,
-          error: {
-            code: 'DATASET_MISMATCH',
-            message: mismatch.error,
-            details:
-              isDatasetIdMismatch && mismatch.newDatasetId
-                ? {
-                    currentDatasetId,
-                    newDatasetId: mismatch.newDatasetId,
-                  }
-                : undefined,
-          },
-        };
+      switch (mismatch.kind) {
+        case 'datasetId': {
+          if (confirmDatasetSwitch) {
+            // User confirmed the workspace switch — proceed.
+            break;
+          }
+          return {
+            ok: false,
+            error: {
+              code: 'DATASET_MISMATCH',
+              message: mismatch.error,
+              details: {
+                currentDatasetId,
+                newDatasetId: mismatch.newDatasetId,
+                ...(mismatch.schemaVersion !== undefined
+                  ? { schemaVersion: mismatch.schemaVersion }
+                  : {}),
+              },
+            },
+          };
+        }
+        case 'schemaTooNew': {
+          // NEVER bypassable — older app cannot safely open newer-schema data.
+          return {
+            ok: false,
+            error: {
+              code: 'SCHEMA_TOO_NEW',
+              message: mismatch.error,
+              details: {
+                folderSchemaVersion: mismatch.schemaVersion,
+                appSchemaVersion: CURRENT_SCHEMA_VERSION,
+              },
+            },
+          };
+        }
+        case 'corrupt': {
+          return {
+            ok: false,
+            error: {
+              code: 'DATASET_CORRUPT',
+              message: mismatch.error,
+            },
+          };
+        }
+        case 'foreign': {
+          // Folder has an events.ndjson but no dataset.json (legacy / random
+          // folder). No datasetId to surface; user must pick an empty folder.
+          return {
+            ok: false,
+            error: {
+              code: 'DATASET_MISMATCH',
+              message: mismatch.error,
+            },
+          };
+        }
       }
     }
 
@@ -252,54 +289,84 @@ function errMessage(err: unknown): string {
 }
 
 /**
- * Returns null when no mismatch is detected (folder empty / no log / log
- * matches current datasetId). Returns a human-readable message when the
- * folder already contains events from a different dataset.
+ * Inspect the target folder's canonical workspace identity (dataset.json) and
+ * decide whether the switch is safe.
+ *
+ * Returns null when the folder is safe to use (empty folder, or dataset.json
+ * matches current). Returns a structured mismatch otherwise. The caller maps
+ * `kind` onto IPC error codes — only `kind: 'datasetId'` is bypassable via
+ * `confirmDatasetSwitch`.
+ *
+ * NOTE: We deliberately do NOT scan events.ndjson for a datasetId here. The
+ * old "first line of events.ndjson" probe was unreliable because flat
+ * Configuración events (e.g. AccountCreated) don't carry a top-level
+ * datasetId, which made the bypass-on-confirm path unreachable for workspaces
+ * created via the configuración flow (Pedro's repro, fix/dataset-switch-bypass).
  */
+type DatasetMismatch =
+  | { kind: 'datasetId'; error: string; newDatasetId: string; schemaVersion?: number }
+  | { kind: 'schemaTooNew'; error: string; newDatasetId: string; schemaVersion: number }
+  | { kind: 'corrupt'; error: string }
+  | { kind: 'foreign'; error: string };
+
 async function detectDatasetMismatch(
   dir: string,
   currentDatasetId: string,
-): Promise<{ error: string; newDatasetId?: string } | null> {
+): Promise<DatasetMismatch | null> {
+  const meta = await loadDatasetMetadata(dir);
+
+  if (meta.status === 'corrupt') {
+    return {
+      kind: 'corrupt',
+      error: meta.error,
+    };
+  }
+
+  if (meta.status === 'ok') {
+    const { datasetId, schemaVersion } = meta.dataset;
+
+    // Schema check first — even a "matching" datasetId from a future-schema
+    // folder must not be opened by an older app build.
+    if (schemaVersion > CURRENT_SCHEMA_VERSION) {
+      return {
+        kind: 'schemaTooNew',
+        error: `Folder dataset.json declares schemaVersion=${schemaVersion}; this app supports up to ${CURRENT_SCHEMA_VERSION}. Update OpenTreasury to use this folder.`,
+        newDatasetId: datasetId,
+        schemaVersion,
+      };
+    }
+
+    if (datasetId !== currentDatasetId) {
+      return {
+        kind: 'datasetId',
+        error: `Folder belongs to a different workspace (datasetId ${datasetId}).`,
+        newDatasetId: datasetId,
+        schemaVersion,
+      };
+    }
+
+    return null; // matching workspace — safe to use
+  }
+
+  // meta.status === 'missing' — no dataset.json. Check whether the folder is
+  // truly empty (safe) or whether it carries legacy events from before
+  // dataset.json existed (foreign — must refuse without exposing a datasetId).
   const eventsPath = path.join(dir, 'events.ndjson');
-
-  let raw: string;
   try {
-    raw = await fs.readFile(eventsPath, 'utf-8');
+    const stat = await fs.stat(eventsPath);
+    if (stat.isFile() && stat.size > 0) {
+      return {
+        kind: 'foreign',
+        error: `Folder contains events.ndjson but no dataset.json — cannot determine workspace identity. Choose an empty folder.`,
+      };
+    }
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    // Unreadable existing file — treat as foreign data; safer to refuse than
-    // to silently overwrite.
-    return { error: `Cannot read existing events.ndjson at ${eventsPath}: ${errMessage(err)}` };
-  }
-
-  const firstLine = raw.split('\n').find((line) => line.trim().length > 0);
-  if (!firstLine) return null; // empty file
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(firstLine);
-  } catch {
-    return {
-      error: `Existing events.ndjson at ${eventsPath} is not valid JSON; refusing to overwrite.`,
-    };
-  }
-
-  const datasetId =
-    typeof parsed === 'object' && parsed !== null && 'datasetId' in parsed
-      ? (parsed as { datasetId: unknown }).datasetId
-      : undefined;
-
-  if (typeof datasetId !== 'string') {
-    return {
-      error: `Existing events.ndjson at ${eventsPath} has no datasetId; refusing to overwrite.`,
-    };
-  }
-
-  if (datasetId !== currentDatasetId) {
-    return {
-      error: `Folder already contains events for a different dataset (${datasetId}). Choose an empty folder.`,
-      newDatasetId: datasetId,
-    };
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      return {
+        kind: 'corrupt',
+        error: `Cannot stat ${eventsPath}: ${errMessage(err)}`,
+      };
+    }
   }
 
   return null;

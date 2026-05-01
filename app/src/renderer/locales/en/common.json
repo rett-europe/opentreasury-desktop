@@ -1180,7 +1180,9 @@
         "sameDir": "The selected folder is the same as the current data folder.",
         "invalidLocation": "Data folder must not be under the app's internal folder. Choose an external folder.",
         "notWritable": "The selected folder is not writable. Please choose a different location.",
-        "datasetMismatch": "The selected folder already contains a different treasury's data. Please choose an empty folder or the current treasury folder.",
+        "datasetMismatch": "The selected folder already contains a different treasury's data. If you wanted to switch workspaces, confirm in the dialog. Otherwise, pick an empty folder.",
+        "schemaTooNew": "This folder was written by a newer version of OpenTreasury (v{{folderSchemaVersion}}). Update the app to use this folder.",
+        "datasetCorrupt": "This folder's dataset metadata is unreadable. It may be corrupt — please choose a different folder or restore from a backup.",
         "generic": "Failed to change data folder"
       }
     },
@@ -1202,7 +1204,9 @@
         "sameDir": "The selected folder is the same as the current data folder.",
         "invalidLocation": "Data folder must not be under the app's internal folder. Choose an external folder.",
         "notWritable": "The selected folder is not writable. Please choose a different location.",
-        "datasetMismatch": "The selected folder already contains a different treasury's data. Please choose an empty folder or the current treasury folder.",
+        "datasetMismatch": "The selected folder already contains a different treasury's data. If you wanted to switch workspaces, confirm in the dialog. Otherwise, pick an empty folder.",
+        "schemaTooNew": "This folder was written by a newer version of OpenTreasury (v{{folderSchemaVersion}}). Update the app to use this folder.",
+        "datasetCorrupt": "This folder's dataset metadata is unreadable. It may be corrupt — please choose a different folder or restore from a backup.",
         "generic": "Failed to change data folder"
       }
     }

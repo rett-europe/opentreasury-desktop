@@ -31,6 +31,20 @@ import type { AppConfig } from '../../../shared/ipc-contracts/config.js';
 const CURRENT_DATASET_ID = '01HZZZZZZZZZZZZZZZZZZZZZZA';
 const OTHER_DATASET_ID = '01HZZZZZZZZZZZZZZZZZZZZZZB';
 
+async function writeDatasetJson(
+  dir: string,
+  data: { datasetId: string; createdAt?: string; schemaVersion?: number; appVersion?: string },
+): Promise<void> {
+  await fs.mkdir(dir, { recursive: true });
+  const payload = {
+    datasetId: data.datasetId,
+    createdAt: data.createdAt ?? '2025-01-01T00:00:00.000Z',
+    ...(data.schemaVersion !== undefined ? { schemaVersion: data.schemaVersion } : {}),
+    ...(data.appVersion !== undefined ? { appVersion: data.appVersion } : {}),
+  };
+  await fs.writeFile(path.join(dir, 'dataset.json'), JSON.stringify(payload, null, 2), 'utf-8');
+}
+
 function makeDeps(opts: {
   userDataDir: string;
   currentDataDir?: string | null;
@@ -169,21 +183,9 @@ describe('config:setDataDir handler', () => {
     if (!result.ok) expect(result.error.code).toBe('SAME_DIR');
   });
 
-  it('refuses when target events.ndjson belongs to a different dataset (DATASET_MISMATCH)', async () => {
+  it('refuses when target dataset.json declares a different dataset (DATASET_MISMATCH)', async () => {
     const newDir = path.join(externalRoot, 'foreign');
-    await fs.mkdir(newDir, { recursive: true });
-    // Seed a "foreign" event whose datasetId differs from the current one.
-    const foreignEvent = {
-      id: '01HZZZZZZZZZZZZZZZZZZZZZZZ',
-      datasetId: OTHER_DATASET_ID,
-      type: 'account.created',
-      ts: '2025-01-01T00:00:00.000Z',
-    };
-    await fs.writeFile(
-      path.join(newDir, 'events.ndjson'),
-      JSON.stringify(foreignEvent) + '\n',
-      'utf-8',
-    );
+    await writeDatasetJson(newDir, { datasetId: OTHER_DATASET_ID });
 
     const { deps, relaunch } = makeDeps({
       userDataDir,
@@ -193,24 +195,17 @@ describe('config:setDataDir handler', () => {
 
     const result = await handler({ newDir });
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error.code).toBe('DATASET_MISMATCH');
+    if (!result.ok) {
+      expect(result.error.code).toBe('DATASET_MISMATCH');
+      expect(result.error.details?.currentDatasetId).toBe(CURRENT_DATASET_ID);
+      expect(result.error.details?.newDatasetId).toBe(OTHER_DATASET_ID);
+    }
     expect(relaunch).not.toHaveBeenCalled();
   });
 
-  it('accepts target events.ndjson when datasetId matches current', async () => {
+  it('accepts target dataset.json when datasetId matches current', async () => {
     const newDir = path.join(externalRoot, 'matching');
-    await fs.mkdir(newDir, { recursive: true });
-    const matchingEvent = {
-      id: '01HZZZZZZZZZZZZZZZZZZZZZZ1',
-      datasetId: CURRENT_DATASET_ID,
-      type: 'account.created',
-      ts: '2025-01-01T00:00:00.000Z',
-    };
-    await fs.writeFile(
-      path.join(newDir, 'events.ndjson'),
-      JSON.stringify(matchingEvent) + '\n',
-      'utf-8',
-    );
+    await writeDatasetJson(newDir, { datasetId: CURRENT_DATASET_ID });
 
     const { deps } = makeDeps({
       userDataDir,
@@ -234,7 +229,118 @@ describe('config:setDataDir handler', () => {
     expect(result.ok).toBe(true);
   });
 
-  it('refuses when target events.ndjson is corrupted JSON (DATASET_MISMATCH)', async () => {
+  it('refuses when target has events.ndjson but no dataset.json (foreign — DATASET_MISMATCH, no details)', async () => {
+    const newDir = path.join(externalRoot, 'legacy-no-dataset-json');
+    await fs.mkdir(newDir, { recursive: true });
+    // Old workspace: events.ndjson present, no dataset.json. We can't surface
+    // a datasetId for the bypass dialog, so this is unbypassable.
+    await fs.writeFile(
+      path.join(newDir, 'events.ndjson'),
+      JSON.stringify({
+        type: 'AccountCreated',
+        id: '01KQHEXAMPLE0000000000ABCD',
+        name: 'Unicaja',
+      }) + '\n',
+      'utf-8',
+    );
+
+    const { deps } = makeDeps({ userDataDir });
+    const handler = createConfigSetDataDirHandler(deps);
+
+    const result = await handler({ newDir });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('DATASET_MISMATCH');
+      expect(result.error.details?.newDatasetId).toBeUndefined();
+    }
+  });
+
+  it('confirmDatasetSwitch=true bypasses for a foreign dataset.json (Pedro repro)', async () => {
+    const newDir = path.join(externalRoot, 'foreign-confirm');
+    await writeDatasetJson(newDir, { datasetId: OTHER_DATASET_ID });
+    // Also seed an events.ndjson whose first line is the flat AccountCreated
+    // shape (no top-level datasetId) — exactly the layout that broke the old
+    // events-sniffing detector.
+    await fs.writeFile(
+      path.join(newDir, 'events.ndjson'),
+      JSON.stringify({
+        type: 'AccountCreated',
+        id: '01KQHEXAMPLE0000000000ABCD',
+        name: 'Unicaja',
+      }) + '\n',
+      'utf-8',
+    );
+
+    const { deps } = makeDeps({ userDataDir, currentDatasetId: CURRENT_DATASET_ID });
+    const handler = createConfigSetDataDirHandler(deps);
+
+    const result = await handler({ newDir, confirmDatasetSwitch: true });
+    expect(result.ok).toBe(true);
+  });
+
+  it('confirmDatasetSwitch=true still bypasses even when first events.ndjson line lacks datasetId (regression)', async () => {
+    const newDir = path.join(externalRoot, 'flat-event-confirm');
+    await writeDatasetJson(newDir, { datasetId: OTHER_DATASET_ID });
+    // Pedro's exact first-line shape: flat Configuración event, no datasetId.
+    await fs.writeFile(
+      path.join(newDir, 'events.ndjson'),
+      JSON.stringify({
+        type: 'AccountCreated',
+        id: '01KQ00000000000000000000PE',
+        name: 'Unicaja',
+      }) + '\n',
+      'utf-8',
+    );
+
+    const { deps } = makeDeps({ userDataDir, currentDatasetId: CURRENT_DATASET_ID });
+    const handler = createConfigSetDataDirHandler(deps);
+
+    // Without confirm → DATASET_MISMATCH with details.newDatasetId set.
+    const denied = await handler({ newDir });
+    expect(denied.ok).toBe(false);
+    if (!denied.ok) {
+      expect(denied.error.code).toBe('DATASET_MISMATCH');
+      expect(denied.error.details?.newDatasetId).toBe(OTHER_DATASET_ID);
+    }
+
+    // With confirm → bypass succeeds.
+    const allowed = await handler({ newDir, confirmDatasetSwitch: true });
+    expect(allowed.ok).toBe(true);
+  });
+
+  it('refuses with SCHEMA_TOO_NEW when folder dataset.json schemaVersion exceeds app (not bypassable)', async () => {
+    const newDir = path.join(externalRoot, 'schema-too-new');
+    await writeDatasetJson(newDir, { datasetId: OTHER_DATASET_ID, schemaVersion: 2 });
+
+    const { deps } = makeDeps({ userDataDir, currentDatasetId: CURRENT_DATASET_ID });
+    const handler = createConfigSetDataDirHandler(deps);
+
+    // Even with confirm=true the switch must NOT be allowed.
+    const result = await handler({ newDir, confirmDatasetSwitch: true });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('SCHEMA_TOO_NEW');
+      expect(result.error.details?.folderSchemaVersion).toBe(2);
+      expect(result.error.details?.appSchemaVersion).toBe(1);
+    }
+  });
+
+  it('refuses with DATASET_CORRUPT when dataset.json is unparseable', async () => {
+    const newDir = path.join(externalRoot, 'corrupt-dataset-json');
+    await fs.mkdir(newDir, { recursive: true });
+    await fs.writeFile(path.join(newDir, 'dataset.json'), '{ not json', 'utf-8');
+
+    const { deps } = makeDeps({ userDataDir, currentDatasetId: CURRENT_DATASET_ID });
+    const handler = createConfigSetDataDirHandler(deps);
+
+    const result = await handler({ newDir, confirmDatasetSwitch: true });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('DATASET_CORRUPT');
+    }
+  });
+
+  it('refuses when target events.ndjson is corrupted JSON without dataset.json (foreign DATASET_MISMATCH)', async () => {
     const newDir = path.join(externalRoot, 'corrupted');
     await fs.mkdir(newDir, { recursive: true });
     await fs.writeFile(path.join(newDir, 'events.ndjson'), '{ not valid json\n', 'utf-8');
