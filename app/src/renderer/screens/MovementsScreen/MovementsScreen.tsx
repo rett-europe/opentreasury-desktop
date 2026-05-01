@@ -111,6 +111,11 @@ function mapMovementRecord(
   tagNameById: Map<string, string>,
 ): Movement {
   const account = accountsMap.get(record.accountId);
+  if (!account) {
+    console.warn(
+      `MovementsScreen: accountId ${record.accountId} not found in accountsMap for movement ${record.id}`,
+    );
+  }
   const categoryName =
     record.categoryId != null
       ? (categoryNameById.get(record.categoryId) ?? record.categoryId)
@@ -127,6 +132,7 @@ function mapMovementRecord(
     currency: record.currency,
     description: record.description,
     account: account?.accountLabel ?? record.accountId,
+    accountId: record.accountId,
     category: categoryName,
     subcategory: subcategoryName,
     tags: (record.tagIds ?? []).map((id) => tagNameById.get(id) ?? id),
@@ -646,10 +652,12 @@ export function MovementsScreen({
 
   // Distinct accounts / categories for the select options.
   const accountOptions = useMemo(() => {
-    const s = new Set<string>();
-    for (const m of allRows) s.add(m.account);
-    return Array.from(s).sort((a, b) => a.localeCompare(b));
-  }, [allRows]);
+    // Build from configured accounts, not observed rows - ensures all accounts appear.
+    return accounts
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((acc) => ({ value: acc.id, label: acc.accountLabel }));
+  }, [accounts]);
 
   const categoryOptions = useMemo(() => {
     const s = new Set<string>();
@@ -693,7 +701,7 @@ export function MovementsScreen({
     // SPEC-024 — Apply structured filters first
     const structuredFiltered = allRows.filter((m) => {
       if (typeFilter !== 'all' && m.type !== typeFilter) return false;
-      if (accountFilter !== 'all' && m.account !== accountFilter) return false;
+      if (accountFilter !== 'all' && m.accountId !== accountFilter) return false;
       // SPEC-023 FR10/AC6 — Category filter: include parent if parent OR any split matches.
       if (categoryFilter !== 'all') {
         const parentMatches = m.category === categoryFilter;
@@ -1187,8 +1195,8 @@ export function MovementsScreen({
             >
               <option value="all">{t('movements.filters.account.all')}</option>
               {accountOptions.map((a) => (
-                <option key={a} value={a}>
-                  {a}
+                <option key={a.value} value={a.value}>
+                  {a.label}
                 </option>
               ))}
             </select>

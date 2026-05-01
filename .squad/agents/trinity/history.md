@@ -3134,3 +3134,31 @@ No action needed now — just awareness. Original scope decisions captured in de
 **Modal recipe (no shared component yet):** scrim = `--color-surface-overlay`; card = `--color-surface-primary` + `--color-border-default` + `--shadow-dialog` + `--radius-lg`; primary button = `--color-brand-primary` / `--color-brand-on-primary`; focus = `--color-focus-ring` outline. If we keep hand-rolling this, it's worth proposing a shared `.ot-modal` recipe to Niobe/Mouse — flagged but not done in this PR.
 
 **Validation note:** `MovementsScreen.staleModal.test.tsx` is currently flaky on `main` (timing-related `waitFor` on table render). Confirmed pre-existing by stashing my diff and re-running. Worth a separate ticket.
+
+
+**2026-05-13 — PR #228: Dashboard account labels + Movements account filter (squad/dashboard-account-labels-and-movements-dropdown)**
+
+Fixed two renderer-only UI bugs where account identification was broken — pairs with Morpheus's parallel PR #4 (range-scoped balance amounts) to make the dashboard fully accurate.
+
+**Bug #1 (Dashboard cards):** Pedro has 3 CaixaBank accounts with different labels ('CaixaBank FinRett', 'CaixaBank 5315', 'CaixaBank 0951'), but all 3 dashboard cards displayed just 'CaixaBank' — indistinguishable. Root cause: \PanelScreen.tsx\ line 253 used \cc.bankNameShort ?? acc.bankName\, ignoring the unique \ccountLabel\ field.
+
+**Fix:** Changed display name source to \cc.accountLabel ?? acc.bankNameShort ?? acc.bankName\. Added CSS \overflow-wrap: break-word\ to \.ot-account-card__name\ to handle long labels gracefully. Dashboard now shows distinct labels for each account.
+
+**Bug #3 (Movements dropdown):** Dropdown listed only 4 entries (legacy slug accountIds like 'finrett/paypal') instead of all 5 configured account labels. Root cause: \ccountOptions\ was built from observed rows (\m.account\ display labels), so accounts with zero transactions in the current view disappeared, and legacy slug accountIds leaked through when \ccountsMap.get(record.accountId)\ failed.
+
+**Fix:**
+1. Build \ccountOptions\ from the full configured \ccounts\ list, not from observed rows — all 5 accounts now appear regardless of transaction volume
+2. Switched dropdown values from display labels to \ccountId\ (stable identifier)
+3. Switched filter comparison to \m.accountId !== accountFilter\ (was comparing display strings)
+4. Sorted dropdown by \sortOrder\ to match Dashboard ordering
+5. Added \ccountId: string\ field to Movement type for stable filtering
+6. Added \console.warn\ when \ccountsMap.get()\ fails to flag legacy data drift in dev
+
+**Data model impact:** Added \eadonly accountId: string\ to \Movement\ interface in \	ypes/movement.ts\. Updated mock data builder to map account display names to mock accountIds. This is safe because the field was already present in the wire shape (\MovementRecord\) — the bug was that the UI projection (\Movement\) was discarding it.
+
+**For Trinity:** When building dropdowns for filtering, always use stable identifiers (IDs) as the option values and display labels as the option text. Never filter on display strings — they're user-facing and can change. Build filter options from the configured list (not from observed data rows) to ensure all configured items appear regardless of current data. This applies to all entity dropdowns (accounts, categories, tags).
+
+**For Trinity:** The underlying data drift (some txs reference legacy accountId slugs not in configAccounts) is a known issue. The \console.warn\ added here makes it visible in dev — flag it for Pedro/Morpheus to address in a data-migration task. Don't try to \
+fix\ legacy data in the renderer.
+
+**Validation gates:** typecheck ✅, lint ✅, format:check ✅, tests 104 files passing ✅
