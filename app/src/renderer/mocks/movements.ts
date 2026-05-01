@@ -15,7 +15,7 @@
 
 import type { DateRange, Movement, MovementStatus } from '../types/movement.js';
 
-type Seed = Omit<Movement, 'id' | 'currency' | 'tags' | 'status'>;
+type Seed = Omit<Movement, 'id' | 'accountId' | 'currency' | 'tags' | 'status'>;
 
 // Deterministic entries so snapshots are stable. Dates are ISO YYYY-MM-DD.
 // Amounts are positive; `type` carries the sign.
