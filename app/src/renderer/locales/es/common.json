@@ -1166,6 +1166,7 @@
         "errors": {
           "targetNotEmpty": "Esa carpeta ya contiene un conjunto de datos. Por favor, elige una carpeta vacía.",
           "targetInvalid": "Esa carpeta no se puede utilizar como destino de exportación.",
+          "sourceEmpty": "Aún no hay nada que exportar — registra algunos datos primero.",
           "diskFull": "No hay suficiente espacio en disco en el destino.",
           "permissionDenied": "Permiso denegado. Elige una carpeta diferente o ejecuta con el acceso apropiado.",
           "verifyFailed": "La exportación se completó pero la verificación falló. Por favor, inténtalo de nuevo.",

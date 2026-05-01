@@ -1166,6 +1166,7 @@
         "errors": {
           "targetNotEmpty": "That folder already contains a dataset. Please choose an empty folder.",
           "targetInvalid": "That folder cannot be used as an export target.",
+          "sourceEmpty": "There's nothing to export yet — record some data first.",
           "diskFull": "Not enough disk space at the destination.",
           "permissionDenied": "Permission denied. Choose a different folder or run with appropriate access.",
           "verifyFailed": "Export completed but verification failed. Please try again.",
