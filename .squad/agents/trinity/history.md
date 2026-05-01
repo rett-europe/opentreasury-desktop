@@ -2175,6 +2175,44 @@ Compare-mode (header + `--compare` row + `--compare` subrow + 1200px breakpoint)
 
 **Test matrix:** `npm run typecheck` ✅ `npm run lint` ✅ `npx vitest run` ✅ (755/755). `npm run format:check` shows pre-existing warnings in unrelated files only.
 
+---
+
+## 2026-05-01 — Dashboard 90-day rolling window + real account transaction counts (PR #224 & #225)
+
+**Sprint:** Three runs (trinity-balances-30day-window, trinity-window-90days, trinity-real-account-counts) + one inline coordinator test fix. Result: merged PR #224 + PR #225.
+
+**Ask:** After PR #221 (rolling-window KPI summary) landed, the dashboard mixed two time scopes — KPI transaction counts (rolling 30 days) and account balance amounts (all-time). Pedro also spotted a regression: every account card showed "686 transactions" (MOCK_TX_COUNTS never actually removed). Unify the scopes and use real queries.
+
+**Decision:** Rolling window = 90 days (not 30). Rationale: Rett Europe target users are low-transaction NGOs; 30 days leaves dashboard mostly empty. The 90-day window provides better visibility without the calendar-cliff bug. Centralized constant: `DASHBOARD_ROLLING_WINDOW_DAYS = 90` in `datePresets.ts`.
+
+**Implementation:**
+- **Run 1 (PR #224):** Added `getAccountBalancesInRange(from, to)` parallel query (not modification of existing `getAccountBalances()`). Dashboard calls with 90-day window, section header made scope explicit ("Account activity · Last 90 days").
+- **Run 2 (PR #224 continuation):** Bumped window 30 → 90, renamed preset `last-30-days` → `last-90-days`, updated all i18n (en/es).
+- **Run 3 (PR #225):** Added `getAccountTransactionCountsInRange(from, to)` query, removed all `MOCK_TX_COUNTS` fallbacks from `PanelScreen.tsx`. Cards now show actual activity; missing accounts default to 0.
+- **Coordinator (inline):** Fixed `queries.test.ts` — Trinity had seeded events using legacy envelope shape (`account.created`) that the reducer no-ops per WI-23. Rewrote to flat `AccountCreated` shape. Removed stale `accountTransactionCounts: {}` expectation.
+
+**Key lessons:**
+
+1. **Test event seeding — flat vs. envelope (WI-23 migration):** When writing `AccountCreated` events in tests, use the flat config-event shape:
+   ```js
+   { type: 'AccountCreated', id, name, currency, openingBalance, sortOrder, createdAt }
+   ```
+   NOT the legacy envelope form:
+   ```js
+   { type: 'account.created', account: { id, ... } }
+   ```
+   The reducer no-ops `account.created` per WI-23. Silent test failures when wrong shape is used. **Always grep for old event shapes** when test setup breaks unexpectedly.
+
+2. **Zod contract extension — add siblings, don't modify:** When extending `getRangeKPIs` or similar core queries, add NEW parallel queries like `getAccountTransactionCountsInRange` instead of modifying the signature of existing ones. Breaking contract changes require version bumps and force all callers to update. Sibling queries allow gradual adoption.
+
+3. **Test failure accountability — git blame before dismissing:** Don't classify your own test failures as "pre-existing" without verifying via git blame. The MOCK_TX_COUNTS regression was introduced by your earlier PR but unnoticed (visual regression during dogfooding). Fix it in the follow-up PR, not later.
+
+4. **Mock fallbacks banned in component code:** No `MOCK_TX_COUNTS` or similar in `PanelScreen.tsx`. Real queries only; null/missing → 0 (not global mock). Makes the regression obvious in code review.
+
+**Validation:** All 104 tests green. CI green. PR #224 & #225 merged (squash-deleted to main).
+
+**Pattern for future:** Dashboard and other landing pages default to rolling windows (90 days for NGO visibility). Power-user screens (Movements, Saldo) may use calendar anchors IF UX makes scope explicit (visible date-range control, not hidden default).
+
 
 
 ## Learnings — PR #127 Insights subcategory distribution panel (2026-05-04)

@@ -2,6 +2,62 @@
 
 ## Active Decisions
 
+### 2026-05-01: Dashboard Rolling 90-Day Window + Real Account Counts (Trinity, PR #224 & #225)
+
+**Date:** 2026-05-01  
+**Status:** ✅ SHIPPED (PR #224 & #225)  
+**Agent:** Trinity (Frontend UI)  
+**Related Issues:** NGO low-volume dashboard visibility, MOCK_TX_COUNTS regression
+
+#### Context
+
+After PR #221 introduced rolling-window KPI summary, the dashboard had mixed time scopes:
+- **KPI summary:** rolling 90 days (new)
+- **Account transaction counts:** 30 days initially
+- **Account balance amounts:** all-time (stale, inconsistent)
+
+Additionally, account cards showed identical transaction counts (bug: `MOCK_TX_COUNTS` in `PanelScreen.tsx` was never removed after ULID migration).
+
+#### Decision
+
+**1. Dashboard rolling window = 90 days (not 30)**
+
+Rationale: Rett Europe target users are low-transaction NGOs. A 30-day window leaves dashboard mostly empty. The 90-day rolling window provides better visibility without the calendar-cliff bug (the original problem with month-anchored defaults like "current month").
+
+- Centralized constant: `DASHBOARD_ROLLING_WINDOW_DAYS = 90` in `app/src/renderer/utils/datePresets.ts`
+- Preset ID: `last-90-days` (renamed from initial `last-30-days`)
+- All i18n strings updated (en/es)
+
+**2. Account balance cards scoped to rolling 90-day window**
+
+Rather than modify existing `getAccountBalances()` (which breaks backward compatibility), added parallel `getAccountBalancesInRange(from, to)` query.
+
+- Returns: `{ accountId, accountLabel, income, expense, net }[]` filtered by date range
+- Dashboard calls with same 90-day window as KPIs
+- Section header made scope explicit: "Account activity · Last 90 days"
+- Original all-time query preserved for other screens that may need it
+
+**3. Per-account transaction counts use real query (no mocks)**
+
+Added `getAccountTransactionCountsInRange(from, to)` query; removed all `MOCK_TX_COUNTS` fallbacks from `PanelScreen.tsx`.
+
+- Cards now show actual per-account activity in the 90-day window
+- Accounts with no activity show "0 transactions" (intended behavior)
+
+#### Pattern for Future Work
+
+- **Extension pattern:** When extending queries (e.g., `getRangeKPIs`), add sibling queries (`getAccountBalancesInRange`) rather than modifying existing signatures. Allows gradual adoption without version bumps.
+- **Mock cleanup:** No mock defaults in component code. Real queries only; null/missing → 0.
+- **Scoped views:** Dashboard and other landing pages default to rolling windows. Power-user screens (Movements, Saldo) may use calendar anchors IF UX makes scope explicit.
+
+#### Test Coverage
+
+- Unit tests added for `getAccountBalancesInRange` and `getAccountTransactionCountsInRange`
+- Coordinator fixed legacy event-seeding shape in queries.test.ts (flat `AccountCreated`, not envelope `account.created`)
+- All 104 tests green
+
+---
+
 ### 2026-04-30: Drop Corp-Storage Validator — Delete `syncRoot.ts` (Morpheus, PR #199)
 
 **Date:** 2026-04-30  
