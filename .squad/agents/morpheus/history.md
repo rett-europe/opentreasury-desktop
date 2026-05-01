@@ -20,6 +20,22 @@ The desktop version needs equivalent functionality with local persistence (no cl
 
 ## Learnings
 
+**2026-05-09 — PR #229: Dashboard balance-in-range fix (squad/dashboard-balance-in-range)**
+
+Fixed a critical financial display bug where the Dashboard "ACCOUNT ACTIVITY · LAST 90 DAYS" panel was misleading users:
+- Showed 90-day transaction counts (correct) paired with all-time balances (wrong)
+- Example: "1 transaction · €10,254.00" — count was for 90 days, but €10,254 was the entire account history
+
+**Trinity-claimed code that wasn't actually built — always verify with grep before assuming a previous PR landed full scope.** PR #224 referenced `getAccountBalancesInRange(from, to)` but only a JSDoc comment landed ("future getAccountBalancesInRange"). Verified with grep — no function existed.
+
+Built the complete end-to-end feature:
+1. Core query `getAccountBalancesInRange(from, to)` — filters by inclusive YYYY-MM-DD range (lexicographic), mirrors `getAccountBalances` structure, split-aware via `effectiveAmounts`, includes zero-activity accounts
+2. IPC stack: contract (`IPC_PANEL_GET_ACCOUNT_BALANCES_IN_RANGE`), handler, preload bridge, renderer service
+3. Dashboard wire: `panelApi.getAccountBalancesInRange(range.from, range.to)` replaces `getAccountBalances()`
+4. Full test coverage: 4 new unit tests (range filtering, zero-activity accounts, split sums, flat event shape)
+
+All validation gates passed (typecheck, lint, format, 964 tests). Ready to merge.
+
 **2026-05-08 — PR #216: dev:empty semantics + onboarding hydration (squad/fix-dev-empty-onboarding-regression)**
 
 Fixed two coupled regressions in first-run UX:
