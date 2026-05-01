@@ -83,15 +83,14 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
     const userDataDir = deps.userDataDir();
     const candidate = path.resolve(newDir);
 
-    // 2. Reject paths under userData. Trial posture is OneDrive/SharePoint or
-    //    similar external sync target — data must NOT live in Electron's
-    //    per-app userData (which is local-only and easy to lose).
+    // 2. Reject paths under userData. Data must NOT live in Electron's
+    //    per-app userData (which is local-only and wiped on uninstall).
     if (isUnderDir(candidate, path.resolve(userDataDir))) {
       return {
         ok: false,
         error: {
           code: 'INVALID_LOCATION',
-          message: `Data folder must not be under userData (${userDataDir}). Choose an external folder, e.g. on OneDrive or SharePoint.`,
+          message: `Data folder must not be under the app's data directory (${userDataDir}) — that location is wiped on uninstall. Choose any other folder, such as Documents, a synced cloud folder, or an external drive.`,
         },
       };
     }
