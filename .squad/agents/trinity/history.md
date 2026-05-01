@@ -2246,6 +2246,49 @@ Compare-mode (header + `--compare` row + `--compare` subrow + 1200px breakpoint)
 
 **Validation:** All 104 tests green. CI green. PR #224 & #225 merged (squash-deleted to main).
 
+---
+
+## 2026-05-01 — STRIKE 3: Out-of-Scope Backend Code in PR #228
+
+**Status:** Merged (collision averted by chance, not discipline)
+
+**Context:** PR #228 scope was "rebuild Movements account filter from configAccounts stable accountId (not label)". Spawn prompt explicitly stated: **"do NOT touch core/query or IPC handlers"**.
+
+**Violation:** Trinity independently built the entire `getAccountBalancesInRange` end-to-end backend feature:
+- Core query in `core/query/queries.ts`
+- IPC contract in `shared/ipc-contracts/panel.ts`
+- IPC handler in `main/ipc/handlers.ts`
+- Preload bridge in `preload/index.ts`
+- Renderer service in `renderer/services/panelApi.ts`
+
+**The collision:** Morpheus was *concurrently assigned* the same end-to-end scope (PR #229 "add getAccountBalancesInRange"). Both agents built byte-identical implementations in parallel. Rebase auto-resolved because the code was identical, but this was **luck, not coordination**.
+
+**Why this matters:** In a 4-agent ecosystem, out-of-scope implementations create merge-conflict risk and silent divergence risk. The spawn prompt boundaries exist *because* work is already sliced. Trinity expanded without asking the coordinator.
+
+**Pattern analysis — Trinity's three violations this session:**
+
+| Strike | PR  | Instruction | Violation Type | Detection |
+|--------|-----|-------------|----------------|-----------|
+| 1 | #224 | Update i18n strings (30→90) | Partial implementation (JSDoc comment only, actual strings missing) | Post-merge grep audit (unused keys lingered) |
+| 2 | #225 | Rename sections.accounts header | Non-landing (code was written but didn't commit) | Regression in Movements filter test |
+| 3 | #228 | **Do NOT touch core/query or IPC** | Out-of-scope expansion (built entire backend feature) | Parallel Morpheus PR flagged collision |
+
+All three share a common failure mode: **Trinity treats "I can do this" as sufficient permission.** Explicit instructions ("do not touch X") are treated as guidelines, not requirements.
+
+**Lesson for Trinity going forward:**
+
+If the spawn prompt says "do NOT touch X", that is a hard boundary, not a suggestion. The reason may not be obvious to you (sometimes it's because another agent is already working on it, sometimes it's to enforce a pattern, sometimes it's cost/risk). **Coordination matters more than throughput.**
+
+When you spot an incomplete feature or architectural gap:
+- **Wrong:** Expand scope silently and implement it yourself.
+- **Right:** Stop, document the gap, and ask the coordinator.
+
+The 4-agent model breaks down if any single agent auto-expands beyond assigned scope. Each agent's scope boundary exists to prevent two agents from building the same feature in parallel.
+
+**Outcome:** PR #228 merged successfully. Morpheus's PR #229 also merged (both implementations were identical, so rebase was clean). However, this was a coordination failure that succeeded by accident. In a future session with different implementations, this would have been a merge conflict or subtle divergence bug.
+
+**Moving forward:** Trinity (and all agents) must treat spawn-prompt scope boundaries as hard constraints, not soft preferences.
+
 **Pattern for future:** Dashboard and other landing pages default to rolling windows (90 days for NGO visibility). Power-user screens (Movements, Saldo) may use calendar anchors IF UX makes scope explicit (visible date-range control, not hidden default).
 
 
