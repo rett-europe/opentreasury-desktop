@@ -212,6 +212,10 @@ describe('MovementsScreen — detail modal freshness + close-after-save UX', () 
     // Use REAL timers so the IPC-latency delays land on real time.
     vi.useRealTimers();
 
+    // Mock localStorage to default to "all" time range instead of "this-month"
+    // so the test movement (April 2026) isn't filtered out.
+    localStorage.setItem('opentreasury:movements:dateFilter', JSON.stringify({ kind: 'all' }));
+
     // Simulate IPC latency — 30ms — so the loadAll() loading flash
     // actually renders, exactly like in production.
     const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));

@@ -7225,3 +7225,1624 @@ PR #195 was originally three intertwined fixes (post-recovery persistence + OneD
 1. **#198 (P0, squad:morpheus):** Remove corp-storage allowlist entirely from `syncRoot.ts`
 2. **#196 (P0, squad:trinity):** Onboarding wizard — Local-only path for first cut
 3. **#197 (P1, squad:trinity):** OneDrive synced-folder discovery (deferred, native integration)
+
+
+---
+
+### 2026-04-28T18:19:49.5523218+02:00: User directive
+**By:** Pedro (via Copilot)
+**What:** UX/UI changes for visualizations (charts, donuts, layouts) require a concept proposal — with screenshots/sketches of the current state and the proposed state — BEFORE any implementation lands. No more ship-first-iterate-later for visual design.
+**Why:** PR #141's diverging bar chart shipped with a confusing layout. Pedro wants design discipline: capture current state visually, propose a concept, get user approval, then implement.
+
+
+---
+
+# Directive — Insights palette is screen-scoped
+
+**Captured:** 2026-04-29 (Pedro, in chat, after PR #142 round 4 retest).
+
+## Decision
+
+Palette **P1** (wide-hue OKLCH, mockup `docs/ux/colors-options/preview.png`)
+is a **special palette that lives ONLY on the Insights → Detail screen**.
+It is the only screen where dense categorical distinctions across 8 hues
+matter. The rest of the app keeps its current palette.
+
+## Implication
+
+`--color-donut-0..7` and `--color-donut-otras` must NOT be defined on
+`:root` in `tokens.css`. They must be scoped to a parent class on the
+Insights Detail screen (e.g. `.ot-insights-detail` or the route-level
+container). Other screens that consume `--color-donut-*` (none today
+outside Insights Detail per audit, but the resolver / colorMap helper
+in `colorHash.ts` is OUT of scope here — that's used by tag chips, not
+the donut).
+
+## Why this matters
+
+Round 3 put P1 on `:root`, which is the right "single source of truth"
+for design tokens — but Pedro's intent is more constrained: the palette
+is a **screen-level decision**, not a global one. Trying to apply P1
+globally was already creating second-order effects (tag chips inheriting
+loud hues, bar charts looking wrong, etc.).
+
+## Verification gate
+
+Before merging the fix, capture a Playwright snapshot of the Insights
+Detail screen AND any other screen consuming `var(--color-donut-*)`. The
+non-Insights screens must visually be unchanged from main. The Insights
+Detail screen must match the swatch order in `preview.png` palette P1.
+
+A side-by-side comparison (mockup d0..d7 swatches vs actual rendered SVG
+strokes) goes into the PR description. Pedro signs off before merge.
+
+
+---
+
+### 2026-04-29T10:44:00+02:00: Trial-readiness risk decisions
+**By:** Pedro (perocha) (via Copilot)
+**What:**
+1. **Fresh start, no backfill.** Old events from local testing are discarded — trial begins from a clean events.ndjson. No need for "unknown actor" concession.
+2. **Keep both `actorDeviceId` and `actorUserId` on every event.** Different concepts (per-laptop vs. per-person); both stamp every event going forward.
+3. **`readOnly` middleware scope = domain events only.** Block `eventLog.append`/`eventLog.appendBatch`. Allow writes to `app-config.json` (so users can exit read-only mode) and `profile.json` (so users can fix their own name/role).
+**Why:** Pedro's go-ahead on Neo's trial-readiness plan risks. These finalize Neo's recommended path — implementation can proceed.
+
+
+---
+
+# Decision — Playwright doc-shots harness shape (Issue #163)
+
+**Author:** Cypher
+**Date:** 2026-04-29
+**Status:** Implemented in `tests/e2e/doc-shots.spec.ts`
+
+## Context
+
+P2-5 needs PNGs of seven UI waypoints for the end-user guide Oracle is about
+to author. The shots have to (a) regenerate cleanly from a fresh checkout,
+(b) reflect the real post-P1-1 persona ("Maria Rodríguez" / "Casa Esperanza"),
+and (c) survive minor UI churn so we don't have to retake them on every PR.
+
+## Decisions
+
+### 1. Sandboxed userData via `--user-data-dir`, not in-place mutation
+
+The spec creates an isolated dir under `os.tmpdir()` and passes it as the
+Chromium switch alongside `args: ['.']`. **Rejected alternative:** writing
+`profile.json` into the user's real `%APPDATA%\opentreasury-desktop` (which
+is what `tests/e2e/movements-perf.spec.ts` does for events). Reasons:
+
+- Doc-shots flips between "no profile" (waypoint 01) and "profile present"
+  (waypoints 02–07). Touching the developer's actual profile is destructive.
+- An isolated root makes the spec idempotent and CI-safe — fresh tmp dir per
+  run, no clean-up step required.
+
+### 2. Seed via `scripts/perf-seed.mjs --out=<abs>` instead of inlining
+
+`perf-seed.mjs` already has an `--out=<absolute path>` mode that bypasses its
+userData-root resolution. Spawning it from the spec keeps event-envelope
+shapes in lockstep with `devSeed.ts` automatically — if Trinity adds a new
+required field, doc-shots picks it up without code change.
+
+### 3. Force Spanish locale explicitly
+
+`app/src/renderer/i18n/index.ts` reads `localStorage['opentreasury.locale']`
+(custom key, not the i18next default). The spec sets it after first window,
+then reloads. Otherwise screenshots drift between dev machines based on OS
+locale. Spanish was chosen because the persona is Spanish; the user guide is
+expected to be bilingual but Spanish is the pilot language (ADR-003 §7.1).
+
+### 4. Two tests, not seven
+
+Test #1 = profile-setup waypoint only (its launch needs `profile.json`
+deleted first). Test #2 = remaining six waypoints in one Electron launch,
+serial nav. Splitting into seven Electron launches would 5x the runtime
+without any isolation benefit — the AppShell is the same process across
+waypoints.
+
+### 5. Position-based nav selectors anchored to `nav[aria-label="Primary"]`
+
+Mirrors `movements-perf.spec.ts:32`. Locale-agnostic and survives icon /
+label restructuring as long as the section ordering doesn't change. Saldo
+expand uses the existing `data-testid="saldo-subcategories-toggle-{kind}"`
+hooks (already in the codebase).
+
+## Out-of-scope follow-ups
+
+- AppShell bottom user-strip still hardcodes `Pedro Rocha / ADMIN` via i18n
+  placeholder `shell.user.name` instead of reading from `profile`. The
+  header is correctly wired (`profile?.ngoName`); only the user-strip lags.
+  Worth a small Trinity ticket — likely a 5-line fix in `AppShell.tsx:546`.
+
+
+---
+
+# Bootstrap Handoff — Morpheus to Trinity
+
+**Date:** 2026-05-05  
+**From:** Morpheus (Backend Dev)  
+**To:** Trinity (Frontend/Renderer)  
+**Re:** Pedro's dataset-switch bug (white window on relaunch after picking OneDrive folder)
+
+## Summary
+
+I've traced the root cause of Pedro's bug to a **main-process bootstrap failure** when the new dataDir points to an inaccessible OneDrive Business folder (cloud placeholder, permission issue, or path-with-spaces edge case). The fix is in PR #(TBD) on branch `squad/dataset-switch-bootstrap-recovery`.
+
+**Trinity: Your renderer investigation is likely NOT needed for this specific bug.** The root cause is bootstrap throwing an unhandled exception, which prevents `createMainWindow()` from being called. There's no renderer-side error to surface because the window never opens.
+
+## Root Cause (Main Process)
+
+1. User picks `C:\Users\perocha\OneDrive - Rett Syndrome Europe\Treasurer` in PreferencesScreen
+2. `config:setDataDir` IPC handler validates the path (write probe succeeds), saves app-config.json with the new dataDir, and relaunches
+3. On relaunch, `initializeApp()` in `bootstrap.ts` tries to:
+   - Call `loadDatasetId(dir)` to create `dataset.json` in the OneDrive folder
+   - Call `JsonFileEventLog.load()` to create `events.ndjson`
+4. **If OneDrive folder is a cloud placeholder** (Files On-Demand mode), `fs.writeFile()` may fail with `EACCES` or time out on `fsync()`
+5. The exception bubbles up to `initializeApp()`, which has no try-catch
+6. The promise rejection in `index.ts` prevents `createMainWindow()` from being called
+7. Result: blank/white window (or no window at all)
+
+## Fix (Main Process)
+
+**PR #(TBD)** adds:
+1. **Auto-recovery fallback:** Save `previousDataDir` in app-config.json when switching. On bootstrap failure, revert to `previousDataDir` and retry.
+2. **Graceful error handling:** Wrap `initializeApp()` in try-catch. If both new dataDir and fallback fail, show native error dialog and exit cleanly.
+
+**No renderer changes needed.** The bootstrap failure happens before the IPC bridge is registered, so the renderer never sees an error event.
+
+## What Trinity Should Do
+
+1. **Read PR #(TBD)** (branch `squad/dataset-switch-bootstrap-recovery`) to understand the fix
+2. **If you were investigating the renderer side** (e.g., adding error boundaries or IPC error surfacing), check if your work is still relevant for OTHER bugs. For THIS specific bug (white window on dataset switch), the main-process fix is sufficient.
+3. **If you have ongoing renderer work**, coordinate with me in this inbox file. Don't edit the same bootstrap files I touched — we'll merge my PR first, then you can rebase.
+
+## Questions for Trinity
+
+- Were you investigating the renderer side of this bug? If yes, what did you find?
+- Do you have any renderer-side error handling work in progress that overlaps with this fix?
+- Is there a scenario where the renderer SHOULD show an error UI during dataset switch? (e.g., if the IPC call to `config:setDataDir` returns `{ ok: false }`?) If yes, that's a separate concern from this bootstrap crash.
+
+## Handoff Complete
+
+Morpheus is standing down on this bug after PR #(TBD) is merged. Trinity, let me know if you need any clarification on the bootstrap flow or if you find a renderer-side angle I missed.
+
+
+---
+
+# Decision: Data Directory Priority — User Config > Env Var
+
+**Date:** 2026-05-06  
+**Agent:** Morpheus (Backend Dev)  
+**Issue:** #201  
+**PR:** #202  
+**Status:** Shipped
+
+## Context
+
+User configured data folder via Preferences to `C:\temp\opentreasury`. The app relaunched successfully, but on next boot, it loaded events from a different folder (`my-data` in userData), silently ignoring the user's configured path. The config file (`app-config.json`) and actual data directory were in disagreement — **split-brain**.
+
+Root cause: `OT_DATA_DIR` env var had **Priority 1** in `resolveEventLogDir()` (in `app/src/main/bootstrap.ts`), overriding `appConfig.dataDir` (user's deliberate choice via Preferences UI).
+
+This was introduced in P0-3 trial-readiness (PR #199) to allow flexible dev bootstrap, but the priority was backwards. Env vars are meant to be dev-only escape hatches for fresh-start scenarios, not hijacks that override user config.
+
+## Decision
+
+**When config can come from multiple sources (env, file, default), user-deliberate input (UI-saved config) MUST outrank developer escape-hatches (env vars).**
+
+### New Priority Order (highest to lowest)
+
+1. **appConfig.dataDir** — from `userData/app-config.json` (user's deliberate choice via Preferences UI)
+2. **OT_DATA_DIR env var** — dev bootstrap escape hatch; only applies when `appConfig.dataDir` is unset or fails validation
+3. **Default** — `<userData>/dev-events`
+
+### When Sources Diverge
+
+**Always surface the effective state in the UI, never silently.**
+
+When both `appConfig.dataDir` and `OT_DATA_DIR` are set and they differ:
+- **Bootstrap:** Log a single warning: `[bootstrap] ⚠️ OT_DATA_DIR env var ({env}) ignored — appConfig.dataDir ({config}) takes precedence. Unset OT_DATA_DIR or update Preferences if intended.`
+- **UI:** Show a drift warning in Preferences: `⚠️ Active data folder differs from configured: {effectivePath}. Likely cause: OT_DATA_DIR env override.`
+
+This prevents user confusion when config file and runtime state disagree.
+
+## Rationale
+
+1. **User trust:** Users deliberately choose a data folder via Preferences. That choice must be authoritative. If an env var silently overrides it, users lose trust in the UI.
+2. **Dev/prod consistency:** In packaged builds, `OT_DATA_DIR` env var wouldn't be set, so behavior would diverge between dev and prod. By making user config win, dev and prod behave the same.
+3. **Escape hatch semantics:** Env vars are useful for fresh-start scenarios (e.g., `npm run dev:empty` with a custom folder). But once the user has configured a folder via Preferences, that should stick across relaunches, regardless of what env vars are set.
+
+## Implementation (PR #202)
+
+1. **Priority flip in `bootstrap.ts`:** `appConfig.dataDir` (user config) now wins over `OT_DATA_DIR`. Env var only applies when `appConfig.dataDir` is unset or fails validation.
+2. **Warning log:** When both are set and differ, log the warning above.
+3. **UI drift detection in `PreferencesScreen`:** Added warning row when configured path differs from effective path.
+4. **i18n:** Added `preferences.dataset.driftWarning` to `en/es common.json`.
+5. **CSS:** Added `.ot-preferences__warning` style (yellow/orange border, similar to error card).
+6. **Tests:** Updated `bootstrap.test.ts` to reflect new priority. New test: `should prefer appConfig.dataDir over OT_DATA_DIR (user config wins)`. All 938 tests pass.
+
+## Generalization
+
+This pattern applies to **any** future config-source conflicts (e.g., command-line flags vs saved config):
+- User-deliberate input (saved config from UI) is always authoritative.
+- Env vars, command-line flags, and other developer tools are escape hatches for fresh-start scenarios.
+- When sources diverge, surface the effective state in the UI with a clear explanation.
+
+## Related
+
+- Issue #201 (P0 split-brain dataset state)
+- PR #199 (storage-scope pivot — introduced the bug)
+- P0-3 trial-readiness milestone
+
+
+---
+
+# Decision: `dev:empty` semantics + onboarding hydration ordering
+
+**Author:** Morpheus (Backend Dev)
+**Date:** 2026-05-08
+**Branch / PR:** `squad/fix-dev-empty-onboarding-regression`
+**Context issues:** #196 (onboarding wizard), PR #215 (wizard ship)
+
+## What changed
+
+1. **`dev:empty` is now actually empty.** The npm script no longer just sets `OT_SEED=none`; it runs `scripts/dev-empty.mjs`, which deletes the dev-only state under Electron's userData before spawning vite:
+   - `userData/app-config.json` (resets the dataDir choice → wizard fires)
+   - `userData/dev-events/` (legacy default location)
+   - `userData/my-data/` (post-onboarding default; only present if a previous wizard run picked "Use default")
+
+   `profile.json` and `device.json` are intentionally preserved — they survive a "fresh start" and are orthogonal to the data folder choice.
+
+2. **Bootstrap defers everything when `appConfig.dataDir === null`.** Previously, even when the wizard SHOULD fire, bootstrap would synthesize `<userData>/dev-events`, load any leftover events from disk, fold them into the in-memory read model, and write a fresh `dataset.json` — all before the renderer could render the wizard. Now, when there is no configured dataDir, bootstrap stops after loading profile + appConfig + deviceId and marks itself as `onboardingPending`. The renderer's gate (`app:needsOnboarding` + `App.tsx`) keeps the main UI unmounted; the wizard is the only screen that runs.
+
+3. **IPC registration is gated.** Handlers that depend on `getEventLog()` / `getDatasetId()` are only registered when bootstrap actually wired them up. During the wizard-pending state, only the handlers the wizard needs (`app:needsOnboarding`, `dialog:pickFolder`, `config:setDataDir`, `config:get`, `profile:*`, `shell:*`) are live.
+
+4. **`config:setDataDir` is null-tolerant for the first-run case.** No SAME_DIR check, no datasetId-mismatch check (there is no workspace to switch FROM), no `previousDataDir` recorded. Schema-too-new and foreign-events.ndjson refusals stay absolute.
+
+## Team-relevant implications
+
+- **`npm run dev` still seeds.** First-time devs without an `app-config.json` will now click through the wizard once (one extra click), then the dev-seed populates whatever folder they picked. Subsequent runs skip the wizard. **No change to the seeded data shape or location semantics.**
+- **`npm run dev:empty` reliably reproduces first-run.** Anyone testing the onboarding flow can run it and trust that the wizard fires with an empty in-memory read model.
+- **`npm run dev:reset` (existing dogfood reset) is unchanged.** It still wipes a single `OT_DATA_DIR` subdir and refuses to touch `dev-events/`.
+- **Production impact:** None at runtime — production builds never had `OT_SEED` or `dev-events/` semantics. The bootstrap-defer-when-dataDir-null path is the production first-run path; it is now correct (was broken pre-PR but masked by `NODE_ENV !== 'production'` skipping the seed).
+
+## What this does NOT change
+
+- The priority-precedence rule for resolving dataDir (PR #202): `appConfig.dataDir` > `OT_DATA_DIR` env > default.
+- The `config:setDataDir` contract for non-first-run flows: SAME_DIR, DATASET_MISMATCH, SCHEMA_TOO_NEW, etc., still apply when there is a current workspace.
+- No new env vars introduced.
+
+## Why I'm flagging this
+
+The contract of `dev:empty` is now stronger ("guarantees a clean first-run state") and that's a team-visible change worth recording. Anyone who used to rely on `OT_SEED=none` semantics meaning "skip new seed but keep my existing log" should switch to `npm run dev` (which preserves existing data) or `npm run dev:reset` (targeted dogfood wipe). The new `dev:empty` is for testing first-run, period.
+
+
+---
+
+# P0-2 Profile Schema Design Decisions
+
+**Date:** 2026-05-05  
+**Author:** Morpheus (Backend Dev)  
+**PR:** #159  
+**Related Issue:** #146
+
+## Summary
+
+Profile.json schema and bootstrap integration for trial-readiness. Establishes the "single active user per app instance" pattern with forward-compatibility for AAD.
+
+## Key Decisions
+
+### 1. Schema Fields
+
+**Fields:**
+- `userId`: 26-char ULID (auto-generated, never changes)
+- `name`: string (user's display name, e.g., "Ana Costa")
+- `role`: string (free-text role description, e.g., "Treasurer", "Viewer")
+- `ngoName`: string (organization name, e.g., "RETT Portugal")
+- `identitySource`: 'local' | 'aad' (defaults to 'local' for trial)
+- `createdAt`: ISO 8601 UTC timestamp
+
+**Rationale:**
+- `userId` is the stable actor identity that stamps every DomainEvent (replaces ACTOR_USER_ID constant from P0-1)
+- `identitySource` enables forward-compat with AAD integration (M2 scope) without schema migration later
+- `role` is free-text (not enum) to avoid blocking users with unexpected org structures during trial
+
+### 2. Atomic Write Pattern
+
+**Pattern:** tmp → fsync → rename
+
+**Implementation:**
+```typescript
+await fs.writeFile(tmpPath, content, 'utf-8');
+const fh = await fs.open(tmpPath, 'r+');
+try {
+  await fh.sync();
+} finally {
+  await fh.close();
+}
+await fs.rename(tmpPath, filePath);
+```
+
+**Rationale:**
+- Crash safety: if app crashes mid-write, original file is intact (tmp is orphaned)
+- No partial writes: rename is atomic at filesystem level
+- Reusable for app-config.json (P0-3) and any future config files
+
+### 3. Empty Fields Allowed
+
+**Schema validation:**
+- name/role/ngoName: `z.string().max(N)` (NOT `.min(1)`)
+- Accepts empty strings during profile creation
+
+**Rationale:**
+- createDefaultProfile() generates a profile with empty name/role/ngoName on first launch
+- ProfileSetupModal (P1-4, Trinity) fills these fields via profile:save IPC call
+- Avoids needing separate schemas for "partial profile" vs "complete profile"
+
+### 4. Profile Load Gating
+
+**Bootstrap order:**
+1. Load profile.json (before event log)
+2. Initialize event log
+3. Seed dev-events (if applicable)
+
+**Rationale:**
+- transactionDeps in handlers.ts needs profile.userId to stamp events with actorUserId
+- Early failure (permission denied, corrupted profile) surfaces before event replay
+- If profile is null, app proceeds with sentinel actorUserId = 'PROFILE_PENDING000000000' (trial's "fresh start" posture means no events exist before profile setup)
+
+### 5. IPC Contract Shape
+
+**profile:get:**
+```typescript
+Request: undefined | null | {}
+Response: { ok: true, profile: Profile | null }
+```
+
+**profile:save:**
+```typescript
+Request: Profile (validated with Zod)
+Response: { ok: true, profile: Profile } | { ok: false, error: { code, message } }
+```
+
+**Rationale:**
+- profile:get always succeeds (returns null on first launch)
+- profile:save follows discriminated-union pattern from transaction IPC
+- Error codes: SCHEMA_INVALID (Zod), WRITE_FAILED (fs errors)
+
+### 6. In-Memory Cache Pattern
+
+**Functions in bootstrap.ts:**
+- `getProfile(): Profile | null` — reads cached profile
+- `setProfile(profile: Profile | null): void` — updates cache after save
+
+**Rationale:**
+- Handlers don't re-read from disk on every profile:get call
+- setProfile() is called by profile:save IPC handler after successful write
+- Ensures cache coherence without complex invalidation logic
+
+## Out of Scope (Future Work)
+
+- **Multi-user support:** Trial uses "one profile per app instance" — AAD multi-user is M2
+- **Profile migration UI:** If identitySource changes from 'local' to 'aad', no automated migration flow yet
+- **Profile validation in ProfileSetupModal:** Renderer-side validation (min length, etc.) is P1-4 scope
+- **actorDeviceId/datasetId from profile:** Those constants remain in ids.ts until P1-1 (#148)
+
+## Locked Patterns (reusable)
+
+✅ **Atomic config file writes** — always use tmp → fsync → rename  
+✅ **Bootstrap load order** — config files before event log  
+✅ **IPC error codes** — discriminated unions, never throw across IPC  
+✅ **Test isolation** — os.tmpdir() + unique suffix per test, cleanup is best-effort  
+✅ **Forward-compat fields** — add schema fields for known future work (identitySource: 'aad') even if unused in v1
+
+
+---
+
+# Decision: Recovery State Persistence Strategy
+
+**Date:** 2026-05-05  
+**Author:** Morpheus  
+**Status:** Implemented (PR #195)  
+**Related:** PR #192 (auto-recovery), PR #193 (retry on next launch)
+
+## Context
+
+When bootstrap auto-recovers from a broken `dataDir` (e.g., OneDrive folder inaccessible), the app successfully falls back to a default path (`my-data`) but the persisted config still contains the broken path. This creates:
+
+1. **UI mismatch:** Preferences screen shows the broken path, not the effective path
+2. **Comparison bugs:** "Same folder" checks compare against the stale config value, not the runtime effective path
+3. **Silent recovery:** Recovery happens without user visibility (no loud warning in logs)
+
+## Decision
+
+**Auto-recovery now persists the recovered state immediately (on the same launch), not on the next launch.**
+
+### Implementation
+
+When `resolveEventLogDir()` falls back from a broken `dataDir`:
+- Rewrite `app-config.json` atomically
+- Set `dataDir` = recovered path (e.g., `my-data`)
+- Set `previousDataDir` = failed path (for diagnostics and manual retry)
+- Log `console.warn` with ⚠️ emoji so recovery is visible
+
+**Schema change:** Added `previousDataDir: string | null` to `AppConfig`.
+
+**Bootstrap flow:**
+```typescript
+const { dir, configChanged, newConfig } = await resolveEventLogDir(userDataDir, appConfig);
+if (configChanged && newConfig) {
+  await saveAppConfig(userDataDir, newConfig); // persist immediately
+  appConfigInstance = newConfig; // update in-memory cache
+  console.log('[bootstrap] ✅ Persisted recovery state');
+}
+```
+
+### Rationale
+
+**Why persist immediately (not on next launch)?**
+
+1. **UI consistency:** The UI should always show the effective path, not a stale config value. Immediate persistence ensures `config:get` returns the truth right away.
+
+2. **Simplicity:** No need for retry logic on next launch. The app is already running on the recovered path; just persist it.
+
+3. **User visibility:** The recovery is visible in the current session (via logs + UI showing the recovered path). User can see what happened and manually switch back if desired.
+
+**Alternative approach (PR #193):** Persist `previousDataDir` only when the user manually switches, then retry on next launch if bootstrap fails. This approach is also valid but defers the fix to the next session.
+
+## Alternatives Considered
+
+1. **No persistence (PR #192 approach):** Silent recovery without persisting the recovered state. Rejected because it creates UI/config mismatch.
+
+2. **Retry on next launch (PR #193 approach):** Persist `previousDataDir` when user manually switches, then fall back on next launch. Rejected because it defers the fix and requires retry logic.
+
+3. **Always persist default path:** When recovery happens, always fall back to `<userData>/dev-events` (the hardcoded default). Rejected because it ignores user intent — if they configured OneDrive, they probably want OneDrive (just need a working path).
+
+## Consequences
+
+**Positive:**
+- UI always shows the effective path (no mismatch)
+- "Same folder" comparison works even with stale config (compares against effective path)
+- Recovery is visible in logs (loud warning)
+- Simple implementation (no retry logic needed)
+
+**Negative:**
+- `previousDataDir` field adds complexity to the schema (but it's optional and defaults to `null`)
+- Recovery is silent to the user (no modal/toast). Future work: add user notification (P1-5?).
+
+## Migration Path
+
+**Existing users with broken config:**
+- On first launch after this PR, recovery will happen and config will be rewritten
+- `previousDataDir` will be set to the broken path (e.g., `OneDrive\Treasurer`)
+- User can manually switch back via Preferences if desired
+
+**New users:**
+- `previousDataDir` is always `null` unless they manually switch folders
+
+## Future Work
+
+1. **User notification:** Show a toast/modal when recovery happens (not just console.warn). Blocked on P1-5 notification infrastructure.
+
+2. **Recovery metrics:** Track recovery frequency in telemetry (when we add analytics). Helps diagnose common OneDrive failures.
+
+3. **OneDrive sync status detection:** Use Windows APIs to detect when a folder is "available online" but not synced locally. Could pre-validate before allowing the switch (or show a warning).
+
+## Related Decisions
+
+- `morpheus-dataset-migration.md`: Events are NOT auto-migrated between folders (fresh start posture)
+- OneDrive allowlist tightening (PR #195): Require subfolder beneath OneDrive Business root
+
+
+---
+
+# Decision: setDataDir IPC validation rules and relaunch flow
+
+**Date:** 2026-04-29
+**Author:** Morpheus
+**PR:** #166 (`squad/149-set-data-dir-ipc`)
+**Issue:** #149 (P1-2 trial-readiness)
+
+## Context
+
+Trial users need to point the desktop app at a OneDrive/SharePoint-synced folder
+so the "OneDrive is the database" pattern works. The Settings screen (#162)
+already shows the current data folder; this PR delivers the backend that lets
+the user **change** it. Pedro lock: fresh-start semantics — no event migration.
+
+## Decisions
+
+### 1. DATASET_MISMATCH detection: read first line of `events.ndjson`
+
+When the user picks a target folder that already contains an `events.ndjson`,
+we peek the **first non-empty line**, parse it as JSON, and compare its
+`.datasetId` field against the currently-active dataset's id (from
+`getDatasetId()`).
+
+- **Match** → allowed (user is re-pointing at their own existing workspace,
+  e.g. after switching machines).
+- **Mismatch** → refuse with `DATASET_MISMATCH`.
+- **Corrupted JSON / missing `datasetId`** → also refuse with `DATASET_MISMATCH`
+  (safer to refuse than to co-mingle with an unreadable foreign log).
+- **Empty file or no `events.ndjson`** → allowed (fresh folder).
+
+**Why first-line is sufficient:** every `DomainEvent` carries `datasetId` per
+`DomainEventBase` schema (`app/src/core/events/schemas.ts`). No need to load
+the whole file. The seen-set / hydration logic happens later, after relaunch.
+
+### 2. INVALID_LOCATION: forbid paths under userData
+
+Reject any candidate that resolves to userData itself or any descendant.
+Rationale:
+
+- **userData is per-laptop local-only.** Electron stores it in
+  `%APPDATA%\opentreasury-desktop` (Windows) and similar paths elsewhere.
+  This data is lost on reinstall and is NOT synced.
+- **Trial posture is one active writer + cloud-synced folder.** OneDrive,
+  SharePoint, network share, etc. — anywhere multiple devices can converge.
+- **Forcing external paths makes the data-folder semantics visible.** Users
+  understand "this folder IS the database" much better when they have to
+  pick it explicitly.
+
+Implementation: `path.relative(userData, candidate)` returns `''` for
+identical paths, a `..`-prefixed string for ancestors, and an absolute path
+for different drives on Windows. We treat the first two as "under userData".
+Comparison is case-insensitive on `win32`.
+
+### 3. Validation order
+
+Cheap checks before expensive ones:
+
+1. Schema (zod) — payload shape
+2. INVALID_LOCATION (path arithmetic, no I/O)
+3. SAME_DIR (path arithmetic, no I/O)
+4. NOT_WRITABLE (mkdir + probe-write + delete)
+5. DATASET_MISMATCH (read events.ndjson if present)
+6. WRITE_FAILED (atomic save of app-config.json)
+
+Only after all six pass do we schedule `app.relaunch()` + `app.exit(0)`.
+
+### 4. Relaunch via `setImmediate`
+
+`relaunch()` + `exit(0)` are deferred through `setImmediate` so the IPC
+reply (`{ ok: true }`) gets serialized and sent to the renderer **before**
+the process exits. Without the deferral, Electron tears down the IPC channel
+before the renderer can react / show a "relaunching..." toast.
+
+### 5. No event migration (Pedro lock)
+
+We deliberately do NOT copy `events.ndjson` from the old folder to the new
+one. The new folder either:
+
+- already contains a same-dataset log (resuming) — keep it as-is, and on
+  relaunch the bootstrap replays from there; OR
+- is empty / fresh — the bootstrap on relaunch will create a new
+  `dataset.json` (per P1-1) and start clean.
+
+Users who want to migrate data manually copy the folder contents themselves.
+This keeps the failure mode obvious and reversible.
+
+### 6. Deps-injection factory pattern
+
+The handler is built via `createConfigSetDataDirHandler(deps)` rather than
+importing `app` directly. Reasons:
+
+- Tests stub `app.relaunch` / `app.exit` / `app.getPath` with `vi.fn()` and
+  use `vi.useFakeTimers()` to verify scheduling without actually relaunching.
+- Production wiring (`buildProductionSetDataDirDeps`) `await import('electron')`
+  lazily so the handler module is safe to import in vitest's node env.
+
+This pattern is reusable for any future IPC handler that touches Electron
+APIs (file dialogs, shell, native menus). Skill captured in
+`.squad/skills/electron-handler-testing/SKILL.md`.
+
+## Open questions / follow-ups
+
+- **Renderer UX**: Trinity owns wiring the Settings button to
+  `window.opentreasury.config.setDataDir`. Toast/banner copy for the relaunch
+  is theirs to design (#162 follow-up).
+- **Folder picker**: not in scope here. The IPC accepts an absolute path
+  string; Trinity will use Electron's `dialog.showOpenDialog` (renderer-side
+  via another IPC if needed) to obtain it.
+- **OneDrive Personal blocking** (#156): explicitly NOT this ticket's job.
+  The handler accepts any writable non-userData path.
+- **readOnly interaction**: untouched (Switch's domain). If the app is in
+  readOnly mode, this handler still works — changing dataDir is a config
+  write, not a domain event write.
+
+
+---
+
+# Settings Screen — Dataset Status Visibility
+
+**Date:** 2026-04-29  
+**Agent:** Mouse  
+**Status:** Proposed (awaiting Pedro ratification)
+
+## Decision
+
+Settings screen MUST surface dataset identity and state. Users need to know **which treasury** they're working in, not just where the files live.
+
+## Rationale
+
+1. **Multi-dataset context:** NGOs may manage multiple treasuries (main org + regional chapters + special projects). After switching datasets (new PR-B feature), users need visual confirmation of which dataset is active.
+
+2. **Trustee coordination:** The dataset UUID is required for SharePoint access-sharing, support tickets, and trustee handoff. Hiding it as "too technical" forces users into config files or DevTools.
+
+3. **Read-only awareness:** When a user opens a dataset in read-only mode (e.g., auditor reviewing historical data), the mode must be immediately visible — burying it as a disabled "Change folder" button is insufficient.
+
+## Implementation
+
+Settings screen now has three sections:
+
+1. **Current Dataset (status card):** Dataset label, UUID, read-only badge, location path, optional event count + timestamp.
+2. **Data Folder (action card):** Change location within the current dataset.
+3. **Switch Dataset (footer action):** Destructive action to leave the current dataset and pick a new folder.
+
+Full spec: `.copilot/session-state/e4b11bde-20cd-431a-b140-160a1f9db25a/files/mouse-settings-layout.md`
+
+## Applies to
+
+- `SettingsScreen.tsx` (PR-B — Trinity's implementation)
+- Any future "About this dataset" or "Dataset info" screens
+
+## See Also
+
+- UX-001 E1: Corp-folder enforcement (OneDrive for Business / SharePoint requirement)
+- PR #174: Corp-folder enforcement + effective path display (just shipped)
+- PR-B: Switch dataset flow (in progress)
+
+
+
+---
+
+# Neo — Insights Subcategory Panel Decision
+
+**Date:** 2026-05-04
+**Recommendation:** Ship Concept A — two stacked ranked tables with inline magnitude bars. Replace the diverging-bar chart from PR #141.
+**Rationale:** The diverging metaphor implies a paired comparison that doesn't exist (gastos/ingresos subcategories share no keys). Concept A matches the actual user task (rank-and-scan), costs ~½ day, and gives us a reusable inline-bar pattern.
+**Implementation owner:** Trinity. Single PR: revert diverging chart + ship ranked tables. Playwright snapshots + unit tests required. Pedro approves screenshots before merge.
+**PR scope:** Remove `DivergingSubcategoryChart/`, add `SubcategoryRankedTable`, preserve all other PR #141 changes (donuts, breadcrumbs). Three blocking questions for Pedro before work starts (dominant task, % display, top-N cutoff).
+
+
+---
+
+# Trial-Readiness Work Plan
+
+**Author:** Neo (Lead/Architect)  
+**Date:** 2026-05-05  
+**Status:** PROPOSED — awaiting Pedro final sign-off  
+**Requested by:** Pedro (perocha)
+
+---
+
+## Executive Summary
+
+This plan decomposes Pedro's 5 accepted decisions into **12 GitHub-issue-sized work items** across **3 phases**. Critical path is **5 items long** (P0-1 → P0-2 → P1-1 → P1-2 → P2-2), spanning ~4-5 days assuming ~1 day/item. Phase 0 and Phase 1 have good parallelization opportunities (3 tracks in P0, 4 tracks in P1).
+
+---
+
+## Phase 0 — Foundations (Day 1)
+
+Unblocking work: schema fields, IPC contracts, profile.json shape. Must complete before Phase 1 begins.
+
+| ID | Title | Owner | Scope | Files Touched | Acceptance Criteria | Deps |
+|----|-------|-------|-------|---------------|---------------------|------|
+| **P0-1** | Add `actorUserId` field to DomainEventBase + IPC contracts | Morpheus | • Add optional `actorUserId?: Ulid` to `DomainEventBase` (nullable for backcompat) • Add `actorIdentitySource: 'local' \| 'aad'` field • Update Zod schemas in `shared/ipc-contracts/*.ts` | `app/src/core/events.ts`, `app/src/core/events/schemas.ts`, `app/src/shared/ipc-contracts/transaction.ts` | Events accept new fields; existing events without `actorUserId` replay without error; typecheck + lint pass | — |
+| **P0-2** | Define profile.json schema + load in bootstrap | Morpheus | • Create `userData/profile.json` schema: `{ name: string, role: 'treasurer'\|'viewer', ngo: string, actorUserId: Ulid, actorIdentitySource: 'local' }` • Load at bootstrap; generate ULID on first launch if missing | `app/src/main/profile.ts` (NEW), `app/src/main/bootstrap.ts` | Profile loads before IPC handlers register; fresh installs get auto-generated file | P0-1 |
+| **P0-3** | Define app-config.json schema (`dataDir`, `readOnly`) | Morpheus | • Create `userData/app-config.json`: `{ dataDir?: string, readOnly?: boolean }` • Relax `OT_DATA_DIR` to accept **absolute paths** OR relative subfolder | `app/src/main/config.ts` (NEW), `app/src/main/bootstrap.ts` | `OT_DATA_DIR=C:\MyNGO\Treasury` works; config persisted across restarts | — |
+
+### P0 Parallelization
+
+```
+P0-1 ──────────────────────┐
+                           ├─→ P0-2 (needs actorUserId schema)
+P0-3 ──────────────────────┘ (parallel with P0-1)
+```
+
+---
+
+## Phase 1 — Core Implementation (Days 2-3)
+
+Main feature work. Depends on P0 completing.
+
+| ID | Title | Owner | Scope | Files Touched | Acceptance Criteria | Deps |
+|----|-------|-------|-------|---------------|---------------------|------|
+| **P1-1** | Replace DATASET_ID/ACTOR_DEVICE_ID constants with profile-sourced values | Morpheus | • Delete `fakeUlid('DEVICE01')` and `fakeUlid('DATASET01')` from `ids.ts` • Wire `transactionDeps.actorDeviceId` + `datasetId` from loaded profile/config • Update `devSeed.ts` to use profile values | `app/src/main/ids.ts`, `app/src/main/ipc/handlers.ts`, `app/src/main/devSeed.ts` | No hardcoded fake ULIDs in production code; events stamped with real actor ID | P0-2 |
+| **P1-2** | Implement `app:setDataDir(path)` IPC with validation + relaunch | Morpheus | • IPC handler validates path exists + writable • Writes to `app-config.json` • Calls `app.relaunch()` + `app.exit()` | `app/src/shared/ipc-contracts/app.ts`, `app/src/main/ipc/handlers.ts` | Settings change persists; app restarts with new data dir | P0-3 |
+| **P1-3** | readOnly middleware blocks `eventLog.append` | Switch | • Wrap EventLog with read-only proxy when `config.readOnly === true` • Throw clear error code `WRITE_BLOCKED_READ_ONLY_MODE` | `app/src/main/eventLog-readonly-wrapper.ts` (NEW), `app/src/main/bootstrap.ts` | All write IPC handlers return error in read-only mode; reads work normally | P0-3 |
+| **P1-4** | First-launch profile setup screen (minimal) | Trinity | • Modal on first launch: name + role dropdown + NGO name • "Save & Continue" → writes profile.json, dismiss modal • Skip UX-001 full wizard (deferred) | `app/src/renderer/screens/ProfileSetupModal/` (NEW), `app/src/renderer/App.tsx` | Fresh install shows modal; filled profile stored; app proceeds to Panel | P0-2 |
+| **P1-5** | Settings row: "Data folder: [path] [Change…]" | Trinity | • Add row to Settings screen with current `dataDir` display • "Change…" button opens folder picker → calls `app:setDataDir` • Banner explains "read-only mode" when set | `app/src/renderer/screens/SettingsScreen/` | User can change data folder via Settings; read-only indicator visible | P1-2 |
+
+### P1 Parallelization
+
+```
+P0-2 → P1-1 ────────────────────────┐
+                                     │
+P0-3 → P1-2 → P1-5                   ├─→ Phase 2
+       │                             │
+       └─→ P1-3                      │
+                                     │
+P0-2 → P1-4 ─────────────────────────┘
+```
+
+**Four parallel tracks:** (P1-1), (P1-2 → P1-5), (P1-3), (P1-4)
+
+---
+
+## Phase 2 — Polish + Onboarding + Tests (Days 4-5)
+
+Integration, tests, documentation.
+
+| ID | Title | Owner | Scope | Files Touched | Acceptance Criteria | Deps |
+|----|-------|-------|-------|---------------|---------------------|------|
+| **P2-1** | Update tests for new actor ID pattern | Cypher | • Fix all `datasetId: DATASET_ID` references in test files • Add test helper `createTestDeps()` that generates consistent test IDs | `app/src/core/commands/*.test.ts`, `app/src/main/ipc/handlers/*.test.ts`, `app/src/core/query/*.test.ts` | `npm test` passes (currently ~829 tests); no hardcoded fake ULIDs in test code | P1-1 |
+| **P2-2** | readOnly mode e2e test + write-block verification | Cypher | • E2E test: set `readOnly: true` → verify create-transaction IPC returns error • Verify settings toggle flows | `tests/e2e/readonly-mode.spec.ts` (NEW) | E2E confirms writes blocked; Settings flow tested | P1-3, P1-5 |
+| **P2-3** | Trial onboarding doc (one-writer posture) | Oracle | • Document "one active writer per dataset" in `docs/guides/trial-deployment.md` • Steps for treasurer (write) vs co-reviewer (read-only) setup | `docs/guides/trial-deployment.md` (NEW) | Doc explains trial posture; links to Settings for data-folder config | P1-5 |
+| **P2-4** | Block OneDrive Personal in Settings folder picker | Trinity | • Reuse UX-001 E1 detection logic • Show rejection card if Personal OneDrive path selected in Settings | `app/src/renderer/screens/SettingsScreen/SettingsScreen.tsx` | Personal OneDrive folder rejected with "not supported in v1" message | P1-5 |
+
+### P2 Parallelization
+
+```
+P1-1 → P2-1
+P1-3, P1-5 → P2-2
+P1-5 → P2-3
+P1-5 → P2-4
+```
+
+---
+
+## Critical Path
+
+**Longest dependency chain (5 items):**
+
+```
+P0-1 → P0-2 → P1-1 → P2-1 → [done]
+       ↓
+       P1-4
+```
+
+Alternative critical path through storage/readOnly:
+
+```
+P0-3 → P1-2 → P1-5 → P2-2 → [done]
+       ↓
+       P1-3
+```
+
+**Both paths are ~5 items long.** Total ETA: 4-5 days with good parallelization.
+
+---
+
+## Risk Assessment
+
+### Risk 1: Existing Events Have No `actorUserId` — Backfill Strategy
+
+**Status:** Needs Pedro decision
+
+**Options:**
+1. **"Unknown actor" concession** — old events show as `actorUserId: null` in UI, displayed as "Unknown" or "System". Simple, no migration.
+2. **Backfill on profile creation** — when first profile is created, scan existing events, stamp them with the new actor ID. Risks: rewrites log; mixes dev-seed data with real actor.
+3. **Ignore pre-trial events** — trial starts with fresh dataset. Pedro manually CSV-exports old demo data if needed.
+
+**Recommendation:** Option 1 (unknown actor). Backfill is complex and dev-seed data isn't real NGO data anyway.
+
+### Risk 2: ID Constants in `ids.ts` — Usage Analysis
+
+**Current usage:**
+- `app/src/main/ipc/handlers.ts:213` — imported for `transactionDeps`
+- `app/src/main/devSeed.ts:21` — uses its own `fakeUlid('DATASET01')` (duplicate definition!)
+- ~50 test files use local `DATASET_ID = ulid('DATA')` pattern (not the constant)
+
+**Impact:** LOW. Only `handlers.ts` imports the constants. Tests define their own. The `devSeed.ts` duplicate should be unified.
+
+### Risk 3: Settings Row vs Full UX-001 Wizard
+
+**Status:** UX-001 spec exists (`docs/ux/specs/ux-001-first-run-setup.md`), fully specced by Niobe.
+
+**Decision:** The full wizard is **deferred**, not discarded. P1-4 implements a **minimal profile modal** (name + role + NGO only). UX-001's folder-picker + R20-checklist + escrow-signing is M2/v1 scope.
+
+**Niobe coordination needed:** Confirm the minimal modal doesn't contradict UX-001 — it's a subset, not a fork.
+
+### Risk 4: readOnly Middleware Scope
+
+**Question:** Does `readOnly` block ALL writes or only domain events?
+
+**Recommendation:** Block `eventLog.append` and `eventLog.appendBatch` only. Settings changes to `app-config.json` must still work (that's how the user exits read-only mode!). Profile.json changes (user name, etc.) are also allowed.
+
+**Switch review required:** Confirm the `readOnly` scope boundary before P1-3 implementation.
+
+### Risk 5: Profile vs Device ID Semantics
+
+**Clarification needed:** Current events have `actorDeviceId` (per-device). Pedro's decision mentions `actorUserId` (per-user). These are different concepts:
+
+- `actorDeviceId` = "which laptop wrote this event" (current field)
+- `actorUserId` = "which person wrote this event" (new field)
+
+**Recommendation:** Keep BOTH. `actorDeviceId` stays as-is (generated from profile on first launch, persisted). Add `actorUserId` from profile.json. Both stamp every event. The `actorIdentitySource` field clarifies whether `actorUserId` came from local profile or AAD.
+
+---
+
+## PR Strategy Recommendation
+
+**Ship as small PRs, NOT one large PR per phase.**
+
+Rationale:
+1. Pedro just escaped 28-branch hell — small PRs are reviewable.
+2. Phase 0 items are independent (P0-1 vs P0-3 can merge separately).
+3. Phase 1 items have clear owners (Morpheus vs Trinity vs Switch) — separate PRs avoid cross-owner conflicts.
+4. Smaller PRs = faster CI cycles, easier rollback.
+
+**Recommended PR sequence:**
+
+| PR # | Items | Branch | Reviewer |
+|------|-------|--------|----------|
+| 1 | P0-1 | `feat/event-actoruserid-field` | Switch |
+| 2 | P0-3 | `feat/app-config-datadir` | Neo |
+| 3 | P0-2 | `feat/profile-json-bootstrap` | Switch, Neo |
+| 4 | P1-1 | `feat/real-actor-ids` | Neo |
+| 5 | P1-2 | `feat/setdatadir-ipc` | Neo |
+| 6 | P1-3 | `feat/readonly-middleware` | Switch (author + reviewer) |
+| 7 | P1-4 | `feat/profile-setup-modal` | Mouse, Niobe |
+| 8 | P1-5 | `feat/settings-datadir-row` | Neo |
+| 9 | P2-1, P2-2 | `test/trial-readiness` | Cypher (self-review) |
+| 10 | P2-3 | `docs/trial-deployment-guide` | Oracle (self-review) |
+| 11 | P2-4 | `feat/settings-onedrive-block` | Neo |
+
+**Total: 11 PRs.** Each is small, focused, and has a clear owner. Merges can proceed as items complete — no waiting for entire phases.
+
+---
+
+## Summary Table
+
+| Phase | Items | Parallelizable? | ETA |
+|-------|-------|-----------------|-----|
+| P0 | 3 | Yes (2 tracks) | Day 1 |
+| P1 | 5 | Yes (4 tracks) | Days 2-3 |
+| P2 | 4 | Yes (4 tracks) | Days 4-5 |
+| **Total** | **12** | — | **~5 days** |
+
+---
+
+## Next Steps for Pedro
+
+1. **Decide Risk 1:** Unknown actor concession (recommended) or backfill?
+2. **Confirm Risk 4:** readOnly blocks eventLog only, not config writes?
+3. **Notify Niobe:** P1-4 is a subset of UX-001, not a replacement.
+4. **Create GitHub issues:** Use titles from this plan verbatim.
+5. **Assign owners:** Morpheus (P0-1, P0-2, P0-3, P1-1, P1-2), Switch (P1-3), Trinity (P1-4, P1-5, P2-4), Cypher (P2-1, P2-2), Oracle (P2-3).
+
+---
+
+## Appendix: Files Inventory
+
+Files created (NEW):
+- `app/src/main/profile.ts`
+- `app/src/main/config.ts`
+- `app/src/main/eventLog-readonly-wrapper.ts`
+- `app/src/shared/ipc-contracts/app.ts` (may exist, needs extension)
+- `app/src/renderer/screens/ProfileSetupModal/ProfileSetupModal.tsx`
+- `tests/e2e/readonly-mode.spec.ts`
+- `docs/guides/trial-deployment.md`
+
+Files modified:
+- `app/src/core/events.ts`
+- `app/src/core/events/schemas.ts`
+- `app/src/shared/ipc-contracts/transaction.ts`
+- `app/src/main/bootstrap.ts`
+- `app/src/main/ids.ts`
+- `app/src/main/ipc/handlers.ts`
+- `app/src/main/devSeed.ts`
+- `app/src/renderer/App.tsx`
+- `app/src/renderer/screens/SettingsScreen/SettingsScreen.tsx`
+- ~50 test files (bulk update for ID patterns)
+
+---
+
+*End of plan.*
+
+
+---
+
+# IA Principle — Name Sidebar Groups by Content Semantics, Not Implementation Role
+
+**Date:** 2026-05-02  
+**Agent:** Niobe (Spec / UX Analyst)  
+**Context:** Sidebar IA overhaul (spec: `.copilot/session-state/.../niobe-sidebar-ia.md`)
+
+## Principle
+
+Sidebar navigation groups should be labeled by their **content semantics** (what's inside), not their **implementation role** (what the UI does).
+
+## Rationale
+
+The OpenTreasury sidebar had a group labeled "SETTINGS" containing Categories, Tags, and Accounts. This created semantic confusion because:
+1. "Settings" is a **role** (configuration UI), not a **content descriptor**
+2. The actual app settings (theme, language, profile) lived elsewhere (top-right gear icon)
+3. Users couldn't distinguish "settings for taxonomies" from "settings for the app"
+
+**Root cause:** The label "Settings" described the **implementation** (screens where you configure things) rather than the **content** (what kinds of things you're configuring).
+
+**Solution:** Rename the group to **"Catalogs"** — a content-semantic label that describes **what's inside** (taxonomies: categories, tags, accounts are all structured catalogs of reference data).
+
+## When to Apply
+
+Use this principle when naming any navigation group, especially when:
+- Multiple "settings-like" or "configuration-like" areas exist in the same app
+- The group contains conceptually related items that share a domain (not just a UI pattern)
+- The audience is non-technical and needs plain-language labels
+
+## Examples
+
+| ❌ Role-based (bad)         | ✅ Content-semantic (good)  | Why?                                                                 |
+|------------------------------|-----------------------------|----------------------------------------------------------------------|
+| "Settings"                   | "Catalogs"                  | Describes WHAT (taxonomies) not HOW (configuration UI)              |
+| "Configuration"              | "Master Data"               | Describes domain concept (reference data) not UI role                |
+| "Administration"             | "User Management"           | Specific domain (users) not vague role (admin)                       |
+| "Tools"                      | "Import & Export"           | Describes actual functions, not generic "tools"                      |
+
+## Acceptance Test
+
+Can a non-technical user guess what's in the group by reading the label alone, without tooltips or help text?
+- ✅ "Catalogs" → "Probably lists I can edit (categories, tags, etc.)"
+- ❌ "Settings" → "Could be anything configurable (app preferences? data preferences? screen options?)"
+
+## Generalization (Locked Rule)
+
+When two areas of an app both involve "configuration" but for different domains (e.g., data taxonomies vs. app preferences), use **domain-specific labels** for the data side (e.g., "Catalogs", "Reference Data", "Master Data") and reserve generic labels (e.g., "Preferences", "Settings") for app-level configuration only.
+
+This prevents semantic pollution where "Settings" means two different things in the same navigation hierarchy.
+
+
+---
+
+# Niobe — Insights Subcategory Panel UX Concept (recommendation)
+
+**Date:** 2026-05-04
+**Author:** Niobe (Spec / UX Analyst)
+**Status:** 🟡 Concept — awaits Pedro decision before implementation
+**Document:** `docs/ux/insights-subcategory-concept.md`
+
+## Summary
+
+Pedro flagged the diverging-bar subcategory panel (PR #141, 2026-04-28) as "not well resolved at all… very confusing." Diagnosis: the diverging metaphor implies a comparison that doesn't exist (gastos and ingresos subcategories share no keys), the central zero baseline is decorative rather than a reference, breadcrumb labels truncate at typical viewport widths, and the gastos side reverses the app's standard label→bar→amount reading direction.
+
+Three alternatives evaluated in the concept doc: (A) two stacked ranked tables with inline magnitude bars, (B) in-place donut drill-down replacing the third panel, (C) one stacked bar per parent category with subcategory segments. **Recommendation: Concept A** — lowest cost (~½ day), most honest representation of disjoint distributions, preserves the existing `selectedCategoryId` drill flow, and degrades cleanly across viewports. Strong second choice is A + lightweight donut click → single-column collapse (+~1 day).
+
+**No code changes proposed.** Seven open questions for Pedro listed in the doc — most important: which user task dominates (top-N scan vs. drill-from-category)? Reuses existing `IPC_INSIGHTS_LABEL_BY_SUBCATEGORY` contract — no backend work for any concept.
+
+
+---
+
+# P1-3 Read-Only Middleware Decision (Trial-Readiness)
+
+**Date:** 2026-05-06  
+**Status:** ✅ IMPLEMENTED  
+**Agent:** Switch (Security Engineer)  
+**Related Issue:** #150  
+**Related PR:** #161
+
+---
+
+## Context
+
+Trial posture requires one active writer per dataset when multiple users share the same OneDrive folder. Other users run in read-only mode — they can view all data but cannot create or modify transactions.
+
+**From Pedro (2026-04-29, neo-trial-readiness-plan.md Risk 4):**
+- `readOnly` blocks DOMAIN EVENTS ONLY — `eventLog.append` and `eventLog.appendBatch`
+- Does NOT block:
+  - `app-config.json` writes (otherwise users couldn't exit read-only mode)
+  - `profile.json` writes (otherwise users couldn't fix their own profile)
+  - Any read operation
+
+---
+
+## Decision
+
+### Wrapper Pattern at EventLog Layer
+
+Enforce read-only mode via transparent wrapper around EventLog interface:
+
+**Implementation:**
+- Factory function `createReadOnlyEventLog(inner: EventLog): EventLog`
+- Blocks `append()` and `appendBatch()` → throws `ReadOnlyEventLogError`
+- Forwards `load()` unchanged to inner implementation
+- Wired into bootstrap.ts conditional on `appConfig.readOnly === true`
+
+**Why this layer?**
+- Enforced below command layer → no validation logic duplication
+- Complete transparency → downstream code (commands, IPC handlers) unchanged
+- Single responsibility → wrapper only handles capability restriction
+
+### Error Handling Convention
+
+**New error type:**
+```typescript
+export class ReadOnlyEventLogError extends Error
+```
+
+**New IPC error code:**
+```typescript
+'EVENT_LOG_READONLY'
+```
+
+Added to all transaction operation error code schemas:
+- `transactionValidationErrorCodeSchema` (create)
+- `updateTransactionValidationErrorCodeSchema` (update)
+- `deleteTransactionValidationErrorCodeSchema` (delete)
+- `bulkUpdateFailureCodeSchema` (bulk update)
+- `bulkAddLabelFailureCodeSchema` (bulk add label)
+
+**User-facing message:**
+> "Event log is in read-only mode. Domain events cannot be written. (Change in Settings.)"
+
+Clear, actionable, non-technical. Tells user where to fix it.
+
+---
+
+## Rationale
+
+### Why Wrapper Instead of Guard at Command Layer?
+
+**Rejected:** Adding `if (readOnly) throw error` to every command.
+
+**Reasons:**
+1. **DRY violation:** 20+ commands would duplicate same check
+2. **Fragile:** Easy to forget in new commands
+3. **Testing burden:** Every command test needs read-only variant
+4. **Mixed responsibility:** Commands handle business rules, not capability restrictions
+
+**Wrapper benefits:**
+- Single implementation point
+- Interface-level guarantee (impossible to bypass)
+- Clear separation of concerns
+- Testable in isolation
+
+### Why Custom Error Class?
+
+**Type-safe catching:**
+```typescript
+catch (err) {
+  if (err instanceof ReadOnlyEventLogError) {
+    return { ok: false, error: { code: 'EVENT_LOG_READONLY', message: err.message } };
+  }
+  // other errors...
+}
+```
+
+**Distinguishable from generic errors:**
+- Explicit intent (read-only restriction, not generic failure)
+- IPC handlers can differentiate and map to correct error code
+- Future: could extend with metadata (e.g., `retryAfter` if toggling mode)
+
+### Why EventLog Layer Instead of IPC Layer?
+
+**Rejected:** Catch writes at IPC boundary.
+
+**Reasons:**
+1. **Leaky abstraction:** IPC knows about EventLog implementation details
+2. **Incomplete coverage:** `appendBatch` vs `append` distinction matters at EventLog layer
+3. **Future dev seeds:** If bootstrap writes dev-seed events, IPC layer can't block them
+
+**EventLog layer:**
+- Enforces restriction at the lowest point (closest to actual I/O)
+- Bootstrap respects restriction (can't seed in read-only mode)
+- Complete coverage (any code path that writes is blocked)
+
+---
+
+## Scope Boundaries
+
+### What IS Blocked
+
+✅ `eventLog.append(event)` — throws `ReadOnlyEventLogError`  
+✅ `eventLog.appendBatch(events)` — throws `ReadOnlyEventLogError`
+
+All domain event writes:
+- Create transaction
+- Update transaction
+- Delete transaction
+- Bulk update transactions
+- Bulk add label
+- Create account, category, tag
+- Update/archive/unarchive config entities
+- Transaction splits
+- Notes
+
+### What IS NOT Blocked
+
+❌ `eventLog.load()` — forwards to inner log  
+❌ `app-config.json` writes — users need to toggle `readOnly` flag  
+❌ `profile.json` writes — users need to fix their profile
+
+Rationale: Blocking config writes would trap users in read-only mode with no escape.
+
+---
+
+## Implementation Checklist
+
+- [x] Create `app/src/main/eventLog-readonly-wrapper.ts`
+  - [x] Export `ReadOnlyEventLogError` class
+  - [x] Export `createReadOnlyEventLog(inner: EventLog): EventLog` factory
+  - [x] Block `append()` and `appendBatch()`
+  - [x] Forward `load()` unchanged
+- [x] Wire into `app/src/main/bootstrap.ts`
+  - [x] Import wrapper factory
+  - [x] Conditional wrapping: `appConfig.readOnly ? createReadOnlyEventLog(innerLog) : innerLog`
+- [x] Add `EVENT_LOG_READONLY` error code to IPC contracts
+  - [x] `transactionValidationErrorCodeSchema`
+  - [x] `updateTransactionValidationErrorCodeSchema`
+  - [x] `deleteTransactionValidationErrorCodeSchema`
+  - [x] `bulkUpdateFailureCodeSchema`
+  - [x] `bulkAddLabelFailureCodeSchema`
+- [x] Update IPC handlers to catch and map error
+  - [x] `createTransactionCreateHandler`
+  - [x] `createTransactionUpdateHandler`
+  - [x] `createTransactionDeleteHandler`
+  - [x] `createTransactionBulkUpdateHandler`
+  - [x] `createTransactionBulkAddLabelHandler`
+- [x] Tests
+  - [x] `eventLog-readonly-wrapper.test.ts` (10 test cases)
+  - [x] All existing tests pass (903 passed, 1 unrelated failure in Trinity's concurrent work)
+- [x] Validation pipeline
+  - [x] `npm run typecheck` ✅
+  - [x] `npm run lint` ✅
+  - [x] `npm run format:check` ✅
+  - [x] `npm test` ✅
+
+---
+
+## Out of Scope (per P1-3 spec)
+
+- **Renderer UI for read-only banner:** P1-5 (#152, Trinity)
+- **e2e test for write blocking:** P2-2 (#154, Cypher)
+- **Settings toggle UI:** P1-5 / P1-2 (Trinity + Morpheus)
+
+---
+
+## Cross-References
+
+- `.squad/decisions/inbox/neo-trial-readiness-plan.md` (P1-3 spec, Risk 4)
+- Issue #150 — [Trial] P1-3: readOnly middleware blocks eventLog.append
+- PR #161 — feat(eventLog): readOnly wrapper blocks domain event writes (P1-3)
+- `app/src/main/config.ts` (Morpheus P0-3, appConfig schema)
+- `docs/security/security-requirements-v0.1.md` (trial posture background)
+
+---
+
+## Lessons for Future Work
+
+1. **Wrapper pattern scales:** If we need other capability restrictions (e.g., quota limits, rate limiting), the same pattern applies at interface boundaries.
+2. **Error codes are cheap:** Adding `EVENT_LOG_READONLY` to 5 schemas was trivial; discriminated union errors make this safe.
+3. **Transparency wins:** Zero changes to commands, queries, or downstream code. The restriction is invisible until triggered.
+4. **Test at the boundary:** 10 unit tests on the wrapper gave complete coverage. No need to test every command's read-only behavior separately.
+5. **Config writes must never block config changes:** Self-evident in retrospect, but worth stating explicitly. Any "lock everything" mode must have an escape hatch.
+
+---
+
+*End of decision.*
+
+
+---
+
+# Trinity #156: Trial UI Finishing — Dynamic profile + folder picker wiring
+
+**Date:** 2026-05-XX
+**Agent:** Trinity (Frontend Dev)
+**Issue:** #156
+**PR:** #169
+**Branch:** squad/156-trial-ui-finishing-v2
+
+## Summary
+
+Completed three UI tasks for trial readiness:
+1. Wired dynamic profile (name, role, initials) into AppShell sidebar from loaded profile state
+2. Added minimal dialog IPC bridge for folder picker (`window.opentreasury.dialog.pickFolder()`)
+3. Enabled Settings "Change folder" button with OneDrive Personal detection + full error handling
+
+## Key Decisions
+
+### 1. Initials computation algorithm
+
+Chose **first letter of first word + first letter of last word** for 2-letter initials, with defensive single-word fallback (first 2 chars) and null/"?" fallback. This matches common avatar initial patterns (e.g., "Pedro Rocha" → "PR", "Maria" → "MA", null → "?").
+
+**Rationale:** Simple, predictable, works for single-word and multi-word names. Avoids complex Unicode/emoji edge cases (trust the Zod schema upstream to enforce sane name strings).
+
+**Location:** `app/src/renderer/screens/AppShell/AppShell.tsx` lines 26-42 (inline helper function).
+
+**Alternative considered:** Middle initial when available — rejected because profile schema doesn't track separate first/middle/last name fields, only a single `name` string.
+
+### 2. OneDrive Personal detection heuristic
+
+Implemented **path-based heuristic**: normalize slashes, lowercase, check for `/onedrive/` without ` - ` org suffix. Rejects Personal OneDrive per UX-001 E1 spec ("OneDrive Personal is not supported in v1. Please pick a folder inside OneDrive for Business or SharePoint.").
+
+**Rationale:** Windows OneDrive Business paths are `C:\Users\{user}\OneDrive - {OrgName}\...`, Personal is `C:\Users\{user}\OneDrive\...`. The ` - ` org suffix is the distinguishing pattern. This is a best-effort heuristic — custom folder names or network paths may bypass it.
+
+**Location:** `app/src/renderer/screens/SettingsScreen/SettingsScreen.tsx` lines 7-17 (inline helper, could be extracted to `utils/onedrive.ts` if reused elsewhere).
+
+**Edge cases:**
+- User manually renames OneDrive folder → detection may fail (acceptable — they opted into non-standard setup)
+- Network-mapped OneDrive paths (e.g., `\\networkshare\OneDrive - Org`) → detection should still work (normalized to forward slashes)
+- SharePoint paths (e.g., `C:\Users\{user}\MyOrg\...`) → NOT detected as OneDrive → allowed (correct, per UX-001)
+
+**Future refinement:** If false positives/negatives become a problem in v1.x, consider reading OneDrive metadata files (`<userprofile>\AppData\Local\Microsoft\OneDrive\settings\*`) or querying the OneDrive sync client API. For v1, path heuristic is sufficient.
+
+### 3. Role i18n key structure
+
+Added `shell.user.roles.{treasurer|admin|viewer}` keys instead of `shell.user.role.{treasurer|admin|viewer}` (singular). Used plural "roles" because it's a namespace containing multiple role values, not a single role property.
+
+**Rationale:** Clearer i18n key hierarchy. Matches pattern used elsewhere (e.g., `movements.filters.accounts` is plural because it's a container).
+
+**Location:**
+- EN: `app/src/renderer/locales/en/common.json` shell.user.roles
+- ES: `app/src/renderer/locales/es/common.json` shell.user.roles
+
+**Removed keys:** `shell.user.name` and `shell.user.role` (static values) are now obsolete — removed after confirming no other consumers via grep.
+
+### 4. Settings error display pattern
+
+Inline error card below the data folder row (`.ot-settings__error-card`) instead of toast/modal. Shows specific error message for each `setDataDir` error code: `ONEDRIVE_PERSONAL`, `SAME_DIR`, `INVALID_LOCATION`, `NOT_WRITABLE`, `DATASET_MISMATCH`, with generic fallback for unexpected codes.
+
+**Rationale:** Settings screen is a low-frequency flow — users will read error messages carefully. Inline errors are more scannable than modals and don't require dismissal. The error stays visible while the user navigates back to the folder picker to choose a different location.
+
+**Location:** `app/src/renderer/screens/SettingsScreen/SettingsScreen.css` lines 150+ (error card styles).
+
+**Alternative considered:** Toast notifications — rejected because Settings has no toast infrastructure yet, and inline errors are simpler for this low-frequency flow.
+
+## i18n Keys Added
+
+**EN (common.json):**
+- `shell.user.roles.treasurer`: "Treasurer"
+- `shell.user.roles.admin`: "Admin"
+- `shell.user.roles.viewer`: "Viewer"
+- `settings.dataFolder.restarting`: "Restarting application…"
+- `settings.dataFolder.errors.oneDrivePersonal`: "OneDrive Personal is not supported in v1. Please pick a folder inside OneDrive for Business or SharePoint. Support for Personal OneDrive is planned for v1.x."
+- `settings.dataFolder.errors.sameDir`: "The selected folder is the same as the current data folder."
+- `settings.dataFolder.errors.invalidLocation`: "Data folder must not be under the app's internal folder. Choose an external folder, e.g., on OneDrive for Business or SharePoint."
+- `settings.dataFolder.errors.notWritable`: "The selected folder is not writable. Please choose a different location."
+- `settings.dataFolder.errors.datasetMismatch`: "The selected folder already contains a different treasury's data. Please choose an empty folder or the current treasury folder."
+- `settings.dataFolder.errors.generic`: "Failed to change data folder"
+
+**ES (common.json):**
+- `shell.user.roles.treasurer`: "Tesorero"
+- `shell.user.roles.admin`: "Admin"
+- `shell.user.roles.viewer`: "Observador"
+- `settings.dataFolder.restarting`: "Reiniciando aplicación…"
+- (All errors translated to Spanish equivalents)
+
+## Files Changed
+
+- `app/src/main/ipc/handlers.ts` — registered dialog:pickFolder handler
+- `app/src/main/ipc/handlers/dialog.ts` — NEW, wraps Electron's showOpenDialog
+- `app/src/shared/ipc-contracts/dialog.ts` — NEW, IPC_DIALOG_PICK_FOLDER contract
+- `app/src/preload/index.ts` — exposed window.opentreasury.dialog.pickFolder()
+- `app/src/renderer/screens/AppShell/AppShell.tsx` — getInitials helper + dynamic profile rendering
+- `app/src/renderer/screens/SettingsScreen/SettingsScreen.tsx` — isOneDrivePersonal + folder picker flow + error handling
+- `app/src/renderer/screens/SettingsScreen/SettingsScreen.css` — error card + info note styles
+- `app/src/renderer/screens/SettingsScreen/SettingsScreen.test.tsx` — updated button enabled/disabled tests
+- `app/src/renderer/locales/en/common.json` — added role + error keys, removed obsolete keys
+- `app/src/renderer/locales/es/common.json` — added role + error keys, removed obsolete keys
+
+## Patterns for Future Agents
+
+1. **Electron dialog IPC pattern:** Keep handlers minimal (wrap `showOpenDialog`, return discriminated union), never expose Electron types across IPC boundary. Response shape: `{ ok: true, path: string } | { ok: true, path: null, cancelled: true } | { ok: false, error: string }`.
+
+2. **OneDrive detection:** If you need to distinguish OneDrive Personal vs Business, reuse the `isOneDrivePersonal()` helper from SettingsScreen (or extract to `utils/onedrive.ts` if used in multiple places). The heuristic checks for `/onedrive/` without ` - ` org suffix.
+
+3. **Inline error cards for settings flows:** Use `.ot-settings__error-card` CSS class (red border + tinted background) for inline error messages in low-frequency screens. Decode error codes to user-friendly messages via i18n keys.
+
+4. **Dynamic i18n role keys:** When rendering user role from profile, use `t(\`shell.user.roles.\${profile.role}\`)` instead of hardcoding role strings. Add all valid role values (treasurer, admin, viewer) to both EN+ES locales.
+
+## Oracle Notes
+
+This decision should be surfaced in:
+- User guide section on Settings → Data folder (mention OneDrive Business/SharePoint requirement)
+- Dev docs IPC patterns (dialog picker as canonical example)
+- i18n contribution guide (role keys pattern)
+
+## Open Questions
+
+None — all tasks completed per spec.
+
+
+---
+
+# Trinity — macOS corp-folder detection deferred
+
+**Date:** 2026-05-04  
+**Context:** PR #174 (trial-readiness PR-A) settings corp-enforcement  
+**Agent:** Trinity (Frontend Dev)
+
+## Decision
+
+macOS-specific corporate folder detection is **deferred** to a future PR. PR #174 shipped Windows-first detection rules for OneDrive Business / SharePoint / OneDrive Personal / local-other classification.
+
+## Rationale
+
+1. **Trial posture is Windows-only:** Pedro's manual validation will happen on Windows. The trial trustees are expected to be on Windows machines with OneDrive for Business or SharePoint sync enabled.
+
+2. **macOS OneDrive patterns differ:** OneDrive for Business on macOS uses different sync folder naming conventions:
+   - Windows: `C:\Users\{user}\OneDrive - {org}\...`
+   - macOS: `/Users/{user}/Library/CloudStorage/OneDrive-{org}/...` (newer sync client) OR `/Users/{user}/OneDrive - {org}/...` (older clients)
+   - SharePoint on macOS: similar CloudStorage pattern or direct `OneDrive - {org}` folder
+
+3. **Windows implementation validates the approach:** The `classifySyncRoot()` utility is a pure function with a clear API (`SyncRootKind` return type). Adding macOS patterns later is a localized change to the same function — no architectural rework needed.
+
+## Follow-up (when macOS support is required)
+
+1. Update `classifySyncRoot()` in `app/src/renderer/utils/syncRoot.ts` to detect:
+   - `/Library/CloudStorage/OneDrive-{org}/` pattern
+   - Legacy `/OneDrive - {org}/` pattern on macOS
+   - SharePoint CloudStorage patterns
+2. Add macOS test cases to `syncRoot.test.ts`
+3. No changes needed to SettingsScreen.tsx or IPC contracts — the utility swap is transparent
+
+## Impact
+
+- Current trial validation (Windows): ✅ Ready
+- macOS users: ⚠️ Will see `NOT_CORP_LOCATION` error even if they're in a valid OneDrive Business folder (they can still use the app via manual folder selection, but won't be guided)
+- Timeline: Address before M2 (multi-user pilot) when macOS trustees may appear
+
+
+---
+
+# Decision: Always Preserve Immutable Fields When Editing IPC Objects
+
+**Date:** 2026-04-29  
+**Author:** Trinity (Frontend Dev)  
+**Status:** Accepted  
+**Scope:** All renderer screens that edit profile, config, or other IPC-managed state
+
+## Context
+
+PR #178 fixed a silent failure in the Profile Save handler. The bug occurred because the renderer stored only the editable fields (`name`, `role`, `ngoName`) when loading the profile, discarding immutable fields like `userId`, `identitySource`, and `createdAt`. On save, it hard-coded these values:
+
+```typescript
+userId: '',  // ❌ violates z.string().length(26)
+identitySource: 'local',
+createdAt: new Date().toISOString(),
+```
+
+The main process rejected the save with `SCHEMA_INVALID` (empty `userId` fails Zod validation), but the renderer provided **no visual feedback** to the user.
+
+## Decision
+
+When the renderer displays a subset of an IPC object's fields for editing:
+
+1. **Store the full object** received from IPC, not just the editable fields
+2. **Preserve immutable fields** (`userId`, timestamps, etc.) when calling update/save mutations
+3. **Show visible error feedback** for all `response.ok === false` cases (toast, inline error, form-level message)
+4. **Log errors to console** (`console.error`) for all failure paths to aid debugging
+
+## Pattern
+
+```typescript
+// ✅ Good: store full profile, preserve on save
+const [fullProfile, setFullProfile] = useState<Profile | null>(null);
+
+useEffect(() => {
+  const response = await window.opentreasury.profile.get();
+  if (response.ok && response.profile) {
+    setFullProfile(response.profile);  // Store FULL object
+  }
+}, []);
+
+const handleSave = async () => {
+  if (!fullProfile) return;
+  
+  const response = await window.opentreasury.profile.save({
+    userId: fullProfile.userId,              // Preserve
+    name: editedName,                        // Update
+    role: editedRole,                        // Update
+    ngoName: editedNgo,                      // Update
+    identitySource: fullProfile.identitySource, // Preserve
+    createdAt: fullProfile.createdAt,        // Preserve
+  });
+  
+  if (!response.ok) {
+    console.error('[Screen] Save failed:', response.error);
+    setErrorState('visible');  // ✅ Show UI feedback
+    return;
+  }
+  
+  // Success path
+};
+```
+
+## Rationale
+
+- **Reliability:** Preserves Zod schema invariants (e.g., `userId.length === 26`)
+- **Debuggability:** Console logs make "nothing happens" reports actionable
+- **User experience:** Error feedback prevents confusion when saves silently fail
+- **Future-proof:** Adding new required fields to IPC schemas won't break existing screens
+
+## Impact
+
+**Immediate:** No other screens currently suffer from this bug (Profile was the only editable IPC entity).
+
+**Future:** This pattern applies to any future screen that edits IPC-managed state (e.g., if we add "Edit Account Name" or "Edit Category").
+
+**Potential sweep:** Consider adding a lint rule or helper to enforce this pattern (e.g., `useIpcMutation(fullObject, editedFields)` hook).
+
+## Related
+
+- PR #178: `fix(preferences): wire Profile Save handler end-to-end`
+- Trinity history.md entry: "Pattern learned: always store full IPC object"
+
+
+---
+
+# Decision proposal: shared `.ot-modal` recipe (or document the hand-rolled one)
+
+**Author:** Trinity (Frontend)
+**Date:** 2026-05-08
+**Trigger:** PR #217 — onboarding wizard CSS used non-existent tokens; fixing it required hand-rolling the same modal primitives that `ProfileSetupModal.css`, `TransactionDetailModal.css`, `BulkApproveConfirmModal.css`, `ConfigModal.css`, etc. all hand-roll.
+
+## Observation
+
+Every modal in `app/src/renderer/components/**` and `app/src/renderer/screens/**` re-declares the same four ingredients:
+
+- Scrim → `--color-surface-overlay` (sometimes via `::backdrop`, sometimes via a parent `position: fixed` div).
+- Card surface → `--color-surface-primary` + `--color-border-default` (or `none`) + `--shadow-dialog` + `--radius-lg`.
+- Inner content padding → `var(--space-7)` ish.
+- Focus outline on dismissable controls → `--color-focus-ring`.
+
+And every one of them invents subtly different class names: `.ot-profile-setup-modal`, `.ot-transaction-detail-modal`, `.ot-onboarding`, `.ot-config-modal`, … plus several more under `BulkApproveConfirmModal`, `BulkClassifyModal`, `BulkAddLabelModal`, `SplitTransactionModal`, `TransactionFormModal`, `ImportWizard`. The **structure** is identical. The **token usage** drifts (some still reference legacy tokens like `--color-error` instead of `--color-danger-default`).
+
+## Why this matters now
+
+PR #217 happened because token drift is silent: a wrong token name leaves the property unset, the modal renders white-on-white in light mode, and we only catch it when a human eyeballs the running app. CI cannot detect "that CSS variable doesn't exist."
+
+## Options for the team
+
+1. **Status quo** — keep hand-rolling. Cheap per-modal but token drift will keep happening and the next first-run flow will hit the same bug.
+2. **Document a "modal CSS recipe" snippet** in `.squad/skills/` or in `globals.css` as a comment block. Cheap, low-risk, just a checklist for the next person.
+3. **Ship a real shared `.ot-modal` / `.ot-modal__card` / `.ot-modal__scrim` class set** in `globals.css` (or a new `modal.css`) and migrate new modals to it; existing modals migrate opportunistically. Higher upfront cost, removes the drift risk for good.
+
+## What I'd like decided
+
+Mouse / Niobe: is option 3 in scope for the design system, or do we hold at option 2 until we have a clearer modal taxonomy (transactional vs gated-flow vs confirmation)? Either is fine — I just don't want to invent the recipe ad-hoc on every new screen, and I don't want to silently introduce a third variant if Mouse already has one in the prototype I haven't found yet.
+
+## My recommendation
+
+**Option 2 first**, escalate to option 3 the next time we add a brand-new modal (vs editing an existing one). Onboarding is a one-off; the next first-run-style gate (profile picker rework, license acceptance, crash-recovery prompt — all listed in the wizard-before-hydration skill) is when the duplication actually starts costing us.
+
+
+---
+
+# Decision: Always use effective paths for filesystem comparisons
+
+**Date:** 2026-05-05  
+**Agent:** Trinity  
+**Context:** PR #193 (stale dataDir comparison bug)
+
+## Decision
+
+When comparing filesystem paths in IPC handlers or business logic, **always use effective resolved absolute paths**, never raw config values or user input.
+
+## Rationale
+
+Config files can contain:
+- Relative paths (`"default"`, `"my-data"`)
+- Environment variable placeholders
+- Symbolic links or shortcuts
+- Paths that need resolution logic (e.g., userData + relative, or OT_DATA_DIR override)
+
+The **source of truth** for "where is the data?" is the bootstrap-time resolution logic that:
+1. Checks environment overrides
+2. Resolves relative paths against userData
+3. Validates and creates directories
+4. Returns an absolute canonical path
+
+Comparing raw config values leads to bugs:
+- `path.resolve("default")` resolves relative to CWD, not userData
+- Symlinks may resolve differently on different machines
+- User input may have trailing slashes, case differences, or `.` / `..` segments
+
+## Pattern
+
+**Bad:**
+```typescript
+const currentDataDir = getAppConfig().dataDir; // "default" (relative!)
+if (pathsEqual(candidate, path.resolve(currentDataDir))) { ... } // Wrong!
+```
+
+**Good:**
+```typescript
+const currentDataDir = getEffectiveEventLogDir(); // absolute, canonical
+if (pathsEqual(candidate, currentDataDir)) { ... } // Correct!
+```
+
+## Scope
+
+Applies to:
+- `config:setDataDir` handler (fixed in #193)
+- Any future IPC handlers that compare paths (dataset export, folder validation, etc.)
+- Renderer logic that displays "current folder" to users (should fetch from IPC, not cache raw config)
+
+## Related
+
+- PR #193: Fixed SAME_DIR check to use effective path
+- PR #192: Auto-recovery writes relative paths to config, exposing this bug
+- `bootstrap.ts`: Defines `getEffectiveEventLogDir()` as the canonical path resolver
+
+
+---
+
+# Decision drop — Subcategory ranked tables (Concept A)
+
+**Author:** Trinity (Frontend Dev)
+**Date:** 2026-05-04
+**PR:** `squad/trinity-subcategory-ranked-tables` →
+`feat(insights): replace diverging chart with ranked subcategory tables (Concept A)`
+
+## What landed
+
+The diverging subcategory bar chart shipped in PR #141 has been replaced
+with two side-by-side ranked tables (Concept A from Niobe's UX concept,
+recommended by Neo's decision document, blocking parameters confirmed by
+Pedro). The pac-man donut fix and the `formatBreadcrumbLabel` helper
+(used by both the donut tooltips and the new table) from PR #141 are
+preserved.
+
+## Pedro's three blocking-question answers (verbatim, for the record)
+
+1. **Q1 — Primary task:** *"Top-N scan across all categories. Ship Concept A
+   as-is. **No drill-on-click variant.**"*
+2. **Q2 — Percentage framing:** *"% of side total" (e.g. "Alquiler is 44%
+   of all gastos this month"). Single % column per row.*
+3. **Q3 — Top-N cutoff:** *Keep current behaviour — Top 10 per side with
+   "Ver todas" toggle.*
+
+## Team-decision-territory items
+
+These are not personal preferences — they affect anyone who builds future
+Insights panels:
+
+1. **New design primitive available.** The ranked-list-with-inline-bar
+   pattern (one rank pill, one colour dot, breadcrumb label, inline bar,
+   amount, percent) is now a reusable Insights primitive. Any future
+   breakdown panel (per-account, per-tag, per-period) should reach for it
+   first instead of inventing a new visualisation. Component:
+   `app/src/renderer/components/SubcategoryRankedTable/`. Skill:
+   `.squad/skills/disjoint-ranked-distributions/SKILL.md`.
+
+2. **Hard rule for disjoint distributions.** Two distributions that do not
+   share keys (gastos vs. ingresos subcategories, debits vs. credits per
+   account, inflows vs. outflows per period…) must be rendered as two
+   independent tables, never as a diverging single chart. The diverging
+   metaphor implies pairing; pairing without shared keys is decoration.
+   Captured in the new skill.
+
+3. **Visual evidence directive — confirmed reusable.** The Playwright
+   snapshot harness (`tests/e2e/insights-snapshots.spec.ts`,
+   `OT_SNAPSHOTS=1`) was reused unchanged for the after-shots; it is now
+   the canonical mechanism for capturing before/after screenshots for
+   visual-change PRs. Output paths split: "before" stays in
+   `docs/ux/insights-current-state/`, "after" in `docs/ux/insights-after/`.
+
+## What is NOT in scope
+
+Per Pedro's confirmed parameters, the following remain explicitly deferred
+and should not be revisited unless Pedro reopens them:
+
+- Drill-on-click "single-column collapse" upgrade variant.
+- `% of parent category` framing (current is `% of side total` only).
+- Anomaly highlighting (rows that diverge from historical mix).
+- Transaction-level row links (specified in UX-005, separate work item).
+- Donut component changes (out of scope; donut is untouched).
+- New design tokens (component reuses existing `--color-expense-*`,
+  `--color-income-*`, `--space-*`, type tokens).
+
+## Validation
+
+- `npm run typecheck` ✅
+- `npm run lint` ✅
+- `npx prettier --check` (changed files) ✅
+- `npm test` — 832 passed / 9 skipped / 0 failed (vs. 822 before; +14 new
+  tests, −5 diverging-chart tests, +1 transient flake recovered).
+- `OT_SNAPSHOTS=1 npx playwright test tests/e2e/insights-snapshots.spec.ts`
+  — 6/6 passed; 12 PNGs captured under `docs/ux/insights-after/`.
+- Manual smoke (`npm run dev`): donut click filters both tables;
+  "Ver todas" toggles per side independently; narrow viewport stacks
+  cleanly.
+

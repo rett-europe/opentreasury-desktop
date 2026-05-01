@@ -252,6 +252,23 @@ PR #91 `mouse/saldo-prototype-layout` commit `1d3fcb7`: Saldo compare-mode now r
 
 **Queued follow-up work:** Responsive navbar (collapse on small screens) + non-truncating date column in Movements page. Both captured in separate directive inbox → decisions.md. Owners: Mouse (spec) + Trinity (impl). Mouse eligible — Saldo lockout is artifact-scoped.
 
+---
+
+### 2026-05-01: Cross-Agent Heads-Up — Shared Modal Recipe Proposal (from Trinity)
+
+**Status:** DECISION INBOX MERGED → awaiting design review
+
+Trinity filed a proposal in `.squad/decisions/` about a potential shared `.ot-modal` CSS recipe to prevent token-drift bugs across ProfileSetupModal, TransactionDetailModal, and other dialog-like surfaces. Pattern match: all modals re-implement scrim, card, padding, focus ring with subtly different class names and sometimes phantom token references.
+
+**Options on the table:**
+1. Keep hand-rolling (status quo) — cheap per-modal, token drift continues
+2. Document "modal recipe" checklist in `.squad/skills/` — low-risk, prevents ad-hoc invention
+3. Ship shared `.ot-modal` / `.ot-modal__card` / `.ot-modal__scrim` in `globals.css` — higher upfront cost, removes drift risk permanently
+
+**Trinity's recommendation:** Option 2 first (document checklist), escalate to Option 3 next time a brand-new modal ships (vs. editing existing).
+
+**Mouse action:** Design review needed if Option 3 proceeds. Confirm the recipe aligns with prototype modal styling and that the scrim/card/padding tokens are the right ones to lock.
+
 ### 2026-04-26: Pairing Rule — Separate Visual Judgment from Code Interpretation
 After PR #91 Saldo Iteration 3 (mouse/saldo-prototype-layout, commit b41f973): **always pair with Trinity on UI work.** Mouse owns visual judgment / prototype fidelity; Trinity owns .tsx/.css. PR #91 went 3 iterations because a single agent (Mouse) was answering both "is this what the prototype shows?" AND "is the React tree correct?" — independent questions requiring independent judgment. Default pattern: Mouse drafts visual spec + reviews against prototype; Trinity implements and ships code. This rule is now locked in decisions.md under Process / Pairing.
 
