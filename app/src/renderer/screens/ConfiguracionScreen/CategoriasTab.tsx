@@ -280,14 +280,16 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
           ) : null}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <Button
-            variant="primary"
-            size="md"
-            leadingIcon={<Plus size={16} />}
-            onClick={() => setModalOpen(true)}
-          >
-            {t('configuracion.categorias.add')}
-          </Button>
+          {state.kind === 'loaded' && state.categories.length > 0 ? (
+            <Button
+              variant="primary"
+              size="md"
+              leadingIcon={<Plus size={16} />}
+              onClick={() => setModalOpen(true)}
+            >
+              {t('configuracion.categorias.add')}
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -505,19 +507,21 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                       >
                         {t('configuracion.categorias.detail.rename')}
                       </Button>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        leadingIcon={<Plus size={14} />}
-                        onClick={() => {
-                          setSubAddOpen(true);
-                          setSubAddName('');
-                          setSubError(null);
-                        }}
-                        title={t('configuracion.categorias.actions.addSubTitle')}
-                      >
-                        {t('configuracion.categorias.detail.addSub')}
-                      </Button>
+                      {visibleSubs.length > 0 ? (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          leadingIcon={<Plus size={14} />}
+                          onClick={() => {
+                            setSubAddOpen(true);
+                            setSubAddName('');
+                            setSubError(null);
+                          }}
+                          title={t('configuracion.categorias.actions.addSubTitle')}
+                        >
+                          {t('configuracion.categorias.detail.addSub')}
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
                   {subError ? (

@@ -87,7 +87,7 @@
       "monthly-trend": "Income vs. Expense · Last 12 months",
       "recent": "Recent transactions"
     },
-    "skeleton": "Preview — data in a future iteration.",
+    "skeleton": "No transactions yet. Once you add some, your monthly cashflow will appear here.",
     "card": {
       "count_one": "{{count}} transaction",
       "count_other": "{{count}} transactions"

@@ -157,14 +157,16 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
           ) : null}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <Button
-            variant="primary"
-            size="md"
-            leadingIcon={<Plus size={16} />}
-            onClick={() => setModalOpen(true)}
-          >
-            {t('configuracion.cuentas.add')}
-          </Button>
+          {state.kind === 'loaded' && state.accounts.length > 0 ? (
+            <Button
+              variant="primary"
+              size="md"
+              leadingIcon={<Plus size={16} />}
+              onClick={() => setModalOpen(true)}
+            >
+              {t('configuracion.cuentas.add')}
+            </Button>
+          ) : null}
         </div>
       </div>
 

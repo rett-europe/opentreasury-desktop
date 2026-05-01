@@ -87,7 +87,7 @@
       "monthly-trend": "Ingresos vs. Gastos · Últimos 12 meses",
       "recent": "Últimos movimientos"
     },
-    "skeleton": "Vista previa — datos en una próxima iteración.",
+    "skeleton": "Aún no hay movimientos. En cuanto registres alguno, verás aquí tu flujo de caja mensual.",
     "card": {
       "count_one": "{{count}} movimiento",
       "count_other": "{{count}} movimientos"
