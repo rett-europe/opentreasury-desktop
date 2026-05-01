@@ -39,10 +39,40 @@ let deviceIdInstance: string | null = null;
 let datasetIdInstance: string | null = null;
 let effectiveEventLogDir: string | null = null;
 let bootstrapped = false;
+let onboardingPending = false;
+
+/**
+ * True when bootstrap completed in "wizard-pending" mode — `appConfig.dataDir`
+ * was null, so we deliberately skipped event-log construction and hydration.
+ * IPC registration uses this to skip handlers that depend on the event log
+ * (everything writing through `getEventLog()`); the renderer is gated on
+ * `app:needsOnboarding` and only renders the onboarding wizard in this state.
+ *
+ * Once the user picks a folder via the wizard, `config:setDataDir` persists
+ * the choice and relaunches the process — the next bootstrap finds a non-null
+ * `dataDir` and `onboardingPending` returns false.
+ */
+export function isOnboardingPending(): boolean {
+  return onboardingPending;
+}
+
+/**
+ * Pure helper: should bootstrap defer event-log construction? Returns true
+ * when no `dataDir` has been deliberately persisted (first-run state). Kept
+ * separate from `initializeApp` so unit tests can exercise the predicate
+ * without spinning up Electron.
+ */
+export function shouldDeferEventLog(appConfig: AppConfig): boolean {
+  return appConfig.dataDir === null;
+}
 
 export function getEventLog(): EventLog {
   if (eventLogInstance === null) {
-    throw new Error('[bootstrap] getEventLog() called before initializeApp() resolved');
+    throw new Error(
+      onboardingPending
+        ? '[bootstrap] getEventLog() unavailable while onboarding wizard is pending — register data IPC handlers only after the user picks a folder'
+        : '[bootstrap] getEventLog() called before initializeApp() resolved',
+    );
   }
   return eventLogInstance;
 }
@@ -120,6 +150,23 @@ export function getEffectiveEventLogDir(): string {
     throw new Error('[bootstrap] getEffectiveEventLogDir() called before initializeApp() resolved');
   }
   return effectiveEventLogDir;
+}
+
+/**
+ * Null-tolerant variant for callers that legitimately run during the
+ * onboarding-pending state (e.g., `config:setDataDir` validating its first
+ * write). Returns null when the event log was deferred.
+ */
+export function getEffectiveEventLogDirOrNull(): string | null {
+  return effectiveEventLogDir;
+}
+
+/**
+ * Null-tolerant variant of `getDatasetId`. Returns null when bootstrap
+ * deferred the event log (onboarding pending).
+ */
+export function getDatasetIdOrNull(): string | null {
+  return datasetIdInstance;
 }
 
 /**
@@ -321,30 +368,34 @@ export async function initializeApp(): Promise<void> {
   // eslint-disable-next-line no-console
   console.log(`[bootstrap] loaded device ID: ${deviceIdInstance}`);
 
+  // First-run gate (#196 / dev:empty regression): when no `dataDir` is
+  // configured, defer event-log construction and hydration until the user
+  // picks a folder via the onboarding wizard. Without this, bootstrap would
+  // synthesize `<userData>/dev-events`, hydrate any leftover events from a
+  // previous run, and write a fresh `dataset.json` BEFORE the renderer ever
+  // gets to ask `app:needsOnboarding` — a dirty read model would be live
+  // behind the wizard. Skipping the data path keeps the wizard authoritative.
+  //
+  // The renderer is already gated on `app:needsOnboarding` (App.tsx) and
+  // refuses to mount the main UI in this state; IPC registration matches by
+  // skipping every write/query handler that depends on `getEventLog()`.
+  // After the wizard finishes, `config:setDataDir` persists the choice and
+  // relaunches — next boot finds a non-null `dataDir` and proceeds normally.
+  if (shouldDeferEventLog(appConfigInstance)) {
+    onboardingPending = true;
+    bootstrapped = true;
+    // eslint-disable-next-line no-console
+    console.log(
+      '[bootstrap] no dataDir configured — onboarding wizard pending; event log + hydration deferred until the user picks a folder',
+    );
+    return;
+  }
+
   const { dir, configChanged, newConfig } = await resolveEventLogDir(
     userDataDir,
     appConfigInstance,
   );
   effectiveEventLogDir = dir;
-
-  // If recovery fallback happened, persist the recovered state to disk
-  if (configChanged && newConfig) {
-    try {
-      await saveAppConfig(userDataDir, newConfig);
-      appConfigInstance = newConfig;
-      // eslint-disable-next-line no-console
-      console.log(
-        `[bootstrap] ✅ Persisted recovery state (dataDir: ${newConfig.dataDir}, previousDataDir: ${newConfig.previousDataDir})`,
-      );
-    } catch (err) {
-      // Log error but continue — app can still run with in-memory config
-      // eslint-disable-next-line no-console
-      console.error(`[bootstrap] ❌ Failed to persist recovery state: ${err}`);
-    }
-  }
-
-  // eslint-disable-next-line no-console
-  console.log(`[bootstrap] resolved event log directory: ${dir}`);
 
   // If recovery fallback happened, persist the recovered state to disk
   if (configChanged && newConfig) {

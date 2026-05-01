@@ -20,9 +20,10 @@ import {
 import { saveAppConfig } from '../../config.js';
 import {
   getAppConfig,
-  getDatasetId,
+  getDatasetIdOrNull,
   setAppConfig,
   getEffectiveEventLogDir,
+  getEffectiveEventLogDirOrNull,
 } from '../../bootstrap.js';
 import { CURRENT_SCHEMA_VERSION, loadDatasetMetadata } from '../../dataset.js';
 
@@ -49,12 +50,14 @@ export interface SetDataDirDeps {
   /** Returns the current full app config (defaults to bootstrap.getAppConfig).
    *  Exposed for tests; production should not pass this. */
   getCurrentConfig?(): AppConfig;
-  /** In-memory current dataDir resolver (defaults to bootstrap.getEffectiveEventLogDir).
+  /** In-memory current dataDir resolver (defaults to bootstrap.getEffectiveEventLogDirOrNull).
+   *  Returns null when bootstrap deferred the event log (first-run / onboarding).
    *  Exposed for tests; production should not pass this. */
-  getCurrentDataDir?(): string;
-  /** Current datasetId (defaults to bootstrap.getDatasetId).
+  getCurrentDataDir?(): string | null;
+  /** Current datasetId (defaults to bootstrap.getDatasetIdOrNull). Returns
+   *  null when bootstrap deferred the event log (first-run / onboarding).
    *  Exposed for tests; production should not pass this. */
-  getCurrentDatasetId?(): string;
+  getCurrentDatasetId?(): string | null;
   /** Atomic save (defaults to ../../config.js saveAppConfig). For tests. */
   saveConfig?(userDataDir: string, config: AppConfig): Promise<void>;
   /** In-memory cache update after persistence. Defaults to bootstrap.setAppConfig. */
@@ -100,8 +103,10 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
     }
 
     // 3. Reject no-op (same as currently active dataDir).
+    //    First-run state: no current dataDir means there is nothing to no-op
+    //    against, so the candidate is by definition a fresh choice.
     const currentDataDir = (deps.getCurrentDataDir ?? defaultGetCurrentDataDir)();
-    if (pathsEqual(candidate, currentDataDir)) {
+    if (currentDataDir !== null && pathsEqual(candidate, currentDataDir)) {
       return {
         ok: false,
         error: {
@@ -146,6 +151,13 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
     //    confirm dialog (Pedro flow). A schemaVersion newer than this app
     //    supports, a corrupt dataset.json, or a folder containing an old
     //    events.ndjson without dataset.json are all hard refusals.
+    //
+    //    First-run state: when there is no current datasetId (bootstrap
+    //    deferred the event log because no dataDir was configured), the
+    //    "switch workspace" semantic does not apply — there is nothing to
+    //    switch FROM. We still run the schema/corrupt/foreign checks because
+    //    those are absolute (the target folder must be safe to open), but we
+    //    skip the datasetId-mismatch check.
     const currentDatasetId = (deps.getCurrentDatasetId ?? defaultGetCurrentDatasetId)();
     const mismatch = await detectDatasetMismatch(candidate, currentDatasetId);
     if (mismatch !== null) {
@@ -161,7 +173,10 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
               code: 'DATASET_MISMATCH',
               message: mismatch.error,
               details: {
-                currentDatasetId,
+                // `kind: 'datasetId'` is only emitted when currentDatasetId
+                // is non-null (see detectDatasetMismatch — first-run state
+                // skips this branch entirely), so the assertion is safe.
+                currentDatasetId: currentDatasetId as string,
                 newDatasetId: mismatch.newDatasetId,
                 ...(mismatch.schemaVersion !== undefined
                   ? { schemaVersion: mismatch.schemaVersion }
@@ -208,12 +223,13 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
     }
 
     // 6. Persist new dataDir to app-config.json atomically.
-    //    Save the current dataDir as previousDataDir for recovery.
+    //    Save the current dataDir as previousDataDir for recovery (only when
+    //    there IS a current dataDir — first-run has no predecessor).
     const currentConfig = (deps.getCurrentConfig ?? defaultGetCurrentConfig)();
     const next: AppConfig = {
       ...currentConfig,
       dataDir: candidate,
-      previousDataDir: currentDataDir, // fallback on bootstrap failure
+      ...(currentDataDir !== null ? { previousDataDir: currentDataDir } : {}),
     };
     try {
       await (deps.saveConfig ?? saveAppConfig)(userDataDir, next);
@@ -259,12 +275,12 @@ function defaultGetCurrentConfig(): AppConfig {
   return getAppConfig();
 }
 
-function defaultGetCurrentDataDir(): string {
-  return getEffectiveEventLogDir();
+function defaultGetCurrentDataDir(): string | null {
+  return getEffectiveEventLogDirOrNull();
 }
 
-function defaultGetCurrentDatasetId(): string {
-  return getDatasetId();
+function defaultGetCurrentDatasetId(): string | null {
+  return getDatasetIdOrNull();
 }
 
 function isUnderDir(child: string, parent: string): boolean {
@@ -314,7 +330,7 @@ type DatasetMismatch =
 
 async function detectDatasetMismatch(
   dir: string,
-  currentDatasetId: string,
+  currentDatasetId: string | null,
 ): Promise<DatasetMismatch | null> {
   const meta = await loadDatasetMetadata(dir);
 
@@ -339,7 +355,9 @@ async function detectDatasetMismatch(
       };
     }
 
-    if (datasetId !== currentDatasetId) {
+    // First-run: no current workspace exists, so any datasetId in the target
+    // folder is fine — we are adopting it, not switching from another.
+    if (currentDatasetId !== null && datasetId !== currentDatasetId) {
       return {
         kind: 'datasetId',
         error: `Folder belongs to a different workspace (datasetId ${datasetId}).`,

@@ -3,11 +3,21 @@
 // These tests focus on the relaxed path resolution logic that now accepts
 // absolute paths from appConfig.dataDir and OT_DATA_DIR env var.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import type { AppConfig } from './config.js';
+
+// Mock Electron so we can import the real `shouldDeferEventLog` helper from
+// bootstrap.ts (which does `import { app } from 'electron'` at the top level)
+// without spinning up Electron in this Node-env test file.
+vi.mock('electron', () => ({
+  app: {
+    getPath: () => '/should/not/be/used',
+    getVersion: () => '0.0.0-test',
+  },
+}));
 
 // Extract the resolveEventLogDir logic for testing
 // (In the actual bootstrap.ts, this is async and private)
@@ -269,5 +279,28 @@ describe('bootstrap.ts — resolveEventLogDir path resolution', () => {
       const resolved = await testResolveEventLogDir(testDir, config, '  env-trimmed  ');
       expect(resolved).toBe(path.join(testDir, 'env-trimmed'));
     });
+  });
+});
+
+// First-run gate (#196 / dev:empty regression). Bootstrap defers event log
+// construction whenever `appConfig.dataDir === null` so the onboarding wizard
+// can render against an empty in-memory read model — no leftover events from
+// a prior run pollute the UI behind the wizard. The decision is encapsulated
+// in `shouldDeferEventLog` so the policy can be unit-tested without Electron.
+describe('bootstrap.ts — shouldDeferEventLog (onboarding gate)', () => {
+  it('returns true when no dataDir is configured (fresh first-run)', async () => {
+    const { shouldDeferEventLog } = await import('./bootstrap.js');
+    const config: AppConfig = { version: 1, dataDir: null, readOnly: false };
+    expect(shouldDeferEventLog(config)).toBe(true);
+  });
+
+  it('returns false when dataDir is set (user has chosen a folder)', async () => {
+    const { shouldDeferEventLog } = await import('./bootstrap.js');
+    const config: AppConfig = {
+      version: 1,
+      dataDir: '/some/picked/folder',
+      readOnly: false,
+    };
+    expect(shouldDeferEventLog(config)).toBe(false);
   });
 });

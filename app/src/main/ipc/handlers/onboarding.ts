@@ -14,7 +14,7 @@ import {
   appNeedsOnboardingRequestSchema,
   type AppNeedsOnboardingResponse,
 } from '../../../shared/ipc-contracts/onboarding.js';
-import { getAppConfig } from '../../bootstrap.js';
+import { isOnboardingPending } from '../../bootstrap.js';
 
 export interface NeedsOnboardingDeps {
   userDataDir(): string;
@@ -25,11 +25,15 @@ export function createAppNeedsOnboardingHandler(deps: NeedsOnboardingDeps) {
     raw: unknown,
   ): Promise<AppNeedsOnboardingResponse> {
     appNeedsOnboardingRequestSchema.parse(raw);
-    const config = getAppConfig();
     const defaultDataDir = path.join(deps.userDataDir(), 'my-data');
     return {
       ok: true,
-      needsOnboarding: config.dataDir === null,
+      // Source of truth is bootstrap's onboarding flag — it is set when
+      // `appConfig.dataDir === null` AND the event log was deferred. Reading
+      // it here keeps the wizard predicate aligned with what bootstrap
+      // actually did (no event log, no hydration), instead of re-deriving
+      // from the loaded config.
+      needsOnboarding: isOnboardingPending(),
       defaultDataDir,
     };
   };

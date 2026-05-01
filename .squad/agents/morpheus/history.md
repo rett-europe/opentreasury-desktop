@@ -2937,3 +2937,37 @@ No action needed now — Link's follow-up will consume #198 next.
 
 **Effective-path-vs-configured-path drift detection:** When displaying configured paths in UI (e.g., Preferences), always compare against the effective path actually in use. If they differ, show a warning explaining the discrepancy (env override, fallback, etc.). Prevents user confusion when config file and runtime state disagree. Applied to PreferencesScreen in PR #202.
 
+
+## Learnings — 2026-05-08 — dev:empty + onboarding hydration ordering (fix branch)
+
+**Context:** PR #215 just shipped the first-run onboarding wizard (#196) gated on `appConfig.dataDir === null`. Pedro tried `Remove app-config.json && npm run dev:empty` to exercise the wizard and observed bootstrap logging "hydrated 238 events from dev-events" before the wizard could render — proving hydration happened pre-wizard.
+
+### Findings
+
+1. **`dev:empty` was a misnomer.** The script was just `cross-env OT_SEED=none vite`. `OT_SEED=none` only suppresses the demo seed when the event log is empty; it does NOT delete `app-config.json` and does NOT wipe `dev-events/`. A fresh `dev:empty` after a previous `dev` run still hydrated all the prior events. **Fix:** introduced `scripts/dev-empty.mjs` that wipes `userData/app-config.json`, `userData/dev-events/`, and `userData/my-data/` before spawning vite with `OT_SEED=none`. `profile.json` and `device.json` are deliberately preserved (orthogonal to the data folder choice).
+
+2. **`dataDir: default` in the bootstrap log was display formatting, not a sentinel.** `config.ts` logs `dataDir: ${config.dataDir ?? 'default'}` — null prints as the literal word "default". I almost wasted time hunting a sentinel-vs-null mismatch. The `=== null` predicate in the wizard handler was correct.
+
+3. **Hydration was happening before the wizard could answer.** This is the real architectural bug. Previously, when `appConfig.dataDir === null`, bootstrap would still call `resolveEventLogDir()` (falling through to `<userData>/dev-events`), `loadDatasetId()` (creating dataset.json there), `log.load()` (hydrating any leftover events), and `replayEvents()` (folding them into the read model). Only THEN did the renderer probe `app:needsOnboarding` and render the wizard — but the read model behind the wizard was already polluted. If the user clicked "Use default location", a new dataDir was persisted and the relaunch got a clean slate, but during the brief life of the wizard the in-memory state was lying.
+
+### Fix shape
+
+**bootstrap.ts:** Added `shouldDeferEventLog(appConfig)` (pure helper; returns `appConfig.dataDir === null`) and `isOnboardingPending()` (runtime accessor). When the helper says yes, `initializeApp` early-returns after loading profile + appConfig + deviceId — no event log construction, no dataset.json write, no hydration, no seeding. Cleared a long-standing duplicated recovery-persist block while I was in there.
+
+**ipc/handlers.ts:** When `isOnboardingPending()`, skip every IPC handler whose deps require `getEventLog()` / `getDatasetId()`. The wizard only needs `app:needsOnboarding`, `dialog:pickFolder`, `config:setDataDir`, `config:get`, `profile:*`, and `shell:*` — all registered before the gate. After the user picks a folder, `setDataDir` schedules a relaunch; the next boot finds a non-null `dataDir` and registers the full set.
+
+**ipc/handlers/config.ts (`setDataDir`):** Added null-tolerance for `getCurrentDataDir()` / `getCurrentDatasetId()`:
+- Skip the SAME_DIR no-op check when current dataDir is null (no predecessor to compare against).
+- Skip the datasetId-mismatch branch when current datasetId is null (there is no workspace to switch FROM on first run; any datasetId in the target folder is being adopted, not migrated).
+- Schema-too-new and foreign-events.ndjson refusals stay absolute — the target folder must still be safe to open.
+- Don't record `previousDataDir` when there isn't one.
+
+**ipc/handlers/onboarding.ts:** Predicate switched from `config.dataDir === null` to `isOnboardingPending()`. They're equivalent today, but using the bootstrap flag aligns the wizard's "should I render?" answer with what bootstrap actually did (no event log, no hydration). This keeps the truth single-sourced.
+
+**bootstrap.ts (also):** Added `getEffectiveEventLogDirOrNull` / `getDatasetIdOrNull` accessors so `setDataDir` can introspect bootstrap state without throwing during the onboarding-pending state.
+
+### Pattern: "wizard gates must fire before any data hydration"
+
+Generalizable rule for first-run flows: when a UI gate (here: the onboarding wizard) decides whether to render the main app, the data layer behind it must NOT have already loaded anything. Otherwise the gate becomes cosmetic — the side effects already happened. Bootstrap should peek at the gate's input (the persisted choice) FIRST and skip the data path when the gate would force the wizard.
+
+I extracted this into `.squad/skills/wizard-before-hydration/SKILL.md` so future first-run flows (multi-account, profile setup, etc.) inherit the rule.
