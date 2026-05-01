@@ -341,10 +341,15 @@ export function PreferencesScreen(): JSX.Element {
     }
   };
 
-  const handleOpenExportFolder = (): void => {
-    if (exportResult?.targetDir) {
-      // Use Electron's shell to open the folder
-      window.opentreasury.shell?.openPath(exportResult.targetDir);
+  const handleOpenExportFolder = async (): Promise<void> => {
+    if (!exportResult?.targetDir) return;
+    try {
+      const result = await window.opentreasury.shell.openPath(exportResult.targetDir);
+      if (!result.ok) {
+        console.warn('[preferences] openPath failed:', result.error);
+      }
+    } catch (err) {
+      console.warn('[preferences] openPath threw:', err);
     }
   };
 

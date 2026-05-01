@@ -236,6 +236,11 @@ import {
   datasetExportResponseSchema,
 } from '../../shared/ipc-contracts/dataset.js';
 import { handleDatasetExport } from './handlers/dataset.js';
+import {
+  IPC_SHELL_OPEN_PATH,
+  shellOpenPathResponseSchema,
+} from '../../shared/ipc-contracts/shell.js';
+import { handleShellOpenPath } from './handlers/shell.js';
 import { getEventLog, getProfile, getDeviceId, getDatasetId } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { newUlid } from '../ids.js';
@@ -290,6 +295,14 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_DATASET_EXPORT, async (_event, raw: unknown) => {
     const response = await handleDatasetExport(raw);
     return datasetExportResponseSchema.parse(response);
+  });
+
+  // shell:openPath reveals a folder/file in the OS file explorer. Routed
+  // through IPC because Electron's shell module is unavailable in sandboxed
+  // preloads when imported renderer-side.
+  ipcMain.handle(IPC_SHELL_OPEN_PATH, async (_event, raw: unknown) => {
+    const response = await handleShellOpenPath(raw);
+    return shellOpenPathResponseSchema.parse(response);
   });
 
   // Panel handlers — WI-2 mock implementations

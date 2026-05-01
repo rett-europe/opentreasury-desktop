@@ -3,7 +3,7 @@
 //
 // Scaffold: exposes a stub `window.opentreasury` surface so the renderer can compile
 // against it. Real handlers land with feature work.
-import { contextBridge, ipcRenderer, webUtils, shell } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import {
   IPC_PANEL_GET_ACCOUNTS,
   IPC_PANEL_GET_ACCOUNT_BALANCES,
@@ -195,6 +195,7 @@ import {
   type ProfileSaveResponse,
   type Profile,
 } from '../shared/ipc-contracts/profile.js';
+import { IPC_SHELL_OPEN_PATH, type ShellOpenPathResponse } from '../shared/ipc-contracts/shell.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -426,8 +427,8 @@ const api = {
     },
   },
   shell: {
-    openPath: (path: string): Promise<string> => {
-      return shell.openPath(path);
+    openPath: (p: string): Promise<ShellOpenPathResponse> => {
+      return ipcRenderer.invoke(IPC_SHELL_OPEN_PATH, { path: p });
     },
   },
 } as const;
