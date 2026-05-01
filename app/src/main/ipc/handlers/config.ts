@@ -83,16 +83,16 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
       };
     }
 
-    const { newDir, confirmDatasetSwitch = false, bypassLocationCheck = false } = parsed.data;
+    const { newDir, confirmDatasetSwitch = false } = parsed.data;
     const userDataDir = deps.userDataDir();
     const candidate = path.resolve(newDir);
 
     // 2. Reject paths under userData. Data must NOT live in Electron's
     //    per-app userData (which is local-only and wiped on uninstall).
-    //    The first-run onboarding wizard (#196) explicitly offers
-    //    `<userData>/my-data` as the "Use default location" affordance, and
-    //    bypasses this check via `bypassLocationCheck: true`.
-    if (!bypassLocationCheck && isUnderDir(candidate, path.resolve(userDataDir))) {
+    //    The first-run onboarding wizard offers `<Documents>/OpenTreasury`
+    //    as the "Use default location" affordance, which is outside
+    //    userData and therefore passes this check naturally.
+    if (isUnderDir(candidate, path.resolve(userDataDir))) {
       return {
         ok: false,
         error: {

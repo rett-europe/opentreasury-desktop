@@ -172,29 +172,6 @@ describe('config:setDataDir handler', () => {
     if (!result.ok) expect(result.error.code).toBe('INVALID_LOCATION');
   });
 
-  it('allows path under userData when bypassLocationCheck=true (#196 onboarding)', async () => {
-    // First-run onboarding wizard offers `<userData>/my-data` as the
-    // "Use default location" affordance and bypasses the under-userData
-    // refusal. Other paths must still go through the rest of the validation.
-    const newDir = path.join(userDataDir, 'my-data');
-    const { deps, relaunch, exit, updateCachedConfig } = makeDeps({ userDataDir });
-    const handler = createConfigSetDataDirHandler(deps);
-
-    vi.useFakeTimers();
-    const result = await handler({ newDir, bypassLocationCheck: true });
-    expect(result).toEqual({ ok: true });
-
-    const written = JSON.parse(
-      await fs.readFile(path.join(userDataDir, 'app-config.json'), 'utf-8'),
-    );
-    expect(written.dataDir).toBe(path.resolve(newDir));
-    expect(updateCachedConfig).toHaveBeenCalledTimes(1);
-
-    await vi.runAllTimersAsync();
-    expect(relaunch).toHaveBeenCalledTimes(1);
-    expect(exit).toHaveBeenCalledWith(0);
-  });
-
   it('rejects same dir as currently active dataDir (SAME_DIR)', async () => {
     const current = path.join(externalRoot, 'current');
     await fs.mkdir(current, { recursive: true });

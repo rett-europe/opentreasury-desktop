@@ -89,12 +89,12 @@ describe('OnboardingScreen', () => {
     expect((confirm as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('Use default → preselects the suggested path and confirm sends bypassLocationCheck=true', async () => {
+  it('Use default → preselects the suggested path and confirm sends it through setDataDir', async () => {
     const user = userEvent.setup();
     mockGetStatus.mockResolvedValue({
       ok: true,
       needsOnboarding: true,
-      defaultDataDir: '/userdata/my-data',
+      defaultDataDir: '/home/test/Documents/OpenTreasury',
     });
     mockSetDataDir.mockResolvedValue({ ok: true });
 
@@ -104,7 +104,7 @@ describe('OnboardingScreen', () => {
     await user.click(useDefault);
 
     expect(screen.getByTestId('ot-onboarding-selected-path').textContent).toContain(
-      '/userdata/my-data',
+      '/home/test/Documents/OpenTreasury',
     );
 
     const confirm = screen.getByRole('button', { name: /confirm/i });
@@ -112,19 +112,18 @@ describe('OnboardingScreen', () => {
 
     await waitFor(() => {
       expect(mockSetDataDir).toHaveBeenCalledWith({
-        newDir: '/userdata/my-data',
+        newDir: '/home/test/Documents/OpenTreasury',
         confirmDatasetSwitch: true,
-        bypassLocationCheck: true,
       });
     });
   });
 
-  it('Browse → Confirm sends bypassLocationCheck=false (only the default path bypasses)', async () => {
+  it('Browse → Confirm sends the picked path with confirmDatasetSwitch=true', async () => {
     const user = userEvent.setup();
     mockGetStatus.mockResolvedValue({
       ok: true,
       needsOnboarding: true,
-      defaultDataDir: '/userdata/my-data',
+      defaultDataDir: '/home/test/Documents/OpenTreasury',
     });
     mockPickFolder.mockResolvedValue({ ok: true, path: '/external/treasury' });
     mockSetDataDir.mockResolvedValue({ ok: true });
@@ -138,7 +137,6 @@ describe('OnboardingScreen', () => {
       expect(mockSetDataDir).toHaveBeenCalledWith({
         newDir: '/external/treasury',
         confirmDatasetSwitch: true,
-        bypassLocationCheck: false,
       });
     });
   });

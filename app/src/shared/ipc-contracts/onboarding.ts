@@ -18,7 +18,7 @@ export const appNeedsOnboardingRequestSchema = z.undefined().or(z.null()).or(z.o
 export const appNeedsOnboardingResponseSchema = z.object({
   ok: z.literal(true),
   needsOnboarding: z.boolean(),
-  /** Suggested default `<userData>/my-data` for the "Use default" button. */
+  /** Suggested default `<Documents>/OpenTreasury` for the "Use default" button. */
   defaultDataDir: z.string(),
 });
 

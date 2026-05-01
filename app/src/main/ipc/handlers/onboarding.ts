@@ -5,9 +5,11 @@
 // app-config.json. Once the wizard runs successfully, `dataDir` is set and
 // every subsequent boot returns `needsOnboarding: false`.
 //
-// Also exposes the suggested default folder (`<userData>/my-data`) so the
-// renderer's "Use default location" button can hand a path to setDataDir
-// without round-tripping through Electron APIs from the renderer.
+// Also exposes the suggested default folder (`<Documents>/OpenTreasury`) so
+// the renderer's "Use default location" button can hand a path to setDataDir
+// without round-tripping through Electron APIs from the renderer. Documents
+// is used (not userData/AppData) because that location survives app uninstall
+// and is OneDrive-friendly on Windows.
 
 import * as path from 'node:path';
 import {
@@ -17,7 +19,7 @@ import {
 import { isOnboardingPending } from '../../bootstrap.js';
 
 export interface NeedsOnboardingDeps {
-  userDataDir(): string;
+  documentsDir(): string;
 }
 
 export function createAppNeedsOnboardingHandler(deps: NeedsOnboardingDeps) {
@@ -25,7 +27,7 @@ export function createAppNeedsOnboardingHandler(deps: NeedsOnboardingDeps) {
     raw: unknown,
   ): Promise<AppNeedsOnboardingResponse> {
     appNeedsOnboardingRequestSchema.parse(raw);
-    const defaultDataDir = path.join(deps.userDataDir(), 'my-data');
+    const defaultDataDir = path.join(deps.documentsDir(), 'OpenTreasury');
     return {
       ok: true,
       // Source of truth is bootstrap's onboarding flag — it is set when
@@ -45,5 +47,5 @@ export function createAppNeedsOnboardingHandler(deps: NeedsOnboardingDeps) {
  */
 export async function buildProductionNeedsOnboardingDeps(): Promise<NeedsOnboardingDeps> {
   const { app } = await import('electron');
-  return { userDataDir: () => app.getPath('userData') };
+  return { documentsDir: () => app.getPath('documents') };
 }
