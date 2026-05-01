@@ -114,14 +114,16 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
           ) : null}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <Button
-            variant="primary"
-            size="md"
-            leadingIcon={<Plus size={16} />}
-            onClick={() => setModalOpen(true)}
-          >
-            {t('configuracion.etiquetas.add')}
-          </Button>
+          {state.kind === 'loaded' && state.tags.length > 0 ? (
+            <Button
+              variant="primary"
+              size="md"
+              leadingIcon={<Plus size={16} />}
+              onClick={() => setModalOpen(true)}
+            >
+              {t('configuracion.etiquetas.add')}
+            </Button>
+          ) : null}
         </div>
       </div>
 

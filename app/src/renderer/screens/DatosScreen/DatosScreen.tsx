@@ -41,14 +41,6 @@ export function DatosScreen({
 
       <div className="ot-datos__actions">
         <h2 className="ot-datos__heading">{t('datos.heading')}</h2>
-        <Button
-          variant="primary"
-          size="md"
-          leadingIcon={<Upload size={16} />}
-          onClick={() => setWizardOpen(true)}
-        >
-          {t('datos.importCta')}
-        </Button>
       </div>
 
       <EmptyState
