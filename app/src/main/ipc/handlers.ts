@@ -232,11 +232,6 @@ import {
 } from '../../shared/ipc-contracts/dialog.js';
 import { handleDialogPickFolder } from './handlers/dialog.js';
 import {
-  IPC_DATASET_EXPORT,
-  datasetExportResponseSchema,
-} from '../../shared/ipc-contracts/dataset.js';
-import { handleDatasetExport } from './handlers/dataset.js';
-import {
   IPC_SHELL_OPEN_PATH,
   shellOpenPathResponseSchema,
 } from '../../shared/ipc-contracts/shell.js';
@@ -289,12 +284,6 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_DIALOG_PICK_FOLDER, async (_event, raw: unknown) => {
     const response = await handleDialogPickFolder(raw);
     return dialogPickFolderResponseSchema.parse(response);
-  });
-
-  // #180 — dataset:export copies the active dataset to a chosen folder
-  ipcMain.handle(IPC_DATASET_EXPORT, async (_event, raw: unknown) => {
-    const response = await handleDatasetExport(raw);
-    return datasetExportResponseSchema.parse(response);
   });
 
   // shell:openPath reveals a folder/file in the OS file explorer. Routed

@@ -184,11 +184,6 @@ import {
   type DialogPickFolderResponse,
 } from '../shared/ipc-contracts/dialog.js';
 import {
-  IPC_DATASET_EXPORT,
-  type DatasetExportRequest,
-  type DatasetExportResponse,
-} from '../shared/ipc-contracts/dataset.js';
-import {
   IPC_PROFILE_GET,
   IPC_PROFILE_SAVE,
   type ProfileGetResponse,
@@ -406,11 +401,6 @@ const api = {
     },
     setDataDir: (req: ConfigSetDataDirRequest): Promise<ConfigSetDataDirResponse> => {
       return ipcRenderer.invoke(IPC_CONFIG_SET_DATA_DIR, req);
-    },
-  },
-  dataset: {
-    export: (req: DatasetExportRequest): Promise<DatasetExportResponse> => {
-      return ipcRenderer.invoke(IPC_DATASET_EXPORT, req);
     },
   },
   dialog: {
