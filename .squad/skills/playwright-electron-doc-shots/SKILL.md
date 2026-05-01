@@ -39,44 +39,65 @@ await electron.launch({
    `app/src/shared/ipc-contracts/profile.ts` (26-char ULID, ISO `createdAt`).
    For a doc persona, hand-pick a stable Crockford-base32 string —
    determinism > authenticity for guide screenshots.
-5. **Delete profile.json** before the "first-launch" waypoint to render the
-   `<dialog class="ot-profile-setup-modal">`; recreate it before any other
-   waypoint or AppShell will park on the modal forever.
+5. **Profile seeding timing**: Write `profile.json` BEFORE launching the app.
+   The bootstrap loads the profile during initialization (before the first
+   window opens). Seeding via IPC after launch requires a reload, which can
+   cause event log hydration issues. Pre-seed the file, then set locale inline
+   before the first reload to minimize bootstrap cycles.
 
 ## Locale determinism
 
 `app/src/renderer/i18n/index.ts` reads localStorage key
-**`opentreasury.locale`** (NOT `i18nextLng`). After the first window opens:
+**`opentreasury.locale`** (NOT `i18nextLng`). Set it BEFORE the first reload:
 
 ```ts
 await page.evaluate(() => localStorage.setItem('opentreasury.locale', 'es'));
 await page.reload();
+await page.waitForLoadState('domcontentloaded');
 ```
 
-…then re-wait for `.ot-shell__sidebar`. Without this, navigator detection
-yields whatever the OS / CI runner is set to and screenshots drift between
-environments.
+**CRITICAL**: Minimize reloads. Each reload re-triggers bootstrap, which can
+delay event log hydration. Set locale and profile in the SAME reload cycle,
+not separate ones.
 
 ## Window sizing & screenshot pattern
 
-- Set viewport via `page.setViewportSize({ width: 1280, height: 800 })` on
-  the `firstWindow()` — works on Electron pages just like Chromium.
+- Set viewport via `page.setViewportSize({ width: 1800, height: 1100 })` on
+  the `firstWindow()` — wider viewport (vs 1280x800) shows better content
+  density, especially for tables and charts (issue #163).
+- Optionally normalize zoom to `1.0` via `page.evaluate()` calling
+  `window.electronAPI?.setZoomFactor?.(1.0)` for consistent scaling.
 - Use `page.screenshot({ path, fullPage: true })` for guide shots; `fullPage`
   captures content below the fold (e.g. dashboard "last 12 months" chart).
 - After each nav click, wait for a **content-anchored** selector
-  (`[aria-labelledby^="saldo-panel-"]`, `table.ot-table tbody tr:not([aria-hidden="true"])`)
-  and then a 300–500 ms `waitForTimeout` for layout / font reflow. Without
-  the timeout, charts and currency strings shift a few pixels between mount
-  and capture.
+  (`[aria-labelledby^="saldo-panel-"]`), then a 300–500 ms `waitForTimeout`
+  for layout / font reflow. Without the timeout, charts and currency strings
+  shift a few pixels between mount and capture.
+
+## Movements table gotcha
+
+The MovementsScreen defaults to "Este mes" (this month) filter. If seeded data
+is from a different month (e.g., April 2026), you'll see "No hay resultados".
+Click the "Todo" (All) preset before screenshotting to show all movements:
+
+```ts
+await page.click(NAV_MOVEMENTS);
+await page.waitForSelector('.ot-movements', { state: 'visible' });
+await page.click('text=Todo'); // Select "All" time range
+await page.waitForTimeout(1000);
+await page.waitForSelector(FIRST_DATA_ROW, { state: 'visible' });
+```
 
 ## Selectors that survive UI churn
 
 - Sidebar nav: position-based **inside** `nav[aria-label="Primary"]` — locale
   agnostic, structurally stable. Mirrors `tests/e2e/movements-perf.spec.ts`.
-- Settings gear: `.ot-shell__icon-btn` (it is the only one in the topbar).
+- Settings (Preferencias): Use text locator `button:has-text("Preferencias")`
+  from the sidebar footer, not a topbar gear icon (that selector is stale).
 - Saldo expand toggles: `[data-testid="saldo-subcategories-toggle-income"]` /
   `…-expense`. Click both to cover the "expanded" waypoint.
 - Profile modal: `dialog.ot-profile-setup-modal`.
+- Preferences screen: `.ot-preferences` (not `.ot-settings`).
 
 ## File layout
 
@@ -86,8 +107,16 @@ environments.
 - npm script: `"docshots": "playwright test tests/e2e/doc-shots.spec.ts"`
   (build is required first — `npm run build`)
 
+## Confidence: high (2nd observation cycle)
+
+Issues discovered in #163 round 2:
+- Profile seeding order matters — pre-seed before launch, not via IPC after.
+- Viewport 1800x1100 > 1280x800 for readable screenshots.
+- Movements filter defaults to "Este mes" — click "Todo" to show all data.
+- Settings nav target is `Preferencias` button in sidebar, not a topbar gear.
+
 ## Reference implementation
 
-`tests/e2e/doc-shots.spec.ts` (PR for #163) — seven waypoints from fresh
-first-launch through Settings, Spanish locale, "Maria Rodríguez" / "Casa
+`tests/e2e/doc-shots.spec.ts` (PR for #163 round 2) — seven waypoints from
+fresh first-launch through Settings, Spanish locale, "Maria Rodríguez" / "Casa
 Esperanza" persona.

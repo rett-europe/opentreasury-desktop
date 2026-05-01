@@ -33,7 +33,7 @@ const REPO_ROOT = path.resolve(HERE, '..', '..');
 const SCREENSHOT_DIR = path.join(REPO_ROOT, 'docs', 'guides', 'screenshots');
 const SEED_SCRIPT = path.join(REPO_ROOT, 'scripts', 'perf-seed.mjs');
 
-const VIEWPORT = { width: 1280, height: 800 } as const;
+const VIEWPORT = { width: 1800, height: 1100 } as const;
 
 // Seed a small, dataset (vs. perf's 5k) — guides only need a few-screen-worth
 // of rows so the table demonstrates virtualisation without dwarfing the row
@@ -58,10 +58,6 @@ const NAV_PANEL = `${NAV_PRIMARY} > div:nth-child(1) > ul > li:nth-child(1) > bu
 const NAV_MOVEMENTS = `${NAV_PRIMARY} > div:nth-child(1) > ul > li:nth-child(2) > button`;
 const NAV_BALANCE = `${NAV_PRIMARY} > div:nth-child(1) > ul > li:nth-child(3) > button`;
 const NAV_INSIGHTS = `${NAV_PRIMARY} > div:nth-child(1) > ul > li:nth-child(4) > button`;
-
-// Settings is the gear icon in the top-right of the topbar; it is the only
-// `.ot-shell__icon-btn` in the header.
-const NAV_SETTINGS_GEAR = '.ot-shell__icon-btn';
 
 // First non-virtualised data row in the movements table.
 const FIRST_DATA_ROW = 'table.ot-table tbody tr:not([aria-hidden="true"])';
@@ -114,10 +110,10 @@ async function launchApp(userDataDir: string): Promise<ElectronApplication> {
       // Suppress the dev-seed auto-write — we already shaped the dataset
       // ourselves via perf-seed.mjs.
       OT_SEED: 'none',
-      // Ensure renderer i18n picks Spanish so screenshots match the persona.
+      // Ensure renderer i18n picks English to match docs/guides/user-guide.md.
       // (i18next-browser-languagedetector also reads localStorage; we set that
       // explicitly below for belt-and-braces determinism.)
-      LANG: 'es_ES.UTF-8',
+      LANG: 'en_US.UTF-8',
     },
   });
 }
@@ -126,20 +122,12 @@ async function preparePage(app: ElectronApplication): Promise<Page> {
   const page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
   await page.setViewportSize(VIEWPORT);
-  return page;
-}
-
-async function forceSpanishAndReload(page: Page): Promise<void> {
+  // Normalize zoom to 1.0 for consistent screenshots
   await page.evaluate(() => {
-    try {
-      // Key matches `detection.lookupLocalStorage` in app/src/renderer/i18n/index.ts.
-      window.localStorage.setItem('opentreasury.locale', 'es');
-    } catch {
-      /* private mode / quota — ignore */
-    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).electronAPI?.setZoomFactor?.(1.0);
   });
-  await page.reload();
-  await page.waitForLoadState('domcontentloaded');
+  return page;
 }
 
 async function shoot(page: Page, file: string): Promise<void> {
@@ -181,24 +169,36 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
   });
 
   test('02–07 — drive through the shell with the seeded profile', async () => {
-    // Restore the persona profile so the modal stays out of the way.
+    // Pre-seed the profile.json so bootstrap can load it immediately
     writeProfile(env.userDataDir);
 
     const app = await launchApp(env.userDataDir);
     try {
       const page = await preparePage(app);
 
-      // Wait for the AppShell sidebar before the first nav click.
-      await page.waitForSelector('.ot-shell__sidebar', { state: 'visible' });
-      await forceSpanishAndReload(page);
+      // Set English locale before first navigation to match docs/guides/user-guide.md
+      await page.evaluate(() => {
+        try {
+          window.localStorage.setItem('opentreasury.locale', 'en');
+        } catch {
+          /* ignore */
+        }
+      });
+
+      // Reload to apply the locale
+      await page.reload();
+      await page.waitForLoadState('domcontentloaded');
+
+      // Wait for the AppShell sidebar (profile and locale should now be set)
       await page.waitForSelector('.ot-shell__sidebar', { state: 'visible' });
 
       // ── 02: Dashboard / Panel — header should show "Casa Esperanza" ────
       await page.click(NAV_PANEL);
       // Tenant name renders synchronously once the profile loads.
       await expect(page.locator('.ot-shell__tenant')).toHaveText(PROFILE.ngoName);
-      // Allow any panel widgets to settle (charts / counters).
-      await page.waitForTimeout(400);
+      // Allow any panel widgets to settle (charts / counters). Also give the
+      // event log time to fully hydrate in the background.
+      await page.waitForTimeout(2000);
       await shoot(page, '02-dashboard.png');
 
       // ── 03: Saldo (collapsed categories) ───────────────────────────────
@@ -219,7 +219,13 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
 
       // ── 05: Movements list ─────────────────────────────────────────────
       await page.click(NAV_MOVEMENTS);
-      await page.waitForSelector(FIRST_DATA_ROW, { state: 'visible', timeout: 30_000 });
+      // Wait for the movements screen container
+      await page.waitForSelector('.ot-movements', { state: 'visible', timeout: 10_000 });
+      // Default filter is "This month" which may have no data. Click "All" to show all.
+      await page.click('text=All');
+      await page.waitForTimeout(1000);
+      // Now wait for data rows to appear
+      await page.waitForSelector(FIRST_DATA_ROW, { state: 'visible', timeout: 10_000 });
       await page.waitForTimeout(300);
       await shoot(page, '05-movements.png');
 
@@ -236,11 +242,14 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
       await shoot(page, '06-insights.png');
 
       // ── 07: Settings → Data folder row + readOnly badge area ───────────
-      await page.click(NAV_SETTINGS_GEAR);
-      await page.waitForSelector('.ot-settings', { state: 'visible' });
-      // The data-folder row anchors the "Change…" button + readonly badge.
-      await page.waitForSelector('.ot-settings__row', { state: 'visible' });
-      await page.waitForTimeout(300);
+      // Ensure we're scrolled to top so the header is visible
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.waitForTimeout(500);
+      // The settings gear is in the sidebar footer, not the topbar
+      const settingsBtn = page.locator('button:has-text("Preferences")');
+      await settingsBtn.click({ timeout: 10_000 });
+      await page.waitForSelector('.ot-preferences', { state: 'visible' });
+      await page.waitForTimeout(500);
       await shoot(page, '07-settings-data-folder.png');
     } finally {
       await app.close();
