@@ -231,6 +231,23 @@ undo/redo). Spec is authoritative reference for Trinity's WI-15 implementation p
 
 **Integration notes for WI-13 (Add Transaction modal):**
 
+---
+
+### 2026-05-01: Cross-Agent Heads-Up — Shared Modal Recipe Proposal (from Trinity)
+
+**Status:** DECISION INBOX MERGED → awaiting design review
+
+Trinity filed a proposal in `.squad/decisions/` about a potential shared `.ot-modal` CSS recipe to prevent token-drift bugs across ProfileSetupModal, TransactionDetailModal, and other dialog-like surfaces. Pattern match: all modals re-implement scrim, card, padding, focus ring with subtly different class names and sometimes phantom token references.
+
+**Options on the table:**
+1. Keep hand-rolling (status quo) — cheap per-modal, token drift continues
+2. Document "modal recipe" checklist in `.squad/skills/` — low-risk, prevents ad-hoc invention
+3. Ship shared `.ot-modal` / `.ot-modal__card` / `.ot-modal__scrim` in `globals.css` — higher upfront cost, removes drift risk permanently
+
+**Trinity's recommendation:** Option 2 first (document checklist), escalate to Option 3 next time a brand-new modal ships (vs. editing existing).
+
+**Niobe action:** Spec review needed if Option 3 proceeds. Confirm the recipe aligns with prototype modal styling and whether scrim/card/padding/focus tokens are all the right ones.
+
 - **Dropdown refresh:** The web app uses a `ReferenceDataService` that caches accounts/categories/tags globally and invalidates on CRUD operations. When a user creates a new category in Configuración, the service refetches, and any open dropdowns (e.g., in Add Transaction modal) get the updated list. Trinity should implement a similar invalidation mechanism (IPC event or React context).
 
 ### 2026-04-26 — WI-57 Movements Date Filter Layout Separation
