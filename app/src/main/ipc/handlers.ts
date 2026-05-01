@@ -232,6 +232,14 @@ import {
 } from '../../shared/ipc-contracts/dialog.js';
 import { handleDialogPickFolder } from './handlers/dialog.js';
 import {
+  IPC_APP_NEEDS_ONBOARDING,
+  appNeedsOnboardingResponseSchema,
+} from '../../shared/ipc-contracts/onboarding.js';
+import {
+  createAppNeedsOnboardingHandler,
+  buildProductionNeedsOnboardingDeps,
+} from './handlers/onboarding.js';
+import {
   IPC_SHELL_OPEN_PATH,
   shellOpenPathResponseSchema,
 } from '../../shared/ipc-contracts/shell.js';
@@ -284,6 +292,18 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_DIALOG_PICK_FOLDER, async (_event, raw: unknown) => {
     const response = await handleDialogPickFolder(raw);
     return dialogPickFolderResponseSchema.parse(response);
+  });
+
+  // #196 — app:needsOnboarding flag for the first-run folder-picker wizard.
+  let needsOnboardingHandler: ReturnType<typeof createAppNeedsOnboardingHandler> | null = null;
+  ipcMain.handle(IPC_APP_NEEDS_ONBOARDING, async (_event, raw: unknown) => {
+    if (needsOnboardingHandler === null) {
+      needsOnboardingHandler = createAppNeedsOnboardingHandler(
+        await buildProductionNeedsOnboardingDeps(),
+      );
+    }
+    const response = await needsOnboardingHandler(raw);
+    return appNeedsOnboardingResponseSchema.parse(response);
   });
 
   // shell:openPath reveals a folder/file in the OS file explorer. Routed

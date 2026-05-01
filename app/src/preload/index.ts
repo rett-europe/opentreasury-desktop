@@ -191,6 +191,10 @@ import {
   type Profile,
 } from '../shared/ipc-contracts/profile.js';
 import { IPC_SHELL_OPEN_PATH, type ShellOpenPathResponse } from '../shared/ipc-contracts/shell.js';
+import {
+  IPC_APP_NEEDS_ONBOARDING,
+  type AppNeedsOnboardingResponse,
+} from '../shared/ipc-contracts/onboarding.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -419,6 +423,11 @@ const api = {
   shell: {
     openPath: (p: string): Promise<ShellOpenPathResponse> => {
       return ipcRenderer.invoke(IPC_SHELL_OPEN_PATH, { path: p });
+    },
+  },
+  onboarding: {
+    getStatus: (): Promise<AppNeedsOnboardingResponse> => {
+      return ipcRenderer.invoke(IPC_APP_NEEDS_ONBOARDING);
     },
   },
 } as const;
