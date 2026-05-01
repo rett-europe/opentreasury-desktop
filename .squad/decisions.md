@@ -385,6 +385,54 @@ For PRs authored by repo owner (perocha), `gh pr review --approve` is rejected b
 **Agents:** Neo (architectural review), Niobe (spec author), Pedro (lock answers)  
 **Spec:** docs/specs/023-split-transactions.md + docs/ux/specs/ux-007-split-transactions.md  
 
+---
+
+### 2026-05-01: Coordinator Merge-State Verification Requirement (Process Improvement)
+
+**Date:** 2026-05-01  
+**Status:** ⚠️ POLICY (Active)  
+**Context:** Trinity/Morpheus parallel merge, prior handoff inaccuracy  
+**By:** Coordinator (Pedro session scribe)
+
+#### Problem
+
+Prior session handoff summary claimed three PRs (#222, #224, #226) were merged. Verification revealed:
+
+1. **PR #224** — Summary claimed "i18n strings updated" ✅. Actual: JSDoc comment only; i18n files unchanged until PR #226 landed days later. Partial implementation masked by unclear commit message.
+2. **PR #226** — Summary claimed "already merged" ✅. Actual: Stale (never merged). Merged today as corrective action. PR was in-flight for 4 days, uncaught because handoff falsely claimed merged state.
+3. **Ordering consequence:** Coordinator couldn't trust PR #225 → #226 → #229 dependency chain without reverification.
+
+#### Decision
+
+**All handoff-claimed merge states must be verified with `gh pr view` before trusting.**
+
+Before relying on a prior coordinator's claim that "PR N is merged", run:
+```bash
+gh pr view N --json state,mergedAt
+```
+
+Verify:
+- `state == "MERGED"` (not `DRAFT`, `OPEN`, `CLOSED`)
+- `mergedAt` timestamp exists and falls within prior session window (not merged in current session)
+- Transitive dependencies (`PR X depends on "merged" Y`) also verified independently
+
+#### Rationale
+
+1. **Hidden partial implementations:** A "mergeable but incomplete" PR (e.g., JSDoc comment without actual changes) passes all checks yet creates false handoff confidence.
+2. **Stale PRs in flight:** An "in-progress" PR incorrectly summarized as "merged" can be forgotten for days, breaking downstream ordering assumptions.
+3. **Coordination cost of trust:** Coordinator overhead rises (manual verification per PR) but is justified by discovery of 2 coordination failures in single session. Accuracy > speed at handoff boundary.
+
+#### Implementation
+
+No code change. Coordinator task-list now includes:
+- [ ] Before acting on prior session summary, run `gh pr view <N> --json state,mergedAt` for each claimed merge
+- [ ] Document merge state reality in session log (e.g., "PR #224 claimed merged, actually draft — no action taken")
+- [ ] If in-flight PR found, assess whether to re-prioritize in current session or allow carry-over
+
+#### Pattern Extension
+
+This lesson applies **inter-session only**. Within a session, git truth is immediate (no stale handoff needed). Pattern is: **Trust git facts; verify human summaries.**
+
 ## Architectural Foundation
 
 ### Corrections to Initial Spec (B1–B3)
