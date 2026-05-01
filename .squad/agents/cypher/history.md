@@ -31,6 +31,31 @@ Testing considerations for a financial desktop app:
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-05-01 — Playwright Doc-Shots Pattern: Pre-seed + Viewport + Locale (PR #231)
+
+**Issue #163 fix completed:** Illustrated end-user guide (7 screenshots + user-guide.md prose).
+
+**Two-iteration refinement:**
+
+1. **IPC Race Prevention**
+   - Original: Profile seeded via IPC after app window creation → race condition on first screenshot
+   - Fix: Pre-seed profile.json in main-process BEFORE window creation (synchronous)
+   - Pattern: Any mock data needed for doc-shots must be synchronously available before renderer loads
+
+2. **Viewport Sweet Spot**
+   - Bumped from 1600x900 → **1800x1100**
+   - 1800px width: sidebar + main panel both visible, charts readable without horizontal scroll
+   - 1100px height: good vertical distribution for dashboard cards, settings panels
+   - Validated across Mac & Windows rendering
+
+3. **Locale Forcing for i18n Apps**
+   - Screenshots showed mixed Spanish/English depending on system locale
+   - Fix: Force via `localStorage.setItem('opentreasury.locale', 'en')` in spec setup
+   - All 7 PNGs regenerated at EN locale
+   - Guide prose written EN-first; ES variant (#232) deferred
+
+**Outcome:** Repeatable, locale-agnostic screenshot generation. Skill updated at `.squad/skills/playwright-electron-doc-shots/SKILL.md`.
+
 ### 2026-04-27 — Splits E2E Un-skip False-Green Detection (PR #119)
 
 **Wave coordination (concurrent with splits Wave A/B):**
