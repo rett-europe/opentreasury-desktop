@@ -6,7 +6,6 @@ import './PreferencesScreen.css';
 type LoadState = 'loading' | 'loaded' | 'error';
 type ChangeState = 'idle' | 'picking' | 'changing' | 'error' | 'restarting';
 type ProfileState = 'idle' | 'editing' | 'saving' | 'saved' | 'error';
-type ExportState = 'idle' | 'picking' | 'exporting' | 'success' | 'error';
 
 interface ConfigData {
   dataDir: string | null;
@@ -24,18 +23,6 @@ interface ChangeError {
     folderSchemaVersion?: number | undefined;
     appSchemaVersion?: number | undefined;
   };
-}
-
-interface ExportResult {
-  targetDir: string;
-  fileCount: number;
-  totalBytes: number;
-}
-
-interface ExportError {
-  code: string;
-  message: string;
-  details?: string | undefined;
 }
 
 interface ProfileData {
@@ -80,11 +67,6 @@ export function PreferencesScreen(): JSX.Element {
   const [configData, setConfigData] = useState<ConfigData | null>(null);
   const [changeState, setChangeState] = useState<ChangeState>('idle');
   const [changeError, setChangeError] = useState<ChangeError | null>(null);
-
-  // Export state
-  const [exportState, setExportState] = useState<ExportState>('idle');
-  const [exportResult, setExportResult] = useState<ExportResult | null>(null);
-  const [exportError, setExportError] = useState<ExportError | null>(null);
 
   // Dataset switch confirmation modal
   const [showDatasetSwitchModal, setShowDatasetSwitchModal] = useState(false);
@@ -289,74 +271,6 @@ export function PreferencesScreen(): JSX.Element {
     setShowDatasetSwitchModal(false);
     setPendingFolderPath(null);
     setChangeState('idle');
-  };
-
-  // Export dataset handler
-  const handleExportDataset = async (): Promise<void> => {
-    try {
-      setExportState('picking');
-      setExportError(null);
-      setExportResult(null);
-
-      const folderResult = await window.opentreasury.dialog.pickFolder();
-      if (!folderResult.ok) {
-        setExportState('error');
-        setExportError({ code: 'PICKER_FAILED', message: folderResult.error });
-        return;
-      }
-
-      if (folderResult.cancelled || !folderResult.path) {
-        setExportState('idle');
-        return;
-      }
-
-      setExportState('exporting');
-
-      const exportResponse = await window.opentreasury.dataset.export({
-        targetDir: folderResult.path,
-      });
-
-      if (!exportResponse.ok) {
-        setExportState('error');
-        setExportError(exportResponse.error);
-        return;
-      }
-
-      setExportState('success');
-      setExportResult({
-        targetDir: exportResponse.targetDir,
-        fileCount: exportResponse.fileCount,
-        totalBytes: exportResponse.totalBytes,
-      });
-
-      // Auto-dismiss success message after 10 seconds
-      setTimeout(() => {
-        setExportState('idle');
-        setExportResult(null);
-      }, 10000);
-    } catch (err) {
-      setExportState('error');
-      const message = err instanceof Error ? err.message : String(err);
-      setExportError({ code: 'UNEXPECTED', message });
-    }
-  };
-
-  const handleOpenExportFolder = async (): Promise<void> => {
-    if (!exportResult?.targetDir) return;
-    try {
-      const result = await window.opentreasury.shell.openPath(exportResult.targetDir);
-      if (!result.ok) {
-        console.warn('[preferences] openPath failed:', result.error);
-      }
-    } catch (err) {
-      console.warn('[preferences] openPath threw:', err);
-    }
-  };
-
-  const prettyBytes = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   // Validate profile
@@ -729,20 +643,7 @@ export function PreferencesScreen(): JSX.Element {
                   ? t('common.loading')
                   : t('preferences.dataFolder.changeButton')}
               </button>
-
-              <button
-                type="button"
-                className="ot-preferences__button ot-preferences__button--secondary"
-                disabled={exportState === 'picking' || exportState === 'exporting'}
-                onClick={handleExportDataset}
-              >
-                {exportState === 'picking' || exportState === 'exporting'
-                  ? t('preferences.dataFolder.export.inProgress')
-                  : t('preferences.dataFolder.export.button')}
-              </button>
             </div>
-
-            <p className="ot-preferences__hint">{t('preferences.dataFolder.export.description')}</p>
 
             {changeState === 'restarting' && (
               <p className="ot-preferences__note ot-preferences__note--info">
@@ -772,47 +673,6 @@ export function PreferencesScreen(): JSX.Element {
                 ) : (
                   <p>
                     {t('preferences.dataFolder.errors.generic')}: {changeError.message}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {exportState === 'success' && exportResult && (
-              <div className="ot-preferences__success-card">
-                <p>
-                  {t('preferences.dataFolder.export.success', {
-                    count: exportResult.fileCount,
-                    size: prettyBytes(exportResult.totalBytes),
-                    path: exportResult.targetDir,
-                  })}
-                </p>
-                <button
-                  type="button"
-                  className="ot-preferences__button ot-preferences__button--link"
-                  onClick={handleOpenExportFolder}
-                >
-                  {t('preferences.dataFolder.export.openFolder')}
-                </button>
-              </div>
-            )}
-
-            {exportState === 'error' && exportError && (
-              <div className="ot-preferences__error-card">
-                {exportError.code === 'EXPORT_TARGET_NOT_EMPTY' ? (
-                  <p>{t('preferences.dataFolder.export.errors.targetNotEmpty')}</p>
-                ) : exportError.code === 'EXPORT_TARGET_INVALID' ? (
-                  <p>{t('preferences.dataFolder.export.errors.targetInvalid')}</p>
-                ) : exportError.code === 'EXPORT_SOURCE_EMPTY' ? (
-                  <p>{t('preferences.dataFolder.export.errors.sourceEmpty')}</p>
-                ) : exportError.code === 'EXPORT_DISK_FULL' ? (
-                  <p>{t('preferences.dataFolder.export.errors.diskFull')}</p>
-                ) : exportError.code === 'EXPORT_PERMISSION_DENIED' ? (
-                  <p>{t('preferences.dataFolder.export.errors.permissionDenied')}</p>
-                ) : exportError.code === 'EXPORT_VERIFY_FAILED' ? (
-                  <p>{t('preferences.dataFolder.export.errors.verifyFailed')}</p>
-                ) : (
-                  <p>
-                    {t('preferences.dataFolder.export.errors.generic')}: {exportError.message}
                   </p>
                 )}
               </div>
