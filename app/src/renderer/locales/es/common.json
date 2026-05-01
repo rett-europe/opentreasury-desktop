@@ -75,19 +75,22 @@
   },
   "panel": {
     "title": "Panel",
-    "subtitle": "Vista general del mes",
+    "subtitle": "Vista general de los últimos 30 días",
     "cta": {
       "new-movement": "Nuevo Movimiento",
-      "date-range": "Abril 2026",
+      "date-range": "Últimos 30 días",
       "view-all-movements": "Ver todos los movimientos"
     },
     "sections": {
       "accounts": "Saldos por cuenta",
-      "summary": "Resumen del mes",
+      "summary": "Resumen de los últimos 30 días",
       "monthly-trend": "Ingresos vs. Gastos · Últimos 12 meses",
       "recent": "Últimos movimientos"
     },
-    "skeleton": "Aún no hay movimientos. En cuanto registres alguno, verás aquí tu flujo de caja mensual.",
+    "range": {
+      "last-30-days": "Últimos 30 días"
+    },
+    "skeleton": "Aún no hay movimientos. En cuanto registres alguno, verás aquí tu flujo de caja.",
     "card": {
       "count_one": "{{count}} movimiento",
       "count_other": "{{count}} movimientos"

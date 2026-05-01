@@ -8,6 +8,7 @@ import {
   IPC_PANEL_GET_ACCOUNTS,
   IPC_PANEL_GET_ACCOUNT_BALANCES,
   IPC_PANEL_GET_MONTH_KPIS,
+  IPC_PANEL_GET_RANGE_KPIS,
   IPC_PANEL_GET_ACCOUNT_SPARKLINES,
   IPC_PANEL_QUERY_RECENT_TRANSACTIONS,
   IPC_PANEL_GET_MONTHLY_INCOME_EXPENSE,
@@ -15,6 +16,8 @@ import {
   type GetAccountBalancesResponse,
   type GetMonthKPIsRequest,
   type GetMonthKPIsResponse,
+  type GetRangeKPIsRequest,
+  type GetRangeKPIsResponse,
   type GetAccountSparklinesRequest,
   type GetAccountSparklinesResponse,
   type QueryRecentTransactionsRequest,
@@ -211,6 +214,9 @@ const api = {
     },
     getMonthKPIs: (req: GetMonthKPIsRequest): Promise<GetMonthKPIsResponse> => {
       return ipcRenderer.invoke(IPC_PANEL_GET_MONTH_KPIS, req);
+    },
+    getRangeKPIs: (req: GetRangeKPIsRequest): Promise<GetRangeKPIsResponse> => {
+      return ipcRenderer.invoke(IPC_PANEL_GET_RANGE_KPIS, req);
     },
     getAccountSparklines: (
       req: GetAccountSparklinesRequest,

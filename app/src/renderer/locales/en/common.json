@@ -75,19 +75,22 @@
   },
   "panel": {
     "title": "Dashboard",
-    "subtitle": "Month overview",
+    "subtitle": "Last 30 days overview",
     "cta": {
       "new-movement": "New Transaction",
-      "date-range": "April 2026",
+      "date-range": "Last 30 days",
       "view-all-movements": "View all transactions"
     },
     "sections": {
       "accounts": "Balances by account",
-      "summary": "Month summary",
+      "summary": "Last 30 days summary",
       "monthly-trend": "Income vs. Expense · Last 12 months",
       "recent": "Recent transactions"
     },
-    "skeleton": "No transactions yet. Once you add some, your monthly cashflow will appear here.",
+    "range": {
+      "last-30-days": "Last 30 days"
+    },
+    "skeleton": "No transactions yet. Once you add some, your cashflow will appear here.",
     "card": {
       "count_one": "{{count}} transaction",
       "count_other": "{{count}} transactions"
