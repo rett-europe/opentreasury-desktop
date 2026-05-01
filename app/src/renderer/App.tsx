@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from './screens/AppShell/index.js';
 import type { Route } from './screens/AppShell/index.js';
 import { ConfiguracionScreen } from './screens/ConfiguracionScreen/index.js';
@@ -6,6 +6,7 @@ import { DatosScreen } from './screens/DatosScreen/index.js';
 import { InsightsScreen } from './screens/InsightsScreen/index.js';
 import { InsightsDetailScreen } from './screens/InsightsDetailScreen/index.js';
 import { MovementsScreen } from './screens/MovementsScreen/index.js';
+import { OnboardingScreen } from './screens/OnboardingScreen/index.js';
 import { PanelScreen } from './screens/PanelScreen/index.js';
 import { SaldoScreen } from './screens/SaldoScreen/index.js';
 import { PreferencesScreen } from './screens/PreferencesScreen/index.js';
@@ -51,6 +52,31 @@ export function App(): JSX.Element {
   // SPEC-024 — Search query state
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // #196 — First-run onboarding gate. `null` = unknown (probe in flight),
+  // `true` = show the wizard before mounting AppShell, `false` = main app.
+  const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await window.opentreasury.onboarding.getStatus();
+        if (cancelled) return;
+        setNeedsOnboarding(response.needsOnboarding);
+      } catch (err) {
+        // Bridge missing (e.g., test harness without preload mock) or IPC
+        // failure — fall through to the main app rather than blocking on a
+        // wizard that can never resolve.
+        // eslint-disable-next-line no-console
+        console.warn('[App] onboarding.getStatus() failed; assuming no onboarding needed:', err);
+        if (!cancelled) setNeedsOnboarding(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const bumpConfigRevision = useCallback(() => {
     setConfigRevision((n) => n + 1);
   }, []);
@@ -86,6 +112,17 @@ export function App(): JSX.Element {
   }, []);
 
   const isConfigRoute = route === 'cuentas' || route === 'categorias' || route === 'etiquetas';
+
+  // While probing, render nothing — keeps the main app from flashing before
+  // the onboarding decision lands. The probe is a single in-process IPC call
+  // and resolves immediately under normal conditions.
+  if (needsOnboarding === null) {
+    return <></>;
+  }
+
+  if (needsOnboarding) {
+    return <OnboardingScreen />;
+  }
 
   const renderInsightsDetail = (): JSX.Element => {
     if (insightsDetail && insightsDetail.tagIds.length > 0) {

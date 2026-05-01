@@ -1097,6 +1097,22 @@
       "ngoNameTooLong": "Organization name must be 200 characters or less"
     }
   },
+  "onboarding": {
+    "welcome": {
+      "title": "Choose a folder for your OpenTreasury data",
+      "body": "OpenTreasury keeps every transaction, account, and label as plain files inside a folder you control. Pick where you want that folder to live — you can move or back it up later just like any other folder.",
+      "bulletAnyFolder": "Any normal disk folder works — local drive, external drive, network share.",
+      "bulletCloudSync": "Want cloud sync? Point this at a folder inside OneDrive, SharePoint, Dropbox, or Google Drive and the app will follow.",
+      "bulletNoLockIn": "No lock-in: your data stays in that folder. Uninstalling OpenTreasury never touches it.",
+      "selectedLabel": "Selected folder",
+      "noFolderYet": "No folder selected yet",
+      "browseLabel": "Browse…",
+      "useDefaultLabel": "Use default location",
+      "confirmLabel": "Confirm and start",
+      "restarting": "Saving your choice and restarting OpenTreasury…",
+      "errorPrefix": "Something went wrong"
+    }
+  },
   "profile": {
     "roles": {
       "treasurer": "Treasurer",

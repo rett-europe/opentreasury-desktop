@@ -1,0 +1,119 @@
+.ot-onboarding {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-default);
+  padding: var(--space-9);
+  overflow: auto;
+  z-index: 100;
+}
+
+.ot-onboarding__card {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-9);
+  max-width: 640px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.ot-onboarding__title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.ot-onboarding__body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.ot-onboarding__body--list {
+  margin: 0;
+  padding-left: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-onboarding__path {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-onboarding__path-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ot-onboarding__path-value {
+  display: block;
+  background: var(--color-bg-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-mono, monospace);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  word-break: break-all;
+  white-space: normal;
+}
+
+.ot-onboarding__path-value--placeholder {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  font-family: inherit;
+}
+
+.ot-onboarding__actions {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+.ot-onboarding__button {
+  appearance: none;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-default);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.ot-onboarding__button:hover:not(:disabled) {
+  background: var(--color-bg-hover, var(--color-bg-surface));
+}
+
+.ot-onboarding__button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ot-onboarding__button--primary {
+  background: var(--color-accent-default, var(--color-text-primary));
+  color: var(--color-text-on-accent, var(--color-bg-default));
+  border-color: var(--color-accent-default, var(--color-text-primary));
+}
+
+.ot-onboarding__error {
+  color: var(--color-error-default);
+  font-size: 13px;
+  margin: 0;
+}
