@@ -8,11 +8,11 @@ import { GroupedBarChart } from '../../components/GroupedBarChart/index.js';
 import { TransactionsTable } from '../../components/TransactionsTable/index.js';
 import type { TransactionRow } from '../../components/TransactionsTable/index.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
-import { formatMonth } from '../../utils/dateFormat.js';
+import { last30Days } from '../../utils/datePresets.js';
 import type {
   Account,
   AccountBalance,
-  GetMonthKPIsResponse,
+  GetRangeKPIsResponse,
   GetAccountSparklinesResponse,
   RecentTransaction,
   MonthlyIncomeExpense,
@@ -30,7 +30,7 @@ type PanelState = 'skeleton' | 'loaded' | 'error';
 interface PanelData {
   accounts: Account[];
   balances: AccountBalance[];
-  kpis: GetMonthKPIsResponse['kpis'];
+  kpis: GetRangeKPIsResponse['kpis'];
   sparklines: Map<string, GetAccountSparklinesResponse['sparkline']>;
   transactions: RecentTransaction[];
   categories: CategoryRecord[];
@@ -65,7 +65,7 @@ export function PanelScreen(): JSX.Element {
     try {
       setState('skeleton');
 
-      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const range = last30Days(new Date());
 
       const [
         accountsResp,
@@ -78,7 +78,7 @@ export function PanelScreen(): JSX.Element {
       ] = await Promise.all([
         panelApi.getAccounts(),
         panelApi.getAccountBalances(),
-        panelApi.getMonthKPIs(currentMonth),
+        panelApi.getRangeKPIs(range.from, range.to),
         panelApi.queryRecentTransactions(8),
         listCategories(),
         listTags(),
@@ -268,7 +268,7 @@ export function PanelScreen(): JSX.Element {
         </div>
         <div className="ot-page-header__actions">
           <Button variant="secondary" leadingIcon={<Calendar size={16} />} disabled>
-            {formatMonth(kpis.yearMonth, locale)}
+            {t('panel.cta.date-range')}
           </Button>
         </div>
       </header>
@@ -292,7 +292,7 @@ export function PanelScreen(): JSX.Element {
         income={kpis.income}
         expense={kpis.expense}
         net={kpis.net}
-        month={formatMonth(kpis.yearMonth, locale)}
+        month={t('panel.range.last-30-days')}
       />
 
       <div className="ot-section-label">{t('panel.sections.monthly-trend')}</div>

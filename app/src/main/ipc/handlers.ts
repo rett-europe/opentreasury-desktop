@@ -9,6 +9,7 @@ import {
   IPC_PANEL_GET_ACCOUNTS,
   IPC_PANEL_GET_ACCOUNT_BALANCES,
   IPC_PANEL_GET_MONTH_KPIS,
+  IPC_PANEL_GET_RANGE_KPIS,
   IPC_PANEL_GET_ACCOUNT_SPARKLINES,
   IPC_PANEL_QUERY_RECENT_TRANSACTIONS,
   IPC_PANEL_GET_MONTHLY_INCOME_EXPENSE,
@@ -18,6 +19,8 @@ import {
   getAccountBalancesResponseSchema,
   getMonthKPIsRequestSchema,
   getMonthKPIsResponseSchema,
+  getRangeKPIsRequestSchema,
+  getRangeKPIsResponseSchema,
   getAccountSparklinesRequestSchema,
   getAccountSparklinesResponseSchema,
   queryRecentTransactionsRequestSchema,
@@ -124,6 +127,7 @@ import {
   handleGetAccounts,
   handleGetAccountBalances,
   handleGetMonthKPIs,
+  handleGetRangeKPIs,
   handleGetAccountSparklines,
   handleQueryRecentTransactions,
   handleGetMonthlyIncomeExpense,
@@ -337,6 +341,12 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     const request = getMonthKPIsRequestSchema.parse(raw);
     const response = await handleGetMonthKPIs(request);
     return getMonthKPIsResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_PANEL_GET_RANGE_KPIS, async (_event, raw: unknown) => {
+    const request = getRangeKPIsRequestSchema.parse(raw);
+    const response = await handleGetRangeKPIs(request);
+    return getRangeKPIsResponseSchema.parse(response);
   });
 
   ipcMain.handle(IPC_PANEL_GET_ACCOUNT_SPARKLINES, async (_event, raw: unknown) => {

@@ -8,6 +8,8 @@ import {
   type GetAccountBalancesResponse,
   getMonthKPIsResponseSchema,
   type GetMonthKPIsResponse,
+  getRangeKPIsResponseSchema,
+  type GetRangeKPIsResponse,
   getAccountSparklinesResponseSchema,
   type GetAccountSparklinesResponse,
   queryRecentTransactionsResponseSchema,
@@ -39,6 +41,16 @@ export async function getAccountBalances(): Promise<GetAccountBalancesResponse> 
 export async function getMonthKPIs(yearMonth: string): Promise<GetMonthKPIsResponse> {
   const raw = await window.opentreasury.panel.getMonthKPIs({ yearMonth });
   return getMonthKPIsResponseSchema.parse(raw);
+}
+
+/**
+ * Get date-range KPIs (Income/Expense/Net) for a rolling window.
+ * @param from - YYYY-MM-DD format, e.g., "2026-04-01"
+ * @param to - YYYY-MM-DD format, e.g., "2026-04-30"
+ */
+export async function getRangeKPIs(from: string, to: string): Promise<GetRangeKPIsResponse> {
+  const raw = await window.opentreasury.panel.getRangeKPIs({ from, to });
+  return getRangeKPIsResponseSchema.parse(raw);
 }
 
 /**

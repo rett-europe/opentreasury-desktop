@@ -129,6 +129,48 @@ export function getMonthKPIs(yearMonth: string): MonthKPIs {
   };
 }
 
+// Query 3b: Get range-based KPIs (YYYY-MM-DD from/to, inclusive)
+export interface RangeKPIs {
+  readonly from: string; // YYYY-MM-DD
+  readonly to: string; // YYYY-MM-DD
+  readonly income: number;
+  readonly expense: number;
+  readonly net: number;
+  readonly transactionCount: number;
+}
+
+export function getRangeKPIs(from: string, to: string): RangeKPIs {
+  const model = getReadModel();
+
+  let income = 0;
+  let expense = 0;
+  let count = 0;
+
+  for (const tx of model.transactions) {
+    // Lexicographic comparison is safe for YYYY-MM-DD strings
+    if (tx.date >= from && tx.date <= to) {
+      const amounts = effectiveAmounts(tx, model);
+      for (const ea of amounts) {
+        if (tx.type === 'income') {
+          income += ea.amount;
+        } else {
+          expense += ea.amount;
+        }
+      }
+      count += 1;
+    }
+  }
+
+  return {
+    from,
+    to,
+    income: Math.round(income * 100) / 100,
+    expense: Math.round(expense * 100) / 100,
+    net: Math.round((income - expense) * 100) / 100,
+    transactionCount: count,
+  };
+}
+
 // Query 4: Get account sparklines (12-month net buckets)
 export interface AccountSparkline {
   readonly accountId: string;

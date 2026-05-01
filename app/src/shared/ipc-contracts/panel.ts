@@ -98,6 +98,36 @@ export type GetMonthKPIsResponse = z.infer<typeof getMonthKPIsResponseSchema>;
 export const GetMonthKPIsResponseSchema = getMonthKPIsResponseSchema;
 
 // ============================================================================
+// 3b. getRangeKPIs — Date-range KPIs (from/to inclusive)
+// ============================================================================
+
+export const IPC_PANEL_GET_RANGE_KPIS = 'panel:get-range-kpis';
+
+export const getRangeKPIsRequestSchema = z.object({
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
+});
+
+export type GetRangeKPIsRequest = z.infer<typeof getRangeKPIsRequestSchema>;
+
+export const rangeKPIsSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  income: z.number().nonnegative(),
+  expense: z.number().nonnegative(),
+  net: z.number(),
+  transactionCount: z.number().int().nonnegative(),
+});
+
+export type RangeKPIs = z.infer<typeof rangeKPIsSchema>;
+
+export const getRangeKPIsResponseSchema = z.object({
+  kpis: rangeKPIsSchema,
+});
+
+export type GetRangeKPIsResponse = z.infer<typeof getRangeKPIsResponseSchema>;
+
+// ============================================================================
 // 4. getAccountSparklines — 12-month sparkline data per account
 // ============================================================================
 
