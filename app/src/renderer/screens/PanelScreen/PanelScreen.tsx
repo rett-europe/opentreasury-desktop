@@ -68,7 +68,7 @@ export function PanelScreen(): JSX.Element {
         countsResp,
       ] = await Promise.all([
         panelApi.getAccounts(),
-        panelApi.getAccountBalances(),
+        panelApi.getAccountBalancesInRange(range.from, range.to),
         panelApi.getRangeKPIs(range.from, range.to),
         panelApi.queryRecentTransactions(8),
         listCategories(),
