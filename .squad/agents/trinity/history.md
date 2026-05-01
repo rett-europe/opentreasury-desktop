@@ -3024,3 +3024,15 @@ When `dataDir` is relative, the comparison called `path.resolve(currentDataDir)`
 
 No action needed now — just awareness. Original scope decisions captured in decisions.md.
 
+
+## Learnings
+
+### 2026-05-08 — PR #217: onboarding wizard white-on-white
+
+**What:** First-run `OnboardingScreen` (#215) shipped with CSS referencing tokens that don't exist in `tokens.css` — `--color-bg-default`, `--color-bg-surface`, `--color-bg-hover`, `--color-accent-default`, `--color-text-on-accent`, `--color-error-default`. They all silently resolved to nothing, so scrim and card backgrounds fell through to white.
+
+**Lesson:** Before authoring a new screen's CSS, grep `app/src/renderer/styles/tokens.css` for the *actual* token names. This codebase uses `--color-surface-{app,primary,secondary,raised,sunken,overlay}` (not `--color-bg-*`), `--color-brand-primary` + `--color-brand-on-primary` (not `--color-accent-*`), `--color-danger-default` (not `--color-error-default`). Reference modals: `ProfileSetupModal.css` and `TransactionDetailModal.css`.
+
+**Modal recipe (no shared component yet):** scrim = `--color-surface-overlay`; card = `--color-surface-primary` + `--color-border-default` + `--shadow-dialog` + `--radius-lg`; primary button = `--color-brand-primary` / `--color-brand-on-primary`; focus = `--color-focus-ring` outline. If we keep hand-rolling this, it's worth proposing a shared `.ot-modal` recipe to Niobe/Mouse — flagged but not done in this PR.
+
+**Validation note:** `MovementsScreen.staleModal.test.tsx` is currently flaky on `main` (timing-related `waitFor` on table render). Confirmed pre-existing by stashing my diff and re-running. Worth a separate ticket.
