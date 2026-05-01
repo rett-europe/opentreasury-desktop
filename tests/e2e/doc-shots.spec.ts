@@ -110,10 +110,10 @@ async function launchApp(userDataDir: string): Promise<ElectronApplication> {
       // Suppress the dev-seed auto-write — we already shaped the dataset
       // ourselves via perf-seed.mjs.
       OT_SEED: 'none',
-      // Ensure renderer i18n picks Spanish so screenshots match the persona.
+      // Ensure renderer i18n picks English to match docs/guides/user-guide.md.
       // (i18next-browser-languagedetector also reads localStorage; we set that
       // explicitly below for belt-and-braces determinism.)
-      LANG: 'es_ES.UTF-8',
+      LANG: 'en_US.UTF-8',
     },
   });
 }
@@ -176,10 +176,10 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
     try {
       const page = await preparePage(app);
 
-      // Set Spanish locale before first navigation
+      // Set English locale before first navigation to match docs/guides/user-guide.md
       await page.evaluate(() => {
         try {
-          window.localStorage.setItem('opentreasury.locale', 'es');
+          window.localStorage.setItem('opentreasury.locale', 'en');
         } catch {
           /* ignore */
         }
@@ -221,8 +221,8 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
       await page.click(NAV_MOVEMENTS);
       // Wait for the movements screen container
       await page.waitForSelector('.ot-movements', { state: 'visible', timeout: 10_000 });
-      // Default filter is "Este mes" which may have no data. Click "Todo" to show all.
-      await page.click('text=Todo');
+      // Default filter is "This month" which may have no data. Click "All" to show all.
+      await page.click('text=All');
       await page.waitForTimeout(1000);
       // Now wait for data rows to appear
       await page.waitForSelector(FIRST_DATA_ROW, { state: 'visible', timeout: 10_000 });
@@ -246,7 +246,7 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.waitForTimeout(500);
       // The settings gear is in the sidebar footer, not the topbar
-      const settingsBtn = page.locator('button:has-text("Preferencias")');
+      const settingsBtn = page.locator('button:has-text("Preferences")');
       await settingsBtn.click({ timeout: 10_000 });
       await page.waitForSelector('.ot-preferences', { state: 'visible' });
       await page.waitForTimeout(500);
