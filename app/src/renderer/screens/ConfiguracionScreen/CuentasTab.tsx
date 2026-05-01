@@ -131,9 +131,10 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
 
   return (
     <>
-      <div className="ot-config__tab-actions">
+      <header className="ot-page-header ot-config__tab-header">
         <div>
-          <h2 className="ot-config__tab-title">{t('configuracion.cuentas.heading')}</h2>
+          <h1>{t('configuracion.cuentas.heading')}</h1>
+          <p className="ot-page-header__subtitle">{t('configuracion.cuentas.subtitle')}</p>
           {state.kind === 'loaded' && state.accounts.length > 0 ? (
             <div className="ot-page-header__stats">
               <span>
@@ -168,7 +169,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
             </Button>
           ) : null}
         </div>
-      </div>
+      </header>
 
       {state.kind === 'loading' ? (
         <p>{t('common.loading')}</p>

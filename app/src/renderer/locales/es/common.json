@@ -511,6 +511,7 @@
     },
     "cuentas": {
       "heading": "Cuentas",
+      "subtitle": "Cuentas bancarias y otros lugares donde guardas dinero.",
       "add": "Añadir cuenta",
       "name": "Nombre de la cuenta",
       "bank": "Banco",
@@ -548,6 +549,7 @@
     },
     "categorias": {
       "heading": "Categorías",
+      "subtitle": "Ingresos y gastos usados para organizar tus transacciones.",
       "add": "Nueva categoría",
       "name": "Nombre de la categoría",
       "color": "Color",
@@ -668,6 +670,7 @@
     },
     "etiquetas": {
       "heading": "Etiquetas",
+      "subtitle": "Etiquetas transversales para campañas, proyectos o cualquier vista por tag.",
       "add": "Añadir etiqueta",
       "name": "Nombre de la etiqueta",
       "modal": {
@@ -720,7 +723,6 @@
   "datos": {
     "title": "Datos",
     "subtitle": "Importa extractos bancarios en tus cuentas.",
-    "heading": "Importación y Exportación de Datos",
     "importCta": "Importar Movimientos",
     "empty": {
       "title": "Importa datos desde extractos bancarios",

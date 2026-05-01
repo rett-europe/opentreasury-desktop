@@ -5,19 +5,3 @@
   flex-direction: column;
   min-height: 100%;
 }
-
-.ot-datos__actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-6);
-  gap: var(--space-6);
-  flex-wrap: wrap;
-}
-
-.ot-datos__heading {
-  margin: 0;
-  font-size: var(--font-size-20);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}

@@ -39,10 +39,6 @@ export function DatosScreen({
         </div>
       </header>
 
-      <div className="ot-datos__actions">
-        <h2 className="ot-datos__heading">{t('datos.heading')}</h2>
-      </div>
-
       <EmptyState
         icon={<Upload size={32} aria-hidden="true" />}
         title={t('datos.empty.title')}

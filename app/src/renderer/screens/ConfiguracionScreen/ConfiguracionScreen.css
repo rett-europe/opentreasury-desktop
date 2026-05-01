@@ -8,23 +8,9 @@
 
 /* Legacy in-screen tab strip was removed in round 2 — each sub-route is now a
  * top-level sidebar item, so ConfiguracionScreen renders one tab's content
- * without any tab chrome. Related .ot-config__tab{,s} rules dropped. */
-
-.ot-config__tab-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-6);
-  gap: var(--space-6);
-  flex-wrap: wrap;
-}
-
-.ot-config__tab-title {
-  margin: 0;
-  font-size: var(--font-size-20);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
+ * without any tab chrome. Related .ot-config__tab{,s} rules dropped. The
+ * earlier .ot-config__tab-actions / .ot-config__tab-title rules were dropped
+ * when each tab adopted the shared .ot-page-header layout. */
 
 .ot-config__list {
   display: grid;

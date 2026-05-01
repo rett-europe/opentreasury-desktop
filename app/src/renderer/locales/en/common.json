@@ -511,6 +511,7 @@
     },
     "cuentas": {
       "heading": "Accounts",
+      "subtitle": "Bank accounts and other places where money lives.",
       "add": "Add account",
       "name": "Account name",
       "bank": "Bank",
@@ -548,6 +549,7 @@
     },
     "categorias": {
       "heading": "Categories",
+      "subtitle": "Income and expense buckets used to organize your transactions.",
       "add": "New category",
       "name": "Category name",
       "color": "Color",
@@ -668,6 +670,7 @@
     },
     "etiquetas": {
       "heading": "Tags",
+      "subtitle": "Cross-cutting labels for campaigns, projects, or any tag-based view.",
       "add": "Add tag",
       "name": "Tag name",
       "modal": {
@@ -720,7 +723,6 @@
   "datos": {
     "title": "Data",
     "subtitle": "Import bank statements into your accounts.",
-    "heading": "Data Import & Export",
     "importCta": "Import Transactions",
     "empty": {
       "title": "Import data from bank statements",

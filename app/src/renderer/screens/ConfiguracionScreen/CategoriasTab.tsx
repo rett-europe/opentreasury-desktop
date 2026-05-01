@@ -262,9 +262,10 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
 
   return (
     <>
-      <div className="ot-config__tab-actions">
+      <header className="ot-page-header ot-config__tab-header">
         <div>
-          <h2 className="ot-config__tab-title">{t('configuracion.categorias.heading')}</h2>
+          <h1>{t('configuracion.categorias.heading')}</h1>
+          <p className="ot-page-header__subtitle">{t('configuracion.categorias.subtitle')}</p>
           {state.kind === 'loaded' && state.categories.length > 0 ? (
             <div className="ot-page-header__stats">
               <span>{t('configuracion.categorias.stats.total', { count: counts.all })}</span>
@@ -291,7 +292,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
             </Button>
           ) : null}
         </div>
-      </div>
+      </header>
 
       {state.kind === 'loading' ? (
         <p>{t('common.loading')}</p>
