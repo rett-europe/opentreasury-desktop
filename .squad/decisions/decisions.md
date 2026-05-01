@@ -2113,6 +2113,44 @@ This ensures each agent gets its own worktree (`git worktree add`) and cannot co
 
 ---
 
+## Decision: `dev:empty` Semantics + Onboarding Hydration Ordering (PR #216)
+
+**Author:** Morpheus (Backend Developer)  
+**Date:** 2026-05-08  
+**Status:** Shipped & Merged (PR #216)  
+**Branch:** squad/fix-dev-empty-onboarding-regression  
+**Context issues:** #196 (onboarding wizard), PR #215 (wizard ship)
+
+### What Changed
+
+1. **`dev:empty` is now actually empty.** The npm script no longer just sets `OT_SEED=none`; it runs `scripts/dev-empty.mjs`, which deletes the dev-only state under Electron's userData before spawning vite:
+   - `userData/app-config.json` (resets the dataDir choice → wizard fires)
+   - `userData/dev-events/` (legacy default location)
+   - `userData/my-data/` (post-onboarding default; only present if a previous wizard run picked "Use default")
+
+   `profile.json` and `device.json` are intentionally preserved — they survive a "fresh start" and are orthogonal to the data folder choice.
+
+2. **Bootstrap defers everything when `appConfig.dataDir === null`.** Previously, even when the wizard SHOULD fire, bootstrap would synthesize `<userData>/dev-events`, load any leftover events from disk, fold them into the in-memory read model, and write a fresh `dataset.json` — all before the renderer could render the wizard. Now, when there is no configured dataDir, bootstrap stops after loading profile + appConfig + deviceId and marks itself as `onboardingPending`. The renderer's gate (`app:needsOnboarding` + `App.tsx`) keeps the main UI unmounted; the wizard is the only screen that runs.
+
+3. **IPC registration is gated.** Handlers that depend on `getEventLog()` / `getDatasetId()` are only registered when bootstrap actually wired them up. During the wizard-pending state, only the handlers the wizard needs (`app:needsOnboarding`, `dialog:pickFolder`, `config:setDataDir`, `config:get`, `profile:*`, `shell:*`) are live.
+
+4. **`config:setDataDir` is null-tolerant for the first-run case.** No SAME_DIR check, no datasetId-mismatch check (there is no workspace to switch FROM), no `previousDataDir` recorded. Schema-too-new and foreign-events.ndjson refusals stay absolute.
+
+### Team Implications
+
+- **`npm run dev` still seeds.** First-time devs without an `app-config.json` will now click through the wizard once (one extra click), then the dev-seed populates whatever folder they picked. Subsequent runs skip the wizard. **No change to the seeded data shape or location semantics.**
+- **`npm run dev:empty` reliably reproduces first-run.** Anyone testing the onboarding flow can run it and trust that the wizard fires with an empty in-memory read model.
+- **`npm run dev:reset` (existing dogfood reset) is unchanged.** It still wipes a single `OT_DATA_DIR` subdir and refuses to touch `dev-events/`.
+- **Production impact:** None at runtime — production builds never had `OT_SEED` or `dev-events/` semantics. The bootstrap-defer-when-dataDir-null path is the production first-run path; it is now correct (was broken pre-PR but masked by `NODE_ENV !== 'production'` skipping the seed).
+
+### What This Does NOT Change
+
+- The priority-precedence rule for resolving dataDir (PR #202): `appConfig.dataDir` > `OT_DATA_DIR` env > default.
+- The `config:setDataDir` contract for non-first-run flows: SAME_DIR, DATASET_MISMATCH, SCHEMA_TOO_NEW, etc., still apply when there is a current workspace.
+- No new env vars introduced.
+
+---
+
 ## Decision: Insights DonutChart — Single-Slice Rendering & Empty-State Contrast (PR #115)
 
 **Author:** Trinity (Frontend Developer)  

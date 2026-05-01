@@ -19,6 +19,12 @@ The cloud version has an Angular 19 frontend with:
 
 ## Learnings
 
+**2026-05-08 — PR #216: dev:empty semantics + onboarding hydration (squad/fix-dev-empty-onboarding-regression)**
+
+Wizard now safe to test in dev mode. `npm run dev:empty` reliably reproduces first-run state with clean wizard render (no pre-filled read model). Bootstrap defers all hydration when `appConfig.dataDir === null`, preventing the race condition where seed events would load before wizard renders. 
+
+**For Trinity:** Onboarding wizard paths are now stabilized. The wizard fires consistently when userData/app-config.json is missing, and `config:setDataDir` is null-tolerant for first-run. IPC handlers for wizard needs (`dialog:pickFolder`, `config:setDataDir`, `config:get`, `profile:*`) are always live; data-dependent handlers are gated by bootstrap state. WI-15 config CRUD (accounts/categories/tags) can safely assume dataDir is set once bootstrap completes.
+
 **2026-05-05 — PR #190: Corp-storage error silent failure (squad/preferences-dataset-switch-silent-rejection)**
 
 Fixed regression from PR #188 where picking a non-corporate folder (e.g., Pedro's exact case: `c:\temp`) showed no error — user clicked "Cambiar", picked folder, got silently returned to Preferences with no feedback.
