@@ -3061,3 +3061,19 @@ No action needed now — just awareness. Original scope decisions captured in de
 **Modal recipe (no shared component yet):** scrim = `--color-surface-overlay`; card = `--color-surface-primary` + `--color-border-default` + `--shadow-dialog` + `--radius-lg`; primary button = `--color-brand-primary` / `--color-brand-on-primary`; focus = `--color-focus-ring` outline. If we keep hand-rolling this, it's worth proposing a shared `.ot-modal` recipe to Niobe/Mouse — flagged but not done in this PR.
 
 **Validation note:** `MovementsScreen.staleModal.test.tsx` is currently flaky on `main` (timing-related `waitFor` on table render). Confirmed pre-existing by stashing my diff and re-running. Worth a separate ticket.
+
+**2026-05-11 — PR #223: Fixed dashboard per-account tx counts + last-30-days i18n (squad/fix-dashboard-tx-counts-and-30d-i18n)**
+
+Fixed two bugs Pedro reported after merging PR #221 and testing with freshly-seeded data:
+
+**Bug 1: All accounts showing identical transaction count (49).** MOCK_TX_COUNTS was keyed on prototype short IDs ('unicaja', 'paypal') but real account IDs are now ULIDs ('ACCUNI000...'). Lookup always missed, falling back to kpis.transactionCount (the global count). Extended getRangeKPIs to return accountTransactionCounts: ReadonlyMap<string, number> alongside global aggregates. Updated IPC contract (rangeKPIsSchema now includes accountTransactionCounts as a record), handler (converts Map to object for serialization), and PanelScreen to use kpis.accountTransactionCounts[acc.id] ?? 0. Deleted MOCK_TX_COUNTS entirely — closes WI-6 workaround.
+
+**Bug 2: 'Last 30 days' filter chip showing raw i18n key.** Added 'last-30-days' to DATE_PRESET_IDS in PR #221 but only added translations under panel.presets (dashboard-scoped). Movements screen looks under movements.filters.dateRange.presets. Added the missing key to both en and es common.json.
+
+**Data flow verification:** Account balances displayed on dashboard come from panel:get-account-balances (real data from read model, aggregated by getAccountBalances in core/query/queries.ts line 44-77). They were never mocked. Only the per-account transaction counts were mocked (now replaced with real tallies from the same rolling 30-day window as the global KPIs).
+
+**Augmenting existing range queries:** When extending an existing query to return per-key tallies (e.g., per-account counts alongside global totals), you can either: (1) extend the existing query return type (adding a new field), which is simpler and fewer round-trips, or (2) add a sibling query. I chose (1) here — extended RangeKPIs interface to include accountTransactionCounts. This is backward-compatible (additive change, no version bump needed). The query tallies within the same loop that computes global aggregates, so no performance impact. The IPC contract schema change is also additive (z.record field added to existing object schema). Frontend consumers can opt-in by reading the new field; existing code unaffected.
+
+**For Trinity:**
+- Augmenting range queries with per-key tallies: Follow the pattern in getRangeKPIs — add a Map to accumulate counts per key in the same loop, include it in the return type, serialize to object in the handler, and expose as record in the Zod schema.
+- i18n scope: Panel screen copy lives under panel.*; Movements screen copy lives under movements.*. Filter preset labels must be duplicated if used across both screens (e.g., 'last-30-days' appears in both panel.presets and movements.filters.dateRange.presets).

@@ -151,3 +151,22 @@ Example: Dashboard needed a rolling 30-day window to avoid the calendar-cliff bu
 - ❌ **Using `new Date()` directly in the screen component** — makes tests non-deterministic. Always wrap in a preset factory that accepts `today: Date`.
 - ❌ **Forgetting to update `DATE_PRESET_IDS` assertion in tests** — causes test failures when a new preset is added but the list isn't updated.
 - ❌ **Parsing date strings with `Date` objects for comparison** — use lexicographic comparison (`tx.date >= from && tx.date <= to`) for YYYY-MM-DD strings. It's safe, fast, and avoids timezone pitfalls.
+
+## Extension: Per-Key Tallies Alongside Global Aggregates
+
+When you need **per-key counts or sums** (e.g., per-account transaction counts) alongside global aggregates over the same range, extend the existing query rather than creating a sibling.
+
+**Pattern (PR #223):**
+1. Add a Map to the query function: `const accountCounts = new Map<string, number>();`
+2. Tally in the same loop: `accountCounts.set(tx.accountId, (accountCounts.get(tx.accountId) ?? 0) + 1);`
+3. Include in return type: `readonly accountTransactionCounts: ReadonlyMap<string, number>;`
+4. Update IPC contract schema: `accountTransactionCounts: z.record(z.string(), z.number().int().nonnegative())`
+5. Convert Map → object in handler: `Object.fromEntries(rangeKPIs.accountTransactionCounts)`
+6. Access in frontend: `kpis.accountTransactionCounts[acc.id] ?? 0`
+
+**Why extend instead of splitting:**
+- Single round-trip (no second IPC call)
+- Shared iteration (both tallies scan the same filtered transactions)
+- Backward compatible (additive change, no version bump)
+
+**Example:** `getRangeKPIs` in PR #223 (lines 148-172) tallies both global KPIs and per-account counts in one loop.
