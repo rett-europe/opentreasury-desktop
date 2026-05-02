@@ -22,6 +22,33 @@ The desktop version aims to replicate this functionality without requiring Azure
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+## 2026-05-02 — Spec→Sub-Issues Decomposition Pattern (#206)
+
+**Status:** Completed spec approval & work decomposition for #206 (Dataset Compatibility & Validation).
+
+**Decomposition Heuristic:**
+Niobe's spec included 11 explicit work items in 4 phases. Rather than create 11 separate issues (too granular), grouped them into **5 dependency-ordered work packages** around logical architectural layers:
+1. **Spec Contract** (schema types, error codes) — foundational, blocks all others.
+2. **Validation Logic** (corruption detection, folder classification) — depends on #1, feeds #3–#5.
+3. **Migration Scaffold** (framework types, test helpers, docs) — depends on #1, parallel-ready with #2.
+4. **Frontend: Folder Picker** (error dialogs) — depends on #1, mid-priority.
+5. **Frontend: Boot Page** (hydration errors) — depends on #2, polish-tier.
+
+**Dependency Ordering:** Issue numbers were captured as created (#238→#242), then referenced backward in subsequent issue bodies. This prevents forward-references to unknown issue numbers.
+
+**Owner Assignment:** 
+- Backend complexity (schema, validation, migrations) → Morpheus.
+- Test scaffolding → Cypher (paired with Morpheus).
+- Frontend error handling → Trinity (two separate issues: folder-picker first, boot page second, because boot depends on corruption detection being solid).
+
+**Accepted Criterion:** Every sub-issue included explicit spec-section references (e.g., "Phase 2, Item 4") so implementers can read the primary spec source without hunting for intent.
+
+**Reusable Insight:** For future specs with "work decomposition" sections, **group by architectural layer (not by item count)** and **order by dependency graph** to minimize blocking and enable parallelism. Number final issues after creation so forward-references are accurate.
+
+**Artifact:** 5 GitHub sub-issues (#238–#242) with spec-section anchors, owner suggestions, and dependency declarations.
+
+
+
 ## 2026-04-19 — WI-15/16 scope finalized (Configuración + Datos deep-dive from web reference)
 
 Completed comprehensive scope inventory of rett-europe/opentreasury (web reference app). 
