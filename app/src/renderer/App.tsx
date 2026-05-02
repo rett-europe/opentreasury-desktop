@@ -10,6 +10,7 @@ import { OnboardingScreen } from './screens/OnboardingScreen/index.js';
 import { PanelScreen } from './screens/PanelScreen/index.js';
 import { SaldoScreen } from './screens/SaldoScreen/index.js';
 import { PreferencesScreen } from './screens/PreferencesScreen/index.js';
+import { BootErrorPage, type BootErrorDetails } from './screens/BootErrorPage/index.js';
 import { thisYear } from './utils/datePresets.js';
 
 /**
@@ -57,10 +58,34 @@ export function App(): JSX.Element {
   // `true` = show the wizard before mounting AppShell, `false` = main app.
   const [needsOnboarding, setNeedsOnboarding] = useState<boolean | null>(null);
 
+  // #242 — Boot error gate. If bootstrap/hydration failed, show BootErrorPage.
+  const [bootError, setBootError] = useState<BootErrorDetails | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
+        // Check boot status first — if boot failed, we can't proceed
+        const bootStatus = await window.opentreasury.boot.getStatus();
+        if (cancelled) return;
+
+        if (!bootStatus.ok) {
+          setBootError({
+            code: bootStatus.error.code,
+            message: bootStatus.error.message,
+            ...(bootStatus.error.filePath ? { filePath: bootStatus.error.filePath } : {}),
+            ...(bootStatus.error.folderSchemaVersion
+              ? { folderSchemaVersion: bootStatus.error.folderSchemaVersion }
+              : {}),
+            ...(bootStatus.error.appSchemaVersion
+              ? { appSchemaVersion: bootStatus.error.appSchemaVersion }
+              : {}),
+          });
+          setNeedsOnboarding(false); // Not onboarding if boot failed
+          return;
+        }
+
+        // Boot succeeded — check if we need onboarding
         const response = await window.opentreasury.onboarding.getStatus();
         if (cancelled) return;
         setNeedsOnboarding(response.needsOnboarding);
@@ -69,8 +94,11 @@ export function App(): JSX.Element {
         // failure — fall through to the main app rather than blocking on a
         // wizard that can never resolve.
         // eslint-disable-next-line no-console
-        console.warn('[App] onboarding.getStatus() failed; assuming no onboarding needed:', err);
-        if (!cancelled) setNeedsOnboarding(false);
+        console.warn('[App] boot/onboarding status check failed; assuming normal boot:', err);
+        if (!cancelled) {
+          setNeedsOnboarding(false);
+          setBootError(null);
+        }
       }
     })();
     return () => {
@@ -115,10 +143,15 @@ export function App(): JSX.Element {
   const isConfigRoute = route === 'cuentas' || route === 'categorias' || route === 'etiquetas';
 
   // While probing, render nothing — keeps the main app from flashing before
-  // the onboarding decision lands. The probe is a single in-process IPC call
-  // and resolves immediately under normal conditions.
+  // the boot/onboarding decision lands. The probe is a single in-process IPC
+  // call and resolves immediately under normal conditions.
   if (needsOnboarding === null) {
     return <></>;
+  }
+
+  // Boot failed — show error page with recovery options
+  if (bootError) {
+    return <BootErrorPage error={bootError} />;
   }
 
   if (needsOnboarding) {

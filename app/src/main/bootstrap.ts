@@ -40,6 +40,18 @@ let datasetIdInstance: string | null = null;
 let effectiveEventLogDir: string | null = null;
 let bootstrapped = false;
 let onboardingPending = false;
+let bootstrapError: BootstrapError | null = null;
+
+/**
+ * Boot error details surfaced when bootstrap/hydration fails fatally.
+ */
+export interface BootstrapError {
+  code: string;
+  message: string;
+  filePath?: string;
+  folderSchemaVersion?: number;
+  appSchemaVersion?: number;
+}
 
 /**
  * True when bootstrap completed in "wizard-pending" mode — `appConfig.dataDir`
@@ -54,6 +66,13 @@ let onboardingPending = false;
  */
 export function isOnboardingPending(): boolean {
   return onboardingPending;
+}
+
+/**
+ * Returns the bootstrap error if boot failed, null otherwise.
+ */
+export function getBootstrapError(): BootstrapError | null {
+  return bootstrapError;
 }
 
 /**
@@ -337,10 +356,46 @@ function shouldSeed(): boolean {
  *   5. If the log is empty AND NODE_ENV !== 'production', emit the dev-seed
  *      events through append() so the app has prototype-shaped data to show.
  *   6. Replay the final event list into the reducer singleton.
+ *
+ * #242: If hydration fails (corrupt dataset.json, events.ndjson, schema
+ * version mismatch), the error is caught and stored in `bootstrapError`.
+ * The renderer queries `app:bootStatus` and shows BootErrorPage if needed.
  */
 export async function initializeApp(): Promise<void> {
   if (bootstrapped) return;
 
+  try {
+    await initializeAppUnsafe();
+  } catch (err) {
+    // Catch fatal bootstrap errors and store them for the renderer.
+    // eslint-disable-next-line no-console
+    console.error('[bootstrap] Fatal error during bootstrap:', err);
+
+    const message = err instanceof Error ? err.message : String(err);
+
+    // Try to infer error code from the error message
+    let code = 'HYDRATION_FAILED';
+    if (message.includes('dataset.json') || message.includes('dataset metadata')) {
+      code = 'DATASET_CORRUPT';
+    } else if (message.includes('schema version')) {
+      code = 'SCHEMA_TOO_NEW';
+    }
+
+    bootstrapError = {
+      code,
+      message,
+      ...(effectiveEventLogDir ? { filePath: effectiveEventLogDir } : {}),
+    };
+
+    // Mark as bootstrapped so we don't retry
+    bootstrapped = true;
+
+    // Re-throw so main/index.ts knows bootstrap failed
+    throw err;
+  }
+}
+
+async function initializeAppUnsafe(): Promise<void> {
   const userDataDir = app.getPath('userData');
 
   // P0-2: Load profile before initializing event log. If missing, the app

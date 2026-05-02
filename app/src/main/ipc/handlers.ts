@@ -252,6 +252,11 @@ import {
   buildProductionNeedsOnboardingDeps,
 } from './handlers/onboarding.js';
 import {
+  IPC_APP_BOOT_STATUS,
+  appBootStatusResponseSchema,
+} from '../../shared/ipc-contracts/boot.js';
+import { createAppBootStatusHandler } from './handlers/boot.js';
+import {
   IPC_SHELL_OPEN_PATH,
   shellOpenPathResponseSchema,
 } from '../../shared/ipc-contracts/shell.js';
@@ -322,6 +327,16 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     }
     const response = await needsOnboardingHandler(raw);
     return appNeedsOnboardingResponseSchema.parse(response);
+  });
+
+  // app:bootStatus — #242 boot/hydration error surface. Returns whether
+  // bootstrap succeeded or failed. If boot failed (corrupt dataset.json,
+  // schema version mismatch, hydration error), returns error details so the
+  // renderer can show a BootErrorPage with actionable recovery steps.
+  const bootStatusHandler = createAppBootStatusHandler();
+  ipcMain.handle(IPC_APP_BOOT_STATUS, async (_event, raw: unknown) => {
+    const response = await bootStatusHandler(raw);
+    return appBootStatusResponseSchema.parse(response);
   });
 
   // shell:openPath reveals a folder/file in the OS file explorer. Routed

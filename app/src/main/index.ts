@@ -103,7 +103,18 @@ void app.whenReady().then(async () => {
   // WI-4′ — hydrate the read model from the local NDJSON event log BEFORE
   // handlers are registered, so the first IPC query sees real data (and the
   // dev-seed has run on first launch).
-  await initializeApp();
+  //
+  // #242: If bootstrap fails (corrupt dataset.json, schema mismatch, hydration
+  // error), catch the error and register IPC handlers anyway so the renderer
+  // can query boot status and show the BootErrorPage. The app remains in a
+  // "boot failed" state; getEventLog() will throw if called.
+  try {
+    await initializeApp();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[main] Bootstrap failed:', err);
+    // Continue to register IPC handlers so the renderer can query boot status
+  }
   registerIpcHandlers(ipcMain);
   createMainWindow();
 

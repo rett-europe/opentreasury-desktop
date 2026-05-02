@@ -1273,5 +1273,46 @@
         "body": "An unexpected error occurred"
       }
     }
+  },
+  "boot": {
+    "error": {
+      "filePath": "File path",
+      "supportNote": "If you need help, copy the diagnostics below and contact support.",
+      "actions": {
+        "restoreBackup": "Restore from backup",
+        "restoreBackupDisabledTooltip": "Backup restore not yet available. Pick a different folder or contact support.",
+        "pickDifferentFolder": "Pick a different folder"
+      },
+      "diagnostics": {
+        "show": "Show diagnostics",
+        "hide": "Hide diagnostics",
+        "copy": "Copy to clipboard",
+        "copied": "Copied!"
+      },
+      "DATASET_CORRUPT": {
+        "title": "Failed to load dataset",
+        "body": "The dataset metadata file is corrupt or unreadable. Restore from backup or choose a different folder."
+      },
+      "SCHEMA_TOO_NEW": {
+        "title": "App update required",
+        "body": "This folder was created with a newer version of OpenTreasury. Update the app to continue.",
+        "folderVersion": "Folder schema version: v{{version}}",
+        "appVersion": "Current app schema version: v{{version}}"
+      },
+      "SCHEMA_TOO_OLD_NO_MIGRATION": {
+        "title": "Cannot open dataset",
+        "body": "This folder uses an older data format with no automatic upgrade path available.",
+        "folderVersion": "Folder schema version: v{{version}}",
+        "appVersion": "Current app schema version: v{{version}}"
+      },
+      "HYDRATION_FAILED": {
+        "title": "Failed to load transactions",
+        "body": "The app could not replay your transaction history. The events file may be corrupt. Restore from backup or contact support."
+      },
+      "generic": {
+        "title": "Failed to start",
+        "body": "An unexpected error occurred during startup. Restore from backup or contact support."
+      }
+    }
   }
 }
