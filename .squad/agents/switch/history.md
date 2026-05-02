@@ -264,3 +264,19 @@ Reviewed Morpheus's rev-2 plan for issue #18 (collapse the `account.created` leg
 - **PR #70 (WI-A) round 2 REJECTED:** Approach A (unified 5-col grid) fixed compare-mode wrap but single-mode header auto-placed cols 1-2-3 while `SingleRow` had explicit `grid-column: 4/5` → misalignment. Strict-locked from #70; Trinity closed with Approach B.
 - **Cascade pattern documented:** Three-way strict-lockout (Mouse → you → Trinity) on PR #70 — recorded in `decisions.md`.
 - **Table extensibility hook `getRowClassName`** is now the canonical pattern for per-row custom classes (`.ot-archived-row`, `.ot-flagged-row`, etc.).
+
+## 2026-05-02T10-13-30Z : Spec #206 Finalized — Implementation Sub-Issues Open
+
+Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance of Niobe's recommendations. All 6 design decisions finalized:
+- Migration optional M1 / required M2+
+- No manifest file M1
+- appVersion best-effort
+- Sequential migrations
+- Hard-reject first-run repair
+- SCHEMA_TOO_OLD -> 'contact support' UX
+
+Implementation sub-issues #238–#242 now open with squad ownership. This spec unlocks the data-integrity foundation needed for future work on corruption detection and schema evolution. No immediate action for Switch, but monitor Morpheus/Trinity/Cypher progress on these issues.
+
+**Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
+
+**Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.

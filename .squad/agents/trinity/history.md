@@ -3205,3 +3205,19 @@ Fixed two renderer-only UI bugs where account identification was broken — pair
 fix\ legacy data in the renderer.
 
 **Validation gates:** typecheck ✅, lint ✅, format:check ✅, tests 104 files passing ✅
+
+## 2026-05-02T10-13-30Z : Spec #206 Finalized — Implementation Sub-Issues Open
+
+Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance of Niobe's recommendations. All 6 design decisions finalized:
+- Migration optional M1 / required M2+
+- No manifest file M1
+- appVersion best-effort
+- Sequential migrations
+- Hard-reject first-run repair
+- SCHEMA_TOO_OLD -> 'contact support' UX
+
+**For Trinity:** You own sub-issues #241 (folder-picker error dialogs, depends #238) and #242 (boot hydration error page, depends #239). Both depend on Morpheus foundational work (#238/#239), so start with those in parallel once #238 ships.
+
+**Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
+
+**Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.
