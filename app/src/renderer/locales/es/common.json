@@ -1272,5 +1272,46 @@
         "body": "Ocurrió un error inesperado"
       }
     }
+  },
+  "boot": {
+    "error": {
+      "filePath": "Ruta del archivo",
+      "supportNote": "Si necesita ayuda, copie el diagnóstico a continuación y contacte con el soporte.",
+      "actions": {
+        "restoreBackup": "Restaurar desde copia de seguridad",
+        "restoreBackupDisabledTooltip": "La restauración desde copia de seguridad aún no está disponible. Elija una carpeta diferente o contacte con el soporte.",
+        "pickDifferentFolder": "Elegir otra carpeta"
+      },
+      "diagnostics": {
+        "show": "Mostrar diagnóstico",
+        "hide": "Ocultar diagnóstico",
+        "copy": "Copiar al portapapeles",
+        "copied": "¡Copiado!"
+      },
+      "DATASET_CORRUPT": {
+        "title": "Error al cargar el conjunto de datos",
+        "body": "El archivo de metadatos del conjunto de datos está corrupto o no se puede leer. Restaure desde una copia de seguridad o elija una carpeta diferente."
+      },
+      "SCHEMA_TOO_NEW": {
+        "title": "Se requiere actualización de la aplicación",
+        "body": "Esta carpeta fue creada con una versión más reciente de OpenTreasury. Actualice la aplicación para continuar.",
+        "folderVersion": "Versión del esquema de carpeta: v{{version}}",
+        "appVersion": "Versión actual del esquema de la aplicación: v{{version}}"
+      },
+      "SCHEMA_TOO_OLD_NO_MIGRATION": {
+        "title": "No se puede abrir el conjunto de datos",
+        "body": "Esta carpeta usa un formato de datos más antiguo sin una ruta de actualización automática disponible.",
+        "folderVersion": "Versión del esquema de carpeta: v{{version}}",
+        "appVersion": "Versión actual del esquema de la aplicación: v{{version}}"
+      },
+      "HYDRATION_FAILED": {
+        "title": "Error al cargar transacciones",
+        "body": "La aplicación no pudo reproducir su historial de transacciones. El archivo de eventos puede estar corrupto. Restaure desde una copia de seguridad o contacte con el soporte."
+      },
+      "generic": {
+        "title": "Error al iniciar",
+        "body": "Ocurrió un error inesperado durante el inicio. Restaure desde una copia de seguridad o contacte con el soporte."
+      }
+    }
   }
 }

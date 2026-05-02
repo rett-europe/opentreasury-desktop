@@ -204,6 +204,7 @@ import {
   IPC_APP_NEEDS_ONBOARDING,
   type AppNeedsOnboardingResponse,
 } from '../shared/ipc-contracts/onboarding.js';
+import { IPC_APP_BOOT_STATUS, type AppBootStatusResponse } from '../shared/ipc-contracts/boot.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -450,6 +451,11 @@ const api = {
   onboarding: {
     getStatus: (): Promise<AppNeedsOnboardingResponse> => {
       return ipcRenderer.invoke(IPC_APP_NEEDS_ONBOARDING);
+    },
+  },
+  boot: {
+    getStatus: (): Promise<AppBootStatusResponse> => {
+      return ipcRenderer.invoke(IPC_APP_BOOT_STATUS);
     },
   },
 } as const;

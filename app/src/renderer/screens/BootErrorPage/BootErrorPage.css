@@ -1,0 +1,201 @@
+/* Boot error page styles (#242) */
+
+.ot-boot-error {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-surface-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.ot-boot-error__container {
+  max-width: 640px;
+  width: 100%;
+}
+
+.ot-boot-error__icon {
+  font-size: 48px;
+  text-align: center;
+  margin-bottom: var(--space-5);
+  color: var(--color-status-error);
+}
+
+.ot-boot-error__title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: center;
+  margin: 0 0 var(--space-6) 0;
+}
+
+.ot-boot-error__body {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin-bottom: var(--space-7);
+}
+
+.ot-boot-error__body p {
+  margin: 0 0 var(--space-4) 0;
+}
+
+.ot-boot-error__body p:last-child {
+  margin-bottom: 0;
+}
+
+.ot-boot-error__file-path {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  margin: var(--space-4) 0;
+}
+
+.ot-boot-error__file-path-label {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+  font-weight: 500;
+}
+
+.ot-boot-error__file-path-value {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+
+.ot-boot-error__version-info {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  margin: var(--space-4) 0;
+}
+
+.ot-boot-error__version-info p {
+  margin: 0 0 var(--space-2) 0;
+  font-size: 13px;
+}
+
+.ot-boot-error__version-info p:last-child {
+  margin-bottom: 0;
+}
+
+.ot-boot-error__detail {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-subtle);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  word-break: break-word;
+  margin: var(--space-4) 0 0 0;
+}
+
+.ot-boot-error__actions {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: center;
+  margin-bottom: var(--space-7);
+}
+
+.ot-boot-error__button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ot-boot-error__button--secondary {
+  background: var(--color-brand-primary);
+  color: var(--color-brand-on-primary);
+}
+
+.ot-boot-error__button--secondary:hover {
+  background: var(--color-brand-primary-light);
+}
+
+.ot-boot-error__button--disabled {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-subtle);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.ot-boot-error__button--disabled:hover {
+  background: var(--color-bg-subtle);
+}
+
+.ot-boot-error__support {
+  text-align: center;
+  margin-bottom: var(--space-5);
+}
+
+.ot-boot-error__support p {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-3);
+}
+
+.ot-boot-error__diagnostics-toggle {
+  font-size: 13px;
+  color: var(--color-brand-primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.ot-boot-error__diagnostics-toggle:hover {
+  color: var(--color-brand-primary-light);
+}
+
+.ot-boot-error__diagnostics {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  position: relative;
+}
+
+.ot-boot-error__diagnostics-content {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.ot-boot-error__copy-button {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  padding: 6px 12px;
+  font-size: 12px;
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.ot-boot-error__copy-button:hover {
+  background: var(--color-row-hover);
+}
