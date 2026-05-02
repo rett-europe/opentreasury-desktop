@@ -25,7 +25,7 @@ import {
   getEffectiveEventLogDir,
   getEffectiveEventLogDirOrNull,
 } from '../../bootstrap.js';
-import { CURRENT_SCHEMA_VERSION, loadDatasetMetadata } from '../../dataset.js';
+import { CURRENT_SCHEMA_VERSION, detectFolderKind } from '../../dataset.js';
 
 export async function handleConfigGet(raw: unknown): Promise<ConfigGetResponse> {
   // Validate request (even though it's empty, belt-and-suspenders)
@@ -316,11 +316,21 @@ function errMessage(err: unknown): string {
  * `kind` onto IPC error codes — only `kind: 'datasetId'` is bypassable via
  * `confirmDatasetSwitch`.
  *
- * NOTE: We deliberately do NOT scan events.ndjson for a datasetId here. The
- * old "first line of events.ndjson" probe was unreliable because flat
- * Configuración events (e.g. AccountCreated) don't carry a top-level
- * datasetId, which made the bypass-on-confirm path unreachable for workspaces
- * created via the configuración flow (Pedro's repro, fix/dataset-switch-bypass).
+ * First-run logic (currentDatasetId === null):
+ * - EMPTY folder → ACCEPT (no dataset.json, no events) — will initialize on boot
+ * - VALID_OT folder → ACCEPT (adopt the workspace identity, skip datasetId check)
+ * - FOREIGN folder → REJECT (has events but no dataset.json — hard refusal)
+ * - Schema-too-new → REJECT (absolute refusal, app too old)
+ * - Corrupt → REJECT (absolute refusal, cannot determine identity)
+ *
+ * Regular-run logic (currentDatasetId !== null):
+ * - EMPTY folder → ACCEPT (fresh workspace)
+ * - VALID_OT + matching datasetId → ACCEPT (same workspace)
+ * - VALID_OT + mismatched datasetId → REJECT unless user confirms switch
+ * - FOREIGN / CORRUPT / SCHEMA_TOO_NEW → REJECT (hard refusal)
+ *
+ * @see docs/specs/dataset-compatibility-validation.md § Schema-Version Handshake
+ * @see docs/specs/error-codes.md § DATASET_MISMATCH, SCHEMA_TOO_NEW, DATASET_CORRUPT
  */
 type DatasetMismatch =
   | { kind: 'datasetId'; error: string; newDatasetId: string; schemaVersion?: number }
@@ -332,63 +342,67 @@ async function detectDatasetMismatch(
   dir: string,
   currentDatasetId: string | null,
 ): Promise<DatasetMismatch | null> {
-  const meta = await loadDatasetMetadata(dir);
+  // Classify folder state first (EMPTY / VALID_OT / FOREIGN).
+  // This centralizes the dataset.json + events.ndjson existence checks.
+  const folderState = await detectFolderKind(dir);
 
-  if (meta.status === 'corrupt') {
+  // FOREIGN: has events.ndjson but no valid dataset.json → hard rejection.
+  // This applies to both first-run and regular-run (per #206 binding decision:
+  // foreign folders are never acceptable).
+  // If dataset.json exists but is corrupt, return 'corrupt' kind so the caller
+  // can surface DATASET_CORRUPT instead of DATASET_MISMATCH.
+  if (folderState.kind === 'FOREIGN') {
+    if (folderState.isCorrupt) {
+      return {
+        kind: 'corrupt',
+        error: folderState.error ?? 'Dataset metadata is corrupted.',
+      };
+    }
     return {
-      kind: 'corrupt',
-      error: meta.error,
+      kind: 'foreign',
+      error: folderState.error ?? 'Folder contains events but no valid dataset.json.',
     };
   }
 
-  if (meta.status === 'ok') {
-    const { datasetId, schemaVersion } = meta.dataset;
-
-    // Schema check first — even a "matching" datasetId from a future-schema
-    // folder must not be opened by an older app build.
-    if (schemaVersion > CURRENT_SCHEMA_VERSION) {
-      return {
-        kind: 'schemaTooNew',
-        error: `Folder dataset.json declares schemaVersion=${schemaVersion}; this app supports up to ${CURRENT_SCHEMA_VERSION}. Update OpenTreasury to use this folder.`,
-        newDatasetId: datasetId,
-        schemaVersion,
-      };
-    }
-
-    // First-run: no current workspace exists, so any datasetId in the target
-    // folder is fine — we are adopting it, not switching from another.
-    if (currentDatasetId !== null && datasetId !== currentDatasetId) {
-      return {
-        kind: 'datasetId',
-        error: `Folder belongs to a different workspace (datasetId ${datasetId}).`,
-        newDatasetId: datasetId,
-        schemaVersion,
-      };
-    }
-
-    return null; // matching workspace — safe to use
+  // EMPTY: no dataset.json, no events.ndjson → safe to initialize.
+  // Accept for both first-run and regular-run.
+  if (folderState.kind === 'EMPTY') {
+    return null; // accept
   }
 
-  // meta.status === 'missing' — no dataset.json. Check whether the folder is
-  // truly empty (safe) or whether it carries legacy events from before
-  // dataset.json existed (foreign — must refuse without exposing a datasetId).
-  const eventsPath = path.join(dir, 'events.ndjson');
-  try {
-    const stat = await fs.stat(eventsPath);
-    if (stat.isFile() && stat.size > 0) {
-      return {
-        kind: 'foreign',
-        error: `Folder contains events.ndjson but no dataset.json — cannot determine workspace identity. Choose an empty folder.`,
-      };
-    }
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      return {
-        kind: 'corrupt',
-        error: `Cannot stat ${eventsPath}: ${errMessage(err)}`,
-      };
-    }
+  // VALID_OT: has a valid dataset.json. Check schemaVersion and datasetId.
+  const { datasetId, schemaVersion } = folderState.dataset!;
+
+  // Schema check: folder's schemaVersion > app's CURRENT_SCHEMA_VERSION?
+  // → Hard rejection (app too old; user must upgrade).
+  // This applies to both first-run and regular-run.
+  if (schemaVersion > CURRENT_SCHEMA_VERSION) {
+    return {
+      kind: 'schemaTooNew',
+      error: `This folder was created with a newer version of OpenTreasury (schema v${schemaVersion}). Update the app to continue. Current app schema: v${CURRENT_SCHEMA_VERSION}.`,
+      newDatasetId: datasetId,
+      schemaVersion,
+    };
   }
 
+  // First-run state (currentDatasetId === null):
+  // - No workspace is currently active, so any VALID_OT folder is adoptable.
+  // - Skip the datasetId-mismatch check (no "current" to compare against).
+  if (currentDatasetId === null) {
+    return null; // accept (adopt this workspace)
+  }
+
+  // Regular-run state (currentDatasetId !== null):
+  // - Check whether the target folder belongs to a different workspace.
+  if (datasetId !== currentDatasetId) {
+    return {
+      kind: 'datasetId',
+      error: `Folder belongs to a different workspace (datasetId ${datasetId}).`,
+      newDatasetId: datasetId,
+      schemaVersion,
+    };
+  }
+
+  // Same workspace, schema OK → accept.
   return null;
 }
