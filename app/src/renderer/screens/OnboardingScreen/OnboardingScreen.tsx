@@ -17,13 +17,24 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DatasetErrorDialog } from '../../components/DatasetErrorDialog/DatasetErrorDialog.js';
+import type { ConfigSetDataDirErrorCode } from '../../../shared/ipc-contracts/config.js';
 import './OnboardingScreen.css';
 
 type Status = 'loading' | 'ready' | 'submitting' | 'restarting' | 'error';
 
 interface ErrorState {
-  code: string;
+  code: ConfigSetDataDirErrorCode | 'STATUS_FAILED' | 'PICKER_FAILED';
   message: string;
+  details?:
+    | {
+        currentDatasetId?: string | undefined;
+        newDatasetId?: string | undefined;
+        schemaVersion?: number | undefined;
+        folderSchemaVersion?: number | undefined;
+        appSchemaVersion?: number | undefined;
+      }
+    | undefined;
 }
 
 export function OnboardingScreen(): JSX.Element {
@@ -33,6 +44,7 @@ export function OnboardingScreen(): JSX.Element {
   const [defaultDataDir, setDefaultDataDir] = useState<string>('');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [error, setError] = useState<ErrorState | null>(null);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,16 +91,25 @@ export function OnboardingScreen(): JSX.Element {
     if (!selectedPath) return;
     setStatus('submitting');
     setError(null);
+    setShowErrorDialog(false);
     try {
       const result = await window.opentreasury.config.setDataDir({
         newDir: selectedPath,
-        // Existing dataset.json in the picked folder => "load that dataset"
-        // rather than refusing. There is no current workspace to switch from
-        // on first run, so the bypass is safe.
+        // First-run: pass confirmDatasetSwitch: true to auto-accept existing
+        // dataset.json in the picked folder (there's no current workspace to
+        // switch FROM, so the bypass is safe per #206 decision).
         confirmDatasetSwitch: true,
       });
       if (!result.ok) {
-        setError({ code: result.error.code, message: result.error.message });
+        const errorData: ErrorState = {
+          code: result.error.code,
+          message: result.error.message,
+        };
+        if (result.error.details) {
+          errorData.details = result.error.details;
+        }
+        setError(errorData);
+        setShowErrorDialog(true);
         setStatus('error');
         return;
       }
@@ -97,10 +118,24 @@ export function OnboardingScreen(): JSX.Element {
       setStatus('restarting');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      setError({ code: 'UNEXPECTED', message });
+      setError({ code: 'SCHEMA_INVALID', message });
+      setShowErrorDialog(true);
       setStatus('error');
     }
   }, [selectedPath]);
+
+  const handleDismissError = (): void => {
+    setShowErrorDialog(false);
+    setStatus('ready');
+  };
+
+  const handlePickAnother = async (): Promise<void> => {
+    setShowErrorDialog(false);
+    setError(null);
+    setStatus('ready');
+    // Immediately trigger folder picker
+    await handleBrowse();
+  };
 
   const isBusy = status === 'submitting' || status === 'restarting';
 
@@ -141,12 +176,6 @@ export function OnboardingScreen(): JSX.Element {
           <p className="ot-onboarding__body">{t('onboarding.welcome.restarting')}</p>
         )}
 
-        {error && (
-          <p className="ot-onboarding__error" role="alert">
-            {t('onboarding.welcome.errorPrefix')}: {error.message}
-          </p>
-        )}
-
         <div className="ot-onboarding__actions">
           <button
             type="button"
@@ -176,6 +205,20 @@ export function OnboardingScreen(): JSX.Element {
           </button>
         </div>
       </div>
+
+      {/* Dataset error dialog */}
+      {showErrorDialog &&
+        error &&
+        error.code !== 'STATUS_FAILED' &&
+        error.code !== 'PICKER_FAILED' && (
+          <DatasetErrorDialog
+            errorCode={error.code}
+            errorMessage={error.message}
+            errorDetails={error.details}
+            onDismiss={handleDismissError}
+            onPickAnother={handlePickAnother}
+          />
+        )}
     </div>
   );
 }

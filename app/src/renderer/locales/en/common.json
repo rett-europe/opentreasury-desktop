@@ -294,7 +294,8 @@
         "title": "No transactions match \"{{query}}\"",
         "cta": "Clear search"
       },
-      "splitMatchBadge": "split match"
+      "splitMatchBadge": "split match",
+      "markAriaLabel": "match"
     },
     "filters": {
       "aria-label": "Transaction filters",
@@ -383,15 +384,6 @@
       "apply": "Apply range",
       "clear": "Clear range",
       "invalid": "\"To\" must be later than \"From\"."
-    },
-    "search": {
-      "resultCount": "{{matched}} of {{total}}",
-      "empty": {
-        "title": "No transactions match \"{{query}}\"",
-        "cta": "Clear search"
-      },
-      "splitMatchBadge": "split match",
-      "markAriaLabel": "match"
     },
     "form": {
       "title": "Add Transaction",
@@ -1206,6 +1198,79 @@
         "schemaTooNew": "This folder was written by a newer version of OpenTreasury (v{{folderSchemaVersion}}). Update the app to use this folder.",
         "datasetCorrupt": "This folder's dataset metadata is unreadable. It may be corrupt — please choose a different folder or restore from a backup.",
         "generic": "Failed to change data folder"
+      }
+    }
+  },
+  "dataset": {
+    "errors": {
+      "DATASET_MISMATCH": {
+        "switchTitle": "Switch workspace?",
+        "switchBody": "The selected folder belongs to a different OpenTreasury workspace.",
+        "currentWorkspace": "Current workspace",
+        "newWorkspace": "New workspace",
+        "switchNote": "All data remains on disk — this just changes which workspace is active.",
+        "cancelButton": "Cancel",
+        "confirmButton": "Switch workspace",
+        "foreignTitle": "Cannot determine workspace identity",
+        "foreignBody": "This folder contains events but no dataset.json metadata file. Please choose an empty folder or a folder with a valid dataset.json file.",
+        "pickAnotherButton": "Pick another folder"
+      },
+      "SCHEMA_TOO_NEW": {
+        "title": "Folder created with newer app version",
+        "body": "This folder was created with a newer version of OpenTreasury. Update the app to continue.",
+        "folderVersion": "Folder schema version: v{{version}}",
+        "appVersion": "Current app schema version: v{{version}}",
+        "pickAnotherButton": "Pick another folder"
+      },
+      "SCHEMA_TOO_OLD_NO_MIGRATION": {
+        "title": "Folder uses older data format",
+        "body": "This folder uses an older data format that cannot be automatically upgraded.",
+        "folderVersion": "Folder schema version: v{{version}}",
+        "appVersion": "Current app schema version: v{{version}}",
+        "contactSupport": "Contact support or use a newer app version that supports this format.",
+        "pickAnotherButton": "Pick another folder"
+      },
+      "SCHEMA_MIGRATION_AVAILABLE": {
+        "title": "Upgrade folder?",
+        "body": "This folder uses an older data format but can be upgraded automatically.",
+        "folderVersion": "Folder schema version: v{{version}}",
+        "appVersion": "Current app schema version: v{{version}}",
+        "upgradeNote": "Upgrading is optional — you can keep using it as-is, or upgrade now for new features. A backup will be created automatically.",
+        "deferButton": "Keep as-is",
+        "upgradeButton": "Upgrade folder"
+      },
+      "SCHEMA_INVALID": {
+        "title": "Invalid request",
+        "body": "The request payload did not match the expected schema. This is likely a bug in the app. Please report it to support."
+      },
+      "DATASET_CORRUPT": {
+        "title": "Dataset metadata is corrupt",
+        "body": "This folder dataset metadata is unreadable. It may be corrupt.",
+        "restoreNote": "If you have a backup, restore it. Otherwise, you may need to start fresh.",
+        "pickAnotherButton": "Pick another folder"
+      },
+      "INVALID_LOCATION": {
+        "title": "Invalid folder location",
+        "body": "Data folder cannot be in the app internal folder. Choose a cloud folder or external drive.",
+        "cloudNote": "OpenTreasury stores your financial data in a folder you choose, so you can back it up and sync it across devices. The folder must be outside the app internal storage (e.g., in OneDrive, Dropbox, or on an external drive).",
+        "pickAnotherButton": "Pick another folder"
+      },
+      "NOT_WRITABLE": {
+        "title": "Folder not writable",
+        "body": "Cannot write to the selected folder. Check permissions and disk space.",
+        "pickAnotherButton": "Pick another folder"
+      },
+      "SAME_DIR": {
+        "title": "Same folder selected",
+        "body": "The selected folder is the same as the current one."
+      },
+      "WRITE_FAILED": {
+        "title": "Failed to save configuration",
+        "body": "Could not save the new folder location. Please try again."
+      },
+      "generic": {
+        "title": "Folder selection failed",
+        "body": "An unexpected error occurred"
       }
     }
   }

@@ -1,0 +1,161 @@
+/* Dataset error dialog styles (#241) */
+
+.ot-dataset-error-dialog__overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-surface-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+}
+
+.ot-dataset-error-dialog__modal {
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-7);
+  max-width: 540px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.ot-dataset-error-dialog__title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-5) 0;
+}
+
+.ot-dataset-error-dialog__body {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin: 0 0 var(--space-7) 0;
+}
+
+.ot-dataset-error-dialog__body p {
+  margin: 0 0 var(--space-4) 0;
+}
+
+.ot-dataset-error-dialog__body p:last-child {
+  margin-bottom: 0;
+}
+
+.ot-dataset-error-dialog__workspace-ids {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  margin: var(--space-4) 0;
+}
+
+.ot-dataset-error-dialog__workspace-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.ot-dataset-error-dialog__workspace-row:last-child {
+  margin-bottom: 0;
+}
+
+.ot-dataset-error-dialog__workspace-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.ot-dataset-error-dialog__workspace-id {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background: var(--color-surface-primary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-default);
+}
+
+.ot-dataset-error-dialog__version-info {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  margin: var(--space-4) 0;
+}
+
+.ot-dataset-error-dialog__version-info p {
+  margin: 0 0 var(--space-2) 0;
+  font-size: 13px;
+}
+
+.ot-dataset-error-dialog__version-info p:last-child {
+  margin-bottom: 0;
+}
+
+.ot-dataset-error-dialog__note {
+  background: var(--color-bg-subtle);
+  border-left: 3px solid var(--color-brand-primary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4) var(--space-5);
+  font-size: 13px;
+  color: var(--color-text-primary);
+  margin: var(--space-4) 0 0 0;
+}
+
+.ot-dataset-error-dialog__technical {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-muted);
+  background: var(--color-bg-subtle);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  word-break: break-all;
+  margin: var(--space-4) 0 0 0;
+}
+
+.ot-dataset-error-dialog__actions {
+  display: flex;
+  gap: var(--space-4);
+  justify-content: flex-end;
+}
+
+.ot-dataset-error-dialog__button {
+  padding: 8px 16px;
+  background: var(--color-brand-primary);
+  color: var(--color-brand-on-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.ot-dataset-error-dialog__button:hover {
+  background: var(--color-brand-primary-light);
+}
+
+.ot-dataset-error-dialog__button--secondary {
+  background: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-default);
+}
+
+.ot-dataset-error-dialog__button--secondary:hover {
+  background: var(--color-row-hover);
+}
+
+.ot-dataset-error-dialog__button--primary {
+  background: var(--color-brand-primary);
+  color: var(--color-brand-on-primary);
+}
+
+.ot-dataset-error-dialog__button--primary:hover {
+  background: var(--color-brand-primary-light);
+}
