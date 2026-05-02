@@ -231,6 +231,7 @@ export interface MovementsScreenProps {
    *   - `tagIds`: AND-ish — a movement is shown if it carries ALL listed tags
    *      (matches the drilldown's intersection semantics).
    *   - `windowStart` / `windowEnd`: ISO YYYY-MM-DD inclusive bounds.
+   *   - `accountId`: Filters to a specific account (dashboard click-to-filter, #227).
    *
    * The values are read once via a ref-guarded effect; subsequent prop changes
    * do not re-apply (users can edit the filters freely after landing).
@@ -239,6 +240,7 @@ export interface MovementsScreenProps {
     readonly tagIds?: ReadonlyArray<string>;
     readonly windowStart?: string;
     readonly windowEnd?: string;
+    readonly accountId?: string;
   };
   /**
    * SPEC-024 — Search query from AppShell topbar.
@@ -279,7 +281,9 @@ export function MovementsScreen({
 
   // Filter state
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
-  const [accountFilter, setAccountFilter] = useState<string>('all');
+  const [accountFilter, setAccountFilter] = useState<string>(
+    () => initialFilters?.accountId ?? 'all',
+  );
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   // Tag intersection filter (AND semantics) — populated by the Insights
   // drilldown footer link via `initialFilters`. UI to add/remove tag chips

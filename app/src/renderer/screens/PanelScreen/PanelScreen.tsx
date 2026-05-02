@@ -44,7 +44,11 @@ interface PanelData {
  * KPIs, a 12-month trend chart placeholder, and the latest 8 transactions.
  * Read-only surface; all mutations happen on Movements.
  */
-export function PanelScreen(): JSX.Element {
+export function PanelScreen({
+  onNavigateToMovementsWithAccount,
+}: {
+  readonly onNavigateToMovementsWithAccount?: (filters: { accountId: string }) => void;
+} = {}): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
   const [state, setState] = useState<PanelState>('skeleton');
@@ -277,16 +281,26 @@ export function PanelScreen(): JSX.Element {
 
       <div className="ot-section-label">{t('panel.sections.accounts')}</div>
       <div className="ot-account-cards">
-        {accountsWithBalances.map((acc) => (
-          <AccountCard
-            key={acc.id}
-            shortName={acc.displayName}
-            color={acc.color ?? '#888888'}
-            transactionCount={acc.transactionCount}
-            balance={acc.balance}
-            hasSparkline={acc.hasSparkline}
-          />
-        ))}
+        {accountsWithBalances.map((acc) => {
+          const cardProps: {
+            shortName: string;
+            color: string;
+            transactionCount: number;
+            balance: number;
+            hasSparkline: boolean;
+            onClick?: () => void;
+          } = {
+            shortName: acc.displayName,
+            color: acc.color ?? '#888888',
+            transactionCount: acc.transactionCount,
+            balance: acc.balance,
+            hasSparkline: acc.hasSparkline,
+          };
+          if (onNavigateToMovementsWithAccount) {
+            cardProps.onClick = () => onNavigateToMovementsWithAccount({ accountId: acc.id });
+          }
+          return <AccountCard key={acc.id} {...cardProps} />;
+        })}
       </div>
 
       <div className="ot-section-label">{t('panel.sections.summary')}</div>

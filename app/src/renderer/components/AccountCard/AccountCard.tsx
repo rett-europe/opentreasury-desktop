@@ -1,3 +1,4 @@
+import type * as React from 'react';
 import { Landmark } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '../../utils/numberFormat.js';
@@ -9,6 +10,7 @@ export interface AccountCardProps {
   readonly transactionCount: number;
   readonly balance: number;
   readonly hasSparkline?: boolean;
+  readonly onClick?: () => void;
 }
 
 /**
@@ -21,13 +23,44 @@ export function AccountCard({
   transactionCount,
   balance,
   hasSparkline = false,
+  onClick,
 }: AccountCardProps): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
   const isNegative = balance < 0;
 
+  const handleClick = (): void => {
+    if (onClick) {
+      onClick();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent): void => {
+    if (!onClick) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
+  const isClickable = Boolean(onClick);
+
   return (
-    <div className="ot-account-card">
+    <div
+      className={`ot-account-card ${isClickable ? 'ot-account-card--clickable' : ''}`}
+      onClick={isClickable ? handleClick : undefined}
+      onKeyDown={isClickable ? handleKeyDown : undefined}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      aria-label={
+        isClickable
+          ? t('panel.card.clickLabel', {
+              defaultValue: 'View {{name}} transactions',
+              name: shortName,
+            })
+          : undefined
+      }
+    >
       <div className="ot-account-card__head">
         <div className="ot-account-card__icon" style={{ background: color }}>
           <Landmark size={18} />
