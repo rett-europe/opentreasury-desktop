@@ -230,8 +230,12 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
       await page.click(NAV_MOVEMENTS);
       // Wait for the movements screen container
       await page.waitForSelector('.ot-movements', { state: 'visible', timeout: 10_000 });
-      // Default filter is "This month" which may have no data. Click "All" to show all.
-      await page.click('text=All');
+      // Default filter is "This month" which may have no data. Click the "All" preset
+      // (locale-agnostic: button[role="radio"] is structurally stable).
+      const allPresetBtn = page
+        .locator('button[role="radio"]')
+        .filter({ has: page.locator('text=/^(All|Todo)$/i') });
+      await allPresetBtn.click();
       await page.waitForTimeout(1000);
       // Now wait for data rows to appear
       await page.waitForSelector(FIRST_DATA_ROW, { state: 'visible', timeout: 10_000 });
@@ -254,8 +258,10 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
       // Ensure we're scrolled to top so the header is visible
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.waitForTimeout(500);
-      // The settings gear is in the sidebar footer, not the topbar
-      const settingsBtn = page.locator('button:has-text("Preferences")');
+      // The settings button is in the sidebar footer (locale-aware: Preferences/Preferencias)
+      const settingsBtn = page
+        .locator('button')
+        .filter({ has: page.locator('text=/^(Preferences|Preferencias)$/i') });
       await settingsBtn.click({ timeout: 10_000 });
       await page.waitForSelector('.ot-preferences', { state: 'visible' });
       await page.waitForTimeout(500);
