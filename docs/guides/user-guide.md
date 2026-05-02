@@ -1,3 +1,5 @@
+🇪🇸 [Versión en español: user-guide.es.md](./user-guide.es.md)
+
 # OpenTreasury Desktop — End-User Guide
 
 > **For NGO treasurers, auditors, and team members using OpenTreasury Desktop.**

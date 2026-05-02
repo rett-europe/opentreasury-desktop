@@ -1,0 +1,443 @@
+🇬🇧 [English version: user-guide.md](./user-guide.md)
+
+# OpenTreasury Desktop — Guía de Usuario
+
+> **Para tesoreros, auditores y miembros del equipo que usan OpenTreasury Desktop.**
+>
+> **Versión:** Prueba (v0.1) · **Última actualización:** Junio 2026
+
+---
+
+## Descripción general
+
+¡Bienvenido a OpenTreasury Desktop! Esta guía te acompañará durante tu primera sesión y te mostrará cómo utilizar la aplicación en tu trabajo de tesorería mensual. Aprenderás a registrar transacciones, revisar tus saldos por categorías, verificar la actividad de tu cuenta y mantener tus datos seguros.
+
+**A quién va dirigida esta guía:** Tesoreros, auditores y coordinadores que trabajan con registros financieros en tu ONG. No necesitas ser un experto en tecnología: lo explicaremos todo en términos sencillos.
+
+**Qué harás:** Sigue el ejemplo de **María Rodríguez**, tesorera de **Casa Esperanza** (una ONG ficticia), que usa la aplicación por primera vez. Te mostraremos las pantallas, botones y flujos que verás cada día.
+
+**Nota sobre idiomas:** Esta guía está en español, y la aplicación también ofrece versión en inglés. Puedes cambiar de idioma cuando quieras desde Configuración. Todos los ejemplos de pantallas en esta guía están en español porque Casa Esperanza es una organización basada en España.
+
+**¿Necesitas ayuda con instalación o configuración del equipo?** Consulta la [guía de implantación en prueba](./trial-deployment.md) para temas de administración como carpetas compartidas, configuración de OneDrive y la regla de único escritor. Esta guía se enfoca en cómo usar la aplicación una vez instalada.
+
+---
+
+## Tabla de contenidos
+
+1. [Primer lanzamiento: Configuración de perfil](#primer-lanzamiento-configuración-de-perfil)
+2. [Panel: Tu resumen de 90 días](#panel-tu-resumen-de-90-días)
+3. [Agregar una transacción](#agregar-una-transacción)
+4. [Saldo: Tus saldos por categoría](#saldo-tus-saldos-por-categoría)
+5. [Movimientos: Lista de transacciones y filtros](#movimientos-lista-de-transacciones-y-filtros)
+6. [Análisis: Tendencias y desgloses por categoría](#análisis-tendencias-y-desgloses-por-categoría)
+7. [Configuración: Carpeta de datos y modo de solo lectura](#configuración-carpeta-de-datos-y-modo-de-solo-lectura)
+8. [Copia de seguridad de tus datos](#copia-de-seguridad-de-tus-datos)
+
+---
+
+## Primer lanzamiento: Configuración de perfil
+
+Cuando abres OpenTreasury Desktop por primera vez, verás una **pantalla de configuración de perfil**. Aquí es donde le indicas a la aplicación quién eres y para qué organización trabajas.
+
+![Pantalla de configuración de perfil en el primer lanzamiento](./screenshots/01-profile-setup.es.png)  
+_**Figura 1:** El modal de configuración de perfil aparece en tu primer lanzamiento. Ingresa tu nombre, elige tu rol e indica el nombre de tu ONG._
+
+### Qué rellenar
+
+1. **Tu nombre** — Introduce tu nombre completo como deseas que aparezca en la aplicación (por ejemplo, "María Rodríguez").
+2. **Tu rol** — Elige uno de los siguientes en el menú desplegable:
+   - **Tesorero/a** — Registras y apruebas transacciones.
+   - **Observador** — Revises datos pero no agregas ni cambias transacciones.
+   - **Auditor** — Revisas y exportas datos para cumplimiento o reportes.
+3. **Nombre de la ONG** — Escribe el nombre de tu organización (por ejemplo, "Casa Esperanza").
+
+Una vez que hayas rellenado estos campos, haz clic en **Continuar**. La aplicación guarda tu perfil y abre el panel principal.
+
+> **Nota:** Tu perfil se guarda en tu laptop, no en la carpeta de datos compartida. Esto significa que cada miembro del equipo configura su propio perfil en su propio ordenador. Las transacciones que registras (que sí se comparten) mostrarán tu nombre en los detalles, para que tus compañeros sepan quién las registró.
+
+### Cambiar tu perfil más tarde
+
+Si necesitas actualizar tu nombre o rol (por ejemplo, si cambias de Observador a Tesorero/a), puedes hacerlo en **Configuración** → **Perfil** (planeado para v1). Para la prueba, contacta con tu administrador para restablecer tu perfil si es necesario.
+
+---
+
+## Panel: Tu resumen de 90 días
+
+Después de configurar tu perfil, llegarás al **Panel** (también llamado **Panel** en algunas pantallas). Este es tu base: muestra un resumen rápido de la actividad financiera de tu ONG en los últimos **90 días**.
+
+![Panel mostrando tarjetas de actividad y resumen de KPI](./screenshots/02-dashboard.es.png)  
+_**Figura 2:** El Panel muestra el nombre de tu ONG en la barra superior ("Casa Esperanza") y tarjetas de actividad de cada cuenta durante los últimos 90 días._
+
+### Qué ves
+
+- **Barra superior:** El nombre de tu ONG aparece en la cabecera (por ejemplo, "Casa Esperanza"), junto con la fecha actual y un selector de idioma/tema.
+- **Resumen de KPI:** Un banner en la parte superior muestra tu **ingreso**, **gastos** y **saldo neto** de los últimos 90 días. Esto te da una vista rápida de si estás en positivo o negativo durante este período.
+- **Tarjetas de actividad de cuenta:** Debajo de los KPI, verás una tarjeta por cada cuenta (por ejemplo, "CaixaBank – Operaciones", "BBVA – Restringida"). Cada tarjeta muestra:
+   - El nombre de la cuenta y el banco.
+   - Cuántos ingresos y gastos pasaron por esa cuenta en los últimos 90 días.
+   - El saldo neto (ingresos menos gastos).
+   - El número de transacciones registradas para esa cuenta.
+
+### ¿Por qué 90 días?
+
+La mayoría de las ONG tienen volúmenes bajos de transacciones: una ventana de 30 días a menudo muestra poca actividad, lo que dificulta ver patrones. Una **ventana móvil de 90 días** te ofrece mejor visibilidad sin el problema del cambio de mes (donde todo se reinicia el día 1 y te deja con paneles vacíos a mitad de mes).
+
+> **Consejo:** Si una cuenta muestra "0 transacciones" y saldos cero, significa que no hay actividad en los últimos 90 días. Esto es normal para cuentas estacionales o cuentas nuevas que acabas de crear.
+
+### ¿Qué sigue?
+
+Desde el Panel, puedes:
+- Hacer clic en **Movimientos** en la barra lateral para ver tu lista completa de transacciones.
+- Hacer clic en **Saldo** para revisar tu desglose por categorías.
+- Hacer clic en **Análisis** para ver tendencias y patrones de gasto.
+- Hacer clic en **Nuevo Movimiento** (el botón "+", normalmente en la esquina superior o inferior derecha) para agregar una transacción.
+
+---
+
+## Agregar una transacción
+
+Registrar una transacción es una de las tareas más comunes que harás. Así es cómo funciona.
+
+### Paso 1: Abre el modal "Agregar transacción"
+
+Desde cualquier pantalla, haz clic en el botón **Nuevo Movimiento** (normalmente un ícono "+" en la barra de herramientas o un botón etiquetado "Agregar transacción"). Se abre una ventana modal con un formulario.
+
+> **Modo de solo lectura:** Si ves el botón "Nuevo Movimiento" deshabilitado (atenuado), estás en **modo de solo lectura**. Esto significa que otro miembro de tu equipo es el escritor actual. Consulta la sección [Configuración](#configuración-carpeta-de-datos-y-modo-de-solo-lectura) para aprender cómo cambiar escritores.
+
+### Paso 2: Completa los detalles de la transacción
+
+El formulario solicita:
+
+1. **Fecha** — La fecha en que ocurrió la transacción (por defecto: hoy). Haz clic en el selector de fecha para elegir una fecha diferente.
+2. **Descripción** — Una breve nota sobre la transacción (por ejemplo, "Alquiler de oficina – Mayo 2026", "Donación de Fundación ABC").
+3. **Cuenta** — Qué cuenta bancaria o de efectivo afecta esta transacción. Elige del menú desplegable (por ejemplo, "CaixaBank – Operaciones").
+4. **Categoría** — Qué tipo de transacción es:
+   - **Categorías de ingreso:** Donaciones, Subvenciones, Cuotas, etc.
+   - **Categorías de gastos:** Casa, Servicios, Salarios, Suministros, etc.
+5. **Importe** — El monto de la transacción en euros (o tu moneda local). Ingresa el número sin símbolo de moneda (por ejemplo, "1200.50" para €1.200,50).
+6. **Tipo** — Elige **Ingreso** o **Gasto**. Esto determina si el monto se suma o se resta de tu saldo.
+
+### Paso 3: Guarda la transacción
+
+Haz clic en **Guardar**. El modal se cierra y la transacción aparece en tu lista de **Movimientos** y actualiza tus saldos **Saldo** inmediatamente.
+
+> **Subcategorías (opcional):** Algunas categorías tienen subcategorías. Por ejemplo, **Salarios** podría tener subcategorías como "Salario base", "Seguridad social", "Bonificación". Si tu categoría tiene subcategorías, aparece un menú desplegable adicional. Elige el que corresponda o déjalo como "General" si no estás seguro.
+
+### Ejemplo: María registra el alquiler de oficina
+
+María de Casa Esperanza quiere registrar el pago del alquiler de mayo:
+
+1. Hace clic en **Nuevo Movimiento**.
+2. Completa:
+   - **Fecha:** 1 de mayo de 2026
+   - **Descripción:** "Alquiler de oficina – Mayo 2026"
+   - **Cuenta:** "CaixaBank – Operaciones"
+   - **Categoría:** "Casa" → subcategoría "Alquiler"
+   - **Importe:** 800
+   - **Tipo:** Gasto
+3. Hace clic en **Guardar**.
+
+La transacción de alquiler ahora aparece en su lista de Movimientos y su pantalla Saldo muestra €800 en la categoría "Casa › Alquiler".
+
+---
+
+## Saldo: Tus saldos por categoría
+
+La pantalla **Saldo** es donde ves tus ingresos y gastos desglosados por **categoría** y **subcategoría**. Piénsalo como tu vista de presupuesto: muestra de dónde viene tu dinero y hacia dónde va.
+
+![Pantalla Saldo con categorías contraídas](./screenshots/03-saldo.es.png)  
+_**Figura 3:** La pantalla Saldo con categorías contraídas. Puedes ver el ingreso total, gastos totales y saldo neto en la parte superior._
+
+### Qué ves
+
+- **Barra de resumen superior:** Ingreso total, gastos totales y saldo neto para el período seleccionado (por defecto: mes actual).
+- **Dos secciones:**
+   - **Ingresos:** Todas las categorías de ingreso (Donaciones, Subvenciones, etc.) con sus totales.
+   - **Gastos:** Todas las categorías de gasto (Casa, Servicios, Salarios, etc.) con sus totales.
+- **Filas de categoría:** Cada categoría muestra su monto total y un pequeño gráfico de barras indicando su proporción del total.
+
+### Expandir subcategorías
+
+La mayoría de las categorías tienen subcategorías. Por ejemplo, **Casa** (Vivienda) podría incluir:
+- Alquiler
+- Servicios públicos
+- Mantenimiento
+
+Para ver el desglose de subcategorías, haz clic en el **ícono de expansión** (normalmente un "▼" o chevron) junto al nombre de la categoría. La fila se expande para mostrar cada subcategoría con su propio monto y barra.
+
+![Pantalla Saldo con subcategorías expandidas](./screenshots/04-saldo-expanded.es.png)  
+_**Figura 4:** La misma pantalla Saldo con subcategorías de ingresos y gastos expandidas. Ahora ves exactamente hacia dónde fue cada euro._
+
+### Cambiar el período de tiempo
+
+Por defecto, la pantalla Saldo muestra el **mes actual**. Puedes cambiar esto usando el selector de rango de fechas en la parte superior:
+
+- **Fichas predefinidas:** "Este mes", "Últimos 30 días", "Últimos 90 días", "Lo que va del año"
+- **Rango personalizado:** Haz clic en "Personalizado" y elige una fecha de inicio/fin.
+
+Los totales y desgloses de categorías se actualizan inmediatamente para coincidir con tu selección.
+
+> **Consejo:** Usa "Últimos 90 días" si deseas una vista móvil que coincida con tu Panel. Usa "Este mes" si estás preparando un informe mensual para tu junta o auditor.
+
+### Profundizar en transacciones
+
+Si deseas ver las transacciones individuales que componen un total de categoría, haz clic en la fila de la categoría. Esto te lleva a la pantalla **Movimientos** con un filtro aplicado para esa categoría.
+
+Por ejemplo, hacer clic en **Salarios** en la pantalla Saldo te lleva a Movimientos filtrado para mostrar solo transacciones de salarios. Esta es una forma rápida de verificar detalles o revisar entrada a entrada.
+
+---
+
+## Movimientos: Lista de transacciones y filtros
+
+La pantalla **Movimientos** es tu lista completa de transacciones. Cada transacción que registras (o tus compañeros registran) aparece aquí, ordenada por fecha (la más reciente primero).
+
+![Vista de lista de Movimientos mostrando todas las transacciones](./screenshots/05-movements.es.png)  
+_**Figura 5:** La pantalla Movimientos muestra una lista filtrable y clasificable de todas las transacciones. Puedes buscar por cuenta, categoría o rango de fechas._
+
+### Qué ves
+
+- **Barra de búsqueda:** Escribe una palabra clave (por ejemplo, "alquiler", "donación", "CaixaBank") para filtrar transacciones por descripción, cuenta o categoría.
+- **Fichas de filtro:** Filtros rápidos para cuenta, categoría y rango de fechas. Haz clic en una ficha para abrir un menú desplegable y elegir tus filtros.
+- **Tabla de transacciones:** Las columnas incluyen:
+   - **Fecha:** Cuándo ocurrió la transacción.
+   - **Descripción:** Tu nota sobre la transacción.
+   - **Cuenta:** Qué cuenta fue afectada.
+   - **Categoría:** La categoría y subcategoría (si la hay).
+   - **Importe:** El monto en euros, codificado por color (verde para ingresos, rojo para gastos).
+- **Franja de totales:** En la parte inferior, verás el ingreso total, gasto total, saldo neto y recuento de transacciones para el filtro actual.
+
+### Filtrar transacciones
+
+Usa las fichas de filtro para reducir tu vista:
+
+1. **Por cuenta:** Haz clic en la ficha "Cuenta" y elige una o más cuentas (por ejemplo, "CaixaBank – Operaciones"). La lista se actualiza para mostrar solo transacciones de esas cuentas.
+2. **Por categoría:** Haz clic en la ficha "Categoría" y elige una o más categorías (por ejemplo, "Salarios", "Casa"). Útil para revisar todos los gastos en una categoría específica.
+3. **Por rango de fechas:** Haz clic en la ficha "Rango de fechas" y elige una predefinida (por ejemplo, "Este mes", "Últimos 90 días") o un rango personalizado de inicio/fin.
+
+Puedes combinar filtros. Por ejemplo, filtra por **Cuenta = CaixaBank** + **Categoría = Donaciones** + **Rango de fechas = Últimos 90 días** para ver todas las donaciones recibidas en tu cuenta CaixaBank durante los últimos 90 días.
+
+> **Limpiar filtros:** Para restablecer todos los filtros y ver la lista completa de transacciones nuevamente, haz clic en el botón "Limpiar" o "Restablecer" (normalmente junto a las fichas de filtro).
+
+### Ver detalles de transacciones
+
+Haz clic en cualquier fila de la tabla para abrir un **panel de detalles** (o modal) con información completa sobre esa transacción:
+- Fecha, descripción, cuenta, categoría, subcategoría
+- Monto y tipo (ingreso/gasto)
+- Quién la registró (tu nombre o el de un compañero)
+- Cuándo se registró (marca de tiempo)
+
+Desde el panel de detalles, puedes:
+- **Editar** la transacción (cambiar la descripción, categoría o monto). Solo disponible si eres el escritor.
+- **Eliminar** la transacción (planeado para v1; no disponible en la prueba).
+- **Dividir** la transacción en múltiples categorías (ver abajo).
+
+### Dividir una transacción
+
+A veces una sola transacción cubre múltiples categorías. Por ejemplo, un pago de €1.000 podría incluir:
+- €800 para alquiler (Casa › Alquiler)
+- €200 para servicios públicos (Casa › Servicios públicos)
+
+Para dividir una transacción:
+
+1. Abre el panel de detalles de la transacción.
+2. Haz clic en **Dividir**.
+3. Aparece un formulario donde puedes asignar porciones del monto total a diferentes categorías.
+4. Ingresa el monto para cada categoría (la aplicación asegura que la división suma el monto original).
+5. Haz clic en **Guardar**.
+
+La transacción ahora aparece como múltiples filas en tu lista de Movimientos, cada una con su propia categoría. La transacción original se reemplaza por los movimientos divididos.
+
+> **Limitación de prueba:** La división de transacciones está disponible en la prueba, pero no puedes deshacer una división. Si cometes un error, tendrás que eliminar las transacciones divididas y reingresar la original. La funcionalidad de deshacer está planeada para v1.
+
+---
+
+## Análisis: Tendencias y desgloses por categoría
+
+La pantalla **Análisis** te muestra resúmenes visuales de tu actividad financiera. Úsala para detectar patrones de gasto, comparar ingresos vs. gastos a lo largo del tiempo y ver qué categorías consumen más recursos.
+
+![Pantalla Análisis con gráficos de tendencia y desgloses por categoría](./screenshots/06-insights.es.png)  
+_**Figura 6:** La pantalla Análisis muestra un gráfico de rosquilla de tus categorías de gastos y un gráfico de barras comparando ingresos vs. gastos a lo largo del tiempo._
+
+### Qué ves
+
+- **Gráfico de rosquilla:** Un visual estilo gráfico de pastel mostrando tus categorías de gasto como sectores. Cuanto mayor sea el sector, más hayas gastado en esa categoría. Pasa el cursor sobre un sector para ver el monto exacto y el porcentaje.
+- **Gráfico de barras (o gráfico divergente):** Un gráfico de barras lado a lado o divergente mostrando ingresos y gastos por categoría. Esto te ayuda a comparar qué categorías generan más dinero (lado de ingresos) vs. cuál cuesta más (lado de gastos).
+- **Gráfico de tendencia (planeado para v1):** Un gráfico de línea o área mostrando ingresos, gastos y saldo neto a lo largo del tiempo (por ejemplo, mes a mes durante el último año). Esto te ayuda a detectar patrones estacionales o picos únicos.
+
+### Cómo usar Análisis
+
+1. **Revisa mensualmente:** Al final de cada mes, revisa tu Análisis para ver si tu gasto se alinea con tu presupuesto. ¿Estás gastando más de la cuenta en "Suministros"? ¿Las donaciones son inferiores a lo esperado?
+2. **Prepárate para asambleas:** Exporta una captura o imprime la pantalla Análisis para compartir con tu junta o auditores. Los visuales hacen fácil explicar hacia dónde va el dinero.
+3. **Profundiza:** Haz clic en un sector del gráfico de rosquilla (o una barra del gráfico de barras) para filtrar la pantalla Movimientos por esa categoría. Esto te lleva directamente a la lista de transacciones para investigación adicional.
+
+> **Consejo:** Usa el selector de rango de fechas en la parte superior de la pantalla Análisis para cambiar el período de tiempo. Por ejemplo, configúralo a "Últimos 90 días" para coincidir con tu vista de Panel, o "Este año" para un resumen anual.
+
+---
+
+## Configuración: Carpeta de datos y modo de solo lectura
+
+La pantalla **Configuración** es donde controlas dónde se almacenan tus datos, cambias entre modos de solo lectura y escritura, y cambias preferencias de la aplicación como idioma y tema.
+
+![Pantalla Configuración mostrando fila de carpeta de datos y distintivo de solo lectura](./screenshots/07-settings-data-folder.es.png)  
+_**Figura 7:** La pantalla Configuración muestra tu ruta de carpeta de datos actual y un interruptor de modo de solo lectura. La barra superior muestra un distintivo de "Solo lectura" cuando está activo._
+
+### Ubicación de carpeta de datos
+
+La fila **Carpeta de datos** muestra dónde se almacenan tus datos de transacciones. Esta es la carpeta que contiene tu archivo `events.ndjson` (el registro en texto plano de todas tus transacciones).
+
+- **Ruta actual:** Verás algo como `C:\Users\maria\OneDrive - Casa Esperanza\Treasury`. Esta es la carpeta que elegiste durante la configuración (o que cambiaste después).
+- **Botón de cambio:** Haz clic en **Cambiar** para elegir una carpeta diferente. Se abre un selector de carpetas. Navega a tu nueva ubicación, haz clic en Aceptar, y la aplicación se reinicia con la nueva carpeta.
+
+> **Importante:** Si cambias tu carpeta de datos, estás cambiando a un conjunto de datos diferente. Cualquier transacción en tu carpeta antigua no aparecerá en la nueva carpeta a menos que copies el archivo `events.ndjson` sobre. Para la mayoría de las ONG, estableces esto una vez durante la configuración de prueba y no lo cambias nuevamente. Consulta la [guía de implantación en prueba](./trial-deployment.md) para detalles sobre carpetas compartidas y configuración de OneDrive.
+
+### Modo de solo lectura
+
+El interruptor **Modo de solo lectura** controla si puedes agregar o editar transacciones.
+
+- **Interruptor APAGADO (por defecto para el escritor):** Puedes agregar, editar y eliminar transacciones. El botón "Nuevo Movimiento" está habilitado.
+- **Interruptor ENCENDIDO (por defecto para observadores):** Puedes ver transacciones, filtrar, buscar y exportar, pero **no puedes agregar ni cambiar** nada. El botón "Nuevo Movimiento" aparece atenuado y un distintivo "Solo lectura" aparece en la barra superior.
+
+**Cuándo usar esto:**
+
+En la prueba, solo **una persona a la vez** debería escribir en el conjunto de datos. Todos los demás deberían estar en modo de solo lectura. Aquí está el flujo:
+
+1. **María (tesorera)** inicia el mes. Apaga el modo de solo lectura en su laptop. Ahora es la escritora.
+2. **Pablo (auditor)** abre la aplicación en su laptop. Ve la misma carpeta de datos, pero la aplicación lo pone automáticamente en modo de solo lectura (porque María es la escritora). Puede revisar transacciones pero no agregar ni editar.
+3. **A mitad de mes, María se va de vacaciones.** Antes de partir, enciende el modo de solo lectura en su Configuración. Ahora María no puede escribir.
+4. **Pablo necesita registrar una transacción urgente.** Va a Configuración en su laptop y apaga el modo de solo lectura. Ahora Pablo es el escritor.
+5. **Cuando María regresa,** ella permanece en modo de solo lectura (o coordinan para cambiar roles nuevamente).
+
+> **Por qué importa esto:** Si dos personas intentan escribir al mismo tiempo, obtendrán archivos de conflicto y arriesgarán pérdida de datos. La regla de único escritor previene esto. Para detalles completos sobre cómo gestionar la regla de único escritor, consulta la [guía de implantación en prueba](./trial-deployment.md), Parte 3.
+
+### Qué significa el distintivo "Solo lectura"
+
+Si ves un distintivo **Solo lectura** en la barra superior (junto a tu nombre de ONG), significa:
+- Estás en modo de solo lectura.
+- Puedes ver, filtrar, buscar y exportar transacciones.
+- **No puedes** agregar, editar o eliminar transacciones.
+- El botón "Nuevo Movimiento" está deshabilitado.
+
+Para convertirte en el escritor, ve a Configuración y apaga el interruptor de solo lectura (y asegúrate de que el escritor actual lo haya encendido primero).
+
+### Idioma y tema
+
+En la parte superior de la pantalla Configuración, verás:
+
+- **Selector de idioma:** Cambia entre **Español** e **English**. La aplicación actualiza inmediatamente todos los menús, botones y etiquetas. Tus datos (descripciones de transacciones, nombres de cuentas, etc.) permanecen en cualquier idioma en que los hayas ingresado.
+- **Selector de tema:** Elige **Sistema** (coincide con el tema del sistema operativo), **Claro** u **Oscuro**. Tu elección se guarda localmente en tu laptop.
+
+---
+
+## Copia de seguridad de tus datos
+
+Tus datos de transacciones se almacenan en un único archivo llamado **`events.ndjson`**, ubicado en la carpeta de datos que elegiste durante la configuración. Este archivo contiene cada transacción que hayas registrado alguna vez, en orden cronológico, como un registro en texto plano.
+
+### Dónde encontrar tu archivo de datos
+
+1. Abre **Configuración**.
+2. Mira la fila **Carpeta de datos**. Verás una ruta como:
+   - `C:\Users\maria\OneDrive - Casa Esperanza\Treasury`
+3. Abre esa carpeta en Explorador de archivos (Windows) o Finder (Mac).
+4. Verás un archivo llamado **`events.ndjson`**.
+
+Ese es todo tu conjunto de datos. Cada transacción, cuenta, categoría y etiqueta está en ese archivo.
+
+### Cómo hacer copia de seguridad de tus datos
+
+**Opción 1: Copia de seguridad automática de OneDrive (recomendada)**
+
+Si tu carpeta de datos está en **OneDrive para Empresas** o **SharePoint**, tus datos ya están respaldados automáticamente:
+- OneDrive sincroniza el archivo a la nube cada vez que cambia.
+- Tú (y tus compañeros) pueden acceder al mismo archivo desde cualquier laptop.
+- OneDrive mantiene histórico de versiones, así que si algo sale mal, puedes restaurar una versión anterior del archivo.
+
+**No se requiere trabajo adicional.** Solo asegúrate de que OneDrive está sincronizando correctamente (verifica el ícono de OneDrive en tu bandeja de sistema).
+
+**Opción 2: Copia manual (para carpetas locales o seguridad adicional)**
+
+Si tu carpeta de datos está en tu disco duro local (no OneDrive), o si deseas una copia de seguridad adicional:
+
+1. Navega a tu carpeta de datos (ver arriba).
+2. **Copia** el archivo `events.ndjson` a una ubicación segura:
+   - Una unidad USB externa
+   - Una carpeta diferente en tu ordenador (por ejemplo, `Documentos\Copias de seguridad de tesorería`)
+   - Un servicio de almacenamiento en la nube como Dropbox o Google Drive (si tu organización lo permite)
+3. Renombra la copia con una fecha (por ejemplo, `events-backup-2026-05-31.ndjson`) para que sepas cuándo la hiciste.
+4. Repite esto semanalmente o mensualmente, según la tolerancia al riesgo de tu ONG.
+
+> **Consejo:** Si estás en OneDrive, también puedes descargar una copia de `events.ndjson` desde la interfaz web de OneDrive. Inicia sesión en [onedrive.com](https://onedrive.com), navega a tu carpeta de tesorería, haz clic derecho en el archivo y elige "Descargar". Esto te da una copia sin conexión en tu laptop.
+
+### Restaurar desde una copia de seguridad
+
+Si pierdes tus datos (por ejemplo, eliminas accidentalmente el archivo `events.ndjson`, o tu laptop se bloquea):
+
+1. Ve a tu ubicación de copia de seguridad (unidad USB, histórico de versiones de OneDrive, etc.).
+2. Copia el archivo de copia de seguridad en tu carpeta de datos.
+3. Renómbralo como `events.ndjson` (elimina el sufijo de fecha si lo agregaste).
+4. Reinicia OpenTreasury Desktop. La aplicación cargará los datos restaurados.
+
+> **Histórico de versiones de OneDrive:** Si estás en OneDrive y no hiciste una copia de seguridad manual, puedes restaurar una versión anterior del archivo. Haz clic derecho en `events.ndjson` en Explorador de archivos, elige "Histórico de versiones", y elige una fecha anterior al problema. OneDrive mantiene versiones durante 30 días (o más, según la configuración de tu organización).
+
+### ¿Qué sucede si desinstalo la aplicación?
+
+Si desinstalo OpenTreasury Desktop:
+- **Tu archivo de datos está seguro.** Vive en tu carpeta de datos (por ejemplo, OneDrive), no en el directorio de instalación de la aplicación.
+- **Tu perfil está seguro.** Se guarda en tu carpeta de perfil de usuario (Windows: `%APPDATA%\opentreasury-desktop`), separado de la instalación.
+- **Puedes reinstalar** la aplicación en cualquier momento e indicarle la misma carpeta de datos. Todas tus transacciones reaparecerán.
+
+**Excepción:** Si elegiste una carpeta de datos dentro de `%APPDATA%` u otra carpeta del sistema, desinstalar _podría_ eliminarla (según la configuración de tu desinstalador). Por eso recomendamos usar OneDrive o una carpeta en tu árbol de Documentos u OneDrive.
+
+### Cifrado y seguridad (planeado para v1)
+
+En la prueba, tu archivo `events.ndjson` es **texto plano**. Cualquiera con acceso a tu carpeta de datos puede abrirlo en un editor de texto y leer tus transacciones.
+
+**Para la prueba:**
+- Mantén tu carpeta de datos en una ubicación **OneDrive para Empresas** o **SharePoint** compartida con controles de acceso apropiados. Solo tu equipo de tesorería debería tener acceso.
+- No coloques la carpeta en una ubicación pública o ampliamente compartida.
+- No envíes el archivo `events.ndjson` por correo electrónico. Si necesitas compartir datos con un auditor externo, usa las características de compartir de OneDrive y establece una fecha de vencimiento.
+
+**En v1 (próximamente):**
+- El archivo `events.ndjson` estará cifrado usando AEAD estándar de la industria (Cifrado autenticado con datos asociados).
+- Solo los usuarios con la clave de cifrado correcta (derivada de la contraseña compartida de tu ONG o una credencial de Azure Entra ID) podrán leer el archivo.
+- Esto añade una capa de protección incluso si alguien obtiene acceso a tu carpeta OneDrive.
+
+Para detalles completos sobre la postura de seguridad de la prueba y qué viene en v1, consulta la [guía de implantación en prueba](./trial-deployment.md), Parte 6.
+
+---
+
+## Próximos pasos
+
+¡Felicitaciones! Ahora sabes cómo:
+- Configurar tu perfil en el primer lanzamiento
+- Leer el Panel para ver tu resumen de actividad de 90 días
+- Agregar una transacción (y dividirla si es necesario)
+- Revisar tus saldos por categoría en Saldo
+- Filtrar y buscar tu lista de transacciones en Movimientos
+- Detectar patrones de gasto en Análisis
+- Cambiar entre modos de escritor y solo lectura en Configuración
+- Hacer copia de seguridad de tus datos para evitar pérdidas
+
+### Sigue aprendiendo
+
+- **Guía de implantación en prueba:** Si estás configurando la aplicación para tu equipo o resolviendo problemas de carpetas compartidas, consulta la [guía de implantación en prueba](./trial-deployment.md).
+- **Ayuda en la aplicación:** Haz clic en el ícono "?" (normalmente en la esquina superior derecha) para acceder a la ayuda contextual para la pantalla actual.
+- **Hoja de ruta y características:** ¿Quieres saber qué viene en v1? Consulta el proyecto [README](../../README.md) y la [hoja de ruta](../product/roadmap-v1.md) en la carpeta `docs/product/`.
+
+### Obtener ayuda
+
+Si tienes problemas o preguntas:
+
+1. **Revisa las preguntas frecuentes** en la [guía de implantación en prueba](./trial-deployment.md), Parte 7. Los problemas comunes (modo de solo lectura, archivos de conflicto, sincronización de OneDrive) se cubren allí.
+2. **Pregunta a tu coordinador de prueba.** El contacto de prueba de tu ONG puede escalar problemas al equipo de OpenTreasury.
+3. **Envíanos un correo electrónico:** [support@opentreasury.org](mailto:support@opentreasury.org) (o el correo electrónico de soporte de tu organización).
+4. **Envía comentarios:** Usa el botón de comentarios en la aplicación (planeado para v1) o envíanos un correo electrónico con tus sugerencias.
+
+Estamos agradecidos de que estés probando OpenTreasury Desktop. Tu comentario nos ayuda a construir una herramienta mejor para ONG como la tuya.
+
+---
+
+**Historial de versión:**
+- **v0.1 (Junio 2026):** Lanzamiento de prueba inicial. Cubre configuración de perfil, Panel, Saldo, Movimientos, Análisis, Configuración y copia de seguridad de datos.
+
+**Registro de cambios:**
+- 2026-06-01: Primera versión publicada.

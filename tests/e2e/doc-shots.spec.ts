@@ -12,7 +12,7 @@ import * as os from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 // ---------------------------------------------------------------------------
-// Doc-shots harness — Issue #163 (P2-5)
+// Doc-shots harness — Issue #163 (P2-5) + #232 (locale parametrization)
 // ---------------------------------------------------------------------------
 // Generates the seven illustrated waypoints that Oracle embeds in the end-user
 // guide under docs/guides/. Output PNGs land in docs/guides/screenshots/ and
@@ -26,12 +26,25 @@ import { fileURLToPath } from 'node:url';
 //   - `--user-data-dir=…` (Chromium switch, honoured by Electron) sandboxes
 //     userData under an OS temp folder so we can freely overwrite
 //     profile.json / app-config.json without touching the dogfood install.
+//
+// LOCALE CONTROL (Issue #232):
+//   Set DOC_SHOTS_LOCALE env var (default: 'en') to generate localized shots.
+//   Examples:
+//     - PowerShell: $env:DOC_SHOTS_LOCALE='es'; npm run docshots
+//     - Bash:       DOC_SHOTS_LOCALE=es npm run docshots
+//   Output naming: EN uses `NN-slug.png` (backward-compat), other locales use
+//   `NN-slug.{locale}.png` (e.g., `01-profile-setup.es.png`).
 // ---------------------------------------------------------------------------
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..');
 const SCREENSHOT_DIR = path.join(REPO_ROOT, 'docs', 'guides', 'screenshots');
 const SEED_SCRIPT = path.join(REPO_ROOT, 'scripts', 'perf-seed.mjs');
+
+// Locale parametrization — Issue #232
+const LOCALE = process.env.DOC_SHOTS_LOCALE ?? 'en';
+const outputName = (base: string): string =>
+  LOCALE === 'en' ? `${base}.png` : `${base}.${LOCALE}.png`;
 
 const VIEWPORT = { width: 1800, height: 1100 } as const;
 
@@ -110,10 +123,6 @@ async function launchApp(userDataDir: string): Promise<ElectronApplication> {
       // Suppress the dev-seed auto-write — we already shaped the dataset
       // ourselves via perf-seed.mjs.
       OT_SEED: 'none',
-      // Ensure renderer i18n picks English to match docs/guides/user-guide.md.
-      // (i18next-browser-languagedetector also reads localStorage; we set that
-      // explicitly below for belt-and-braces determinism.)
-      LANG: 'en_US.UTF-8',
     },
   });
 }
@@ -162,7 +171,7 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
       // Wait one frame for the dialog backdrop to settle so the screenshot
       // doesn't catch the open animation mid-flight.
       await page.waitForTimeout(250);
-      await shoot(page, '01-profile-setup.png');
+      await shoot(page, outputName('01-profile-setup'));
     } finally {
       await app.close();
     }
@@ -176,14 +185,14 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
     try {
       const page = await preparePage(app);
 
-      // Set English locale before first navigation to match docs/guides/user-guide.md
-      await page.evaluate(() => {
+      // Set locale before first navigation using the parametrized LOCALE variable
+      await page.evaluate((locale) => {
         try {
-          window.localStorage.setItem('opentreasury.locale', 'en');
+          window.localStorage.setItem('opentreasury.locale', locale);
         } catch {
           /* ignore */
         }
-      });
+      }, LOCALE);
 
       // Reload to apply the locale
       await page.reload();
@@ -199,14 +208,14 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
       // Allow any panel widgets to settle (charts / counters). Also give the
       // event log time to fully hydrate in the background.
       await page.waitForTimeout(2000);
-      await shoot(page, '02-dashboard.png');
+      await shoot(page, outputName('02-dashboard'));
 
       // ── 03: Saldo (collapsed categories) ───────────────────────────────
       await page.click(NAV_BALANCE);
       // Wait for at least one category panel to render.
       await page.waitForSelector('[aria-labelledby^="saldo-panel-"]', { state: 'visible' });
       await page.waitForTimeout(400);
-      await shoot(page, '03-saldo.png');
+      await shoot(page, outputName('03-saldo'));
 
       // ── 04: Saldo (subcategories expanded) ─────────────────────────────
       // Toggle pills are scoped per panel; click both income and expense.
@@ -215,19 +224,23 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
       if (await incomeToggle.count()) await incomeToggle.first().click();
       if (await expenseToggle.count()) await expenseToggle.first().click();
       await page.waitForTimeout(400);
-      await shoot(page, '04-saldo-expanded.png');
+      await shoot(page, outputName('04-saldo-expanded'));
 
       // ── 05: Movements list ─────────────────────────────────────────────
       await page.click(NAV_MOVEMENTS);
       // Wait for the movements screen container
       await page.waitForSelector('.ot-movements', { state: 'visible', timeout: 10_000 });
-      // Default filter is "This month" which may have no data. Click "All" to show all.
-      await page.click('text=All');
+      // Default filter is "This month" which may have no data. Click the "All" preset
+      // (locale-agnostic: button[role="radio"] is structurally stable).
+      const allPresetBtn = page
+        .locator('button[role="radio"]')
+        .filter({ has: page.locator('text=/^(All|Todo)$/i') });
+      await allPresetBtn.click();
       await page.waitForTimeout(1000);
       // Now wait for data rows to appear
       await page.waitForSelector(FIRST_DATA_ROW, { state: 'visible', timeout: 10_000 });
       await page.waitForTimeout(300);
-      await shoot(page, '05-movements.png');
+      await shoot(page, outputName('05-movements'));
 
       // ── 06: Insights ───────────────────────────────────────────────────
       await page.click(NAV_INSIGHTS);
@@ -239,18 +252,20 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
         return !!main && main.textContent !== null && main.textContent.length > 0;
       });
       await page.waitForTimeout(500);
-      await shoot(page, '06-insights.png');
+      await shoot(page, outputName('06-insights'));
 
       // ── 07: Settings → Data folder row + readOnly badge area ───────────
       // Ensure we're scrolled to top so the header is visible
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.waitForTimeout(500);
-      // The settings gear is in the sidebar footer, not the topbar
-      const settingsBtn = page.locator('button:has-text("Preferences")');
+      // The settings button is in the sidebar footer (locale-aware: Preferences/Preferencias)
+      const settingsBtn = page
+        .locator('button')
+        .filter({ has: page.locator('text=/^(Preferences|Preferencias)$/i') });
       await settingsBtn.click({ timeout: 10_000 });
       await page.waitForSelector('.ot-preferences', { state: 'visible' });
       await page.waitForTimeout(500);
-      await shoot(page, '07-settings-data-folder.png');
+      await shoot(page, outputName('07-settings-data-folder'));
     } finally {
       await app.close();
     }

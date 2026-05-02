@@ -45,15 +45,57 @@ await electron.launch({
    cause event log hydration issues. Pre-seed the file, then set locale inline
    before the first reload to minimize bootstrap cycles.
 
-## Locale determinism
+## Locale determinism & parametrization (Issue #232)
 
 `app/src/renderer/i18n/index.ts` reads localStorage key
-**`opentreasury.locale`** (NOT `i18nextLng`). Set it BEFORE the first reload:
+**`opentreasury.locale`** (NOT `i18nextLng`). Set it BEFORE the first reload.
+
+### Parametrized locale pattern (for multi-locale screenshot generation):
 
 ```ts
-await page.evaluate(() => localStorage.setItem('opentreasury.locale', 'es'));
+// At top of spec:
+const LOCALE = process.env.DOC_SHOTS_LOCALE ?? 'en';
+const outputName = (base: string): string =>
+  LOCALE === 'en' ? `${base}.png` : `${base}.${LOCALE}.png`;
+
+// Before first navigation:
+await page.evaluate((locale) => {
+  try {
+    window.localStorage.setItem('opentreasury.locale', locale);
+  } catch {
+    /* ignore */
+  }
+}, LOCALE);
 await page.reload();
 await page.waitForLoadState('domcontentloaded');
+
+// When taking screenshots:
+await page.screenshot({ path: outputName('01-profile-setup'), fullPage: true });
+```
+
+**Filename convention:**
+- EN (primary locale): `01-profile-setup.png` (no suffix, backward-compat)
+- Other locales: `01-profile-setup.es.png`, `01-profile-setup.fr.png`, etc.
+
+**Locale-agnostic selectors:**
+When text locators are unavoidable (no `data-testid`), use structural selectors
++ regex filter for known locale variants:
+
+```ts
+// BAD (locale-specific):
+await page.click('text=All');
+
+// GOOD (locale-agnostic):
+const allBtn = page.locator('button[role="radio"]').filter({
+  has: page.locator('text=/^(All|Todo|Tous)$/i'),
+});
+await allBtn.click();
+```
+
+**Invocation (PowerShell):**
+```powershell
+$env:DOC_SHOTS_LOCALE='es'; npm run docshots  # Spanish
+$env:DOC_SHOTS_LOCALE='en'; npm run docshots  # English (or omit for default)
 ```
 
 **CRITICAL**: Minimize reloads. Each reload re-triggers bootstrap, which can
@@ -78,12 +120,16 @@ not separate ones.
 
 The MovementsScreen defaults to "Este mes" (this month) filter. If seeded data
 is from a different month (e.g., April 2026), you'll see "No hay resultados".
-Click the "Todo" (All) preset before screenshotting to show all movements:
+Click the "All"/"Todo" preset before screenshotting to show all movements:
 
 ```ts
 await page.click(NAV_MOVEMENTS);
 await page.waitForSelector('.ot-movements', { state: 'visible' });
-await page.click('text=Todo'); // Select "All" time range
+// Locale-agnostic "All" preset selector:
+const allPresetBtn = page
+  .locator('button[role="radio"]')
+  .filter({ has: page.locator('text=/^(All|Todo)$/i') });
+await allPresetBtn.click();
 await page.waitForTimeout(1000);
 await page.waitForSelector(FIRST_DATA_ROW, { state: 'visible' });
 ```
@@ -92,8 +138,13 @@ await page.waitForSelector(FIRST_DATA_ROW, { state: 'visible' });
 
 - Sidebar nav: position-based **inside** `nav[aria-label="Primary"]` — locale
   agnostic, structurally stable. Mirrors `tests/e2e/movements-perf.spec.ts`.
-- Settings (Preferencias): Use text locator `button:has-text("Preferencias")`
-  from the sidebar footer, not a topbar gear icon (that selector is stale).
+- Settings (Preferencias/Preferences): Use locale-agnostic selector:
+  ```ts
+  const settingsBtn = page
+    .locator('button')
+    .filter({ has: page.locator('text=/^(Preferences|Preferencias)$/i') });
+  ```
+  (Not a topbar gear icon — that selector is stale.)
 - Saldo expand toggles: `[data-testid="saldo-subcategories-toggle-income"]` /
   `…-expense`. Click both to cover the "expanded" waypoint.
 - Profile modal: `dialog.ot-profile-setup-modal`.
@@ -102,21 +153,24 @@ await page.waitForSelector(FIRST_DATA_ROW, { state: 'visible' });
 ## File layout
 
 - Spec: `tests/e2e/doc-shots.spec.ts`
-- Output: `docs/guides/screenshots/NN-<slug>.png` (zero-padded prefix → file
-  manager and Markdown both order them naturally)
+- Output: `docs/guides/screenshots/NN-<slug>.png` for EN (primary locale),
+  `NN-<slug>.<locale>.png` for others (e.g., `01-profile-setup.es.png`)
+  (zero-padded prefix → file manager and Markdown both order them naturally)
 - npm script: `"docshots": "playwright test tests/e2e/doc-shots.spec.ts"`
   (build is required first — `npm run build`)
 
-## Confidence: high (2nd observation cycle)
+## Confidence: high (3rd observation cycle — #232 locale parametrization)
 
-Issues discovered in #163 round 2:
-- Profile seeding order matters — pre-seed before launch, not via IPC after.
-- Viewport 1800x1100 > 1280x800 for readable screenshots.
-- Movements filter defaults to "Este mes" — click "Todo" to show all data.
-- Settings nav target is `Preferencias` button in sidebar, not a topbar gear.
+Issues discovered across iterations:
+- **#163 round 1:** Profile seeding order matters — pre-seed before launch, not via IPC after.
+- **#163 round 2:** Viewport 1800x1100 > 1280x800 for readable screenshots.
+- **#163 round 2:** Movements filter defaults to "Este mes" — click "All"/"Todo" to show all data.
+- **#163 round 2:** Settings nav target is `Preferencias` button in sidebar, not a topbar gear.
+- **#232:** Locale parametrization via `process.env.DOC_SHOTS_LOCALE` + output filename suffixing pattern.
+- **#232:** Text locators need locale-agnostic regex filters when `data-testid` is unavailable.
 
 ## Reference implementation
 
-`tests/e2e/doc-shots.spec.ts` (PR for #163 round 2) — seven waypoints from
-fresh first-launch through Settings, Spanish locale, "Maria Rodríguez" / "Casa
-Esperanza" persona.
+`tests/e2e/doc-shots.spec.ts` (PR for #163 round 2, #232 locale parametrization) —
+seven waypoints from fresh first-launch through Settings, parametrized for
+locale via `DOC_SHOTS_LOCALE` env var. "Maria Rodríguez" / "Casa Esperanza" persona.
