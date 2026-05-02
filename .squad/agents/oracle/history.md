@@ -18,6 +18,43 @@ Documentation needs:
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-06-02 — Spanish Translation of End-User Guide (Issue #232, PR in squad/232-spanish-guide)
+
+**Status:** ✅ COMPLETED. `docs/guides/user-guide.es.md` created and pushed.
+
+**File:** `docs/guides/user-guide.es.md` with cross-references to EN version.
+
+**Outcomes:**
+- Spanish user guide translated from `user-guide.md` with Castilian Spanish (es-ES) suitable for NGO administrative staff
+- All UI labels matched to app i18n keys from `app/src/renderer/locales/es/common.json` for consistency:
+  - "Dashboard" → "Panel", "Transactions" → "Movimientos", "Balance" → "Saldo"
+  - "Insights" → "Análisis", "Settings" → "Configuración", "Viewer" → "Observador"
+  - Action labels like "Save" → "Guardar", "Clear" → "Limpiar" pulled directly from i18n
+- Screenshot paths updated to `.es.png` suffix convention (e.g., `01-profile-setup.es.png`) awaiting Cypher's Playwright runs
+- Cross-links added: top of ES guide links to EN, top of EN guide links to ES
+- Test file `tests/e2e/doc-shots.spec.ts` already parametrized by Cypher for locale control (`DOC_SHOTS_LOCALE` env var)
+
+**Translation approach:**
+- Preserved all structure (headings, sections, examples, tips) from EN version
+- Kept concrete example names (María, Pablo, Casa Esperanza, CaixaBank) consistent with original
+- Maintained technical terms in code blocks (file paths, CLI, `events.ndjson`) unchanged
+- Used friendly, patient tone consistent with NGO audience (treasurers, not developers)
+- Spanish conventions applied: date format references (DD/MM), currency (€), folder paths (C:\Users\...)
+
+**Coordination notes:**
+- Cypher handles screenshot generation in parallel; Oracle references them with `.es.png` suffix before they exist
+- Naming convention locked: `{NN}-{slug}.es.png` for Spanish, `{NN}-{slug}.png` for EN (backward-compat)
+- Both guides link to each other for discoverability; pattern extends to future locales
+
+**Reusable pattern:** Localized doc translation workflow proven. For future locales:
+1. Create `{filename}.{locale-code}.md` parallel to EN version
+2. Cross-reference in headers (one line each direction)
+3. Extract UI strings from app's i18n JSON files (source of truth)
+4. Screenshot paths use `.{locale}.png` suffix
+5. Test harness parametrized; screenshot generation triggered by env var
+
+**Follow-up:** Commit on `squad/232-spanish-guide`; Cypher to generate ES screenshots. No PR opened per task instructions — coordinator handles after both agents complete.
+
 ### 2026-05-01 — Illustrated End-User Guide Complete (Issue #163, PR #230 + #231)
 
 **Status:** ✅ SHIPPED. Guide + 7 screenshots merged to main.
