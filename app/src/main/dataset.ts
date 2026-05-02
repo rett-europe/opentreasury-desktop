@@ -61,15 +61,40 @@ export interface LoadDatasetOptions {
   appVersion?: string;
 }
 
+/**
+ * Result of loading dataset.json metadata. Discriminated union with actionable
+ * error messages for corruption scenarios.
+ *
+ * - `status: 'missing'` → No dataset.json found (folder may be empty or foreign)
+ * - `status: 'ok'` → dataset.json parsed and validated successfully
+ * - `status: 'corrupt'` → dataset.json exists but is unreadable, invalid JSON,
+ *   or fails schema validation. The `error` field contains a user-actionable
+ *   message indicating which corruption scenario was detected.
+ *
+ * @see docs/specs/error-codes.md § DATASET_CORRUPT (C1/C2/C3)
+ */
 export type LoadDatasetMetadataResult =
   | { status: 'missing' }
   | { status: 'ok'; dataset: Dataset }
-  | { status: 'corrupt'; error: string };
+  | {
+      status: 'corrupt';
+      error: string;
+      errorKind: 'unreadable' | 'invalid-json' | 'schema-invalid';
+    };
 
 /**
  * Read and parse dataset.json without auto-creating or regenerating it.
  * Used by callers (e.g. dataset-mismatch detection) that need to inspect the
  * canonical workspace identity of a folder before deciding what to do.
+ *
+ * Returns a discriminated union with actionable error messages for corruption
+ * scenarios:
+ * - C1: File not found or unreadable → `{ status: 'missing' }` or `{ status: 'corrupt', errorKind: 'unreadable' }`
+ * - C2: Invalid JSON → `{ status: 'corrupt', errorKind: 'invalid-json' }`
+ * - C3: Schema validation fails → `{ status: 'corrupt', errorKind: 'schema-invalid' }`
+ *
+ * @see docs/specs/error-codes.md § DATASET_CORRUPT
+ * @see docs/specs/dataset-compatibility-validation.md § Corruption Detection
  */
 export async function loadDatasetMetadata(dataDir: string): Promise<LoadDatasetMetadataResult> {
   const filePath = path.join(dataDir, DATASET_FILENAME);
@@ -81,9 +106,11 @@ export async function loadDatasetMetadata(dataDir: string): Promise<LoadDatasetM
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return { status: 'missing' };
     }
+    // C1: Unreadable (permission denied, disk I/O error, etc.)
     return {
       status: 'corrupt',
-      error: `Cannot read ${filePath}: ${err instanceof Error ? err.message : String(err)}`,
+      errorKind: 'unreadable',
+      error: `Cannot read dataset metadata file (${filePath}): ${err instanceof Error ? err.message : String(err)}. Ensure the folder is readable and has at least 10 KB free.`,
     };
   }
 
@@ -91,17 +118,21 @@ export async function loadDatasetMetadata(dataDir: string): Promise<LoadDatasetM
   try {
     parsed = JSON.parse(content);
   } catch (err) {
+    // C2: Invalid JSON
     return {
       status: 'corrupt',
-      error: `Invalid JSON in ${filePath}: ${err instanceof Error ? err.message : String(err)}`,
+      errorKind: 'invalid-json',
+      error: `The dataset metadata file is corrupted (invalid JSON). If you have a backup, restore it. Otherwise, you may need to start fresh. ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 
   const result = datasetSchema.safeParse(parsed);
   if (!result.success) {
+    // C3: Schema validation fails
     return {
       status: 'corrupt',
-      error: `Invalid dataset.json at ${filePath}: ${result.error.message}`,
+      errorKind: 'schema-invalid',
+      error: `The dataset metadata is incomplete or invalid: ${result.error.message}. This may indicate a disk error or incomplete write. Try restoring from a backup.`,
     };
   }
 
@@ -168,4 +199,151 @@ async function createAndSaveDataset(dataDir: string, opts: LoadDatasetOptions): 
   console.log(`[dataset] Generated and saved dataset ID: ${dataset.datasetId}`);
 
   return dataset.datasetId;
+}
+
+/**
+ * Classification result for a folder's state. Used by dataset-mismatch
+ * detection to make explicit switching decisions.
+ *
+ * - `EMPTY`: No dataset.json and no events.ndjson (or empty events.ndjson).
+ *   Safe to initialize a new workspace.
+ * - `VALID_OT`: Has a valid dataset.json with parseable schema. May or may not
+ *   have events.ndjson.
+ * - `FOREIGN`: Has events.ndjson but no valid dataset.json. Represents legacy
+ *   or non-OT data.
+ *
+ * @see docs/specs/dataset-compatibility-validation.md § Folder Kind Detection
+ * @see docs/specs/error-codes.md § DATASET_MISMATCH (foreign folder scenario)
+ */
+export type FolderKind = 'EMPTY' | 'VALID_OT' | 'FOREIGN';
+
+export interface DetectFolderKindResult {
+  kind: FolderKind;
+  /** Set when kind === 'VALID_OT'; the parsed dataset.json metadata. */
+  dataset?: Dataset;
+  /** Set when kind === 'FOREIGN'; human-readable reason for rejection. */
+  error?: string;
+  /** When set, indicates dataset.json exists but is corrupt (unreadable/invalid JSON/schema fail).
+   * Caller should treat as DATASET_CORRUPT error code, not DATASET_MISMATCH. */
+  isCorrupt?: boolean;
+}
+
+/**
+ * Classify a folder as EMPTY, VALID_OT, or FOREIGN by inspecting dataset.json
+ * and events.ndjson existence/validity. Does NOT check schemaVersion or
+ * datasetId match — the caller (detectDatasetMismatch) performs those checks.
+ *
+ * This is the canonical folder-state classifier for dataset switching and
+ * first-run logic. Downstream code uses the returned `kind` to decide whether
+ * to accept, reject, or confirm a folder switch.
+ *
+ * @param dir Absolute path to the candidate folder
+ * @returns Discriminated union with the folder's classification
+ *
+ * @see docs/specs/dataset-compatibility-validation.md § Folder Kind Detection
+ * @see docs/specs/error-codes.md § DATASET_MISMATCH (foreign folder)
+ */
+export async function detectFolderKind(dir: string): Promise<DetectFolderKindResult> {
+  const meta = await loadDatasetMetadata(dir);
+
+  // If dataset.json is valid and parseable, classify as VALID_OT regardless
+  // of events.ndjson state (the caller will check schemaVersion/datasetId).
+  if (meta.status === 'ok') {
+    return { kind: 'VALID_OT', dataset: meta.dataset };
+  }
+
+  // If dataset.json is corrupt, treat as FOREIGN (not safe to open).
+  // We don't auto-fix corruption — the user must restore from backup or
+  // choose an empty folder. Mark isCorrupt=true so caller can surface
+  // DATASET_CORRUPT error code instead of DATASET_MISMATCH.
+  if (meta.status === 'corrupt') {
+    return { kind: 'FOREIGN', error: meta.error, isCorrupt: true };
+  }
+
+  // meta.status === 'missing' — no dataset.json. Check whether the folder is
+  // truly empty (safe to initialize) or contains legacy/foreign events.
+  const eventsPath = path.join(dir, 'events.ndjson');
+  try {
+    const stat = await fs.stat(eventsPath);
+    if (stat.isFile() && stat.size > 0) {
+      // FOREIGN: has events but no dataset.json → cannot determine workspace identity.
+      return {
+        kind: 'FOREIGN',
+        error: `Folder contains events.ndjson but no dataset.json — cannot determine workspace identity. Choose an empty folder or a folder with valid dataset.json.`,
+      };
+    }
+  } catch (err) {
+    // events.ndjson doesn't exist or is inaccessible → treat as EMPTY.
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      // Stat error (permission denied, I/O error) — treat as FOREIGN to be safe.
+      return {
+        kind: 'FOREIGN',
+        error: `Cannot stat ${eventsPath}: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+
+  // No dataset.json, no (or empty) events.ndjson → EMPTY folder, safe to initialize.
+  return { kind: 'EMPTY' };
+}
+
+/**
+ * Optional validation: check the tail of events.ndjson to detect incomplete
+ * writes (e.g., crash mid-write). Returns an advisory diagnostic (NOT a hard
+ * error — the app can still boot and replay up to the truncation point).
+ *
+ * This is called at folder-switch time (before hydration) to surface early
+ * warnings. During hydration, the JsonFileEventLog already handles line-skip
+ * on malformed JSON, but this gives the user a heads-up before committing.
+ *
+ * @param dir Absolute path to the dataset folder
+ * @returns Diagnostic info (null if no issues or file doesn't exist)
+ *
+ * @see docs/specs/error-codes.md § EVENTS_TRUNCATED (future hydration error)
+ * @see docs/specs/dataset-compatibility-validation.md § Optional Tail Check
+ */
+export async function validateEventsTail(
+  dir: string,
+): Promise<{ incomplete: boolean; lineCount: number; error?: string } | null> {
+  const eventsPath = path.join(dir, 'events.ndjson');
+
+  try {
+    const content = await fs.readFile(eventsPath, 'utf-8');
+    const lines = content.split('\n').filter((line) => line.trim() !== '');
+
+    if (lines.length === 0) {
+      // Empty file → no tail to check.
+      return { incomplete: false, lineCount: 0 };
+    }
+
+    const lastLine = lines[lines.length - 1];
+    if (!lastLine) {
+      // Edge case: array is non-empty but last element is undefined
+      return { incomplete: false, lineCount: lines.length };
+    }
+
+    try {
+      JSON.parse(lastLine);
+      // Last line is valid JSON → all good.
+      return { incomplete: false, lineCount: lines.length };
+    } catch (jsonErr) {
+      // Last line is incomplete or malformed JSON → advisory warning.
+      return {
+        incomplete: true,
+        lineCount: lines.length,
+        error: `Last line in events.ndjson is incomplete or malformed: ${jsonErr instanceof Error ? jsonErr.message : String(jsonErr)}. This may indicate an incomplete write. The app will skip this line during hydration.`,
+      };
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      // No events.ndjson → no issue.
+      return null;
+    }
+    // Read error → surface as advisory.
+    return {
+      incomplete: true,
+      lineCount: -1,
+      error: `Cannot read events.ndjson: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
 }
