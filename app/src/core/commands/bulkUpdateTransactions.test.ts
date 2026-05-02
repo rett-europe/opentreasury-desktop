@@ -3,12 +3,13 @@
 import { describe, it, expect } from 'vitest';
 import { bulkUpdateTransactions, type BulkUpdateInput } from './bulkUpdateTransactions';
 import type { ReadModel } from '../query/types';
+import { createTestDeps, testUlid } from '../test-helpers';
 
 const mockReadModel = (transactions: ReadModel['transactions'] = []): ReadModel => ({
   transactions,
   accounts: [
     {
-      id: '01234567890123456789012345',
+      id: testUlid('ACC1'),
       bankName: 'Test Bank',
       bankNameShort: 'TB',
       accountLabel: 'Test Account',
@@ -36,7 +37,7 @@ const makeTx = (id: string, overrides: Partial<ReadModel['transactions'][number]
   amount: 100,
   currency: 'EUR' as const,
   description: 'Test tx',
-  accountId: '01234567890123456789012345',
+  accountId: testUlid('ACC1'),
   categoryId: null,
   subcategoryId: null,
   tagIds: [] as readonly string[],
@@ -47,10 +48,13 @@ const makeTx = (id: string, overrides: Partial<ReadModel['transactions'][number]
   ...overrides,
 });
 
-const TX1 = 'tx001234567890123456789012';
-const TX2 = 'tx002345678901234567890123';
-const TX3 = 'tx003456789012345678901234';
-const CORRELATION = 'cor00000000000000000000000';
+const TX1 = testUlid('TX01');
+const TX2 = testUlid('TX02');
+const TX3 = testUlid('TX03');
+const CORRELATION = testUlid('COR1');
+const CAT_ID = testUlid('CAT1');
+const TAG_ID2 = testUlid('TAG2');
+const TAG_ID3 = testUlid('TAG3');
 
 describe('bulkUpdateTransactions', () => {
   it('happy path — updates N=3 transactions', () => {
@@ -60,23 +64,22 @@ describe('bulkUpdateTransactions', () => {
     const tx3 = makeTx(TX3, { description: 'Third tx' });
 
     let evtCounter = 0;
-    const newId = () => `evt${String(evtCounter++).padStart(23, '0')}`;
+    const newId = () => testUlid(`EVT${String(evtCounter++).padStart(21, '0')}`);
 
     const input: BulkUpdateInput = {
       ids: [TX1, TX2, TX3],
-      categoryId: 'cat00000000000000000000000',
+      categoryId: CAT_ID,
       status: 'pending',
       correlationId: CORRELATION,
     };
 
-    const result = bulkUpdateTransactions(input, {
+    const deps = createTestDeps({
       now: () => now,
       newId,
       readModel: mockReadModel([tx1, tx2, tx3]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
-      dekVersion: 1,
     });
+
+    const result = bulkUpdateTransactions(input, deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -85,7 +88,7 @@ describe('bulkUpdateTransactions', () => {
     // All events carry the same correlationId
     for (const event of result.events) {
       expect(event.payload.correlationId).toBe(CORRELATION);
-      expect(event.payload.categoryId).toBe('cat00000000000000000000000');
+      expect(event.payload.categoryId).toBe(CAT_ID);
       expect(event.payload.status).toBe('pending');
     }
 
@@ -101,17 +104,15 @@ describe('bulkUpdateTransactions', () => {
 
     const input: BulkUpdateInput = {
       ids: [TX1, TX2, TX3], // TX2 does not exist
-      categoryId: 'cat00000000000000000000000',
+      categoryId: CAT_ID,
       correlationId: CORRELATION,
     };
 
-    const result = bulkUpdateTransactions(input, {
-      now: () => new Date(),
-      newId: () => 'evt00000000000000000000000',
+    const deps = createTestDeps({
       readModel: mockReadModel([tx1, tx3]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkUpdateTransactions(input, deps);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -126,13 +127,11 @@ describe('bulkUpdateTransactions', () => {
       correlationId: CORRELATION,
     };
 
-    const result = bulkUpdateTransactions(input, {
-      now: () => new Date(),
-      newId: () => 'evt00000000000000000000000',
+    const deps = createTestDeps({
       readModel: mockReadModel([]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkUpdateTransactions(input, deps);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -142,17 +141,15 @@ describe('bulkUpdateTransactions', () => {
 
   it('returns TX_NOT_FOUND for unknown id', () => {
     const input: BulkUpdateInput = {
-      ids: ['nonexistent00000000000000'],
+      ids: [testUlid('NONE')],
       correlationId: CORRELATION,
     };
 
-    const result = bulkUpdateTransactions(input, {
-      now: () => new Date(),
-      newId: () => 'evt00000000000000000000000',
+    const deps = createTestDeps({
       readModel: mockReadModel([]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkUpdateTransactions(input, deps);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -165,20 +162,20 @@ describe('bulkUpdateTransactions', () => {
     const tx2 = makeTx(TX2);
 
     let evtCounter = 0;
-    const newId = () => `evt${String(evtCounter++).padStart(23, '0')}`;
+    const newId = () => testUlid(`EVT${String(evtCounter++).padStart(21, '0')}`);
 
     const input: BulkUpdateInput = {
       ids: [TX1, TX2],
       correlationId: CORRELATION,
     };
 
-    const result = bulkUpdateTransactions(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-24T10:00:00Z'),
       newId,
       readModel: mockReadModel([tx1, tx2]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkUpdateTransactions(input, deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -199,17 +196,16 @@ describe('bulkUpdateTransactions', () => {
 
     const input: BulkUpdateInput = {
       ids: [TX1],
-      categoryId: 'cat00000000000000000000000',
+      categoryId: CAT_ID,
       correlationId: CORRELATION,
     };
 
-    const result = bulkUpdateTransactions(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-24T10:00:00Z'),
-      newId: () => 'evt00000000000000000000000',
       readModel: mockReadModel([tx1]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkUpdateTransactions(input, deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -220,31 +216,31 @@ describe('bulkUpdateTransactions', () => {
     expect(payload.description).toBe('Original description');
     expect(payload.reference).toBe('REF-001');
     expect(payload.details).toBe('Original details');
-    expect(payload.accountId).toBe('01234567890123456789012345');
+    expect(payload.accountId).toBe(testUlid('ACC1'));
     expect(payload.createdAt).toBe('2026-04-01T00:00:00Z');
     // Only categoryId was changed
-    expect(payload.categoryId).toBe('cat00000000000000000000000');
+    expect(payload.categoryId).toBe(CAT_ID);
   });
 
   it('dedupes ids (no duplicate events)', () => {
     const tx1 = makeTx(TX1);
 
     let evtCounter = 0;
-    const newId = () => `evt${String(evtCounter++).padStart(23, '0')}`;
+    const newId = () => testUlid(`EVT${String(evtCounter++).padStart(21, '0')}`);
 
     const input: BulkUpdateInput = {
       ids: [TX1, TX1, TX1],
-      categoryId: 'cat00000000000000000000000',
+      categoryId: CAT_ID,
       correlationId: CORRELATION,
     };
 
-    const result = bulkUpdateTransactions(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-24T10:00:00Z'),
       newId,
       readModel: mockReadModel([tx1]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkUpdateTransactions(input, deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -252,7 +248,7 @@ describe('bulkUpdateTransactions', () => {
   });
 
   it('clears categoryId when null is passed', () => {
-    const tx1 = makeTx(TX1, { categoryId: 'cat00000000000000000000000' });
+    const tx1 = makeTx(TX1, { categoryId: CAT_ID });
 
     const input: BulkUpdateInput = {
       ids: [TX1],
@@ -260,13 +256,12 @@ describe('bulkUpdateTransactions', () => {
       correlationId: CORRELATION,
     };
 
-    const result = bulkUpdateTransactions(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-24T10:00:00Z'),
-      newId: () => 'evt00000000000000000000000',
       readModel: mockReadModel([tx1]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkUpdateTransactions(input, deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -274,27 +269,23 @@ describe('bulkUpdateTransactions', () => {
   });
 
   it('replaces tagIds with replace-set semantics', () => {
-    const tx1 = makeTx(TX1, { tagIds: ['tag00000000000000000000001'] });
+    const tx1 = makeTx(TX1, { tagIds: [testUlid('TAG1')] });
 
     const input: BulkUpdateInput = {
       ids: [TX1],
-      tagIds: ['tag00000000000000000000002', 'tag00000000000000000000003'],
+      tagIds: [TAG_ID2, TAG_ID3],
       correlationId: CORRELATION,
     };
 
-    const result = bulkUpdateTransactions(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-24T10:00:00Z'),
-      newId: () => 'evt00000000000000000000000',
       readModel: mockReadModel([tx1]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkUpdateTransactions(input, deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.events[0]!.payload.tagIds).toEqual([
-      'tag00000000000000000000002',
-      'tag00000000000000000000003',
-    ]);
+    expect(result.events[0]!.payload.tagIds).toEqual([TAG_ID2, TAG_ID3]);
   });
 });

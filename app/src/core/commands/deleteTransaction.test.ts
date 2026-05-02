@@ -3,6 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { deleteTransaction, type DeleteTransactionInput } from './deleteTransaction';
 import type { ReadModel } from '../query/types';
+import { createTestDeps, testUlid } from '../test-helpers';
 
 const mockReadModel = (transactions: ReadModel['transactions'] = []): ReadModel => ({
   transactions,
@@ -20,15 +21,19 @@ const mockReadModel = (transactions: ReadModel['transactions'] = []): ReadModel 
 
 describe('deleteTransaction', () => {
   it('should delete a transaction successfully', () => {
+    const TX_ID = testUlid('TX01');
+    const ACCOUNT_ID = testUlid('ACC1');
+    const EVT_ID = testUlid('EVT1');
     const now = new Date('2026-04-21T10:00:00Z');
+
     const existingTx = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-01',
       type: 'expense' as const,
       amount: 100,
       currency: 'EUR' as const,
       description: 'Test transaction',
-      accountId: '01234567890123456789012345',
+      accountId: ACCOUNT_ID,
       categoryId: null,
       subcategoryId: null,
       tagIds: [] as readonly string[],
@@ -39,43 +44,42 @@ describe('deleteTransaction', () => {
     };
 
     const input: DeleteTransactionInput = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
     };
 
-    const result = deleteTransaction(input, {
+    const deps = createTestDeps({
       now: () => now,
-      newId: () => 'evt00000000000000000000000',
+      newId: () => EVT_ID,
       readModel: mockReadModel([existingTx]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
-      dekVersion: 1,
     });
+
+    const result = deleteTransaction(input, deps);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.type).toBe('tx.deleted');
-      expect(result.value.id).toBe('evt00000000000000000000000');
-      expect(result.value.txId).toBe('tx001234567890123456789012');
+      expect(result.value.id).toBe(EVT_ID);
+      expect(result.value.txId).toBe(TX_ID);
       expect(result.value.deletedAt).toBe('2026-04-21T10:00:00.000Z');
-      expect(result.value.datasetId).toBe('ds000000000000000000000000');
-      expect(result.value.actorDeviceId).toBe('dev00000000000000000000000');
+      expect(result.value.datasetId).toBe(deps.datasetId);
+      expect(result.value.actorDeviceId).toBe(deps.actorDeviceId);
       expect(result.value.dekVersion).toBe(1);
       expect(result.value.version).toBe(1);
     }
   });
 
   it('should return TX_NOT_FOUND if transaction does not exist', () => {
+    const TX_ID = testUlid('NONE');
+
     const input: DeleteTransactionInput = {
-      id: 'nonexistent00000000000000',
+      id: TX_ID,
     };
 
-    const result = deleteTransaction(input, {
-      now: () => new Date(),
-      newId: () => 'evt00000000000000000000000',
+    const deps = createTestDeps({
       readModel: mockReadModel([]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = deleteTransaction(input, deps);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {

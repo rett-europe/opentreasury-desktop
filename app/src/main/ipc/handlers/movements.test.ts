@@ -4,20 +4,19 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { createMovementsListHandler } from './movements';
 import type { DomainEvent } from '../../../core/eventLog/EventLog';
 import { getReadModel, replayEvents, resetReadModel } from '../../../core/query/reducers';
+import { testUlid } from '../../../core/test-helpers';
 
-const ulid = (suffix: string): string => (suffix + '0'.repeat(26)).slice(0, 26).toUpperCase();
-
-const DATASET_ID = ulid('DATA');
-const DEVICE_ID = ulid('DEV1');
-const ACCOUNT_ID = ulid('ACC1');
-const CAT_ID = ulid('CAT1');
-const SUB_ID = ulid('SUB1');
-const TAG_ID = ulid('TAG1');
+const DATASET_ID = testUlid('DATASET');
+const DEVICE_ID = testUlid('DEVICE');
+const ACCOUNT_ID = testUlid('ACC1');
+const CAT_ID = testUlid('CAT1');
+const SUB_ID = testUlid('SUB1');
+const TAG_ID = testUlid('TAG1');
 
 function seed(): void {
   const events: DomainEvent[] = [
     {
-      id: ulid('EA1'),
+      id: testUlid('EA1'),
       type: 'account.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -36,7 +35,7 @@ function seed(): void {
       },
     },
     {
-      id: ulid('ECAT1'),
+      id: testUlid('ECAT1'),
       type: 'category.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -55,7 +54,7 @@ function seed(): void {
       },
     },
     {
-      id: ulid('ETAG1'),
+      id: testUlid('ETAG1'),
       type: 'tag.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -72,7 +71,7 @@ function seed(): void {
       },
     },
     {
-      id: ulid('ETX1'),
+      id: testUlid('ETX1'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -80,7 +79,7 @@ function seed(): void {
       dekVersion: 0,
       version: 1,
       payload: {
-        id: ulid('TX1'),
+        id: testUlid('TX1'),
         date: '2026-04-10',
         type: 'income',
         amount: 100,
@@ -95,7 +94,7 @@ function seed(): void {
       },
     },
     {
-      id: ulid('ETX2'),
+      id: testUlid('ETX2'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -103,7 +102,7 @@ function seed(): void {
       dekVersion: 0,
       version: 1,
       payload: {
-        id: ulid('TX2'),
+        id: testUlid('TX2'),
         date: '2026-04-15',
         type: 'expense',
         amount: 42,
@@ -149,7 +148,7 @@ describe('movements:list handler', () => {
 
   it('respects accountId filter', async () => {
     const handle = createMovementsListHandler({ getReadModel });
-    const movements = await handle({ accountId: ulid('OTHER') });
+    const movements = await handle({ accountId: testUlid('OTHER') });
     expect(movements).toHaveLength(0);
   });
 
