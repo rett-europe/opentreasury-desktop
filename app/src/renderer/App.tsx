@@ -40,6 +40,7 @@ type MovementsInitialFilters = {
   readonly tagIds?: ReadonlyArray<string>;
   readonly windowStart?: string;
   readonly windowEnd?: string;
+  readonly accountId?: string;
 };
 
 export function App(): JSX.Element {
@@ -179,7 +180,7 @@ export function App(): JSX.Element {
           {...(movementsInitialFilters ? { initialFilters: movementsInitialFilters } : {})}
         />
       ) : route === 'panel' ? (
-        <PanelScreen />
+        <PanelScreen onNavigateToMovementsWithAccount={navigateToMovementsWithFilters} />
       ) : route === 'insights' ? (
         <InsightsScreen
           onTagSelect={(tagId) => {

@@ -36,3 +36,18 @@
   background: var(--color-surface-secondary);
   opacity: 0.5;
 }
+
+/* Clickable variant (#227) — cursor + hover affordance.
+ * Focus ring comes from globals.css :focus-visible rules. */
+.ot-account-card--clickable {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.ot-account-card--clickable:hover {
+  background-color: var(--color-surface-secondary);
+}
+
+.ot-account-card--clickable:active {
+  background-color: var(--color-surface-tertiary);
+}
