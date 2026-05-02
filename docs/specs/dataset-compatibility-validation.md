@@ -1,7 +1,7 @@
 # Dataset Compatibility & Validation: Design Specification
 
 **Issue:** #206  
-**Status:** Research / Specification (does not implement)  
+**Status:** ✅ Approved — Ready for implementation  
 **Author:** Niobe (Spec/UX Analyst)  
 **Date:** 2026-05-03  
 **Audience:** Pedro, Trinity (implementer), Morpheus (implementer), Neo (decomposer)
@@ -745,46 +745,80 @@ The following are the implementation work items that should be broken into sub-i
 
 ---
 
-## Open Questions for Pedro & Team
+## Resolved Decisions (Approved by Pedro — 2026-05-02)
 
-1. **Migration optionality:** When a folder uses older schema, should migration be:
-   - **Optional** (current spec assumption): "You can upgrade now or keep as-is"
-   - **Required on new-schema write:** "You can read, but any write will trigger upgrade"
-   - **Auto-required after N versions:** "We no longer support schema v0; upgrade required"
-   
-   *Recommendation:* Optional for M1 (good UX, no forced actions); required for M2+ (cleaner state).
+### Decision 1: Migration Optionality
 
-2. **Manifest file:** Should we add the optional `dataset-manifest.json` for fast corruption checks?
-   - **Pro:** Cheap corruption detection without re-parsing events.ndjson
-   - **Con:** Extra file to maintain, sync across devices, and backup
-   
-   *Recommendation:* Ship M1 without it; add in M2 when replication needs cheap proofs.
+**Question:** When a folder uses an older schema, should migration be optional, required on new-schema write, or auto-required after N versions?
 
-3. **appVersion field:** Is best-effort recording of app version sufficient, or do we need a strict history?
-   - Current spec: recorded once at creation, never updated
-   - Alternative: append to an `appVersionHistory` array on each write (audit trail)
-   
-   *Recommendation:* Current approach is sufficient for M1; enhance in M2 if audit trail is needed.
+**Decision:** Optional for M1 (good UX, no forced actions); required for M2+ (cleaner state).
 
-4. **Backward compat edge case:** If a future v3 is released and a v1 dataset attempts to auto-upgrade v1→v2→v3, should we:
-   - Run both migrations in sequence (current spec), or
-   - Require explicit per-version approval from user ("v1→v2, then v2→v3")?
-   
-   *Recommendation:* Run sequentially without interruption; user just clicks once.
+_Approved by Pedro 2026-05-02 — adopting Niobe's recommendation._
 
-5. **First-run + foreign events:** Should we offer a "repair" option for legacy events.ndjson without dataset.json?
-   - Current spec: hard reject
-   - Alternative: "Repair folder?" → create dataset.json with fresh datasetId
-   
-   *Recommendation:* Hard reject for M1 (safer); consider repair UX for M2 based on user feedback.
-
-6. **SCHEMA_TOO_OLD_NO_MIGRATION error code:** Should this be surfaced as "contact support" or "automatic migration coming"?
-   - Current spec: "contact support"
-   - Alternative: "This format will be supported in the next app update. Check for updates or contact support."
-   
-   *Recommendation:* "contact support" unless we have a roadmap date; avoid false hope.
+**Rationale:** M1 prioritizes user choice and minimal friction. Users can read old-schema datasets without mandatory upgrades. Future schema versions (M2+) will reassess this based on complexity of supporting multiple schema versions in production.
 
 ---
+
+### Decision 2: Manifest File
+
+**Question:** Should we add an optional `dataset-manifest.json` for fast corruption checks?
+
+**Decision:** Ship M1 without it; add in M2 when replication needs cheap proofs.
+
+_Approved by Pedro 2026-05-02 — adopting Niobe's recommendation._
+
+**Rationale:** The manifest file adds maintenance overhead (sync across devices, backup compatibility) that outweighs M1's corruption-detection benefits. We can detect corruption via JSON schema validation on dataset.json and event parsing; manifest becomes valuable in M2 when multi-device sync requires distributed integrity proofs.
+
+---
+
+### Decision 3: appVersion Field
+
+**Question:** Is best-effort recording of app version sufficient, or do we need a strict history?
+
+**Decision:** Current approach is sufficient for M1; enhance in M2 if audit trail is needed.
+
+_Approved by Pedro 2026-05-02 — adopting Niobe's recommendation._
+
+**Rationale:** Recording `appVersion` once at creation (immutable metadata) satisfies M1's goal of detecting incompatibility. An `appVersionHistory` array would add complexity without clear M1 use case. If audit requirements arise in M2, this can be added as a non-breaking schema extension.
+
+---
+
+### Decision 4: Backward Compatibility Chain
+
+**Question:** If a future v3 is released and a v1 dataset attempts to auto-upgrade v1→v2→v3, should we run both migrations in sequence or require explicit per-version approval?
+
+**Decision:** Run sequentially without interruption; user just clicks once.
+
+_Approved by Pedro 2026-05-02 — adopting Niobe's recommendation._
+
+**Rationale:** Sequential migration (v1→v2→v3 in one operation) provides better UX — one confirmation dialog, then automatic progress. This requires robust migration orchestration in the migration framework, but the spec already accounts for this (see Migration Framework section). Error handling at any step will halt and surface actionable feedback.
+
+---
+
+### Decision 5: First-Run Repair Option
+
+**Question:** Should we offer a "repair" option for legacy events.ndjson without dataset.json?
+
+**Decision:** Hard reject for M1 (safer); consider repair UX for M2 based on user feedback.
+
+_Approved by Pedro 2026-05-02 — adopting Niobe's recommendation._
+
+**Rationale:** M1 enforces strict handshake rules to minimize risk of data loss or corruption. Auto-generating dataset.json for foreign folders is risky without user intent confirmation and cannot be undone safely. M2 can add guided repair workflows once we have production telemetry on how often users encounter foreign datasets.
+
+---
+
+### Decision 6: SCHEMA_TOO_OLD Error UX
+
+**Question:** Should SCHEMA_TOO_OLD_NO_MIGRATION error be surfaced as "contact support" or "automatic migration coming"?
+
+**Decision:** "Contact support" unless we have a roadmap date; avoid false hope.
+
+_Approved by Pedro 2026-05-02 — adopting Niobe's recommendation._
+
+**Rationale:** Accuracy and trust matter more than optimistic messaging. If we commit to a migration timeline, we communicate that in release notes and support docs. If we're unsure, suggesting "contact support" sets realistic expectations and allows support team to escalate and track demand.
+
+---
+
 
 ## Appendices
 
@@ -866,7 +900,8 @@ export type ConfigSetDataDirResponse =
 ## Sign-Off
 
 **Spec written by:** Niobe (Spec/UX Analyst)  
-**Reviewed by:** (pending)  
-**Approved by:** Pedro (owner)  
+**Reviewed by:** Pedro (owner)  
+**Approved by:** Pedro (owner) — 2026-05-02  
+**Decision dates:** All open questions resolved and locked in — see Resolved Decisions section.
 
-*This spec is a research deliverable and does NOT authorize implementation without Pedro's approval.*
+*All decisions are binding for M1 implementation. This spec is now ready for implementation decomposition.*
