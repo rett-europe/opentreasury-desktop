@@ -82,6 +82,50 @@ Resolves the duplication-drift chain triggered in Waves 3–4. Both screens now 
 
 ---
 
+## PR #243–#245 (Sessions #153 + #154, 2026-05-02)
+
+**Agents:** Cypher (2 attempts on #154)  
+**Branch:** `test/trial-readiness` (merged as #243), documented in PR #244, verified in #245  
+**Commits:** `8b15403` (#243), `877f5f9` (#244), `4d91035` (#245)
+
+### Issue #153: Extract createTestDeps() Helper
+
+**PR #243** — `test: introduce createTestDeps() helper, remove hardcoded fake ULIDs`
+
+Cypher extracted test-fixture dependency injection pattern used across test suites:
+- **Problem:** Hardcoded fake ULID strings (`01ARZ3NDEKTSV4RRFFQ69G5FAV`) duplicated in setup
+- **Solution:** `createTestDeps()` factory in `tests/fixtures/testDeps.ts` generates consistent fake entities (account, category, tags)
+- **Applied to:** Movement tests, Account tests, filtering tests
+- **Outcome:** ✅ TS+lint clean, 714 tests pass
+
+**Learning captured in PR #244** — Document test-dependency injection pattern for test author reuse.
+
+---
+
+### Issue #154: E2E ReadOnly Mode Verification (First Attempt ❌ → Second Attempt ✅)
+
+**PR #245** — `test(e2e): readOnly mode write-block + config-allowed` (**Second Attempt**)
+
+#### First Attempt (1095s) — FAILED
+- **Root Cause:** Agent guessed IPC contract shapes without reading source files
+  - Assumed wrong response fields: `result.account.id`
+  - Used non-existent request fields: `currency`, `initialBalance`
+  - No reference to actual `GetAccountRpc`, `AccountSnapshot` types
+- **Result:** E2E spec broken; IPC calls would have failed at runtime
+- **Decision:** Re-spawn with contract details provided upfront
+
+#### Second Attempt (339s) — SUCCESS ✅
+- **Prompt Discipline:** Included verified contract excerpts in agent instructions:
+  - Response shape: `{ result: { account: { id, name, type, balance, currency }, status } }`
+  - Request fields: `accountId` (correct, not `currency`/`initialBalance`)
+  - Two-launch pattern documented: initial read + mutation attempt
+- **Test Coverage:** Verified that `readOnly=true` blocks `SetAccount*` calls, `readOnly=false` allows config mutations
+- **Outcome:** ✅ Green e2e tests, spec matched actual IPC contract
+
+**Pattern Recommendation:** When spawning agents to write tests against IPC/API surfaces, always include verified contract excerpts in the prompt — do NOT let them infer schema from test names or partial imports. This prevents 1095s→339s failure-retry waste cycles.
+
+---
+
 ## PR #104 (2026-04-XX)
 
 [Team history begins with PR #105 Wave 2. Earlier PRs logged separately in decisions.md.]
