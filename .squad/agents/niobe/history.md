@@ -696,3 +696,19 @@ All analysis in .squad/decisions/decisions.md under three new sections:
 **Action:** May touch Trinity (settings UI row for data folder), Niobe (first-run UX specs), Mouse (if visual work needed). Stand by for Pedro go-ahead.
 
 **Files:** Orchestration logs in .squad/orchestration-log/2026-04-29T10-24-31-{link,switch,morpheus}.md. Session log in .squad/log/2026-04-29T10-24-31-trial-readiness-analysis.md.
+
+## 2026-05-02T10-13-30Z : Spec #206 Approved + Locked — Your Recommendations Binding
+
+Pedro accepted all 6 of your recommendations from the #206 analysis. Neo finalized the spec in PR #237 (merged). All decisions locked:
+- Migration optional M1 / required M2+
+- No manifest file M1
+- appVersion best-effort
+- Sequential migrations
+- Hard-reject first-run repair
+- SCHEMA_TOO_OLD -> 'contact support' UX
+
+Your analysis was the critical input for this decision gate — the spec now reflects your framing (M1 simplicity vs M2 ambition). Implementation sub-issues #238–#242 open; no UX work in M1 for this spec (error UX deferred to Trinity's error page work).
+
+**Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
+
+**Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.

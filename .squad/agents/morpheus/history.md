@@ -3005,3 +3005,19 @@ No action needed now — Link's follow-up will consume #198 next.
 Generalizable rule for first-run flows: when a UI gate (here: the onboarding wizard) decides whether to render the main app, the data layer behind it must NOT have already loaded anything. Otherwise the gate becomes cosmetic — the side effects already happened. Bootstrap should peek at the gate's input (the persisted choice) FIRST and skip the data path when the gate would force the wizard.
 
 I extracted this into `.squad/skills/wizard-before-hydration/SKILL.md` so future first-run flows (multi-account, profile setup, etc.) inherit the rule.
+
+## 2026-05-02T10-13-30Z : Spec #206 Finalized — Implementation Sub-Issues Open
+
+Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance of Niobe's recommendations. All 6 design decisions finalized:
+- Migration optional M1 / required M2+
+- No manifest file M1
+- appVersion best-effort
+- Sequential migrations
+- Hard-reject first-run repair
+- SCHEMA_TOO_OLD -> 'contact support' UX
+
+**For Morpheus:** You own sub-issues #238 (schema + error codes, foundational), #239 (corruption detection), #240 (migration framework w/ Cypher). Start with #238 — it unblocks Trinity and the rest of the pipeline.
+
+**Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
+
+**Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.

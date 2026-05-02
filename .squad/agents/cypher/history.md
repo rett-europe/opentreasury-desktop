@@ -483,3 +483,19 @@ $env:DOC_SHOTS_LOCALE='es'; npm run docshots
 3. Suffix output artifacts: primary locale → no suffix, others → `.{locale}` suffix
 4. Use regex filters for text locators: `text=/^(EnglishText|SpanishText|...)$/i`
 5. Verify locale completeness BEFORE generating screenshots (file size comparison or key-count audit)
+
+## 2026-05-02T10-13-30Z : Spec #206 Finalized — Implementation Sub-Issues Open
+
+Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance of Niobe's recommendations. All 6 design decisions finalized:
+- Migration optional M1 / required M2+
+- No manifest file M1
+- appVersion best-effort
+- Sequential migrations
+- Hard-reject first-run repair
+- SCHEMA_TOO_OLD -> 'contact support' UX
+
+**For Cypher:** You co-own sub-issue #240 (migration framework with Morpheus, depends #238). This is foundational integration work; Morpheus leads schema/errors (#238), you handle testing + deployment patterns.
+
+**Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
+
+**Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.
