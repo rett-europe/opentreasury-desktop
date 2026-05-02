@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Profile } from '../../../shared/ipc-contracts/profile.js';
+import type { ConfigSetDataDirErrorCode } from '../../../shared/ipc-contracts/config.js';
+import { DatasetErrorDialog } from '../../components/DatasetErrorDialog/DatasetErrorDialog.js';
 import './PreferencesScreen.css';
 
 type LoadState = 'loading' | 'loaded' | 'error';
@@ -14,15 +16,17 @@ interface ConfigData {
 }
 
 interface ChangeError {
-  code: string;
+  code: ConfigSetDataDirErrorCode | 'PICKER_FAILED' | 'UNEXPECTED';
   message: string;
-  details?: {
-    currentDatasetId?: string | undefined;
-    newDatasetId?: string | undefined;
-    schemaVersion?: number | undefined;
-    folderSchemaVersion?: number | undefined;
-    appSchemaVersion?: number | undefined;
-  };
+  details?:
+    | {
+        currentDatasetId?: string | undefined;
+        newDatasetId?: string | undefined;
+        schemaVersion?: number | undefined;
+        folderSchemaVersion?: number | undefined;
+        appSchemaVersion?: number | undefined;
+      }
+    | undefined;
 }
 
 interface ProfileData {
@@ -68,8 +72,8 @@ export function PreferencesScreen(): JSX.Element {
   const [changeState, setChangeState] = useState<ChangeState>('idle');
   const [changeError, setChangeError] = useState<ChangeError | null>(null);
 
-  // Dataset switch confirmation modal
-  const [showDatasetSwitchModal, setShowDatasetSwitchModal] = useState(false);
+  // Dataset error dialog
+  const [showDatasetErrorDialog, setShowDatasetErrorDialog] = useState(false);
   const [pendingFolderPath, setPendingFolderPath] = useState<string | null>(null);
 
   // Profile state
@@ -228,22 +232,7 @@ export function PreferencesScreen(): JSX.Element {
     });
 
     if (!setDirResult.ok) {
-      // If it's a switchable dataset mismatch (carries a newDatasetId from a
-      // valid dataset.json) and we haven't confirmed yet, show the modal.
-      // The "foreign" sub-case (events.ndjson without dataset.json) returns
-      // DATASET_MISMATCH but with no details — surface it as a hard error
-      // instead of showing an unbypassable confirm dialog.
-      if (
-        setDirResult.error.code === 'DATASET_MISMATCH' &&
-        !confirmDatasetSwitch &&
-        setDirResult.error.details?.newDatasetId
-      ) {
-        setPendingFolderPath(path);
-        setShowDatasetSwitchModal(true);
-        return;
-      }
-
-      // Other errors
+      // Show DatasetErrorDialog for all errors
       const errorData: ChangeError = {
         code: setDirResult.error.code,
         message: setDirResult.error.message,
@@ -253,24 +242,55 @@ export function PreferencesScreen(): JSX.Element {
       }
       setChangeState('error');
       setChangeError(errorData);
+
+      // If it's a bypassable error (DATASET_MISMATCH with newDatasetId, or SCHEMA_MIGRATION_AVAILABLE),
+      // store the pending path for retry on confirm
+      if (
+        (setDirResult.error.code === 'DATASET_MISMATCH' &&
+          setDirResult.error.details?.newDatasetId) ||
+        setDirResult.error.code === 'SCHEMA_MIGRATION_AVAILABLE'
+      ) {
+        setPendingFolderPath(path);
+      }
+
+      setShowDatasetErrorDialog(true);
       return;
     }
 
     setChangeState('restarting');
   };
 
-  const handleConfirmDatasetSwitch = async (): Promise<void> => {
-    if (!pendingFolderPath) return;
+  const handleConfirmDatasetError = async (): Promise<void> => {
+    if (!pendingFolderPath || !changeError) return;
 
-    setShowDatasetSwitchModal(false);
-    await attemptSetDataDir(pendingFolderPath, true);
+    setShowDatasetErrorDialog(false);
+
+    // For DATASET_MISMATCH, retry with confirmDatasetSwitch: true
+    if (changeError.code === 'DATASET_MISMATCH') {
+      await attemptSetDataDir(pendingFolderPath, true);
+    }
+    // For SCHEMA_MIGRATION_AVAILABLE, retry (migration confirmation handled by main process)
+    else if (changeError.code === 'SCHEMA_MIGRATION_AVAILABLE') {
+      await attemptSetDataDir(pendingFolderPath, false);
+    }
+
     setPendingFolderPath(null);
   };
 
-  const handleCancelDatasetSwitch = (): void => {
-    setShowDatasetSwitchModal(false);
+  const handleDismissDatasetError = (): void => {
+    setShowDatasetErrorDialog(false);
     setPendingFolderPath(null);
     setChangeState('idle');
+    setChangeError(null);
+  };
+
+  const handlePickAnotherFolder = async (): Promise<void> => {
+    setShowDatasetErrorDialog(false);
+    setChangeError(null);
+    setPendingFolderPath(null);
+    setChangeState('idle');
+    // Immediately trigger folder picker
+    await handleChangeFolder();
   };
 
   // Validate profile
@@ -650,33 +670,6 @@ export function PreferencesScreen(): JSX.Element {
                 {t('preferences.dataFolder.restarting')}
               </p>
             )}
-
-            {changeState === 'error' && changeError && (
-              <div className="ot-preferences__error-card">
-                {changeError.code === 'SAME_DIR' ? (
-                  <p>{t('preferences.dataFolder.errors.sameDir')}</p>
-                ) : changeError.code === 'INVALID_LOCATION' ? (
-                  <p>{t('preferences.dataFolder.errors.invalidLocation')}</p>
-                ) : changeError.code === 'NOT_WRITABLE' ? (
-                  <p>{t('preferences.dataFolder.errors.notWritable')}</p>
-                ) : changeError.code === 'DATASET_MISMATCH' ? (
-                  <p>{t('preferences.dataFolder.errors.datasetMismatch')}</p>
-                ) : changeError.code === 'SCHEMA_TOO_NEW' ? (
-                  <p>
-                    {t('preferences.dataFolder.errors.schemaTooNew', {
-                      folderSchemaVersion: changeError.details?.folderSchemaVersion ?? '?',
-                      appSchemaVersion: changeError.details?.appSchemaVersion ?? '?',
-                    })}
-                  </p>
-                ) : changeError.code === 'DATASET_CORRUPT' ? (
-                  <p>{t('preferences.dataFolder.errors.datasetCorrupt')}</p>
-                ) : (
-                  <p>
-                    {t('preferences.dataFolder.errors.generic')}: {changeError.message}
-                  </p>
-                )}
-              </div>
-            )}
           </div>
         </section>
 
@@ -691,35 +684,20 @@ export function PreferencesScreen(): JSX.Element {
         </section>
       </div>
 
-      {/* Dataset switch confirmation modal */}
-      {showDatasetSwitchModal && (
-        <div className="ot-preferences__modal-overlay" onClick={handleCancelDatasetSwitch}>
-          <div className="ot-preferences__modal" onClick={(e) => e.stopPropagation()}>
-            <h2 className="ot-preferences__modal-title">
-              {t('preferences.dataFolder.confirmSwitch.title')}
-            </h2>
-            <p className="ot-preferences__modal-body">
-              {t('preferences.dataFolder.confirmSwitch.body')}
-            </p>
-            <div className="ot-preferences__modal-actions">
-              <button
-                type="button"
-                className="ot-preferences__button ot-preferences__button--secondary"
-                onClick={handleCancelDatasetSwitch}
-              >
-                {t('preferences.dataFolder.confirmSwitch.cancel')}
-              </button>
-              <button
-                type="button"
-                className="ot-preferences__button ot-preferences__button--primary"
-                onClick={handleConfirmDatasetSwitch}
-              >
-                {t('preferences.dataFolder.confirmSwitch.confirm')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Dataset error dialog */}
+      {showDatasetErrorDialog &&
+        changeError &&
+        changeError.code !== 'PICKER_FAILED' &&
+        changeError.code !== 'UNEXPECTED' && (
+          <DatasetErrorDialog
+            errorCode={changeError.code}
+            errorMessage={changeError.message}
+            errorDetails={changeError.details}
+            onDismiss={handleDismissDatasetError}
+            onConfirm={handleConfirmDatasetError}
+            onPickAnother={handlePickAnotherFolder}
+          />
+        )}
     </div>
   );
 }
