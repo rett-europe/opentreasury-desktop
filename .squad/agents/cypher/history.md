@@ -436,3 +436,50 @@ PR #51 (wi23-legacy-fixture-gate tests) closed as redundant — PR #50 already i
 - **AppShell user-strip cosmetic gap**: bottom-left still shows hardcoded `Pedro Rocha / ADMIN` from i18n placeholder `shell.user.name`, not the real profile. Out of scope for #163; flag for a follow-up — header NGO name is correctly wired via `profile?.ngoName` (acceptance only required header).
 - **Working-tree hazard**: this machine runs concurrent Squad agents. Mid-task another agent committed onto a different branch (squad/149) and silently switched HEAD. Always re-check `git branch --show-current` before staging/commit when running long operations on shared workstations.
 - **Pre-existing test debt**: `AppShell.test.tsx` (5 failures: missing `window.opentreasury.profile` mock) and `devSeed.wi23.test.ts` (4 failures) fail on a clean `origin/main`. Not introduced by this PR; verified by re-running `vitest` against `origin/main` directly.
+
+### 2026-05-02 — Issue #232 Spanish Screenshots: Locale Parametrization Pattern
+
+**Task:** Make doc-shots.spec.ts locale-aware and generate 7 Spanish screenshots for end-user guide.
+
+**Implementation:**
+1. **Locale parametrization added to spec:**
+   - Read locale from `process.env.DOC_SHOTS_LOCALE` (default: `'en'`)
+   - Output naming: EN preserves `NN-slug.png` (backward-compat), other locales use `NN-slug.{locale}.png` (e.g., `01-profile-setup.es.png`)
+   - Helper function: `const outputName = (base: string) => LOCALE === 'en' ? ${'$'}{base}.png : ${'$'}{base}.{LOCALE}.png;`
+
+2. **Locale-forcing pattern refined:**
+   - Removed hardcoded LANG env var from launchApp (was forcing 'en_US.UTF-8')
+   - Set locale via `page.evaluate((locale) => localStorage.setItem('opentreasury.locale', locale), LOCALE)` before first reload
+   - App reads from `opentreasury.locale` localStorage key (per `app/src/renderer/i18n/index.ts:50`)
+
+3. **Locale-agnostic selectors for text-based elements:**
+   - **"All"/"Todo" filter button:** Changed from `page.click('text=All')` to `page.locator('button[role="radio"]').filter({ has: page.locator('text=/^(All|Todo)$/i') })`
+   - **"Preferences"/"Preferencias" button:** Changed from `button:has-text("Preferences")` to `page.locator('button').filter({ has: page.locator('text=/^(Preferences|Preferencias)$/i') })`
+   - Pattern: Use structural selectors (role, aria attributes) + regex filter for locale variants when text is unavoidable
+
+4. **Spanish i18n completeness verified:**
+   - `app/src/renderer/locales/es/common.json` is 47KB vs EN's 44KB (107% ratio, indicates complete translations)
+   - Key translations confirmed: "Todo" (All), "Preferencias" (Preferences)
+
+**Generation results (PowerShell):**
+```powershell
+$env:DOC_SHOTS_LOCALE='es'; npm run docshots
+```
+- All 7 Spanish screenshots generated: `01-profile-setup.es.png` ... `07-settings-data-folder.es.png`
+- File sizes: 42KB–224KB (all >40KB, healthy PNGs, not suspiciously small)
+- EN screenshots untouched (preserve backward-compat)
+
+**Learnings:**
+- **Locale parametrization is env-var driven, not CLI-flag** — Playwright doesn't easily pass custom CLI args through npm scripts; env vars are the idiomatic pattern for test configuration.
+- **Filename suffixing pattern:** EN gets no suffix (`01-foo.png`) to avoid breaking existing doc links. Non-EN locales get `.{locale}.png` suffix (`01-foo.es.png`).
+- **Windows PowerShell env var syntax:** `='value'; command` (semicolon-separated, not space).
+- **Locale-agnostic selector strategy:** When text locators are unavoidable (no data-testid), use structural selector (`button[role="radio"]`) + regex filter for known locale variants. Better than hardcoding EN text.
+
+**Skill update pending:** .squad/skills/playwright-electron-doc-shots/SKILL.md to include locale parametrization pattern.
+
+**Pattern (reusable for other locale-aware e2e tests):**
+1. Accept locale via `process.env.TEST_LOCALE` (default: primary locale)
+2. Set localStorage key BEFORE first navigation: `await page.evaluate((loc) => localStorage.setItem('<app-locale-key>', loc), LOCALE)`
+3. Suffix output artifacts: primary locale → no suffix, others → `.{locale}` suffix
+4. Use regex filters for text locators: `text=/^(EnglishText|SpanishText|...)$/i`
+5. Verify locale completeness BEFORE generating screenshots (file size comparison or key-count audit)
