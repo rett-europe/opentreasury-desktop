@@ -41,21 +41,30 @@ export const configSetDataDirRequestSchema = z.object({
 export type ConfigSetDataDirRequest = z.infer<typeof configSetDataDirRequestSchema>;
 
 // Error codes the renderer can pattern-match on.
-//   SCHEMA_INVALID    — request payload failed schema validation
-//   SAME_DIR          — newDir is the same as the currently-active dataDir
-//   INVALID_LOCATION  — path is under userData (data must be external)
-//   NOT_WRITABLE      — directory cannot be created or written to
-//   DATASET_MISMATCH  — target folder already contains a workspace whose
-//                       datasetId differs from the current one. Bypassable
-//                       via `confirmDatasetSwitch: true` when the folder
-//                       carries a valid dataset.json.
-//   SCHEMA_TOO_NEW    — target folder's dataset.json declares a schemaVersion
-//                       higher than this app build supports. NOT bypassable —
-//                       user must update the app.
-//   DATASET_CORRUPT   — target folder has a dataset.json that cannot be
-//                       parsed (invalid JSON or fails schema validation).
-//                       NOT bypassable.
-//   WRITE_FAILED      — persisting app-config.json failed (disk full, etc.)
+// See docs/specs/error-codes.md for full catalogue with user-facing copy.
+//
+//   SCHEMA_INVALID               — request payload failed schema validation
+//   SAME_DIR                     — newDir is the same as the currently-active dataDir
+//   INVALID_LOCATION             — path is under userData (data must be external)
+//   NOT_WRITABLE                 — directory cannot be created or written to
+//   DATASET_MISMATCH             — target folder already contains a workspace whose
+//                                   datasetId differs from the current one. Bypassable
+//                                   via `confirmDatasetSwitch: true` when the folder
+//                                   carries a valid dataset.json. Also fires for foreign
+//                                   events without dataset.json (NOT bypassable).
+//   SCHEMA_TOO_NEW               — target folder's dataset.json declares a schemaVersion
+//                                   higher than this app build supports. NOT bypassable —
+//                                   user must update the app.
+//   SCHEMA_TOO_OLD_NO_MIGRATION  — target folder's dataset.json declares a schemaVersion
+//                                   lower than this app build, but no migration path exists.
+//                                   NOT bypassable (may become bypassable if migration added).
+//   SCHEMA_MIGRATION_AVAILABLE   — target folder's dataset.json declares a schemaVersion
+//                                   lower than this app build AND migration(s) exist.
+//                                   Bypassable (user confirms migration or keeps old schema).
+//   DATASET_CORRUPT              — target folder has a dataset.json that cannot be
+//                                   parsed (invalid JSON or fails schema validation).
+//                                   NOT bypassable.
+//   WRITE_FAILED                 — persisting app-config.json failed (disk full, etc.)
 export const configSetDataDirErrorCodeSchema = z.enum([
   'SCHEMA_INVALID',
   'SAME_DIR',
@@ -63,6 +72,8 @@ export const configSetDataDirErrorCodeSchema = z.enum([
   'NOT_WRITABLE',
   'DATASET_MISMATCH',
   'SCHEMA_TOO_NEW',
+  'SCHEMA_TOO_OLD_NO_MIGRATION',
+  'SCHEMA_MIGRATION_AVAILABLE',
   'DATASET_CORRUPT',
   'WRITE_FAILED',
 ]);

@@ -20,10 +20,23 @@ import { newUlid } from './ids.js';
  * forward-incompatible change to on-disk layout. A folder whose dataset.json
  * declares a higher schemaVersion than this constant must NOT be opened by
  * older app builds — the user is prompted to update the app instead.
+ *
+ * @see docs/specs/dataset-compatibility-validation.md § Schema-Version Handshake
+ *
+ * IMMUTABLE FOR M1: This constant is locked at 1 for the initial release.
+ * Future schema bumps (v2, v3, ...) will increment this value and require
+ * migration code in app/src/core/migrations/.
  */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 1 as const;
 
-// Zod schema — dataset.json structure
+/**
+ * Zod schema validating dataset.json structure.
+ *
+ * @see docs/specs/dataset-compatibility-validation.md § Proposed Schema
+ *
+ * Matches the {@link Dataset} TypeScript interface. Used at runtime to validate
+ * the on-disk dataset.json before accepting it as valid workspace metadata.
+ */
 export const datasetSchema = z.object({
   datasetId: z.string().length(26), // ULID
   createdAt: z.string().datetime(), // ISO 8601 UTC
@@ -34,6 +47,11 @@ export const datasetSchema = z.object({
   appVersion: z.string().optional(),
 });
 
+/**
+ * Dataset metadata — canonical on-disk schema for workspace identity.
+ *
+ * @see docs/specs/dataset-compatibility-validation.md § Proposed Schema
+ */
 export type Dataset = z.infer<typeof datasetSchema>;
 
 const DATASET_FILENAME = 'dataset.json';
