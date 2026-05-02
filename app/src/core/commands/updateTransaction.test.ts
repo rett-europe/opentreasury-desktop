@@ -3,12 +3,18 @@
 import { describe, it, expect } from 'vitest';
 import { updateTransaction, type UpdateTransactionInput } from './updateTransaction';
 import type { ReadModel } from '../query/types';
+import { createTestDeps, emptyReadModel, testUlid } from '../test-helpers';
+
+const ACCOUNT_ID = testUlid('ACC1');
+const TX_ID = testUlid('TX01');
+const EVT_ID = testUlid('EVT1');
 
 const mockReadModel = (transactions: ReadModel['transactions'] = []): ReadModel => ({
+  ...emptyReadModel(),
   transactions,
   accounts: [
     {
-      id: '01234567890123456789012345',
+      id: ACCOUNT_ID,
       bankName: 'Test Bank',
       bankNameShort: 'TB',
       accountLabel: 'Test Account',
@@ -18,28 +24,19 @@ const mockReadModel = (transactions: ReadModel['transactions'] = []): ReadModel 
       createdAt: '2026-01-01T00:00:00Z',
     },
   ],
-  categories: [],
-  tags: [],
-  configAccounts: [],
-  configCategories: [],
-  configTags: [],
-  importMappings: [],
-  rowHashes: new Set(),
-  notes: new Map(),
-  transactionsByReference: new Map(),
 });
 
 describe('updateTransaction', () => {
   it('should update a transaction successfully', () => {
     const now = new Date('2026-04-21T10:00:00Z');
     const existingTx = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-01',
       type: 'expense' as const,
       amount: 100,
       currency: 'EUR' as const,
       description: 'Old description',
-      accountId: '01234567890123456789012345',
+      accountId: ACCOUNT_ID,
       categoryId: null,
       subcategoryId: null,
       tagIds: [] as readonly string[],
@@ -50,7 +47,7 @@ describe('updateTransaction', () => {
     };
 
     const input: UpdateTransactionInput = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-15',
       type: 'income',
       amount: 200,
@@ -60,20 +57,18 @@ describe('updateTransaction', () => {
       details: 'Some details',
     };
 
-    const result = updateTransaction(input, {
+    const deps = createTestDeps({
       now: () => now,
-      newId: () => 'evt00000000000000000000000',
+      newId: () => EVT_ID,
       readModel: mockReadModel([existingTx]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
-      dekVersion: 1,
     });
+    const result = updateTransaction(input, deps);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.type).toBe('tx.updated');
-      expect(result.value.id).toBe('evt00000000000000000000000');
-      expect(result.value.payload.id).toBe('tx001234567890123456789012');
+      expect(result.value.id).toBe(EVT_ID);
+      expect(result.value.payload.id).toBe(TX_ID);
       expect(result.value.payload.date).toBe('2026-04-15');
       expect(result.value.payload.type).toBe('income');
       expect(result.value.payload.amount).toBe(200);
@@ -82,7 +77,7 @@ describe('updateTransaction', () => {
       expect(result.value.payload.reference).toBe('REF-123');
       expect(result.value.payload.details).toBe('Some details');
       // Immutables preserved
-      expect(result.value.payload.accountId).toBe('01234567890123456789012345');
+      expect(result.value.payload.accountId).toBe(ACCOUNT_ID);
       expect(result.value.payload.currency).toBe('EUR');
       expect(result.value.payload.createdAt).toBe('2026-04-01T00:00:00Z');
       expect(result.value.payload.updatedAt).toBe('2026-04-21T10:00:00.000Z');
@@ -91,20 +86,17 @@ describe('updateTransaction', () => {
 
   it('should return TX_NOT_FOUND if transaction does not exist', () => {
     const input: UpdateTransactionInput = {
-      id: 'nonexistent00000000000000',
+      id: testUlid('NONEXIST'),
       date: '2026-04-15',
       type: 'income',
       amount: 200,
       description: 'Description',
     };
 
-    const result = updateTransaction(input, {
-      now: () => new Date(),
-      newId: () => 'evt00000000000000000000000',
+    const deps = createTestDeps({
       readModel: mockReadModel([]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+    const result = updateTransaction(input, deps);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -115,13 +107,13 @@ describe('updateTransaction', () => {
 
   it('should return AMOUNT_NON_POSITIVE if amount is zero', () => {
     const existingTx = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-01',
       type: 'expense' as const,
       amount: 100,
       currency: 'EUR' as const,
       description: 'Old description',
-      accountId: '01234567890123456789012345',
+      accountId: ACCOUNT_ID,
       categoryId: null,
       subcategoryId: null,
       tagIds: [] as readonly string[],
@@ -132,20 +124,17 @@ describe('updateTransaction', () => {
     };
 
     const input: UpdateTransactionInput = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-15',
       type: 'income',
       amount: 0,
       description: 'Description',
     };
 
-    const result = updateTransaction(input, {
-      now: () => new Date(),
-      newId: () => 'evt00000000000000000000000',
+    const deps = createTestDeps({
       readModel: mockReadModel([existingTx]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+    const result = updateTransaction(input, deps);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -155,13 +144,13 @@ describe('updateTransaction', () => {
 
   it('should return AMOUNT_NON_POSITIVE if amount is negative', () => {
     const existingTx = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-01',
       type: 'expense' as const,
       amount: 100,
       currency: 'EUR' as const,
       description: 'Old description',
-      accountId: '01234567890123456789012345',
+      accountId: ACCOUNT_ID,
       categoryId: null,
       subcategoryId: null,
       tagIds: [] as readonly string[],
@@ -172,20 +161,17 @@ describe('updateTransaction', () => {
     };
 
     const input: UpdateTransactionInput = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-15',
       type: 'income',
       amount: -50,
       description: 'Description',
     };
 
-    const result = updateTransaction(input, {
-      now: () => new Date(),
-      newId: () => 'evt00000000000000000000000',
+    const deps = createTestDeps({
       readModel: mockReadModel([existingTx]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+    const result = updateTransaction(input, deps);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -195,13 +181,13 @@ describe('updateTransaction', () => {
 
   it('should return DATE_INVALID if date is malformed', () => {
     const existingTx = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-01',
       type: 'expense' as const,
       amount: 100,
       currency: 'EUR' as const,
       description: 'Old description',
-      accountId: '01234567890123456789012345',
+      accountId: ACCOUNT_ID,
       categoryId: null,
       subcategoryId: null,
       tagIds: [] as readonly string[],
@@ -212,20 +198,17 @@ describe('updateTransaction', () => {
     };
 
     const input: UpdateTransactionInput = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-02-31', // Invalid date
       type: 'income',
       amount: 100,
       description: 'Description',
     };
 
-    const result = updateTransaction(input, {
-      now: () => new Date(),
-      newId: () => 'evt00000000000000000000000',
+    const deps = createTestDeps({
       readModel: mockReadModel([existingTx]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+    const result = updateTransaction(input, deps);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -235,13 +218,13 @@ describe('updateTransaction', () => {
 
   it('should return TYPE_INVALID if type is not income or expense', () => {
     const existingTx = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-01',
       type: 'expense' as const,
       amount: 100,
       currency: 'EUR' as const,
       description: 'Old description',
-      accountId: '01234567890123456789012345',
+      accountId: ACCOUNT_ID,
       categoryId: null,
       subcategoryId: null,
       tagIds: [] as readonly string[],
@@ -252,20 +235,17 @@ describe('updateTransaction', () => {
     };
 
     const input = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-15',
       type: 'invalid',
       amount: 100,
       description: 'Description',
     } as unknown as UpdateTransactionInput;
 
-    const result = updateTransaction(input, {
-      now: () => new Date(),
-      newId: () => 'evt00000000000000000000000',
+    const deps = createTestDeps({
       readModel: mockReadModel([existingTx]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+    const result = updateTransaction(input, deps);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -275,13 +255,13 @@ describe('updateTransaction', () => {
 
   it('should return DESCRIPTION_EMPTY if description is empty', () => {
     const existingTx = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-01',
       type: 'expense' as const,
       amount: 100,
       currency: 'EUR' as const,
       description: 'Old description',
-      accountId: '01234567890123456789012345',
+      accountId: ACCOUNT_ID,
       categoryId: null,
       subcategoryId: null,
       tagIds: [] as readonly string[],
@@ -292,20 +272,17 @@ describe('updateTransaction', () => {
     };
 
     const input: UpdateTransactionInput = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-15',
       type: 'income',
       amount: 100,
       description: '   ', // Whitespace only
     };
 
-    const result = updateTransaction(input, {
-      now: () => new Date(),
-      newId: () => 'evt00000000000000000000000',
+    const deps = createTestDeps({
       readModel: mockReadModel([existingTx]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+    const result = updateTransaction(input, deps);
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -315,13 +292,13 @@ describe('updateTransaction', () => {
 
   it('should preserve existing accountId (immutable)', () => {
     const existingTx = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-01',
       type: 'expense' as const,
       amount: 100,
       currency: 'EUR' as const,
       description: 'Old description',
-      accountId: '01234567890123456789012345',
+      accountId: ACCOUNT_ID,
       categoryId: null,
       subcategoryId: null,
       tagIds: [] as readonly string[],
@@ -332,25 +309,23 @@ describe('updateTransaction', () => {
     };
 
     const input: UpdateTransactionInput = {
-      id: 'tx001234567890123456789012',
+      id: TX_ID,
       date: '2026-04-15',
       type: 'income',
       amount: 200,
       description: 'New description',
     };
 
-    const result = updateTransaction(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-21T10:00:00Z'),
-      newId: () => 'evt00000000000000000000000',
       readModel: mockReadModel([existingTx]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+    const result = updateTransaction(input, deps);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
       // accountId must remain unchanged
-      expect(result.value.payload.accountId).toBe('01234567890123456789012345');
+      expect(result.value.payload.accountId).toBe(ACCOUNT_ID);
     }
   });
 });

@@ -16,14 +16,13 @@ import {
   replayEvents,
   resetReadModel,
 } from '../../../core/query/reducers';
+import { createTestDeps, testUlid } from '../../../core/test-helpers';
 
-const ulid = (suffix: string): string => (suffix + '0'.repeat(26)).slice(0, 26).toUpperCase();
-
-const ACCOUNT_ID = ulid('ACC1');
-const DATASET_ID = ulid('DATA');
-const DEVICE_ID = ulid('DEV1');
-const EVT_ID = ulid('EVT1');
-const TX_ID = ulid('TX01');
+const ACCOUNT_ID = testUlid('ACC1');
+const DATASET_ID = testUlid('DATASET');
+const DEVICE_ID = testUlid('DEVICE');
+const EVT_ID = testUlid('EVT1');
+const TX_ID = testUlid('TX01');
 
 class InMemoryEventLog implements EventLog {
   private readonly events: DomainEvent[] = [];
@@ -87,14 +86,16 @@ describe('transaction:create handler — happy path', () => {
     const ids = [EVT_ID, TX_ID];
     let i = 0;
 
-    const handle = createTransactionCreateHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T12:00:00.000Z'),
-      newId: () => ids[i++]!,
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-    });
+    const handle = createTransactionCreateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T12:00:00.000Z'),
+        newId: () => ids[i++]!,
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+      }),
+    );
 
     const response = await handle(baseInput());
 
@@ -122,16 +123,18 @@ describe('transaction:create handler — validation failures', () => {
 
   it('returns ACCOUNT_NOT_FOUND for unknown account (no throw across IPC)', async () => {
     const eventLog = new InMemoryEventLog();
-    const handle = createTransactionCreateHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T12:00:00.000Z'),
-      newId: () => ulid('X'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-    });
+    const handle = createTransactionCreateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T12:00:00.000Z'),
+        newId: () => testUlid('X'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+      }),
+    );
 
-    const response = await handle({ ...baseInput(), accountId: ulid('GHOST') });
+    const response = await handle({ ...baseInput(), accountId: testUlid('GHOST') });
 
     expect(response.ok).toBe(false);
     if (response.ok) return;
@@ -143,14 +146,16 @@ describe('transaction:create handler — validation failures', () => {
 
   it('returns SCHEMA_INVALID for payloads that fail Zod at the boundary', async () => {
     const eventLog = new InMemoryEventLog();
-    const handle = createTransactionCreateHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T12:00:00.000Z'),
-      newId: () => ulid('X'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-    });
+    const handle = createTransactionCreateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T12:00:00.000Z'),
+        newId: () => testUlid('X'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+      }),
+    );
 
     const response = await handle({ ...baseInput(), amount: -5 });
 
@@ -161,14 +166,16 @@ describe('transaction:create handler — validation failures', () => {
 
   it('rejects invalid type enum at boundary', async () => {
     const eventLog = new InMemoryEventLog();
-    const handle = createTransactionCreateHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: () => ulid('X'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-    });
+    const handle = createTransactionCreateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: () => testUlid('X'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+      }),
+    );
 
     const response = await handle({ ...baseInput(), type: 'transfer' });
     expect(response.ok).toBe(false);
@@ -186,19 +193,21 @@ describe('transaction:create handler — idempotency', () => {
   it('appending the same event.id twice only applies the reducer once', async () => {
     const eventLog = new InMemoryEventLog();
     // Fixed ids — every call returns the same event id + tx id.
-    const handle = createTransactionCreateHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T12:00:00.000Z'),
-      newId: (() => {
-        const queue = [EVT_ID, TX_ID, EVT_ID, TX_ID];
-        let k = 0;
-        return () => queue[k++]!;
-      })(),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionCreateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T12:00:00.000Z'),
+        newId: (() => {
+          const queue = [EVT_ID, TX_ID, EVT_ID, TX_ID];
+          let k = 0;
+          return () => queue[k++]!;
+        })(),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const r1 = await handle(baseInput());
     const r2 = await handle(baseInput());
@@ -229,14 +238,16 @@ describe('transaction:create handler — unexpected errors', () => {
         return [];
       },
     };
-    const handle = createTransactionCreateHandler({
-      eventLog: throwingLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T12:00:00.000Z'),
-      newId: () => ulid('X'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-    });
+    const handle = createTransactionCreateHandler(
+      createTestDeps({
+        eventLog: throwingLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T12:00:00.000Z'),
+        newId: () => testUlid('X'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+      }),
+    );
 
     const response = await handle(baseInput());
     expect(response.ok).toBe(false);
@@ -250,15 +261,15 @@ describe('transaction:create handler — unexpected errors', () => {
 // WI-31a — transaction:bulkUpdate handler integration tests
 // ---------------------------------------------------------------------------
 
-const TX1_ID = ulid('TX01');
-const TX2_ID = ulid('TX02');
-const TX3_ID = ulid('TX03');
-const CORRELATION_ID = ulid('COR1');
+const TX1_ID = testUlid('TX01');
+const TX2_ID = testUlid('TX02');
+const TX3_ID = testUlid('TX03');
+const CORRELATION_ID = testUlid('COR1');
 
 function seedTransactions(): void {
   replayEvents([
     {
-      id: ulid('EVTTX1'),
+      id: testUlid('EVTTX1'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -283,7 +294,7 @@ function seedTransactions(): void {
       },
     } as DomainEvent,
     {
-      id: ulid('EVTTX2'),
+      id: testUlid('EVTTX2'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -308,7 +319,7 @@ function seedTransactions(): void {
       },
     } as DomainEvent,
     {
-      id: ulid('EVTTX3'),
+      id: testUlid('EVTTX3'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -335,7 +346,7 @@ function seedTransactions(): void {
   ]);
 }
 
-const CAT_ID = ulid('CAT1');
+const CAT_ID = testUlid('CAT1');
 
 describe('transaction:bulkUpdate handler — happy path', () => {
   beforeEach(() => {
@@ -348,15 +359,17 @@ describe('transaction:bulkUpdate handler — happy path', () => {
     const eventLog = new InMemoryEventLog();
     let evtCounter = 0;
 
-    const handle = createTransactionBulkUpdateHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-24T12:00:00.000Z'),
-      newId: () => ulid(`BK${evtCounter++}`),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkUpdateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-24T12:00:00.000Z'),
+        newId: () => testUlid(`BK${evtCounter++}`),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
       ids: [TX1_ID, TX2_ID, TX3_ID],
@@ -399,18 +412,20 @@ describe('transaction:bulkUpdate handler — validation failures', () => {
   it('returns failures when one tx is unknown (all-or-nothing)', async () => {
     const eventLog = new InMemoryEventLog();
 
-    const handle = createTransactionBulkUpdateHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-24T12:00:00.000Z'),
-      newId: () => ulid('BK0'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkUpdateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-24T12:00:00.000Z'),
+        newId: () => testUlid('BK0'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
-      ids: [TX1_ID, ulid('GHOST')],
+      ids: [TX1_ID, testUlid('GHOST')],
       categoryId: CAT_ID,
       correlationId: CORRELATION_ID,
     });
@@ -427,15 +442,17 @@ describe('transaction:bulkUpdate handler — validation failures', () => {
   it('returns SCHEMA_INVALID for payloads that fail Zod at the boundary', async () => {
     const eventLog = new InMemoryEventLog();
 
-    const handle = createTransactionBulkUpdateHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: () => ulid('BK0'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkUpdateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: () => testUlid('BK0'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     // Missing correlationId
     const response = await handle({ ids: [TX1_ID] });
@@ -466,15 +483,17 @@ describe('transaction:bulkUpdate handler — unexpected errors', () => {
       },
     };
 
-    const handle = createTransactionBulkUpdateHandler({
-      eventLog: throwingLog,
-      getReadModel,
-      now: () => new Date('2026-04-24T12:00:00.000Z'),
-      newId: () => ulid('BK0'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkUpdateHandler(
+      createTestDeps({
+        eventLog: throwingLog,
+        getReadModel,
+        now: () => new Date('2026-04-24T12:00:00.000Z'),
+        newId: () => testUlid('BK0'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
       ids: [TX1_ID],
@@ -510,15 +529,17 @@ describe('transaction:bulkUpdate — response survives Zod response-schema parse
     const eventLog = new InMemoryEventLog();
     let evtCounter = 0;
 
-    const handle = createTransactionBulkUpdateHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-24T12:00:00.000Z'),
-      newId: () => ulid(`RS${evtCounter++}`),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkUpdateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-24T12:00:00.000Z'),
+        newId: () => testUlid(`RS${evtCounter++}`),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
       ids: [TX1_ID],
@@ -543,15 +564,17 @@ describe('transaction:bulkUpdate — response survives Zod response-schema parse
   it('SCHEMA_INVALID failure parses through bulkUpdateTransactionResponseSchema', async () => {
     const eventLog = new InMemoryEventLog();
 
-    const handle = createTransactionBulkUpdateHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: () => ulid('RS0'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkUpdateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: () => testUlid('RS0'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     // Missing correlationId triggers SCHEMA_INVALID
     const response = await handle({ ids: [TX1_ID] });
@@ -573,15 +596,17 @@ describe('transaction:bulkUpdate — response survives Zod response-schema parse
       },
     };
 
-    const handle = createTransactionBulkUpdateHandler({
-      eventLog: throwingLog,
-      getReadModel,
-      now: () => new Date('2026-04-24T12:00:00.000Z'),
-      newId: () => ulid('RS0'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkUpdateHandler(
+      createTestDeps({
+        eventLog: throwingLog,
+        getReadModel,
+        now: () => new Date('2026-04-24T12:00:00.000Z'),
+        newId: () => testUlid('RS0'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
       ids: [TX1_ID],
@@ -595,18 +620,20 @@ describe('transaction:bulkUpdate — response survives Zod response-schema parse
   it('TX_NOT_FOUND failure parses through bulkUpdateTransactionResponseSchema', async () => {
     const eventLog = new InMemoryEventLog();
 
-    const handle = createTransactionBulkUpdateHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: () => ulid('RS0'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkUpdateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: () => testUlid('RS0'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
-      ids: [ulid('GHOST')],
+      ids: [testUlid('GHOST')],
       correlationId: CORRELATION_ID,
     });
 
@@ -624,7 +651,7 @@ describe('transaction:bulkUpdate — response survives Zod response-schema parse
 
 // (bulkAddLabelTransactionResponseSchema imported above with bulkUpdate.)
 
-const TAG_ID = ulid('TAG1');
+const TAG_ID = testUlid('TAG1');
 
 function seedAccountTagAndTransactions(extraEvents: DomainEvent[] = []): void {
   // `replayEvents` resets the read model on every call, so all seed events
@@ -651,7 +678,7 @@ function seedAccountTagAndTransactions(extraEvents: DomainEvent[] = []): void {
       createdAt: '2026-04-19T10:00:00.000Z',
     } as DomainEvent,
     {
-      id: ulid('EVTTX1'),
+      id: testUlid('EVTTX1'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -676,7 +703,7 @@ function seedAccountTagAndTransactions(extraEvents: DomainEvent[] = []): void {
       },
     } as DomainEvent,
     {
-      id: ulid('EVTTX2'),
+      id: testUlid('EVTTX2'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -701,7 +728,7 @@ function seedAccountTagAndTransactions(extraEvents: DomainEvent[] = []): void {
       },
     } as DomainEvent,
     {
-      id: ulid('EVTTX3'),
+      id: testUlid('EVTTX3'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -739,15 +766,17 @@ describe('transaction:bulkAddLabel handler — happy path', () => {
     const eventLog = new InMemoryEventLog();
     let evtCounter = 0;
 
-    const handle = createTransactionBulkAddLabelHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-24T12:00:00.000Z'),
-      newId: () => ulid(`AL${evtCounter++}`),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkAddLabelHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-24T12:00:00.000Z'),
+        newId: () => testUlid(`AL${evtCounter++}`),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
       ids: [TX1_ID, TX2_ID, TX3_ID],
@@ -788,7 +817,7 @@ describe('transaction:bulkAddLabel handler — idempotency', () => {
     // must travel together with the rest of the seed.
     seedAccountTagAndTransactions([
       {
-        id: ulid('PRETAG'),
+        id: testUlid('PRETAG'),
         type: 'tx.updated',
         datasetId: DATASET_ID,
         actorDeviceId: DEVICE_ID,
@@ -820,15 +849,17 @@ describe('transaction:bulkAddLabel handler — idempotency', () => {
     const eventLog = new InMemoryEventLog();
     let evtCounter = 0;
 
-    const handle = createTransactionBulkAddLabelHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-24T12:00:00.000Z'),
-      newId: () => ulid(`AL${evtCounter++}`),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkAddLabelHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-24T12:00:00.000Z'),
+        newId: () => testUlid(`AL${evtCounter++}`),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
       ids: [TX1_ID, TX2_ID, TX3_ID],
@@ -867,18 +898,20 @@ describe('transaction:bulkAddLabel handler — validation failures', () => {
   it('returns TX_NOT_FOUND when one tx id is unknown (all-or-nothing)', async () => {
     const eventLog = new InMemoryEventLog();
 
-    const handle = createTransactionBulkAddLabelHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-24T12:00:00.000Z'),
-      newId: () => ulid('AL0'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkAddLabelHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-24T12:00:00.000Z'),
+        newId: () => testUlid('AL0'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
-      ids: [TX1_ID, ulid('GHOST')],
+      ids: [TX1_ID, testUlid('GHOST')],
       tagId: TAG_ID,
       correlationId: CORRELATION_ID,
     });
@@ -894,19 +927,21 @@ describe('transaction:bulkAddLabel handler — validation failures', () => {
   it('returns TAG_NOT_FOUND when the requested label does not exist', async () => {
     const eventLog = new InMemoryEventLog();
 
-    const handle = createTransactionBulkAddLabelHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-24T12:00:00.000Z'),
-      newId: () => ulid('AL0'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkAddLabelHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-24T12:00:00.000Z'),
+        newId: () => testUlid('AL0'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
       ids: [TX1_ID],
-      tagId: ulid('NOTAG'),
+      tagId: testUlid('NOTAG'),
       correlationId: CORRELATION_ID,
     });
 
@@ -920,15 +955,17 @@ describe('transaction:bulkAddLabel handler — validation failures', () => {
   it('returns SCHEMA_INVALID for payloads that fail Zod at the boundary', async () => {
     const eventLog = new InMemoryEventLog();
 
-    const handle = createTransactionBulkAddLabelHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: () => ulid('AL0'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkAddLabelHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: () => testUlid('AL0'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     // Missing tagId
     const response = await handle({ ids: [TX1_ID], correlationId: CORRELATION_ID });
@@ -949,15 +986,17 @@ describe('transaction:bulkAddLabel — response survives Zod response-schema par
     const eventLog = new InMemoryEventLog();
     let evtCounter = 0;
 
-    const handle = createTransactionBulkAddLabelHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-24T12:00:00.000Z'),
-      newId: () => ulid(`RS${evtCounter++}`),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkAddLabelHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-24T12:00:00.000Z'),
+        newId: () => testUlid(`RS${evtCounter++}`),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
       ids: [TX1_ID],
@@ -971,19 +1010,21 @@ describe('transaction:bulkAddLabel — response survives Zod response-schema par
   it('TAG_NOT_FOUND failure parses through bulkAddLabelTransactionResponseSchema', async () => {
     const eventLog = new InMemoryEventLog();
 
-    const handle = createTransactionBulkAddLabelHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: () => ulid('RS0'),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-      applyEvent,
-    });
+    const handle = createTransactionBulkAddLabelHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: () => testUlid('RS0'),
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+        applyEvent,
+      }),
+    );
 
     const response = await handle({
       ids: [TX1_ID],
-      tagId: ulid('NOTAG'),
+      tagId: testUlid('NOTAG'),
       correlationId: CORRELATION_ID,
     });
 

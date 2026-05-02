@@ -3,9 +3,10 @@
 import { describe, it, expect } from 'vitest';
 import { bulkAddLabelToTransactions, type BulkAddLabelInput } from './bulkAddLabelToTransactions';
 import type { ReadModel } from '../query/types';
+import { createTestDeps, testUlid } from '../test-helpers';
 
-const ACCOUNT_ID = '01234567890123456789012345';
-const TAG_ID = 'tag00000000000000000000001';
+const ACCOUNT_ID = testUlid('ACC1');
+const TAG_ID = testUlid('TAG1');
 
 const mockReadModel = (
   transactions: ReadModel['transactions'] = [],
@@ -58,10 +59,10 @@ const makeTx = (id: string, overrides: Partial<ReadModel['transactions'][number]
   ...overrides,
 });
 
-const TX1 = 'tx001234567890123456789012';
-const TX2 = 'tx002345678901234567890123';
-const TX3 = 'tx003456789012345678901234';
-const CORRELATION = 'cor00000000000000000000000';
+const TX1 = testUlid('TX01');
+const TX2 = testUlid('TX02');
+const TX3 = testUlid('TX03');
+const CORRELATION = testUlid('COR1');
 
 describe('bulkAddLabelToTransactions', () => {
   it('happy path — appends label to N=3 transactions, all events share correlationId', () => {
@@ -71,7 +72,7 @@ describe('bulkAddLabelToTransactions', () => {
     const tx3 = makeTx(TX3, { description: 'Third tx' });
 
     let evtCounter = 0;
-    const newId = () => `evt${String(evtCounter++).padStart(23, '0')}`;
+    const newId = () => testUlid(`EVT${String(evtCounter++).padStart(21, '0')}`);
 
     const input: BulkAddLabelInput = {
       ids: [TX1, TX2, TX3],
@@ -79,14 +80,13 @@ describe('bulkAddLabelToTransactions', () => {
       correlationId: CORRELATION,
     };
 
-    const result = bulkAddLabelToTransactions(input, {
+    const deps = createTestDeps({
       now: () => now,
       newId,
       readModel: mockReadModel([tx1, tx2, tx3]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
-      dekVersion: 1,
     });
+
+    const result = bulkAddLabelToTransactions(input, deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -104,7 +104,8 @@ describe('bulkAddLabelToTransactions', () => {
   });
 
   it('appends to existing tagIds (preserves prior tags)', () => {
-    const tx1 = makeTx(TX1, { tagIds: ['tag00000000000000000000099'] });
+    const PRIOR_TAG_ID = testUlid('TAG9');
+    const tx1 = makeTx(TX1, { tagIds: [PRIOR_TAG_ID] });
 
     const input: BulkAddLabelInput = {
       ids: [TX1],
@@ -112,18 +113,17 @@ describe('bulkAddLabelToTransactions', () => {
       correlationId: CORRELATION,
     };
 
-    const result = bulkAddLabelToTransactions(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-24T10:00:00Z'),
-      newId: () => 'evt00000000000000000000000',
       readModel: mockReadModel([tx1]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkAddLabelToTransactions(input, deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.events).toHaveLength(1);
-    expect(result.events[0]!.payload.tagIds).toEqual(['tag00000000000000000000099', TAG_ID]);
+    expect(result.events[0]!.payload.tagIds).toEqual([PRIOR_TAG_ID, TAG_ID]);
   });
 
   it('idempotent — silently skips txs that already carry the tag', () => {
@@ -132,7 +132,7 @@ describe('bulkAddLabelToTransactions', () => {
     const tx3 = makeTx(TX3);
 
     let evtCounter = 0;
-    const newId = () => `evt${String(evtCounter++).padStart(23, '0')}`;
+    const newId = () => testUlid(`EVT${String(evtCounter++).padStart(21, '0')}`);
 
     const input: BulkAddLabelInput = {
       ids: [TX1, TX2, TX3],
@@ -140,13 +140,13 @@ describe('bulkAddLabelToTransactions', () => {
       correlationId: CORRELATION,
     };
 
-    const result = bulkAddLabelToTransactions(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-24T10:00:00Z'),
       newId,
       readModel: mockReadModel([tx1, tx2, tx3]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkAddLabelToTransactions(input, deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -168,13 +168,12 @@ describe('bulkAddLabelToTransactions', () => {
       correlationId: CORRELATION,
     };
 
-    const result = bulkAddLabelToTransactions(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-24T10:00:00Z'),
-      newId: () => 'evt00000000000000000000000',
       readModel: mockReadModel([tx1]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkAddLabelToTransactions(input, deps);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -184,27 +183,27 @@ describe('bulkAddLabelToTransactions', () => {
   });
 
   it('returns TAG_NOT_FOUND when tagId is unknown', () => {
+    const UNKNOWN_TAG_ID = testUlid('UNKN');
     const tx1 = makeTx(TX1);
 
     const input: BulkAddLabelInput = {
       ids: [TX1],
-      tagId: 'tag99999999999999999999999',
+      tagId: UNKNOWN_TAG_ID,
       correlationId: CORRELATION,
     };
 
-    const result = bulkAddLabelToTransactions(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-24T10:00:00Z'),
-      newId: () => 'evt00000000000000000000000',
       readModel: mockReadModel([tx1]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkAddLabelToTransactions(input, deps);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.failures).toHaveLength(1);
     expect(result.failures[0]!.code).toBe('TAG_NOT_FOUND');
-    expect(result.failures[0]!.id).toBe('tag99999999999999999999999');
+    expect(result.failures[0]!.id).toBe(UNKNOWN_TAG_ID);
   });
 
   it('returns EMPTY_IDS when ids array is empty', () => {
@@ -214,13 +213,11 @@ describe('bulkAddLabelToTransactions', () => {
       correlationId: CORRELATION,
     };
 
-    const result = bulkAddLabelToTransactions(input, {
-      now: () => new Date('2026-04-24T10:00:00Z'),
-      newId: () => 'evt00000000000000000000000',
+    const deps = createTestDeps({
       readModel: mockReadModel([]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkAddLabelToTransactions(input, deps);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -232,7 +229,7 @@ describe('bulkAddLabelToTransactions', () => {
     const tx1 = makeTx(TX1);
 
     let evtCounter = 0;
-    const newId = () => `evt${String(evtCounter++).padStart(23, '0')}`;
+    const newId = () => testUlid(`EVT${String(evtCounter++).padStart(21, '0')}`);
 
     const input: BulkAddLabelInput = {
       ids: [TX1, TX1, TX1],
@@ -240,13 +237,13 @@ describe('bulkAddLabelToTransactions', () => {
       correlationId: CORRELATION,
     };
 
-    const result = bulkAddLabelToTransactions(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-24T10:00:00Z'),
       newId,
       readModel: mockReadModel([tx1]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkAddLabelToTransactions(input, deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -254,6 +251,8 @@ describe('bulkAddLabelToTransactions', () => {
   });
 
   it('preserves unchanged fields (date, type, amount, description, reference, details, status)', () => {
+    const CAT_ID = testUlid('CAT1');
+    const SUB_ID = testUlid('SUB1');
     const tx1 = makeTx(TX1, {
       date: '2026-03-15',
       type: 'income',
@@ -261,8 +260,8 @@ describe('bulkAddLabelToTransactions', () => {
       description: 'Original description',
       reference: 'REF-001',
       details: 'Original details',
-      categoryId: 'cat00000000000000000000000',
-      subcategoryId: 'sub00000000000000000000000',
+      categoryId: CAT_ID,
+      subcategoryId: SUB_ID,
       status: 'pending',
     });
 
@@ -272,13 +271,12 @@ describe('bulkAddLabelToTransactions', () => {
       correlationId: CORRELATION,
     };
 
-    const result = bulkAddLabelToTransactions(input, {
+    const deps = createTestDeps({
       now: () => new Date('2026-04-24T10:00:00Z'),
-      newId: () => 'evt00000000000000000000000',
       readModel: mockReadModel([tx1]),
-      datasetId: 'ds000000000000000000000000',
-      actorDeviceId: 'dev00000000000000000000000',
     });
+
+    const result = bulkAddLabelToTransactions(input, deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -289,8 +287,8 @@ describe('bulkAddLabelToTransactions', () => {
     expect(payload.description).toBe('Original description');
     expect(payload.reference).toBe('REF-001');
     expect(payload.details).toBe('Original details');
-    expect(payload.categoryId).toBe('cat00000000000000000000000');
-    expect(payload.subcategoryId).toBe('sub00000000000000000000000');
+    expect(payload.categoryId).toBe(CAT_ID);
+    expect(payload.subcategoryId).toBe(SUB_ID);
     expect(payload.status).toBe('pending');
     expect(payload.tagIds).toEqual([TAG_ID]);
   });

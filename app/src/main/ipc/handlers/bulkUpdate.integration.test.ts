@@ -38,30 +38,24 @@ import {
 } from '../../../core/query/reducers';
 import { getAccountBalances, queryRecentTransactions } from '../../../core/query/queries';
 import { createTransactionBulkUpdateHandler } from './transaction';
+import { testUlid } from '../../../core/test-helpers';
 
-// ---------------------------------------------------------------------------
-// Deterministic id helpers — a 26-char Crockford-base32 string. The shared
-// `ulid()` helper in `transaction.test.ts` is file-local, so we inline the
-// same primitive here to keep the integration test self-contained.
-// ---------------------------------------------------------------------------
-const ULID_LEN = 26;
-function ulid(suffix: string): string {
-  // Uppercase + pad with '0' (valid Crockford digit) to reach the 26-char
-  // length required by the event-envelope schema.
-  const upper = suffix.toUpperCase().replace(/[^0-9A-HJKMNP-TV-Z]/g, '0');
-  return (upper + '0'.repeat(ULID_LEN)).slice(0, ULID_LEN);
-}
+const DATASET_ID = testUlid('DATA');
+const DEVICE_ID = testUlid('DEV1');
 
-const DATASET_ID = ulid('DATA');
-const DEVICE_ID = ulid('DEV1');
+const ACCOUNT_ID = testUlid('ACC1');
+const CAT1_ID = testUlid('CAT1'); // target category for the bulk update
+const CAT2_ID = testUlid('CAT2'); // untouched, exists for realism
+const SUB1_ID = testUlid('SUB1'); // target subcategory for the bulk update
+const SUB2_ID = testUlid('SUB2');
 
-const ACCOUNT_ID = ulid('ACC1');
-const CAT1_ID = ulid('CAT1'); // target category for the bulk update
-const CAT2_ID = ulid('CAT2'); // untouched, exists for realism
-const SUB1_ID = ulid('SUB1'); // target subcategory for the bulk update
-const SUB2_ID = ulid('SUB2');
-
-const TX_IDS = [ulid('TX01'), ulid('TX02'), ulid('TX03'), ulid('TX04'), ulid('TX05')] as const;
+const TX_IDS = [
+  testUlid('TX01'),
+  testUlid('TX02'),
+  testUlid('TX03'),
+  testUlid('TX04'),
+  testUlid('TX05'),
+] as const;
 
 // ---------------------------------------------------------------------------
 // Seed — 1 account + 2 categories + 2 subcategories + 5 transactions.
@@ -120,7 +114,7 @@ function buildSeedEvents(): DomainEvent[] {
 
   TX_IDS.forEach((txId, i) => {
     events.push({
-      id: ulid(`EVTX${i}`),
+      id: testUlid(`EVTX${i}`),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -186,7 +180,7 @@ async function seedToDisk(): Promise<JsonFileEventLog> {
 /** Deterministic newId factory for the handler — stable across runs. */
 function makeIdFactory(): () => string {
   let i = 0;
-  return () => ulid(`BKEVT${i++}`);
+  return () => testUlid(`BKEVT${i++}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +195,7 @@ describe('transaction:bulkUpdate — integration (real JsonFileEventLog)', () =>
     const seedCount = (await eventLog.load()).length;
     expect(seedCount).toBeGreaterThan(0);
 
-    const correlationId = ulid('COR1');
+    const correlationId = testUlid('COR1');
     const targetIds = [TX_IDS[0], TX_IDS[2], TX_IDS[4]] as const;
     const untouchedIds = [TX_IDS[1], TX_IDS[3]] as const;
 
@@ -302,11 +296,11 @@ describe('transaction:bulkUpdate — integration (real JsonFileEventLog)', () =>
       applyEvent,
     });
 
-    const unknownId = ulid('TXZZ');
+    const unknownId = testUlid('TXZZ');
     const response = await handle({
       ids: [TX_IDS[0], unknownId, TX_IDS[2]],
       categoryId: CAT1_ID,
-      correlationId: ulid('COR2'),
+      correlationId: testUlid('COR2'),
     });
 
     expect(response.ok).toBe(false);

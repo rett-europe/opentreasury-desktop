@@ -21,13 +21,12 @@ import {
   replayEvents,
   resetReadModel,
 } from '../../../core/query/reducers';
+import { createTestDeps, testUlid } from '../../../core/test-helpers';
 
-const ulid = (suffix: string): string => (suffix + '0'.repeat(26)).slice(0, 26).toUpperCase();
-
-const ACCOUNT_ID = ulid('ACC1');
-const DATASET_ID = ulid('DATA');
-const DEVICE_ID = ulid('DEV1');
-const TX_ID = ulid('TX01');
+const ACCOUNT_ID = testUlid('ACC1');
+const DATASET_ID = testUlid('DATASET');
+const DEVICE_ID = testUlid('DEVICE');
+const TX_ID = testUlid('TX01');
 
 class InMemoryEventLog implements EventLog {
   private readonly events: DomainEvent[] = [];
@@ -53,7 +52,7 @@ class InMemoryEventLog implements EventLog {
 function seedAccountAndTx(): void {
   replayEvents([
     {
-      id: ulid('EVTACC'),
+      id: testUlid('EVTACC'),
       type: 'account.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -72,7 +71,7 @@ function seedAccountAndTx(): void {
       },
     } as DomainEvent,
     {
-      id: ulid('EVTTX1'),
+      id: testUlid('EVTTX1'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -100,7 +99,7 @@ function seedAccountAndTx(): void {
 function idGen(queue: string[]) {
   let i = 0;
   return () => {
-    const next = queue[i] ?? ulid(`X${i}`);
+    const next = queue[i] ?? testUlid(`X${i}`);
     i += 1;
     return next;
   };
@@ -114,13 +113,15 @@ describe('transaction:note:add handler', () => {
 
   it('happy path: creates note, appends event, applies reducer', async () => {
     const eventLog = new InMemoryEventLog();
-    const NOTE_ID = ulid('NOTE1');
-    const handle = createAddNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T10:32:00.000Z'),
-      newId: idGen([NOTE_ID]),
-    });
+    const NOTE_ID = testUlid('NOTE1');
+    const handle = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T10:32:00.000Z'),
+        newId: idGen([NOTE_ID]),
+      }),
+    );
 
     const response = await handle({ txId: TX_ID, text: 'Called donor.' });
 
@@ -140,12 +141,14 @@ describe('transaction:note:add handler', () => {
 
   it('trims whitespace around text before persisting', async () => {
     const eventLog = new InMemoryEventLog();
-    const handle = createAddNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T10:32:00.000Z'),
-      newId: idGen([ulid('NOTE2')]),
-    });
+    const handle = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T10:32:00.000Z'),
+        newId: idGen([testUlid('NOTE2')]),
+      }),
+    );
 
     const response = await handle({ txId: TX_ID, text: '   Called donor.  \n' });
     expect(response.ok).toBe(true);
@@ -155,13 +158,15 @@ describe('transaction:note:add handler', () => {
 
   it('returns TX_NOT_FOUND when transaction does not exist', async () => {
     const eventLog = new InMemoryEventLog();
-    const handle = createAddNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: idGen([ulid('X')]),
-    });
-    const response = await handle({ txId: ulid('GHOST'), text: 'Hi' });
+    const handle = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: idGen([testUlid('X')]),
+      }),
+    );
+    const response = await handle({ txId: testUlid('GHOST'), text: 'Hi' });
     expect(response.ok).toBe(false);
     if (response.ok) return;
     expect(response.error.code).toBe('TX_NOT_FOUND');
@@ -170,12 +175,14 @@ describe('transaction:note:add handler', () => {
 
   it('returns TEXT_EMPTY when text is only whitespace', async () => {
     const eventLog = new InMemoryEventLog();
-    const handle = createAddNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: idGen([ulid('X')]),
-    });
+    const handle = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: idGen([testUlid('X')]),
+      }),
+    );
     const response = await handle({ txId: TX_ID, text: '    ' });
     expect(response.ok).toBe(false);
     if (response.ok) return;
@@ -187,12 +194,14 @@ describe('transaction:note:add handler', () => {
 
   it('returns SCHEMA_INVALID when text exceeds 2000 chars', async () => {
     const eventLog = new InMemoryEventLog();
-    const handle = createAddNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: idGen([ulid('X')]),
-    });
+    const handle = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: idGen([testUlid('X')]),
+      }),
+    );
     const response = await handle({ txId: TX_ID, text: 'x'.repeat(2001) });
     expect(response.ok).toBe(false);
     if (response.ok) return;
@@ -202,12 +211,14 @@ describe('transaction:note:add handler', () => {
 
   it('returns SCHEMA_INVALID for malformed txId', async () => {
     const eventLog = new InMemoryEventLog();
-    const handle = createAddNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: idGen([ulid('X')]),
-    });
+    const handle = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: idGen([testUlid('X')]),
+      }),
+    );
     const response = await handle({ txId: 'short', text: 'Hi' });
     expect(response.ok).toBe(false);
     if (response.ok) return;
@@ -223,12 +234,14 @@ describe('transaction:note:add handler', () => {
         return [];
       },
     };
-    const handle = createAddNoteHandler({
-      eventLog: throwingLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: idGen([ulid('X')]),
-    });
+    const handle = createAddNoteHandler(
+      createTestDeps({
+        eventLog: throwingLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: idGen([testUlid('X')]),
+      }),
+    );
     const response = await handle({ txId: TX_ID, text: 'Hi' });
     expect(response.ok).toBe(false);
     if (response.ok) return;
@@ -254,12 +267,12 @@ describe('transaction:note:list handler', () => {
     const eventLog = new InMemoryEventLog();
     // Each add consumes TWO ids (event id + note id).
     const ids = [
-      ulid('EVT1'),
-      ulid('NOTE1'),
-      ulid('EVT2'),
-      ulid('NOTE2'),
-      ulid('EVT3'),
-      ulid('NOTE3'),
+      testUlid('EVT1'),
+      testUlid('NOTE1'),
+      testUlid('EVT2'),
+      testUlid('NOTE2'),
+      testUlid('EVT3'),
+      testUlid('NOTE3'),
     ];
     const now = (() => {
       const stamps = [
@@ -270,12 +283,14 @@ describe('transaction:note:list handler', () => {
       let k = 0;
       return () => new Date(stamps[k++]!);
     })();
-    const add = createAddNoteHandler({
-      eventLog,
-      getReadModel,
-      now,
-      newId: idGen(ids),
-    });
+    const add = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now,
+        newId: idGen(ids),
+      }),
+    );
     await add({ txId: TX_ID, text: 'first' });
     await add({ txId: TX_ID, text: 'second' });
     await add({ txId: TX_ID, text: 'third' });
@@ -304,24 +319,28 @@ describe('transaction:note:edit handler', () => {
 
   it('happy path: updates existing note text', async () => {
     const eventLog = new InMemoryEventLog();
-    const EVT_ID = ulid('EVT1');
-    const NOTE_ID = ulid('NOTE1');
-    const add = createAddNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T10:32:00.000Z'),
-      newId: idGen([EVT_ID, NOTE_ID]),
-    });
+    const EVT_ID = testUlid('EVT1');
+    const NOTE_ID = testUlid('NOTE1');
+    const add = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T10:32:00.000Z'),
+        newId: idGen([EVT_ID, NOTE_ID]),
+      }),
+    );
     const addRes = await add({ txId: TX_ID, text: 'original' });
     if (!addRes.ok) throw new Error('add failed');
     const actualNoteId = addRes.event.noteId;
 
-    const edit = createEditNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T11:00:00.000Z'),
-      newId: idGen([ulid('EDIT1')]),
-    });
+    const edit = createEditNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T11:00:00.000Z'),
+        newId: idGen([testUlid('EDIT1')]),
+      }),
+    );
     const response = await edit({ noteId: actualNoteId, text: 'updated' });
     expect(response.ok).toBe(true);
     if (!response.ok) return;
@@ -337,13 +356,15 @@ describe('transaction:note:edit handler', () => {
 
   it('returns NOTE_NOT_FOUND when noteId is unknown', async () => {
     const eventLog = new InMemoryEventLog();
-    const handle = createEditNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: idGen([]),
-    });
-    const response = await handle({ noteId: ulid('GHOST'), text: 'hi' });
+    const handle = createEditNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: idGen([]),
+      }),
+    );
+    const response = await handle({ noteId: testUlid('GHOST'), text: 'hi' });
     expect(response.ok).toBe(false);
     if (response.ok) return;
     expect(response.error.code).toBe('NOTE_NOT_FOUND');
@@ -351,13 +372,15 @@ describe('transaction:note:edit handler', () => {
 
   it('rejects empty text via SCHEMA_INVALID at the boundary', async () => {
     const eventLog = new InMemoryEventLog();
-    const handle = createEditNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: idGen([]),
-    });
-    const response = await handle({ noteId: ulid('N'), text: '   ' });
+    const handle = createEditNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: idGen([]),
+      }),
+    );
+    const response = await handle({ noteId: testUlid('N'), text: '   ' });
     expect(response.ok).toBe(false);
     if (response.ok) return;
     expect(response.error.code).toBe('SCHEMA_INVALID');
@@ -372,25 +395,29 @@ describe('transaction:note:delete handler', () => {
 
   it('happy path: hard-deletes the note', async () => {
     const eventLog = new InMemoryEventLog();
-    const EVT_ID = ulid('EVT1');
-    const NOTE_ID = ulid('NOTE1');
-    const add = createAddNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T10:32:00.000Z'),
-      newId: idGen([EVT_ID, NOTE_ID]),
-    });
+    const EVT_ID = testUlid('EVT1');
+    const NOTE_ID = testUlid('NOTE1');
+    const add = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T10:32:00.000Z'),
+        newId: idGen([EVT_ID, NOTE_ID]),
+      }),
+    );
     const addRes = await add({ txId: TX_ID, text: 'doomed' });
     if (!addRes.ok) throw new Error('add failed');
     const actualNoteId = addRes.event.noteId;
     expect(getReadModel().notes.get(TX_ID)).toHaveLength(1);
 
-    const del = createDeleteNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T11:00:00.000Z'),
-      newId: idGen([ulid('DEL1')]),
-    });
+    const del = createDeleteNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T11:00:00.000Z'),
+        newId: idGen([testUlid('DEL1')]),
+      }),
+    );
     const response = await del({ noteId: actualNoteId });
     expect(response.ok).toBe(true);
     if (!response.ok) return;
@@ -402,13 +429,15 @@ describe('transaction:note:delete handler', () => {
 
   it('returns NOTE_NOT_FOUND for a non-existent note', async () => {
     const eventLog = new InMemoryEventLog();
-    const handle = createDeleteNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date(),
-      newId: idGen([]),
-    });
-    const response = await handle({ noteId: ulid('GHOST') });
+    const handle = createDeleteNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(),
+        newId: idGen([]),
+      }),
+    );
+    const response = await handle({ noteId: testUlid('GHOST') });
     expect(response.ok).toBe(false);
     if (response.ok) return;
     expect(response.error.code).toBe('NOTE_NOT_FOUND');
@@ -416,25 +445,29 @@ describe('transaction:note:delete handler', () => {
 
   it('is idempotent when the same deletion event is replayed', async () => {
     const eventLog = new InMemoryEventLog();
-    const EVT_ID = ulid('EVT1');
-    const NOTE_ID = ulid('NOTE1');
-    const add = createAddNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T10:32:00.000Z'),
-      newId: idGen([EVT_ID, NOTE_ID]),
-    });
+    const EVT_ID = testUlid('EVT1');
+    const NOTE_ID = testUlid('NOTE1');
+    const add = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T10:32:00.000Z'),
+        newId: idGen([EVT_ID, NOTE_ID]),
+      }),
+    );
     const addRes = await add({ txId: TX_ID, text: 'doomed' });
     if (!addRes.ok) throw new Error('add failed');
     const actualNoteId = addRes.event.noteId;
 
-    const del = createDeleteNoteHandler({
-      eventLog,
-      getReadModel,
-      now: () => new Date('2026-04-20T11:00:00.000Z'),
-      newId: idGen([ulid('DEL1'), ulid('DEL2')]),
-      applyEvent,
-    });
+    const del = createDeleteNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T11:00:00.000Z'),
+        newId: idGen([testUlid('DEL1'), testUlid('DEL2')]),
+        applyEvent,
+      }),
+    );
     const r1 = await del({ noteId: actualNoteId });
     expect(r1.ok).toBe(true);
 

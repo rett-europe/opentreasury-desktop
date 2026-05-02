@@ -3,12 +3,11 @@ import { applyEvent, getReadModel, resetReadModel } from './reducers';
 import { queryRecentTransactions, getMonthKPIs, getAccountBalances } from './queries';
 import { createTransaction } from '../commands/createTransaction';
 import type { DomainEvent, ConfigAccountCreatedEvent } from '../events/schemas';
+import { createTestDeps, testUlid } from '../test-helpers';
 
-const ulid = (suffix: string) => `01HZ${suffix.padEnd(22, '0')}`;
-
-const DATASET_ID = ulid('DATA');
-const DEVICE_ID = ulid('DEV1');
-const ACCOUNT_ID = ulid('ACC1');
+const DATASET_ID = testUlid('DATASET');
+const DEVICE_ID = testUlid('DEVICE');
+const ACCOUNT_ID = testUlid('ACC1');
 
 // WI-23 — seed emits the unified `AccountCreated` event (same id space as
 // `transaction.accountId`), replacing the legacy `account.created` envelope.
@@ -64,6 +63,15 @@ describe('reducers — TransactionCreated projection (WI-11)', () => {
     let i = 0;
 
     for (const spec of specs) {
+      const deps = createTestDeps({
+        now: () => new Date(spec.createdAt),
+        newId: () => {
+          const id = evtIds[i] ?? `EX${i}`;
+          i += 1;
+          return testUlid(id);
+        },
+        readModel: getReadModel(),
+      });
       const result = createTransaction(
         {
           accountId: ACCOUNT_ID,
@@ -73,17 +81,7 @@ describe('reducers — TransactionCreated projection (WI-11)', () => {
           currency: 'EUR',
           description: spec.desc,
         },
-        {
-          now: () => new Date(spec.createdAt),
-          newId: () => {
-            const id = evtIds[i] ?? `EX${i}`;
-            i += 1;
-            return ulid(id);
-          },
-          readModel: getReadModel(),
-          datasetId: DATASET_ID,
-          actorDeviceId: DEVICE_ID,
-        },
+        deps,
       );
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error('command failed');
@@ -136,7 +134,7 @@ describe('reducers — TransactionCreated projection (WI-11)', () => {
     // Apply events out of chronological order — query must still sort DESC.
     const events: DomainEvent[] = [
       {
-        id: ulid('EX1'),
+        id: testUlid('EX1'),
         type: 'tx.created',
         datasetId: DATASET_ID,
         actorDeviceId: DEVICE_ID,
@@ -144,7 +142,7 @@ describe('reducers — TransactionCreated projection (WI-11)', () => {
         dekVersion: 1,
         version: 1,
         payload: {
-          id: ulid('T1'),
+          id: testUlid('T1'),
           date: '2026-02-01',
           type: 'income',
           amount: 10,
@@ -159,7 +157,7 @@ describe('reducers — TransactionCreated projection (WI-11)', () => {
         },
       },
       {
-        id: ulid('EX3'),
+        id: testUlid('EX3'),
         type: 'tx.created',
         datasetId: DATASET_ID,
         actorDeviceId: DEVICE_ID,
@@ -167,7 +165,7 @@ describe('reducers — TransactionCreated projection (WI-11)', () => {
         dekVersion: 1,
         version: 1,
         payload: {
-          id: ulid('T3'),
+          id: testUlid('T3'),
           date: '2026-04-01',
           type: 'income',
           amount: 30,
@@ -182,7 +180,7 @@ describe('reducers — TransactionCreated projection (WI-11)', () => {
         },
       },
       {
-        id: ulid('EX2'),
+        id: testUlid('EX2'),
         type: 'tx.created',
         datasetId: DATASET_ID,
         actorDeviceId: DEVICE_ID,
@@ -190,7 +188,7 @@ describe('reducers — TransactionCreated projection (WI-11)', () => {
         dekVersion: 1,
         version: 1,
         payload: {
-          id: ulid('T2'),
+          id: testUlid('T2'),
           date: '2026-03-01',
           type: 'income',
           amount: 20,
@@ -223,7 +221,7 @@ describe('reducers — tx.updated projection (WI-20)', () => {
 
     // Create initial transaction
     const createEvent: DomainEvent = {
-      id: ulid('EX1'),
+      id: testUlid('EX1'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -231,7 +229,7 @@ describe('reducers — tx.updated projection (WI-20)', () => {
       dekVersion: 1,
       version: 1,
       payload: {
-        id: ulid('T1'),
+        id: testUlid('T1'),
         date: '2026-04-01',
         type: 'expense',
         amount: 100,
@@ -257,7 +255,7 @@ describe('reducers — tx.updated projection (WI-20)', () => {
 
     // Update transaction
     const updateEvent: DomainEvent = {
-      id: ulid('EX2'),
+      id: testUlid('EX2'),
       type: 'tx.updated',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -265,7 +263,7 @@ describe('reducers — tx.updated projection (WI-20)', () => {
       dekVersion: 1,
       version: 1,
       payload: {
-        id: ulid('T1'), // Same transaction id
+        id: testUlid('T1'), // Same transaction id
         date: '2026-04-10',
         type: 'income',
         amount: 200,
@@ -300,7 +298,7 @@ describe('reducers — tx.updated projection (WI-20)', () => {
 
     // Create transaction with reference
     const createEvent: DomainEvent = {
-      id: ulid('EX1'),
+      id: testUlid('EX1'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -308,7 +306,7 @@ describe('reducers — tx.updated projection (WI-20)', () => {
       dekVersion: 1,
       version: 1,
       payload: {
-        id: ulid('T1'),
+        id: testUlid('T1'),
         date: '2026-04-01',
         type: 'expense',
         amount: 100,
@@ -331,7 +329,7 @@ describe('reducers — tx.updated projection (WI-20)', () => {
 
     // Update transaction with new reference
     const updateEvent: DomainEvent = {
-      id: ulid('EX2'),
+      id: testUlid('EX2'),
       type: 'tx.updated',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -339,7 +337,7 @@ describe('reducers — tx.updated projection (WI-20)', () => {
       dekVersion: 1,
       version: 1,
       payload: {
-        id: ulid('T1'),
+        id: testUlid('T1'),
         date: '2026-04-01',
         type: 'expense',
         amount: 100,
@@ -374,7 +372,7 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
 
     // Create two transactions
     const tx1: DomainEvent = {
-      id: ulid('EX1'),
+      id: testUlid('EX1'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -382,7 +380,7 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
       dekVersion: 1,
       version: 1,
       payload: {
-        id: ulid('T1'),
+        id: testUlid('T1'),
         date: '2026-04-01',
         type: 'expense',
         amount: 100,
@@ -399,7 +397,7 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
       },
     };
     const tx2: DomainEvent = {
-      id: ulid('EX2'),
+      id: testUlid('EX2'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -407,7 +405,7 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
       dekVersion: 1,
       version: 1,
       payload: {
-        id: ulid('T2'),
+        id: testUlid('T2'),
         date: '2026-04-02',
         type: 'income',
         amount: 200,
@@ -432,8 +430,8 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
     // Delete first transaction
     const deleteEvent: DomainEvent = {
       type: 'tx.deleted',
-      id: ulid('EX3'),
-      txId: ulid('T1'),
+      id: testUlid('EX3'),
+      txId: testUlid('T1'),
       deletedAt: '2026-04-15T00:00:00.000Z',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -452,7 +450,7 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
 
     // Create transaction with reference
     const createEvent: DomainEvent = {
-      id: ulid('EX1'),
+      id: testUlid('EX1'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -460,7 +458,7 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
       dekVersion: 1,
       version: 1,
       payload: {
-        id: ulid('T1'),
+        id: testUlid('T1'),
         date: '2026-04-01',
         type: 'expense',
         amount: 100,
@@ -484,8 +482,8 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
     // Delete transaction
     const deleteEvent: DomainEvent = {
       type: 'tx.deleted',
-      id: ulid('EX2'),
-      txId: ulid('T1'),
+      id: testUlid('EX2'),
+      txId: testUlid('T1'),
       deletedAt: '2026-04-15T00:00:00.000Z',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -503,7 +501,7 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
 
     // Create transaction
     const createEvent: DomainEvent = {
-      id: ulid('EX1'),
+      id: testUlid('EX1'),
       type: 'tx.created',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -511,7 +509,7 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
       dekVersion: 1,
       version: 1,
       payload: {
-        id: ulid('T1'),
+        id: testUlid('T1'),
         date: '2026-04-01',
         type: 'expense',
         amount: 100,
@@ -532,22 +530,22 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
     // Add note to transaction
     const noteEvent: DomainEvent = {
       type: 'tx.note.added',
-      id: ulid('EN1'),
-      noteId: ulid('N1'),
-      txId: ulid('T1'),
+      id: testUlid('EN1'),
+      noteId: testUlid('N1'),
+      txId: testUlid('T1'),
       text: 'Test note',
       createdAt: '2026-04-02T00:00:00.000Z',
     };
     applyEvent(noteEvent);
 
     let model = getReadModel();
-    expect(model.notes.get(ulid('T1'))).toHaveLength(1);
+    expect(model.notes.get(testUlid('T1'))).toHaveLength(1);
 
     // Delete transaction
     const deleteEvent: DomainEvent = {
       type: 'tx.deleted',
-      id: ulid('EX2'),
-      txId: ulid('T1'),
+      id: testUlid('EX2'),
+      txId: testUlid('T1'),
       deletedAt: '2026-04-15T00:00:00.000Z',
       datasetId: DATASET_ID,
       actorDeviceId: DEVICE_ID,
@@ -557,6 +555,6 @@ describe('reducers — tx.deleted projection (WI-20)', () => {
     applyEvent(deleteEvent);
 
     model = getReadModel();
-    expect(model.notes.get(ulid('T1'))).toBeUndefined();
+    expect(model.notes.get(testUlid('T1'))).toBeUndefined();
   });
 });

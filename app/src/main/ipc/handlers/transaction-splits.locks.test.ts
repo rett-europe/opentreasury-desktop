@@ -10,12 +10,11 @@ import {
 } from './transaction';
 import type { EventLog, DomainEvent } from '../../../core/eventLog/EventLog';
 import { getReadModel, replayEvents, resetReadModel } from '../../../core/query/reducers';
+import { createTestDeps, testUlid } from '../../../core/test-helpers';
 
-const ulid = (suffix: string): string => (suffix + '0'.repeat(26)).slice(0, 26).toUpperCase();
-
-const ACCOUNT_ID = ulid('ACC1');
-const DATASET_ID = ulid('DATA');
-const DEVICE_ID = ulid('DEV1');
+const ACCOUNT_ID = testUlid('ACC1');
+const DATASET_ID = testUlid('DATA');
+const DEVICE_ID = testUlid('DEV1');
 
 class InMemoryEventLog implements EventLog {
   private readonly events: DomainEvent[] = [];
@@ -57,7 +56,7 @@ function seedAccount(): void {
 function createTx(txId: string, amount: number): DomainEvent {
   return {
     type: 'tx.created',
-    id: ulid('EVT-C' + txId),
+    id: testUlid('EVT-C' + txId),
     datasetId: DATASET_ID,
     actorDeviceId: DEVICE_ID,
     createdAt: '2026-04-20T10:00:00.000Z',
@@ -83,15 +82,13 @@ function createTx(txId: string, amount: number): DomainEvent {
 }
 
 function makeDeps(): TransactionCreateHandlerDeps {
-  return {
+  return createTestDeps({
     eventLog: new InMemoryEventLog(),
     getReadModel,
     now: () => new Date('2026-04-20T12:00:00.000Z'),
-    newId: () => ulid('EVT' + Math.random().toString(36).slice(2, 6).toUpperCase()),
     datasetId: DATASET_ID,
     actorDeviceId: DEVICE_ID,
-    dekVersion: 0,
-  };
+  });
 }
 
 describe('transaction:update — FR14 PARENT_AMOUNT_LOCKED_BY_SPLIT', () => {
@@ -101,7 +98,7 @@ describe('transaction:update — FR14 PARENT_AMOUNT_LOCKED_BY_SPLIT', () => {
   });
 
   it('allows updating amount when transaction has no splits', async () => {
-    const TX_ID = ulid('TX01');
+    const TX_ID = testUlid('TX01');
     replayEvents([createTx(TX_ID, 500)]);
 
     const handle = createTransactionUpdateHandler(makeDeps());
@@ -121,16 +118,16 @@ describe('transaction:update — FR14 PARENT_AMOUNT_LOCKED_BY_SPLIT', () => {
   });
 
   it('rejects amount change when transaction has active splits (TX_HAS_ACTIVE_SPLITS)', async () => {
-    const TX_ID = ulid('TX02');
+    const TX_ID = testUlid('TX02');
     replayEvents([
       createTx(TX_ID, 500),
       {
         type: 'tx.split',
-        id: ulid('EVTSPLIT'),
+        id: testUlid('EVTSPLIT'),
         parentTxId: TX_ID,
         splits: [
           {
-            splitId: ulid('SP1'),
+            splitId: testUlid('SP1'),
             amountCents: 30000,
             categoryId: null,
             subcategoryId: null,
@@ -138,7 +135,7 @@ describe('transaction:update — FR14 PARENT_AMOUNT_LOCKED_BY_SPLIT', () => {
             sortOrder: 0,
           },
           {
-            splitId: ulid('SP2'),
+            splitId: testUlid('SP2'),
             amountCents: 20000,
             categoryId: null,
             subcategoryId: null,
@@ -168,16 +165,16 @@ describe('transaction:update — FR14 PARENT_AMOUNT_LOCKED_BY_SPLIT', () => {
   });
 
   it('allows updating other fields (not amount) when transaction has splits', async () => {
-    const TX_ID = ulid('TX03');
+    const TX_ID = testUlid('TX03');
     replayEvents([
       createTx(TX_ID, 500),
       {
         type: 'tx.split',
-        id: ulid('EVTSPLIT'),
+        id: testUlid('EVTSPLIT'),
         parentTxId: TX_ID,
         splits: [
           {
-            splitId: ulid('SP1'),
+            splitId: testUlid('SP1'),
             amountCents: 30000,
             categoryId: null,
             subcategoryId: null,
@@ -185,7 +182,7 @@ describe('transaction:update — FR14 PARENT_AMOUNT_LOCKED_BY_SPLIT', () => {
             sortOrder: 0,
           },
           {
-            splitId: ulid('SP2'),
+            splitId: testUlid('SP2'),
             amountCents: 20000,
             categoryId: null,
             subcategoryId: null,
@@ -215,16 +212,16 @@ describe('transaction:update — FR14 PARENT_AMOUNT_LOCKED_BY_SPLIT', () => {
   });
 
   it('allows updating amount after splits are removed', async () => {
-    const TX_ID = ulid('TX04');
+    const TX_ID = testUlid('TX04');
     replayEvents([
       createTx(TX_ID, 500),
       {
         type: 'tx.split',
-        id: ulid('EVTSPLIT'),
+        id: testUlid('EVTSPLIT'),
         parentTxId: TX_ID,
         splits: [
           {
-            splitId: ulid('SP1'),
+            splitId: testUlid('SP1'),
             amountCents: 30000,
             categoryId: null,
             subcategoryId: null,
@@ -232,7 +229,7 @@ describe('transaction:update — FR14 PARENT_AMOUNT_LOCKED_BY_SPLIT', () => {
             sortOrder: 0,
           },
           {
-            splitId: ulid('SP2'),
+            splitId: testUlid('SP2'),
             amountCents: 20000,
             categoryId: null,
             subcategoryId: null,
@@ -244,7 +241,7 @@ describe('transaction:update — FR14 PARENT_AMOUNT_LOCKED_BY_SPLIT', () => {
       } as DomainEvent,
       {
         type: 'tx.split.removed',
-        id: ulid('EVTREM'),
+        id: testUlid('EVTREM'),
         parentTxId: TX_ID,
         removedAt: '2026-04-20T11:30:00.000Z',
       } as DomainEvent,
@@ -273,9 +270,9 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
   });
 
   it('applies bulk update to all transactions when none are split parents', async () => {
-    const TX_A = ulid('TXA');
-    const TX_B = ulid('TXB');
-    const TX_C = ulid('TXC');
+    const TX_A = testUlid('TXA');
+    const TX_B = testUlid('TXB');
+    const TX_C = testUlid('TXC');
     replayEvents([createTx(TX_A, 100), createTx(TX_B, 200), createTx(TX_C, 300)]);
 
     const handle = createTransactionBulkUpdateHandler(makeDeps());
@@ -283,7 +280,7 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
     const response = await handle({
       ids: [TX_A, TX_B, TX_C],
       status: 'pending',
-      correlationId: ulid('CORR'),
+      correlationId: testUlid('CORR'),
     });
 
     expect(response.ok).toBe(true);
@@ -293,11 +290,11 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
   });
 
   it('skips split parents and reports count when 2 of 5 are split parents', async () => {
-    const TX_A = ulid('TXA');
-    const TX_B = ulid('TXB'); // split parent
-    const TX_C = ulid('TXC');
-    const TX_D = ulid('TXD'); // split parent
-    const TX_E = ulid('TXE');
+    const TX_A = testUlid('TXA');
+    const TX_B = testUlid('TXB'); // split parent
+    const TX_C = testUlid('TXC');
+    const TX_D = testUlid('TXD'); // split parent
+    const TX_E = testUlid('TXE');
 
     replayEvents([
       createTx(TX_A, 100),
@@ -308,11 +305,11 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
       // Split TX_B
       {
         type: 'tx.split',
-        id: ulid('SPLB'),
+        id: testUlid('SPLB'),
         parentTxId: TX_B,
         splits: [
           {
-            splitId: ulid('SP1'),
+            splitId: testUlid('SP1'),
             amountCents: 10000,
             categoryId: null,
             subcategoryId: null,
@@ -320,7 +317,7 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
             sortOrder: 0,
           },
           {
-            splitId: ulid('SP2'),
+            splitId: testUlid('SP2'),
             amountCents: 10000,
             categoryId: null,
             subcategoryId: null,
@@ -333,11 +330,11 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
       // Split TX_D
       {
         type: 'tx.split',
-        id: ulid('SPLD'),
+        id: testUlid('SPLD'),
         parentTxId: TX_D,
         splits: [
           {
-            splitId: ulid('SP3'),
+            splitId: testUlid('SP3'),
             amountCents: 20000,
             categoryId: null,
             subcategoryId: null,
@@ -345,7 +342,7 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
             sortOrder: 0,
           },
           {
-            splitId: ulid('SP4'),
+            splitId: testUlid('SP4'),
             amountCents: 20000,
             categoryId: null,
             subcategoryId: null,
@@ -362,7 +359,7 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
     const response = await handle({
       ids: [TX_A, TX_B, TX_C, TX_D, TX_E],
       status: 'pending',
-      correlationId: ulid('CORR'),
+      correlationId: testUlid('CORR'),
     });
 
     expect(response.ok).toBe(true);
@@ -373,9 +370,9 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
   });
 
   it('skips all transactions when all 3 are split parents', async () => {
-    const TX_A = ulid('TXA');
-    const TX_B = ulid('TXB');
-    const TX_C = ulid('TXC');
+    const TX_A = testUlid('TXA');
+    const TX_B = testUlid('TXB');
+    const TX_C = testUlid('TXC');
 
     replayEvents([
       createTx(TX_A, 100),
@@ -384,11 +381,11 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
       // Split all 3
       {
         type: 'tx.split',
-        id: ulid('SPLA'),
+        id: testUlid('SPLA'),
         parentTxId: TX_A,
         splits: [
           {
-            splitId: ulid('SP1'),
+            splitId: testUlid('SP1'),
             amountCents: 5000,
             categoryId: null,
             subcategoryId: null,
@@ -396,7 +393,7 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
             sortOrder: 0,
           },
           {
-            splitId: ulid('SP2'),
+            splitId: testUlid('SP2'),
             amountCents: 5000,
             categoryId: null,
             subcategoryId: null,
@@ -408,11 +405,11 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
       } as DomainEvent,
       {
         type: 'tx.split',
-        id: ulid('SPLB'),
+        id: testUlid('SPLB'),
         parentTxId: TX_B,
         splits: [
           {
-            splitId: ulid('SP3'),
+            splitId: testUlid('SP3'),
             amountCents: 10000,
             categoryId: null,
             subcategoryId: null,
@@ -420,7 +417,7 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
             sortOrder: 0,
           },
           {
-            splitId: ulid('SP4'),
+            splitId: testUlid('SP4'),
             amountCents: 10000,
             categoryId: null,
             subcategoryId: null,
@@ -432,11 +429,11 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
       } as DomainEvent,
       {
         type: 'tx.split',
-        id: ulid('SPLC'),
+        id: testUlid('SPLC'),
         parentTxId: TX_C,
         splits: [
           {
-            splitId: ulid('SP5'),
+            splitId: testUlid('SP5'),
             amountCents: 15000,
             categoryId: null,
             subcategoryId: null,
@@ -444,7 +441,7 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
             sortOrder: 0,
           },
           {
-            splitId: ulid('SP6'),
+            splitId: testUlid('SP6'),
             amountCents: 15000,
             categoryId: null,
             subcategoryId: null,
@@ -461,7 +458,7 @@ describe('transaction:bulkUpdate — FR15 skip split parents', () => {
     const response = await handle({
       ids: [TX_A, TX_B, TX_C],
       status: 'pending',
-      correlationId: ulid('CORR'),
+      correlationId: testUlid('CORR'),
     });
 
     // When all transactions are split parents, the handler filters them all out,

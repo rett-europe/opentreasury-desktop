@@ -5,14 +5,11 @@ import {
   type CreateTransactionInput,
 } from './createTransaction';
 import type { ReadModel } from '../query/types';
+import { createTestDeps, testUlid } from '../test-helpers';
 
-const ulid = (suffix: string) => `01HZ${suffix.padEnd(22, '0')}`;
-
-const ACCOUNT_ID = ulid('ACC1');
-const DATASET_ID = ulid('DATA');
-const DEVICE_ID = ulid('DEV1');
-const EVT_ID = ulid('EVT1');
-const TX_ID = ulid('TX01');
+const ACCOUNT_ID = testUlid('ACC1');
+const EVT_ID = testUlid('EVT1');
+const TX_ID = testUlid('TX01');
 
 function baseReadModel(): ReadModel {
   return {
@@ -44,18 +41,15 @@ function baseDeps(readModel: ReadModel = baseReadModel()): CreateTransactionDeps
   // Deterministic newId: returns EVT_ID on 1st call, TX_ID on 2nd.
   const ids = [EVT_ID, TX_ID];
   let i = 0;
-  return {
+  return createTestDeps({
     now: () => new Date('2026-04-20T10:15:00.000Z'),
     newId: () => {
-      const next = ids[i] ?? ulid(`EX${i}`);
+      const next = ids[i] ?? testUlid(`EX${i}`);
       i += 1;
       return next;
     },
     readModel,
-    datasetId: DATASET_ID,
-    actorDeviceId: DEVICE_ID,
-    dekVersion: 1,
-  };
+  }) as CreateTransactionDeps;
 }
 
 function baseInput(over: Partial<CreateTransactionInput> = {}): CreateTransactionInput {
@@ -72,7 +66,8 @@ function baseInput(over: Partial<CreateTransactionInput> = {}): CreateTransactio
 
 describe('createTransaction — happy path', () => {
   it('returns a tx.created event with correct payload and envelope', () => {
-    const result = createTransaction(baseInput(), baseDeps());
+    const deps = baseDeps();
+    const result = createTransaction(baseInput(), deps);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -80,8 +75,10 @@ describe('createTransaction — happy path', () => {
     const event = result.value;
     expect(event.type).toBe('tx.created');
     expect(event.id).toBe(EVT_ID);
-    expect(event.datasetId).toBe(DATASET_ID);
-    expect(event.actorDeviceId).toBe(DEVICE_ID);
+    expect(event.datasetId).toBe(deps.datasetId);
+    expect(event.actorDeviceId).toBe(deps.actorDeviceId);
+    expect(event.actorUserId).toBe(deps.actorUserId);
+    expect(event.actorIdentitySource).toBe(deps.actorIdentitySource);
     expect(event.createdAt).toBe('2026-04-20T10:15:00.000Z');
     expect(event.dekVersion).toBe(1);
     expect(event.version).toBe(1);
@@ -106,9 +103,9 @@ describe('createTransaction — happy path', () => {
   });
 
   it('preserves optional categoryId, subcategoryId, tagIds, status when provided', () => {
-    const catId = ulid('CAT1');
-    const subId = ulid('SUB1');
-    const tagId = ulid('TAG1');
+    const catId = testUlid('CAT1');
+    const subId = testUlid('SUB1');
+    const tagId = testUlid('TAG1');
     const result = createTransaction(
       baseInput({
         type: 'expense',
@@ -133,7 +130,7 @@ describe('createTransaction — happy path', () => {
 
 describe('createTransaction — validation failures', () => {
   it('rejects unknown accountId', () => {
-    const result = createTransaction(baseInput({ accountId: ulid('GHOST') }), baseDeps());
+    const result = createTransaction(baseInput({ accountId: testUlid('GHOST') }), baseDeps());
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe('ACCOUNT_NOT_FOUND');
@@ -207,19 +204,17 @@ describe('createTransaction — determinism', () => {
   it('uses injected now() and newId() without touching globals', () => {
     let nowCalls = 0;
     let idCalls = 0;
-    const deps: CreateTransactionDeps = {
+    const deps = createTestDeps({
       now: () => {
         nowCalls += 1;
         return new Date('2026-06-01T00:00:00.000Z');
       },
       newId: () => {
         idCalls += 1;
-        return ulid(`ID${idCalls}`);
+        return testUlid(`ID${idCalls}`);
       },
       readModel: baseReadModel(),
-      datasetId: DATASET_ID,
-      actorDeviceId: DEVICE_ID,
-    };
+    }) as CreateTransactionDeps;
 
     const result = createTransaction(baseInput(), deps);
     expect(result.ok).toBe(true);
