@@ -63,6 +63,65 @@ A prototype exists in `/prototype/` with React-based JSX components.
 
 ## Learnings
 
+### 2026-05-03 — Dataset architecture spec (#206): Foundational infrastructure research
+
+**Task:** Write comprehensive design spec for dataset compatibility, validation, schema-versioning, and corruption detection. Research deliverable (no implementation).
+
+**Key decisions locked down:**
+
+1. **dataset.json as single source of truth**
+   - Canonical location for `datasetId` (26-char ULID), `schemaVersion`, `appVersion`, `createdAt`
+   - Never regenerated or mutated after creation (immutable identity)
+   - Legacy datasets (missing `schemaVersion`) default to v1; no file regeneration
+   - Contrast with old approach: sniffing `datasetId` from first event in events.ndjson was unreliable for config-only events (no top-level datasetId field)
+
+2. **Schema-version handshake (6 rules)**
+   - schemaVersion > app.CURRENT → REJECT (app too old; upgrade required)
+   - schemaVersion < app.CURRENT + no migration → REJECT (cannot upgrade)
+   - schemaVersion < app.CURRENT + migration exists → OFFER migration (user confirms)
+   - schemaVersion === app.CURRENT → ACCEPT (silent, no dialog)
+   - Folder corruption (unreadable dataset.json, invalid JSON, schema validation fail) → REJECT (hard, no bypass)
+   - First-run special case: currentDatasetId === null skips datasetId-mismatch check but still enforces: corruption, foreign-events-without-dataset.json, schema-too-new
+
+3. **Corruption detection framework (8 detection points)**
+   - C1–C3: dataset.json issues (unreadable, unparseable, schema-invalid)
+   - C4–C6: events.ndjson issues (zero-byte, truncated last line, mid-file invalid JSON)
+   - C7: hydration failure (reducer throws during event replay)
+   - C8: optional manifest for cheap proofs (deferred to M2)
+   - **Critical rule:** Detect at switch time (before hydration), not during hydration → users get actionable errors before app is stuck
+
+4. **Folder-kind state machine (3 states)**
+   - EMPTY: no dataset.json, no events.ndjson (→ new workspace)
+   - VALID_OT: dataset.json exists and parses (→ handshake decides)
+   - FOREIGN: events.ndjson without dataset.json (→ hard reject, cannot determine identity)
+   - First-run accepts EMPTY + VALID_OT; rejects FOREIGN, CORRUPT, SCHEMA_TOO_NEW
+
+5. **Error catalogue (9 error codes)**
+   - Each code maps 1:1 to `ConfigSetDataDirResponse.error.code`
+   - User-facing copy tailored for NGO staff (no jargon; actionable)
+   - Details object includes machine-readable context (datasetId, schemaVersion, etc.)
+   - Examples: SCHEMA_TOO_NEW ("Update OpenTreasury"), DATASET_MISMATCH ("Switch workspace?"), DATASET_CORRUPT ("Restore from backup")
+
+6. **Migration framework outline**
+   - Location: `app/src/core/migrations/` (v0-to-v1.ts, v1-to-v2.ts, etc.)
+   - Interface: `Migration` + orchestrator for sequential chains
+   - Pattern: back up original → run migrations → fsync → rename (atomic)
+   - Testing matrix: old-app/new-schema, new-app/old-schema, migration correctness
+   - Schema-bumping checklist for future PRs
+
+**Architectural insights extracted:**
+
+- **Immutability principle:** Workspace identity (datasetId + createdAt in dataset.json) should never change. This prevents silent data mismerges and is foundational for M2 multi-device sync.
+- **Fail-fast philosophy:** All validation happens at switch time (handler), not hydration (bootstrap). If hydration fails, app is bricked; better to reject upfront.
+- **First-run adoption pattern:** When no current workspace exists (`isOnboardingPending`), we can adopt an existing VALID_OT folder without datasetId mismatch check — this enables "open existing workspace" flow in onboarding wizard while still refusing corruption/legacy/schema-incompatible folders.
+- **Backward-compat by design:** Legacy datasets without `schemaVersion` are assumed v1; app never regenerates the file. This means we don't bloat old datasets with new metadata fields. Migrations are opt-in (user confirms), not automatic.
+
+**Spec size:** ~1200 lines markdown including code examples, decision trees, error descriptions, migration framework outline, acceptance criteria (8 categories), work decomposition (11 items), 6 open questions.
+
+**Deliverable:** `docs/specs/dataset-compatibility-validation.md` (PR #234, open for review).
+
+**Next step:** Neo decomposes spec into sub-issues (estimated 4–6 items for Morpheus + Trinity to implement over 2 sprints).
+
 ### 2026-05-02 — Prototype critique authority (Insights Final Spec)
 
 **Key learning: When Pedro says "challenge everything," exercise design authority — don't just translate.**
