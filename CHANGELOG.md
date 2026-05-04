@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3] — user guides + polish
+
+Third trial build adding bundled user guides and post-install polish from
+trial.2 feedback. Same install/launch process; not signed.
+
+### Added
+
+- **Bundled user guides (#264).** Help menu now opens English and Spanish
+  user guides directly. Self-contained HTML guides also published as Release
+  assets for download without installing.
+
+### Fixed
+
+- **Real version in Preferences About (#261).** Preferences → About now shows
+  the actual app version instead of `0.0.0`.
+- **About dialog audience copy.** Help → About OpenTreasury now correctly
+  describes the app as "Open-source treasury management for NGOs"
+  (previously said "SMEs").
+
 ## [0.1.0-trial.2] — trial polish
 
 Second trial build with post-install fixes from friends-and-family

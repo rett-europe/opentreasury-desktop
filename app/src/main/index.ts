@@ -143,7 +143,7 @@ function buildHelpMenu(): void {
               type: 'info',
               title: 'About OpenTreasury',
               message: 'OpenTreasury',
-              detail: `Version ${app.getVersion()}\n\nOpen-source treasury management for SMEs.`,
+              detail: `Version ${app.getVersion()}\n\nOpen-source treasury management for NGOs.`,
             });
           },
         },
