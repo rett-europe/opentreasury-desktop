@@ -160,7 +160,10 @@ describe('OnboardingScreen', () => {
     await user.click(await screen.findByRole('button', { name: /confirm/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('alert').textContent).toContain('Folder is not writable');
+      const dialogs = screen.getAllByRole('dialog');
+      const errorDialog = dialogs.find((d) => d.querySelector('.ot-dataset-error-dialog__title'));
+      expect(errorDialog).toBeDefined();
+      expect(errorDialog?.textContent).toContain('Folder is not writable');
     });
   });
 });
