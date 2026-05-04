@@ -18,6 +18,65 @@ Documentation needs:
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-05-04 — User Guide Build Pipeline (Issue #264, Branch squad/264-bundle-user-guides)
+
+**Status:** ✅ COMPLETED (coordinated with Morpheus).
+
+**Parts delivered:**
+- **Part A (Oracle):** Build script `scripts/build-guides.mjs` that converts markdown guides to self-contained HTML
+- **Part D (Oracle):** Release workflow updated to build and upload guides as GitHub release assets
+- **Parts B+C (Morpheus):** Help menu + electron-builder bundling (his responsibility)
+
+**Implementation details:**
+- Build script (`scripts/build-guides.mjs`):
+  - Uses `markdown-it` (added as devDependency) to render markdown
+  - Reads `docs/guides/user-guide.md` and `docs/guides/user-guide.es.md`
+  - Outputs to `dist-guides/user-guide-en.html` and `dist-guides/user-guide-es.html`
+  - Self-contained HTML: all CSS embedded in `<style>` block, all images base64-encoded
+  - Header with inlined SVG logo (build/icon.svg resized to 48×48), title, language label
+  - Footer with build date and version (from package.json)
+  - OpenTreasury brand colors: `#534AB7` (purple) for headings and links
+  - Clean typography: sans-serif body, monospace code, generous line-height, 800px max-width container
+  - Image resolution: processes markdown image references and base64-embeds PNGs
+- Package.json scripts:
+  - Added `"build:guides": "node scripts/build-guides.mjs"`
+  - Added `"prepackage": "npm run build:guides"` hook to run before electron-builder
+- Release workflow (`.github/workflows/release.yml`):
+  - Both Windows and Linux jobs run `npm run build:guides` before packaging
+  - Linux job uploads `dist-guides/*.html` to GitHub release (alongside .AppImage and .deb)
+  - Guides uploaded once per release (not duplicated from Windows job)
+- Gitignore: `dist-guides/` added to ignore built artifacts
+
+**Contract with Morpheus (respected):**
+- Output paths: `dist-guides/user-guide-en.html` and `dist-guides/user-guide-es.html` (as specified)
+- Self-contained: NO external resources, all images base64-embedded, CSS inlined
+- Standalone: each file opens correctly with `file://` protocol in any browser
+- Morpheus bundled these via `electron-builder.yml` extraResources and added Help menu
+
+**Coordination model:**
+- Shared branch: `squad/264-bundle-user-guides`
+- No file overlap: Oracle touched scripts/, package.json (scripts + devDeps), .gitignore, .github/workflows/
+- Morpheus touched app/src/main/index.ts (Help menu), electron-builder.yml (extraResources)
+- Both agents worked in parallel; Morpheus committed the combined work
+- Conventional commit message with issue #264 reference and co-author trailer
+
+**Reusable pattern proven:**
+- **Markdown → Standalone HTML pipeline** for distributable docs (release guides, offline reference, embedded help)
+- Small build script (~210 lines), no complex dependencies (just markdown-it)
+- Base64 image embedding eliminates asset path issues in packaged apps
+- Build-time rendering (not runtime) keeps app bundle lightweight
+
+**Follow-up potential:**
+- Pattern can extend to admin guides, API reference, changelog, security advisories
+- Same pipeline works for other locales (French, German, etc.) — just add to guides array
+- Could add markdown-it plugins for anchors, ToC, syntax highlighting if needed
+- Screenshot references automatically resolve (Cypher's parallel work on doc-shots.spec.ts)
+
+**Testing:**
+- Pre-push gates passed: `npm run typecheck && npm run lint && npm run format:check && npm run test`
+- Build verified: guides generated correctly, images base64-embedded, self-contained HTML confirmed
+- File sizes: ~1.2-1.3MB per guide (includes all screenshots base64-encoded)
+
 ### 2026-06-02 — Spanish Translation of End-User Guide (Issue #232, PR in squad/232-spanish-guide)
 
 **Status:** ✅ COMPLETED. `docs/guides/user-guide.es.md` created and pushed.
