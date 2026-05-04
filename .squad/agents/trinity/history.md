@@ -17,6 +17,40 @@ The cloud version has an Angular 19 frontend with:
 - Multi-language (Spanish + English)
 - MSAL-based authentication with Entra ID
 
+## Core Context (Critical Architecture & Patterns)
+
+**These patterns are foundational and appear repeatedly across all work. Refer here before starting any new task.**
+
+### IPC Patterns (Shared with Morpheus)
+- **Strong typing per-method:** Use `MethodBridge<Req, Res>` in contracts, not generic wrappers. TypeScript catches contract drift immediately.
+- **Core invariant:** Nothing throws across IPC. All errors return `{ ok: false, error: { code, message, field? } }`.
+- **Date-range queries:** Use inclusive boundaries `from <= date <= to` (lexicographic YYYY-MM-DD). Mirror aggregation logic for both month-anchored and range-scoped queries.
+
+### i18n Patterns
+- **Key structure:** Hierarchical kebab-case (e.g., `panel.range.last-30-days`). Group related strings under a parent (e.g., `panel.cta.*` for CTAs).
+- **Verification after edits:** Always `grep -r "old string" app/src/renderer/locales/` to confirm renamed strings landed in committed JSON.
+- **Merge conflict risk:** When multiple PRs touch the same i18n blocks, merge conflicts can silently resurrect stale keys. Review the final JSON diffs carefully.
+- **Dead key cleanup:** Remove unused preset IDs from `DATE_PRESET_IDS` array + factory `FACTORIES` object. Every exposed ID must have a corresponding i18n key.
+- **Locale pairs:** English + Spanish always updated together. Test both languages in any UI that consumes them.
+
+### Date Handling (Renderer)
+- **Date-preset factories:** Pure functions `(today: Date) => { from: string, to: string }` (YYYY-MM-DD format). Use `utcToday(today)` for timezone-safe math.
+- **Preset discovery:** `getPresetRange(id, today)` dispatcher resolves any `DATE_PRESET_IDS` preset to concrete range.
+- **Range-based queries:** Contrast with month-anchored. Use `getRangeKPIs(from, to)` for user-selected windows; `getMonthKPIs(yearMonth)` for fixed calendar periods.
+- **Edge case testing:** Month/year rollover (Dec 31 → Jan 1), single-day ranges, empty ranges. All presets tested with boundary dates.
+
+### Component Patterns
+- **Props validation:** Type each prop explicitly. Use discriminated unions for conditional rendering (e.g., `preset: 'last-30-days' | 'this-month'`).
+- **Event handling:** Handlers pass simple event objects, not DOM events directly. E.g., `onDateRangeSelect({ from, to })` not `onDateRangeSelect(event)`.
+- **IPC wiring:** Component calls `ipc.panelApi.getRangeKPIs(from, to)` via preload bridge, not directly. Preload bridge wires to IPC handler.
+
+### Testing Patterns
+- **i18n tests:** Verify that new/renamed keys are present in both locale files. Assert key paths don't have `.split('.')` errors.
+- **Date preset tests:** Test factory functions with multiple `today` values (month boundaries, year boundaries). Assert YYYY-MM-DD format compliance.
+- **Query tests:** Test range-scoped queries with data both inside and outside the range. Verify inclusive boundaries (`>=` and `<=`).
+
+---
+
 ## Learnings
 
 **2026-05-15 — PR #226: Complete 30→90 day i18n rollout (squad/dashboard-i18n-90day-audit)**
