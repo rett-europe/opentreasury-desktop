@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.2] — trial polish
+
+Second trial build with post-install fixes from friends-and-family
+feedback on trial.1. Same install/launch process as before; not signed.
+
+### Fixed
+
+- **Production data folder isolation (#256).** Packaged installs now
+  use `%APPDATA%\OpenTreasury\` instead of sharing the dev userData
+  directory. First-run wizard appears as expected on fresh installs.
+- **Hidden default Electron menu (#256).** Packaged builds no longer
+  show the `File / Edit / View / Window` menu bar; dev builds keep
+  it for DevTools shortcuts.
+
+### Added
+
+- **App icon (#257).** White T-with-keyhole on a purple rounded
+  container, replacing the default Electron logo. electron-builder
+  auto-derives Windows `.ico` and Linux icon sets from
+  `build/icon.png`.
+
 ## [0.1.0-trial.1] — first trial installer
 
 First distributable build for friends-and-family testing. Not signed; Windows
@@ -42,5 +63,6 @@ SmartScreen will warn before launch (click "More info → Run anyway").
 - No auto-update yet — new builds must be installed manually.
 - No Linux AppImage signature verification yet (Ed25519 wiring deferred).
 
-[Unreleased]: https://github.com/rett-europe/opentreasury-desktop/compare/v0.1.0-trial.1...HEAD
+[Unreleased]: https://github.com/rett-europe/opentreasury-desktop/compare/v0.1.0-trial.2...HEAD
+[0.1.0-trial.2]: https://github.com/rett-europe/opentreasury-desktop/compare/v0.1.0-trial.1...v0.1.0-trial.2
 [0.1.0-trial.1]: https://github.com/rett-europe/opentreasury-desktop/releases/tag/v0.1.0-trial.1
