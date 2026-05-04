@@ -3025,3 +3025,18 @@ Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance o
 ## v0.1.0-trial.2 Release — 2026-05-04
 
 Cut v0.1.0-trial.2 release bundling post-trial.1 fixes (#256 userData isolation + hidden menu, #257 app icon). Version bumped, CHANGELOG updated, all validation gates passed (999 tests), PR #260 merged, tag v0.1.0-trial.2 pushed, release workflow #25316874654 triggered. Draft release auto-created; Pedro to publish once Windows + Linux builds complete.
+
+**2026-05-09 — PR #262: Preferences app version display (squad/261-fix-preferences-version)**
+
+**Trial-polish deliverable:** Fixed Preferences screen About card showing hardcoded '0.0.0' instead of actual app version from package.json (issue #261).
+
+**IPC flow pattern reinforced:**
+- Created new app-level IPC contract (pp/src/shared/ipc-contracts/app.ts) with IPC_APP_GET_VERSION channel
+- Handler in pp/src/main/ipc/handlers/app.ts calls Electron's pp.getVersion() with lazy dep injection pattern (matches config/boot/onboarding handlers)
+- Preload exposes window.opentreasury.app.getVersion() API
+- PreferencesScreen loads version on mount via useEffect, displays in About card with fallback to '0.0.0' on error
+
+**Testing approach:** Simple unit tests for handler (mocked getVersion dep). No integration test — this is a trivial read-only query from Electron's app metadata. Pre-push gates passed (typecheck, lint, format, tests). 2 MovementsScreen test timeouts pre-existing.
+
+**Key pattern:** App-level metadata queries (version, paths, etc.) follow the same lazy-deps handler pattern as other Electron-dependent handlers. Keep tests simple — mock the Electron API, verify the handler calls it and returns the right shape.
+
