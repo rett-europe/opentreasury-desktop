@@ -1,0 +1,19 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <title>OpenTreasury app icon</title>
+  <desc>White T-with-keyhole on purple rounded square</desc>
+  
+  <!-- Centered within 1024×1024 viewBox -->
+  <g transform="translate(512, 512)">
+    <!-- Rounded square background: 88 units scaled to ~880px with padding -->
+    <rect x="-440" y="-440" width="880" height="880" rx="200" fill="#534AB7"/>
+    
+    <!-- T-shape scaled 10× from original -->
+    <path d="M -280 -280 L 280 -280 L 280 -140 L 70 -140 L 70 280 L -70 280 L -70 -140 L -280 -140 Z" fill="white"/>
+    
+    <!-- Keyhole: circle scaled 10× -->
+    <circle cx="0" cy="-40" r="35" fill="#534AB7"/>
+    
+    <!-- Keyhole: slot scaled 10× -->
+    <rect x="-15" y="-40" width="30" height="110" fill="#534AB7"/>
+  </g>
+</svg>
