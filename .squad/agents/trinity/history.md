@@ -51,6 +51,18 @@ The cloud version has an Angular 19 frontend with:
 
 ---
 
+## Team Coordination Notes
+
+### 2026-05-04 — Help Menu Feature Live (Issue #264)
+
+**Status:** ✅ SHIPPED via PR #265 + coordination logs merged in PR #267.
+
+Oracle delivered the build script (`scripts/build-guides.mjs`) and release-asset upload workflow. You delivered the Help menu integration in `app/src/main/index.ts` and electron-builder configuration. The feature unblocks in-app access to user guides (EN + ES) without leaving the app.
+
+**For Trinity:** The guides are now bundled at `dist-guides/*.html` and auto-loaded by Electron. If future work touches the Help menu, refer to the orchestration logs in `.squad/orchestration-log/2026-05-04T15-28-16Z-{oracle,morpheus}.md` for the contract (output paths, self-contained format). The `md-to-html` skill at `.squad/skills/md-to-html/SKILL.md` documents the pattern for reuse.
+
+---
+
 ## Learnings
 
 **2026-05-15 — PR #226: Complete 30→90 day i18n rollout (squad/dashboard-i18n-90day-audit)**
