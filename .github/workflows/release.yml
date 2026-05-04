@@ -1,0 +1,69 @@
+name: Release
+
+# Triggered by pushing a tag matching `v*` (e.g. `v0.1.0-trial.1`).
+# Builds installers on Windows + Linux and uploads them to a DRAFT GitHub
+# Release. A human reviews the draft and publishes manually.
+#
+# macOS DMG is intentionally excluded per AR10 (binary distribution deferred).
+# Windows binaries are unsigned per AR9 (SmartScreen warning is an accepted
+# speedbump for trial users until an EV cert is procured).
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_glob: 'out/*.exe'
+          - os: ubuntu-latest
+            artifact_glob: |
+              out/*.AppImage
+              out/*.deb
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Build main
+        run: npm run build:main
+
+      - name: Build preload
+        run: npm run build:preload
+
+      - name: Package installer
+        run: npm run package
+        env:
+          # Skip electron-builder's auto-publish; we attach artifacts via
+          # softprops/action-gh-release in the next step.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: ${{ matrix.artifact_glob }}
