@@ -71,3 +71,18 @@ jobs:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           files: ${{ matrix.artifact_glob }}
+
+      # Belt-and-suspenders: softprops/action-gh-release has been observed to
+      # silently drop sibling uploads when files are >1 MB and uploaded back-to-back
+      # (trial.3 lost dist-guides/user-guide-es.html this way). Re-upload the
+      # user guides explicitly via gh CLI with --clobber, which retries on
+      # transient errors and is idempotent. Linux job only.
+      - name: Re-upload user guides (Linux only, idempotent)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            dist-guides/user-guide-en.html \
+            dist-guides/user-guide-es.html \
+            --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
