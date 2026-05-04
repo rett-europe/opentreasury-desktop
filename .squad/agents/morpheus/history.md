@@ -18,6 +18,60 @@ The cloud version's backend (Python FastAPI) features:
 
 The desktop version needs equivalent functionality with local persistence (no cloud DB).
 
+## Core Context (Critical Architecture & Patterns)
+
+**These patterns are foundational and appear repeatedly across all work. Refer here before starting any new task.**
+
+### Event-Sourcing Architecture
+- **NDJSON log:** Append-only immutable events via `JsonFileEventLog`. No transactions, full history preserved.
+- **Two coexisting event shapes:**
+  - **Enveloped:** `{ id, type, datasetId, actorDeviceId, actorUserId, createdAt, dekVersion, version, payload }` (transactions, legacy config seeding)
+  - **Flat:** `{ type, id, ...fields, createdAt }` (config entities: `AccountCreated`, `CategoryCreated`, `TagCreated`, `SubcategoryCreated`, etc.)
+- **Read-model projections:** Reducers fold events into in-memory state. Two legacy arrays (`accounts`/`categories`/`tags`) now unified into config arrays (`configAccounts`/`configCategories`/`configTags`).
+- **Boot-guard:** Rejects legacy `account.created`/`category.created`/`tag.created` on load. Fresh dataset = fresh events only.
+
+### IPC Contract Pattern
+- **Core invariant:** Nothing throws across IPC. All errors return `{ ok: false, error: { code, message, field? } }`.
+- **Strong typing:** Use `MethodBridge<Req, Res>` per-method, not generic wrappers. TypeScript surface-area tests catch contract drift immediately.
+- **IDs:** 26-char Crockford base32 ULIDs (app/src/main/ids.ts#newUlid).
+- **Uniqueness:** Config entities (accounts/categories/tags/subcategories) are case-insensitive + trimmed on validation.
+
+### File Handling & Security
+- **Path validation (pathGuard.ts):** Rejects UNC paths, device paths (`\\?\`, `\\.`), reserved names (CON, PRN, LPT1–9, COM1–9), relative paths, traversal (`..`). Check `.includes('..')` AFTER `path.normalize()`.
+- **Symlink rejection:** Use `fs.lstatSync()` (not `statSync` which follows links) + `isSymbolicLink()`.
+- **Windows OneDrive allowlist:** Requires subfolder beneath org root (rejects root itself). Pattern: `/\/onedrive\s*-\s*[^/\\]+\/[^/\\]+/i`.
+- **Cell normalization (sanitizeCell):** All XLSX/CSV reading MUST normalize via `sanitizeCell` before passing to parsers. ExcelJS returns objects for formula/richText cells; plain strings expected downstream.
+- **Zip-bomb mitigation:** Row-count cap (100k default). Papaparse / ExcelJS both checked before iteration.
+
+### Amount Parsing
+- **Locale detection:** Rightmost separator = decimal. If both dots and commas present, examine spacing (e.g., `1.234,56` Spanish; `1,234.56` US).
+- **Column-level lock:** ≥80% agreement on format → lock column. Prevents single ambiguous value misreading.
+- **Defensive type guard:** Accept numbers directly (ExcelJS numeric cells); reject objects with `NOT_A_STRING` error showing `[object Object]` in raw value.
+
+### Import Security (WI-17)
+1. **ExcelJS swap + parser flags:** Read computed values (no formula strings). Disable dynamicTyping (CSV). Strip control chars, cap header lengths to 500.
+2. **Row-hash dedup:** SHA-256(`[date, amount, description]` concatenated). Single row hash prevents duplicates; stable across reruns.
+3. **File ID tokens:** `sessionFileRegistry` maps `stageFile(path)` → opaque fileId (ULID). Renderer passes fileId (not path) to dry-run/commit. TTL 30min, automatic eviction.
+4. **Header detection:** Scoring heuristic (header shape +2, data follows +3, no digits +1, single cell -2). Scans rows 1–20, user can override.
+5. **Junk filtering:** 0/1 parseable → silent skip; 2+ → surface as error (safe margin).
+
+### Dev Seeding & Testing
+- **Deterministic PRNG:** `mulberry32(constant seed)` produces byte-identical events across re-runs. Enables reproducible debugging + property tests.
+- **`dev:empty` script:** `scripts/dev-empty.mjs` wipes userData (app-config.json, dev-events/, my-data/) for clean first-run reproduction.
+- **createTestDeps():** Helper fixture (Cypher pattern) avoids hardcoded fake ULIDs. Use for every unit test touching IPC/commands.
+
+### Schema Migration Policy
+- **No auto-migration on folder switch:** New `dataDir` = new empty dataset. Old events remain in old folder; switch back to access. Rationale: prevents corruption (in-flight writes), OneDrive sync conflicts.
+- **previousDataDir field:** AppConfig tracks failed/recovered paths for diagnostics.
+- **Effective path recovery:** Auto-recovery on broken path persists effective state immediately (not on next launch). Ensures UI consistency.
+
+### Cross-Agent Patterns
+- **From Trinity:** Strong-typed IPC bridges (per-method, not generic) catch contract mismatches before e2e testing.
+- **From Cypher:** Property tests verify invariants across all 8 event combinations (property/boundary coverage). Skill docs in `.squad/skills/read-model-aggregation/`.
+- **When multiple agents touch event log:** Coordinate merge ordering in sprint plan (e.g., PR #117 merged before Trinity Wave B to avoid struct race).
+
+---
+
 ## Learnings
 
 **2026-05-09 — PR #229: Dashboard balance-in-range fix (squad/dashboard-balance-in-range)**

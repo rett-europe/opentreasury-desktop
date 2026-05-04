@@ -16,6 +16,11 @@ files:
   - package.json
   - '!node_modules/**/{README,LICENSE,CHANGELOG}*'
 asar: true
+extraResources:
+  - from: dist-guides
+    to: guides
+    filter:
+      - '*.html'
 
 win:
   target:
