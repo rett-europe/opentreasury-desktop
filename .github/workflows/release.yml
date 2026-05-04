@@ -30,6 +30,7 @@ jobs:
             artifact_glob: |
               out/*.AppImage
               out/*.deb
+              dist-guides/*.html
     steps:
       - uses: actions/checkout@v4
 
@@ -50,6 +51,9 @@ jobs:
 
       - name: Build preload
         run: npm run build:preload
+
+      - name: Build guides
+        run: npm run build:guides
 
       - name: Package installer
         run: npm run package

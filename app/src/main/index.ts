@@ -1,6 +1,15 @@
 // Electron main process entry.
 // Scaffold only — no real handlers yet. See ADR-002 §4 and ADR-001 C1–C15.
-import { app, BrowserWindow, ipcMain, session, Menu } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  session,
+  Menu,
+  shell,
+  dialog,
+  type MenuItemConstructorOptions,
+} from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { registerIpcHandlers } from './ipc/handlers.js';
@@ -15,10 +24,6 @@ if (app.isPackaged) {
   // Without this, %APPDATA%\opentreasury-desktop\ is shared between dev and prod,
   // and the packaged installer inherits the dev's app-config.json (skipping onboarding).
   app.setName('OpenTreasury');
-
-  // Hide the default Electron menu (File/Edit/View/Window). End users don't need
-  // Toggle Developer Tools, Reload, etc.
-  Menu.setApplicationMenu(null);
 }
 
 const isDev = !!process.env['VITE_DEV_SERVER_URL'];
@@ -110,8 +115,49 @@ function installCspHeader(): void {
   });
 }
 
+function buildHelpMenu(): void {
+  if (!app.isPackaged) return; // No Help menu in dev mode
+
+  const guidesPath = join(process.resourcesPath, 'guides');
+  const menuTemplate: MenuItemConstructorOptions[] = [
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'User Guide (English)',
+          click: () => {
+            void shell.openPath(join(guidesPath, 'user-guide-en.html'));
+          },
+        },
+        {
+          label: 'User Guide (Español)',
+          click: () => {
+            void shell.openPath(join(guidesPath, 'user-guide-es.html'));
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'About OpenTreasury',
+          click: () => {
+            void dialog.showMessageBox({
+              type: 'info',
+              title: 'About OpenTreasury',
+              message: 'OpenTreasury',
+              detail: `Version ${app.getVersion()}\n\nOpen-source treasury management for SMEs.`,
+            });
+          },
+        },
+      ],
+    },
+  ];
+
+  const menu = Menu.buildFromTemplate(menuTemplate);
+  Menu.setApplicationMenu(menu);
+}
+
 void app.whenReady().then(async () => {
   installCspHeader();
+  buildHelpMenu();
   // WI-4′ — hydrate the read model from the local NDJSON event log BEFORE
   // handlers are registered, so the first IPC query sees real data (and the
   // dev-seed has run on first launch).
