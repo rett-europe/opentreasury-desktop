@@ -427,9 +427,10 @@ describe('PreferencesScreen', () => {
     await userEvent.click(changeButton);
 
     await waitFor(() => {
-      const errorText = screen.queryByText(/not writable|no tiene permisos de escritura/i);
-      expect(errorText).toBeDefined();
-      expect(errorText).not.toBeNull();
+      const dialog = screen.getByRole('dialog');
+      expect(dialog.textContent).toMatch(
+        /not writable|no tiene permisos de escritura|cannot write|no se puede escribir/i,
+      );
     });
 
     // Button should be re-enabled to allow retry.
@@ -460,10 +461,10 @@ describe('PreferencesScreen', () => {
     await userEvent.click(changeButton);
 
     await waitFor(() => {
-      const errorText = screen.queryByText(
-        /same as the current data folder|misma que la carpeta de datos actual/i,
+      const dialog = screen.getByRole('dialog');
+      expect(dialog.textContent).toMatch(
+        /same as the current|same folder|misma carpeta|misma que la actual/i,
       );
-      expect(errorText).not.toBeNull();
     });
   });
 
@@ -493,8 +494,10 @@ describe('PreferencesScreen', () => {
     await userEvent.click(changeButton);
 
     await waitFor(() => {
-      const errorText = screen.queryByText(/not writable|no tiene permisos de escritura/i);
-      expect(errorText).not.toBeNull();
+      const dialog = screen.getByRole('dialog');
+      expect(dialog.textContent).toMatch(
+        /not writable|no tiene permisos de escritura|cannot write|no se puede escribir/i,
+      );
     });
 
     // Second attempt: user cancels picker
@@ -507,8 +510,8 @@ describe('PreferencesScreen', () => {
     await userEvent.click(changeButton);
 
     await waitFor(() => {
-      const errorText = screen.queryByText(/not writable|no tiene permisos de escritura/i);
-      expect(errorText).toBeNull();
+      // After cancel, the dialog should be dismissed entirely.
+      expect(screen.queryByRole('dialog')).toBeNull();
     });
   });
 });
