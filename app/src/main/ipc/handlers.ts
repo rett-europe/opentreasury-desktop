@@ -262,6 +262,11 @@ import {
 } from '../../shared/ipc-contracts/shell.js';
 import { handleShellOpenPath } from './handlers/shell.js';
 import {
+  IPC_APP_GET_VERSION,
+  appGetVersionResponseSchema,
+} from '../../shared/ipc-contracts/app.js';
+import { createAppGetVersionHandler, buildProductionAppGetVersionDeps } from './handlers/app.js';
+import {
   getEventLog,
   getProfile,
   getDeviceId,
@@ -345,6 +350,17 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_SHELL_OPEN_PATH, async (_event, raw: unknown) => {
     const response = await handleShellOpenPath(raw);
     return shellOpenPathResponseSchema.parse(response);
+  });
+
+  // app:get-version exposes the application version from package.json. Lazy
+  // handler creation matches the pattern for other Electron-dependent handlers.
+  let appGetVersionHandler: ReturnType<typeof createAppGetVersionHandler> | null = null;
+  ipcMain.handle(IPC_APP_GET_VERSION, async (_event) => {
+    if (appGetVersionHandler === null) {
+      appGetVersionHandler = createAppGetVersionHandler(await buildProductionAppGetVersionDeps());
+    }
+    const response = await appGetVersionHandler({});
+    return appGetVersionResponseSchema.parse(response);
   });
 
   // Panel handlers — WI-2 mock implementations

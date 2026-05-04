@@ -76,6 +76,9 @@ export function PreferencesScreen(): JSX.Element {
   const [showDatasetErrorDialog, setShowDatasetErrorDialog] = useState(false);
   const [pendingFolderPath, setPendingFolderPath] = useState<string | null>(null);
 
+  // App version
+  const [appVersion, setAppVersion] = useState<string>('0.0.0');
+
   // Profile state
   const [profileState, setProfileState] = useState<ProfileState>('idle');
   const [profileData, setProfileData] = useState<ProfileData>({ name: '', role: '', ngoName: '' });
@@ -159,6 +162,19 @@ export function PreferencesScreen(): JSX.Element {
         }
       } catch (err) {
         console.error('[PreferencesScreen] Failed to load profile:', err);
+      }
+    })();
+  }, []);
+
+  // Load app version on mount
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await window.opentreasury.app.getVersion();
+        setAppVersion(response.version);
+      } catch (err) {
+        console.error('[PreferencesScreen] Failed to load app version:', err);
+        // Keep default '0.0.0' on error
       }
     })();
   }, []);
@@ -678,7 +694,7 @@ export function PreferencesScreen(): JSX.Element {
           <h2 className="ot-preferences__card-title">{t('preferences.about.title')}</h2>
           <div className="ot-preferences__card-content">
             <p className="ot-preferences__version">
-              {t('preferences.about.version', { version: '0.0.0' })}
+              {t('preferences.about.version', { version: appVersion })}
             </p>
           </div>
         </section>
