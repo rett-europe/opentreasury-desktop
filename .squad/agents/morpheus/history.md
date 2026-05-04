@@ -3021,3 +3021,7 @@ Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance o
 **Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
 
 **Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.
+
+## v0.1.0-trial.2 Release — 2026-05-04
+
+Cut v0.1.0-trial.2 release bundling post-trial.1 fixes (#256 userData isolation + hidden menu, #257 app icon). Version bumped, CHANGELOG updated, all validation gates passed (999 tests), PR #260 merged, tag v0.1.0-trial.2 pushed, release workflow #25316874654 triggered. Draft release auto-created; Pedro to publish once Windows + Linux builds complete.

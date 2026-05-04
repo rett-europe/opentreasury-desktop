@@ -9046,3 +9046,59 @@ and should not be revisited unless Pedro reopens them:
   "Ver todas" toggles per side independently; narrow viewport stacks
   cleanly.
 
+
+---
+
+## v0.1.0-trial.2 Release Summary
+
+**Date:** 2026-05-04  
+**Release:** v0.1.0-trial.2 — trial polish  
+**PR:** #260 (merged)  
+**Workflow Run:** https://github.com/rett-europe/opentreasury-desktop/actions/runs/25316874654  
+
+### What Shipped
+
+Second trial build bundling two post-install fixes from friends-and-family feedback on trial.1:
+
+1. **#256: Production data folder isolation + hidden default Electron menu**
+   - Packaged installs now use %APPDATA%\OpenTreasury\ instead of sharing dev userData
+   - First-run wizard appears as expected on fresh installs
+   - Packaged builds hide the default File / Edit / View / Window menu bar (dev builds keep it for DevTools)
+
+2. **#257: App icon**
+   - White T-with-keyhole on purple rounded container
+   - Replaces default Electron logo
+   - electron-builder auto-derives Windows .ico and Linux icon sets from uild/icon.png
+
+### Process Notes
+
+- **Release branch**: Created release/v0.1.0-trial.2, bumped version (package.json + package-lock.json via 
+pm install --package-lock-only)
+- **Pre-push gates**: All validation passed (typecheck, lint, format:check, tests: 999 passed/63 skipped)
+- **Changelog**: Added new section with Fixed/Added subsections, updated comparison links
+- **Auto-merge**: PR #260 merged successfully with gh pr merge --auto --squash --delete-branch
+- **Tagging**: Annotated tag 0.1.0-trial.2 created and pushed; workflow triggered immediately
+- **Release workflow**: Windows + Linux build matrix running; draft release auto-created; artifacts staged for manual publishing
+
+### Artifacts
+
+- OpenTreasury Setup *.exe (Windows NSIS, unsigned)
+- OpenTreasury-*.AppImage (Linux)
+- opentreasury-desktop_*.deb (Debian/Ubuntu)
+
+Pedro will manually publish the draft release once builds complete (~10 min).
+
+### Runbook Compliance
+
+Followed docs/release-process.md exactly:
+- ✓ Verified main is clean and up to date
+- ✓ Created release branch and bumped version
+- ✓ Updated CHANGELOG.md with appropriate formatting
+- ✓ Pre-push validation gates all passed
+- ✓ Committed with proper Co-authored-by trailer
+- ✓ Pushed branch and created PR
+- ✓ Merged PR (auto-merge on first try)
+- ✓ Created annotated tag (v-prefixed)
+- ✓ Pushed tag to trigger release workflow
+
+No deviations or workarounds needed.
