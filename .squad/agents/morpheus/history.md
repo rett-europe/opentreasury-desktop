@@ -3094,3 +3094,29 @@ Cut v0.1.0-trial.2 release bundling post-trial.1 fixes (#256 userData isolation 
 
 **Key pattern:** App-level metadata queries (version, paths, etc.) follow the same lazy-deps handler pattern as other Electron-dependent handlers. Keep tests simple — mock the Electron API, verify the handler calls it and returns the right shape.
 
+### 2026-05-09 — PR #265: Bundle User Guides as Help Menu + Release Asset (squad/264-bundle-user-guides, issue #264)
+
+**Trial-polish deliverable (coordinated with Oracle):** Replaced `Menu.setApplicationMenu(null)` with Help-only menu containing bundled user guides, shipped guides as GitHub release assets.
+
+**Oracle's work (build pipeline):**
+- Added `build:guides` npm script with markdown-it dependency
+- Created `scripts/build-guides.mjs` to convert MD → standalone HTML with base64-embedded images
+- Updated `.github/workflows/release.yml` to build guides in CI and upload as release assets
+- Added `dist-guides/` to `.gitignore`
+- Contract: script produces `dist-guides/user-guide-en.html` and `dist-guides/user-guide-es.html`
+
+**Morpheus's work (bundling + Help menu):**
+- Added `extraResources` to `electron-builder.yml` to bundle `dist-guides/*.html` into `resources/guides/` in packaged app
+- Replaced `Menu.setApplicationMenu(null)` with Help-only menu in `app/src/main/index.ts`:
+  - **User Guide (English)** — opens `user-guide-en.html` via `shell.openPath(path.join(process.resourcesPath, 'guides', ...))`
+  - **User Guide (Español)** — opens `user-guide-es.html`
+  - **About OpenTreasury** — shows app version in `dialog.showMessageBox`
+  - Menu hidden in dev mode (`!app.isPackaged`)
+- Called `buildHelpMenu()` early in `app.whenReady()` before window creation
+
+**Validation:** typecheck ✓, lint ✓, format ✓, test ✓ (964 tests pass). `npm run build:guides` verified locally; runtime verification of packaged `resources/guides/` deferred to package smoke test.
+
+**Menu preservation principle:** Preserves #256 intent — no File/Edit/View/Window clutter. Help-only menu is deliberate trial polish, not a revert to full Electron menu bloat.
+
+**Pattern: extraResources + shell.openPath for bundled docs:** Use `electron-builder` `extraResources` to bundle HTML/PDF docs into `resources/` folder at package time. Access at runtime via `process.resourcesPath` (packaged) or repo-relative path (dev). `shell.openPath` opens in system browser; safer than `loadURL` (no Electron security surface). Generalizes to license files, release notes, etc.
+
