@@ -61,6 +61,18 @@ UX considerations from the cloud version:
 
 A prototype exists in `/prototype/` with React-based JSX components.
 
+## Team Coordination Notes
+
+### 2026-05-04 — In-App Help Menu & Guide Bundling (Issue #264)
+
+**Status:** ✅ SHIPPED via PR #265 + coordination logs merged in PR #267.
+
+Oracle + Morpheus coordinated delivery of user guides bundled in-app. The Help menu (added to main process) now surfaces EN + ES guides as linked PDF-like HTML documents. This eliminates the need for users to visit GitHub or external sites for help.
+
+**For Niobe:** If future localization work touches the guides (French, German, etc.), refer to the `md-to-html` skill at `.squad/skills/md-to-html/SKILL.md`. The pattern is: add markdown source → build script auto-generates HTML with embedded images and styles. No documentation UX changes needed; guides are self-contained.
+
+---
+
 ## Learnings
 
 ### 2026-05-03 — Dataset architecture spec (#206): Foundational infrastructure research
