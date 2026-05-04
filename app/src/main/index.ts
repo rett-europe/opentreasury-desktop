@@ -1,6 +1,6 @@
 // Electron main process entry.
 // Scaffold only — no real handlers yet. See ADR-002 §4 and ADR-001 C1–C15.
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserWindow, ipcMain, session, Menu } from 'electron';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { registerIpcHandlers } from './ipc/handlers.js';
@@ -8,6 +8,18 @@ import { initializeApp } from './bootstrap.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Production-only adjustments — keep dev workflow intact.
+if (app.isPackaged) {
+  // Isolate production userData from dev sessions.
+  // Without this, %APPDATA%\opentreasury-desktop\ is shared between dev and prod,
+  // and the packaged installer inherits the dev's app-config.json (skipping onboarding).
+  app.setName('OpenTreasury');
+
+  // Hide the default Electron menu (File/Edit/View/Window). End users don't need
+  // Toggle Developer Tools, Reload, etc.
+  Menu.setApplicationMenu(null);
+}
 
 const isDev = !!process.env['VITE_DEV_SERVER_URL'];
 const CSP = isDev
