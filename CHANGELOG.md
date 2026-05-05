@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.2] — dev-seed gate fix
+
+Critical fix for trial.3 and trial.3.1 — prevents packaged builds from seeding demo data into empty folders.
+
+### Fixed
+
+- **Packaged builds no longer seed demo data (#trial.3.2).** Fixed a critical
+  bug where packaged builds were incorrectly seeding the "Rett Spain" demo
+  dataset (~131KB, hardcoded April 2026 timestamps) into every empty data
+  folder on first launch. The dev-seed gate was only checking `process.env.NODE_ENV`
+  (which is `undefined` in packaged Electron apps) instead of the canonical
+  `app.isPackaged` flag. This caused all "folder switch shows old data" reports
+  during trial.3 and trial.3.1 testing.
+
+  **Impact:** Existing data folders are unaffected. If you tested trial.3 or
+  trial.3.1 with an empty folder, that folder now contains the demo seed and
+  should be deleted or cleared if you want a clean start. New empty folders
+  will remain empty as intended.
+
 ## [0.1.0-trial.3.1] — folder-switch hotfix
 
 Critical hotfix for trial.3 — fixes data folder switching functionality.
