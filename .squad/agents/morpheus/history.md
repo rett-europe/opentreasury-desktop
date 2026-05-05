@@ -65,6 +65,12 @@ The desktop version needs equivalent functionality with local persistence (no cl
 - **previousDataDir field:** AppConfig tracks failed/recovered paths for diagnostics.
 - **Effective path recovery:** Auto-recovery on broken path persists effective state immediately (not on next launch). Ensures UI consistency.
 
+### Electron App Lifecycle & Process Management
+- **`app.relaunch()` doesn't guarantee process exit:** Electron may keep the Node.js main process alive, only close+re-create BrowserWindow, and re-trigger `app.whenReady()`. Result: old singletons (eventLogInstance, profileInstance, readModel) remain unchanged.
+- **Bootstrap guard gotcha:** The `if (bootstrapped) return;` guard in `initializeApp()` prevents re-initialization. If relaunch doesn't fully exit, the second `app.whenReady()` returns immediately with stale singletons.
+- **Fix pattern:** Always force process exit after signaling shutdown: `app.quit(); process.exit(0);`. Guarantees clean slate. Implement `forceExit` as mockable dep for testability.
+- **Applies to:** Folder switch (PR #270), and potentially theme/language/other app-level restarts.
+
 ### Cross-Agent Patterns
 - **From Trinity:** Strong-typed IPC bridges (per-method, not generic) catch contract mismatches before e2e testing.
 - **From Cypher:** Property tests verify invariants across all 8 event combinations (property/boundary coverage). Skill docs in `.squad/skills/read-model-aggregation/`.

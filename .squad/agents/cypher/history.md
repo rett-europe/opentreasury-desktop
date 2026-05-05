@@ -79,6 +79,20 @@ After Wave B lands (PR #121 merged):
 5. Create test fixtures (seeded database with parent transactions ready for split)
 6. Re-create PR on main (not squad/59-splits-wave-b) after merge confirmation
 
+## 2026-05-09 — Bootstrap Singleton Lifecycle for Testability (Morpheus, PR #270)
+
+**Morpheus discovered critical Electron app lifecycle bug** in folder-switch restart logic and applied a testability pattern worth noting for future restart scenarios:
+
+**Problem:** `app.relaunch()` may not fully exit process. Node.js main process stays alive, only BrowserWindow closes+recreates, re-triggering `app.whenReady()`. Bootstrap guard `if (bootstrapped) return;` prevents re-initialization, leaving old singletons stale.
+
+**Fix implementation pattern:** Instead of `app.quit(); process.exit(0);`, make `forceExit()` a **mockable dependency** in the handler's `SetDataDirDeps` interface:
+- Production factory injects real `forceExit = () => { app.quit(); process.exit(0); }`
+- Test factory injects mock `forceExit = () => { /* no-op for test */ }`
+
+This enables unit tests to verify restart-triggering logic without actually exiting the test process.
+
+**Applies to:** Any app-level restart (folder switch, theme/language changes, config reloads). Pattern generalizes to: *make all side-effect boundaries injectable for testing.* 
+
 ### 2026-04-22 — WI-22 Saldo property test verified (commit 255b0f8, PR #7)
 
 **Verification complete:** 510 fast-check property-test iterations across 8 invariants + 6 boundary cases. All green. INVARIANT HELD — no shrunk counterexample. Morpheus' aggregation is provably sound.
