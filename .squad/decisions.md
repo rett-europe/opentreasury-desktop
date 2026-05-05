@@ -9223,3 +9223,233 @@ Followed docs/release-process.md exactly:
 - ✓ Pushed tag to trigger release workflow
 
 No deviations or workarounds needed.
+
+---
+
+## 2026-05-05: Morpheus — trial.3.2 Release (Root Cause Fix: Use app.isPackaged for Prod Gating)
+
+**Date:** 2026-05-05  
+**Status:** ✅ SHIPPED (PR #271, tag v0.1.0-trial.3.2, release run #25372940415)  
+**Agent:** Morpheus (Backend Developer)  
+**Severity:** HIGH (packaged builds shipping demo data into all empty folders)
+
+### Problem Summary
+
+All trial.3 and trial.3.1 "folder switch shows old data" reports were **misdiagnoses**. The actual root cause: packaged Electron builds were seeding demo data (~131KB Rett Spain dataset) into every empty folder on first launch.
+
+Timeline of misdiagnosis:
+1. **Trial.3 folder-switch reports:** Users saw old data after switching to empty folders.
+2. **Hypothesis:** PR #270's `process.exit(0)` fix was incomplete; old process wasn't terminating.
+3. **Reality:** PR #270 was correct and working as designed. The data wasn't leaking from a previous session — it was being **freshly seeded** on every first launch into an empty folder.
+
+### Root Cause
+
+`app/src/main/bootstrap.ts` line ~341, `shouldSeed()` function:
+
+```ts
+function shouldSeed(): boolean {
+  if (process.env['NODE_ENV'] === 'production') return false;
+  const flag = process.env['OT_SEED']?.trim().toLowerCase();
+  if (flag === 'none' || flag === '0' || flag === 'false') return false;
+  return true;
+}
+```
+
+**Critical bug:** In a **packaged Electron app, `process.env.NODE_ENV` is `undefined`**, NOT `"production"`.
+
+- **Dev builds** (`npm run dev`): `NODE_ENV` is set → gate functions correctly
+- **Packaged builds**: `NODE_ENV` is undefined → gate returns `true` → demo seed written to every empty folder
+
+### The Fix (trial.3.2)
+
+Use the **canonical Electron "is this a production build?" check: `app.isPackaged`**.
+
+**New gate (line ~341):**
+```ts
+export function shouldSeed(isPackaged: boolean): boolean {
+  if (isPackaged) return false;  // ← NEW: packaged builds never seed
+  if (process.env['NODE_ENV'] === 'production') return false;
+  const flag = process.env['OT_SEED']?.trim().toLowerCase();
+  if (flag === 'none' || flag === '0' || flag === 'false') return false;
+  return true;
+}
+```
+
+**Caller in `initializeApp()` (line ~498):**
+```ts
+if (events.length === 0 && shouldSeed(app.isPackaged)) {
+  // seed demo data
+}
+```
+
+### New Gate Semantics
+
+Seeding is now suppressed when:
+1. **`isPackaged === true`** (packaged production builds) ← PRIMARY GATE
+2. **`NODE_ENV === 'production'`** (explicit dev override)
+3. **`OT_SEED` is `'none'`, `'0'`, or `'false'`** (case-insensitive dev override)
+
+Default dev workflow (`npm run dev`, `isPackaged=false`, no env overrides) still seeds as intended.
+
+### Regression Testing
+
+Added `app/src/main/bootstrap-seed.test.ts` with 12 test cases:
+- ✅ `isPackaged=true` always suppresses seeding
+- ✅ `isPackaged=false` + no env overrides → seeds (dev workflow)
+- ✅ `NODE_ENV=production` override still works
+- ✅ `OT_SEED=none/0/false` override still works
+- ✅ `isPackaged=true` takes precedence over all env vars
+
+All tests pass. Bootstrap isolated unit tests added to CI gate.
+
+### Release Info
+
+- **PR #271:** Merged as f846a84
+- **Version:** 0.1.0-trial.3.2
+- **Tag:** v0.1.0-trial.3.2 pushed
+- **CI Release Workflow:** Run #25372940415 completed ✅ green
+- **CHANGELOG:** Updated with fix summary and semantics
+- **Duration:** 1414s (Morpheus)
+
+### Impact Assessment
+
+- **Existing trial.3/trial.3.1 folders:** If tested with an empty folder, it now contains the demo seed. Users should delete the folder or clear its contents for a clean start.
+- **New empty folders (post-trial.3.2):** Will remain empty as intended. ✓ Fixed.
+- **Dev workflow:** Unchanged — `npm run dev` still seeds as expected.
+
+### Lesson Learned
+
+**`process.env.NODE_ENV` is unreliable in packaged Electron apps.**
+
+Electron doesn't set `NODE_ENV` in packaged apps — that's a Node.js / bundler convention, not an Electron convention. The canonical "is this a dev or production build?" check in Electron is **`app.isPackaged`** (read-only boolean from Electron's app module).
+
+**Future rule:** All dev-only gates in Electron (logging, seed logic, feature flags, debug menus) should use `app.isPackaged`, not `NODE_ENV`.
+
+### Related Decisions
+
+- **PR #270 (`process.exit(0)` after relaunch):** Still correct and shipped. It ensures clean process restarts when switching data folders. It did NOT cause the "old data" issue — that was fresh seeding.
+- **Trial.3.1 packaging bug:** PR #270 was merged but the NSIS installer was built from stale artifacts (pre-fix). See decision: "Morpheus — trial.3.1 folder-switch bug: packaging oversight, not code bug" (same session).
+
+### References
+
+- Electron docs on `app.isPackaged`: https://www.electronjs.org/docs/latest/api/app#appispackaged-readonly
+
+---
+
+## 2026-05-05: Morpheus — trial.3.1 Folder Switch (Packaging Oversight, Not Code Bug)
+
+**Date:** 2026-05-05  
+**Status:** ✅ RESOLVED (rebuilding+retesting trial.3.1)  
+**Agent:** Morpheus (Backend Developer)  
+**Severity:** HIGH (users received stale binaries despite PR merge)
+
+### Problem
+
+Pedro tested trial.3.1 (NSIS installer) and reported the folder-switch bug was NOT fixed:
+- Installed `OpenTreasury Setup 0.1.0-trial.3.1.exe`
+- Changed data folder in Preferences → folder path updated in app-config.json ✓
+- Dashboard still showed ALL previous "Rett Spain" data (€63,975 income, transactions, etc.) ✗
+- Title bar correctly showed "Rett Spain" (profile.json, as expected)
+
+Expected: switching folders should show new empty dataset or new folder's data.
+
+### Root Cause
+
+**The trial.3.1 NSIS installer distributed to Pedro did NOT contain the fix from PR #270.**
+
+**Timeline forensics:**
+1. PR #270 merged May 5th, 09:51:03 +0200 — committed `process.exit(0)` fix to source
+2. Git tag `v0.1.0-trial.3.1` created, version bumped in package.json
+3. **BUT: `npm run package` was never executed** — no actual binary rebuild happened
+4. The `out/win-unpacked` folder contained stale artifacts from May 4th at 17:38 (predates the fix commit by ~16 hours)
+5. Pedro installed and tested that stale binary
+6. Without `process.exit(0)`, Electron's `app.relaunch()` didn't fully exit the Node.js process
+7. Old singletons (eventLogInstance, readModel) stayed in memory with old dataset
+8. app-config.json updated on disk (new dataDir persisted) ✓
+9. But in-memory read model never reloaded → Dashboard rendered stale data ✗
+
+**Verification:**
+```powershell
+# Old binary (what Pedro tested):
+Get-Item "out\win-unpacked\OpenTreasury.exe"
+# LastWriteTime: 04/05/2026 17:38:16  <-- BEFORE the fix commit
+
+# Extracted the old app.asar → grep for 'process.exit' → NOT FOUND
+```
+
+### Solution
+
+Executed `npm run build && npm run package` on main (which already had PR #270 merged).
+
+**New installer timestamp:**
+```
+Name: OpenTreasury Setup 0.1.0-trial.3.1.exe
+LastWriteTime: 05/05/2026 10:53:34  <-- AFTER the fix commit
+Size: 119,228,160 bytes
+```
+
+**Verification that fix is in the packaged binary:**
+```javascript
+// Extracted app.asar → grepped dist/main/index.js (minified):
+// Line 50121:
+e.relaunch(), e.exit(0), e.forceExit(0);
+
+// Line 50131:
+forceExit: (i) => process.exit(i)
+```
+
+The fix WAS in the source all along. Pedro just never got a binary with it.
+
+### Lesson: Release Hygiene — Tag ≠ Package
+
+**A git tag bumps the version number, but does NOT rebuild the Electron binary.**
+
+After merging a hotfix PR and tagging:
+1. **MUST** execute `npm run build && npm run package` (or CI must do it)
+2. **MUST** verify the installer timestamp postdates the fix commit
+3. Optional: extract the asar and grep for a known line from the fix to confirm it landed in the bundle
+
+Without step 1, the versioned installer is just the previous version with a version string change — the code fix never shipped.
+
+### Next Steps
+
+1. ✅ Rebuilt trial.3.1 package with the fix (done, 2026-05-05 10:53)
+2. ⏳ Pedro to test the NEW installer locally (do NOT push to GitHub releases yet)
+3. ⏳ If verified, re-upload to GitHub releases, replacing the stale trial.3.1 asset
+4. ⏳ Consider adding a CI check: parse the asar after packaging and verify known fix signatures are present
+
+### No Code Changes Needed
+
+The original fix in PR #270 (`app/src/main/ipc/handlers/config.ts:254`) is correct. No additional commits required.
+
+---
+
+## 2026-05-05: Morpheus — trial.3 Release Cut Process Notes
+
+**Date:** 2026-05-05  
+**Status:** ✅ DOCUMENTED (for future trial cuts)  
+**Agent:** Morpheus (Backend Developer)
+
+### Key Learning: GitHub PR Merge vs Local Network Issues
+
+When `gh pr merge --admin` returns a 502 Bad Gateway, **the merge often succeeded server-side anyway**. Recovery procedure:
+
+1. `git fetch origin`
+2. Inspect `origin/main` — if it advanced to the squashed merge commit, the merge went through
+3. `git reset --hard origin/main` to sync local main branch
+4. **Do not** `git pull` if local main has diverging commits that were rolled into the squash — pull will try to create a merge commit and hang waiting for an editor
+
+This pattern applies to any future release cut or admin-merge automation.
+
+### Process Notes for Future Trial Cuts
+
+1. **Branch protection on main:** `git push origin main` is blocked ("Changes must be made through a pull request"). Any local doc commits sitting on main must go through a PR.
+   - Easiest path during release cut: branch from local main so those commits roll into the release PR via squash.
+
+2. **Single package.json:** Only one exists at repo root. Release prompts suggesting "bump app/package.json AND root package.json" reduce to a single bump.
+
+3. **CI gates on release PRs:** lint · typecheck · test (~2m43s on PR #268). e2e + perf gates are main-only and skip on PRs.
+
+### Implication
+
+Release cuts must incorporate packaging workflow (build + package + verify timestamps) as part of the versioning step. Future CI/CD should automate this.

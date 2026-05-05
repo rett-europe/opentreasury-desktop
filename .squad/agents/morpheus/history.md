@@ -106,6 +106,40 @@ Timeline forensics:
 
 **Next:** Pedro to test the NEW trial.3.1 installer locally before re-uploading to GitHub releases.
 
+**2026-05-05 — trial.3.2 shipped: use `app.isPackaged` for Electron prod gating, not `NODE_ENV`**
+
+**Critical lesson for all agents touching bootstrap/seed/release work:**
+
+All trial.3/trial.3.1 "folder switch shows old data" reports were **misdiagnoses**. The actual root cause: packaged Electron builds were seeding demo data into every empty folder on first launch because `shouldSeed()` in `app/src/main/bootstrap.ts` was checking `process.env.NODE_ENV === 'production'`, which is **undefined** in packaged apps.
+
+**Root cause:** `process.env.NODE_ENV` is a Node.js / bundler convention, NOT an Electron convention. Electron doesn't set it in packaged apps.
+
+**The canonical Electron check is `app.isPackaged` (read-only boolean).**
+
+**New rule for all prod-gating logic in Electron:**
+- Use `app.isPackaged`, not `NODE_ENV`
+- Gate on `app.isPackaged === true` to suppress dev-only features (seeding, logging, debug menus, feature flags)
+- All other NODE_ENV checks become secondary overrides, never the primary gate
+
+**Changes in trial.3.2:**
+```ts
+// WRONG (pre-trial.3.2):
+if (process.env['NODE_ENV'] === 'production') return false;
+
+// CORRECT (trial.3.2+):
+if (isPackaged) return false;  // Primary gate
+if (process.env['NODE_ENV'] === 'production') return false;  // Secondary override
+```
+
+**Impact:** Existing empty trial.3/trial.3.1 test folders contain seeded demo data. Users should delete or clear them. New empty folders post-trial.3.2 will stay empty as intended.
+
+**References:**
+- PR #271 (trial.3.2 fix): https://github.com/rett-europe/opentreasury-desktop/pull/271
+- Electron docs: https://www.electronjs.org/docs/latest/api/app#appispackaged-readonly
+- Bootstrap logic: `app/src/main/bootstrap.ts` line ~341 (shouldSeed) + line ~498 (caller)
+
+---
+
 **2026-05-09 — PR #229: Dashboard balance-in-range fix (squad/dashboard-balance-in-range)**
 
 Fixed a critical financial display bug where the Dashboard "ACCOUNT ACTIVITY · LAST 90 DAYS" panel was misleading users:
@@ -3151,4 +3185,80 @@ Cut v0.1.0-trial.2 release bundling post-trial.1 fixes (#256 userData isolation 
 **Menu preservation principle:** Preserves #256 intent — no File/Edit/View/Window clutter. Help-only menu is deliberate trial polish, not a revert to full Electron menu bloat.
 
 **Pattern: extraResources + shell.openPath for bundled docs:** Use `electron-builder` `extraResources` to bundle HTML/PDF docs into `resources/` folder at package time. Access at runtime via `process.resourcesPath` (packaged) or repo-relative path (dev). `shell.openPath` opens in system browser; safer than `loadURL` (no Electron security surface). Generalizes to license files, release notes, etc.
+
+## 2026-05-05 — PR #271: Dev-seed gate fix (trial.3.2)
+
+**Context:** Trial.3 and trial.3.1 users reported "folder switch shows old data" — switching to a fresh empty folder would unexpectedly show the "Rett Spain" demo seed dataset (~131KB, hardcoded April 2026 timestamps). Initial hypothesis: PR #270's `process.exit(0)` fix was incomplete. **Reality:** PR #270 was correct — a hygiene fix for clean restarts. The data wasn't "leaking"; it was being **freshly seeded** on every first launch into an empty folder.
+
+### Root cause: `process.env.NODE_ENV` is `undefined` in packaged Electron apps
+
+`app/src/main/bootstrap.ts` line ~341:
+
+```ts
+function shouldSeed(): boolean {
+  if (process.env['NODE_ENV'] === 'production') return false;
+  const flag = process.env['OT_SEED']?.trim().toLowerCase();
+  if (flag === 'none' || flag === '0' || flag === 'false') return false;
+  return true;
+}
+```
+
+**The bug:** In a packaged Electron app, `process.env.NODE_ENV` is `undefined` (not `"production"`). The gate only checked `NODE_ENV`, so packaged builds returned `true` → demo seed written to every empty folder on first launch.
+
+### The fix
+
+Use the canonical Electron "is this a production build?" check: **`app.isPackaged`**.
+
+**Refactored gate:**
+```ts
+export function shouldSeed(isPackaged: boolean): boolean {
+  if (isPackaged) return false;  // ← NEW: packaged builds never seed
+  if (process.env['NODE_ENV'] === 'production') return false;
+  const flag = process.env['OT_SEED']?.trim().toLowerCase();
+  if (flag === 'none' || flag === '0' || flag === 'false') return false;
+  return true;
+}
+```
+
+Caller in `initializeApp()` (line ~498):
+```ts
+if (events.length === 0 && shouldSeed(app.isPackaged)) {
+  // seed demo data
+}
+```
+
+### New gate semantics
+
+Seeding is suppressed when:
+1. **`isPackaged === true`** (packaged production builds), OR
+2. **`NODE_ENV === 'production'`** (explicit dev override), OR
+3. **`OT_SEED` is `'none'`, `'0'`, or `'false'`** (case-insensitive dev override).
+
+Default dev workflow (`npm run dev`, `isPackaged=false`, no env overrides) still seeds.
+
+### Learnings
+
+1. **`process.env.NODE_ENV` is unreliable in packaged Electron.** Electron doesn't set `NODE_ENV` in packaged apps — that's a Node.js / bundler convention, not an Electron convention. The canonical "is this a dev or production build?" check in Electron is **`app.isPackaged`**.
+
+2. **Future dev-only gates should use `app.isPackaged`, not `NODE_ENV`.** Any code that wants to "only run in dev" or "skip in production" should check `app.isPackaged` first, before checking `NODE_ENV` or custom env vars.
+
+3. **The misdiagnosis chain (PR #270 → trial.3.2):**
+   - Trial.3 folder-switch reports: "old data" appeared after switching to empty folders.
+   - Hypothesis: `process.exit(0)` after relaunch didn't fully terminate the old process → data leaked.
+   - Reality: PR #270 was correct. The data wasn't leaking from a previous session; it was being freshly seeded on every first launch because `shouldSeed()` returned `true` in packaged builds.
+   - Lesson: When debugging "where did this data come from?", check the seed gate first — especially if the symptom is "fresh folder has unexpected data."
+
+4. **Regression prevention:** Added `bootstrap-seed.test.ts` with 12 test cases covering all gate combinations. Exported `shouldSeed()` for testing (previously private). Tests verify:
+   - `isPackaged=true` always suppresses seeding (even with env overrides)
+   - `isPackaged=false` + no env overrides → seeds (preserves dev workflow)
+   - `NODE_ENV=production` and `OT_SEED=none/0/false` overrides still work
+
+5. **Impact:** Existing folders unaffected. Users who tested trial.3 or trial.3.1 with empty folders should delete/clear those folders for a clean start. New empty folders will remain empty as intended.
+
+### Validation
+
+- typecheck ✓, lint ✓, format ✓, test ✓ (868 tests passed, 1 pre-existing failure in MovementsScreen.bulk.test.tsx unrelated to changes)
+- PR #271 merged, tag v0.1.0-trial.3.2 pushed, release workflow #25372940415 triggered
+- Decision captured in `.squad/decisions/inbox/morpheus-dev-seed-isPackaged-fix.md`
+
 

@@ -65,6 +65,42 @@ Oracle delivered the build script (`scripts/build-guides.mjs`) and release-asset
 
 ## Learnings
 
+**2026-05-05 — Team Lesson: Use `app.isPackaged` for Electron prod gating, not `NODE_ENV`**
+
+**Critical note for all agents (especially those touching bootstrap, seed, preferences, or app restart logic):**
+
+Trial.3 and trial.3.1 "folder switch shows old data" reports were **misdiagnoses**. The actual bug: packaged Electron builds were seeding demo data into every empty folder because `shouldSeed()` checked `process.env.NODE_ENV === 'production'`, which is **undefined** in packaged apps.
+
+**Root cause:** `process.env.NODE_ENV` is a Node.js/bundler convention, not an Electron convention.
+
+**Canonical Electron check: `app.isPackaged` (read-only boolean).**
+
+**Rule for all prod-gating in Electron:**
+- Use `app.isPackaged` as primary gate for dev-only features (seeding, logging, debug menus, feature flags)
+- `NODE_ENV` checks are secondary overrides only, never the primary gate
+
+**Example fix:**
+```ts
+// WRONG: 
+if (process.env['NODE_ENV'] === 'production') return false;
+
+// CORRECT:
+if (isPackaged) return false;  // Primary gate
+if (process.env['NODE_ENV'] === 'production') return false;  // Secondary override
+```
+
+**Implications:**
+- Existing empty trial.3/trial.3.1 test folders contain seeded demo data — should be cleared
+- New empty folders post-trial.3.2 stay empty ✓
+- Affects any feature that gates differently in dev vs packaged builds
+
+**References:**
+- PR #271 (trial.3.2): https://github.com/rett-europe/opentreasury-desktop/pull/271
+- Electron docs: https://www.electronjs.org/docs/latest/api/app#appispackaged-readonly
+- Changes: `app/src/main/bootstrap.ts` (shouldSeed + caller)
+
+---
+
 **2026-05-15 — PR #226: Complete 30→90 day i18n rollout (squad/dashboard-i18n-90day-audit)**
 
 **Problem:** PR #224 claimed to update all i18n strings from 30 to 90 days, but the actual string changes never landed in the committed files. Meanwhile, PR #225 added both `last-30-days` AND `last-90-days` to `DATE_PRESET_IDS`, causing Movements filter to render TWO broken raw-key chips.
