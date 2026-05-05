@@ -53,6 +53,7 @@ function makeDeps(opts: {
 }) {
   const relaunch = vi.fn();
   const exit = vi.fn();
+  const forceExit = vi.fn();
   const updateCachedConfig = vi.fn();
   // Default currentDataDir to <userData>/dev-events if not provided (matches bootstrap default)
   const effectiveCurrentDataDir = opts.currentDataDir ?? path.join(opts.userDataDir, 'dev-events');
@@ -65,12 +66,14 @@ function makeDeps(opts: {
   return {
     relaunch,
     exit,
+    forceExit,
     updateCachedConfig,
     currentConfig,
     deps: {
       userDataDir: () => opts.userDataDir,
       relaunch,
       exit,
+      forceExit,
       getCurrentConfig: () => currentConfig,
       getCurrentDataDir: () => effectiveCurrentDataDir,
       getCurrentDatasetId: () => opts.currentDatasetId ?? CURRENT_DATASET_ID,

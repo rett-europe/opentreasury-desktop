@@ -1,0 +1,53 @@
+<svg width="680" height="500" viewBox="0 0 680 500" xmlns="http://www.w3.org/2000/svg" role="img">
+  <title>OpenTreasury T-mark refinements</title>
+  <desc>Four refinements of the T-and-keyhole logo concept: classic round keyhole, heart-shaped keyhole, horizontal lockup with wordmark, and a desktop app icon mockup.</desc>
+  <style>
+    .card { fill: #FAF9F5; stroke: #E5E3DA; stroke-width: 0.5; }
+    .title { font-family: -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 20px; font-weight: 500; fill: #1A1A1A; }
+    .caption { font-family: -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 12px; fill: #6B6B6B; }
+    .wordmark { font-family: -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; font-size: 26px; font-weight: 500; fill: #1A1A1A; letter-spacing: -0.3px; }
+  </style>
+
+  <rect width="680" height="500" fill="white"/>
+
+  <rect x="20" y="20" width="310" height="220" rx="12" class="card"/>
+  <g transform="translate(175, 100)">
+    <path d="M -30 -32 L 30 -32 L 30 -18 L 8 -18 L 8 32 L -8 32 L -8 -18 L -30 -18 Z" fill="#534AB7"/>
+    <circle cx="0" cy="-6" r="4" fill="#FAF9F5"/>
+    <rect x="-1.5" y="-2" width="3" height="12" fill="#FAF9F5"/>
+  </g>
+  <text x="175" y="170" text-anchor="middle" class="title">classic keyhole</text>
+  <text x="175" y="215" text-anchor="middle" class="caption">round + slot, neutral and timeless</text>
+
+  <rect x="350" y="20" width="310" height="220" rx="12" class="card"/>
+  <g transform="translate(505, 100)">
+    <path d="M -30 -32 L 30 -32 L 30 -18 L 8 -18 L 8 32 L -8 32 L -8 -18 L -30 -18 Z" fill="#534AB7"/>
+    <g transform="translate(0, -3)">
+      <path d="M 0 5 C -7 -2 -7 -10 -3.5 -10 C -1 -10 0 -7 0 -6 C 0 -7 1 -10 3.5 -10 C 7 -10 7 -2 0 5 Z" fill="#FAF9F5"/>
+    </g>
+  </g>
+  <text x="505" y="170" text-anchor="middle" class="title">heart keyhole</text>
+  <text x="505" y="215" text-anchor="middle" class="caption">subtle nod to the families</text>
+
+  <rect x="20" y="260" width="310" height="220" rx="12" class="card"/>
+  <g transform="translate(175, 340)">
+    <g transform="translate(-86, 0)">
+      <path d="M -17 -18 L 17 -18 L 17 -10 L 5 -10 L 5 18 L -5 18 L -5 -10 L -17 -10 Z" fill="#534AB7"/>
+      <circle cx="0" cy="-3" r="2.5" fill="#FAF9F5"/>
+      <rect x="-1" y="-3" width="2" height="8" fill="#FAF9F5"/>
+    </g>
+    <text x="-58" y="8" class="wordmark">OpenTreasury</text>
+  </g>
+  <text x="175" y="410" text-anchor="middle" class="title">horizontal lockup</text>
+  <text x="175" y="455" text-anchor="middle" class="caption">mark + wordmark together</text>
+
+  <rect x="350" y="260" width="310" height="220" rx="12" class="card"/>
+  <g transform="translate(505, 340)">
+    <rect x="-44" y="-44" width="88" height="88" rx="20" fill="#534AB7"/>
+    <path d="M -28 -28 L 28 -28 L 28 -14 L 7 -14 L 7 28 L -7 28 L -7 -14 L -28 -14 Z" fill="white"/>
+    <circle cx="0" cy="-4" r="3.5" fill="#534AB7"/>
+    <rect x="-1.5" y="-4" width="3" height="11" fill="#534AB7"/>
+  </g>
+  <text x="505" y="410" text-anchor="middle" class="title">desktop app icon</text>
+  <text x="505" y="455" text-anchor="middle" class="caption">white on purple, rounded container</text>
+</svg>
