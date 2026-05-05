@@ -241,10 +241,18 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
   };
 
   const handleMapColumn = (sourceCol: string, targetField: string) => {
-    setState((s) => ({
-      ...s,
-      columnMapping: { ...s.columnMapping, [targetField]: sourceCol },
-    }));
+    setState((s) => {
+      const next: Partial<ColumnMapping> = {};
+      for (const [field, mappedCol] of Object.entries(s.columnMapping)) {
+        if (mappedCol !== undefined && mappedCol !== sourceCol) {
+          next[field as keyof ColumnMapping] = mappedCol;
+        }
+      }
+      if (targetField !== '') {
+        next[targetField as keyof ColumnMapping] = sourceCol;
+      }
+      return { ...s, columnMapping: next };
+    });
   };
 
   const isMappingComplete = (): boolean => {
