@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.3] — import wizard "Ignore" fix
+
+Fixes a small but visible glitch in the import-wizard preview header.
+
+### Fixed
+
+- **Import wizard preview no longer shows raw i18n keys.** When a CSV column
+  was set to "(Ignore)" in the column-mapping step, the wizard stored an
+  empty-string field key in its mapping state. The dry-run preview header
+  then rendered the unresolved translation key
+  `importWizard.mapColumns.fields.` as a column title. The mapping handler
+  now correctly removes ignored columns rather than storing them under an
+  empty key.
+- **Re-mapping a CSV column no longer leaves stale entries.** Changing a
+  source column from one target field to another (e.g. from Category to
+  Subcategory) now removes the previous mapping in the same step.
+
 ## [0.1.0-trial.3.2] — dev-seed gate fix
 
 Critical fix for trial.3 and trial.3.1 — prevents packaged builds from seeding demo data into empty folders.

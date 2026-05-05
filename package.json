@@ -1,6 +1,6 @@
 {
   "name": "opentreasury-desktop",
-  "version": "0.1.0-trial.3.2",
+  "version": "0.1.0-trial.3.3",
   "private": true,
   "description": "Zero-infrastructure treasury app for small NGOs. OneDrive is the database.",
   "author": {
