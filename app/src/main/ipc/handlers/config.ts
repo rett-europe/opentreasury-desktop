@@ -47,6 +47,8 @@ export interface SetDataDirDeps {
   relaunch(): void;
   /** Exit the current process with the given code (Electron's `app.exit`). */
   exit(code: number): void;
+  /** Force immediate process termination (Node's `process.exit`). */
+  forceExit(code: number): void;
   /** Returns the current full app config (defaults to bootstrap.getAppConfig).
    *  Exposed for tests; production should not pass this. */
   getCurrentConfig?(): AppConfig;
@@ -249,6 +251,7 @@ export function createConfigSetDataDirHandler(deps: SetDataDirDeps) {
     setImmediate(() => {
       deps.relaunch();
       deps.exit(0);
+      deps.forceExit(0); // Force process termination to guarantee clean slate
     });
 
     return { ok: true };
@@ -266,6 +269,7 @@ export async function buildProductionSetDataDirDeps(): Promise<SetDataDirDeps> {
     userDataDir: () => app.getPath('userData'),
     relaunch: () => app.relaunch(),
     exit: (code: number) => app.exit(code),
+    forceExit: (code: number) => process.exit(code),
   };
 }
 

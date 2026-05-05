@@ -1,0 +1,18 @@
+fix(main): kill process on folder-switch relaunch (trial.3.1)
+
+Root cause: app.relaunch() doesn't always fully terminate the Node.js 
+process before relaunching. When a user switches data folders, the 
+bootstrap guard (`if (bootstrapped) return;`) prevents re-initialization, 
+leaving the old event log singletons in place. Result: new folder path 
+written to config, but old dataset still shown in UI.
+
+Fix: Add process.exit(0) after app.exit(0) to guarantee clean slate on 
+relaunch. Implemented via new `forceExit` dep to allow test mocking.
+
+Testing: All existing tests pass. Manual test plan: switch between 
+folders A/B and verify dashboard reflects the active dataset.
+
+Severity: HIGH — blocks the core trial use case (switching between 
+test/production workspaces). No data loss, but trust-breaking UX.
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

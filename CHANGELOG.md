@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.1] — folder-switch hotfix
+
+Critical hotfix for trial.3 — fixes data folder switching functionality.
+
+### Fixed
+
+- **Folder switch now works correctly (#270).** When switching data folders
+  via Preferences → Change Folder, the app now performs a true process restart
+  and loads data from the new folder. Previously, the app appeared to restart
+  but continued showing data from the old folder due to incomplete process
+  termination. This was a perception issue (no data loss), but broke the core
+  use case of switching between test/production datasets.
+
 ## [0.1.0-trial.3] — user guides + polish
 
 Third trial build adding bundled user guides and post-install polish from
