@@ -6621,6 +6621,127 @@ WI-22 delivers the Saldo comparison screen, enabling treasurers to analyze year-
 
 **Decision:** One IPC call returns everything (current + prior periods, monthly series, KPIs).
 
+---
+
+## 2026-05-09: trial.3.1 Hotfix Shipped — Folder-Switch Data Leak (Morpheus, PR #270)
+
+**Date:** 2026-05-09  
+**Status:** ✅ SHIPPED (PR #270 merged, tag v0.1.0-trial.3.1)  
+**Agent:** Morpheus (Backend)  
+**Severity:** HIGH — blocked core trial use case  
+**Related PRs:** #270 (hotfix implementation)
+
+### Summary
+
+Shipped trial.3.1 hotfix to fix critical data folder switching bug. When a user switched data folders via Preferences → Change Folder, the app appeared to restart but continued showing data from the old folder instead of the new one.
+
+### Root Cause
+
+`app.relaunch()` doesn't always fully exit the main process before relaunching. It can keep the Node.js process alive, close and re-create the BrowserWindow, and re-trigger `app.whenReady()`. Because `bootstrapped = true` from the first boot, `initializeApp()` returned immediately on the second call, leaving old event log singletons unchanged. Result: new folder path written to config, but old dataset still shown in UI.
+
+### Fix
+
+Added `process.exit(0)` after `app.quit()` to force a true process termination and guarantee a clean slate on relaunch. Implemented via new `forceExit` method in the `SetDataDirDeps` interface to allow test mocking.
+
+### Deliverables
+
+- **PR #270:** https://github.com/rett-europe/opentreasury-desktop/pull/270
+- **Merge SHA:** 898f242
+- **Tag:** v0.1.0-trial.3.1
+- **Release workflow run:** https://github.com/rett-europe/opentreasury-desktop/actions/runs/25364393442
+
+### Testing
+
+- ✅ All 1064 tests pass
+- ✅ Typecheck, lint, format checks pass
+- ✅ CI green on PR
+
+Manual test plan: Install trial.3.1, point at folder A with NGO data, switch to folder B (empty or different dataset) via Preferences, verify dashboard shows folder B's data.
+
+### Files Changed
+
+- `app/src/main/ipc/handlers/config.ts` — Added `forceExit` to deps interface, production factory, and relaunch handler
+- `app/src/main/ipc/handlers/config.test.ts` — Added `forceExit` mock to test deps factory
+- `package.json` — Version bump to 0.1.0-trial.3.1
+- `CHANGELOG.md` — Release notes
+
+### Key Learning: Bootstrap Singleton Lifecycle
+
+When `app.relaunch()` is called, the Electron main process may not fully exit, leaving old singletons alive. Always force process exit with `process.exit(0)` after `app.quit()` to guarantee clean slate. This pattern may apply to other restart scenarios (theme changes, language switches, etc.).
+
+### Next Steps
+
+Release workflow building NSIS installers and uploading to GitHub Release. Estimated completion: ~10 minutes from tag push. User guides should land cleanly (PR #269 added `gh release upload --clobber` to prevent silent drops).
+
+---
+
+## 2026-05-09: Folder Switch Data Leak Analysis (trial.3) — Morpheus
+
+**Date:** 2026-05-09  
+**Status:** ✅ PROPOSED → IMPLEMENTED (see trial.3.1 hotfix above)  
+**Agent:** Morpheus (Backend)  
+**Severity:** HIGH — affects all trial.3 testers  
+**Related Issue:** Pedro's trial.3 bug report
+
+### Problem
+
+When a user switches the data folder via Preferences → Change Folder, the app "restarts" (via `app.relaunch()` + `app.exit(0)`) but continues showing data from the **old** folder instead of the new one. The title bar shows the old NGO name, the dashboard shows the old accounts/balances, and transactions from the previous dataset remain visible.
+
+**User Impact:** This is a trust-breaking UX failure. Users believe they've switched to a fresh workspace but see stale data. It's not a data-loss bug (the old folder is untouched), but it undermines confidence in the app's data isolation guarantees.
+
+### Root Cause
+
+`initializeApp()` in `app/src/main/bootstrap.ts` has a guard that prevents re-bootstrapping within the same process:
+
+```typescript
+export async function initializeApp(): Promise<void> {
+  if (bootstrapped) return;  // ← THE BUG
+  // ...
+}
+```
+
+When `app.relaunch()` is called, Electron does **NOT always fully exit** the main process before relaunching. Instead, it can:
+- Keep the Node.js main process alive
+- Close and re-create the BrowserWindow
+- Re-trigger `app.whenReady()` → `initializeApp()`
+
+Because `bootstrapped = true` from the first boot, `initializeApp()` returns immediately on the second call. The old `eventLogInstance`, `profileInstance`, and `readModel` singletons remain unchanged. The new folder path is read from `app-config.json`, but the event log is never re-loaded.
+
+### Options Evaluated
+
+**Option B (recommended ✅): Force a true process exit**
+- Replace the `app.relaunch()` + `app.exit(0)` sequence in `app/src/main/ipc/handlers/config.ts` (line 250) with a guaranteed process termination:
+  ```typescript
+  setImmediate(() => {
+    deps.relaunch();
+    app.quit();           // Signal clean shutdown
+    process.exit(0);      // Force process termination
+  });
+  ```
+- **Rationale:** Simplest change (one-line addition), guarantees a clean slate, matches user mental model, no audit of every singleton needed.
+
+**Option A (rejected): Reset singletons before relaunch**
+- Add a `resetBootstrapState()` function that sets `bootstrapped = false`, clears all singleton instances, and calls `resetReadModel()`
+- **Rejected:** More invasive, higher risk of missing a singleton, doesn't solve the root problem (non-idempotent bootstrap).
+
+**Option C (rejected): Make bootstrap idempotent**
+- Remove the `if (bootstrapped) return;` guard, reset all singletons at the START of `initializeAppUnsafe()`
+- **Rejected:** Requires changes to bootstrap.ts (higher risk), doesn't address the fact that relaunch SHOULD mean "new process".
+
+### Testing Plan
+
+1. Install trial.3 from NSIS installer
+2. Point app at folder A containing NGO data (e.g., "Rett Spain" with transactions)
+3. Open Preferences → Data Folder → Change Folder → pick folder B (empty or different dataset)
+4. Confirm the dataset switch dialog
+5. **Verify:** Dashboard shows data from folder B (empty state or B's transactions), NOT folder A's data
+6. Switch back to folder A
+7. **Verify:** Dashboard shows folder A's data again
+
+### Files Affected
+
+- `app/src/main/ipc/handlers/config.ts` (line 250–252)
+
 **Why:** Saldo data is tightly coupled. Single call avoids Panel's 5-query pattern.
 
 **Response fields (critical):**

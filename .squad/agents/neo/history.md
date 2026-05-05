@@ -47,6 +47,16 @@ Niobe's spec included 11 explicit work items in 4 phases. Rather than create 11 
 
 **Artifact:** 5 GitHub sub-issues (#238–#242) with spec-section anchors, owner suggestions, and dependency declarations.
 
+## 2026-05-09 — Bootstrap Singleton Lifecycle Learning (Morpheus, PR #270)
+
+**Morpheus discovered and fixed a critical Electron app lifecycle bug** affecting folder-switch restart logic. Key learning for future app restarts:
+
+**Problem:** `app.relaunch()` doesn't guarantee process exit. Electron may keep Node.js main process alive, only close+re-create BrowserWindow, and re-trigger `app.whenReady()`. The bootstrap guard `if (bootstrapped) return;` then prevents re-initialization, leaving old singletons (eventLogInstance, profileInstance, readModel) stale.
+
+**Fix pattern:** Always force process exit: `app.quit(); process.exit(0);`. Implement `forceExit` as mockable dep for testability.
+
+**Applies to:** Not just folder switch (PR #270), but any app-level restart (theme/language/etc.). When designing restart flows, assume process may stay alive and design singletons to reset or gate bootstrap behind async state.
+
 
 
 ## 2026-04-19 — WI-15/16 scope finalized (Configuración + Datos deep-dive from web reference)

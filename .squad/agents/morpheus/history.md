@@ -65,6 +65,12 @@ The desktop version needs equivalent functionality with local persistence (no cl
 - **previousDataDir field:** AppConfig tracks failed/recovered paths for diagnostics.
 - **Effective path recovery:** Auto-recovery on broken path persists effective state immediately (not on next launch). Ensures UI consistency.
 
+### Electron App Lifecycle & Process Management
+- **`app.relaunch()` doesn't guarantee process exit:** Electron may keep the Node.js main process alive, only close+re-create BrowserWindow, and re-trigger `app.whenReady()`. Result: old singletons (eventLogInstance, profileInstance, readModel) remain unchanged.
+- **Bootstrap guard gotcha:** The `if (bootstrapped) return;` guard in `initializeApp()` prevents re-initialization. If relaunch doesn't fully exit, the second `app.whenReady()` returns immediately with stale singletons.
+- **Fix pattern:** Always force process exit after signaling shutdown: `app.quit(); process.exit(0);`. Guarantees clean slate. Implement `forceExit` as mockable dep for testability.
+- **Applies to:** Folder switch (PR #270), and potentially theme/language/other app-level restarts.
+
 ### Cross-Agent Patterns
 - **From Trinity:** Strong-typed IPC bridges (per-method, not generic) catch contract mismatches before e2e testing.
 - **From Cypher:** Property tests verify invariants across all 8 event combinations (property/boundary coverage). Skill docs in `.squad/skills/read-model-aggregation/`.
@@ -73,6 +79,32 @@ The desktop version needs equivalent functionality with local persistence (no cl
 ---
 
 ## Learnings
+
+**2026-05-05 — trial.3.1 false regression: packaging oversight, not code bug**
+
+Pedro reported that trial.3.1 didn't fix the folder-switch bug — the Preferences screen showed the new (empty) data folder path, but the Dashboard still rendered all previous "Rett Spain" data (€63,975 income, transactions, etc.). This appeared to be a critical regression requiring deeper investigation.
+
+**Root cause: The trial.3.1 NSIS installer distributed to Pedro did NOT contain the fix from PR #270.**
+
+Timeline forensics:
+- PR #270 merged May 5th, 09:51:03 +0200 — committed `process.exit(0)` fix to `app/src/main/ipc/handlers/config.ts:254`
+- Git tag `v0.1.0-trial.3.1` created, version bumped in package.json
+- **But `npm run package` was never executed** — no actual binary rebuild
+- The `out/win-unpacked` folder contained stale artifacts from May 4th at 17:38 (16 hours before the fix commit)
+- Pedro installed that stale binary, which lacked the `process.exit(0)` call
+- Without it, `app.relaunch()` didn't fully exit the Node.js process
+- Old singletons (eventLogInstance, readModel) stayed in memory with the old dataset
+- app-config.json updated on disk ✓, but in-memory read model never reloaded ✗
+
+**Verified by extracting the packaged app.asar** — `grep 'process.exit'` found nothing. The fix was in the source, but never shipped.
+
+**Fix:** Executed `npm run build && npm run package` on main (which already had PR #270 merged). New installer built at 10:53:34 on May 5th, verified to contain `e.forceExit(0)` and `forceExit: (i) => process.exit(i)` in the bundled dist/main/index.js.
+
+**Lesson: Release hygiene — tag ≠ package.** A git tag bumps the version string but doesn't rebuild the Electron binary. After merging a hotfix and tagging, **MUST** run the full build+package flow and verify the installer timestamp postdates the fix commit. Optional: extract the asar and grep for a known fix signature to confirm it landed in the bundle.
+
+**No code changes needed.** The original fix in PR #270 is correct. Just needed a proper package rebuild.
+
+**Next:** Pedro to test the NEW trial.3.1 installer locally before re-uploading to GitHub releases.
 
 **2026-05-09 — PR #229: Dashboard balance-in-range fix (squad/dashboard-balance-in-range)**
 

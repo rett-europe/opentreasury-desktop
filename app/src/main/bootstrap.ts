@@ -331,13 +331,17 @@ async function validateAndCreateDir(dirPath: string, source: string): Promise<st
 /**
  * Decide whether to emit the prototype-shaped dev-seed when the event log is
  * empty. Seeding is suppressed when:
- *   - NODE_ENV === 'production' (existing behaviour), OR
+ *   - isPackaged === true (packaged production builds), OR
+ *   - NODE_ENV === 'production' (explicit production flag), OR
  *   - OT_SEED is set to 'none' / '0' / 'false' (case-insensitive).
  *
  * Any other value — including unset — keeps the original demo-seed behaviour
  * so nothing changes for the default `npm run dev` workflow.
+ *
+ * @param isPackaged - Typically from `app.isPackaged` in Electron main process.
  */
-function shouldSeed(): boolean {
+export function shouldSeed(isPackaged: boolean): boolean {
+  if (isPackaged) return false;
   if (process.env['NODE_ENV'] === 'production') return false;
   const flag = process.env['OT_SEED']?.trim().toLowerCase();
   if (flag === 'none' || flag === '0' || flag === 'false') return false;
@@ -495,7 +499,7 @@ async function initializeAppUnsafe(): Promise<void> {
 
   let events = await log.load();
 
-  if (events.length === 0 && shouldSeed()) {
+  if (events.length === 0 && shouldSeed(app.isPackaged)) {
     const seedEvents = buildDevSeedEvents({
       datasetId: datasetIdInstance,
       actorDeviceId: deviceIdInstance,
