@@ -874,87 +874,114 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="ot-import-wizard"
-      aria-labelledby="ot-import-wizard-title"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="ot-import-wizard__content">
-        <header className="ot-import-wizard__header">
-          <h1 id="ot-import-wizard-title" className="ot-import-wizard__title">
-            {t('importWizard.title')}
-          </h1>
-          <button
-            type="button"
-            className="ot-import-wizard__close"
-            onClick={handleClose}
-            aria-label={t('common.close')}
-          >
-            <X size={20} aria-hidden="true" />
-          </button>
-        </header>
+    <>
+      <dialog
+        ref={dialogRef}
+        className="ot-import-wizard"
+        aria-labelledby="ot-import-wizard-title"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="ot-import-wizard__content">
+          <header className="ot-import-wizard__header">
+            <h1 id="ot-import-wizard-title" className="ot-import-wizard__title">
+              {t('importWizard.title')}
+            </h1>
+            <button
+              type="button"
+              className="ot-import-wizard__close"
+              onClick={handleClose}
+              aria-label={t('common.close')}
+            >
+              <X size={20} aria-hidden="true" />
+            </button>
+          </header>
 
-        {state.error ? (
-          <div className="ot-import-wizard__error" role="alert">
-            {state.error}
+          {state.error ? (
+            <div className="ot-import-wizard__error" role="alert">
+              {state.error}
+            </div>
+          ) : null}
+
+          <div className="ot-import-wizard__body">{renderStep()}</div>
+
+          {state.step !== 'done' ? (
+            <footer className="ot-import-wizard__footer">
+              {state.step !== 'selectAccount' ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleBack}
+                  leadingIcon={<ArrowLeft size={16} />}
+                >
+                  {t('importWizard.dryRun.back')}
+                </Button>
+              ) : (
+                <div />
+              )}
+              {state.step === 'mapColumns' ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleDryRun}
+                  disabled={!isMappingComplete() || loading}
+                >
+                  {loading ? t('common.loading') : t('importWizard.mapColumns.preview')}
+                </Button>
+              ) : state.step === 'confirmHeaderRow' ? (
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handleConfirmHeaderRow}
+                  disabled={loading || state.headerRow === null}
+                >
+                  {loading ? t('common.loading') : t('importWizard.confirmHeaderRow.continue')}
+                </Button>
+              ) : state.step === 'dryRun' ? (
+                <Button type="button" variant="primary" onClick={handleCommit} disabled={loading}>
+                  {loading
+                    ? t('common.loading')
+                    : t('importWizard.dryRun.import', {
+                        count: state.importDuplicates
+                          ? state.dryRunResult?.ok
+                            ? state.dryRunResult.summary.validRows
+                            : 0
+                          : state.dryRunResult?.ok
+                            ? state.dryRunResult.summary.validRows -
+                              state.dryRunResult.summary.duplicateCount
+                            : 0,
+                      })}
+                </Button>
+              ) : null}
+            </footer>
+          ) : null}
+        </div>
+      </dialog>
+
+      <dialog
+        ref={cancelConfirmRef}
+        className="ot-import-wizard-cancel-confirm"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={cancelConfirmTitleId}
+      >
+        <div className="ot-import-wizard-cancel-confirm__content">
+          <h2 id={cancelConfirmTitleId} className="ot-import-wizard-cancel-confirm__title">
+            {t('importWizard.cancel.title')}
+          </h2>
+          <p className="ot-import-wizard-cancel-confirm__body">
+            {t('importWizard.cancel.message')}
+          </p>
+          <div className="ot-import-wizard-cancel-confirm__actions">
+            <Button variant="ghost" onClick={handleStayInWizard}>
+              {t('importWizard.cancel.stay')}
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDiscard}>
+              {t('importWizard.cancel.confirm')}
+            </Button>
           </div>
-        ) : null}
-
-        <div className="ot-import-wizard__body">{renderStep()}</div>
-
-        {state.step !== 'done' ? (
-          <footer className="ot-import-wizard__footer">
-            {state.step !== 'selectAccount' ? (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleBack}
-                leadingIcon={<ArrowLeft size={16} />}
-              >
-                {t('importWizard.dryRun.back')}
-              </Button>
-            ) : (
-              <div />
-            )}
-            {state.step === 'mapColumns' ? (
-              <Button
-                type="button"
-                variant="primary"
-                onClick={handleDryRun}
-                disabled={!isMappingComplete() || loading}
-              >
-                {loading ? t('common.loading') : t('importWizard.mapColumns.preview')}
-              </Button>
-            ) : state.step === 'confirmHeaderRow' ? (
-              <Button
-                type="button"
-                variant="primary"
-                onClick={handleConfirmHeaderRow}
-                disabled={loading || state.headerRow === null}
-              >
-                {loading ? t('common.loading') : t('importWizard.confirmHeaderRow.continue')}
-              </Button>
-            ) : state.step === 'dryRun' ? (
-              <Button type="button" variant="primary" onClick={handleCommit} disabled={loading}>
-                {loading
-                  ? t('common.loading')
-                  : t('importWizard.dryRun.import', {
-                      count: state.importDuplicates
-                        ? state.dryRunResult?.ok
-                          ? state.dryRunResult.summary.validRows
-                          : 0
-                        : state.dryRunResult?.ok
-                          ? state.dryRunResult.summary.validRows -
-                            state.dryRunResult.summary.duplicateCount
-                          : 0,
-                    })}
-              </Button>
-            ) : null}
-          </footer>
-        ) : null}
-      </div>
-    </dialog>
+        </div>
+      </dialog>
+    </>
   );
 }

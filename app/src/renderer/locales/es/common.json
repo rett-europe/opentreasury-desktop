@@ -744,7 +744,8 @@
       "fileTooLarge": "Archivo muy grande. Máximo 50 MB.",
       "wrongType": "Solo Excel (.xlsx) o CSV (.csv).",
       "unreadable": "No se puede leer el archivo. Verifica que no esté dañado.",
-      "next": "Siguiente"
+      "next": "Siguiente",
+      "opening": "Abriendo selector de archivo…"
     },
     "confirmHeaderRow": {
       "title": "Confirmar fila de cabecera",
