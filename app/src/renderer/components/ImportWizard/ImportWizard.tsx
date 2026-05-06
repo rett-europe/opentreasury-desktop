@@ -92,6 +92,47 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const focusHandlerRef = useRef<(() => void) | null>(null);
+  const pointerHandlerRef = useRef<(() => void) | null>(null);
+  const visibilityHandlerRef = useRef<(() => void) | null>(null);
+  const pickerSafetyTimerRef = useRef<number | null>(null);
+  const pickerListenerAttachTimerRef = useRef<number | null>(null);
+
+  // Hard safety timeout: if no signal clears the busy state within this
+  // window, force-clear it so the user can retry. The native picker
+  // taking longer than this is a pathological case (network drive,
+  // unresponsive shell) — far better to recover than stay stuck.
+  const PICKER_BUSY_SAFETY_MS = 30_000;
+
+  const clearPickerBusy = useCallback(() => {
+    setPickerOpen(false);
+    if (focusHandlerRef.current) {
+      window.removeEventListener('focus', focusHandlerRef.current);
+      focusHandlerRef.current = null;
+    }
+    if (pointerHandlerRef.current) {
+      document.removeEventListener('pointerdown', pointerHandlerRef.current);
+      pointerHandlerRef.current = null;
+    }
+    if (visibilityHandlerRef.current) {
+      document.removeEventListener('visibilitychange', visibilityHandlerRef.current);
+      visibilityHandlerRef.current = null;
+    }
+    if (pickerSafetyTimerRef.current !== null) {
+      window.clearTimeout(pickerSafetyTimerRef.current);
+      pickerSafetyTimerRef.current = null;
+    }
+    if (pickerListenerAttachTimerRef.current !== null) {
+      window.clearTimeout(pickerListenerAttachTimerRef.current);
+      pickerListenerAttachTimerRef.current = null;
+    }
+  }, []);
+
+  // Always clean up timers/listeners on unmount.
+  useEffect(() => {
+    return () => {
+      clearPickerBusy();
+    };
+  }, [clearPickerBusy]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -102,13 +143,9 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
     } else if (!isOpen && dialog.open) {
       dialog.close();
       setState(INITIAL_STATE);
-      setPickerOpen(false);
-      if (focusHandlerRef.current) {
-        window.removeEventListener('focus', focusHandlerRef.current);
-        focusHandlerRef.current = null;
-      }
+      clearPickerBusy();
     }
-  }, [isOpen]);
+  }, [isOpen, clearPickerBusy]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -237,30 +274,57 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
   // Called when the dropzone label is clicked. Intercepts the default label→input
   // forwarding so we can show a "opening picker" spinner before the OS dialog appears
   // (Windows with OneDrive can take several seconds to enumerate the filesystem).
+  //
+  // Robustness note: on packaged Windows Electron, the renderer window does not
+  // reliably blur/refocus around the native file dialog (the dialog is parented
+  // to the BrowserWindow and focus often stays on the parent). We therefore
+  // clear the busy state via *any* of: file-input change, window focus,
+  // document pointerdown, visibilitychange, or a hard 30s safety timeout —
+  // whichever fires first. This guarantees the spinner cannot get stuck.
   const handleDropzoneClick = (e: React.MouseEvent<HTMLLabelElement>) => {
     e.preventDefault();
     if (pickerOpen || loading) return;
     setPickerOpen(true);
 
-    const onWindowFocus = () => {
-      window.removeEventListener('focus', onWindowFocus);
-      focusHandlerRef.current = null;
-      setPickerOpen(false);
+    const onWindowFocus = () => clearPickerBusy();
+    const onPointerDown = () => clearPickerBusy();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') clearPickerBusy();
     };
+
     focusHandlerRef.current = onWindowFocus;
-    // Register after a short delay so the dialog has time to steal focus first.
-    setTimeout(() => window.addEventListener('focus', onWindowFocus), 300);
+    pointerHandlerRef.current = onPointerDown;
+    visibilityHandlerRef.current = onVisibilityChange;
+
+    // Register listeners after a short delay so the dialog has time to open
+    // first (otherwise the same click that opened the picker could re-trigger
+    // pointerdown/focus and immediately clear the state).
+    pickerListenerAttachTimerRef.current = window.setTimeout(() => {
+      pickerListenerAttachTimerRef.current = null;
+      if (focusHandlerRef.current) {
+        window.addEventListener('focus', focusHandlerRef.current);
+      }
+      if (pointerHandlerRef.current) {
+        document.addEventListener('pointerdown', pointerHandlerRef.current);
+      }
+      if (visibilityHandlerRef.current) {
+        document.addEventListener('visibilitychange', visibilityHandlerRef.current);
+      }
+    }, 300);
+
+    // Hard safety net.
+    pickerSafetyTimerRef.current = window.setTimeout(() => {
+      // eslint-disable-next-line no-console
+      console.warn('[ImportWizard] file picker busy state exceeded safety timeout — clearing.');
+      clearPickerBusy();
+    }, PICKER_BUSY_SAFETY_MS);
 
     fileInputRef.current?.click();
   };
 
   // Separate change handler so we can clear pickerOpen before delegating to handleFileSelect.
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (focusHandlerRef.current) {
-      window.removeEventListener('focus', focusHandlerRef.current);
-      focusHandlerRef.current = null;
-    }
-    setPickerOpen(false);
+    clearPickerBusy();
     if (e.target.files?.[0]) {
       void handleFileSelect(e.target.files[0]);
     }

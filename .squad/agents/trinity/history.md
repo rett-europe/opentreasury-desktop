@@ -59,6 +59,31 @@ The cloud version has an Angular 19 frontend with:
 
 Oracle delivered the build script (`scripts/build-guides.mjs`) and release-asset upload workflow. You delivered the Help menu integration in `app/src/main/index.ts` and electron-builder configuration. The feature unblocks in-app access to user guides (EN + ES) without leaving the app.
 
+### 2026-05-06 — AppShell Two-Gate Architecture Discovery (PR #285–#287, trial.3.5)
+
+**Context:** E2E movements-perf test discovered that ProfileSetupModal rendered but sidebar never mounted. Initial diagnosis: profile.json missing.
+
+**Root cause (full discovery):**
+
+AppShell has **TWO independent render gates**, both must be satisfied:
+
+1. **App.tsx gate:** Checks `app:needsOnboarding` condition, gated on `app-config.json` presence in Electron userData root. If missing, returns null before mounting AppShell.
+2. **AppShell.tsx gate:** Checks profile existence. If profile missing, renders `<ProfileSetupModal>` instead of sidebar/main content.
+
+E2E perf-seed was missing BOTH files, causing both gates to trigger independently. Fix required seeding BOTH:
+- PR #286: Seed profile.json → satisfies AppShell gate
+- PR #287: Seed app-config.json → satisfies App.tsx gate
+
+**Pattern for future e2e setups:**
+- List all render gates in the initialization chain (App → AppShell → nested screens)
+- Identify which gates block which components
+- Ensure seeding/mocking satisfies ALL gates before expecting a component to render
+- Document the gate names + conditions in `.squad/agents/{trinity,morpheus}/history.md` for future e2e work
+
+**Applies to:** Any e2e test setup, not just e2e movements-perf. All e2e tests must seed both files.
+
+**For Trinity:** When designing e2e test fixtures or mocking AppShell, verify both gates. The sidebar only mounts when BOTH App.tsx (onboarding check) and AppShell.tsx (profile check) pass. Future e2e work should seed both files.
+
 **For Trinity:** The guides are now bundled at `dist-guides/*.html` and auto-loaded by Electron. If future work touches the Help menu, refer to the orchestration logs in `.squad/orchestration-log/2026-05-04T15-28-16Z-{oracle,morpheus}.md` for the contract (output paths, self-contained format). The `md-to-html` skill at `.squad/skills/md-to-html/SKILL.md` documents the pattern for reuse.
 
 ---
