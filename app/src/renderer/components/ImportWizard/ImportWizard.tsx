@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, ArrowLeft, Upload, FileSpreadsheet, Check, AlertCircle, Wallet } from 'lucide-react';
@@ -83,9 +83,15 @@ export interface ImportWizardProps {
 export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps): JSX.Element {
   const { t } = useTranslation('common');
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const cancelConfirmRef = useRef<HTMLDialogElement>(null);
+  const cancelConfirmTitleId = useId();
   const [state, setState] = useState<WizardState>(INITIAL_STATE);
   const [loading, setLoading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [accounts, setAccounts] = useState<AccountRecord[]>([]);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const focusHandlerRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -96,6 +102,11 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
     } else if (!isOpen && dialog.open) {
       dialog.close();
       setState(INITIAL_STATE);
+      setPickerOpen(false);
+      if (focusHandlerRef.current) {
+        window.removeEventListener('focus', focusHandlerRef.current);
+        focusHandlerRef.current = null;
+      }
     }
   }, [isOpen]);
 
@@ -129,10 +140,41 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
 
   const handleClose = () => {
     if (state.step !== 'selectAccount' && state.step !== 'done') {
-      if (!confirm(t('importWizard.cancel.message'))) return;
+      setShowCancelConfirm(true);
+      return;
     }
     onClose();
   };
+
+  const handleConfirmDiscard = useCallback(() => {
+    setShowCancelConfirm(false);
+    onClose();
+  }, [onClose]);
+
+  const handleStayInWizard = useCallback(() => {
+    setShowCancelConfirm(false);
+  }, []);
+
+  useEffect(() => {
+    const dialog = cancelConfirmRef.current;
+    if (!dialog) return;
+    if (showCancelConfirm && !dialog.open) {
+      dialog.showModal();
+    } else if (!showCancelConfirm && dialog.open) {
+      dialog.close();
+    }
+  }, [showCancelConfirm]);
+
+  useEffect(() => {
+    const dialog = cancelConfirmRef.current;
+    if (!dialog) return;
+    const handleCancel = (e: Event): void => {
+      e.preventDefault();
+      handleStayInWizard();
+    };
+    dialog.addEventListener('cancel', handleCancel);
+    return () => dialog.removeEventListener('cancel', handleCancel);
+  }, [handleStayInWizard]);
 
   const handleBack = () => {
     setState((s) => {
@@ -189,6 +231,38 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
       setState((s) => ({ ...s, error: String(err) }));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Called when the dropzone label is clicked. Intercepts the default label→input
+  // forwarding so we can show a "opening picker" spinner before the OS dialog appears
+  // (Windows with OneDrive can take several seconds to enumerate the filesystem).
+  const handleDropzoneClick = (e: React.MouseEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    if (pickerOpen || loading) return;
+    setPickerOpen(true);
+
+    const onWindowFocus = () => {
+      window.removeEventListener('focus', onWindowFocus);
+      focusHandlerRef.current = null;
+      setPickerOpen(false);
+    };
+    focusHandlerRef.current = onWindowFocus;
+    // Register after a short delay so the dialog has time to steal focus first.
+    setTimeout(() => window.addEventListener('focus', onWindowFocus), 300);
+
+    fileInputRef.current?.click();
+  };
+
+  // Separate change handler so we can clear pickerOpen before delegating to handleFileSelect.
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (focusHandlerRef.current) {
+      window.removeEventListener('focus', focusHandlerRef.current);
+      focusHandlerRef.current = null;
+    }
+    setPickerOpen(false);
+    if (e.target.files?.[0]) {
+      void handleFileSelect(e.target.files[0]);
     }
   };
 
@@ -369,14 +443,28 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
             <p className="ot-import-wizard__subtitle">
               {t('importWizard.uploadFile.destination', { accountName: state.accountName })}
             </p>
-            <label className="ot-import-wizard__dropzone">
+            <label
+              className={`ot-import-wizard__dropzone${pickerOpen || loading ? ' ot-import-wizard__dropzone--opening' : ''}`}
+              onClick={handleDropzoneClick}
+              aria-busy={pickerOpen || loading ? true : undefined}
+            >
               <input
+                ref={fileInputRef}
                 type="file"
                 accept=".xlsx,.xls,.csv"
-                onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                onChange={handleFileInputChange}
               />
-              <Upload size={32} />
-              <span>{t('importWizard.uploadFile.dropzone')}</span>
+              {pickerOpen ? (
+                <>
+                  <span className="ot-import-wizard__dropzone-spinner" aria-hidden="true" />
+                  <span>{t('importWizard.uploadFile.opening')}</span>
+                </>
+              ) : (
+                <>
+                  <Upload size={32} />
+                  <span>{t('importWizard.uploadFile.dropzone')}</span>
+                </>
+              )}
             </label>
             {state.fileName ? (
               <p className="ot-import-wizard__file-name">{state.fileName}</p>

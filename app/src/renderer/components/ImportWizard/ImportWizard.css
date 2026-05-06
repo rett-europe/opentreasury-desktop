@@ -156,6 +156,34 @@
   pointer-events: none;
 }
 
+.ot-import-wizard__dropzone--opening {
+  pointer-events: none;
+  border-color: var(--color-brand-primary);
+  background: var(--color-brand-surface);
+  opacity: 0.85;
+}
+
+.ot-import-wizard__dropzone-spinner {
+  width: 2em;
+  height: 2em;
+  border: 3px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ot-dropzone-spin 0.7s linear infinite;
+}
+
+@keyframes ot-dropzone-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ot-import-wizard__dropzone-spinner {
+    animation-duration: 2s;
+  }
+}
+
 .ot-import-wizard__file-name {
   margin-top: var(--space-4);
   font-size: var(--font-size-14);
@@ -508,4 +536,45 @@
   font-size: var(--font-size-12, 12px);
   color: var(--color-text-muted);
   font-style: italic;
+}
+/* ─── Cancel-import confirmation dialog (#277) ─── */
+.ot-import-wizard-cancel-confirm {
+  width: min(420px, 92vw);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+}
+
+.ot-import-wizard-cancel-confirm::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.ot-import-wizard-cancel-confirm__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-8);
+}
+
+.ot-import-wizard-cancel-confirm__title {
+  margin: 0;
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.ot-import-wizard-cancel-confirm__body {
+  margin: 0;
+  font-size: var(--font-size-14);
+  color: var(--color-text-secondary);
+}
+
+.ot-import-wizard-cancel-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
 }
