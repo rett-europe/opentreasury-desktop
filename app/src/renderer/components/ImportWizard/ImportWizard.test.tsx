@@ -137,6 +137,106 @@ async function advanceToMapColumns(): Promise<void> {
   });
 }
 
+describe('ImportWizard — themed cancel confirmation dialog (#277)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    delete (window as unknown as { opentreasury?: unknown }).opentreasury;
+  });
+
+  it('shows themed cancel dialog instead of browser confirm() when closing mid-flow', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    mountBridge({});
+    const onClose = vi.fn();
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ImportWizard isOpen onClose={onClose} onComplete={() => {}} />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText(/Test Account/)).toBeTruthy());
+    fireEvent.click(screen.getByText(/Test Account/));
+
+    const closeBtn = document.querySelector('.ot-import-wizard__close') as HTMLButtonElement;
+    fireEvent.click(closeBtn);
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    const cancelDialog = document.querySelector(
+      '.ot-import-wizard-cancel-confirm',
+    ) as HTMLDialogElement;
+    expect(cancelDialog).toBeTruthy();
+    expect(cancelDialog.hasAttribute('open')).toBe(true);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('calls onClose when the user confirms discard in the themed dialog', async () => {
+    mountBridge({});
+    const onClose = vi.fn();
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ImportWizard isOpen onClose={onClose} onComplete={() => {}} />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText(/Test Account/)).toBeTruthy());
+    fireEvent.click(screen.getByText(/Test Account/));
+
+    const closeBtn = document.querySelector('.ot-import-wizard__close') as HTMLButtonElement;
+    fireEvent.click(closeBtn);
+
+    const cancelDialog = document.querySelector(
+      '.ot-import-wizard-cancel-confirm',
+    ) as HTMLDialogElement;
+    const discardBtn = cancelDialog.querySelector('.ot-button--destructive') as HTMLButtonElement;
+    expect(discardBtn).toBeTruthy();
+    fireEvent.click(discardBtn);
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the wizard open when the user clicks Stay in the themed dialog', async () => {
+    mountBridge({});
+    const onClose = vi.fn();
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ImportWizard isOpen onClose={onClose} onComplete={() => {}} />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText(/Test Account/)).toBeTruthy());
+    fireEvent.click(screen.getByText(/Test Account/));
+
+    const closeBtn = document.querySelector('.ot-import-wizard__close') as HTMLButtonElement;
+    fireEvent.click(closeBtn);
+
+    const cancelDialog = document.querySelector(
+      '.ot-import-wizard-cancel-confirm',
+    ) as HTMLDialogElement;
+    const stayBtn = cancelDialog.querySelector('.ot-button--ghost') as HTMLButtonElement;
+    expect(stayBtn).toBeTruthy();
+    fireEvent.click(stayBtn);
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(cancelDialog.hasAttribute('open')).toBe(false);
+  });
+
+  it('does NOT show the cancel dialog when closing from selectAccount step', async () => {
+    mountBridge({});
+    const onClose = vi.fn();
+    render(
+      <I18nextProvider i18n={i18n}>
+        <ImportWizard isOpen onClose={onClose} onComplete={() => {}} />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText(/Test Account/)).toBeTruthy());
+    const closeBtn = document.querySelector('.ot-import-wizard__close') as HTMLButtonElement;
+    fireEvent.click(closeBtn);
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    const cancelDialog = document.querySelector('.ot-import-wizard-cancel-confirm');
+    expect(cancelDialog?.hasAttribute('open')).toBeFalsy();
+  });
+});
 describe('ImportWizard — WI-19 reference/details mapping', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
