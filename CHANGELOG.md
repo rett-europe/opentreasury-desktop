@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.5] — Trial-tester bug fixes
+
+Quick follow-up release fixing four bugs reported by a trial tester
+(thank you, srivasrivas).
+
+### Fixed
+
+- **Account form no longer blanks the screen on IBAN button long-press
+  (#275).** A long-press on the IBAN field's reveal button triggered
+  the OS credential-manager context menu, which crashed the renderer
+  on some Windows configurations. The IBAN field now suppresses the
+  context menu, and a top-level error boundary catches any future
+  renderer crashes with a Reload recovery UI instead of a blank window.
+- **Dashboard no longer shows horizontal scrollbars at default window
+  size (#274).** Two transaction-table column min-widths were trimmed
+  so the table fits inside a 1280×800 content box without overflow.
+- **Import wizard's "Cancel" button now opens a themed confirmation
+  dialog (#277).** Replaces the native OS message box with a modal
+  that matches the rest of the app.
+- **Import wizard's "Pick file" button now shows a loading state while
+  the system file dialog is opening (#276).** On Windows with OneDrive
+  folders the dialog can take 1-2 seconds to enumerate reparse points;
+  the button is now visibly busy during that wait.
+
+### Internal
+
+- e2e perf-seed harness now generates dates through the current month
+  and writes both `app-config.json` and `profile.json` to userData so
+  the movements-perf and doc-shots gates stay green as the calendar
+  rolls forward and on fresh CI runners.
+
 ## [0.1.0-trial.3.4] — Insights period selector
 
 Adds a date-range picker to the Insights landing so tagged transactions
