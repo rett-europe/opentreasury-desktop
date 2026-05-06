@@ -53,7 +53,37 @@ The cloud version has an Angular 19 frontend with:
 
 ## Team Coordination Notes
 
-### 2026-05-04 — Help Menu Feature Live (Issue #264)
+### 2026-05-09 — Import File Picker IPC Migration (PR #290, trial.3.6)
+
+**Problem:** Trial.3.5 (#289) did NOT fix the import file picker regression. Pedro confirmed via testing: the native Windows "Open file" dialog NEVER APPEARS on packaged builds when clicking the import dropzone — only the spinner shows forever.
+
+**Root cause:** `<input type="file">` + programmatic `.click()` silently fails on packaged Windows Electron. The OS dialog never opens. Trial.3.5's busy-state machinery (focus/visibility listeners, 30s safety timeout) was defense-in-depth for the wrong layer — it can't fix what never starts.
+
+**Solution:** Replaced the renderer-level file picker with Electron's main-process `dialog.showOpenDialog` IPC, matching the folder-picker pattern (`dialog:pickFolder`). The new flow:
+1. User clicks import dropzone button (now a `<button>`, not a `<label>`)
+2. Renderer calls `window.opentreasury.dialog.pickImportFile()` IPC
+3. Main process opens native file dialog (reliable, synchronous result)
+4. On path selection → renderer calls `stageFile({ filePath })` as before
+5. On cancel → loading state clears cleanly via IPC promise resolution
+
+**Removed ~85 lines** of picker-busy-state machinery: `clearPickerBusy`, `focusHandlerRef`, `pointerHandlerRef`, `visibilityHandlerRef`, `pickerSafetyTimerRef`, `pickerListenerAttachTimerRef`, the unmount cleanup useEffect, and the dialog-close picker clearing. IPC promise lifecycle handles all edge cases (cancel, error, success) — no manual cleanup needed.
+
+**Learnings:**
+- **Renderer `<input type="file">` is unreliable on packaged Windows Electron.** Always use main-process `dialog.showOpenDialog` IPC for file pickers. The programmatic `.click()` approach that works in dev can silently fail in production.
+- **IPC-based dialogs are simpler:** No need for focus/visibility listeners or safety timeouts. The main process handles the OS dialog synchronously and returns a clean result (path, cancelled, or error) via the IPC promise.
+- **Prefer main-process APIs for OS-level operations:** File/folder pickers, shell operations, credential storage, etc. Renderer-level workarounds are fragile in sandboxed/packaged environments.
+
+**Files changed:**
+- Added IPC contract `dialog:pickImportFile` in `shared/ipc-contracts/dialog.ts`
+- Added handler `handleDialogPickImportFile` in `main/ipc/handlers/dialog.ts`
+- Registered handler in `main/ipc/handlers.ts`
+- Exposed in `app/src/preload/index.ts`
+- Rewired `ImportWizard.tsx`: removed `<input type="file">`, replaced `handleDropzoneClick` with async `handlePickAndLoadFile`
+- Bumped version to `0.1.0-trial.3.6` and updated `CHANGELOG.md`
+
+**Testing:** Pedro should uninstall trial.3.5 from Programs & Features, install the trial.3.6 .exe (after CI builds), and click Import — the OS file dialog should appear immediately.
+
+### 2026-05-06 — AppShell Two-Gate Architecture Discovery (PR #285–#287, trial.3.5)
 
 **Status:** ✅ SHIPPED via PR #265 + coordination logs merged in PR #267.
 
