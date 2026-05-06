@@ -190,7 +190,9 @@ import {
 } from '../shared/ipc-contracts/config.js';
 import {
   IPC_DIALOG_PICK_FOLDER,
+  IPC_DIALOG_PICK_IMPORT_FILE,
   type DialogPickFolderResponse,
+  type DialogPickImportFileResponse,
 } from '../shared/ipc-contracts/dialog.js';
 import {
   IPC_PROFILE_GET,
@@ -434,6 +436,9 @@ const api = {
   dialog: {
     pickFolder: (): Promise<DialogPickFolderResponse> => {
       return ipcRenderer.invoke(IPC_DIALOG_PICK_FOLDER);
+    },
+    pickImportFile: (): Promise<DialogPickImportFileResponse> => {
+      return ipcRenderer.invoke(IPC_DIALOG_PICK_IMPORT_FILE);
     },
   },
   profile: {

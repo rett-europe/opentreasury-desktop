@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.6] — Picker spinner regression — real fix
+
+The trial.3.5 fix (#289) treated the wrong layer. On packaged Windows,
+`<input type="file">` programmatic .click() silently fails — the OS
+dialog never opens. Replaced the renderer-level file picker with
+Electron's main-process `dialog.showOpenDialog` IPC, matching the
+folder-picker pattern. Picker is now reliable.
+
+### Fixed
+
+- **Import file picker now actually opens on packaged Windows (#289 follow-up).**
+  Replaced hidden `<input type=file>` + programmatic click with main-process
+  `dialog.showOpenDialog` IPC. The OS file dialog opens reliably; cancel
+  works cleanly via IPC promise resolution; no busy-state machinery needed.
+
 ## [0.1.0-trial.3.5] — Trial-tester bug fixes
 
 Quick follow-up release fixing four bugs reported by a trial tester

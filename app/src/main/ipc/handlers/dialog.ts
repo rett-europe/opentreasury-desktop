@@ -7,6 +7,8 @@ import { dialog, BrowserWindow } from 'electron';
 import {
   dialogPickFolderRequestSchema,
   type DialogPickFolderResponse,
+  dialogPickImportFileRequestSchema,
+  type DialogPickImportFileResponse,
 } from '../../../shared/ipc-contracts/dialog.js';
 
 export async function handleDialogPickFolder(raw: unknown): Promise<DialogPickFolderResponse> {
@@ -18,6 +20,40 @@ export async function handleDialogPickFolder(raw: unknown): Promise<DialogPickFo
     const result = await dialog.showOpenDialog(focusedWindow ?? undefined!, {
       properties: ['openDirectory', 'createDirectory'],
       title: 'Select OneDrive for Business or SharePoint folder',
+    });
+
+    if (result.canceled) {
+      return { ok: true, path: null, cancelled: true };
+    }
+
+    // filePaths is an array; we only allow single selection
+    const selectedPath = result.filePaths[0];
+    if (!selectedPath) {
+      return { ok: true, path: null, cancelled: true };
+    }
+
+    return { ok: true, path: selectedPath };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: message };
+  }
+}
+
+export async function handleDialogPickImportFile(
+  raw: unknown,
+): Promise<DialogPickImportFileResponse> {
+  // Validate request (empty but belt-and-suspenders)
+  dialogPickImportFileRequestSchema.parse(raw);
+
+  try {
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    const result = await dialog.showOpenDialog(focusedWindow ?? undefined!, {
+      properties: ['openFile'],
+      filters: [
+        { name: 'Spreadsheets', extensions: ['xlsx', 'xls', 'csv'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+      title: 'Select transactions file to import',
     });
 
     if (result.canceled) {

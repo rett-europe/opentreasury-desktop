@@ -3328,3 +3328,22 @@ Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance o
 **Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
 
 **Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.
+
+
+---
+
+## Learnings ΓÇö 2026-05-06: Transient busy state on native pickers (PR #289, fixes #284 regression)
+
+**Context.** PR #284 added a "Opening file picker..." spinner to ImportWizard's dropzone (HTML `<label><input type=file>`). It was supposed to clear via the input `change` event OR a `window` `focus` listener after a 300ms delay. In trial.3.5 the spinner got permanently stuck on packaged Windows: the user clicked, the dialog never seemed to react, and the dropzone (now `pointer-events: none`) was unclickable forever. Pedro reported it on first manual test of the installer.
+
+**Lesson 1 ΓÇö Electron native dialog focus is unreliable on Windows.** When an HTML file input opens its native dialog in a packaged Electron app on Windows, the renderer window does not reliably `blur`/`focus` across the dialog lifecycle. The dialog is parented to the BrowserWindow and focus often stays on the parent. **A `window` `focus` listener is NOT a reliable signal that a native dialog has closed.** It works in dev (sometimes) and fails in packaged builds. Don't trust it as a sole clearer.
+
+**Lesson 2 ΓÇö transient UI state tied to async/external events needs multiple independent clearers + a hard timeout.** The prompt suggested `try/finally`, which is the right mental model when there's an awaitable promise. When the trigger is an HTML file input (no promise to await), the equivalent is: a centralized `clearBusy()` helper invoked from *every* plausible signal (change, focus, pointerdown, visibilitychange) PLUS a hard safety timeout (e.g. 30s). Any one of them clearing is enough. Belt-and-suspenders, because each individual signal is unreliable on some platform.
+
+**Lesson 3 ΓÇö never let a busy state make its own escape unreachable.** The `--opening` modifier set `pointer-events: none` on the dropzone. Once stuck, the user couldn't even click again to retry. **Rule:** if a busy state disables interaction, there MUST be an automatic timeout that re-enables it. Otherwise a single missed clearer = unrecoverable UI without an app restart.
+
+**Lesson 4 ΓÇö unmount cleanup matters for setTimeout-registered listeners.** The original PR #284 only cleaned up the focus listener inside `handleFileInputChange` and the wizard-close `useEffect`. There was no general unmount cleanup, and the 300ms-delayed `setTimeout` could fire after unmount and attach a stale listener. Always pair every `setTimeout`/`addEventListener` with cleanup in a `useEffect(() => () => clearAll(), [])`.
+
+**Pattern (reusable).** See `.squad/skills/transient-busy-state/SKILL.md`.
+
+**PR:** #289 (squash-merged into main, branch deleted). Touched only `ImportWizard.tsx`. Typecheck/lint/tests/format all green.
