@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { InsightsScreen } from './InsightsScreen.js';
 import * as insightsApi from '../../services/insightsApi.js';
 import type { InsightsLandingSummaryResponse } from '../../../shared/ipc-contracts/insights.js';
@@ -15,6 +15,21 @@ vi.mock('react-i18next', () => ({
     },
     i18n: { language: 'en' },
   }),
+}));
+
+// Stub DateRangePicker so tests don't need a full DOM environment for it.
+// Exposes a "Change period" button that fires onChange with a fixed custom range.
+vi.mock('../../components/DateRangePicker/index.js', () => ({
+  DateRangePicker: ({ onChange }: { onChange: (r: { from: Date; to: Date }) => void }) => (
+    <button
+      type="button"
+      onClick={() =>
+        onChange({ from: new Date('2025-01-01T00:00:00Z'), to: new Date('2025-12-31T00:00:00Z') })
+      }
+    >
+      Change period
+    </button>
+  ),
 }));
 
 const mockResponse: InsightsLandingSummaryResponse = {
@@ -112,5 +127,27 @@ describe('InsightsScreen', () => {
     // Volume mode shows all 3 metrics
     const volumeMetrics = container.querySelector('.ot-tag-card__metrics--volume');
     expect(volumeMetrics).toBeDefined();
+  });
+
+  it('refetches with new dateWindow when period changes', async () => {
+    const spy = vi.spyOn(insightsApi, 'getInsightsLandingSummary').mockResolvedValue(mockResponse);
+
+    render(<InsightsScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('insights.kpi.activeTags')).toBeDefined();
+    });
+
+    const callsBefore = spy.mock.calls.length;
+
+    fireEvent.click(screen.getByText('Change period'));
+
+    await waitFor(() => {
+      expect(spy.mock.calls.length).toBeGreaterThan(callsBefore);
+    });
+
+    const lastCall = spy.mock.calls[spy.mock.calls.length - 1]?.[0];
+    expect(lastCall?.dateWindow.startISO).toBe('2025-01-01');
+    expect(lastCall?.dateWindow.endISO).toBe('2025-12-31');
   });
 });
