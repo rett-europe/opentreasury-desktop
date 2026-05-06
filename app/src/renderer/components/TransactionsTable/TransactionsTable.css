@@ -16,16 +16,16 @@
  *
  * Two layouts:
  *   1. WITH SELECT (Movements): 10 columns, total 1012px
- *   2. NO SELECT (Dashboard):    9 columns, total  980px
+ *   2. NO SELECT (Dashboard):    9 columns, total  940px
  *
  * Column widths:
  *   select:       32px  (only when showSelectColumn=true)
  *   type:         32px  (arrow icon)
  *   date:         88px  (dd MMM yyyy)
  *   account:     100px  (pill truncates)
- *   description: 200px  (main text)
+ *   description: 180px  (main text; was 200px — trimmed for #274)
  *   category:    120px  (badge or text)
- *   subcategory: 120px  (text or dash)
+ *   subcategory: 100px  (text or dash; was 120px — trimmed for #274)
  *   tags:        140px  (chips +N)
  *   status:       80px  (badge)
  *   amount:      100px  (currency)
@@ -121,7 +121,7 @@
 .ot-transactions-table .ot-table {
   table-layout: fixed;
   width: 100%;
-  min-width: 980px;
+  min-width: 940px; /* was 980px - trimmed to fit 1280x800 default window (#274) */
 }
 
 .ot-transactions-table .ot-table td {
@@ -155,8 +155,8 @@
 /* Column 4: description */
 .ot-transactions-table .ot-table th:nth-child(4),
 .ot-transactions-table .ot-table td:nth-child(4) {
-  width: 200px;
-  max-width: 200px;
+  width: 180px;
+  max-width: 180px;
 }
 
 /* Column 5: category */
@@ -169,8 +169,8 @@
 /* Column 6: subcategory */
 .ot-transactions-table .ot-table th:nth-child(6),
 .ot-transactions-table .ot-table td:nth-child(6) {
-  width: 120px;
-  max-width: 120px;
+  width: 100px;
+  max-width: 100px;
 }
 
 /* Column 7: tags */
