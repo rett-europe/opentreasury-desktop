@@ -240,9 +240,11 @@ import {
 } from './handlers/config.js';
 import {
   IPC_DIALOG_PICK_FOLDER,
+  IPC_DIALOG_PICK_IMPORT_FILE,
   dialogPickFolderResponseSchema,
+  dialogPickImportFileResponseSchema,
 } from '../../shared/ipc-contracts/dialog.js';
-import { handleDialogPickFolder } from './handlers/dialog.js';
+import { handleDialogPickFolder, handleDialogPickImportFile } from './handlers/dialog.js';
 import {
   IPC_APP_NEEDS_ONBOARDING,
   appNeedsOnboardingResponseSchema,
@@ -320,6 +322,12 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_DIALOG_PICK_FOLDER, async (_event, raw: unknown) => {
     const response = await handleDialogPickFolder(raw);
     return dialogPickFolderResponseSchema.parse(response);
+  });
+
+  // dialog:pickImportFile — file picker for import wizard (trial.3.6 fix)
+  ipcMain.handle(IPC_DIALOG_PICK_IMPORT_FILE, async (_event, raw: unknown) => {
+    const response = await handleDialogPickImportFile(raw);
+    return dialogPickImportFileResponseSchema.parse(response);
   });
 
   // #196 — app:needsOnboarding flag for the first-run folder-picker wizard.
