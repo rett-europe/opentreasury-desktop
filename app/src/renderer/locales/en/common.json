@@ -744,7 +744,8 @@
       "fileTooLarge": "File too large. Maximum 50 MB.",
       "wrongType": "Only Excel (.xlsx) or CSV (.csv).",
       "unreadable": "Can't read file. Verify it's not corrupted.",
-      "next": "Next"
+      "next": "Next",
+      "opening": "Opening file picker…"
     },
     "confirmHeaderRow": {
       "title": "Confirm header row",

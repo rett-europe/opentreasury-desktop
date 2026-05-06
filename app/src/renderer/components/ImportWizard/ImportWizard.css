@@ -184,6 +184,34 @@
   }
 }
 
+.ot-import-wizard__dropzone--opening {
+  pointer-events: none;
+  border-color: var(--color-brand-primary);
+  background: var(--color-brand-surface);
+  opacity: 0.85;
+}
+
+.ot-import-wizard__dropzone-spinner {
+  width: 2em;
+  height: 2em;
+  border: 3px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ot-dropzone-spin 0.7s linear infinite;
+}
+
+@keyframes ot-dropzone-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ot-import-wizard__dropzone-spinner {
+    animation-duration: 2s;
+  }
+}
+
 .ot-import-wizard__file-name {
   margin-top: var(--space-4);
   font-size: var(--font-size-14);
