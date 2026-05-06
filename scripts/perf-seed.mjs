@@ -318,20 +318,35 @@ console.log(`[perf-seed] file size: ${(ndjson.length / 1024).toFixed(1)} KiB`);
 // Only written when --dir mode is used (i.e. outPath is inside userDataRoot).
 // Skipped when --out is used (explicit path — caller owns their config).
 if (!args.out) {
-  const appConfigPath = join(userDataRoot(), 'app-config.json');
+  const udRoot = userDataRoot();
+
+  const appConfigPath = join(udRoot, 'app-config.json');
   const appConfig = { version: 1, dataDir: dirname(outPath), readOnly: false };
   await writeFile(appConfigPath, JSON.stringify(appConfig, null, 2), { encoding: 'utf8' });
   console.log(`[perf-seed] wrote app-config.json → ${appConfigPath}`);
 
-  const profilePath = join(userDataRoot(), 'profile.json');
-  const profile = {
-    userId: fakeUlid('PERFUSER01'),
-    name: 'Perf Tester',
-    role: 'Treasurer',
-    ngoName: 'OpenTreasury Perf',
-    identitySource: 'local',
-    createdAt: new Date().toISOString(),
-  };
-  await writeFile(profilePath, JSON.stringify(profile, null, 2), { encoding: 'utf8' });
-  console.log(`[perf-seed] wrote profile.json → ${profilePath}`);
+  // Write a minimal profile.json only if one does not already exist so we
+  // never clobber a developer's real local profile. On CI (fresh runner)
+  // profile.json is absent and AppShell would render ProfileSetupModal
+  // instead of the shell sidebar — this seed profile suppresses that modal.
+  const profilePath = join(udRoot, 'profile.json');
+  let profileExists = false;
+  try {
+    await readFile(profilePath, 'utf8');
+    profileExists = true;
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
+  }
+  if (!profileExists) {
+    const seedProfile = {
+      userId: fakeUlid('PERFUSER01'),
+      name: 'Perf Tester',
+      role: 'Treasurer',
+      ngoName: 'OpenTreasury Perf',
+      identitySource: 'local',
+      createdAt: '2024-01-01T00:00:00.000Z',
+    };
+    await writeFile(profilePath, JSON.stringify(seedProfile, null, 2), { encoding: 'utf8' });
+    console.log(`[perf-seed] wrote profile.json → ${profilePath}`);
+  }
 }
