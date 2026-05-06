@@ -311,8 +311,10 @@ console.log(
 );
 console.log(`[perf-seed] file size: ${(ndjson.length / 1024).toFixed(1)} KiB`);
 
-// Write app-config.json so the bootstrap resolves the seeded folder without
-// showing the onboarding wizard (which fires when dataDir === null).
+// Write app-config.json + profile.json so the bootstrap resolves the seeded
+// folder AND skips the renderer's ProfileSetupModal gate. Without profile.json
+// AppShell renders <ProfileSetupModal> instead of the sidebar, breaking
+// `.ot-shell__sidebar` waits in e2e specs.
 // Only written when --dir mode is used (i.e. outPath is inside userDataRoot).
 // Skipped when --out is used (explicit path — caller owns their config).
 if (!args.out) {
@@ -320,4 +322,16 @@ if (!args.out) {
   const appConfig = { version: 1, dataDir: dirname(outPath), readOnly: false };
   await writeFile(appConfigPath, JSON.stringify(appConfig, null, 2), { encoding: 'utf8' });
   console.log(`[perf-seed] wrote app-config.json → ${appConfigPath}`);
+
+  const profilePath = join(userDataRoot(), 'profile.json');
+  const profile = {
+    userId: fakeUlid('PERFUSER01'),
+    name: 'Perf Tester',
+    role: 'Treasurer',
+    ngoName: 'OpenTreasury Perf',
+    identitySource: 'local',
+    createdAt: new Date().toISOString(),
+  };
+  await writeFile(profilePath, JSON.stringify(profile, null, 2), { encoding: 'utf8' });
+  console.log(`[perf-seed] wrote profile.json → ${profilePath}`);
 }
