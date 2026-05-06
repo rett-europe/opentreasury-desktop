@@ -56,6 +56,29 @@ Testing considerations for a financial desktop app:
 
 **Outcome:** Repeatable, locale-agnostic screenshot generation. Skill updated at `.squad/skills/playwright-electron-doc-shots/SKILL.md`.
 
+### 2026-05-06 — AppShell Two-Gate Architecture Discovery (PR #285–#287, trial.3.5)
+
+**Context:** E2E movements-perf test discovered that ProfileSetupModal rendered but sidebar never mounted. Initial diagnosis: profile.json missing.
+
+**Root cause (full discovery):**
+
+AppShell has **TWO independent render gates**, both must be satisfied:
+
+1. **App.tsx gate:** Checks `app:needsOnboarding` condition, gated on `app-config.json` presence in Electron userData root. If missing, returns null before mounting AppShell.
+2. **AppShell.tsx gate:** Checks profile existence. If profile missing, renders `<ProfileSetupModal>` instead of sidebar/main content.
+
+E2E perf-seed was missing BOTH files, causing both gates to trigger independently. Fix required seeding BOTH:
+- PR #286: Seed profile.json → satisfies AppShell gate
+- PR #287: Seed app-config.json → satisfies App.tsx gate
+
+**Pattern for future e2e setups:**
+- List all render gates in the initialization chain (App → AppShell → nested screens)
+- Identify which gates block which components
+- Ensure seeding/mocking satisfies ALL gates before expecting a component to render
+- Document the gate names + conditions in `.squad/agents/{trinity,morpheus}/history.md` for future e2e work
+
+**Applies to:** Any e2e test setup, not just e2e movements-perf. All e2e tests must seed both files.
+
 ### 2026-04-27 — Splits E2E Un-skip False-Green Detection (PR #119)
 
 **Wave coordination (concurrent with splits Wave A/B):**

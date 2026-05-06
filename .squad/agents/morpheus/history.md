@@ -106,6 +106,29 @@ Timeline forensics:
 
 **Next:** Pedro to test the NEW trial.3.1 installer locally before re-uploading to GitHub releases.
 
+**2026-05-06 — AppShell Two-Gate Architecture Discovery (PR #285–#287, trial.3.5)**
+
+**Context:** E2E movements-perf test discovered that ProfileSetupModal rendered but sidebar never mounted. Initial diagnosis: profile.json missing.
+
+**Root cause (full discovery):**
+
+AppShell has **TWO independent render gates**, both must be satisfied:
+
+1. **App.tsx gate:** Checks `app:needsOnboarding` condition, gated on `app-config.json` presence in Electron userData root. If missing, returns null before mounting AppShell.
+2. **AppShell.tsx gate:** Checks profile existence. If profile missing, renders `<ProfileSetupModal>` instead of sidebar/main content.
+
+E2E perf-seed was missing BOTH files, causing both gates to trigger independently. Fix required seeding BOTH:
+- PR #286: Seed profile.json → satisfies AppShell gate
+- PR #287: Seed app-config.json → satisfies App.tsx gate
+
+**Pattern for future e2e setups:**
+- List all render gates in the initialization chain (App → AppShell → nested screens)
+- Identify which gates block which components
+- Ensure seeding/mocking satisfies ALL gates before expecting a component to render
+- E2E perf-seed must write both app-config.json AND profile.json to Electron userData root
+
+**Applies to:** Any e2e test setup, not just e2e movements-perf. Single-gate satisfaction leaves components visible without expected children.
+
 **2026-05-05 — trial.3.2 shipped: use `app.isPackaged` for Electron prod gating, not `NODE_ENV`**
 
 **Critical lesson for all agents touching bootstrap/seed/release work:**
