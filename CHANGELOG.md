@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.4] — Insights period selector
+
+Adds a date-range picker to the Insights landing so tagged transactions
+outside the current calendar year are no longer invisible.
+
+### Fixed
+
+- **Insights landing now has a period selector.** Previously the landing
+  hard-coded its window to `thisYear()`, so any transaction tagged in a
+  prior year was excluded — the page reported "0 active tags" even when
+  tags clearly had movements. The landing now uses the same
+  `DateRangePicker` as the drilldown screen and defaults to **last 12
+  months**, which keeps recent activity visible regardless of the
+  calendar boundary.
+
 ## [0.1.0-trial.3.3] — import wizard "Ignore" fix
 
 Fixes a small but visible glitch in the import-wizard preview header.
