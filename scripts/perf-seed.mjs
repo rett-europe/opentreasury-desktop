@@ -225,10 +225,16 @@ for (const tag of TAGS) {
 }
 
 // ─── transactions ──────────────────────────────────────────────────────────
-// Spread across 2023-01-01 .. 2026-04-30 (~40 months). For N=10k, ~250/month.
+// Spread across 2023-01-01 .. current month (rolls forward automatically so
+// "this-month" always has seeded transactions regardless of when CI runs).
+const _now = new Date();
+const SEED_END_YEAR = _now.getFullYear();
+const SEED_END_MONTH = _now.getMonth() + 1; // 1-indexed
+const SEED_START_YEAR = 2023;
+
 function randomDateIso() {
-  const year = randInt(2023, 2026);
-  const maxMonth = year === 2026 ? 4 : 12;
+  const year = randInt(SEED_START_YEAR, SEED_END_YEAR);
+  const maxMonth = year === SEED_END_YEAR ? SEED_END_MONTH : 12;
   const month = randInt(1, maxMonth);
   const maxDay = [4, 6, 9, 11].includes(month) ? 30 : month === 2 ? 28 : 31;
   const day = randInt(1, maxDay);
@@ -304,3 +310,14 @@ console.log(
   `[perf-seed] wrote ${events.length} events (${count} tx + ${events.length - count} ref-data) → ${outPath}`,
 );
 console.log(`[perf-seed] file size: ${(ndjson.length / 1024).toFixed(1)} KiB`);
+
+// Write app-config.json so the bootstrap resolves the seeded folder without
+// showing the onboarding wizard (which fires when dataDir === null).
+// Only written when --dir mode is used (i.e. outPath is inside userDataRoot).
+// Skipped when --out is used (explicit path — caller owns their config).
+if (!args.out) {
+  const appConfigPath = join(userDataRoot(), 'app-config.json');
+  const appConfig = { version: 1, dataDir: dirname(outPath), readOnly: false };
+  await writeFile(appConfigPath, JSON.stringify(appConfig, null, 2), { encoding: 'utf8' });
+  console.log(`[perf-seed] wrote app-config.json → ${appConfigPath}`);
+}
