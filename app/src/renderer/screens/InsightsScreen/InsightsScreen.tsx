@@ -1,15 +1,30 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Tag, TrendingUp, TrendingDown } from 'lucide-react';
 import { SegmentedToggle } from '../../components/SegmentedToggle/index.js';
 import { TagCard } from '../../components/TagCard/index.js';
+import {
+  DateRangePicker,
+  type Preset as DateRangePreset,
+} from '../../components/DateRangePicker/index.js';
 import { getInsightsLandingSummary } from '../../services/insightsApi.js';
-import { thisYear } from '../../utils/datePresets.js';
+import {
+  last12Months,
+  last3Months,
+  lastMonth,
+  lastYear,
+  thisMonth,
+  thisYear,
+} from '../../utils/datePresets.js';
 import { formatCurrency } from '../../utils/numberFormat.js';
+import type { DateRange } from '../../types/movement.js';
 import type { InsightsLandingSummaryResponse } from '../../../shared/ipc-contracts/insights.js';
 import './InsightsScreen.css';
 
 type DisplayMode = 'volumen' | 'neto' | 'mov';
+
+const isoToDate = (iso: string): Date => new Date(`${iso}T00:00:00Z`);
+const dateToIso = (d: Date): string => d.toISOString().slice(0, 10);
 
 type ScreenState =
   | { kind: 'loading' }
@@ -36,23 +51,66 @@ export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.E
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
   const [displayMode, setDisplayMode] = useState<DisplayMode>('volumen');
 
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const r = last12Months(new Date());
+    return { from: isoToDate(r.from), to: isoToDate(r.to) };
+  });
+
   const loadData = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const today = new Date();
-      const { from, to } = thisYear(today);
       const response = await getInsightsLandingSummary({
-        dateWindow: { startISO: from, endISO: to },
+        dateWindow: { startISO: dateToIso(dateRange.from), endISO: dateToIso(dateRange.to) },
       });
       setState({ kind: 'loaded', data: response });
     } catch (error) {
       setState({ kind: 'error', message: String(error) });
     }
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const presets: ReadonlyArray<DateRangePreset> = useMemo(() => {
+    const now = new Date();
+    const make = (id: string, labelKey: string, fn: typeof thisMonth): DateRangePreset => ({
+      id,
+      label: t(labelKey),
+      range: () => {
+        const r = fn(now);
+        return { from: isoToDate(r.from), to: isoToDate(r.to) };
+      },
+    });
+    return [
+      make('this-month', 'datePresets.thisMonth', thisMonth),
+      make('last-month', 'datePresets.lastMonth', lastMonth),
+      make('last-3-months', 'datePresets.last3Months', last3Months),
+      make('this-year', 'datePresets.thisYear', thisYear),
+      make('last-year', 'datePresets.lastYear', lastYear),
+      make('last-12-months', 'datePresets.last12Months', last12Months),
+    ];
+  }, [t]);
+
+  const activePresetId = useMemo(() => {
+    const today = new Date();
+    const fromIso = dateToIso(dateRange.from);
+    const toIso = dateToIso(dateRange.to);
+    for (const fn of [thisMonth, lastMonth, last3Months, thisYear, lastYear, last12Months]) {
+      const r = fn(today);
+      if (r.from === fromIso && r.to === toIso) {
+        const idx = [thisMonth, lastMonth, last3Months, thisYear, lastYear, last12Months].indexOf(
+          fn,
+        );
+        return (
+          ['this-month', 'last-month', 'last-3-months', 'this-year', 'last-year', 'last-12-months'][
+            idx
+          ] ?? null
+        );
+      }
+    }
+    return null;
+  }, [dateRange]);
 
   if (state.kind === 'loading') {
     return (
@@ -62,6 +120,18 @@ export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.E
             <h1>{t('insights.title')}</h1>
             <p className="ot-page-header__subtitle">{t('insights.subtitle')}</p>
           </div>
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            presets={presets}
+            activePresetId={activePresetId}
+            customLabels={{
+              from: t('saldo.dateRange.from', { defaultValue: 'Desde' }),
+              to: t('saldo.dateRange.to', { defaultValue: 'Hasta' }),
+              apply: t('saldo.dateRange.apply', { defaultValue: 'Aplicar' }),
+              invalidRange: t('saldo.dateRange.invalidRange', { defaultValue: 'Rango inválido' }),
+            }}
+          />
         </header>
         <div className="ot-insights__loading">{t('insights.states.loading')}</div>
       </div>
@@ -76,6 +146,18 @@ export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.E
             <h1>{t('insights.title')}</h1>
             <p className="ot-page-header__subtitle">{t('insights.subtitle')}</p>
           </div>
+          <DateRangePicker
+            value={dateRange}
+            onChange={setDateRange}
+            presets={presets}
+            activePresetId={activePresetId}
+            customLabels={{
+              from: t('saldo.dateRange.from', { defaultValue: 'Desde' }),
+              to: t('saldo.dateRange.to', { defaultValue: 'Hasta' }),
+              apply: t('saldo.dateRange.apply', { defaultValue: 'Aplicar' }),
+              invalidRange: t('saldo.dateRange.invalidRange', { defaultValue: 'Rango inválido' }),
+            }}
+          />
         </header>
         <div className="ot-insights__error ot-p-card ot-p-card--padded">
           <p>{t('insights.states.error')}</p>
@@ -98,6 +180,18 @@ export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.E
           <h1>{t('insights.title')}</h1>
           <p className="ot-page-header__subtitle">{t('insights.subtitle')}</p>
         </div>
+        <DateRangePicker
+          value={dateRange}
+          onChange={setDateRange}
+          presets={presets}
+          activePresetId={activePresetId}
+          customLabels={{
+            from: t('saldo.dateRange.from', { defaultValue: 'Desde' }),
+            to: t('saldo.dateRange.to', { defaultValue: 'Hasta' }),
+            apply: t('saldo.dateRange.apply', { defaultValue: 'Aplicar' }),
+            invalidRange: t('saldo.dateRange.invalidRange', { defaultValue: 'Rango inválido' }),
+          }}
+        />
         <SegmentedToggle
           options={[
             { value: 'volumen', label: t('insights.displayMode.volume') },
