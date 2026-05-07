@@ -260,12 +260,11 @@ describe('TransactionDetailModal', () => {
       expect(amtInput.disabled).toBe(true);
       expect(accSelect.disabled).toBe(true);
 
-      // Hint visible at least once with the EN string ("Set status to Pending to edit")
-      const hints = document.querySelectorAll('.ot-tx-fields__field-hint');
-      expect(hints.length).toBeGreaterThan(0);
-      expect(
-        Array.from(hints).some((h) => /Set status to Pending/i.test(h.textContent ?? '')),
-      ).toBe(true);
+      // Hint is visually hidden but present in DOM for screen readers
+      const dateHint = document.getElementById('lock-hint-date');
+      expect(dateHint).not.toBeNull();
+      expect(dateHint?.classList.contains('ot-sr-only')).toBe(true);
+      expect(dateHint?.textContent).toMatch(/Set status to Pending/i);
 
       // aria-describedby wired up on the date input
       expect(dateInput.getAttribute('aria-describedby')).toBe('lock-hint-date');

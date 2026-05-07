@@ -128,6 +128,7 @@ export function TransactionFormFields({
                 errors.date ? 'error-date' : statusLocked ? 'lock-hint-date' : undefined
               }
               disabled={readonly || statusLocked}
+              title={statusLocked ? statusHint : undefined}
             />
             {errors.date && (
               <span id="error-date" className="ot-tx-fields__field-error">
@@ -135,7 +136,7 @@ export function TransactionFormFields({
               </span>
             )}
             {!errors.date && statusLocked && (
-              <span id="lock-hint-date" className="ot-tx-fields__field-hint" role="note">
+              <span id="lock-hint-date" className="ot-sr-only" role="note">
                 {statusHint}
               </span>
             )}
@@ -162,6 +163,7 @@ export function TransactionFormFields({
                     : undefined
               }
               disabled={readonly || statusLocked}
+              title={statusLocked ? statusHint : undefined}
             />
             {errors.description && (
               <span id="error-description" className="ot-tx-fields__field-error">
@@ -169,7 +171,7 @@ export function TransactionFormFields({
               </span>
             )}
             {!errors.description && statusLocked && (
-              <span id="lock-hint-description" className="ot-tx-fields__field-hint" role="note">
+              <span id="lock-hint-description" className="ot-sr-only" role="note">
                 {statusHint}
               </span>
             )}
@@ -192,6 +194,7 @@ export function TransactionFormFields({
                 errors.accountId ? 'error-account' : statusLocked ? 'lock-hint-account' : undefined
               }
               disabled={readonly || statusLocked}
+              title={statusLocked ? statusHint : undefined}
             >
               {accounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
@@ -205,7 +208,7 @@ export function TransactionFormFields({
               </span>
             )}
             {!errors.accountId && statusLocked && (
-              <span id="lock-hint-account" className="ot-tx-fields__field-hint" role="note">
+              <span id="lock-hint-account" className="ot-sr-only" role="note">
                 {statusHint}
               </span>
             )}
@@ -235,6 +238,9 @@ export function TransactionFormFields({
                       : undefined
               }
               disabled={readonly || amountDisabled || hasSplits || statusLocked}
+              title={
+                hasSplits || amountDisabled ? splitHint : statusLocked ? statusHint : undefined
+              }
             />
             {errors.amount && (
               <span id="error-amount" className="ot-tx-fields__field-error">
@@ -243,12 +249,12 @@ export function TransactionFormFields({
             )}
             {/* SPEC-025 §FR6 — split-lock hint takes precedence over status hint */}
             {!errors.amount && (hasSplits || amountDisabled) && (
-              <span id="lock-hint-amount-splits" className="ot-tx-fields__field-hint" role="note">
+              <span id="lock-hint-amount-splits" className="ot-sr-only" role="note">
                 {splitHint}
               </span>
             )}
             {!errors.amount && !hasSplits && !amountDisabled && statusLocked && (
-              <span id="lock-hint-amount-status" className="ot-tx-fields__field-hint" role="note">
+              <span id="lock-hint-amount-status" className="ot-sr-only" role="note">
                 {statusHint}
               </span>
             )}

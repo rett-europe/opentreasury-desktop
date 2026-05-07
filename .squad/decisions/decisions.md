@@ -2529,6 +2529,71 @@ Three consecutive misses on the Saldo header/bar alignment bug (Mouse iter 3, Tr
 
 ---
 
+## Decision: Trinity PR #296 — SPEC-025 Shipped (Status-Based Transaction Edit Rules)
+
+**Author:** Trinity (Frontend Developer)  
+**Date:** 2026-05-07  
+**Status:** Shipped & Merged  
+**PR:** [#296](https://github.com/rett-europe/opentreasury-desktop/pull/296) (squash-merged into `main`)  
+**Context:** SPEC-025, PR #295 (modal navigation), WI-19 (ImportWizard tests)
+
+### What Landed
+
+Single PR, three coupled changes:
+
+1. **SPEC-025 — Status-Based Transaction Edit Rules**
+   - `pending` transactions fully editable
+   - `approved` transactions lock Date / Description / Amount / Account (via `aria-describedby` hint)
+   - Status dropdown unlock mechanism (AC3)
+   - Field lock applies on next open, not mid-modal (AC4)
+   - SPEC-023 split-amount lock precedence (AC6)
+   - Edit-mode summary banner hidden for pending
+   - i18n keys `transactionDetail.editLock.*` (EN+ES)
+   - `originalStatus` snapshot prop on `TransactionFormFields` is lock derivation knob
+
+2. **ImportWizard Test Fix (3 failing → all 7 green)**
+   - Root cause: PR #290 removed `<input type="file">`, tests still mocked it via `Object.defineProperty`
+   - Solution: Mock `window.opentreasury.dialog.pickImportFile` (IPC bridge); click dropzone button
+   - Establishes canonical mock pattern for future IPC tests
+
+3. **Modal Navigation Port (from PR #295)**
+   - Chevron Prev/Next in header
+   - Arrow keyboard shortcuts
+   - Unsaved-changes confirm
+   - Edge disable
+   - EN+ES strings
+   - MovementsScreen wiring
+   - Obsolete `readonly={false}` dropped (SPEC-025 supersedes)
+
+### Closes / Supersedes
+
+- **#294** (Detalles editable) — replaced by SPEC-025 status-based model
+- **#280** (Modal next/prev navigation) — shipped in #296
+- **#295** (Modal detalles + nav) — merged logic into #296; branch retained per Pedro
+
+### Test Coverage & Validation
+
+```
+npm run typecheck ✅
+npm run lint ✅ (max-warnings 0)
+npm run format:check ✅
+npm run test ✅ (1026 passed / 63 skipped / 0 failed)
+CI re-running on main — all checks green
+```
+
+### Knowledge Transfer
+
+**New Skill:** `.squad/skills/renderer-ipc-bridge-mocking/SKILL.md`
+- Pattern for mocking `window.opentreasury.*` in vitest+jsdom tests
+- Documents dialog-bridge migration gotcha (post-PR #290)
+
+**Canonical Patterns:**
+- Renderer IPC bridge: `window.opentreasury.<namespace>.<method>` (NOT `window.electron.invoke()`)
+- Test fixture pattern: mock preload bridge, reflective of production contract
+- Field lock expression: `originalStatus` snapshot + live `status` form state = single boolean (covers AC1–AC4 cleanly)
+
+---
+
 ## DIRECTIVE: User Rule — Component Reuse Over JSX Duplication
 
 **Author:** Pedro Rocha (via Copilot)  
