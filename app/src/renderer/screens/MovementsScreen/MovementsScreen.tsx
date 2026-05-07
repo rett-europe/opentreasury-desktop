@@ -879,6 +879,28 @@ export function MovementsScreen({
     return sorted;
   }, [filteredTransactionRows, sortBy, sortDir, accountLookup, categoryLookup, subcategoryLookup]);
 
+  // Navigation support (Issue #280) — transaction IDs and current index
+  const transactionIds = useMemo(
+    () => sortedTransactionRows.map((row) => row.id),
+    [sortedTransactionRows],
+  );
+
+  const currentTransactionIndex = useMemo(() => {
+    if (!selectedId) return -1;
+    return transactionIds.indexOf(selectedId);
+  }, [transactionIds, selectedId]);
+
+  const handleNavigate = useCallback(
+    (direction: 'prev' | 'next') => {
+      const newIndex =
+        direction === 'prev' ? currentTransactionIndex - 1 : currentTransactionIndex + 1;
+      if (newIndex >= 0 && newIndex < transactionIds.length) {
+        setSelectedId(transactionIds[newIndex]!);
+      }
+    },
+    [currentTransactionIndex, transactionIds],
+  );
+
   return (
     <div className="ot-movements">
       <header className="ot-page-header">
@@ -1402,6 +1424,9 @@ export function MovementsScreen({
             accounts={accounts}
             categories={categories}
             tags={tags}
+            transactionIds={transactionIds}
+            currentIndex={currentTransactionIndex}
+            onNavigate={handleNavigate}
             onUpdate={async (input: UpdateTransactionRequest) => {
               const result = await updateTransaction(input);
               if (!result.ok) {

@@ -229,4 +229,132 @@ describe('TransactionDetailModal', () => {
     expect(updateCall.categoryId).toBe('01HCAT00000000000000000001');
     expect(updateCall.subcategoryId).toBe('01HCAT00000000000000000002');
   });
+
+  // SPEC-025 — Status-based field locks ----------------------------------------
+  describe('SPEC-025 — status-based edit locks', () => {
+    it('AC1: pending transaction shows editable Date/Description/Amount/Account', () => {
+      renderModal({ ...baseTx, status: 'pending' });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+
+      const dateInput = document.getElementById('tx-date') as HTMLInputElement;
+      const descInput = document.getElementById('tx-description') as HTMLInputElement;
+      const amtInput = document.getElementById('tx-amount') as HTMLInputElement;
+      const accSelect = document.getElementById('tx-account') as HTMLSelectElement;
+      expect(dateInput).toBeTruthy();
+      expect(dateInput.disabled).toBe(false);
+      expect(descInput.disabled).toBe(false);
+      expect(amtInput.disabled).toBe(false);
+      expect(accSelect.disabled).toBe(false);
+    });
+
+    it('AC2: approved transaction locks Date/Description/Amount/Account with hint', () => {
+      renderModal({ ...baseTx, status: 'approved' });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+
+      const dateInput = document.getElementById('tx-date') as HTMLInputElement;
+      const descInput = document.getElementById('tx-description') as HTMLInputElement;
+      const amtInput = document.getElementById('tx-amount') as HTMLInputElement;
+      const accSelect = document.getElementById('tx-account') as HTMLSelectElement;
+      expect(dateInput.disabled).toBe(true);
+      expect(descInput.disabled).toBe(true);
+      expect(amtInput.disabled).toBe(true);
+      expect(accSelect.disabled).toBe(true);
+
+      // Hint visible at least once with the EN string ("Set status to Pending to edit")
+      const hints = document.querySelectorAll('.ot-tx-fields__field-hint');
+      expect(hints.length).toBeGreaterThan(0);
+      expect(
+        Array.from(hints).some((h) => /Set status to Pending/i.test(h.textContent ?? '')),
+      ).toBe(true);
+
+      // aria-describedby wired up on the date input
+      expect(dateInput.getAttribute('aria-describedby')).toBe('lock-hint-date');
+    });
+
+    it('AC3: flipping Status from approved → pending mid-modal unlocks fields immediately', () => {
+      renderModal({ ...baseTx, status: 'approved' });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+
+      const dateInput = document.getElementById('tx-date') as HTMLInputElement;
+      expect(dateInput.disabled).toBe(true);
+
+      // Flip status to pending in the dropdown — no save, no reopen.
+      const statusSelect = document.getElementById('tx-status') as HTMLSelectElement;
+      fireEvent.change(statusSelect, { target: { value: 'pending' } });
+
+      const dateAfter = document.getElementById('tx-date') as HTMLInputElement;
+      expect(dateAfter.disabled).toBe(false);
+      // Hint should be gone for the date field
+      expect(document.getElementById('lock-hint-date')).toBeNull();
+    });
+
+    it('AC4: flipping Status from pending → approved mid-modal does NOT lock fields', () => {
+      renderModal({ ...baseTx, status: 'pending' });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+
+      const statusSelect = document.getElementById('tx-status') as HTMLSelectElement;
+      fireEvent.change(statusSelect, { target: { value: 'approved' } });
+
+      const dateInput = document.getElementById('tx-date') as HTMLInputElement;
+      expect(dateInput.disabled).toBe(false);
+    });
+
+    it('AC5: saving with status flip + edits emits one update call carrying both', async () => {
+      const handleUpdate = vi.fn().mockResolvedValue(undefined);
+      renderModal({ ...baseTx, status: 'approved' }, { onUpdate: handleUpdate });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+
+      // Unlock by flipping status
+      const statusSelect = document.getElementById('tx-status') as HTMLSelectElement;
+      fireEvent.change(statusSelect, { target: { value: 'pending' } });
+
+      // Edit description
+      const descInput = document.getElementById('tx-description') as HTMLInputElement;
+      fireEvent.change(descInput, { target: { value: 'Corrected description' } });
+
+      fireEvent.click(screen.getByRole('button', { name: /Save|Guardar/i }));
+      await vi.waitFor(() => expect(handleUpdate).toHaveBeenCalled());
+
+      const call = handleUpdate.mock.calls[0][0];
+      expect(call.status).toBe('pending');
+      expect(call.description).toBe('Corrected description');
+      expect(handleUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('AC9 / hide-banner: pending edit body hides the summary banner', () => {
+      renderModal({ ...baseTx, status: 'pending' });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+      // Edit body summary banner should NOT render for pending.
+      const editBody = document.querySelector('.ot-transaction-detail-modal__edit-body');
+      expect(editBody).toBeTruthy();
+      expect(editBody?.querySelector('.ot-transaction-detail-modal__summary')).toBeNull();
+    });
+
+    it('AC9 / show-banner: approved edit body keeps the summary banner', () => {
+      renderModal({ ...baseTx, status: 'approved' });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+      const editBody = document.querySelector('.ot-transaction-detail-modal__edit-body');
+      expect(editBody?.querySelector('.ot-transaction-detail-modal__summary')).toBeTruthy();
+    });
+
+    it('Cancel reverts in-modal status flip (resets on next edit open)', () => {
+      renderModal({ ...baseTx, status: 'approved' });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+
+      const statusSelect = document.getElementById('tx-status') as HTMLSelectElement;
+      fireEvent.change(statusSelect, { target: { value: 'pending' } });
+      expect(statusSelect.value).toBe('pending');
+
+      // Cancel
+      fireEvent.click(screen.getByRole('button', { name: /Cancel|Cancelar/i }));
+
+      // Re-open edit
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+      const statusSelectAfter = document.getElementById('tx-status') as HTMLSelectElement;
+      expect(statusSelectAfter.value).toBe('approved');
+      // And fields are locked again
+      const dateInput = document.getElementById('tx-date') as HTMLInputElement;
+      expect(dateInput.disabled).toBe(true);
+    });
+  });
 });

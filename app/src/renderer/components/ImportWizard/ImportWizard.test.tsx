@@ -90,13 +90,23 @@ function mountBridge(overrides: {
   stageFile?: ReturnType<typeof vi.fn>;
   dryRun?: ReturnType<typeof vi.fn>;
   commit?: ReturnType<typeof vi.fn>;
+  pickImportFile?: ReturnType<typeof vi.fn>;
 }) {
   const stageFile = overrides.stageFile ?? vi.fn().mockResolvedValue(stageResponse);
   const dryRun = overrides.dryRun ?? vi.fn().mockResolvedValue(dryRunResponse);
   const commit = overrides.commit ?? vi.fn().mockResolvedValue(commitResponse);
+  // Trial 3.6 / PR #290 — file selection now flows through the IPC dialog
+  // (`window.opentreasury.dialog.pickImportFile`). Tests must mock this path
+  // since the hidden <input type="file"> was removed.
+  const pickImportFile =
+    overrides.pickImportFile ??
+    vi.fn().mockResolvedValue({ ok: true, cancelled: false, path: '/tmp/sample.csv' });
   (window as unknown as { opentreasury: unknown }).opentreasury = {
     accounts: {
       list: vi.fn().mockResolvedValue(accountsResponse),
+    },
+    dialog: {
+      pickImportFile,
     },
     import: {
       getPathForFile: (file: File) => `/tmp/${file.name}`,
@@ -106,7 +116,7 @@ function mountBridge(overrides: {
       getLastMapping: vi.fn().mockResolvedValue({ mapping: null, updatedAt: null }),
     },
   };
-  return { stageFile, dryRun, commit };
+  return { stageFile, dryRun, commit, pickImportFile };
 }
 
 async function advanceToMapColumns(): Promise<void> {
@@ -116,14 +126,14 @@ async function advanceToMapColumns(): Promise<void> {
   });
   fireEvent.click(screen.getByText(/Test Account/));
 
-  // Step 2: select file (handleFileSelect triggers via change event).
+  // Step 2: select file via the IPC dialog dropzone button (#290 changed the
+  // picker from a hidden <input> to `window.opentreasury.dialog.pickImportFile`).
   await waitFor(() => {
     expect(screen.getByText(/Drag file here|Arrastra el archivo/i)).toBeTruthy();
   });
-  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-  const file = new File(['col1,col2'], 'sample.csv', { type: 'text/csv' });
-  Object.defineProperty(fileInput, 'files', { value: [file] });
-  fireEvent.change(fileInput);
+  const dropzone = document.querySelector('.ot-import-wizard__dropzone') as HTMLButtonElement;
+  expect(dropzone).toBeTruthy();
+  fireEvent.click(dropzone);
 
   // Step 3: confirm header row → continue.
   await waitFor(() => {
