@@ -536,3 +536,36 @@ Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance o
 **Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
 
 **Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.
+
+## 2026-05-07 — ImportWizard Test Canonical Mock Pattern (PR #296, Trinity ship)
+
+**Context:** Trinity shipped SPEC-025 + modal navigation + ImportWizard test fixes (PR #296). WI-19 reference/details mapping tests were broken post-PR #290 (switched from `<input type="file">` to `window.opentreasury.dialog.pickImportFile` IPC).
+
+**Canonical Mock Pattern for Renderer IPC Tests:**
+
+All vitest+jsdom tests mocking renderer-main IPC must mock the **preload bridge**, not `window.electron.invoke()`:
+
+```typescript
+// Correct pattern (use this)
+window.opentreasury = {
+  dialog: {
+    pickImportFile: vi.fn().mockResolvedValue({
+      filePath: '/path/to/file.csv',
+      data: { /* file content */ }
+    })
+  }
+}
+
+// Wrong pattern (don't use)
+window.electron.invoke('dialog:pickImportFile', ...args)
+```
+
+**Why:** Renderer preload bridge is typed (`window.opentreasury.<namespace>.<method>`), mirrors production contract, and isolates test mocking from IPC implementation details.
+
+**Test fixture pattern (post-PR #290):** When testing file-picker flows:
+1. Mock `window.opentreasury.dialog.pickImportFile` 
+2. Simulate user clicking the "dropzone" or "pick file" button in the UI
+3. Verify the mocked IPC was called with expected args
+4. Test continues with resolved file data
+
+**Skills updated:** `.squad/skills/renderer-ipc-bridge-mocking/SKILL.md` — used by Trinity in PR #296, canonical reference for future test fixture work.
