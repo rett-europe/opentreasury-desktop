@@ -81,3 +81,11 @@
   color: var(--color-error-text);
   margin-top: var(--space-1);
 }
+
+/* SPEC-025 — informational lock hint (neutral, not red). Reuses field-error
+   slot styling for layout but with muted text colour to signal "info". */
+.ot-tx-fields__field-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted, var(--color-text-secondary, #6b7280));
+  margin-top: var(--space-1);
+}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Edit, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Edit, Trash2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { NotesThread } from '../NotesThread/index.js';
 import { TransactionFormFields } from '../TransactionFormFields/index.js';
@@ -36,6 +36,9 @@ export interface TransactionDetailModalProps {
   readonly onUpdate: (input: UpdateTransactionRequest) => Promise<void>;
   readonly onDelete: (id: string) => Promise<void>;
   readonly onOpenSplit?: () => void;
+  readonly transactionIds?: readonly string[];
+  readonly currentIndex?: number;
+  readonly onNavigate?: (direction: 'prev' | 'next') => void;
 }
 
 interface FormErrors {
@@ -74,6 +77,9 @@ export function TransactionDetailModal({
   onUpdate,
   onDelete,
   onOpenSplit,
+  transactionIds,
+  currentIndex,
+  onNavigate,
 }: TransactionDetailModalProps): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
@@ -285,6 +291,85 @@ export function TransactionDetailModal({
     }
   };
 
+  // Navigation handlers — Issue #280
+  const hasUnsavedChanges = useCallback((): boolean => {
+    if (!isEditMode || !transaction) return false;
+    // Check if any field has changed from the original transaction
+    return (
+      date !== transaction.date ||
+      type !== transaction.type ||
+      amount !== transaction.amount.toString() ||
+      description !== transaction.description ||
+      categoryId !== (transaction.categoryId ?? '') ||
+      subcategoryId !== (transaction.subcategoryId ?? '') ||
+      JSON.stringify(tagIds) !== JSON.stringify(transaction.tagIds ?? []) ||
+      status !== transaction.status ||
+      reference !== (transaction.reference ?? '') ||
+      details !== (transaction.details ?? '')
+    );
+  }, [
+    isEditMode,
+    transaction,
+    date,
+    type,
+    amount,
+    description,
+    categoryId,
+    subcategoryId,
+    tagIds,
+    status,
+    reference,
+    details,
+  ]);
+
+  const handleNavigate = useCallback(
+    (direction: 'prev' | 'next'): void => {
+      if (!onNavigate) return;
+
+      // If in edit mode with unsaved changes, confirm before navigating
+      if (hasUnsavedChanges()) {
+        const confirmed = window.confirm(t('transactionDetail.discardChangesConfirm'));
+        if (!confirmed) return;
+        // Exit edit mode before navigating
+        setIsEditMode(false);
+      }
+
+      onNavigate(direction);
+    },
+    [onNavigate, hasUnsavedChanges, t],
+  );
+
+  // Keyboard navigation — ArrowLeft (prev), ArrowRight (next)
+  // Only active when modal is open and focus is NOT in a text input/textarea
+  useEffect(() => {
+    if (!isOpen || !onNavigate) return;
+
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      // Don't trigger navigation if focus is in a text input or textarea
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT'
+      ) {
+        return;
+      }
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleNavigate('prev');
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNavigate('next');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onNavigate, handleNavigate]);
+
   if (!transaction) {
     return (
       <dialog
@@ -341,6 +426,31 @@ export function TransactionDetailModal({
             {modalTitle}
           </h1>
           <div className="ot-transaction-detail-modal__header-actions">
+            {/* Navigation buttons — Issue #280 */}
+            {onNavigate && transactionIds && currentIndex !== undefined && (
+              <>
+                <button
+                  type="button"
+                  className="ot-transaction-detail-modal__action-btn"
+                  onClick={() => handleNavigate('prev')}
+                  disabled={currentIndex === 0}
+                  aria-label={t('transactionDetail.prevButton')}
+                  title={t('transactionDetail.prevButton')}
+                >
+                  <ChevronLeft size={18} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="ot-transaction-detail-modal__action-btn"
+                  onClick={() => handleNavigate('next')}
+                  disabled={currentIndex >= transactionIds.length - 1}
+                  aria-label={t('transactionDetail.nextButton')}
+                  title={t('transactionDetail.nextButton')}
+                >
+                  <ChevronRight size={18} aria-hidden="true" />
+                </button>
+              </>
+            )}
             {/* Hide delete button during edit mode to avoid confusion */}
             {!isEditMode && (
               <button
@@ -369,16 +479,21 @@ export function TransactionDetailModal({
         {isEditMode ? (
           /* EDIT MODE: Same layout as view, only value cells become inputs */
           <div className="ot-transaction-detail-modal__edit-body">
-            {/* Summary header: same as view mode (read-only context) */}
-            <div className="ot-transaction-detail-modal__summary">
-              <span className="ot-transaction-detail-modal__date">
-                {formatDate(transaction.date, locale)}
-              </span>
-              <p className="ot-transaction-detail-modal__description">{transaction.description}</p>
-              <span className={`ot-transaction-detail-modal__amount ${amountClass}`}>
-                {formattedAmount}
-              </span>
-            </div>
+            {/* SPEC-025 §5 — Summary banner only for `approved` (form fields ARE
+                 the source of truth in pending mode). */}
+            {transaction.status === 'approved' && (
+              <div className="ot-transaction-detail-modal__summary">
+                <span className="ot-transaction-detail-modal__date">
+                  {formatDate(transaction.date, locale)}
+                </span>
+                <p className="ot-transaction-detail-modal__description">
+                  {transaction.description}
+                </p>
+                <span className={`ot-transaction-detail-modal__amount ${amountClass}`}>
+                  {formattedAmount}
+                </span>
+              </div>
+            )}
 
             {generalError && (
               <div className="ot-transaction-detail-modal__error" role="alert">
@@ -422,6 +537,8 @@ export function TransactionDetailModal({
               mode="edit"
               currency={transaction.currency}
               amountDisabled={rawRecord?.hasSplits ?? false}
+              originalStatus={transaction.status}
+              hasSplits={rawRecord?.hasSplits ?? false}
             />
           </div>
         ) : (

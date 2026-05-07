@@ -38,6 +38,11 @@ export interface TransactionFormFieldsProps {
   currency?: string;
   /** SPEC-023 AC14 — Disable amount field when transaction has active splits. */
   amountDisabled?: boolean;
+  /** SPEC-025 — original status when modal entered edit mode. Used to determine
+   * whether status-based locks apply. Only `approved` originally → fields lock. */
+  originalStatus?: 'pending' | 'approved';
+  /** SPEC-025 — passthrough for split-locked amount hint precedence. */
+  hasSplits?: boolean;
 }
 
 /**
@@ -85,15 +90,93 @@ export function TransactionFormFields({
   mode = 'add',
   currency,
   amountDisabled = false,
+  originalStatus,
+  hasSplits = false,
 }: TransactionFormFieldsProps): JSX.Element {
   const { t } = useTranslation('common');
 
-  // Edit mode: field order mirrors view mode (Account → Category → Subcategory → Tags → Status → Currency)
-  // Add mode: includes editable date/type/amount/description at the top
+  // SPEC-025 — status-based field lock derivation.
+  // Lock applies only if the transaction was `approved` when the modal opened
+  // AND the live form status is still `approved`. This means:
+  //  - approved → pending (mid-edit): fields unlock immediately (AC3).
+  //  - pending  → approved (mid-edit): fields stay editable; lock applies on
+  //    the NEXT modal open (AC4).
+  const statusLocked = originalStatus === 'approved' && status === 'approved';
+  const statusHint = t('transactionDetail.editLock.statusLockedHint');
+  const splitHint = t('splits.detail.amountLocked');
+
+  // Edit mode: field order mirrors view mode (Date → Description → Account →
+  // Amount → Category → Subcategory → Tags → Status → Currency)
+  // Heavy fields (Date/Description/Amount/Account) are status-locked per SPEC-025.
   if (mode === 'edit') {
     return (
       <div className="ot-tx-fields">
-        {/* Row 1: Account / Category — matches view mode */}
+        {/* Row 0: Date / Description — SPEC-025 §FR1 */}
+        <div className="ot-tx-fields__row">
+          <div className="ot-tx-fields__field">
+            <label htmlFor="tx-date" className="ot-tx-fields__label">
+              {t('movements.form.fields.date')}
+            </label>
+            <input
+              id="tx-date"
+              type="date"
+              value={date}
+              onChange={(e) => onDateChange(e.target.value)}
+              className="ot-tx-fields__input"
+              aria-invalid={!!errors.date}
+              aria-describedby={
+                errors.date ? 'error-date' : statusLocked ? 'lock-hint-date' : undefined
+              }
+              disabled={readonly || statusLocked}
+            />
+            {errors.date && (
+              <span id="error-date" className="ot-tx-fields__field-error">
+                {errors.date}
+              </span>
+            )}
+            {!errors.date && statusLocked && (
+              <span id="lock-hint-date" className="ot-tx-fields__field-hint" role="note">
+                {statusHint}
+              </span>
+            )}
+          </div>
+
+          <div className="ot-tx-fields__field">
+            <label htmlFor="tx-description" className="ot-tx-fields__label">
+              {t('movements.form.fields.description')}
+            </label>
+            <input
+              id="tx-description"
+              type="text"
+              value={description}
+              onChange={(e) => onDescriptionChange(e.target.value)}
+              placeholder={t('movements.form.placeholders.description')}
+              maxLength={500}
+              className="ot-tx-fields__input"
+              aria-invalid={!!errors.description}
+              aria-describedby={
+                errors.description
+                  ? 'error-description'
+                  : statusLocked
+                    ? 'lock-hint-description'
+                    : undefined
+              }
+              disabled={readonly || statusLocked}
+            />
+            {errors.description && (
+              <span id="error-description" className="ot-tx-fields__field-error">
+                {errors.description}
+              </span>
+            )}
+            {!errors.description && statusLocked && (
+              <span id="lock-hint-description" className="ot-tx-fields__field-hint" role="note">
+                {statusHint}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Row 1: Account / Amount — SPEC-025 §FR1, SPEC-023 amount lock */}
         <div className="ot-tx-fields__row">
           <div className="ot-tx-fields__field">
             <label htmlFor="tx-account" className="ot-tx-fields__label">
@@ -105,8 +188,10 @@ export function TransactionFormFields({
               onChange={(e) => onAccountIdChange(e.target.value)}
               className="ot-tx-fields__input"
               aria-invalid={!!errors.accountId}
-              aria-describedby={errors.accountId ? 'error-account' : undefined}
-              disabled={readonly || mode === 'edit'}
+              aria-describedby={
+                errors.accountId ? 'error-account' : statusLocked ? 'lock-hint-account' : undefined
+              }
+              disabled={readonly || statusLocked}
             >
               {accounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
@@ -119,8 +204,59 @@ export function TransactionFormFields({
                 {errors.accountId}
               </span>
             )}
+            {!errors.accountId && statusLocked && (
+              <span id="lock-hint-account" className="ot-tx-fields__field-hint" role="note">
+                {statusHint}
+              </span>
+            )}
           </div>
 
+          <div className="ot-tx-fields__field">
+            <label htmlFor="tx-amount" className="ot-tx-fields__label">
+              {t('movements.form.fields.amount')}
+            </label>
+            <input
+              id="tx-amount"
+              type="number"
+              step="0.01"
+              min="0"
+              value={amount}
+              onChange={(e) => onAmountChange(e.target.value)}
+              placeholder="0.00"
+              className="ot-tx-fields__input"
+              aria-invalid={!!errors.amount}
+              aria-describedby={
+                errors.amount
+                  ? 'error-amount'
+                  : hasSplits || amountDisabled
+                    ? 'lock-hint-amount-splits'
+                    : statusLocked
+                      ? 'lock-hint-amount-status'
+                      : undefined
+              }
+              disabled={readonly || amountDisabled || hasSplits || statusLocked}
+            />
+            {errors.amount && (
+              <span id="error-amount" className="ot-tx-fields__field-error">
+                {errors.amount}
+              </span>
+            )}
+            {/* SPEC-025 §FR6 — split-lock hint takes precedence over status hint */}
+            {!errors.amount && (hasSplits || amountDisabled) && (
+              <span id="lock-hint-amount-splits" className="ot-tx-fields__field-hint" role="note">
+                {splitHint}
+              </span>
+            )}
+            {!errors.amount && !hasSplits && !amountDisabled && statusLocked && (
+              <span id="lock-hint-amount-status" className="ot-tx-fields__field-hint" role="note">
+                {statusHint}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: Category / Subcategory — always editable per SPEC-025 §4.1 */}
+        <div className="ot-tx-fields__row">
           <div className="ot-tx-fields__field">
             <label htmlFor="tx-category" className="ot-tx-fields__label">
               {t('transactionDetail.fields.category')}
@@ -144,10 +280,7 @@ export function TransactionFormFields({
               ))}
             </select>
           </div>
-        </div>
 
-        {/* Row 2: Subcategory / Tags — matches view mode */}
-        <div className="ot-tx-fields__row">
           <div className="ot-tx-fields__field">
             <label htmlFor="tx-subcategory" className="ot-tx-fields__label">
               {t('transactionDetail.fields.subcategory')}
@@ -167,7 +300,10 @@ export function TransactionFormFields({
               ))}
             </select>
           </div>
+        </div>
 
+        {/* Row 3: Tags / Status — Status is the unlock mechanism (SPEC-025 §4.2) */}
+        <div className="ot-tx-fields__row">
           <div className="ot-tx-fields__field">
             <label className="ot-tx-fields__label">{t('transactionDetail.fields.tags')}</label>
             <TagChipPicker
@@ -182,10 +318,7 @@ export function TransactionFormFields({
               disabled={readonly}
             />
           </div>
-        </div>
 
-        {/* Row 3: Status / Currency — matches view mode */}
-        <div className="ot-tx-fields__row">
           <div className="ot-tx-fields__field">
             <label htmlFor="tx-status" className="ot-tx-fields__label">
               {t('transactionDetail.fields.status')}
@@ -201,14 +334,18 @@ export function TransactionFormFields({
               <option value="pending">{t('movements.status.pending')}</option>
             </select>
           </div>
+        </div>
 
+        {/* Row 4: Currency (read-only) */}
+        <div className="ot-tx-fields__row">
           <div className="ot-tx-fields__field">
             <span className="ot-tx-fields__label">{t('transactionDetail.fields.currency')}</span>
             <span className="ot-tx-fields__value">{currency ?? '—'}</span>
           </div>
+          <div className="ot-tx-fields__field" aria-hidden="true" />
         </div>
 
-        {/* Reference — matches view mode extra section */}
+        {/* Reference — always editable (SPEC-025 §4.1) */}
         <div className="ot-tx-fields__field">
           <label htmlFor="tx-reference" className="ot-tx-fields__label">
             {t('transactionDetail.fields.reference')}
@@ -232,7 +369,7 @@ export function TransactionFormFields({
           )}
         </div>
 
-        {/* Details — matches view mode extra section */}
+        {/* Details — always editable (SPEC-025 §4.1) */}
         <div className="ot-tx-fields__field">
           <label htmlFor="tx-details" className="ot-tx-fields__label">
             {t('transactionDetail.fields.details')}
