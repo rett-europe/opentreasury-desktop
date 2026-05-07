@@ -439,7 +439,10 @@
     },
     "editButton": "Editar",
     "deleteButton": "Eliminar",
-    "deleteConfirm": "¿Seguro que quieres eliminar este movimiento? Esta acción no se puede deshacer."
+    "deleteConfirm": "¿Seguro que quieres eliminar este movimiento? Esta acción no se puede deshacer.",
+    "prevButton": "Movimiento anterior",
+    "nextButton": "Movimiento siguiente",
+    "discardChangesConfirm": "Tienes cambios sin guardar. ¿Descartarlos y navegar?"
   },
   "notes": {
     "heading": "Notas",
