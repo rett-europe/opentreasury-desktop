@@ -3377,3 +3377,26 @@ Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance o
 **Pattern (reusable).** See `.squad/skills/transient-busy-state/SKILL.md`.
 
 **PR:** #289 (squash-merged into main, branch deleted). Touched only `ImportWizard.tsx`. Typecheck/lint/tests/format all green.
+
+## Learnings (2026-05-07 - PR #296 fix/edit-modal-spec025)
+
+### SPEC-025 status-based edit lock implementation
+- **The unlock model**: a snapshot 'originalStatus' prop on TransactionFormFields, captured from 'transaction.status' when the modal entered edit mode, drives the lock. Live form 'status' state from React drives the unlock. Locked = (originalStatus === 'approved' && status === 'approved'). This single expression satisfies AC2 (approved locks), AC3 (mid-modal approved->pending unlocks immediately), AC4 (mid-modal pending->approved does NOT lock - because originalStatus is pending in that path), and AC1 (pending always editable).
+- The 'transaction' prop is stable across an edit session (parent only refreshes after save, which closes edit mode), so 'originalStatus = transaction.status' is a safe snapshot without extra useState.
+- Edit-mode body's summary banner: gated on 'transaction.status === "approved"'. For pending the form fields ARE the source of truth.
+- SPEC-023 split-lock takes precedence on Amount: hint key 'splits.detail.amountLocked' was already there; reused it to avoid a new string. Status hint sits under new 'transactionDetail.editLock.statusLockedHint'.
+- Disabled inputs use 'aria-describedby' pointing at the hint span (id='lock-hint-{field}') only when locked AND no error - errors take precedence on aria-describedby per existing pattern.
+- New CSS class '.ot-tx-fields__field-hint' mirrors '.ot-tx-fields__field-error' layout but uses '--color-text-muted' for the neutral 'info' tone the spec requires.
+
+### ImportWizard test fix (post #290 IPC picker)
+- After PR #290 the file picker became 'window.opentreasury.dialog.pickImportFile()' returning '{ ok, cancelled, path }'. The hidden '<input type="file">' is gone, so any test that did 'Object.defineProperty(fileInput, "files", ...)' now blows up with 'TypeError: Object.defineProperty called on non-object'.
+- Fix pattern: in the test bridge mock, add ''dialog: { pickImportFile: vi.fn().mockResolvedValue({ ok: true, cancelled: false, path: "/tmp/sample.csv" }) }''. Then in the test flow, click '.ot-import-wizard__dropzone' instead of dispatching change on a non-existent input.
+- Note: the renderer bridge namespace is 'window.opentreasury.{accounts,dialog,import,...}', NOT 'window.electron.invoke(channel)'. The Pedro-task brief described it as the latter; reality is the higher-level typed bridge.
+
+### Modal navigation cherry-pick (#295 -> #296)
+- Clean cherry-pick worked because the navigation-only changes were orthogonal to TransactionFormFields. Only conflict was the obsolete 'readonly={false}' line which was dropped.
+- The unsaved-changes detection in handleNavigate compares JSON.stringify(tagIds) - good enough for the small array, but worth remembering if tagIds grow large.
+
+### Gotchas
+- prettier ignores '.gitattributes' LF normalization but flagged the test file's long string concatenations - 'npm run format' fixed it cleanly.
+- 'npm run test' is heavy (~67s including Vitest startup) - prefer 'npx vitest run <path>' to iterate on a single file when wiring.
