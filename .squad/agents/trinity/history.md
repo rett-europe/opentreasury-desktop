@@ -53,6 +53,51 @@ The cloud version has an Angular 19 frontend with:
 
 ## Team Coordination Notes
 
+### 2026-05-09 — Edit Modal Fixes: Detalles Field + Next/Prev Navigation (PR #295, Issues #294 + #280)
+
+**Context:** Pedro dogfooding trial.3.6 discovered TWO bugs in the edit transaction modal:
+1. The DETALLES (observation) textarea was rendered but NOT editable (Issue #294)
+2. No way to navigate to next/prev transaction without closing the modal (Issue #280)
+
+Both issues touch the same files, so they were bundled into one PR.
+
+**Issue #294 Root Cause:**
+
+TransactionDetailModal was NOT explicitly passing the `readonly` prop to TransactionFormFields when in edit mode. While `readonly` defaults to `false` in the TransactionFormFields component definition, the bug manifested at runtime — the textarea rendered but was locked.
+
+**The Fix (Issue #294):**
+Added `readonly={false}` explicitly when rendering TransactionFormFields in edit mode (TransactionDetailModal.tsx line 426). This ensures the details textarea and all other fields are editable.
+
+**Issue #280 Implementation:**
+
+Added next/prev chevron buttons in the modal header to navigate between transactions in the current filtered/sorted list:
+- **Navigation buttons:** ◀ Prev / Next ▶ using lucide-react ChevronLeft/ChevronRight icons
+- **Keyboard shortcuts:** ArrowLeft (prev) / ArrowRight (next) — only when modal is open and focus is NOT in a text input/textarea/select
+- **Unsaved changes handling:** Confirmation dialog ("Discard changes?") before navigating if in edit mode with unsaved changes. User can cancel to save first, or confirm to discard and navigate.
+- **Edge handling:** Buttons disabled at list edges (prev at first transaction, next at last)
+- **List snapshot:** Navigation uses MovementsScreen's current `sortedTransactionRows` (respects filters + sort order)
+- **i18n:** Added `prevButton`, `nextButton`, `discardChangesConfirm` strings in EN + ES
+
+**Learnings:**
+
+1. **Always pass boolean props explicitly when they control critical UI state.** Even if a prop defaults to `false`, explicitly passing `readonly={false}` in edit mode makes the intent clear and avoids subtle bugs. Default parameter values work correctly in TypeScript/React, but explicit values are safer for reviewer understanding and future maintenance.
+
+2. **Modal navigation UX:** When adding prev/next navigation to a modal:
+   - Check for unsaved changes and prompt before navigating (don't silently discard user work)
+   - Disable keyboard shortcuts when focus is in text inputs/textareas (avoid accidental navigation while typing)
+   - Disable buttons at list edges (don't wrap around — users expect linear navigation)
+   - Base navigation on the CURRENT filtered/sorted list, not the full dataset
+
+3. **React hooks exhaustive-deps:** When adding functions to useEffect dependency arrays, wrap them in `useCallback` to avoid infinite loops. ESLint `react-hooks/exhaustive-deps` catches this.
+
+**Files changed:**
+- `app/src/renderer/components/TransactionDetailModal/TransactionDetailModal.tsx` — added `readonly={false}`, navigation buttons, keyboard handler, unsaved changes check
+- `app/src/renderer/screens/MovementsScreen/MovementsScreen.tsx` — wired up `transactionIds`, `currentIndex`, `onNavigate` props
+- `app/src/renderer/locales/en/common.json` — added navigation strings
+- `app/src/renderer/locales/es/common.json` — added Spanish translations
+
+**Testing:** Pedro should manually test in dev build before merging (checklist in PR #295 body).
+
 ### 2026-05-09 — Import File Picker IPC Migration (PR #290, trial.3.6)
 
 **Problem:** Trial.3.5 (#289) did NOT fix the import file picker regression. Pedro confirmed via testing: the native Windows "Open file" dialog NEVER APPEARS on packaged builds when clicking the import dropzone — only the spinner shows forever.
