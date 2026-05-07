@@ -1980,6 +1980,10 @@ When the designer is locked out, Pedro's verbatim feedback IS the spec. Treat ea
 **Specific CSS lesson logged separately at .squad/skills/grid-header-row-alignment/SKILL.md.**
 
 
+**2026-05-22 — Accessible disabled-field hints: tooltip + visually-hidden pattern (PR #298)**
+
+When a disabled input needs to explain WHY it's locked, use native browser tooltips for sighted users plus visually-hidden text for screen readers. Add `title="hint text"` on the disabled input, keep `aria-describedby` pointing to a `.ot-sr-only` span containing the same text. Zero infra, works everywhere, WCAG 2.1 AA compliant. See PR #298 for the full pattern applied to SPEC-025 status-locked fields.
+
 ---
 ## 2026-04-26 — PR #91 iter 5 (commit 1d3fcb7) — APPROVED-pending
 
