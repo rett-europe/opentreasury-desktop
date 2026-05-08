@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.7] — Edit modal polish & accessibility
+
+Polish and refinement of SPEC-025 status-based edit rules for transactions,
+and improved accessibility for transaction edit workflows.
+
+### Fixed
+
+- **Edit modal — Date, Description, Amount, and Account fields now editable
+  on Approved transactions by changing status to Pendiente in-modal (SPEC-025,
+  PR #296).** Closes #294. Allows accountants to re-open finalized
+  transactions when corrections are needed, with automatic recalculation
+  of account balances and journal state.
+- **Transaction edit modal — chevron Prev/Next navigation between transactions
+  in the active list (PR #296).** Users can now navigate the transaction list
+  directly from the edit modal without closing and reopening.
+- **ImportWizard tests aligned to renderer rewrite from #290 — main CI
+  unblocked (PR #296).** Test fixtures updated to match IPC-based file picker
+  introduced in trial.3.6.
+
+### Polish
+
+- **Edit-modal lock hints now appear as hover tooltips instead of repeating
+  inline text under each locked field (PR #298).** Reduces visual clutter on
+  locked fields while preserving full accessibility: screen readers still
+  receive the hint via aria-describedby.
+
 ## [0.1.0-trial.3.6] — Picker spinner regression — real fix
 
 The trial.3.5 fix (#289) treated the wrong layer. On packaged Windows,
