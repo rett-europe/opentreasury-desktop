@@ -413,6 +413,27 @@ PR #51 (wi23-legacy-fixture-gate tests) closed as redundant — PR #50 already i
 - **PR #74 merged (Layer A, last in train):** `.gitattributes` `* text=auto eol=lf` — eliminated ~58 Windows CRLF ghost-diffs. `format:check` now green on Windows.
 - **Locked rule:** Pre-commit hooks are mandatory for format/lint; CI is the backstop, never the only line of defense.
 
+## 2026-05-08 — v0.1.0-trial.3.7 Release Cut
+
+**Status:** ✅ Shipped and tagged
+
+**Release:** v0.1.0-trial.3.7 @ commit cf5bef9  
+**Tag:** v0.1.0-trial.3.7 pushed to origin  
+**Workflow:** GitHub Actions run 25570022996 in progress
+
+**Release Contents:**
+- PR #296 (SPEC-025 edit rules implementation)
+- PR #298 (Tooltip polish, Trinity)
+
+**Release Workflow:** Version bumped in package.json, CHANGELOG.md updated, tag created locally, tag pushed to origin. Build and test artifacts pending from GitHub Actions run 25570022996.
+
+**Pattern (reusable):** The release cut workflow is: (1) bump version in package.json + CHANGELOG.md, (2) create local tag matching version, (3) push tag to origin (triggers release workflow in GitHub Actions), (4) verify workflow run completes with artifacts + release notes. For trial releases, the workflow auto-publishes to a "trial" release channel; no manual artifact upload required.
+
+**Commit history (latest):**
+- 2026-05-07 15:09:50Z: SPEC-025 shipped (PR #307)
+- 2026-05-07 18:27:42Z: Tooltip polish merged (PR #298)
+- 2026-05-08 17:36:24Z: trial.3.7 release cut
+
 ### 2026-04-29 — Splits Wave A E2E Un-skip (PR #119, issue #59)
 
 **Task:** Un-skip 4 Wave A happy-path E2E tests (HP-01, HP-03, HP-05, ES-03) now that PR #116 (i18n namespace `split`→`splits`, parseLocaleAmount) and PR #117 (split IPC handlers + audit logs) are merged.

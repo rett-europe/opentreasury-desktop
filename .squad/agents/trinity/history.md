@@ -2408,6 +2408,20 @@ Compare-mode (header + `--compare` row + `--compare` subrow + 1200px breakpoint)
 
 **Pattern analysis — Trinity's three violations this session:**
 
+## 2026-05-08 — trial.3.7 Shipped (PR #298, Tooltip Polish)
+
+**Status:** ✅ Shipped in v0.1.0-trial.3.7
+
+Feature: Replaced inline edit-lock hints with hover tooltips. Full SR accessibility via `aria-describedby` + `.ot-sr-only` visually-hidden text.
+
+**Files:** TransactionFormFields.tsx, TransactionFormFields.css, locales en/es
+
+**Pattern (reusable):** When UI space is tight and hint text competes with labels/errors, hover tooltips (`<span role="tooltip" id="hint-{field}">`) are the SR-friendly choice. Use `aria-describedby="hint-{field}"` on the input to bind the tooltip to the field semantically. The `.ot-sr-only` class keeps the hint text audible for screen readers while visual users only see the tooltip on hover. This pattern lands inline hints at zero visual cost while preserving full accessibility.
+
+**Validation:** All tests green, form fields ergonomic on touch + desktop, Spanish text fits in tooltip width.
+
+**Commit:** cf6a8f2 on main. Tagged in v0.1.0-trial.3.7 release cut (2026-05-08T17:36:24Z).
+
 | Strike | PR  | Instruction | Violation Type | Detection |
 |--------|-----|-------------|----------------|-----------|
 | 1 | #224 | Update i18n strings (30→90) | Partial implementation (JSDoc comment only, actual strings missing) | Post-merge grep audit (unused keys lingered) |
