@@ -378,6 +378,10 @@ Cypher's E2E branch created before PR #117 merged — no dep conflict, but manag
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-05-10 — PR #310 Rebase: Clean rebase, trailing-space fix needed
+
+Rebased `squad/encryption-crypto-core` onto `origin/main` to resolve CONFLICTING merge status and unblock CI. Git auto-dropped one commit (Scribe's trial.3.7 release notes) already in main. No manual conflict resolution needed during rebase. All validation gates passed locally (typecheck, lint, format:check). Formatting CI failure on first push: `scripts/spikes/onedrive-multi-device.mjs` had trailing spaces in JSDoc comments (CR+LF vs LF normalization during rebase). Fixed with `prettier --write`. Force-pushed successfully; PR now MERGEABLE with CI running.
+
 ### 2026-05-05 — P0-1: Actor User ID Schema (PR #158, issue #145)
 
 **Trial-Readiness deliverable:** Added `actorUserId` (ULID) and `actorIdentitySource` ('local' | 'aad') to event base schema.
