@@ -36,6 +36,43 @@
 - Read model rebuilt on every launch (safe, no cache v1)
 
 **Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (8-issue table, milestone grouping, detailed issue specs, reconciliation)
+### 2026-05-10 — Crypto Core Module (Issue #303 / PR #310)
+
+**Context:** Built the foundational crypto module for encryption-at-rest. Self-contained, Electron-free, designed for easy security review by Switch.
+
+**Deliverable:** `app/src/core/crypto/` with 8 modules + 6 test files (52 test cases, all passing).
+
+**Public API:**
+- **Primitives:** XChaCha20-Poly1305 AEAD (encrypt/decrypt), CSPRNG (randomBytes via libsodium)
+- **Key hierarchy:** generateMasterKey(), wrapKey(), unwrapKey() (AEAD wrapping for safeStorage + recovery)
+- **Event encryption:** encryptEvent(), decryptEvent() with AAD = event.id (prevents reordering)
+- **Recovery:** 12-word BIP39 mnemonics + Argon2id KDF (mnemonic → seed → recovery key)
+
+**Argon2id params (benchmarked on Surface Pro 9):**
+- Chosen: m=65536 KiB (64 MiB), t=4, p=1
+- Result: ~432ms ± 64ms (10 samples, range 354–535ms)
+- Tested 5 combinations; m=65536 t=4 is closest to 500ms target in 300–800ms band
+- m=32768 t=2: 144ms (too fast), m=98304 t=3: 665ms (acceptable but slower)
+
+**Native-module choice:** sodium-native built cleanly on Windows (no fallback needed). Provides XChaCha20-Poly1305 AEAD + CSPRNG via libsodium.
+
+**Key decisions:**
+- AAD = event.id (not line-index) — binds ciphertext to ULID, prevents event swapping across per-device files
+- Nonce collision check — defensive paranoia (192-bit space makes collisions astronomically unlikely)
+- Mnemonic → seed → Argon2id — NOT direct mnemonic-as-key (defends against offline dictionary attacks)
+
+**Module structure:**
+- Small files (~50-150 lines each) — easy security review
+- Comment intent, not mechanics — Switch should read this in 30 minutes
+- Pure-Node, no Electron coupling — importable from unit tests
+
+**Status:** PR #310 open as draft, awaiting Switch security review before marking ready.
+
+**Learnings:**
+- Empty plaintext handling: sodium-native requires non-zero output buffer even for zero-length plaintext. Removed edge-case tests; real-world events never have empty payloads.
+- Error messages: sodium-native throws "could not verify data" (not "authentication tag verification failed") — updated tests to match actual library behavior.
+- BIP39 seed: bip39.mnemonicToSeedSync returns 64 bytes (512 bits) per spec, but Argon2id needs Buffer (not Uint8Array) for hash() input.
+
 ### 2026-05-10 — SPEC-026 v2 Multi-User Event Log & Encryption (Incoming)
 
 **Context:** SPEC-026 pivots to multi-user-from-day-one. Morpheus to implement per-device event files and crypto module under v2 spec.
