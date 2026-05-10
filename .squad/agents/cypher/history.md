@@ -50,6 +50,21 @@
 - **M3 (day 25):** Issue #7. Full integration tests green, trial ready.
 
 **Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (full 8-issue table, detailed test specs, risk matrix)
+### 2026-05-10 — SPEC-026 v2 Multi-User Event Log (Context Note)
+
+**Context:** SPEC-026 pivots to multi-user-from-day-one. Per-device event files will impact Cypher's domain (event sourcing / read-model queries).
+
+**Cypher's scope (awaiting v2 spec):**
+- Per-device file reads: Glob all `events-*.ndjson`, deserialize, merge-sort by ULID, deduplicate before feeding to reducers
+- No change to reducer logic (reads still consume sorted event stream)
+- Read-model queries remain unchanged (built from merged event stream)
+- Optional: Audit trail queries (actorDeviceId, actorUserId already in event envelope)
+
+**Key implementation note:** Read model rebuild on every app launch (v1 decision). No cache/snapshot for v1. Small datasets typical for NGOs (~5k events) make rebuild negligible (< 500ms).
+
+**Status:** Awaiting v2 spec; no immediate action. Coordinate with Morpheus on event log interface changes.
+
+**Artifact:** `.squad/decisions.md` § 2026-05-10 SPEC-026 Multi-User Encryption Redesign
 
 ## Core Context
 

@@ -36,6 +36,26 @@
 - Read model rebuilt on every launch (safe, no cache v1)
 
 **Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (8-issue table, milestone grouping, detailed issue specs, reconciliation)
+### 2026-05-10 — SPEC-026 v2 Multi-User Event Log & Encryption (Incoming)
+
+**Context:** SPEC-026 pivots to multi-user-from-day-one. Morpheus to implement per-device event files and crypto module under v2 spec.
+
+**Morpheus's scope (awaiting v2 spec):**
+- **Crypto module:** Multi-wrap key model (shared recovery wrap + per-device safeStorage wraps), device enrollment logic, Argon2id key derivation, XChaCha20-Poly1305 AEAD
+- **Event log adapter:** Per-device file writes (`events-{deviceId}.ndjson`), glob + merge-sort read path (all files, sorted by ULID), deduplication, AAD binding change (event.id instead of line-index)
+- **Conflict handling:** Rare (enrollment-time only); detect + merge on `events.key` conflict copies
+- **Migration:** Single `events.ndjson` → per-device file + key wrap
+
+**Key decisions locked:**
+- Per-device files (no write conflicts on OneDrive/SharePoint)
+- Rebuild read model on every launch (safe, no cache for v1)
+- Recovery code = team secret (trusted board only)
+
+**Estimate:** 14–18 working days (up from 10–12 for single-device). Riskiest unknown: cloud-sync provider behavior with frequent appends to different files.
+
+**Status:** Awaiting Niobe's v2 spec for detailed requirements + AC.
+
+**Artifact:** `.squad/decisions.md` § 2026-05-10 SPEC-026 Multi-User Encryption Redesign
 
 ## Key Reference
 
