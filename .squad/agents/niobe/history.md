@@ -7,6 +7,25 @@
 
 ## Recent Work
 
+### 2026-05-10 — SPEC-026 v2 Multi-User Rewrite (Spawned)
+
+**Context:** Pedro finalized Keaton's 3 open questions (recovery code as team secret, workspace folder picked at first launch, read model rebuilt on boot). Multi-user HARD requirement locked. Niobe spawned to rewrite SPEC-026 as single coherent v2 spec.
+
+**Key changes from v1 → v2:**
+- Single-device → multi-user-from-day-one
+- `events.ndjson` → `events-{deviceId}.ndjson` (per-device files)
+- Singular `wrap_safestorage` → `devices[]` array (multi-wrap key model)
+- Fresh setup flow + NEW join flow (recovery code enrollment)
+- Updated acceptance criteria for multi-device scenarios (enrollment, concurrent write, merge-sort, conflict handling)
+
+**Deliverable:** Rewrite `docs/specs/026-encryption-at-rest.md` to absorb Keaton's architecture + Pedro's directives + 3 answered questions.
+
+**Status:** SPAWNED; awaiting v2 spec composition.
+
+**Artifact:** `.squad/orchestration-log/2026-05-10T120713-niobe.md`
+
+### 2026-05-02 — Sidebar IA Overhaul (Spec: niobe-sidebar-ia.md)
+
 ### 2026-05-02 — Sidebar IA Overhaul (Spec: niobe-sidebar-ia.md)
 
 **Context:** Pedro flagged the "SETTINGS" sidebar group as misnamed — it contains Categories/Tags/Accounts (reference data / taxonomy), NOT app settings. Real settings (theme, language, profile, dataset config) live in a separate `/settings` route accessed via a top-right gear icon. This creates semantic confusion.
@@ -495,6 +514,28 @@ Every UX spec going forward must open with a `Prototype reference` block citing 
 4. **Column mapping dropdowns (STEP 4) scale to any file structure** (CSV from bank X, Excel export from accounting software Y, etc.). Generic + flexible at cost of explicit user action per import. Acceptable trade-off for MVP.
 5. **i18n copy strategy (entity name + action verb):** `import.step{N}.{field}` keeps keys discoverable and avoids duplication across specs.
 
+### 2026-05-12 — SPEC-026 v2: Multi-user encryption at rest (full rewrite)
+
+**Task:** Rewrite SPEC-026 from single-device (v1) to multi-user-from-day-one (v2), incorporating Keaton's architecture redesign (D1–D5) and Pedro's 3 resolved questions.
+
+**Multi-user spec patterns learned:**
+
+1. **Per-device event files dodge cloud-sync conflicts entirely.** Each device writes only to `events-{deviceId}.ndjson`. Read path globs all files and merge-sorts by ULID. This is simpler than lock files, conflict detection, or CRDTs — and correct for an append-only log with 2–5 writers.
+
+2. **Recovery code = enrollment secret = trust root.** In a small trusted board (2–5 people), a shared 12-word BIP39 phrase is both disaster recovery AND team onboarding. No admin panel, no invitation system. Anyone Pedro shares the code with can join. This is the same trust model as sharing an Excel password — appropriate for the NGO context.
+
+3. **Pedro's trust/revocation stance:** No per-user revocation in v1. Copies of the workspace remain readable with the original recovery code. Full revocation (MK rotation + re-encryption) is a future spec. This is an explicit, documented non-goal — not an oversight.
+
+4. **Per-device file architecture and OneDrive:** The strategy works because each device touches only its own file. The riskiest unknown is whether OneDrive reliably propagates new files and frequent small appends without phantom conflicts. A 1-day smoke test on actual OneDrive is recommended before locking the design.
+
+5. **AAD binding must use event.id (ULID), not line index.** Line-index-based AAD breaks when events span multiple files. event.id is globally unique and immutable — the natural choice for preventing event-swapping across files.
+
+6. **Spec rewrite from architecture proposal workflow:** Input contract (Keaton's D1–D5) provides decisions and schemas. Owner answers (Pedro's Q1–Q3) close remaining questions. Rewrite the spec as if the multi-user design is the only design — no "addendum" framing. Harvest reusable copy (bilingual EN+ES) from the v1 spec for tone consistency. Structure mirrors the team's style reference (SPEC-025).
+
+7. **`events.key` conflict-copy merge is an edge case worth an AC.** During simultaneous enrollment, OneDrive may produce conflict copies. The merge strategy (union `devices[]` by deviceId) is simple because `wrap_recovery`, `salt`, and `argon2_params` are immutable after creation — only the devices array grows.
+
+8. **device.json lives in userData (per-machine, NOT synced).** This is critical: the deviceId and workspace path are local identity, not shared state. Putting them in the synced folder would leak device identity across machines.
+
 **Next:** Await Pedro's answers on 7 open questions (especially date format + duplicate UX + memory scope). Once locked, Trinity to validate visual design + interaction against this spec. UX-017 ready for implementation handoff post-ratification.
 
 ---
@@ -724,3 +765,25 @@ Your analysis was the critical input for this decision gate — the spec now ref
 **Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
 
 **Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.
+
+
+### 2026-05-10 — SPEC-026: Encryption at Rest (v1)
+
+Wrote `docs/specs/026-encryption-at-rest.md` based on Keaton's refined NGO-focused design + Pedro's four greenlights.
+
+**Key UX decisions locked:**
+
+1. **No skip button on first-run.** The recovery-code confirmation (3 random word positions out of 12, real-time validation) is the single mandatory friction point. Closing the app mid-flow discards the in-memory MK and starts over with a freshly generated mnemonic next launch — no half-confirmed state can be persisted. Rationale: a 60-second one-time setup beats a "sorry, your data is gone" support email forever after.
+2. **12 words, not 24.** BIP39 wordlist, 128-bit entropy. Strong enough for the threat model (Argon2id-hardened wrap), and 12 is meaningfully less intimidating than 24 for an NGO treasurer who has never seen a mnemonic before. 3×4 grid fits one screen without scroll.
+3. **Recovery flow never locks out.** Wrong code shows error + retry forever. After 5 attempts, a "Contact support" line appears, but attempt 6 still validates. Lockout would defeat recovery: the user already proved possession by typing 12 BIP39 words; bricking them on a typo helps no one.
+4. **Export-decrypted always re-asks for the recovery code**, even when `safeStorage` could unlock silently. The friction is intentional — this is the one operation that materialises plaintext on disk, so we want the user to consciously prove ownership.
+5. **Migration safety net:** `events.ndjson.pre-encryption.bak` written before re-encrypting trial data, deleted only after the first successful encrypted append (proves the new format is round-trippable end-to-end).
+
+**Spec stats:** 14 sections, 13 testable ACs, 3 open questions for Keaton (Argon2id parameter target on real NGO hardware, atomic rename semantics for `events.key` on Windows, snapshot-file encryption strategy if/when one lands).
+
+**Open questions to Keaton (block implementation):**
+1. Confirm Argon2id `m=64MiB, t=3, p=1` ~500ms on a 2020-era NGO laptop.
+2. Confirm `write-tmp → fsync → rename` is atomic enough for `events.key` on Windows.
+3. Snapshot file: same MK, separate AEAD, or considered derived/plaintext (separate spec)?
+
+**Decision dropped:** `.squad/decisions/inbox/niobe-spec-026-shipped.md`.

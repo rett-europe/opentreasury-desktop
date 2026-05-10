@@ -5,6 +5,48 @@
 - **Stack:** Electron (frontend), rest TBD. Reference app: Angular 19 + Python FastAPI + Cosmos DB + Entra ID on Azure.
 - **Created:** 2026-04-19
 
+## Recent Work
+
+### 2026-05-10 — SPEC-026 v2 Implementation Kickoff (ACTIVE)
+
+**Status:** 🚀 KICKOFF IN PROGRESS. Keaton's 8-issue plan APPROVED. Trinity assigned **#3 workspace detection routing** + **#4 onboarding UX**.
+
+**Trinity's immediate scope (M1 critical path, locked in `.squad/decisions.md`):**
+
+**Issue #3 — Workspace Detection & Routing (with Morpheus)**
+- **Effort:** 2 days (M)
+- **Scope:** Renderer routing logic (Fresh → Setup screens, Join → Recovery code entry, Dashboard → normal, Recovery → recovery screen, Migration → migration flow)
+- **IPC method contracts:** Fully typed, no breaking changes (Morpheus provides `encryption:detect()` → `{ state, workspace?, lastError? }`)
+- **State machine:** Fresh, Join, Dashboard, Recovery, Migration based on `events.key` existence + deviceId + lastError
+
+**Issue #4 — Onboarding UX: Fresh Setup + Join Flows**
+- **Effort:** 3 days (L, split with Mouse)
+- **Scope (Trinity):**
+  - Fresh setup screens: Why (value prop), recovery code grid (4 cols × 6 rows), confirm (3 random words), done screen
+  - Join flow screens: Welcome (enter recovery code grid), Unlocking spinner, Dashboard
+  - Recovery screen: Detect failed safeStorage, prompt for code, re-wrap
+  - Optional device label input (for audit trail)
+  - IPC wiring to Morpheus crypto module
+- **Scope (Mouse):** Icons + visual consistency with dashboard design
+- **i18n:** All copy bilingual EN/ES per Niobe's spec
+
+**Full M1 picture (5 parallel issues):**
+- #0: Morpheus (spike, < 1 day) → Pre-flight go/no-go
+- #1: Morpheus + Switch (crypto, 3 days) → After spike
+- #2: Morpheus (event log, 3 days) → After #1 merge
+- #3: Morpheus + Trinity (detection, 2 days) → Parallel to #2
+- #4: Trinity + Mouse (UX, 3 days) → Parallel to #2–#3
+- **M1 gate:** Day 13 (critical path = spike→crypto→event log, UI flows in parallel)
+
+**Key decisions locked (multi-user from day-one):**
+- Per-device event files (no OneDrive conflicts)
+- Multi-wrap key model (recovery code + per-device wraps)
+- Recovery code as team enrollment secret
+- User picks workspace folder (not auto-default)
+- Rebuild read model on boot (no cache v1)
+
+**Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (full 8-issue table, detailed Trinity scopes, dependencies, reconciliation)
+
 ## Key Reference
 
 The cloud version has an Angular 19 frontend with:
@@ -2407,6 +2449,20 @@ Compare-mode (header + `--compare` row + `--compare` subrow + 1200px breakpoint)
 **Why this matters:** In a 4-agent ecosystem, out-of-scope implementations create merge-conflict risk and silent divergence risk. The spawn prompt boundaries exist *because* work is already sliced. Trinity expanded without asking the coordinator.
 
 **Pattern analysis — Trinity's three violations this session:**
+
+## 2026-05-08 — trial.3.7 Shipped (PR #298, Tooltip Polish)
+
+**Status:** ✅ Shipped in v0.1.0-trial.3.7
+
+Feature: Replaced inline edit-lock hints with hover tooltips. Full SR accessibility via `aria-describedby` + `.ot-sr-only` visually-hidden text.
+
+**Files:** TransactionFormFields.tsx, TransactionFormFields.css, locales en/es
+
+**Pattern (reusable):** When UI space is tight and hint text competes with labels/errors, hover tooltips (`<span role="tooltip" id="hint-{field}">`) are the SR-friendly choice. Use `aria-describedby="hint-{field}"` on the input to bind the tooltip to the field semantically. The `.ot-sr-only` class keeps the hint text audible for screen readers while visual users only see the tooltip on hover. This pattern lands inline hints at zero visual cost while preserving full accessibility.
+
+**Validation:** All tests green, form fields ergonomic on touch + desktop, Spanish text fits in tooltip width.
+
+**Commit:** cf6a8f2 on main. Tagged in v0.1.0-trial.3.7 release cut (2026-05-08T17:36:24Z).
 
 | Strike | PR  | Instruction | Violation Type | Detection |
 |--------|-----|-------------|----------------|-----------|

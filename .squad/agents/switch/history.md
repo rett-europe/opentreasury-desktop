@@ -17,6 +17,69 @@ Security considerations for Electron desktop treasury app:
 - Dependency supply chain risks (npm ecosystem)
 - OWASP Desktop App Security Top 10
 
+## Recent Work
+
+### 2026-05-10 — SPEC-026 v2 Implementation Kickoff (ACTIVE)
+
+**Status:** 🚀 KICKOFF IN PROGRESS. Keaton's 8-issue plan APPROVED. Switch assigned **#1 crypto-core review** + **#7 integration-tests oversight**.
+
+**Switch's immediate scope (M1 critical path, locked in `.squad/decisions.md`):**
+
+**Issue #1 — Crypto Core Module (with Morpheus)**
+- **Effort:** 3 days (L)
+- **Role:** Mandatory review of crypto module (Switch sign-off required)
+- **Scope (Morpheus):** `app/src/core/crypto/` module with:
+  - `sodium-native` integration: XChaCha20-Poly1305 AEAD (encrypt/decrypt)
+  - `generateMasterKey()`, `encryptEvent(plaintext, mk, eventId)`, `decryptEvent(ciphertext, mk, eventId)` with AAD = eventId
+  - `generateNonce()`, `deriveRecoveryKey(mnemonic, salt, argon2Params)`
+  - `wrapKey()` / `unwrapKey()` (AEAD wrap)
+  - `generateMnemonic()` / `validateMnemonic()` (BIP39 12-word English)
+  - **Argon2id tuning:** Morpheus benchmarks on 2020-era Surface (target ~500ms). If > 1s, reduce m to 48 MiB; if < 200ms, increase t to 4.
+  - Unit tests: round-trip, wrong-key rejection, AAD tamper, nonce uniqueness
+- **Review focus:** Primitives, key hierarchy, threat model (now includes "another device compromised" scenario), Argon2id params
+- **Timeline:** After spike #0 passes (pre-flight go/no-go)
+- **Sign-off:** Required before #2 (event log) filed
+
+**Issue #7 — Encryption Integration Tests (with Cypher)**
+- **Effort:** 2 days (M, tail of M3)
+- **Timeline:** After M2 complete (day 20+)
+- **Scope (Switch):** Crypto validation
+  - Round-trip encrypt/decrypt correctness
+  - AAD tamper detection (verify AAD verification works)
+  - Nonce collision test
+  - Key wrap/unwrap paths (safeStorage + recovery)
+  - Re-enrollment scenario
+  - Threat model review (multi-device: another device compromised)
+- **Scope (Cypher):** E2E tests
+  - Fresh setup (recovery code displayed)
+  - Join flow (enter code, access dashboard)
+  - Export-decrypted (CSV/JSON fidelity)
+  - Per-device event verification (glob, merge-sort, ULID ordering)
+  - Concurrent appends, conflict file handling, corrupted key recovery
+  - Test fixtures: Pre-encrypted key files, multi-device event logs
+
+**Full M1 picture (5 parallel issues):**
+- #0: Morpheus (spike, < 1 day) → Pre-flight gate
+- #1: Morpheus + Switch review (crypto, 3 days) → After #0
+- #2: Morpheus (event log, 3 days) → After #1
+- #3: Morpheus + Trinity (detection, 2 days) → Parallel #2
+- #4: Trinity + Mouse (UX, 3 days) → Parallel #2–#3
+- **M1 gate:** Day 13 (critical path = spike→crypto→event log, UI parallel)
+
+**Dependencies & risks:**
+- **#0 spike:** Riskiest unknown. FAIL = architecture redesign; PASS = proceed to #1
+- **Argon2id tuning:** Morpheus benchmarks in #1; Switch validates params
+- **Atomic writes on Windows:** Open Q in #2; test tmp→fsync→rename on Windows CI
+- **Cloud-sync unknowns:** Spike findings inform #2 edge-case handling
+
+**Key crypto decisions locked (unchanged from v1):**
+- XChaCha20-Poly1305 via sodium-native (AEAD per-event)
+- BIP39 12-word recovery code + Argon2id key derivation
+- OS keychain via @napi-rs/keyring (safeStorage wrap)
+- **New:** Multi-wrap model (shared recovery + per-device wraps)
+
+**Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (full 8-issue table, detailed crypto specs, risk matrix, reconciliation)
+
 ## Core Context
 
 **WI-17 Orientation (2026-04-20):** Validation rules + error handling spec frozen in `.squad/decisions.md` under "WI-17 v2 — Generic Column-Mapping Importer". Neo's spec §"Dry-run validation rules" + §"Error codes" define the full validation matrix: date parsing (DD/MM auto-detect with >12 heuristic), amount parsing (multiple separators, sign conventions, currency stripping), description validation (max 500 chars), and error propagation to dry-run preview. Your tasks: (1) Review validation rules for security implications (range attacks, format-confusion edge cases); (2) finalize error messaging copy (already EN/ES from Niobe's UX spec); (3) ensure no sensitive data (filenames, row counts, column names) leaks in error output. See decisions.md §"WI-17 v2" for full spec + error catalog.

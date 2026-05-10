@@ -5,6 +5,52 @@
 - **Stack:** Electron (frontend), rest TBD. Reference app: Angular 19 + Python FastAPI + Cosmos DB + Entra ID on Azure.
 - **Created:** 2026-04-19
 
+## Recent Work
+
+### 2026-05-10 — SPEC-026 v2 Implementation Kickoff (ACTIVE)
+
+**Status:** 🚀 KICKOFF IN PROGRESS. Keaton's 8-issue plan APPROVED. Cypher assigned **#7 encryption-integration-tests** (M3 tail, depends on M1+M2 complete).
+
+**Cypher's scope (locked in `.squad/decisions.md`):**
+
+**Issue #7 — Encryption Integration Tests (with Switch)**
+- **Effort:** 2 days (M)
+- **Timeline:** M3 (day 20+, after M2 complete)
+- **Dependencies:** All M1+M2 issues complete
+- **Scope (Cypher):** E2E tests + read-model validation
+  - E2E tests (Playwright):
+    - Fresh setup: Recovery code displayed, 3-word confirm, setup completes
+    - Join flow: Enter recovery code, access dashboard after enrollment
+    - Export-decrypted: CSV/JSON export fidelity
+  - Per-device event verification:
+    - Glob all `events-*.ndjson` files, deserialize, merge-sort by ULID, validate ordering
+    - Deduplicate before feeding to reducers (no duplicate events in read model)
+    - Concurrent appends: Two devices writing simultaneously, verify no conflicts
+    - Conflict file handling: If OneDrive produces `*-conflict*` copies, assert detected + handled
+  - Corrupted key recovery: Detect + surface recovery prompt on failed safeStorage unwrap
+  - Test fixtures: Pre-encrypted key files, multi-device event logs (10 events per device, merged correctly)
+- **Scope (Switch):** Crypto validation (see Switch history)
+
+**Impact on Cypher's domain (per-device event files):**
+- **Read-model no change:** Reducer logic stays the same. Reads consume sorted event stream (post-merge).
+- **New responsibility:** Glob `events-*.ndjson`, deserialize all, merge-sort by ULID, deduplicate before projections
+- **No cache/snapshot v1:** Rebuild read model on every app launch (safe, no stale-risk)
+- **Open Q:** Snapshot encryption strategy (separate spec when snapshot lands, not v1)
+
+**Key architectural decisions locked:**
+- Per-device event files (`events-{deviceId}.ndjson`) — no OneDrive write conflicts
+- Multi-wrap key model: shared recovery wrap + per-device safeStorage wraps
+- Read model rebuilt on every launch (safe, no cache v1)
+- Merge-sort by ULID across 2–5 devices (deterministic, correct for NGO workflows)
+- AAD binding by `event.id` (not line-index) — safe across multiple files
+
+**Full implementation timeline:**
+- **M1 (day 13):** Issues #0–#4. Fresh & join UX, crypto module reviewed, event log reads/writes validated.
+- **M2 (day 20):** Issues #5–#6. Legacy data migrated, export-decrypted escape hatch.
+- **M3 (day 25):** Issue #7. Full integration tests green, trial ready.
+
+**Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (full 8-issue table, detailed test specs, risk matrix)
+
 ## Core Context
 
 **WI-17 Implementation & Security Hardening SHIPPED (2026-04-20, commit a97d21e)**
@@ -412,6 +458,27 @@ PR #51 (wi23-legacy-fixture-gate tests) closed as redundant — PR #50 already i
 - **PR #73 merged (Layer B):** husky + lint-staged pre-commit hook + 5 prettier fixes. Mechanical guard before commit lands.
 - **PR #74 merged (Layer A, last in train):** `.gitattributes` `* text=auto eol=lf` — eliminated ~58 Windows CRLF ghost-diffs. `format:check` now green on Windows.
 - **Locked rule:** Pre-commit hooks are mandatory for format/lint; CI is the backstop, never the only line of defense.
+
+## 2026-05-08 — v0.1.0-trial.3.7 Release Cut
+
+**Status:** ✅ Shipped and tagged
+
+**Release:** v0.1.0-trial.3.7 @ commit cf5bef9  
+**Tag:** v0.1.0-trial.3.7 pushed to origin  
+**Workflow:** GitHub Actions run 25570022996 in progress
+
+**Release Contents:**
+- PR #296 (SPEC-025 edit rules implementation)
+- PR #298 (Tooltip polish, Trinity)
+
+**Release Workflow:** Version bumped in package.json, CHANGELOG.md updated, tag created locally, tag pushed to origin. Build and test artifacts pending from GitHub Actions run 25570022996.
+
+**Pattern (reusable):** The release cut workflow is: (1) bump version in package.json + CHANGELOG.md, (2) create local tag matching version, (3) push tag to origin (triggers release workflow in GitHub Actions), (4) verify workflow run completes with artifacts + release notes. For trial releases, the workflow auto-publishes to a "trial" release channel; no manual artifact upload required.
+
+**Commit history (latest):**
+- 2026-05-07 15:09:50Z: SPEC-025 shipped (PR #307)
+- 2026-05-07 18:27:42Z: Tooltip polish merged (PR #298)
+- 2026-05-08 17:36:24Z: trial.3.7 release cut
 
 ### 2026-04-29 — Splits Wave A E2E Un-skip (PR #119, issue #59)
 

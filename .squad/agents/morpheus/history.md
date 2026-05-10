@@ -5,6 +5,38 @@
 - **Stack:** Electron (frontend), rest TBD. Reference app: Angular 19 + Python FastAPI + Cosmos DB + Entra ID on Azure.
 - **Created:** 2026-04-19
 
+## Recent Work
+
+### 2026-05-10 — SPEC-026 v2 Implementation Kickoff (ACTIVE)
+
+**Status:** 🚀 KICKOFF IN PROGRESS. Keaton's 8-issue plan APPROVED by Pedro. Morpheus on **#0 OneDrive sync spike** (S-size, < 1 day).
+
+**Immediate assignment:** Issue #0 (`onedrive-sync-spike`) — Go/no-go validation for per-device architecture.
+- **What:** Throwaway Node script: create `events-{deviceA}.ndjson` + `events-{deviceB}.ndjson` in real OneDrive folder, concurrent appends (50 lines each), wait 120s sync settle, assert zero conflict copies.
+- **Why:** Riskiest unknown. If spike FAILS, entire per-device strategy needs redesign. If PASS, unblocks #1 (crypto-core).
+- **Branch:** `squad/encryption-onedrive-sync-spike`
+- **Deliverable:** Pass/fail + findings (no production code)
+- **Timeline:** Pre-flight (complete before #1 filed)
+
+**Morpheus's full 8-issue scope (locked in `.squad/decisions.md`):**
+- **#0** OneDrive sync spike (S) → Pre-flight
+- **#1** Crypto core (L, with Switch review) → M1 (depends #0 pass)
+- **#2** Per-device event log (L) → M1 (depends #1 merge)
+- **#3** Workspace detection routing (M, with Trinity) → M1
+- **#5** Migration legacy data (M) → M2
+- **#6** Export decrypted (M, with Trinity) → M2
+
+**Estimates:** 16 working days total · 10–12 calendar days with parallel agents · critical path 13 calendar days.
+
+**Key decisions locked:**
+- Per-device files (no write conflicts on OneDrive/SharePoint)
+- Multi-wrap key model: shared recovery wrap + per-device safeStorage wraps
+- Recovery code = team enrollment secret (trusted board, no revocation v1)
+- Workspace folder picked by user (not auto-default)
+- Read model rebuilt on every launch (safe, no cache v1)
+
+**Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (8-issue table, milestone grouping, detailed issue specs, reconciliation)
+
 ## Key Reference
 
 The cloud version's backend (Python FastAPI) features:
@@ -79,6 +111,43 @@ The desktop version needs equivalent functionality with local persistence (no cl
 ---
 
 ## Learnings
+
+**2026-06-13 — OneDrive Multi-Device File Append Smoke Spike (Issue #302, PR #304)**
+
+Delivered the first SPEC-026 work item: a throwaway Node spike script that validates OneDrive's behavior when two processes append to **different** files in the same synced folder. This is the critical go/no-go gate for SPEC-026 v2's per-device-file architecture.
+
+**What was delivered:**
+- **Spike script:** `scripts/spikes/onedrive-multi-device.mjs` (~300 lines)
+  - Spawns two child processes (deviceA, deviceB) that each append 50 lines (1/second) to separate `events-{deviceId}.ndjson` files
+  - Waits 120 seconds for OneDrive sync to settle after writes complete
+  - Scans folder for conflict copies (patterns: `*-conflict*`, `*(1)*`, `*(deviceName)*`, date suffixes)
+  - Validates both target files exist, are well-formed JSON (50 lines each, 100 total)
+  - Prints clear PASS/FAIL summary with implications for SPEC-026 v2
+- **Findings document:** `docs/specs/spikes/onedrive-multi-device-findings.md`
+  - Explains what we're testing and why (per-device files = no write conflicts assumption)
+  - Includes execution instructions for Pedro (script takes target folder path as arg)
+  - Documents PASS/FAIL criteria and architectural implications
+  - Blank "Results" section for Pedro to fill in after running on his real OneDrive folder
+- **Branch + Draft PR:** `squad/encryption-onedrive-sync-spike` → PR #304
+  - Linked to issue #302
+  - Marked as draft (throwaway code, will not be merged)
+
+**Invariants tested:**
+1. OneDrive does NOT generate conflict copies when two processes write to different files in the same folder
+2. Both target files remain intact (50 lines each, valid JSON)
+3. No data corruption or line loss during concurrent append operations
+
+**What PASS means:**  
+SPEC-026 v2 per-device-file architecture is **safe to proceed**. Each device writes to `events-{deviceId}.ndjson` without risk of OneDrive creating conflict copies. No conflict-merge logic needed for event files. Unblocks Item #1 (crypto-core).
+
+**What FAIL means:**  
+Need conflict-merge logic for event files (+2 days). On read: glob `events-*.ndjson` + `events-*-conflict*.ndjson`, merge by ULID order, delete conflict copies, log warning. Alternatively, consider single-file-with-locking approach (SPEC-026 v1 style).
+
+**Next step:** Pedro runs the spike on his OneDrive folder and reports results. Based on outcome, either proceed to Item #1 or redesign the per-device strategy.
+
+**Key pattern learned:** Spike scripts for architectural validation should be self-contained, clearly documented, and produce binary PASS/FAIL outcomes with explicit implications. No dependencies on app code. Pure Node, short-lived, deleted after validation.
+
+---
 
 **2026-05-05 — trial.3.1 false regression: packaging oversight, not code bug**
 
