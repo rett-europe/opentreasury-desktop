@@ -5,6 +5,24 @@
 - **Stack:** Electron (frontend), rest TBD. Reference app: Angular 19 + Python FastAPI + Cosmos DB + Entra ID on Azure.
 - **Created:** 2026-04-19
 
+## Recent Work
+
+### 2026-05-10 — SPEC-026 v2 Multi-User UX Flows (Incoming)
+
+**Context:** SPEC-026 pivots to multi-user-from-day-one. Niobe is rewriting the spec to include fresh setup + NEW join flows and updated first-run UX.
+
+**Trinity's scope (awaiting v2 spec):**
+- Fresh setup screens: Why, Recovery code grid, Confirm, Done (similar to v1 + revised copy for multi-user)
+- Join flow screens: Welcome (enter recovery code), Unlocking, Dashboard
+- Detection logic routing (fresh vs. join vs. recovery)
+- Optional device label input (device name for audit trail)
+
+**Key UX decision:** Same 60-second 3-step flow, with a decision branch after the initial "Why" screen based on whether `events.key` exists.
+
+**Status:** Awaiting Niobe's v2 spec for detailed screen copy + flows.
+
+**Artifact:** `.squad/decisions.md` § 2026-05-10 SPEC-026 Multi-User Encryption Redesign
+
 ## Key Reference
 
 The cloud version has an Angular 19 frontend with:

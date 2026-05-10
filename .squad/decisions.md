@@ -2,6 +2,86 @@
 
 ## Active Decisions
 
+### 2026-05-10: SPEC-026 Multi-User Encryption Redesign — Decisions Locked (Keaton, Niobe)
+
+**Date:** 2026-05-10  
+**Status:** ✅ LOCKED (Q&A arc complete; Niobe spawned for v2 rewrite)  
+**Agents:** Keaton (Spec/Arch), Niobe (Spec/UX), Pedro (Owner — directives)  
+**Related Issue:** #026 (Encryption at Rest)  
+**Related Spec:** `docs/specs/026-encryption-at-rest.md` (v1, being rewritten as v2)
+
+#### Decision Summary
+
+SPEC-026 pivots from single-device encryption (v1) to **multi-user-from-day-one** (v2). Pedro's two directives (security non-negotiable, multi-user shared workspace HARD requirement) and Keaton's architectural redesign lock the following:
+
+1. **Per-device event files** (`events-{deviceId}.ndjson`) eliminate cloud-sync write conflicts entirely. Each device appends only to its own file; read model merge-sorts all files by ULID on load.
+2. **Multi-wrap key model:** `events.key` holds one shared recovery wrap + per-device safeStorage wraps. New devices enroll via 12-word recovery code.
+3. **Recovery code as team secret:** Code is the ONLY enrollment mechanism. Trusted board only for v1; no device revocation in v1 (key rotation deferred).
+4. **Workspace folder location:** User picks at first launch via folder picker (not hardcoded default). This allows multi-user teams to share the path via OneDrive/SharePoint.
+5. **Read model strategy:** Rebuild on every launch for v1 (safe, no stale-risk). Cache / snapshot deferred to when that feature lands.
+
+#### Keaton's Redesign (Architectural Foundation)
+
+**Per-device event files:**
+- Write path: Each device appends to `events-{deviceId}.ndjson` (its own file only).
+- Read path: On load, glob `events-*.ndjson`, read all, merge-sort by ULID, deduplicate.
+- Encryption: Per-event AEAD (same as v1); MK is shared (different wraps per device).
+- AAD binding: Change from line-index to `event.id` (ULID — globally unique, immutable).
+
+**Multi-wrap key model (`events.key` v2):**
+```json
+{
+  "version": 2,
+  "devices": [
+    { "deviceId": "...", "label": "...", "wrap_safestorage": "...", "enrolled_at": "..." },
+    { "deviceId": "...", "label": "...", "wrap_safestorage": "...", "enrolled_at": "..." }
+  ],
+  "wrap_recovery": "...",
+  "salt": "...",
+  "argon2_params": { "m_kib": 65536, "t": 3, "p": 1 },
+  "created_at": "..."
+}
+```
+- `wrap_safestorage` per device (was singular in v1).
+- `wrap_recovery` shared (unchanged from v1).
+- Enrollment: Derive recovery key, unwrap MK, wrap under new device's safeStorage, append device entry.
+- Conflict handling (rare, enrollment-time only): Merge `devices[]` by deviceId; keep latest wrap per device.
+
+**First-run UX (fresh vs. join):**
+- Fresh setup (creator): Generate recovery code, 3-step flow (same as v1 + revised copy about sharing).
+- Join flow (joiner): Enter recovery code, enroll device, unlock silently from then on.
+- Detection logic routes based on `events.key` + device ID presence.
+
+**Concurrent write strategy:** Per-device files prevent conflicts. OneDrive/SharePoint sync each file independently. No lock files, no CRDT, no atomic multi-file coordination needed.
+
+**Estimate:** 14–18 working days (up from 10–12 for single-device). Riskiest unknown: cloud-sync provider behavior with frequent appends to different files.
+
+#### Pedro's Directives (Non-Negotiable)
+
+**1. Security is non-negotiable (2026-05-10T10:18:00Z)**  
+Encryption-at-rest is a required feature, not optional polish. NGO usability constraints: no "enable BitLocker" instructions, no "your data is gone if keystore wiped" outcomes. Security must be invisible by default and recoverable by users without technical jargon.
+
+**2. Multi-user shared workspace HARD requirement (2026-05-10T11:11:00Z)**  
+OpenTreasury must support 2–5 users accessing the same workspace stored on a cloud-synced folder (OneDrive, SharePoint, similar). This is normal NGO scenario (treasurer + president + board member) and is non-negotiable from day one — no single-device-first phasing.
+
+#### Implementation Handoff
+
+- **Niobe (Spec/UX):** Rewrite `docs/specs/026-encryption-at-rest.md` as single coherent v2 spec integrating all 3 decisions + Keaton's architecture. Update acceptance criteria for multi-device scenarios. Target: coherent spec ready for implementation.
+- **Keaton (Spec):** Open questions answered; ready to support Trinity/Morpheus on implementation details.
+- **Trinity + Morpheus:** Break ground on implementation per v2 spec once finalized (UI flows, encryption module, event log adapter).
+- **Switch:** Review crypto sections (threat model, primitives, design) for sign-off on multi-device encryption.
+- **Scribe:** Merge decisions, update agent history, log orchestration.
+
+#### Rationale
+
+- **Per-device files over lock files:** Cloud providers don't enforce advisory locks (OneDrive syncs files regardless of lock status). Per-device files are preventive, not reactive.
+- **Recovery code as enrollment:** Simple, appropriate for trusted 2–5 person NGO boards. Future device revocation is a key-rotation concern (v2+).
+- **Merge-sort by ULID:** Append-only log with 2–5 writers. ULIDs are time-sortable (ms precision). Cross-device ordering is deterministic and correct for NGO workflow (events minutes/hours apart).
+- **Rebuild read model on boot:** Safe, correct, no stale-risk. Cache / snapshot is a performance feature for larger datasets; deferred to when that need is clear.
+- **User picks workspace folder:** Respects multi-user scenario. Enables teams to store workspace in OneDrive/SharePoint root or any shared location.
+
+---
+
 ### 2026-05-02: Dataset Compatibility & Validation Spec #206 — Decisions Locked (Neo, PR #237)
 
 **Date:** 2026-05-02  

@@ -7,6 +7,25 @@
 
 ## Recent Work
 
+### 2026-05-10 — SPEC-026 v2 Multi-User Rewrite (Spawned)
+
+**Context:** Pedro finalized Keaton's 3 open questions (recovery code as team secret, workspace folder picked at first launch, read model rebuilt on boot). Multi-user HARD requirement locked. Niobe spawned to rewrite SPEC-026 as single coherent v2 spec.
+
+**Key changes from v1 → v2:**
+- Single-device → multi-user-from-day-one
+- `events.ndjson` → `events-{deviceId}.ndjson` (per-device files)
+- Singular `wrap_safestorage` → `devices[]` array (multi-wrap key model)
+- Fresh setup flow + NEW join flow (recovery code enrollment)
+- Updated acceptance criteria for multi-device scenarios (enrollment, concurrent write, merge-sort, conflict handling)
+
+**Deliverable:** Rewrite `docs/specs/026-encryption-at-rest.md` to absorb Keaton's architecture + Pedro's directives + 3 answered questions.
+
+**Status:** SPAWNED; awaiting v2 spec composition.
+
+**Artifact:** `.squad/orchestration-log/2026-05-10T120713-niobe.md`
+
+### 2026-05-02 — Sidebar IA Overhaul (Spec: niobe-sidebar-ia.md)
+
 ### 2026-05-02 — Sidebar IA Overhaul (Spec: niobe-sidebar-ia.md)
 
 **Context:** Pedro flagged the "SETTINGS" sidebar group as misnamed — it contains Categories/Tags/Accounts (reference data / taxonomy), NOT app settings. Real settings (theme, language, profile, dataset config) live in a separate `/settings` route accessed via a top-right gear icon. This creates semantic confusion.
@@ -724,3 +743,25 @@ Your analysis was the critical input for this decision gate — the spec now ref
 **Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
 
 **Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.
+
+
+### 2026-05-10 — SPEC-026: Encryption at Rest (v1)
+
+Wrote `docs/specs/026-encryption-at-rest.md` based on Keaton's refined NGO-focused design + Pedro's four greenlights.
+
+**Key UX decisions locked:**
+
+1. **No skip button on first-run.** The recovery-code confirmation (3 random word positions out of 12, real-time validation) is the single mandatory friction point. Closing the app mid-flow discards the in-memory MK and starts over with a freshly generated mnemonic next launch — no half-confirmed state can be persisted. Rationale: a 60-second one-time setup beats a "sorry, your data is gone" support email forever after.
+2. **12 words, not 24.** BIP39 wordlist, 128-bit entropy. Strong enough for the threat model (Argon2id-hardened wrap), and 12 is meaningfully less intimidating than 24 for an NGO treasurer who has never seen a mnemonic before. 3×4 grid fits one screen without scroll.
+3. **Recovery flow never locks out.** Wrong code shows error + retry forever. After 5 attempts, a "Contact support" line appears, but attempt 6 still validates. Lockout would defeat recovery: the user already proved possession by typing 12 BIP39 words; bricking them on a typo helps no one.
+4. **Export-decrypted always re-asks for the recovery code**, even when `safeStorage` could unlock silently. The friction is intentional — this is the one operation that materialises plaintext on disk, so we want the user to consciously prove ownership.
+5. **Migration safety net:** `events.ndjson.pre-encryption.bak` written before re-encrypting trial data, deleted only after the first successful encrypted append (proves the new format is round-trippable end-to-end).
+
+**Spec stats:** 14 sections, 13 testable ACs, 3 open questions for Keaton (Argon2id parameter target on real NGO hardware, atomic rename semantics for `events.key` on Windows, snapshot-file encryption strategy if/when one lands).
+
+**Open questions to Keaton (block implementation):**
+1. Confirm Argon2id `m=64MiB, t=3, p=1` ~500ms on a 2020-era NGO laptop.
+2. Confirm `write-tmp → fsync → rename` is atomic enough for `events.key` on Windows.
+3. Snapshot file: same MK, separate AEAD, or considered derived/plaintext (separate spec)?
+
+**Decision dropped:** `.squad/decisions/inbox/niobe-spec-026-shipped.md`.

@@ -17,6 +17,31 @@ Security considerations for Electron desktop treasury app:
 - Dependency supply chain risks (npm ecosystem)
 - OWASP Desktop App Security Top 10
 
+## Recent Work
+
+### 2026-05-10 — SPEC-026 v2 Multi-User Crypto Review (Incoming)
+
+**Context:** SPEC-026 pivots to multi-user-from-day-one with Keaton's multi-wrap key model and per-device enrollment. Switch to review updated threat model and crypto design for v2 spec.
+
+**Switch's scope (awaiting v2 spec):**
+- Review updated threat model (add "another enrolled device is compromised" scenario; confirm revocation deferral)
+- Validate multi-wrap key model (`wrap_safestorage` per device + shared `wrap_recovery`)
+- Validate per-device file write strategy (prevents write conflicts, preserves audit trail)
+- Confirm Argon2id params (m=65536 KiB, t=3, p=1) for ~500ms on 2020-era laptop
+- Confirm atomic write semantics for `events.key` (tmp → fsync → rename on Windows/macOS/Linux)
+- Validate AAD binding change (event.id instead of line-index)
+
+**Key crypto decisions (unchanged from v1):**
+- XChaCha20-Poly1305 via sodium-native (AEAD per-event)
+- BIP39 12-word recovery code + Argon2id key derivation
+- OS keychain via @napi-rs/keyring (safeStorage wrap)
+
+**Out of scope for v1:** Key rotation, device revocation, real-time collaboration permissions.
+
+**Status:** Awaiting Niobe's v2 spec for detailed crypto sections.
+
+**Artifact:** `.squad/decisions.md` § 2026-05-10 SPEC-026 Multi-User Encryption Redesign
+
 ## Core Context
 
 **WI-17 Orientation (2026-04-20):** Validation rules + error handling spec frozen in `.squad/decisions.md` under "WI-17 v2 — Generic Column-Mapping Importer". Neo's spec §"Dry-run validation rules" + §"Error codes" define the full validation matrix: date parsing (DD/MM auto-detect with >12 heuristic), amount parsing (multiple separators, sign conventions, currency stripping), description validation (max 500 chars), and error propagation to dry-run preview. Your tasks: (1) Review validation rules for security implications (range attacks, format-confusion edge cases); (2) finalize error messaging copy (already EN/ES from Niobe's UX spec); (3) ensure no sensitive data (filenames, row counts, column names) leaks in error output. See decisions.md §"WI-17 v2" for full spec + error catalog.
