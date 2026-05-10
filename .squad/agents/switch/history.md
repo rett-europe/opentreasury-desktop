@@ -19,28 +19,66 @@ Security considerations for Electron desktop treasury app:
 
 ## Recent Work
 
-### 2026-05-10 — SPEC-026 v2 Multi-User Crypto Review (Incoming)
+### 2026-05-10 — SPEC-026 v2 Implementation Kickoff (ACTIVE)
 
-**Context:** SPEC-026 pivots to multi-user-from-day-one with Keaton's multi-wrap key model and per-device enrollment. Switch to review updated threat model and crypto design for v2 spec.
+**Status:** 🚀 KICKOFF IN PROGRESS. Keaton's 8-issue plan APPROVED. Switch assigned **#1 crypto-core review** + **#7 integration-tests oversight**.
 
-**Switch's scope (awaiting v2 spec):**
-- Review updated threat model (add "another enrolled device is compromised" scenario; confirm revocation deferral)
-- Validate multi-wrap key model (`wrap_safestorage` per device + shared `wrap_recovery`)
-- Validate per-device file write strategy (prevents write conflicts, preserves audit trail)
-- Confirm Argon2id params (m=65536 KiB, t=3, p=1) for ~500ms on 2020-era laptop
-- Confirm atomic write semantics for `events.key` (tmp → fsync → rename on Windows/macOS/Linux)
-- Validate AAD binding change (event.id instead of line-index)
+**Switch's immediate scope (M1 critical path, locked in `.squad/decisions.md`):**
 
-**Key crypto decisions (unchanged from v1):**
+**Issue #1 — Crypto Core Module (with Morpheus)**
+- **Effort:** 3 days (L)
+- **Role:** Mandatory review of crypto module (Switch sign-off required)
+- **Scope (Morpheus):** `app/src/core/crypto/` module with:
+  - `sodium-native` integration: XChaCha20-Poly1305 AEAD (encrypt/decrypt)
+  - `generateMasterKey()`, `encryptEvent(plaintext, mk, eventId)`, `decryptEvent(ciphertext, mk, eventId)` with AAD = eventId
+  - `generateNonce()`, `deriveRecoveryKey(mnemonic, salt, argon2Params)`
+  - `wrapKey()` / `unwrapKey()` (AEAD wrap)
+  - `generateMnemonic()` / `validateMnemonic()` (BIP39 12-word English)
+  - **Argon2id tuning:** Morpheus benchmarks on 2020-era Surface (target ~500ms). If > 1s, reduce m to 48 MiB; if < 200ms, increase t to 4.
+  - Unit tests: round-trip, wrong-key rejection, AAD tamper, nonce uniqueness
+- **Review focus:** Primitives, key hierarchy, threat model (now includes "another device compromised" scenario), Argon2id params
+- **Timeline:** After spike #0 passes (pre-flight go/no-go)
+- **Sign-off:** Required before #2 (event log) filed
+
+**Issue #7 — Encryption Integration Tests (with Cypher)**
+- **Effort:** 2 days (M, tail of M3)
+- **Timeline:** After M2 complete (day 20+)
+- **Scope (Switch):** Crypto validation
+  - Round-trip encrypt/decrypt correctness
+  - AAD tamper detection (verify AAD verification works)
+  - Nonce collision test
+  - Key wrap/unwrap paths (safeStorage + recovery)
+  - Re-enrollment scenario
+  - Threat model review (multi-device: another device compromised)
+- **Scope (Cypher):** E2E tests
+  - Fresh setup (recovery code displayed)
+  - Join flow (enter code, access dashboard)
+  - Export-decrypted (CSV/JSON fidelity)
+  - Per-device event verification (glob, merge-sort, ULID ordering)
+  - Concurrent appends, conflict file handling, corrupted key recovery
+  - Test fixtures: Pre-encrypted key files, multi-device event logs
+
+**Full M1 picture (5 parallel issues):**
+- #0: Morpheus (spike, < 1 day) → Pre-flight gate
+- #1: Morpheus + Switch review (crypto, 3 days) → After #0
+- #2: Morpheus (event log, 3 days) → After #1
+- #3: Morpheus + Trinity (detection, 2 days) → Parallel #2
+- #4: Trinity + Mouse (UX, 3 days) → Parallel #2–#3
+- **M1 gate:** Day 13 (critical path = spike→crypto→event log, UI parallel)
+
+**Dependencies & risks:**
+- **#0 spike:** Riskiest unknown. FAIL = architecture redesign; PASS = proceed to #1
+- **Argon2id tuning:** Morpheus benchmarks in #1; Switch validates params
+- **Atomic writes on Windows:** Open Q in #2; test tmp→fsync→rename on Windows CI
+- **Cloud-sync unknowns:** Spike findings inform #2 edge-case handling
+
+**Key crypto decisions locked (unchanged from v1):**
 - XChaCha20-Poly1305 via sodium-native (AEAD per-event)
 - BIP39 12-word recovery code + Argon2id key derivation
 - OS keychain via @napi-rs/keyring (safeStorage wrap)
+- **New:** Multi-wrap model (shared recovery + per-device wraps)
 
-**Out of scope for v1:** Key rotation, device revocation, real-time collaboration permissions.
-
-**Status:** Awaiting Niobe's v2 spec for detailed crypto sections.
-
-**Artifact:** `.squad/decisions.md` § 2026-05-10 SPEC-026 Multi-User Encryption Redesign
+**Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (full 8-issue table, detailed crypto specs, risk matrix, reconciliation)
 
 ## Core Context
 

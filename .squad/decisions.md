@@ -82,6 +82,180 @@ OpenTreasury must support 2–5 users accessing the same workspace stored on a c
 
 ---
 
+### 2026-05-10: SPEC-026 Implementation Plan Accepted (Keaton, Pedro)
+
+**Date:** 2026-05-10  
+**Status:** ✅ APPROVED (Pedro confirmed; 3 issues filed, Morpheus on spike)  
+**Lead:** Keaton (Architect/Lead)  
+**Approver:** Pedro (Owner)  
+**Implementation:** Morpheus, Trinity, Mouse, Switch, Cypher  
+
+#### Work Plan Summary
+
+Keaton's fully-scoped 8-issue breakdown for SPEC-026 v2 implementation. Estimate: **16 working days total** · **10–12 calendar days with parallel agents** · **critical path 13 calendar days**.
+
+#### 8-Issue Table (Locked)
+
+| # | Slug | Owner | Size | Ships in | Spec § | AC |
+|---|------|-------|------|----------|--------|-----|
+| 0 | `onedrive-sync-spike` | Morpheus | S | Pre-flight | §4.3, §4.4 | AC10 |
+| 1 | `crypto-core` | Morpheus + Switch (review) | L | M1 | §4.1, §4.2 | AC4, AC14, AC17 |
+| 2 | `per-device-event-log` | Morpheus | L | M1 | §4.2–§4.4, §9 | AC4, AC5, AC9, AC11–AC14 |
+| 3 | `workspace-detection-routing` | Morpheus + Trinity | M | M1 | §5 (detection logic) | AC18, AC19 |
+| 4 | `onboarding-ux` | Trinity + Mouse | L | M1 | §6–§7 (UX flows) | AC1, AC2, AC3, AC6, AC7 |
+| 5 | `migration-legacy-data` | Morpheus | M | M2 | §8 (single → multi-device) | AC8, AC15 |
+| 6 | `export-decrypted` | Trinity + Morpheus | M | M2 | §10 (escape hatch) | AC16 |
+| 7 | `encryption-integration-tests` | Cypher + Switch | M | M3 | §11–§17 (validation) | AC11, AC12, AC13, AC19 |
+
+#### Milestone Grouping
+
+**Milestone 1 (M1):** Issues #0–#4 → **Fresh & Join flows, crypto core, event log reads/writes, detection routing**
+- Critical path: 13 calendar days (spike→crypto→event log→detection→UI in parallel)
+- Gate: Spike #0 must pass (go/no-go for per-device architecture)
+- Output: Functional multi-user setup + dashboard access, full crypto review signed off by Switch
+
+**Milestone 2 (M2):** Issues #5–#6 → **Migration, export-decrypted escape hatch**
+- Dependency: M1 complete
+- Timeline: ~7 additional days
+- Output: Legacy single-device data migrated to per-device format, plaintext export available
+
+**Milestone 3 (M3):** Issue #7 → **Integration tests, trial readiness**
+- Dependency: M1 + M2 complete
+- Timeline: ~5 additional days
+- Output: Full suite of e2e tests (fresh setup, join, crypto, event merging, recovery flow)
+
+#### Issue Details (Locked from Keaton's Plan)
+
+**Item 0 — OneDrive Sync Spike**
+- **Deliverable:** Pass/fail result + findings document
+- **Effort:** < 1 day (S)
+- **What:** Throwaway Node script that creates `events-{deviceA}.ndjson` + `events-{deviceB}.ndjson` in real OneDrive folder, appends 50 lines to each concurrently, waits 120s for sync settle, asserts zero conflict copies + both files intact
+- **Why:** Validates core architectural bet. If OneDrive produces conflict files on same-folder-different-file appends, we redesign before writing real code.
+- **Confidence:** 95% this works; shipping on confidence is unacceptable
+
+**Item 1 — Crypto Core Module**
+- **Deliverable:** `app/src/core/crypto/` module, full unit test coverage, Switch sign-off
+- **Effort:** 3 days (L)
+- **Scope:**
+  - `sodium-native` integration: XChaCha20-Poly1305 AEAD encrypt/decrypt
+  - `generateMasterKey()` — 256-bit CSPRNG
+  - `encryptEvent(plaintext, mk, eventId)` → base64 ciphertext (AAD = eventId)
+  - `decryptEvent(ciphertext, mk, eventId)` → plaintext JSON
+  - `generateNonce()` — 24 random bytes + collision detection
+  - `deriveRecoveryKey(mnemonic, salt, argon2Params)` → 256-bit key via Argon2id
+  - `wrapKey(mk, wrappingKey)` / `unwrapKey(ciphertext, wrappingKey)` — AEAD wrap
+  - `generateMnemonic()` / `validateMnemonic(words)` — BIP39 12-word English
+  - **Argon2id tuning:** Morpheus benchmarks (target ~500ms on 2020-era Surface). If > 1s, reduce m to 48 MiB; if < 200ms, increase t to 4. Document chosen params + benchmark result.
+- **Why isolated PR:** Security boundary. Switch reviews crypto without wading through UI/event-log code.
+
+**Item 2 — Per-Device Event Log + Key File Management**
+- **Deliverable:** `EncryptedMultiDeviceEventLog` class (implements `EventLog` interface), integration with key management, full coverage of write/read/glob logic
+- **Effort:** 3 days (L)
+- **Scope:**
+  - `EncryptedMultiDeviceEventLog` — drop-in replacement for `JsonFileEventLog`
+  - `events.key` v2 file format (version, devices[], wrap_recovery, salt, argon2_params, created_at)
+  - Write path: encrypt event, append to `events-{deviceId}.ndjson` (device-specific file only)
+  - Read path: glob `events-*.ndjson`, deserialize all, merge-sort by ULID, deduplicate before feeding to reducers
+  - Key management: generate, enroll device, unwrap on cold start, re-wrap on warm start
+  - Conflict handling (rare): detect + merge `devices[]` by deviceId; keep latest wrap per device
+  - Tests: round-trip encrypt/decrypt, merge-sort correctness, ULID ordering across files
+
+**Item 3 — Workspace Detection & Routing + IPC Contracts**
+- **Deliverable:** IPC method contracts, detection state machine, Morpheus + Trinity coordinated
+- **Effort:** 2 days (M)
+- **Scope (Morpheus):**
+  - `detectInitState()` → one of 5 states: Fresh, Join, Dashboard, Recovery, Migration
+  - Detection logic based on: `events.key` existence, deviceId in device.json, lastError (if any)
+  - IPC: `encryption:detect()` → `{ state, workspace?, lastError? }`
+- **Scope (Trinity):**
+  - Renderer routing: Fresh → Setup screens, Join → Recovery code entry, Dashboard → normal flow, Recovery → recovery screen, Migration → migration flow
+  - IPC method contracts for screen navigation (fully typed, no breaking changes)
+
+**Item 4 — Onboarding UX (Fresh Setup + Join Flows)**
+- **Deliverable:** 5-screen complete UX (fresh + join + recovery), localized EN/ES, full integration
+- **Effort:** 3 days (L)
+- **Scope (Trinity):**
+  - Fresh setup: Why screen, recovery code grid + confirm (3 random words), done screen
+  - Join flow: Welcome (enter recovery code), Unlocking spinner, Dashboard
+  - Recovery: Detect failed safeStorage, prompt for code, re-wrap
+  - Device label input (optional, for audit trail)
+  - IPC wiring to Morpheus crypto module
+- **Scope (Mouse):**
+  - Icons for setup flow (lock, key, devices, etc.)
+  - Visual consistency with existing dashboard design
+- **i18n:** All copy bilingual EN/ES per Niobe's spec
+
+**Item 5 — Migration (Single-Device → Per-Device)**
+- **Deliverable:** Background migration, zero data loss, transparent to user
+- **Effort:** 2 days (M)
+- **Scope:**
+  - Detect old single-device format (v1 `events.key` + plaintext `events.ndjson`)
+  - Migration flow: Convert `events.key` to v2 (single device entry), migrate events to `events-{deviceId}.ndjson`, update references
+  - Safety: Back up old files before migration; run validation pass post-migration
+  - Timeline: On-demand (user clicks "upgrade") or auto-on-first-launch-after-update (Morpheus's call)
+
+**Item 6 — Export-Decrypted Escape Hatch**
+- **Deliverable:** Settings UI + export logic
+- **Effort:** 2 days (M)
+- **Scope (Morpheus):**
+  - `exportDecrypted(format: 'csv' | 'json')` IPC handler
+  - Requires recovery code entry (validates code, unwraps MK, decrypts events)
+  - Outputs plaintext file (CSV or JSON per user choice)
+- **Scope (Trinity):**
+  - Settings screen: "Export decrypted copy" CTA
+  - Modal: Reason collection, recovery code entry, format picker
+  - Success: "Your export is ready" + file location
+
+**Item 7 — Encryption Integration Tests (Cypher + Switch)**
+- **Deliverable:** Full e2e test suite (Playwright + backend validators)
+- **Effort:** 2 days (M)
+- **Scope (Cypher):**
+  - E2E tests: Fresh setup (verify recovery code displayed), join flow (enter code, access dashboard), export-decrypted (CSV/JSON fidelity)
+  - Per-device event verification (glob read, merge-sort ordering, ULID correctness)
+  - Edge cases: Concurrent appends, conflict file handling, corrupted key file recovery
+  - Test fixtures: Pre-encrypted key files, multi-device event logs
+- **Scope (Switch):**
+  - Crypto validation: Round-trip encrypt/decrypt, AAD tamper detection, nonce collision test
+  - Key wrap/unwrap: safeStorage path, recovery path, re-enrollment scenario
+  - Threat model review (updated for multi-device: "another device is compromised" scenario)
+
+#### Kickoff Order (Approved)
+
+1. **Immediately:** File #0 (spike), spawn Morpheus
+2. **Spike #0 result (< 1 day):**
+   - If **PASS:** File #1 (crypto), #2 (event log), #3 (detection) in parallel
+   - If **FAIL:** Re-evaluate per-device architecture; pause filing remaining issues pending re-design
+3. **After #1 crypto merge:** File #2 (if not already filed)
+4. **In parallel (M1):** #3 detection, #4 UX by Trinity/Mouse
+5. **After M1 (day 13+):** File #5 (migration), #6 (export)
+6. **After M2 (day 20+):** File #7 (tests)
+
+#### Dependencies & Risks
+
+| Dependency | Risk | Mitigation |
+|-----------|------|-----------|
+| Spike #0 → All M1 work | 🔴 CRITICAL | 1-day spike answers go/no-go before #1 filed |
+| #1 crypto → #2 event log | 🟠 MEDIUM | File #2 only after #1 merged; not a blocker for spec work |
+| Argon2id tuning | 🟠 MEDIUM | Morpheus benchmarks in #1; if > 1s, reduce m; if < 200ms, increase t |
+| Atomic writes on Windows | 🟠 MEDIUM | Open Q in #2; test tmp→fsync→rename on Windows CI |
+| Cloud-sync unknowns | 🟠 MEDIUM | Spike #0 findings inform edge-case handling in #2 |
+
+#### Reconciliation with Original Estimates
+
+Keaton's plan (16 days) reconciles with the redesign proposal's range (14–18 days):
+- **Low end (14d):** Assumed zero Argon2id rework → unlikely given tuning unknowns
+- **Center (16d):** Realistic per Keaton's fine-grained breakdown
+- **High end (18d):** Allows for crypto review rework, edge-case handling
+
+#### Artifacts
+
+- **Spec:** `docs/specs/026-encryption-at-rest.md` (v2, 17 sections, 19 acceptance criteria, ~560 lines)
+- **Work plan:** `.squad/decisions/inbox/keaton-spec-026-work-plan.md`
+- **Orchestration logs:** `.squad/orchestration-log/2026-05-10T13-59-35Z-*.md`
+- **Kickoff session log:** `.squad/log/2026-05-10T13-59-35Z-spec026-kickoff.md`
+
+---
+
 ### 2026-05-02: Dataset Compatibility & Validation Spec #206 — Decisions Locked (Neo, PR #237)
 
 **Date:** 2026-05-02  

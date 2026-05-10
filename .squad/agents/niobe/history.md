@@ -514,6 +514,28 @@ Every UX spec going forward must open with a `Prototype reference` block citing 
 4. **Column mapping dropdowns (STEP 4) scale to any file structure** (CSV from bank X, Excel export from accounting software Y, etc.). Generic + flexible at cost of explicit user action per import. Acceptable trade-off for MVP.
 5. **i18n copy strategy (entity name + action verb):** `import.step{N}.{field}` keeps keys discoverable and avoids duplication across specs.
 
+### 2026-05-12 — SPEC-026 v2: Multi-user encryption at rest (full rewrite)
+
+**Task:** Rewrite SPEC-026 from single-device (v1) to multi-user-from-day-one (v2), incorporating Keaton's architecture redesign (D1–D5) and Pedro's 3 resolved questions.
+
+**Multi-user spec patterns learned:**
+
+1. **Per-device event files dodge cloud-sync conflicts entirely.** Each device writes only to `events-{deviceId}.ndjson`. Read path globs all files and merge-sorts by ULID. This is simpler than lock files, conflict detection, or CRDTs — and correct for an append-only log with 2–5 writers.
+
+2. **Recovery code = enrollment secret = trust root.** In a small trusted board (2–5 people), a shared 12-word BIP39 phrase is both disaster recovery AND team onboarding. No admin panel, no invitation system. Anyone Pedro shares the code with can join. This is the same trust model as sharing an Excel password — appropriate for the NGO context.
+
+3. **Pedro's trust/revocation stance:** No per-user revocation in v1. Copies of the workspace remain readable with the original recovery code. Full revocation (MK rotation + re-encryption) is a future spec. This is an explicit, documented non-goal — not an oversight.
+
+4. **Per-device file architecture and OneDrive:** The strategy works because each device touches only its own file. The riskiest unknown is whether OneDrive reliably propagates new files and frequent small appends without phantom conflicts. A 1-day smoke test on actual OneDrive is recommended before locking the design.
+
+5. **AAD binding must use event.id (ULID), not line index.** Line-index-based AAD breaks when events span multiple files. event.id is globally unique and immutable — the natural choice for preventing event-swapping across files.
+
+6. **Spec rewrite from architecture proposal workflow:** Input contract (Keaton's D1–D5) provides decisions and schemas. Owner answers (Pedro's Q1–Q3) close remaining questions. Rewrite the spec as if the multi-user design is the only design — no "addendum" framing. Harvest reusable copy (bilingual EN+ES) from the v1 spec for tone consistency. Structure mirrors the team's style reference (SPEC-025).
+
+7. **`events.key` conflict-copy merge is an edge case worth an AC.** During simultaneous enrollment, OneDrive may produce conflict copies. The merge strategy (union `devices[]` by deviceId) is simple because `wrap_recovery`, `salt`, and `argon2_params` are immutable after creation — only the devices array grows.
+
+8. **device.json lives in userData (per-machine, NOT synced).** This is critical: the deviceId and workspace path are local identity, not shared state. Putting them in the synced folder would leak device identity across machines.
+
 **Next:** Await Pedro's answers on 7 open questions (especially date format + duplicate UX + memory scope). Once locked, Trinity to validate visual design + interaction against this spec. UX-017 ready for implementation handoff post-ratification.
 
 ---

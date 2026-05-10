@@ -7,21 +7,49 @@
 
 ## Recent Work
 
-### 2026-05-10 — SPEC-026 v2 Multi-User Event Log (Context Note)
+### 2026-05-10 — SPEC-026 v2 Implementation Kickoff (ACTIVE)
 
-**Context:** SPEC-026 pivots to multi-user-from-day-one. Per-device event files will impact Cypher's domain (event sourcing / read-model queries).
+**Status:** 🚀 KICKOFF IN PROGRESS. Keaton's 8-issue plan APPROVED. Cypher assigned **#7 encryption-integration-tests** (M3 tail, depends on M1+M2 complete).
 
-**Cypher's scope (awaiting v2 spec):**
-- Per-device file reads: Glob all `events-*.ndjson`, deserialize, merge-sort by ULID, deduplicate before feeding to reducers
-- No change to reducer logic (reads still consume sorted event stream)
-- Read-model queries remain unchanged (built from merged event stream)
-- Optional: Audit trail queries (actorDeviceId, actorUserId already in event envelope)
+**Cypher's scope (locked in `.squad/decisions.md`):**
 
-**Key implementation note:** Read model rebuild on every app launch (v1 decision). No cache/snapshot for v1. Small datasets typical for NGOs (~5k events) make rebuild negligible (< 500ms).
+**Issue #7 — Encryption Integration Tests (with Switch)**
+- **Effort:** 2 days (M)
+- **Timeline:** M3 (day 20+, after M2 complete)
+- **Dependencies:** All M1+M2 issues complete
+- **Scope (Cypher):** E2E tests + read-model validation
+  - E2E tests (Playwright):
+    - Fresh setup: Recovery code displayed, 3-word confirm, setup completes
+    - Join flow: Enter recovery code, access dashboard after enrollment
+    - Export-decrypted: CSV/JSON export fidelity
+  - Per-device event verification:
+    - Glob all `events-*.ndjson` files, deserialize, merge-sort by ULID, validate ordering
+    - Deduplicate before feeding to reducers (no duplicate events in read model)
+    - Concurrent appends: Two devices writing simultaneously, verify no conflicts
+    - Conflict file handling: If OneDrive produces `*-conflict*` copies, assert detected + handled
+  - Corrupted key recovery: Detect + surface recovery prompt on failed safeStorage unwrap
+  - Test fixtures: Pre-encrypted key files, multi-device event logs (10 events per device, merged correctly)
+- **Scope (Switch):** Crypto validation (see Switch history)
 
-**Status:** Awaiting v2 spec; no immediate action. Coordinate with Morpheus on event log interface changes.
+**Impact on Cypher's domain (per-device event files):**
+- **Read-model no change:** Reducer logic stays the same. Reads consume sorted event stream (post-merge).
+- **New responsibility:** Glob `events-*.ndjson`, deserialize all, merge-sort by ULID, deduplicate before projections
+- **No cache/snapshot v1:** Rebuild read model on every app launch (safe, no stale-risk)
+- **Open Q:** Snapshot encryption strategy (separate spec when snapshot lands, not v1)
 
-**Artifact:** `.squad/decisions.md` § 2026-05-10 SPEC-026 Multi-User Encryption Redesign
+**Key architectural decisions locked:**
+- Per-device event files (`events-{deviceId}.ndjson`) — no OneDrive write conflicts
+- Multi-wrap key model: shared recovery wrap + per-device safeStorage wraps
+- Read model rebuilt on every launch (safe, no cache v1)
+- Merge-sort by ULID across 2–5 devices (deterministic, correct for NGO workflows)
+- AAD binding by `event.id` (not line-index) — safe across multiple files
+
+**Full implementation timeline:**
+- **M1 (day 13):** Issues #0–#4. Fresh & join UX, crypto module reviewed, event log reads/writes validated.
+- **M2 (day 20):** Issues #5–#6. Legacy data migrated, export-decrypted escape hatch.
+- **M3 (day 25):** Issue #7. Full integration tests green, trial ready.
+
+**Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (full 8-issue table, detailed test specs, risk matrix)
 
 ## Core Context
 

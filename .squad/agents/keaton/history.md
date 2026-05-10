@@ -75,3 +75,20 @@ See `.squad/decisions/inbox/keaton-encryption-ngo-refined.md`.
 **Riskiest unknown:** Actual OneDrive/SharePoint behavior with per-device files. Needs early smoke testing on real cloud sync, not mocks.
 
 See `.squad/decisions/inbox/keaton-spec-026-multiuser-redesign.md`.
+
+### 2026-05-12: SPEC-026 work plan decomposition — 8 items, 3 milestones
+
+**Structure chosen:** 8 issue-shaped work items grouped into 3 milestones (M1: crypto + single-device, M2: multi-device + migration, M3: security gate). Total effort: 16 working days (center of 14–18 range). Calendar time with parallel agents: 10–12 days.
+
+**Milestone groupings:**
+- **M1 (10–11d effort, ~8d calendar):** Items #0 spike, #1 crypto-core, #2 per-device-event-log, #3 detection-routing, #4 onboarding-ux (fresh setup). Shippable to a brave tester.
+- **M2 (4–5d effort, ~3d calendar):** Items #4 (join + recovery screens), #5 migration, #6 export-decrypted. Feature-complete.
+- **M3 (2d):** Item #7 integration tests + Switch security sign-off. Ship gate.
+
+**Key insight: contracts-first pattern works again.** Creating Item #3 (IPC contracts) early lets Trinity start UI scaffolding against mock responses while Morpheus finishes crypto plumbing. This is the same pattern that made SPEC-025 parallelizable. For larger specs, defining the IPC boundary as a standalone issue is the highest-leverage decomposition move.
+
+**Grouping principle: fewer, larger PRs.** Pedro is the only reviewer. 8 issues → ~6 PRs (items #3 and #4 may merge). Crypto module stays isolated (Switch's clean review surface). Migration stays isolated (one-time code path, easy to find/remove later). Everything else clusters by layer.
+
+**Pre-flight as Item #0:** OneDrive sync spike validates the architectural bet before production code. This is a pattern worth reusing: when an architecture depends on an unverified external behavior (cloud sync, OS API, native addon), make the validation a throwaway spike at position 0. If it fails, the cost is 1 day, not 10.
+
+See `.squad/decisions/inbox/keaton-spec-026-work-plan.md`.

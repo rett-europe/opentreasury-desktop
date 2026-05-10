@@ -7,21 +7,45 @@
 
 ## Recent Work
 
-### 2026-05-10 — SPEC-026 v2 Multi-User UX Flows (Incoming)
+### 2026-05-10 — SPEC-026 v2 Implementation Kickoff (ACTIVE)
 
-**Context:** SPEC-026 pivots to multi-user-from-day-one. Niobe is rewriting the spec to include fresh setup + NEW join flows and updated first-run UX.
+**Status:** 🚀 KICKOFF IN PROGRESS. Keaton's 8-issue plan APPROVED. Trinity assigned **#3 workspace detection routing** + **#4 onboarding UX**.
 
-**Trinity's scope (awaiting v2 spec):**
-- Fresh setup screens: Why, Recovery code grid, Confirm, Done (similar to v1 + revised copy for multi-user)
-- Join flow screens: Welcome (enter recovery code), Unlocking, Dashboard
-- Detection logic routing (fresh vs. join vs. recovery)
-- Optional device label input (device name for audit trail)
+**Trinity's immediate scope (M1 critical path, locked in `.squad/decisions.md`):**
 
-**Key UX decision:** Same 60-second 3-step flow, with a decision branch after the initial "Why" screen based on whether `events.key` exists.
+**Issue #3 — Workspace Detection & Routing (with Morpheus)**
+- **Effort:** 2 days (M)
+- **Scope:** Renderer routing logic (Fresh → Setup screens, Join → Recovery code entry, Dashboard → normal, Recovery → recovery screen, Migration → migration flow)
+- **IPC method contracts:** Fully typed, no breaking changes (Morpheus provides `encryption:detect()` → `{ state, workspace?, lastError? }`)
+- **State machine:** Fresh, Join, Dashboard, Recovery, Migration based on `events.key` existence + deviceId + lastError
 
-**Status:** Awaiting Niobe's v2 spec for detailed screen copy + flows.
+**Issue #4 — Onboarding UX: Fresh Setup + Join Flows**
+- **Effort:** 3 days (L, split with Mouse)
+- **Scope (Trinity):**
+  - Fresh setup screens: Why (value prop), recovery code grid (4 cols × 6 rows), confirm (3 random words), done screen
+  - Join flow screens: Welcome (enter recovery code grid), Unlocking spinner, Dashboard
+  - Recovery screen: Detect failed safeStorage, prompt for code, re-wrap
+  - Optional device label input (for audit trail)
+  - IPC wiring to Morpheus crypto module
+- **Scope (Mouse):** Icons + visual consistency with dashboard design
+- **i18n:** All copy bilingual EN/ES per Niobe's spec
 
-**Artifact:** `.squad/decisions.md` § 2026-05-10 SPEC-026 Multi-User Encryption Redesign
+**Full M1 picture (5 parallel issues):**
+- #0: Morpheus (spike, < 1 day) → Pre-flight go/no-go
+- #1: Morpheus + Switch (crypto, 3 days) → After spike
+- #2: Morpheus (event log, 3 days) → After #1 merge
+- #3: Morpheus + Trinity (detection, 2 days) → Parallel to #2
+- #4: Trinity + Mouse (UX, 3 days) → Parallel to #2–#3
+- **M1 gate:** Day 13 (critical path = spike→crypto→event log, UI flows in parallel)
+
+**Key decisions locked (multi-user from day-one):**
+- Per-device event files (no OneDrive conflicts)
+- Multi-wrap key model (recovery code + per-device wraps)
+- Recovery code as team enrollment secret
+- User picks workspace folder (not auto-default)
+- Rebuild read model on boot (no cache v1)
+
+**Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (full 8-issue table, detailed Trinity scopes, dependencies, reconciliation)
 
 ## Key Reference
 
