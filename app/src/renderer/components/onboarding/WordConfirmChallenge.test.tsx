@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -68,6 +69,6 @@ describe('WordConfirmChallenge', () => {
     await user.type(inputs[0], 'wrongword');
     await user.tab();
 
-    expect(screen.getByText('Incorrect')).toBeInTheDocument();
+    expect(screen.getByText('Incorrect')).toBeDefined();
   });
 });

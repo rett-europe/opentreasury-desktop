@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -8,7 +9,7 @@ describe('RecoveryCodeInput', () => {
     render(<RecoveryCodeInput />);
 
     for (let i = 1; i <= 12; i++) {
-      expect(screen.getByLabelText(`Word ${i}`)).toBeInTheDocument();
+      expect(screen.getByLabelText(`Word ${i}`)).toBeDefined();
     }
   });
 
@@ -63,7 +64,7 @@ describe('RecoveryCodeInput', () => {
     const errorText = 'Invalid recovery code';
     render(<RecoveryCodeInput errorText={errorText} />);
 
-    expect(screen.getByRole('alert')).toHaveTextContent(errorText);
+    expect(screen.getByRole('alert').textContent).toBe(errorText);
   });
 
   it('normalizes input to lowercase', async () => {
