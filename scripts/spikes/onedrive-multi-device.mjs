@@ -2,29 +2,29 @@
 
 /**
  * OneDrive Multi-Device File Append Smoke Test
- * 
+ *
  * PURPOSE: Validate that OneDrive does NOT generate conflict copies when two
  * separate processes append to DIFFERENT files in the same synced folder.
- * 
+ *
  * This is the critical assumption for SPEC-026 v2's per-device-file architecture.
  * If this spike FAILS (conflict copies appear), we need event-file conflict-merge
  * logic (+2 days).
- * 
+ *
  * USAGE:
  *   node scripts/spikes/onedrive-multi-device.mjs <target-folder-path>
- * 
+ *
  * BEHAVIOR:
  *   1. Spawns two child processes ("deviceA" and "deviceB")
  *   2. Each child appends 50 lines (1/second) to its own file in the target folder
  *   3. After both complete (~50s), waits 120s for OneDrive sync to settle
  *   4. Scans for conflict copies and validates both files are intact
  *   5. Prints PASS/FAIL with details
- * 
+ *
  * ASSUMPTIONS:
  *   - Target folder is inside an active OneDrive-synced directory
  *   - No other processes are writing to the same folder during the test
  *   - OneDrive is running and connected
- * 
+ *
  * THROWAWAY CODE: This script will be deleted after the spike. Do not integrate
  * into the app.
  */
@@ -48,7 +48,7 @@ const CONFLICT_PATTERNS = [
   /\(1\)/,
   /\(2\)/,
   /\([A-Za-z0-9-]+\)/, // e.g., (DESKTOP-NAME)
-  /-\d{4}-\d{2}-\d{2}/,  // Date suffix
+  /-\d{4}-\d{2}-\d{2}/, // Date suffix
 ];
 
 // --- MAIN ---
@@ -122,7 +122,7 @@ async function runWriter(targetFolder, deviceId) {
     const child = spawn(
       process.execPath,
       [__filename, '--child', targetFolder, deviceId, LINES_PER_DEVICE.toString()],
-      { stdio: 'inherit' }
+      { stdio: 'inherit' },
     );
 
     child.on('exit', (code) => {
@@ -191,9 +191,7 @@ async function validateResults(targetFolder) {
   }
 
   // Check for conflict copies
-  const conflictFiles = files.filter((f) =>
-    CONFLICT_PATTERNS.some((pattern) => pattern.test(f))
-  );
+  const conflictFiles = files.filter((f) => CONFLICT_PATTERNS.some((pattern) => pattern.test(f)));
 
   if (conflictFiles.length > 0) {
     results.passed = false;
@@ -204,7 +202,7 @@ async function validateResults(targetFolder) {
   // Validate target files
   for (const targetFile of Object.keys(results.targetFiles)) {
     const filePath = path.join(targetFolder, targetFile);
-    
+
     try {
       const content = await fs.readFile(filePath, 'utf8');
       const lines = content.trim().split('\n');
@@ -219,7 +217,7 @@ async function validateResults(targetFolder) {
       if (lines.length !== LINES_PER_DEVICE) {
         results.passed = false;
         results.errors.push(
-          `${targetFile}: Expected ${LINES_PER_DEVICE} lines, got ${lines.length}`
+          `${targetFile}: Expected ${LINES_PER_DEVICE} lines, got ${lines.length}`,
         );
         results.targetFiles[targetFile].wellFormed = false;
       }
@@ -250,9 +248,7 @@ async function validateResults(targetFolder) {
   const expectedTotal = LINES_PER_DEVICE * 2;
   if (totalLines !== expectedTotal) {
     results.passed = false;
-    results.errors.push(
-      `Combined line count: Expected ${expectedTotal}, got ${totalLines}`
-    );
+    results.errors.push(`Combined line count: Expected ${expectedTotal}, got ${totalLines}`);
   }
 
   return results;
@@ -265,9 +261,7 @@ async function cleanTestFiles(targetFolder) {
 
   if (testFiles.length > 0) {
     console.log(`Cleaning ${testFiles.length} pre-existing test file(s)...`);
-    await Promise.all(
-      testFiles.map((f) => fs.unlink(path.join(targetFolder, f)).catch(() => {}))
-    );
+    await Promise.all(testFiles.map((f) => fs.unlink(path.join(targetFolder, f)).catch(() => {})));
   }
 }
 

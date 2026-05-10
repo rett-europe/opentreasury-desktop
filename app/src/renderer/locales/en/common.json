@@ -1321,5 +1321,56 @@
         "body": "An unexpected error occurred during startup. Restore from backup or contact support."
       }
     }
+  },
+  "onboarding": {
+    "encryption": {
+      "folder": {
+        "title": "Where should OpenTreasury store your data?",
+        "body": "Choose a folder for your treasury workspace. If you plan to share with other board members, pick a folder inside OneDrive or a shared drive.",
+        "btn_choose": "Choose Folder…"
+      },
+      "show": {
+        "title": "Your data, encrypted and shared securely.",
+        "body": "OpenTreasury keeps your treasury data private. We'll set up a recovery code now — this is the **only** way to get your data back if you lose access to this computer, and the way other board members will join this workspace.",
+        "grid_caption": "Store this somewhere safe, away from this computer. Share it with anyone who needs access to this workspace — it's the key to your shared treasury.",
+        "btn_print": "Print",
+        "btn_pdf": "Save as PDF",
+        "btn_written": "I've written it down"
+      },
+      "confirm": {
+        "title": "Confirm your recovery code",
+        "prompt": "To make sure you've got it right, enter the words at these positions:",
+        "footer": "If you close OpenTreasury now, we'll start over next time.",
+        "continue": "Continue",
+        "error": "That doesn't match. Please check and try again."
+      },
+      "done": {
+        "title": "Your workspace is encrypted.",
+        "body": "Anyone you share the recovery code with can join from their own computer.",
+        "continue": "Continue to Dashboard"
+      }
+    },
+    "join": {
+      "title": "Join an existing workspace.",
+      "body": "Point to the shared folder and enter the 12-word recovery code you received from the workspace owner.",
+      "btn_folder": "Choose Folder…",
+      "mnemonic_label": "Recovery code (12 words)",
+      "label_prompt": "What should we call this computer?",
+      "btn_join": "Join",
+      "error": "That recovery code doesn't match. Please check and try again.",
+      "help_after_5": "Need help? Contact support.",
+      "success": {
+        "title": "You're in.",
+        "body": "OpenTreasury will unlock automatically from now on.",
+        "continue": "Continue to Dashboard"
+      }
+    }
+  },
+  "recovery": {
+    "title": "Welcome back.",
+    "body": "To unlock your treasury data, please enter your 12-word recovery code.",
+    "unlock": "Unlock",
+    "error": "That recovery code doesn't match. Please check and try again.",
+    "help_after_5": "Need help? Contact support."
   }
 }

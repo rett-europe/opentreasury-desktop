@@ -1,0 +1,98 @@
+.ot-recovery-code-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ot-recovery-code-input__label {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.ot-recovery-code-input__helper {
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+  line-height: 1.5;
+}
+
+.ot-recovery-code-input__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.ot-recovery-code-input__cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-recovery-code-input__word-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+  font-weight: 500;
+}
+
+.ot-recovery-code-input__input-wrapper {
+  position: relative;
+}
+
+.ot-recovery-code-input__field {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-family: var(--font-mono, 'Courier New', monospace);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: all 0.15s ease;
+}
+
+.ot-recovery-code-input__field:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-alpha-20, rgba(0, 123, 255, 0.2));
+}
+
+.ot-recovery-code-input__field--error {
+  border-color: var(--color-error, #dc3545);
+}
+
+.ot-recovery-code-input__suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: var(--space-2);
+  list-style: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.ot-recovery-code-input__suggestion {
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono, 'Courier New', monospace);
+  color: var(--color-text);
+}
+
+.ot-recovery-code-input__suggestion:hover,
+.ot-recovery-code-input__suggestion--active {
+  background: var(--color-surface-hover);
+}
+
+.ot-recovery-code-input__error {
+  font-size: var(--text-sm);
+  color: var(--color-error, #dc3545);
+  font-weight: 500;
+}

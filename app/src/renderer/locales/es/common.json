@@ -1320,5 +1320,56 @@
         "body": "Ocurrió un error inesperado durante el inicio. Restaure desde una copia de seguridad o contacte con el soporte."
       }
     }
+  },
+  "onboarding": {
+    "encryption": {
+      "folder": {
+        "title": "¿Dónde debe OpenTreasury guardar tus datos?",
+        "body": "Elige una carpeta para tu espacio de trabajo. Si planeas compartir con otros miembros de la junta, elige una carpeta dentro de OneDrive o una unidad compartida.",
+        "btn_choose": "Elegir carpeta…"
+      },
+      "show": {
+        "title": "Tus datos, cifrados y compartidos de forma segura.",
+        "body": "OpenTreasury mantiene los datos de tu tesorería privados. Vamos a crear ahora un código de recuperación: es la **única** forma de recuperar tus datos si pierdes el acceso a este equipo, y la manera en que otros miembros de la junta se unirán a este espacio de trabajo.",
+        "grid_caption": "Guárdalo en un lugar seguro, lejos de este equipo. Compártelo con cualquiera que necesite acceso a este espacio de trabajo: es la llave de tu tesorería compartida.",
+        "btn_print": "Imprimir",
+        "btn_pdf": "Guardar como PDF",
+        "btn_written": "Lo he anotado"
+      },
+      "confirm": {
+        "title": "Confirma tu código de recuperación",
+        "prompt": "Para asegurarnos de que lo tienes bien, introduce las palabras en estas posiciones:",
+        "footer": "Si cierras OpenTreasury ahora, empezaremos de nuevo la próxima vez.",
+        "continue": "Continuar",
+        "error": "Eso no coincide. Comprueba e inténtalo de nuevo."
+      },
+      "done": {
+        "title": "Tu espacio de trabajo está cifrado.",
+        "body": "Cualquiera con quien compartas el código de recuperación puede unirse desde su propio equipo.",
+        "continue": "Ir al panel"
+      }
+    },
+    "join": {
+      "title": "Unirse a un espacio de trabajo existente.",
+      "body": "Apunta a la carpeta compartida e introduce el código de recuperación de 12 palabras que recibiste del propietario del espacio de trabajo.",
+      "btn_folder": "Elegir carpeta…",
+      "mnemonic_label": "Código de recuperación (12 palabras)",
+      "label_prompt": "¿Cómo deberíamos llamar a este equipo?",
+      "btn_join": "Unirse",
+      "error": "Ese código de recuperación no coincide. Comprueba e inténtalo de nuevo.",
+      "help_after_5": "¿Necesitas ayuda? Contactar con soporte.",
+      "success": {
+        "title": "Ya estás dentro.",
+        "body": "OpenTreasury se desbloqueará automáticamente a partir de ahora.",
+        "continue": "Ir al panel"
+      }
+    }
+  },
+  "recovery": {
+    "title": "Bienvenido de nuevo.",
+    "body": "Para desbloquear los datos de tu tesorería, introduce tu código de recuperación de 12 palabras.",
+    "unlock": "Desbloquear",
+    "error": "Ese código de recuperación no coincide. Comprueba e inténtalo de nuevo.",
+    "help_after_5": "¿Necesitas ayuda? Contactar con soporte."
   }
 }
