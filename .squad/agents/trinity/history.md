@@ -3500,3 +3500,10 @@ Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance o
 ### Gotchas
 - prettier ignores '.gitattributes' LF normalization but flagged the test file's long string concatenations - 'npm run format' fixed it cleanly.
 - 'npm run test' is heavy (~67s including Vitest startup) - prefer 'npx vitest run <path>' to iterate on a single file when wiring.
+
+## Learnings (2026-05-08 - PR #311 fix/onboarding-test-i18n)
+
+### i18n test setup pattern
+- **beforeAll hook**: All renderer component tests that use i18n must call wait i18n.changeLanguage('en') (or 'es') in a beforeAll hook before rendering components. Without this, translations won't resolve and tests will see raw i18n keys like 'onboarding.welcome.title' instead of translated text.
+- **JSON duplicate key pitfall**: JavaScript silently overwrites duplicate keys in JSON objects. If a locale file has two 'onboarding' keys at different depths, only the last one survives when imported. This caused onboarding.welcome.* translations to vanish. Fix: merge nested objects into a single parent key.
+- **Pattern source**: MovementsScreen.bulk.test.tsx demonstrates the canonical beforeAll + changeLanguage pattern. Future onboarding screen tests should follow the same approach.
