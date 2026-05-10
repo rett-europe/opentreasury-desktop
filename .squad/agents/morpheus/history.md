@@ -3373,4 +3373,40 @@ Default dev workflow (`npm run dev`, `isPackaged=false`, no env overrides) still
 - PR #271 merged, tag v0.1.0-trial.3.2 pushed, release workflow #25372940415 triggered
 - Decision captured in `.squad/decisions/inbox/morpheus-dev-seed-isPackaged-fix.md`
 
+---
+
+## 2026-05-10 — SPEC-026 OneDrive Multi-Device Spike — PASS ✅
+
+**Status:** Spike execution complete. Architecture validated. GO for v2 implementation.
+
+**Context:** Pedro executed a live-data spike to validate the per-device-file architecture against a real SharePoint-synced folder. Result: **ZERO conflict copies**. Per-device event files (`events-{deviceId}.ndjson`) eliminate all cloud-sync write conflicts. Merge-sort by ULID produces correct cross-device ordering.
+
+**Key findings locked for implementation:**
+1. Per-device files prevent all cloud-sync write conflicts — foundation for event-log adapter (#305)
+2. Multi-wrap key model (shared recovery + per-device safeStorage wraps) — ready for crypto-core (#303)
+3. Recovery code (BIP39 24-word, Argon2id) as enrollment mechanism — design for onboarding UX (#306)
+4. Merge-sort read model with ULID deduplication — correct behavior verified
+5. Rebuild on boot (v1) is safe and correct — architecture locked
+
+**Next for Morpheus:**
+- **Crypto-core (#303):** Foundation work — multi-wrap key model, Argon2id derivation, XChaCha20-Poly1305 AEAD (estimate: 14–18 days)
+  - Device enrollment: derive recovery key, unwrap master key, wrap under device's safeStorage
+  - Per-event encryption: each event encrypted with MK, AAD bound to event.id (ULID)
+  - Event log adapter: per-device appends, glob + merge-sort read, transparent encryption/decryption
+- **Depend on:** Niobe's v2 spec finalization (detailed AC), Switch's crypto review sign-off
+
+**Related parallel work (#305–#309):**
+- #305: Per-device event log (merge-sort, deduplication, per-device writes)
+- #306: Onboarding UX (creator + joiner flows, recovery code entry)
+- #307: Migration (single → multi event files + key wrap)
+- #308: Export decrypted events
+- #309: Integration tests (multi-device scenarios)
+
+**Artifacts:**
+- Findings: `docs/specs/spikes/onedrive-multi-device-findings.md`
+- PR #304: Spike implementation (auto-merge pending CI green)
+- Decision: `.squad/decisions.md` § 2026-05-10 SPEC-026 OneDrive Multi-Device Spike — PASS
+- Orchestration logs: `.squad/orchestration-log/{ts}-pedro-spike-pass.md`, `-coordinator-issues-fanout.md`, `-morpheus-crypto-core-spawn.md`
+- Session log: `.squad/log/2026-05-10T14-19-22Z-spec026-spike-pass.md`
+
 

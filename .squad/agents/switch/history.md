@@ -365,3 +365,34 @@ Implementation sub-issues #238–#242 now open with squad ownership. This spec u
 **Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
 
 **Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.
+
+---
+
+## 2026-05-10 — SPEC-026 OneDrive Multi-Device Spike — PASS ✅
+
+**Status:** Spike validation complete. Multi-user architecture approved for v2 implementation.
+
+**Key finding:** Per-device event files (`events-{deviceId}.ndjson`) **eliminate all cloud-sync write conflicts**. Pedro's live spike on SharePoint confirmed:
+- ZERO conflict copies across both devices
+- Both files remained intact (50 lines each)
+- Merge-sort by ULID produces correct cross-device ordering
+- No data loss, no truncation, no stale writes
+
+**Security implications for v2 spec review:**
+1. **Multi-device threat model now has cryptographic proof:** Per-device writes mean no file-level merge conflicts. Scope for conflict-exploitation attacks is eliminated by construction.
+2. **Multi-wrap key hierarchy is validated:** Shared recovery wrap + per-device safeStorage wraps can coexist per the spike results. No new write-conflict attack surfaces from dual wrapping.
+3. **AAD binding via event.id (ULID) is sound:** Event identity is globally unique, immutable, and independent of file/line-index. No regression in authentication binding.
+4. **Argon2id parameters remain to validate:** m=65536 KiB, t=3, p=1 targeting ~500ms on 2020-era hardware. Needs perf testing on trial target device.
+
+**For crypto review (pending v2 spec):**
+- Multi-wrap key model (shared recovery + per-device safeStorage wraps)
+- Argon2id (m=65536, t=3, p=1) + BIP39 24-word recovery code
+- Per-event XChaCha20-Poly1305 AEAD with AAD = event.id
+- Atomic write semantics for `events.key` (tmp → fsync → rename)
+- Per-device file I/O pattern (glob + merge-sort on read)
+
+**Related:**
+- Findings doc: `docs/specs/spikes/onedrive-multi-device-findings.md`
+- PR #304: Spike code (auto-merge pending CI)
+- Decision: `.squad/decisions.md` § 2026-05-10 SPEC-026 OneDrive Multi-Device Spike — PASS
+- Orchestration logs: `.squad/orchestration-log/{ts}-*.md` entries for spike PASS, issues fanout, and Morpheus crypto-core spawn

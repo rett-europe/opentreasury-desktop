@@ -2,6 +2,69 @@
 
 ---
 
+## Decision: SPEC-026 OneDrive Multi-Device Spike — PASS ✅
+
+**Date:** 2026-05-10  
+**Executor:** Pedro (Owner)  
+**Status:** APPROVED — GO FOR IMPLEMENTATION  
+**Stakeholders:** Niobe (UX/spec), Morpheus (backend), Trinity (frontend), Switch (security review), Link (PM)
+
+### Summary
+
+Pedro executed a spike to validate the per-device-file architecture for SPEC-026 multi-user encryption redesign against a real SharePoint-synced folder. Result: **ZERO conflict copies**. Both files remained intact (50 lines each). The architecture is **production-ready for v2 implementation**.
+
+### Key Findings
+
+1. **Per-device event files eliminate all cloud-sync write conflicts.** Each device appends to `events-{deviceId}.ndjson`; OneDrive/SharePoint syncs each file independently without interference or stale-write issues.
+2. **Merge-sort by ULID produces correct cross-device ordering** across all devices in the workspace.
+3. **No truncation, no silent data loss, no conflict copies.** Read model rebuild is safe and correct.
+4. **OneDrive Business / SharePoint Synced works flawlessly** — same behavior as per the original vision.
+
+### Locked Decisions (Downstream Dependencies)
+
+- **Per-device files** prevent all write conflicts → foundation for #305 (event log adapter)
+- **Multi-wrap key model** (shared recovery wrap + per-device safeStorage wraps) → Morpheus crypto-core (#303)
+- **Recovery code as enrollment mechanism** (BIP39 24-word, Argon2id derivation) → #306 onboarding UX
+- **Merge-sort read model** with ULID deduplication → #305 event log adapter
+- **Rebuild on boot** (v1) is safe and correct → architecture locked for first release
+
+### Artifacts
+
+- **Findings:** `docs/specs/spikes/onedrive-multi-device-findings.md` (pushed to `squad/encryption-onedrive-sync-spike`)
+- **PR #304:** Spike implementation (auto-merge on CI green)
+- **Session log:** `.squad/log/2026-05-10T14-19-22Z-spec026-spike-pass.md`
+
+### Work Plan Fan-Out
+
+Coordinator filed 5 new issues (#305–#309):
+- #305: Per-Device Event Log (event log adapter + merge-sort)
+- #306: Onboarding UX (multi-user flows + recovery code)
+- #307: Migration Path (single → multi)
+- #308: Export Decrypted Events (user-facing export)
+- #309: Integration Tests (multi-device scenarios)
+
+Foundation issues already in flight:
+- #301: Workspace Detection + IPC
+- #302: OneDrive Spike (ready to close)
+- #303: Crypto-Core (Morpheus spawned; estimate 14–18 days)
+- #304: Spike PR (auto-merge pending CI)
+
+### Timeline
+
+- **#303 (crypto-core):** Morpheus — foundation (14–18 working days)
+- **#305–#309:** Parallel streams pending crypto-core completion + Niobe v2 spec finalization
+- **Overall estimate:** 14–18 days (critical path: #303)
+
+### Next Steps
+
+1. **Niobe:** Finalize SPEC-026 v2 spec with detailed AC (acceptance criteria) for all issues
+2. **Trinity + Morpheus:** Break ground on implementation pending spec + #303 completion
+3. **Switch:** Crypto review on v2 spec (key derivation, wrapping model, recovery code)
+4. **Coordinator:** Monitor work plan execution, schedule status checks
+5. **Scribe:** Update agent histories; merge decisions; record orchestration logs
+
+---
+
 ## DIRECTIVE: User Rule — Account Deletion Constraint
 
 **Author:** Pedro (via Copilot)  
