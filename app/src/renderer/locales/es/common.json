@@ -1091,22 +1091,6 @@
       "ngoNameTooLong": "El nombre de la organización debe tener 200 caracteres o menos"
     }
   },
-  "onboarding": {
-    "welcome": {
-      "title": "Elige una carpeta para tus datos de OpenTreasury",
-      "body": "OpenTreasury guarda cada transacción, cuenta y etiqueta como archivos sencillos dentro de una carpeta que tú controlas. Elige dónde quieres que viva esa carpeta — podrás moverla o respaldarla después como cualquier otra carpeta.",
-      "bulletAnyFolder": "Cualquier carpeta de disco funciona — disco local, disco externo o unidad de red.",
-      "bulletCloudSync": "¿Quieres sincronización en la nube? Apunta esto a una carpeta dentro de OneDrive, SharePoint, Dropbox o Google Drive y la app la seguirá.",
-      "bulletNoLockIn": "Sin ataduras: tus datos se quedan en esa carpeta. Desinstalar OpenTreasury nunca los toca.",
-      "selectedLabel": "Carpeta seleccionada",
-      "noFolderYet": "Aún no has seleccionado ninguna carpeta",
-      "browseLabel": "Examinar…",
-      "useDefaultLabel": "Usar ubicación predeterminada",
-      "confirmLabel": "Confirmar y empezar",
-      "restarting": "Guardando tu elección y reiniciando OpenTreasury…",
-      "errorPrefix": "Algo ha salido mal"
-    }
-  },
   "profile": {
     "roles": {
       "treasurer": "Tesorero/a",
@@ -1322,6 +1306,20 @@
     }
   },
   "onboarding": {
+    "welcome": {
+      "title": "Elige una carpeta para tus datos de OpenTreasury",
+      "body": "OpenTreasury guarda cada transacción, cuenta y etiqueta como archivos sencillos dentro de una carpeta que tú controlas. Elige dónde quieres que viva esa carpeta — podrás moverla o respaldarla después como cualquier otra carpeta.",
+      "bulletAnyFolder": "Cualquier carpeta de disco funciona — disco local, disco externo o unidad de red.",
+      "bulletCloudSync": "¿Quieres sincronización en la nube? Apunta esto a una carpeta dentro de OneDrive, SharePoint, Dropbox o Google Drive y la app la seguirá.",
+      "bulletNoLockIn": "Sin ataduras: tus datos se quedan en esa carpeta. Desinstalar OpenTreasury nunca los toca.",
+      "selectedLabel": "Carpeta seleccionada",
+      "noFolderYet": "Aún no has seleccionado ninguna carpeta",
+      "browseLabel": "Examinar…",
+      "useDefaultLabel": "Usar ubicación predeterminada",
+      "confirmLabel": "Confirmar y empezar",
+      "restarting": "Guardando tu elección y reiniciando OpenTreasury…",
+      "errorPrefix": "Algo ha salido mal"
+    },
     "encryption": {
       "folder": {
         "title": "¿Dónde debe OpenTreasury guardar tus datos?",
