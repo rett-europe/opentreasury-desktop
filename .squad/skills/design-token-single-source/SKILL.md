@@ -48,6 +48,23 @@ For OpenTreasury Desktop:
 If a token is consumed by **more than one component** — or is even *likely* to
 become so — it goes in `tokens.css`. Period.
 
+## Token naming convention (PR #311 learning)
+
+tokens.css uses **suffixed** token names to distinguish states and variants:
+
+| Pattern | Examples |
+| ------- | -------- |
+| `--color-{category}-{variant}` | `--color-accent-default`, `--color-accent-hover`, `--color-accent-disabled` |
+| `--color-surface-{type}` | `--color-surface-primary`, `--color-surface-secondary`, `--color-surface-raised` |
+| `--color-text-{type}` | `--color-text-primary`, `--color-text-secondary`, `--color-text-muted` |
+| `--color-border-{type}` | `--color-border-default`, `--color-border-subtle`, `--color-border-strong` |
+| `--type-{role}-size` | `--type-body-size`, `--type-small-size`, `--type-display-size` |
+
+**Shorthand aliases** like `--color-accent`, `--color-surface`, `--color-text`, `--text-sm` are **not defined**. Always use the full suffixed name.
+
+**Wrong:** `var(--color-accent)` → undefined, may resolve to fallback or inherit
+**Right:** `var(--color-accent-default)` → defined in tokens.css
+
 Component CSS may still define **private** custom properties (typically
 prefixed `--ot-<component>-…`) that are set by the component on its own
 elements via `style={{ ['--ot-rank-color']: ... }}` and consumed inside the
