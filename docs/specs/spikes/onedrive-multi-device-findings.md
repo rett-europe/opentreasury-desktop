@@ -123,19 +123,45 @@ Consult with Pedro and Keaton on go/no-go decision. If we proceed with per-devic
 
 ## Results
 
-**Execution date:** _[Pedro to fill in]_  
-**OneDrive version:** _[Pedro to fill in]_  
-**Windows version:** _[Pedro to fill in]_  
+**Execution date:** 2026-05-10
+**Executed by:** Pedro
+**Target folder:** `C:\Users\perocha\Rett Syndrome Europe\Rett Syndrome Europe - Documents\Treasury\Test` (real SharePoint-synced folder via OneDrive client)
 
-**Outcome:** _[PASS / FAIL]_
+**Outcome:** ✅ **PASS**
 
 **Details:**
 
-_[Pedro: Paste the script output here, including the PASS/FAIL summary and any conflict files detected]_
+```
+=== OneDrive Multi-Device File Append Smoke Test ===
+
+[deviceA] Writing 50 lines to events-deviceA.ndjson
+[deviceB] Writing 50 lines to events-deviceB.ndjson
+[deviceA] Completed 50 lines
+[deviceB] Completed 50 lines
+
+Both writers completed in 50.5s
+
+Waiting 120s for OneDrive sync to settle...
+
+============================================================
+✅ SPIKE PASSED
+
+OneDrive did NOT generate conflict copies when two processes
+appended to different files in the same folder.
+
+IMPLICATION: SPEC-026 v2 per-device-file architecture is safe
+to proceed. No conflict-merge logic needed for event files.
+============================================================
+DETAILS:
+✅ events-deviceA.ndjson: 50 lines (expected 50)
+✅ events-deviceB.ndjson: 50 lines (expected 50)
+✅ No conflict copies detected
+============================================================
+```
 
 **Decision:**
 
-_[Pedro/Keaton: Document the go/no-go decision based on results]_
+✅ **GO** — Per-device-file architecture is validated. SPEC-026 v2 §4.3–4.4 proceeds as designed. No event-file conflict-merge logic needed (the +2 day escape hatch is not triggered). Crypto-core (#303) and remaining items unblocked.
 
 ---
 
