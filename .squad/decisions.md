@@ -9707,3 +9707,27 @@ This pattern applies to any future release cut or admin-merge automation.
 ### Implication
 
 Release cuts must incorporate packaging workflow (build + package + verify timestamps) as part of the versioning step. Future CI/CD should automate this.
+
+## 2026-05-11 Decisions
+
+- **2026-05-11 (Morpheus):** Issue #308 — one-shot terminal migration script (self-contained .mjs, crypto primitives inlined, wrap_safestorage placeholder = recovery wrap, original renamed to .pre-encryption.bak, key file written last for crash safety)
+- **2026-05-11 (Switch):** PR #312 security verify-pass — all 5 findings (AAD scope, parent fsync, TOCTOU, appendBatch doc, file perms) verified fixed and tested ✅
+- **2026-05-11 (Trinity):** PR #315 contracts review — 6 IPC channels (detect/create/confirmSetup/enroll/unlock/recover) wire-ready, mock↔real contract match verified ✅, action items flagged for #307 (failedAttempts state, migration routing)
+- **2026-05-11 (Switch):** PR #315 security review — 7 findings (1 HIGH path traversal, 3 MEDIUM, 3 LOW) REQUEST_CHANGES — HIGH is merge-blocking, mnemonic accepted risk
+
+## 2026-05-12 Decisions
+
+- **2026-05-12 (Switch):** PR #312 security review — 5 findings (2 MEDIUM: AAD scope + parent fsync, 3 LOW: TOCTOU + appendBatch doc + file perms) non-blocking, defaults to COMMENT
+- **2026-05-12 (Morpheus):** PR #312 fixes — commits b9213a9 (MEDIUM-1 AAD), 1c14a2e (MEDIUM-2 fsync), c507775 (LOW-1/2/3) all gates pass (1125 tests ✅), ready for re-review
+- **2026-05-12 (Morpheus):** PR #315 fixes — commits addressed all 7 Switch findings: HIGH path traversal (validateFolderBoundary, homedir boundary), MEDIUM pendingSetups TTL/cap/lock, LOW sanitizeFsError/rate-limit, gates pass (1175 tests)
+- **2026-05-12 (Switch):** PR #315 security verify — all 7 findings fixed ✅, MEDIUM-3 mnemonic accepted risk (inherent BIP39 flow + 5-min TTL mitigations), gates pass
+
+## 2026-05-13 Decisions
+
+- **2026-05-13 (Morpheus):** PR #314 — device wrap migration_placeholder discriminator flag (Zod schema optional boolean, machine-checkable intent, backward compat, migration-device entries checked before safeStorage.decryptString)
+
+
+## 2026-05-XX Decisions (Prior to review)
+
+- **2025-07-07 (Switch):** PR #314 security review — migration script placeholder wrap safe (migration device ID never matches real device, safeStorage.decryptString would throw, atomic writes + proper crash recovery validated ✅), approve
+
