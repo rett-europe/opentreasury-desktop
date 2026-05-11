@@ -421,3 +421,7 @@ All 5 findings (2 MEDIUM, 3 LOW) verified resolved. AAD bound to eventId:deviceI
 ### 2025-07-07 — PR #314 Security Review: APPROVE
 
 Migration script (#308) reviewed. wrap_safestorage placeholder is safe (device ID mismatch + safeStorageDecrypt rejection). 0 Critical, 0 High, 1 Medium-advisory (no structural discriminator — recommend migration_placeholder flag), 2 Low. Gates green.
+
+### 2025-07-07 — PR #315 Security Review: REQUEST_CHANGES
+
+Workspace IPC handlers (#301). 1 HIGH (path traversal — renderer-supplied folderPath used in fs.mkdir/saveKeyFile with no boundary check), 3 MEDIUM (pendingSetups no TTL, mnemonic to renderer unbounded, no workspace:lock), 3 LOW. Blocks on HIGH fix.
