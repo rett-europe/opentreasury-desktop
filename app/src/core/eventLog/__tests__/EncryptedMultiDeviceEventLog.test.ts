@@ -433,4 +433,33 @@ describe('EncryptedMultiDeviceEventLog', () => {
     await log.load();
     await expect(fs.access(stale)).rejects.toMatchObject({ code: 'ENOENT' });
   });
+
+  it('suppresses ENOENT when a stale tmp is already gone (LOW-1 TOCTOU)', async () => {
+    // Simulate the TOCTOU race: readdir() sees the tmp file, but by the time
+    // unlink() runs another process already deleted it. The fix (LOW-1) makes
+    // ENOENT a silent continue rather than a console.warn.
+    const log = new EncryptedMultiDeviceEventLog({
+      dir: tmpDir,
+      deviceId: DEVICE_A,
+      masterKey: mk,
+    });
+    await log.append(makeEvent(ulid('TMP00002'), DEVICE_A));
+
+    // Create a real tmp file so readdir() includes it in entries.
+    const stale = path.join(tmpDir, `events-${DEVICE_B}.ndjson.tmp`);
+    await fs.writeFile(stale, '', 'utf8');
+
+    // Mock unlink to simulate the race: the file vanished between readdir and unlink.
+    const enoent = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+    const unlinkSpy = vi.spyOn(fs, 'unlink').mockRejectedValueOnce(enoent);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      await log.load(); // must not warn about the expected-race ENOENT
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+      unlinkSpy.mockRestore();
+      await fs.unlink(stale).catch(() => undefined);
+    }
+  });
 });

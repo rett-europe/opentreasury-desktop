@@ -269,9 +269,12 @@ export async function saveKeyFile(dir: string, keyFile: KeyFileV2): Promise<void
 
   // 2-space indent: the file is small (a few KB), human-readable diffs in
   // OneDrive version history matter more than byte count.
+  // LOW-3: mode 0o600 (owner read/write only) on POSIX. On Windows the mode
+  // argument is ignored by the OS; NTFS permissions are managed separately.
   const body = JSON.stringify(result.data, null, 2);
+  const fileMode = process.platform !== 'win32' ? 0o600 : undefined;
 
-  await fs.writeFile(tmpPath, body, { encoding: 'utf8' });
+  await fs.writeFile(tmpPath, body, { encoding: 'utf8', mode: fileMode });
   const handle = await fs.open(tmpPath, 'r+');
   try {
     await handle.sync();

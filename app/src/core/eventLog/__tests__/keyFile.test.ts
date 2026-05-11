@@ -95,13 +95,23 @@ describe('keyFile (events.key v2)', () => {
       Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
 
       // Spy on fs.open and count how many times it is called with the
-      // directory path (the post-rename parent-dir fsync call).
+      // directory path (the post-rename parent-dir fsync call). We intercept
+      // the directory open to avoid failing on Windows (which cannot open a
+      // directory with 'r' flag); non-directory opens fall through to the real impl.
       let dirOpenCount = 0;
       const origOpen = fs.open.bind(fs);
       const openSpy = vi
         .spyOn(fs, 'open')
         .mockImplementation(async (...args: Parameters<typeof fs.open>) => {
-          if (String(args[0]) === tmpDir) dirOpenCount++;
+          if (String(args[0]) === tmpDir) {
+            dirOpenCount++;
+            // Return a fake FileHandle whose sync() / close() are no-ops so
+            // the rest of saveKeyFile completes normally on all platforms.
+            return {
+              sync: async () => undefined,
+              close: async () => undefined,
+            } as unknown as Awaited<ReturnType<typeof fs.open>>;
+          }
           return origOpen(...args);
         });
 
@@ -134,6 +144,14 @@ describe('keyFile (events.key v2)', () => {
         openSpy.mockRestore();
         Object.defineProperty(process, 'platform', { value: origPlatform, configurable: true });
       }
+    });
+
+    it('creates events.key with mode 0o600 on POSIX (LOW-3)', async () => {
+      if (process.platform === 'win32') return; // mode is POSIX-only
+      await saveKeyFile(tmpDir, makeV2());
+      const stat = await fs.stat(path.join(tmpDir, KEY_FILE_NAME));
+      // Mask to permission bits only (ignore file-type bits).
+      expect(stat.mode & 0o777).toBe(0o600);
     });
 
     it('refuses to write a malformed key file', async () => {

@@ -209,6 +209,15 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
     // Encrypt every event first so a crypto failure aborts the batch BEFORE
     // any byte hits disk (matches `JsonFileEventLog`'s all-or-nothing
     // semantic).
+    //
+    // Crash safety (LOW-2): if the process dies mid-write, the last line in
+    // the file may be a partial (truncated) JSON object. On the next load()
+    // that line is skipped by malformed-line tolerance (parseEncryptedLine
+    // returns null). Any fully-written events within the same batch that did
+    // make it to disk are re-submitted on the next appendBatch call and are
+    // de-duplicated by seenIds (idempotent by event.id). The combination of
+    // malformed-line tolerance + idempotency makes partial-crash recovery
+    // automatic and transparent to the caller.
     const blob = newEvents.map((e) => this.encryptOne(e)).join('');
 
     const handle = await fs.open(this.writeFilePath, 'a');
@@ -340,7 +349,11 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
       try {
         await fs.unlink(path.join(this.dir, f));
       } catch (err) {
-        // Don't fail hydration over a stuck tmp file. Log + continue.
+        // ENOENT is expected: another process or a concurrent load() may have
+        // removed the file between the readdir() and our unlink(). Silently
+        // ignore it (LOW-1: narrow TOCTOU window, already mitigated by error
+        // swallowing). Surface other errors as warnings so operators can act.
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') continue;
         // eslint-disable-next-line no-console
         console.warn(
           `[EncryptedMultiDeviceEventLog] could not remove stale tmp file ${f}: ${(err as Error).message}`,
