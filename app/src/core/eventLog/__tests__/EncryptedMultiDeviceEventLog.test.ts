@@ -361,6 +361,61 @@ describe('EncryptedMultiDeviceEventLog', () => {
     expect(loaded[0]?.id).toBe(sharedId);
   });
 
+  // ---- Cross-device ciphertext transplant rejection (MEDIUM-1) -----------
+
+  it('same-device: event written for device A decrypts correctly from its own file', async () => {
+    // Positive side of the cross-device transplant test — confirms AAD format
+    // is correct for same-device reads.
+    const log = new EncryptedMultiDeviceEventLog({
+      dir: tmpDir,
+      deviceId: DEVICE_A,
+      masterKey: mk,
+    });
+    const event = makeEvent(ulid('SAMEDEV1'), DEVICE_A);
+    await log.append(event);
+
+    const reopened = new EncryptedMultiDeviceEventLog({
+      dir: tmpDir,
+      deviceId: DEVICE_A,
+      masterKey: mk,
+    });
+    const loaded = await reopened.load();
+    expect(loaded).toHaveLength(1);
+    expect(loaded[0]?.id).toBe(event.id);
+  });
+
+  it('cross-device transplant: line copied from events-A into events-B fails to decrypt', async () => {
+    // Negative case: an attacker (or buggy sync) copies a ciphertext line from
+    // events-{A}.ndjson into events-{B}.ndjson. The AAD includes the file's
+    // deviceId, so decryption MUST fail — AEAD verification rejects the mismatch.
+    const logA = new EncryptedMultiDeviceEventLog({
+      dir: tmpDir,
+      deviceId: DEVICE_A,
+      masterKey: mk,
+    });
+    const event = makeEvent(ulid('XPLANT01'), DEVICE_A);
+    await logA.append(event);
+
+    // Simulate the transplant: place device A's encrypted line in a fresh
+    // directory named as device B's file. There is no device-A file in this
+    // new directory, so seenIds cannot short-circuit the decryption attempt.
+    const dir2 = await fs.mkdtemp(`${tmpDir}-xplant-`);
+    try {
+      const lineFromA = await fs.readFile(path.join(tmpDir, eventsFileName(DEVICE_A)), 'utf8');
+      await fs.writeFile(path.join(dir2, eventsFileName(DEVICE_B)), lineFromA, 'utf8');
+
+      const logB = new EncryptedMultiDeviceEventLog({
+        dir: dir2,
+        deviceId: DEVICE_B,
+        masterKey: mk,
+      });
+      const err = await logB.load().catch((e: unknown) => e as Error & { code?: string });
+      expect(err.code).toBe(ENCRYPTED_EVENT_AUTH_FAILED);
+    } finally {
+      await fs.rm(dir2, { recursive: true, force: true });
+    }
+  });
+
   // ---- Stale tmp cleanup -------------------------------------------------
 
   it('removes stale `events-*.ndjson.tmp` siblings on load', async () => {

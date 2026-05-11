@@ -26,11 +26,13 @@
 //     under a given id sees decryption fail at hydrate time.
 //
 // AAD binding (CRITICAL):
-//   The AAD passed to AEAD encrypt is `event.id` (the ULID), NOT the line
-//   index in the file. ULIDs are globally unique and stable across files /
-//   devices, so an event encrypted on device A by `actorDeviceId = A` can be
-//   decrypted on device B without coordination. Line-index AAD would have
-//   broken horribly the moment a peer device's file landed in the folder.
+//   The AAD passed to AEAD encrypt is `event.id + ":" + deviceId` (both as
+//   UTF-8 bytes). This binds each ciphertext to the event's ULID AND to the
+//   specific per-device file it was written to. A ciphertext from
+//   `events-{A}.ndjson` cannot be transplanted into `events-{B}.ndjson` and
+//   decrypted — a mismatched deviceId causes AEAD verification failure.
+//   On the read path, the deviceId is extracted from the filename (e.g.
+//   `events-{deviceId}.ndjson`) and passed to `decryptEvent`.
 //
 // Read path:
 //   `load()` globs `events-*.ndjson` in `dir`, parses each line, decrypts via
@@ -276,7 +278,11 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
 
         let plaintext: string;
         try {
-          plaintext = decryptEvent(parsed.c, this.mk, parsed.id);
+          // Extract the deviceId from the filename (events-{deviceId}.ndjson)
+          // and pass it as part of the AAD. A ciphertext transplanted from a
+          // different device's file will fail here (AAD mismatch).
+          const fileDeviceId = fileName.slice('events-'.length, -'.ndjson'.length);
+          plaintext = decryptEvent(parsed.c, this.mk, parsed.id, fileDeviceId);
         } catch (err) {
           // AEAD failure means tampering, wrong key, or a corrupted line —
           // throw with a stable code so the bootstrap can route the user to
@@ -324,7 +330,7 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
   }
 
   private encryptOne(event: DomainEvent): string {
-    const ciphertextB64 = encryptEvent(JSON.stringify(event), this.mk, event.id);
+    const ciphertextB64 = encryptEvent(JSON.stringify(event), this.mk, event.id, this.deviceId);
     return serializeEncryptedLine(event.id, ciphertextB64);
   }
 
