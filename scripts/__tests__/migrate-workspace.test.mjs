@@ -317,6 +317,13 @@ describe('migrate-workspace.mjs', () => {
       const plaintext = decryptEvent(parsed.c, masterKey, parsed.id, deviceId);
       const event = JSON.parse(plaintext);
       expect(event.id).toBe(parsed.id);
+
+      // Assert actorDeviceId is PRESERVED (not overwritten with migration deviceId).
+      // Fixture events carry actorDeviceId: fakeUlid('DEVICE0001'), different from
+      // the fresh migration deviceId. The script must not replace it.
+      const original = events.find((e) => e.id === event.id);
+      expect(event.actorDeviceId).toBe(original.actorDeviceId);
+
       decryptedEvents.push(event);
     }
 
@@ -343,6 +350,84 @@ describe('migrate-workspace.mjs', () => {
       .catch(() => false);
     expect(originalStillExists).toBe(false);
   }, 60_000); // allow up to 60s for Argon2id KDF
+
+
+  // \u2500\u2500 actorDeviceId preservation \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+  it('preserves pre-existing actorDeviceId and only fills in missing ones', async () => {
+    // Events from two distinct original devices (DEVICE0001 and DEVICE0002).
+    // The migration generates a fresh ULID; neither original actorDeviceId must
+    // be overwritten -- they must be preserved verbatim in the encrypted output.
+    const deviceA = fakeUlid('DEVICE0001');
+    const deviceB = fakeUlid('DEVICE0002');
+    const datasetId = fakeUlid('DATASET001');
+    const userId = fakeUlid('USER000001');
+    const now = '2026-01-15T10:00:00.000Z';
+
+    const eventsWithDevices = [
+      {
+        id: fakeUlid('EVT_A_001'),
+        type: 'AccountCreated',
+        datasetId,
+        actorDeviceId: deviceA,
+        actorUserId: userId,
+        actorIdentitySource: 'local',
+        createdAt: now,
+        dekVersion: 0,
+        version: 1,
+        payload: { name: 'Account A', bankName: 'Bank' },
+      },
+      {
+        id: fakeUlid('EVT_B_001'),
+        type: 'AccountCreated',
+        datasetId,
+        actorDeviceId: deviceB,
+        actorUserId: userId,
+        actorIdentitySource: 'local',
+        createdAt: '2026-01-15T10:01:00.000Z',
+        dekVersion: 0,
+        version: 1,
+        payload: { name: 'Account B', bankName: 'Bank' },
+      },
+    ];
+
+    const ndjson = eventsWithDevices.map((e) => JSON.stringify(e)).join('\n') + '\n';
+    await fs.writeFile(path.join(tmpDir, 'events.ndjson'), ndjson, 'utf8');
+
+    const { exitCode, stdout, stderr } = await runMigration(tmpDir, 'y\n\n');
+    expect(exitCode, `stderr: ${stderr}`).toBe(0);
+
+    const migrationDeviceId = extractDeviceId(stdout);
+    expect(migrationDeviceId).toBeTruthy();
+    // Migration device is a fresh ULID -- must differ from both original devices.
+    expect(migrationDeviceId).not.toBe(deviceA);
+    expect(migrationDeviceId).not.toBe(deviceB);
+
+    const keyFileRaw = await fs.readFile(path.join(tmpDir, 'events.key'), 'utf8');
+    const keyFile = JSON.parse(keyFileRaw);
+    const mnemonic = extractMnemonic(stdout);
+    const recoveryKey = await deriveRecoveryKey(mnemonic, keyFile.salt);
+    const masterKeyBuf = unwrapKey(keyFile.wrap_recovery, recoveryKey);
+    const masterKey = new Uint8Array(masterKeyBuf);
+
+    const encryptedRaw = await fs.readFile(
+      path.join(tmpDir, `events-${migrationDeviceId}.ndjson`),
+      'utf8',
+    );
+    const encryptedLines = encryptedRaw.split('\n').filter((l) => l.trim().length > 0);
+    expect(encryptedLines).toHaveLength(eventsWithDevices.length);
+
+    for (const line of encryptedLines) {
+      const parsed = JSON.parse(line);
+      const plaintext = decryptEvent(parsed.c, masterKey, parsed.id, migrationDeviceId);
+      const event = JSON.parse(plaintext);
+      const original = eventsWithDevices.find((e) => e.id === event.id);
+
+      // actorDeviceId must match the ORIGINAL device -- NOT the migration device.
+      expect(event.actorDeviceId).toBe(original.actorDeviceId);
+      expect(event.actorDeviceId).not.toBe(migrationDeviceId);
+    }
+  }, 60_000);
 
   // ── Input validation ────────────────────────────────────────────────────
 

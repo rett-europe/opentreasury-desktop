@@ -19,6 +19,16 @@
  * directly imported from a plain .mjs Node script without a build step. Any
  * changes to the crypto primitives in the app must be mirrored here.
  * Functions marked with "mirrors: <file>" indicate the source of truth.
+ *
+ * Migration placeholder convention:
+ *   The device entry written by this script sets `migration_placeholder: true`
+ *   alongside `wrap_safestorage`. This signals that the `wrap_safestorage` field
+ *   is NOT genuine OS-encrypted material -- it holds the same ciphertext as
+ *   `wrap_recovery` (recovery-key-wrapped MK) purely as a structural placeholder.
+ *   Any code that reads `events.key` MUST check `entry.migration_placeholder`
+ *   before calling safeStorage.decryptString(). When `migration_placeholder` is
+ *   true, the entry MUST be treated as uninitialized and the re-enroll flow MUST
+ *   be triggered. See keyFile.ts DeviceWrap schema for the optional field.
  */
 
 import { createReadStream, promises as fs } from 'node:fs';
@@ -472,6 +482,7 @@ async function main() {
         deviceId,
         label: 'migration-device (re-enroll in app)',
         wrap_safestorage: wrapRecoveryB64, // placeholder: same as recovery wrap
+        migration_placeholder: true, // signals: not OS-encrypted, demand re-enroll
         enrolled_at: new Date().toISOString(),
       },
     ],

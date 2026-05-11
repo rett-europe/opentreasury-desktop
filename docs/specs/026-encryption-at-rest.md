@@ -602,6 +602,22 @@ node scripts/migrate-workspace.mjs ~/OneDrive/opentreasury/pedro-workspace
 9. **The `.bak` file is never auto-deleted.** Pedro deletes it manually once
    confident the encrypted data is correct.
 
+### Migration placeholder convention
+
+The device entry written by the script sets `migration_placeholder: true` in
+`events.key`. This is a structural discriminator with a precise contract:
+
+- `wrap_safestorage` in migration entries is **not OS-encrypted material**. It
+  contains the same ciphertext as `wrap_recovery` (recovery-key-wrapped MK) as
+  a placeholder to satisfy the v2 schema's `devices[]` structure.
+- Any code reading `events.key` **must** check `entry.migration_placeholder`
+  before calling `safeStorage.decryptString()`. When `true`, skip the
+  safeStorage path entirely and route through the re-enroll / recovery flow.
+- Normal app-created device entries never have `migration_placeholder` set.
+- The `DeviceWrap` Zod schema in `app/src/core/eventLog/keyFile.ts` declares
+  this field as `migration_placeholder?: boolean` (optional) so the v2 schema
+  accepts both migration and normal entries transparently.
+
 ### Scope note
 
 This script is intended **solely for Pedro's 2 legacy workspaces**. It will not
