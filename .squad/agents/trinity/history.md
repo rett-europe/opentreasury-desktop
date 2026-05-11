@@ -7,6 +7,12 @@
 
 ## Recent Work
 
+### 2026-05-11 — PR #315 Frontend-API Review (squad/301-workspace-ipc, authored Morpheus)
+
+**Verdict:** APPROVE — all 6 IPC contract signatures match mockWorkspaceIpc exactly; two #307 scoping notes: replace `mockWorkspaceIpc.__getFailedAttempts()` with local state in JoinFlow.tsx:74 and RecoveryFlow.tsx:45; add `migration` state routing placeholder. Gates: typecheck/lint/format/tests all green.
+
+---
+
 ### 2026-05-10 — Encryption Onboarding UX Scaffolding (PR #311, Issue #306 partial)
 
 **Context:** Scaffold the encryption onboarding UX flows (fresh setup, join, recovery) while Morpheus builds the real crypto-core (#310). Mock IPC responses allow parallel UI work.
