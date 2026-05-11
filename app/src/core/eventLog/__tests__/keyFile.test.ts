@@ -1,7 +1,7 @@
 // SPEC-026 #309 — Unit tests for the multi-wrap `events.key` v2 file
 // reader/writer + v1 → v2 in-memory migration.
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -87,6 +87,53 @@ describe('keyFile (events.key v2)', () => {
       const entries = await fs.readdir(tmpDir);
       expect(entries).toContain(KEY_FILE_NAME);
       expect(entries.find((e) => e.endsWith('.tmp'))).toBeUndefined();
+    });
+
+    it('fsyncs parent directory after rename on POSIX (MEDIUM-2)', async () => {
+      // Force the POSIX code path even on Windows CI by patching process.platform.
+      const origPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'linux', configurable: true });
+
+      // Spy on fs.open and count how many times it is called with the
+      // directory path (the post-rename parent-dir fsync call).
+      let dirOpenCount = 0;
+      const origOpen = fs.open.bind(fs);
+      const openSpy = vi
+        .spyOn(fs, 'open')
+        .mockImplementation(async (...args: Parameters<typeof fs.open>) => {
+          if (String(args[0]) === tmpDir) dirOpenCount++;
+          return origOpen(...args);
+        });
+
+      try {
+        await saveKeyFile(tmpDir, makeV2());
+        expect(dirOpenCount).toBe(1);
+      } finally {
+        openSpy.mockRestore();
+        Object.defineProperty(process, 'platform', { value: origPlatform, configurable: true });
+      }
+    });
+
+    it('skips parent-directory fsync on Windows', async () => {
+      const origPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'win32', configurable: true });
+
+      let dirOpenCount = 0;
+      const origOpen = fs.open.bind(fs);
+      const openSpy = vi
+        .spyOn(fs, 'open')
+        .mockImplementation(async (...args: Parameters<typeof fs.open>) => {
+          if (String(args[0]) === tmpDir) dirOpenCount++;
+          return origOpen(...args);
+        });
+
+      try {
+        await saveKeyFile(tmpDir, makeV2());
+        expect(dirOpenCount).toBe(0);
+      } finally {
+        openSpy.mockRestore();
+        Object.defineProperty(process, 'platform', { value: origPlatform, configurable: true });
+      }
     });
 
     it('refuses to write a malformed key file', async () => {

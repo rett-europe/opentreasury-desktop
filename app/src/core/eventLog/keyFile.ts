@@ -279,6 +279,19 @@ export async function saveKeyFile(dir: string, keyFile: KeyFileV2): Promise<void
     await handle.close();
   }
   await fs.rename(tmpPath, filePath);
+
+  // POSIX only: fsync the parent directory so the directory entry for
+  // `events.key` is durable after a power failure. On NTFS (Windows) this
+  // is unnecessary — the rename is already journalled — and opening a
+  // directory for write access is not supported.
+  if (process.platform !== 'win32') {
+    const dirHandle = await fs.open(dir, 'r');
+    try {
+      await dirHandle.sync();
+    } finally {
+      await dirHandle.close();
+    }
+  }
 }
 
 function readVersion(parsed: unknown): unknown {
