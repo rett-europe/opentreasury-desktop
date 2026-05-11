@@ -132,3 +132,17 @@ All core logic and frontend can parallelize once #238 finishes.
 **Larger specs (15+ items):** May need sub-grouping within layers (e.g., "Validation: Core" + "Validation: Edge Cases") to keep individual issues under 5 acceptance criteria.
 
 **Mixed ownership (many teams):** Explicitly assign owner + co-owner in each issue (e.g., "Morpheus + Cypher"). Label each with team member label for visibility.
+
+## Advanced Patterns (learned from SPEC-026)
+
+### Pre-flight spike as Item #0
+
+When the architecture depends on an unverified external behavior (e.g., cloud sync provider, native OS API, native Node addon), create a throwaway spike as Item #0 with a hard go/no-go gate. If the spike fails, the cost is 1 day; if you skip it and discover the problem at Item #5, the cost is a redesign. Example: SPEC-026's OneDrive sync spike validated that per-device files don't produce conflict copies.
+
+### Contracts-first for parallel frontend/backend
+
+For specs with both backend logic and frontend UX, extract the IPC contract definitions (TypeScript types, channel names, request/response shapes) as a standalone early item. This lets the frontend agent start building screens against mock IPC responses while the backend agent finishes the implementation. The contract item is cheap (0.5–1 day) but unblocks the entire frontend lane. Example: SPEC-025 and SPEC-026 both used this pattern.
+
+### Security-boundary isolation
+
+When a spec includes a crypto/security module, keep it as its own PR regardless of size. The security reviewer (Switch) should see crypto code without wading through unrelated UI or plumbing changes. This also makes the crypto module easy to audit, replace, or upgrade independently.

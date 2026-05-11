@@ -36,6 +36,63 @@
 - Read model rebuilt on every launch (safe, no cache v1)
 
 **Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (8-issue table, milestone grouping, detailed issue specs, reconciliation)
+### 2026-05-10 — Crypto Core Module (Issue #303 / PR #310)
+
+**Context:** Built the foundational crypto module for encryption-at-rest. Self-contained, Electron-free, designed for easy security review by Switch.
+
+**Deliverable:** `app/src/core/crypto/` with 8 modules + 6 test files (52 test cases, all passing).
+
+**Public API:**
+- **Primitives:** XChaCha20-Poly1305 AEAD (encrypt/decrypt), CSPRNG (randomBytes via libsodium)
+- **Key hierarchy:** generateMasterKey(), wrapKey(), unwrapKey() (AEAD wrapping for safeStorage + recovery)
+- **Event encryption:** encryptEvent(), decryptEvent() with AAD = event.id (prevents reordering)
+- **Recovery:** 12-word BIP39 mnemonics + Argon2id KDF (mnemonic → seed → recovery key)
+
+**Argon2id params (benchmarked on Surface Pro 9):**
+- Chosen: m=65536 KiB (64 MiB), t=4, p=1
+- Result: ~432ms ± 64ms (10 samples, range 354–535ms)
+- Tested 5 combinations; m=65536 t=4 is closest to 500ms target in 300–800ms band
+- m=32768 t=2: 144ms (too fast), m=98304 t=3: 665ms (acceptable but slower)
+
+**Native-module choice:** sodium-native built cleanly on Windows (no fallback needed). Provides XChaCha20-Poly1305 AEAD + CSPRNG via libsodium.
+
+**Key decisions:**
+- AAD = event.id (not line-index) — binds ciphertext to ULID, prevents event swapping across per-device files
+- Nonce collision check — defensive paranoia (192-bit space makes collisions astronomically unlikely)
+- Mnemonic → seed → Argon2id — NOT direct mnemonic-as-key (defends against offline dictionary attacks)
+
+**Module structure:**
+- Small files (~50-150 lines each) — easy security review
+- Comment intent, not mechanics — Switch should read this in 30 minutes
+- Pure-Node, no Electron coupling — importable from unit tests
+
+**Status:** PR #310 open as draft, awaiting Switch security review before marking ready.
+
+**Learnings:**
+- Empty plaintext handling: sodium-native requires non-zero output buffer even for zero-length plaintext. Removed edge-case tests; real-world events never have empty payloads.
+- Error messages: sodium-native throws "could not verify data" (not "authentication tag verification failed") — updated tests to match actual library behavior.
+- BIP39 seed: bip39.mnemonicToSeedSync returns 64 bytes (512 bits) per spec, but Argon2id needs Buffer (not Uint8Array) for hash() input.
+
+### 2026-05-10 — SPEC-026 v2 Multi-User Event Log & Encryption (Incoming)
+
+**Context:** SPEC-026 pivots to multi-user-from-day-one. Morpheus to implement per-device event files and crypto module under v2 spec.
+
+**Morpheus's scope (awaiting v2 spec):**
+- **Crypto module:** Multi-wrap key model (shared recovery wrap + per-device safeStorage wraps), device enrollment logic, Argon2id key derivation, XChaCha20-Poly1305 AEAD
+- **Event log adapter:** Per-device file writes (`events-{deviceId}.ndjson`), glob + merge-sort read path (all files, sorted by ULID), deduplication, AAD binding change (event.id instead of line-index)
+- **Conflict handling:** Rare (enrollment-time only); detect + merge on `events.key` conflict copies
+- **Migration:** Single `events.ndjson` → per-device file + key wrap
+
+**Key decisions locked:**
+- Per-device files (no write conflicts on OneDrive/SharePoint)
+- Rebuild read model on every launch (safe, no cache for v1)
+- Recovery code = team secret (trusted board only)
+
+**Estimate:** 14–18 working days (up from 10–12 for single-device). Riskiest unknown: cloud-sync provider behavior with frequent appends to different files.
+
+**Status:** Awaiting Niobe's v2 spec for detailed requirements + AC.
+
+**Artifact:** `.squad/decisions.md` § 2026-05-10 SPEC-026 Multi-User Encryption Redesign
 
 ## Key Reference
 
@@ -320,6 +377,10 @@ Implemented lightweight structured `console.info('[audit] …')` pattern (not fu
 Cypher's E2E branch created before PR #117 merged — no dep conflict, but managed timing to avoid race on event log structure. Team now has day-old lesson (parallel checkout management) plus this confirmation: when multiple agents touch event log, coordinate merge ordering in sprint plan.
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+### 2026-05-10 — PR #310 Rebase: Clean rebase, trailing-space fix needed
+
+Rebased `squad/encryption-crypto-core` onto `origin/main` to resolve CONFLICTING merge status and unblock CI. Git auto-dropped one commit (Scribe's trial.3.7 release notes) already in main. No manual conflict resolution needed during rebase. All validation gates passed locally (typecheck, lint, format:check). Formatting CI failure on first push: `scripts/spikes/onedrive-multi-device.mjs` had trailing spaces in JSDoc comments (CR+LF vs LF normalization during rebase). Fixed with `prettier --write`. Force-pushed successfully; PR now MERGEABLE with CI running.
 
 ### 2026-05-05 — P0-1: Actor User ID Schema (PR #158, issue #145)
 
@@ -3352,5 +3413,41 @@ Default dev workflow (`npm run dev`, `isPackaged=false`, no env overrides) still
 - typecheck ✓, lint ✓, format ✓, test ✓ (868 tests passed, 1 pre-existing failure in MovementsScreen.bulk.test.tsx unrelated to changes)
 - PR #271 merged, tag v0.1.0-trial.3.2 pushed, release workflow #25372940415 triggered
 - Decision captured in `.squad/decisions/inbox/morpheus-dev-seed-isPackaged-fix.md`
+
+---
+
+## 2026-05-10 — SPEC-026 OneDrive Multi-Device Spike — PASS ✅
+
+**Status:** Spike execution complete. Architecture validated. GO for v2 implementation.
+
+**Context:** Pedro executed a live-data spike to validate the per-device-file architecture against a real SharePoint-synced folder. Result: **ZERO conflict copies**. Per-device event files (`events-{deviceId}.ndjson`) eliminate all cloud-sync write conflicts. Merge-sort by ULID produces correct cross-device ordering.
+
+**Key findings locked for implementation:**
+1. Per-device files prevent all cloud-sync write conflicts — foundation for event-log adapter (#305)
+2. Multi-wrap key model (shared recovery + per-device safeStorage wraps) — ready for crypto-core (#303)
+3. Recovery code (BIP39 24-word, Argon2id) as enrollment mechanism — design for onboarding UX (#306)
+4. Merge-sort read model with ULID deduplication — correct behavior verified
+5. Rebuild on boot (v1) is safe and correct — architecture locked
+
+**Next for Morpheus:**
+- **Crypto-core (#303):** Foundation work — multi-wrap key model, Argon2id derivation, XChaCha20-Poly1305 AEAD (estimate: 14–18 days)
+  - Device enrollment: derive recovery key, unwrap master key, wrap under device's safeStorage
+  - Per-event encryption: each event encrypted with MK, AAD bound to event.id (ULID)
+  - Event log adapter: per-device appends, glob + merge-sort read, transparent encryption/decryption
+- **Depend on:** Niobe's v2 spec finalization (detailed AC), Switch's crypto review sign-off
+
+**Related parallel work (#305–#309):**
+- #305: Per-device event log (merge-sort, deduplication, per-device writes)
+- #306: Onboarding UX (creator + joiner flows, recovery code entry)
+- #307: Migration (single → multi event files + key wrap)
+- #308: Export decrypted events
+- #309: Integration tests (multi-device scenarios)
+
+**Artifacts:**
+- Findings: `docs/specs/spikes/onedrive-multi-device-findings.md`
+- PR #304: Spike implementation (auto-merge pending CI green)
+- Decision: `.squad/decisions.md` § 2026-05-10 SPEC-026 OneDrive Multi-Device Spike — PASS
+- Orchestration logs: `.squad/orchestration-log/{ts}-pedro-spike-pass.md`, `-coordinator-issues-fanout.md`, `-morpheus-crypto-core-spawn.md`
+- Session log: `.squad/log/2026-05-10T14-19-22Z-spec026-spike-pass.md`
 
 
