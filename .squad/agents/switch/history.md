@@ -275,6 +275,23 @@ PR #50 (Morpheus WI-23 legacy backfill) + PR #53 (categories usage counter) appr
 - Core queries are read-only (no DEK writes, no rotation logic) — simpler review surface than WI-5 full cycle
 - Error surfaces for Panel are partial-decrypt only (CE-005) — narrower than full-command error set
 
+### 2026-05-12: PR #312 security review — COMMENT (0 HIGH / 2 MEDIUM / 3 LOW)
+
+Reviewed `feat(eventlog): per-device encrypted event log + events.key v2 (#309)`.
+
+**Stream A (#310 fixes):** Both MEDIUMs resolved — mnemonic normalization (NFKD+lc+trim+collapse) and wipe() via sodium_memzero in try/finally. 16 tests pin the behaviors.
+
+**Stream B (new code):** EncryptedMultiDeviceEventLog + keyFile v2. Key findings:
+- MEDIUM-1: saveKeyFile missing fsync on parent dir after rename (safe on NTFS, risky on POSIX).
+- MEDIUM-2: AAD = event.id only, no device binding. Cross-device ciphertext transplant possible. Should decide before v1 ships.
+- LOW-1/2/3: TOCTOU on tmp cleanup, partial-batch crash semantics (handled), no explicit file perms.
+
+Crypto primitives (XChaCha20-Poly1305, Argon2id KDF, nonce collision detection, Zod-validated key schema, atomic writes) are sound. v1-to-v2 migration race safety acceptable. ULID collision probability negligible.
+
+**Learnings:** For multi-device file-sync architectures, AAD should bind all identity dimensions (event ID + device ID) to prevent cross-file replay even when the threat model is "passive cloud sync." Decide on AAD shape before any on-disk format ships to avoid migration overhead later.
+
+- **Decision note:** `.squad/decisions/inbox/switch-review-312.md`
+
 ### 2026-04-20: WI-17 security review completed — APPROVED WITH CONDITIONS
 - **Doc:** `.squad/decisions/inbox/switch-wi17-security-review.md` — pre-landing security review of the generic column-mapping importer (Excel/CSV → movements).
 - **Verdict:** APPROVED WITH CONDITIONS — 4 Critical + 2 High fixes required before merge.
