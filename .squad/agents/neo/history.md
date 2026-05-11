@@ -428,3 +428,15 @@ Pedro re-opened Saldo after #78 closed. Three rounds of feedback, all merged int
 When adding a native module (NAPI, argon2, sodium-native, etc.) that uses \__dirname\/\__filename\ to load .node prebuilds, add it to rollupOptions.external. Otherwise Vite bundles it inline and the variables become undefined in ESM scope, causing crashes.
 
 **Related:** trial.3.7 installer crash (2026-05-11) fixed by externalization. Decision locked to prevent regression.
+
+## 2026-05-11 — Cross-Agent Notification: Electron Main CJS Post-Build Transformation
+
+**Build Pipeline Update:** The Electron main process now has a **guaranteed CommonJS post-build step** (scripts/build-main-cjs.mjs). This is automatic and transparent when running 
+pm run build. 
+
+**Why:** Electron's asar.unpacked redirect (native module loading) only works with CommonJS equire(), not ESM import. The root package.json has "type": "module", so Vite emits ESM by default. The post-build esbuild transformation reliably converts the main bundle to CJS.
+
+**Your action:** None required. Just run the standard build and import normally. If your code adds import.meta.url references to the main process, they're automatically polyfilled by the esbuild banner.
+
+**Reference:** .squad/decisions.md § "2026-05-11: Electron Main Process CJS Post-Build Transformation"
+

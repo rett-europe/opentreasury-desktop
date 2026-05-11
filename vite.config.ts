@@ -48,10 +48,9 @@ export default defineConfig({
             outDir: resolve(__dirname, 'dist/main'),
             sourcemap: true,
             rollupOptions: {
-              // Native modules MUST be external — their JS wrappers use __dirname/__filename
-              // to locate .node prebuilds, which is undefined when bundled into ESM output
-              // (root package.json has "type": "module"). Keeping them external lets Node's
-              // require() resolve them from node_modules at runtime, where __dirname works.
+              // Native modules must be external — Electron's asar-aware require() resolves
+              // them from app.asar.unpacked at runtime. (Main is post-processed to CJS by
+              // scripts/build-main-cjs.mjs so require() works.)
               external: ['electron', 'sodium-native', 'argon2', '@napi-rs/keyring'],
             },
           },

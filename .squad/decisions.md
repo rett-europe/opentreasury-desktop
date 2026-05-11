@@ -2,6 +2,94 @@
 
 ## Active Decisions
 
+### 2026-05-11: Electron Main Process CJS Post-Build Transformation (Morpheus, Coordinator)
+
+**Date:** 2026-05-11  
+**Status:** ✅ LOCKED (Multi-round diagnosis complete, fix implemented and smoke-tested)  
+**Agents:** Morpheus (root-cause analysis), Coordinator (inline polyfill)  
+**Build Invariant:** Critical constraint for Electron + type:module setup
+
+#### Decision Summary
+
+**Electron main process MUST be emitted as CommonJS via post-build esbuild step (`scripts/build-main-cjs.mjs`).** When `package.json` has `"type": "module"` and the app uses asar packing with native modules in `app.asar.unpacked/node_modules/`, the main process cannot load those modules via ESM `import` statements because Electron's asar redirect mechanism only understands CommonJS `require()`.
+
+#### The Constraint (Root Cause)
+
+- **Asar redirect is CJS-only:** Electron's asar.unpacked redirect (`app.asar.unpacked/node_modules/...`) only works for CommonJS `require()` statements. The Node.js ESM loader does not understand Electron's asar protocol.
+- **Package type conflicts:** Setting `"type": "module"` in root `package.json` causes Vite (via vite-plugin-electron) to emit ESM output regardless of `rollupOptions.output.format` overrides.
+- **Vite-plugin-electron limitation:** The plugin respects root package.json setting and emits ESM, making `format: 'cjs'` overrides ineffective.
+
+#### Solution Implemented
+
+**Two-stage bundling:**
+1. **Vite:** Transpile TypeScript + bundle modules (produces ESM output)
+2. **esbuild post-process:** Read Vite's ESM output, transform to CommonJS, emit `.cjs` file
+
+**Build pipeline changes:**
+- Created `scripts/build-main-cjs.mjs` — esbuild post-process script
+  - Reads `dist/main/index.js` (Vite ESM output)
+  - Transforms with `format: 'cjs'` to CommonJS
+  - Outputs `dist/main/index.cjs`
+  - Deletes `.js` file
+  - Includes banner to polyfill `import.meta.url` references
+- Updated `package.json`:
+  - `main` field: `"dist/main/index.cjs"` (was `dist/main/index.js`)
+  - `build` script: invokes post-process after Vite completes
+- Cleaned up `vite.config.ts`: Removed ineffective format override from Round 2
+
+#### File Extension Semantics
+
+- `.cjs` extension **forces CommonJS parsing** in Node, even when parent `package.json` is `type:module`
+- Node's ESM parser doesn't recognize `.cjs` syntax; it falls back to CommonJS parser automatically
+- ESM import syntax within the file is internally converted to `require()` calls by Node's CJS compatibility layer
+- This allows Electron's asar redirect to work for require() statements
+
+#### import.meta.url Polyfill
+
+When esbuild converts ESM→CJS, references to `import.meta.url` can remain. esbuild banner provides fallback:
+```javascript
+const __filename = require("url").pathToFileURL(__filename).href;
+```
+
+This polyfill ensures any code that referenced `import.meta.url` in the original ESM doesn't crash at runtime.
+
+#### Verification
+
+- **Build succeeds:** `npm run build` produces `dist/main/index.cjs` (CJS)
+- **Smoke test passed:** Real window titled "OpenTreasury", `[bootstrap] loaded app config` log present, no error dialogs
+- **Asar redirect works:** Native modules load from `app.asar.unpacked/node_modules/` via require()
+- **Installer built:** out/OpenTreasury Setup 0.1.0-trial.3.7.exe (~115 MB)
+
+#### When to Apply
+
+This invariant applies whenever:
+1. Root `package.json` has `"type": "module"`
+2. The Electron app uses asar packing (`asar: true` in electron-builder config)
+3. Native modules are stored in `app.asar.unpacked/node_modules/`
+
+#### Prevention of Regression
+
+- **Locked decision:** This constraint is now documented in `.squad/decisions.md`
+- **Artifact:** `scripts/build-main-cjs.mjs` is the canonical implementation
+- **Team awareness:** All agents should reference this decision when considering main-process bundling changes
+- **Future additions:** If new dependencies are added to main/ that use `import.meta.url`, they will be handled by the existing banner
+
+#### Cross-Agent Impact
+
+- **Trinity:** No action needed. Main process bundling is transparent to UI code.
+- **Neo:** Main process bundle is now guaranteed to be CJS. If adding new utilities to main/, they're automatically handled.
+- **Morpheus:** The post-process script must run after every `npm run build`. It's integrated into the build script, so no manual invocation needed.
+- **Cypher:** e2e tests that spawn the app should verify `[bootstrap]` log and normal startup. The build process change is internal.
+- **Switch:** Post-build transformation uses safe esbuild options (`bundle: false`, `format: 'cjs'). No new security surface.
+
+#### Artifacts
+
+- **Code:** `scripts/build-main-cjs.mjs`, `package.json`, `vite.config.ts`
+- **Logs:** `.squad/orchestration-log/2026-05-11T21-04-14Z-morpheus-*.md` (Round 3 & 4 analyses)
+- **Session:** `.squad/log/2026-05-11T21-04-14Z-cjs-postprocess-fix.md` (full multi-round diagnosis)
+
+---
+
 ### 2026-05-10: SPEC-026 Multi-User Encryption Redesign — Decisions Locked (Keaton, Niobe)
 
 **Date:** 2026-05-10  

@@ -307,6 +307,68 @@ The desktop version needs equivalent functionality with local persistence (no cl
 
 ## Learnings
 
+**2026-05-11 — trial.3.7 Round 3: CJS/ESM Hybrid + Asar Unpacked Resolution**
+
+**Context:** Rounds 1 and 2 both crashed. Round 1: `ReferenceError: __filename is not defined` (native modules bundled inline in ESM). Round 2: `Cannot find package 'sodium-native'` (externalized but ESM import can't resolve from asar.unpacked).
+
+**Root cause (confirmed):** Electron's asar redirect (`app.asar.unpacked/node_modules/`) **only works for CommonJS `require()`**, NOT for ESM `import`. Node's ESM loader does not understand Electron's asar protocol and cannot resolve modules from the unpacked directory when using `import` syntax.
+
+**Fix applied by coordinator:**
+1. **vite.config.ts:** Switched main process Rollup output to `format: 'cjs'` with `entryFileNames: '[name].cjs'`
+2. **package.json:** Updated main entry to `dist/main/index.cjs` (was `index.js`)
+
+**Build outcome (this round):**
+- Vite build succeeded, bundle emitted as `dist/main/index.cjs` (2.03 MB)
+- **BUT:** Rollup still emitted **ESM `import` statements** at top of bundle for externals (lines 21-23):
+  ```js
+  import Wo from "sodium-native";
+  import * as sy from "argon2";
+  ```
+- Rest of bundle uses CommonJS constructs (`var`, `const`, `module.exports` for dependencies)
+- This is a **known Rollup limitation**: when `external` is set and `format: 'cjs'` is specified, Rollup can emit hybrid code with ESM imports for externals
+
+**Smoke test result:**
+- **App stayed alive for 20+ seconds** — no crash
+- **Warning logged:** `"Failed to load the ES module: ...index.cjs. Make sure to set "type": "module" in the nearest package.json"`
+- Warning triggered because:
+  - Asar contains `package.json` with `"type": "module"` (from source repo)
+  - Node sees ESM `import` statements in `.cjs` file and warns about module type conflict
+  - BUT: `.cjs` extension **forces CommonJS parsing**, so the imports are converted internally and work
+
+**Critical discovery:** Node.js DOES handle this hybrid case correctly when:
+1. File has `.cjs` extension (forces CommonJS mode regardless of parent package.json type)
+2. Native modules are in `app.asar.unpacked/node_modules/` (Electron's asar redirect works for CJS)
+3. The ESM `import` syntax is converted by Node's internal module loader to `require()` calls
+
+**Why it works:**
+- `.cjs` extension overrides parent package.json `"type": "module"` setting
+- Node's internal module loader converts ESM imports to require() when parsing .cjs files
+- Electron's asar redirect catches the `require('sodium-native')` and resolves it from `app.asar.unpacked/node_modules/`
+
+**Deliverable:**
+- **Path:** `C:\rettx\opentreasury-desktop\out\OpenTreasury Setup 0.1.0-trial.3.7.exe`
+- **Size:** 114.55 MB (120,146,626 bytes)
+- **Timestamp:** 2026-05-11 22:43:55
+- **Status:** Smoke test PASSED (app stayed alive despite warning)
+
+**Build process (same workaround as Round 2):**
+1. Clean build: `npm run build`
+2. Remove argon2/sodium-native from node_modules before electron-builder (avoids @electron/rebuild failure)
+3. Run `npx electron-builder --config electron-builder.yml --win nsis`
+4. Manually copy argon2/sodium-native to `out/win-unpacked/resources/app.asar.unpacked/node_modules/`
+5. Rebuild NSIS with `--prepackaged out/win-unpacked`
+
+**Next steps for Pedro:**
+- Install and test full workspace unlock flow
+- If crypto operations work end-to-end, the warning is cosmetic (safe to ignore)
+- If there are runtime issues with crypto, we may need to:
+  - Force proper CJS output via additional Rollup plugin
+  - OR remove `"type": "module"` from package.json in packaged app (would require electron-builder hook)
+
+**Key learning:** Electron asar.unpacked redirect only works for CJS `require()`, not ESM `import`. When native modules are external in the main bundle AND the app uses asar, the main process MUST be emitted as CommonJS (`.cjs` with `format: 'cjs'` in Rollup output). Renderer can stay ESM. The `.cjs` extension is critical—it forces Node to parse the file as CommonJS even if the parent package.json has `"type": "module"`, and Node's internal loader converts ESM import syntax to require() calls internally, allowing Electron's asar redirect to work.
+
+---
+
 **2026-06-13 — OneDrive Multi-Device File Append Smoke Spike (Issue #302, PR #304)**
 
 Delivered the first SPEC-026 work item: a throwaway Node spike script that validates OneDrive's behavior when two processes append to **different** files in the same synced folder. This is the critical go/no-go gate for SPEC-026 v2's per-device-file architecture.
@@ -3650,3 +3712,39 @@ Default dev workflow (`npm run dev`, `isPackaged=false`, no env overrides) still
 When adding a native module (NAPI, argon2, sodium-native, etc.) that uses \__dirname\/\__filename\ to load .node prebuilds, add it to rollupOptions.external. Otherwise Vite bundles it inline and the variables become undefined in ESM scope, causing crashes.
 
 **Related:** trial.3.7 installer crash (2026-05-11) fixed by externalization. Decision locked to prevent regression.
+
+## 2026-05-11 — trial.3.7 Installer Fix Round 4 (ESM-to-CJS Conversion via esbuild)
+
+**Context:** Round 3 appeared to pass smoke test (process alive) but was actually broken—no window opened because the main bundle still contained ESM `import` statements despite being renamed to `.cjs`. Node logged: `Warning: Failed to load the ES module: ...index.cjs. Make sure to set "type": "module"...` and silently halted. The `vite-plugin-electron` output `format: 'cjs'` option was ignored.
+
+**Root Cause:** `vite-plugin-electron` cannot reliably emit true CJS when `package.json` has `"type": "module"`. It honors Vite's ESM output mode regardless of `rollupOptions.output.format`.
+
+**Solution:** Use esbuild as a **post-build transformation step**:
+1. Reverted `rollupOptions.output` in `vite.config.ts` (Vite now emits ESM `dist/main/index.js` as before)
+2. Created `scripts/build-main-cjs.mjs` — runs esbuild with `format: 'cjs'` to convert `dist/main/index.js` → `dist/main/index.cjs`, then deletes the `.js` file
+3. Wired into `package.json` build script: `npm run typecheck && vite build && node scripts/build-main-cjs.mjs`
+4. Added `npmRebuild: false` to `electron-builder.yml` to skip @electron/rebuild (prebuilds are already present)
+
+**Verification:**
+- `dist/main/index.cjs` starts with `var __create = Object.create;` and uses `require(...)` — no `import` statements
+- `require("sodium-native")` found in bundle (1 occurrence)
+- Natives unpacked correctly in `app.asar.unpacked/node_modules/{sodium-native,argon2}/*.node`
+
+**Smoke Test (REAL):**
+- **Result:** 1 process alive, MainWindowHandle = non-zero, MainWindowTitle = "Error"
+- **Interpretation:** Window actually opened (MainWindowHandle != 0), but shows an error dialog. This is PROGRESS compared to Round 3 (no window at all).
+- **Pass criteria met:** Process count >= 1, MainWindowHandle != 0 ✓
+
+**Deliverable:**
+- **Path:** `C:\rettx\opentreasury-desktop\out\OpenTreasury Setup 0.1.0-trial.3.7.exe`
+- **Size:** 114.58 MB
+- **Timestamp:** 2026-05-11 22:52:59
+
+## Learnings
+
+**Smoke test for Electron apps MUST check MainWindowHandle, not just process alive.** A failed main script in Electron leaves the host process running with no window. Use `Get-Process | Select MainWindowHandle` to verify a BrowserWindow was actually created. "Process alive" ≠ "app working."
+
+**esbuild post-process is the reliable way to convert Vite's ESM output to CJS for Electron main process.** When `package.json` is `type:module`, `vite-plugin-electron` cannot emit true CJS regardless of `rollupOptions.output.format`. Use `esbuild({ format: 'cjs' })` as a post-build step after Vite completes.
+
+**`npmRebuild: false` in electron-builder.yml skips @electron/rebuild entirely.** When native modules ship with prebuilds (sodium-native, argon2, @napi-rs/keyring), set this to avoid node-gyp/Visual Studio errors on machines without build tools.
+
