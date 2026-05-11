@@ -269,6 +269,22 @@ import {
 } from '../../shared/ipc-contracts/app.js';
 import { createAppGetVersionHandler, buildProductionAppGetVersionDeps } from './handlers/app.js';
 import {
+  IPC_WORKSPACE_DETECT,
+  IPC_WORKSPACE_CREATE,
+  IPC_WORKSPACE_CONFIRM_SETUP,
+  IPC_WORKSPACE_ENROLL,
+  IPC_WORKSPACE_UNLOCK,
+  IPC_WORKSPACE_RECOVER,
+  workspaceDetectResponseSchema,
+  workspaceCreateResponseSchema,
+  workspaceConfirmSetupResponseSchema,
+  workspaceEnrollResponseSchema,
+  workspaceUnlockResponseSchema,
+  workspaceRecoverResponseSchema,
+  createWorkspaceHandlers,
+  buildProductionWorkspaceDeps,
+} from './handlers/workspace.js';
+import {
   getEventLog,
   getProfile,
   getDeviceId,
@@ -369,6 +385,53 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     }
     const response = await appGetVersionHandler({});
     return appGetVersionResponseSchema.parse(response);
+  });
+
+  // ── Workspace lifecycle (SPEC-026 #301) ─────────────────────────────────────
+  // Registered unconditionally — workspace channels must be available during
+  // onboarding, unlike data channels that require a mounted workspace.
+  let workspaceHandlers: ReturnType<typeof createWorkspaceHandlers> | null = null;
+  async function getWorkspaceHandlers(): Promise<ReturnType<typeof createWorkspaceHandlers>> {
+    if (workspaceHandlers === null) {
+      workspaceHandlers = createWorkspaceHandlers(await buildProductionWorkspaceDeps());
+    }
+    return workspaceHandlers;
+  }
+
+  ipcMain.handle(IPC_WORKSPACE_DETECT, async (_event, raw: unknown) => {
+    const h = await getWorkspaceHandlers();
+    const response = await h.handleDetect(raw);
+    return workspaceDetectResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_WORKSPACE_CREATE, async (_event, raw: unknown) => {
+    const h = await getWorkspaceHandlers();
+    const response = await h.handleCreate(raw);
+    return workspaceCreateResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_WORKSPACE_CONFIRM_SETUP, async (_event, raw: unknown) => {
+    const h = await getWorkspaceHandlers();
+    const response = await h.handleConfirmSetup(raw);
+    return workspaceConfirmSetupResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_WORKSPACE_ENROLL, async (_event, raw: unknown) => {
+    const h = await getWorkspaceHandlers();
+    const response = await h.handleEnroll(raw);
+    return workspaceEnrollResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_WORKSPACE_UNLOCK, async (_event, raw: unknown) => {
+    const h = await getWorkspaceHandlers();
+    const response = await h.handleUnlock(raw);
+    return workspaceUnlockResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_WORKSPACE_RECOVER, async (_event, raw: unknown) => {
+    const h = await getWorkspaceHandlers();
+    const response = await h.handleRecover(raw);
+    return workspaceRecoverResponseSchema.parse(response);
   });
 
   // Panel handlers — WI-2 mock implementations

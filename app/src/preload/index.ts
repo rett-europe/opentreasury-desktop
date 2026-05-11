@@ -208,6 +208,25 @@ import {
 } from '../shared/ipc-contracts/onboarding.js';
 import { IPC_APP_BOOT_STATUS, type AppBootStatusResponse } from '../shared/ipc-contracts/boot.js';
 import { IPC_APP_GET_VERSION, type AppGetVersionResponse } from '../shared/ipc-contracts/app.js';
+import {
+  IPC_WORKSPACE_DETECT,
+  IPC_WORKSPACE_CREATE,
+  IPC_WORKSPACE_CONFIRM_SETUP,
+  IPC_WORKSPACE_ENROLL,
+  IPC_WORKSPACE_UNLOCK,
+  IPC_WORKSPACE_RECOVER,
+  type WorkspaceDetectRequest,
+  type WorkspaceDetectResponse,
+  type WorkspaceCreateRequest,
+  type WorkspaceCreateResponse,
+  type WorkspaceConfirmSetupRequest,
+  type WorkspaceConfirmSetupResponse,
+  type WorkspaceEnrollRequest,
+  type WorkspaceEnrollResponse,
+  type WorkspaceUnlockResponse,
+  type WorkspaceRecoverRequest,
+  type WorkspaceRecoverResponse,
+} from '../shared/ipc-contracts/workspace.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -467,6 +486,26 @@ const api = {
   app: {
     getVersion: (): Promise<AppGetVersionResponse> => {
       return ipcRenderer.invoke(IPC_APP_GET_VERSION);
+    },
+  },
+  workspace: {
+    detect: (req: WorkspaceDetectRequest): Promise<WorkspaceDetectResponse> => {
+      return ipcRenderer.invoke(IPC_WORKSPACE_DETECT, req);
+    },
+    create: (req: WorkspaceCreateRequest): Promise<WorkspaceCreateResponse> => {
+      return ipcRenderer.invoke(IPC_WORKSPACE_CREATE, req);
+    },
+    confirmSetup: (req: WorkspaceConfirmSetupRequest): Promise<WorkspaceConfirmSetupResponse> => {
+      return ipcRenderer.invoke(IPC_WORKSPACE_CONFIRM_SETUP, req);
+    },
+    enroll: (req: WorkspaceEnrollRequest): Promise<WorkspaceEnrollResponse> => {
+      return ipcRenderer.invoke(IPC_WORKSPACE_ENROLL, req);
+    },
+    unlock: (): Promise<WorkspaceUnlockResponse> => {
+      return ipcRenderer.invoke(IPC_WORKSPACE_UNLOCK);
+    },
+    recover: (req: WorkspaceRecoverRequest): Promise<WorkspaceRecoverResponse> => {
+      return ipcRenderer.invoke(IPC_WORKSPACE_RECOVER, req);
     },
   },
 } as const;
