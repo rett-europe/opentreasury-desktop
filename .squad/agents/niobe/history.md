@@ -7,6 +7,10 @@
 
 ## Recent Work
 
+### 2026-05-11 — PR #317 UX/Copy Review (Renderer IPC Wireup)
+
+REQUEST_CHANGES: MigrationScreen.tsx has zero i18n (all strings hardcoded in English, no locale keys in EN/ES); format:check fails on Morpheus's migrate-workspace files (Prettier debt from #314). Non-blocking: JoinFlow.tsx:120 hardcodes "Folder:" label. Command text, folder path display, and all other onboarding copy (JoinFlow/RecoveryFlow/FreshSetupFlow) are correct and tone-consistent.
+
 ### 2026-05-10 — SPEC-026 v2 Multi-User Rewrite (Spawned)
 
 **Context:** Pedro finalized Keaton's 3 open questions (recovery code as team secret, workspace folder picked at first launch, read model rebuilt on boot). Multi-user HARD requirement locked. Niobe spawned to rewrite SPEC-026 as single coherent v2 spec.

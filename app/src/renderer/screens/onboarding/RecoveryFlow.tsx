@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RecoveryCodeInput } from '../../components/onboarding';
-import { mockWorkspaceIpc } from '../../mocks/workspaceIpc';
 import './RecoveryFlow.css';
 
 interface RecoveryFlowProps {
@@ -17,6 +16,7 @@ export function RecoveryFlow({ onComplete }: RecoveryFlowProps) {
   const { t } = useTranslation('common');
   const [mnemonic, setMnemonic] = useState<string>('');
   const [isMnemonicValid, setIsMnemonicValid] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -35,16 +35,18 @@ export function RecoveryFlow({ onComplete }: RecoveryFlowProps) {
     setError(null);
 
     try {
-      const response = await mockWorkspaceIpc.recover({ mnemonic });
+      const response = await window.opentreasury.workspace.recover({ mnemonic });
 
       if (!response.ok) {
-        setError(response.error.message);
+        const nextAttempts = failedAttempts + 1;
+        setFailedAttempts(nextAttempts);
         setIsSubmitting(false);
 
         // Show help link after 5 attempts (AC7)
-        const attempts = mockWorkspaceIpc.__getFailedAttempts();
-        if (attempts >= 5) {
+        if (nextAttempts >= 5) {
           setError(response.error.message + ' ' + t('recovery.help_after_5'));
+        } else {
+          setError(response.error.message);
         }
         return;
       }
@@ -55,7 +57,7 @@ export function RecoveryFlow({ onComplete }: RecoveryFlowProps) {
       setError(message);
       setIsSubmitting(false);
     }
-  }, [mnemonic, isMnemonicValid, onComplete, t]);
+  }, [mnemonic, isMnemonicValid, failedAttempts, onComplete, t]);
 
   return (
     <div className="ot-onboarding-screen">

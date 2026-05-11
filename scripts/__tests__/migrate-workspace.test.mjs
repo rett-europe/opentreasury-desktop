@@ -351,7 +351,6 @@ describe('migrate-workspace.mjs', () => {
     expect(originalStillExists).toBe(false);
   }, 60_000); // allow up to 60s for Argon2id KDF
 
-
   // \u2500\u2500 actorDeviceId preservation \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
   it('preserves pre-existing actorDeviceId and only fills in missing ones', async () => {

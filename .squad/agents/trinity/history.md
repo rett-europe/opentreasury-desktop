@@ -7,6 +7,28 @@
 
 ## Recent Work
 
+### 2026-05-12 — PR #317 Renderer IPC Wireup (squad/307-renderer-ipc-wireup, Issue #307)
+
+**Context:** Replace all `mockWorkspaceIpc.*` usage in onboarding screens with real `window.opentreasury.workspace.*` IPC (shipped by Morpheus in PR #315 / d7b1ea7). Add `MigrationScreen` for the `migration` workspace state. Wire workspace detection into App.tsx bootstrap flow.
+
+**Delivered:**
+- `FreshSetupFlow.tsx`, `JoinFlow.tsx`, `RecoveryFlow.tsx`: All mock imports removed; real workspace IPC used
+- `MigrationScreen.tsx`: New minimal screen for `migration` state (hardcoded EN per Pedro's directive)
+- `App.tsx`: Workspace detection gate after `needsOnboarding=false`; routes to all 5 workspace states; silent unlock for `unlock` state
+- Integration tests for all 3 flows + migration screen
+
+**Learnings:**
+- `exactOptionalPropertyTypes: true` conditional spread pattern: passing `string | undefined` to `prop?: string` is a type error; fix with `{...(val !== undefined ? { prop: val } : {})}` — avoids assigning `undefined` to an optional property
+- Bootstrap flow ordering: `boot:getStatus` → `onboarding:getStatus` → `workspace:detect` → `workspace:unlock` (transient `unlock` state handled silently)
+- `workspace:unlock` error routing: if response has `needsRecovery: true`, route to RecoveryFlow; otherwise fall through to AppShell
+- Test strategy for 12-word input tests: `userEvent.setup({ delay: null })` + per-test timeout ≥15000ms avoids vitest parallel-worker timeout flakiness under i18n overhead
+- Migration state: intentionally minimal UI; terminal command with folder path pre-filled is sufficient; no in-app migration trigger
+- Mock retention: `mockWorkspaceIpc.ts` is kept for potential test/dev use; only renderer screens must use real IPC post-PR
+
+**Artifact:** PR #317 (draft)
+
+---
+
 ### 2026-05-11 — PR #315 Frontend-API Review (squad/301-workspace-ipc, authored Morpheus)
 
 **Verdict:** APPROVE — all 6 IPC contract signatures match mockWorkspaceIpc exactly; two #307 scoping notes: replace `mockWorkspaceIpc.__getFailedAttempts()` with local state in JoinFlow.tsx:74 and RecoveryFlow.tsx:45; add `migration` state routing placeholder. Gates: typecheck/lint/format/tests all green.

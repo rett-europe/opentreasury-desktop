@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { mockWorkspaceIpc } from '../../mocks/workspaceIpc';
 import { FolderPickerScreen } from './FolderPickerScreen';
 import { RecoveryCodeDisplayScreen } from './RecoveryCodeDisplayScreen';
 import { RecoveryCodeConfirmScreen } from './RecoveryCodeConfirmScreen';
@@ -33,7 +32,7 @@ export function FreshSetupFlow({ onComplete }: FreshSetupFlowProps) {
     setError(null);
 
     try {
-      const response = await mockWorkspaceIpc.create({ folderPath: path });
+      const response = await window.opentreasury.workspace.create({ folderPath: path });
       if (!response.ok) {
         setError(response.error.message);
         return;
@@ -76,7 +75,7 @@ export function FreshSetupFlow({ onComplete }: FreshSetupFlowProps) {
     }
 
     try {
-      const response = await mockWorkspaceIpc.confirmSetup({
+      const response = await window.opentreasury.workspace.confirmSetup({
         setupToken,
         confirmWords,
       });
@@ -87,6 +86,8 @@ export function FreshSetupFlow({ onComplete }: FreshSetupFlowProps) {
       }
 
       setStep('complete');
+      setMnemonic(null);
+      setSetupToken(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);

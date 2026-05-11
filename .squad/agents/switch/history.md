@@ -428,3 +428,5 @@ Workspace IPC handlers (#301). 1 HIGH (path traversal — renderer-supplied fold
 
 
 ### 2025-07-08 — PR #315 Verify Pass: APPROVE — all 7 findings addressed in 707b1e9. Path traversal fixed (homedir allowlist + UNC/device-path rejection + 6 regression tests). pendingSetups bounded (5-min TTL + cap 10 + wipe). workspace:lock added. MEDIUM-3 mnemonic accepted risk is sound (inherent to BIP39 UX, mitigated by TTL/cap). Gates green (2 pre-existing RecoveryCodeInput flakes excluded).
+
+### 2026-07-08 — PR #317 Security Review: APPROVE — renderer IPC wireup (FreshSetupFlow, JoinFlow, RecoveryFlow, MigrationScreen, App.tsx routing). 0 blocking, 1 LOW (mnemonic not cleared from React state after confirmSetup/enroll success). All paths main-process-derived. No mnemonic logging or telemetry. Gates green.
