@@ -378,6 +378,37 @@ Cypher's E2E branch created before PR #117 merged — no dep conflict, but manag
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-05-12 — PR #312 Security Findings Remediation (Switch Review)
+
+**Context:** PR #312 (`feat(eventlog): per-device encrypted event log + events.key v2 (#309)`) received Switch's review with 0 HIGH / 2 MEDIUM / 3 LOW. Implemented all 5 findings in 3 commits. PR marked ready for re-review.
+
+**MEDIUM-1: AAD format change (breaking, pre-v1 safe)**
+
+AAD was `eventId` (UTF-8). Changed to `"{eventId}:{deviceId}"` so a ciphertext from `events-{A}.ndjson` cannot be transplanted into `events-{B}.ndjson` and decrypted — the mismatched deviceId causes AEAD verification failure.
+
+Key design point: the *file*'s deviceId (extracted from filename `events-{id}.ndjson`) is what matters for decryption, not `event.actorDeviceId`. The load path does `fileName.slice('events-'.length, -'.ndjson'.length)` to extract the deviceId and passes it to `decryptEvent`.
+
+**MEDIUM-2: Parent dir fsync after rename (POSIX)**
+
+`saveKeyFile` now opens the parent dir and calls `FileHandle.sync()` after the rename on POSIX. Guarded with `process.platform !== 'win32'`. On Windows, NTFS journals the rename; the extra syscall is unnecessary and directory open with 'r' is unsupported.
+
+Test lesson: to test platform-specific POSIX behavior on Windows CI, patch `process.platform` via `Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })` AND mock `fs.open` with a fake FileHandle (returning `{ sync: async () => undefined, close: async () => undefined }`) for the directory path, so the real OS call is never made.
+
+**LOW-1: ENOENT suppression in stale tmp cleanup**
+
+When two concurrent `load()` calls both see a tmp file in `readdir()` but only one unlinks it, the second gets ENOENT. Change: `continue` silently on ENOENT, only `console.warn` for other errors.
+
+**LOW-3: events.key file permissions**
+
+`mode: 0o600` on `fs.writeFile` for the tmp file; the rename propagates the mode to the final file. Guard with `process.platform !== 'win32'` since Windows ignores the `mode` argument.
+
+**Learnings:**
+
+1. **Breaking AAD changes are easy to miss in tests** if test fixtures were written with the old AAD. Grep for hardcoded encrypted blobs in test fixtures before shipping AAD changes.
+2. **platform-mocking for POSIX-only code**: `Object.defineProperty(process, 'platform', ...)` + fake FileHandle avoids OS-level failures on Windows CI.
+3. **Reviewer-rejection-lockout works**: Switch can't author the fix because they authored the review. The lockout pattern correctly enforced that Morpheus (PR author) handles remediation.
+4. **The dedup-before-decrypt pattern in load() is a subtle protection**: When two files both contain the same eventId (e.g., recovery re-emit), the second file's ciphertext is skipped by seenIds before decryption is attempted. This means the cross-device AAD transplant test must use a fresh directory with ONLY the B-file — if A-file also exists, dedup silently "passes" the transplant.
+
 ### 2026-05-10 — PR #310 Rebase: Clean rebase, trailing-space fix needed
 
 Rebased `squad/encryption-crypto-core` onto `origin/main` to resolve CONFLICTING merge status and unblock CI. Git auto-dropped one commit (Scribe's trial.3.7 release notes) already in main. No manual conflict resolution needed during rebase. All validation gates passed locally (typecheck, lint, format:check). Formatting CI failure on first push: `scripts/spikes/onedrive-multi-device.mjs` had trailing spaces in JSDoc comments (CR+LF vs LF normalization during rebase). Fixed with `prettier --write`. Force-pushed successfully; PR now MERGEABLE with CI running.
@@ -3451,3 +3482,23 @@ Default dev workflow (`npm run dev`, `isPackaged=false`, no env overrides) still
 - Session log: `.squad/log/2026-05-10T14-19-22Z-spec026-spike-pass.md`
 
 
+
+## Learnings — 2026-05-12 (#309 PR #312)
+
+**Per-device file naming:** vents-{deviceId}.ndjson where deviceId is a 26-char Crockford ULID (regex `/^events-[0-9A-HJKMNP-TV-Z]{26}\.ndjson$/`). One writer per file; readers glob across all device files. Crockford excludes I, L, O, U.
+
+**AAD = event.id (ULID), not line index.** Globally unique, immutable, allows cross-device decrypt without coordination, and vent.id is the natural primary key of the event itself. Id-swap attacks fail decrypt with ENCRYPTED_EVENT_AUTH_FAILED.
+
+**On-disk line layout:** `{"id":"<ULID>","c":"<base64(nonce||cipher||tag)>"}\n` — id plaintext (needed for AAD before decrypt), ciphertext is the concatenated output of ncryptEvent(). Hand-built JSON to keep stable byte layout.
+
+**events.key v2 schema** persists rgon2_params inline (m=65536, t=4, p=1) for forward-compat. v1→v2 migration promotes the legacy wrap_safestorage to devices[0] + adds nrolled_at. loadKeyFile auto-migrates in memory only — caller chooses when to persist.
+
+**Two append patterns:**
+- Full-file rewrite (key file): tmp → fsync → rename.
+- Incremental append (NDJSON): open('a') + writeFile + sync + close. Never tmp+rename for appends.
+
+**Switch #310 MEDIUM fixes (Stream A):**
+1. `normalizeMnemonic()` (NFKD/lowercase/trim/collapse-ws) applied in validate + mnemonicToSeed.
+2. `wipe()` wraps `sodium.sodium_memzero`; `deriveRecoveryKey` zeros BIP39 seed in try/finally. JS GC caveats documented.
+
+**Worktree workflow:** When concurrent agents (Trinity, Niobe) are editing the renderer, work from a separate `git worktree add` so checkouts don't fight over branches. Run gates from repo root (no pp/package.json).

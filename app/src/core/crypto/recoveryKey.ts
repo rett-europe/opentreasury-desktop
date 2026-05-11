@@ -16,7 +16,8 @@
  */
 
 import * as argon2 from 'argon2';
-import { mnemonicToSeed } from './mnemonic.js';
+import { mnemonicToSeed, normalizeMnemonic } from './mnemonic.js';
+import { wipe } from './primitives.js';
 
 export interface Argon2Params {
   m: number; // Memory cost in KiB
@@ -48,19 +49,31 @@ export async function deriveRecoveryKey(
     throw new Error(`Salt must be 16 bytes, got ${salt.length}`);
   }
 
+  // Defensive normalization — same as mnemonicToSeed, but called explicitly
+  // here so a normalized form reaches `bip39` before any expensive Argon2id
+  // work happens. (Switch review #310 MEDIUM-1.)
+  const normalized = normalizeMnemonic(mnemonic);
+
   // Convert mnemonic to seed (64 bytes, per BIP39 spec)
-  const seed = mnemonicToSeed(mnemonic);
+  const seed = mnemonicToSeed(normalized);
 
-  // Derive 32-byte key via Argon2id
-  const hash = await argon2.hash(Buffer.from(seed), {
-    type: argon2.argon2id,
-    memoryCost: params.m,
-    timeCost: params.t,
-    parallelism: params.p,
-    hashLength: 32,
-    salt: Buffer.from(salt),
-    raw: true, // Return raw bytes, not encoded string
-  });
+  try {
+    // Derive 32-byte key via Argon2id
+    const hash = await argon2.hash(Buffer.from(seed), {
+      type: argon2.argon2id,
+      memoryCost: params.m,
+      timeCost: params.t,
+      parallelism: params.p,
+      hashLength: 32,
+      salt: Buffer.from(salt),
+      raw: true, // Return raw bytes, not encoded string
+    });
 
-  return new Uint8Array(hash);
+    return new Uint8Array(hash);
+  } finally {
+    // Switch review #310 MEDIUM-2: zero the BIP39 seed once Argon2id has
+    // consumed it. The seed is the most sensitive intermediate (anyone with
+    // the seed + salt + params can re-derive the recovery key).
+    wipe(seed);
+  }
 }

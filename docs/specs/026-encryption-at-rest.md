@@ -196,7 +196,7 @@ they are workspace-level, immutable after creation.
 | **Read path** | On load: glob `events-*.ndjson`, read all files, merge-sort all events by ULID (`event.id`), deduplicate by `event.id`. Feed to reducers. |
 | **Ordering** | ULIDs are time-sortable (millisecond precision). For an NGO app where events are created minutes/hours apart, cross-device ordering by ULID is deterministic and correct. Pathological case: two users create events within the same millisecond — ULID's random suffix breaks the tie arbitrarily but deterministically (same sort on every device). |
 | **Encryption** | Same per-event AEAD as v1. Each line in each file is independently encrypted. MK is shared across all devices. |
-| **AAD binding** | **`event.id`** (ULID) — globally unique, immutable. Prevents event-swapping across files. (Changed from v1's line-index, which was fragile across multiple files.) |
+| **AAD binding** | **`eventId + ":" + deviceId`** (UTF-8 bytes) — binds ciphertext to both the event's ULID and the device file it was written to. A line from `events-{A}.ndjson` cannot be transplanted into `events-{B}.ndjson` and decrypted; the mismatched deviceId causes AEAD verification failure. Format: `"{eventId}:{deviceId}"`. |
 | **Decryption failure** | Hard error on any single line (corruption or tamper) — surface to the user, do not silently skip. |
 | **Nonces** | Per-event, 24 random bytes from CSPRNG. Same-process collision check at write time. |
 
@@ -537,9 +537,10 @@ go to `events-{mariaDeviceId}.ndjson`. Pedro's migrated events are in
   conflict copies of `events.key` (e.g., simultaneous enrollment), the app
   detects them, merges `devices[]` arrays by `deviceId` (union), and deletes the
   conflict files.
-- [ ] **AC14** — **AAD binding uses `event.id`:** Tampering with a ciphertext
+- [ ] **AC14** — **AAD binding uses `eventId + ":" + deviceId`:** Tampering with a ciphertext
   line (moving it to a different position or a different device file) causes
-  AEAD verification failure. The AAD is the event's ULID, not its line index.
+  AEAD verification failure. The AAD is `"{eventId}:{deviceId}"` (UTF-8 bytes),
+  binding each ciphertext to the event's ULID and to the specific device file.
 - [ ] **AC15** — Migration: launching the encrypted build over an existing
   trial-era plaintext `events.ndjson` preserves every event. Verified by
   (a) event count parity, and (b) SHA-256 of decrypted-and-reserialized events
@@ -594,7 +595,7 @@ should be roughly synchronized" (NTP, which Windows enables by default).
 - **Hardware token support** (YubiKey, Trezor).
 - **Escrow / admin-key recovery** services.
 - **Encrypted backups** to cloud providers as a first-class feature.
-- **Per-event AAD beyond `event.id`** (e.g., dataset ID, tenant ID — not needed
+- **Per-event AAD beyond `eventId + ":" + deviceId`** (e.g., dataset ID, tenant ID — not needed
   in the shared-workspace model).
 
 ## 13. Open Questions for Keaton

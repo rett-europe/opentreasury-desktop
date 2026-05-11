@@ -18,4 +18,11 @@ declare module 'sodium-native' {
   ): boolean;
 
   export function randombytes_buf(buf: Uint8Array): void;
+
+  /**
+   * Securely zero a buffer's bytes. Uses a compiler-barrier zero fill so the
+   * write cannot be optimized away. See
+   * https://libsodium.gitbook.io/doc/memory_management#zeroing-memory
+   */
+  export function sodium_memzero(buf: Uint8Array): void;
 }
