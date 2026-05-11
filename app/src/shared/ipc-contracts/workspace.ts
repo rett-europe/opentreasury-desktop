@@ -235,3 +235,23 @@ export const workspaceRecoverResponseSchema = z.discriminatedUnion('ok', [
 ]);
 
 export type WorkspaceRecoverResponse = z.infer<typeof workspaceRecoverResponseSchema>;
+
+// ============================================================================
+// Lock — Zeroize MK from in-memory session
+// ============================================================================
+
+export const IPC_WORKSPACE_LOCK = 'workspace:lock';
+
+export const workspaceLockRequestSchema = z.object({}).optional();
+
+export type WorkspaceLockRequest = z.infer<typeof workspaceLockRequestSchema>;
+
+export const workspaceLockResponseSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true) }),
+  z.object({
+    ok: z.literal(false),
+    error: z.object({ code: z.string(), message: z.string() }),
+  }),
+]);
+
+export type WorkspaceLockResponse = z.infer<typeof workspaceLockResponseSchema>;

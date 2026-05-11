@@ -38,6 +38,7 @@ function makeDeps(overrides?: Partial<WorkspaceDeps>): WorkspaceDeps {
     safeStorageDecrypt: trivialDecrypt,
     hostname: () => 'TestMachine',
     now: () => new Date('2026-05-12T12:00:00.000Z'),
+    homeDir: () => os.homedir(),
     ...overrides,
   };
 }
@@ -48,7 +49,7 @@ describe('workspace handlers', () => {
 
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ot-ws-'));
-    deps = makeDeps();
+    deps = makeDeps({ homeDir: () => path.dirname(tmpDir) });
     _resetWorkspaceSession();
   });
 

@@ -275,12 +275,14 @@ import {
   IPC_WORKSPACE_ENROLL,
   IPC_WORKSPACE_UNLOCK,
   IPC_WORKSPACE_RECOVER,
+  IPC_WORKSPACE_LOCK,
   workspaceDetectResponseSchema,
   workspaceCreateResponseSchema,
   workspaceConfirmSetupResponseSchema,
   workspaceEnrollResponseSchema,
   workspaceUnlockResponseSchema,
   workspaceRecoverResponseSchema,
+  workspaceLockResponseSchema,
   createWorkspaceHandlers,
   buildProductionWorkspaceDeps,
 } from './handlers/workspace.js';
@@ -432,6 +434,12 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     const h = await getWorkspaceHandlers();
     const response = await h.handleRecover(raw);
     return workspaceRecoverResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_WORKSPACE_LOCK, async (_event, raw: unknown) => {
+    const h = await getWorkspaceHandlers();
+    const response = h.handleLock(raw);
+    return workspaceLockResponseSchema.parse(response);
   });
 
   // Panel handlers — WI-2 mock implementations

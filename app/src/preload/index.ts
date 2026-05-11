@@ -215,6 +215,7 @@ import {
   IPC_WORKSPACE_ENROLL,
   IPC_WORKSPACE_UNLOCK,
   IPC_WORKSPACE_RECOVER,
+  IPC_WORKSPACE_LOCK,
   type WorkspaceDetectRequest,
   type WorkspaceDetectResponse,
   type WorkspaceCreateRequest,
@@ -226,6 +227,7 @@ import {
   type WorkspaceUnlockResponse,
   type WorkspaceRecoverRequest,
   type WorkspaceRecoverResponse,
+  type WorkspaceLockResponse,
 } from '../shared/ipc-contracts/workspace.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
@@ -489,8 +491,8 @@ const api = {
     },
   },
   workspace: {
-    detect: (req: WorkspaceDetectRequest): Promise<WorkspaceDetectResponse> => {
-      return ipcRenderer.invoke(IPC_WORKSPACE_DETECT, req);
+    detect: (req?: WorkspaceDetectRequest): Promise<WorkspaceDetectResponse> => {
+      return ipcRenderer.invoke(IPC_WORKSPACE_DETECT, req ?? {});
     },
     create: (req: WorkspaceCreateRequest): Promise<WorkspaceCreateResponse> => {
       return ipcRenderer.invoke(IPC_WORKSPACE_CREATE, req);
@@ -506,6 +508,9 @@ const api = {
     },
     recover: (req: WorkspaceRecoverRequest): Promise<WorkspaceRecoverResponse> => {
       return ipcRenderer.invoke(IPC_WORKSPACE_RECOVER, req);
+    },
+    lock: (): Promise<WorkspaceLockResponse> => {
+      return ipcRenderer.invoke(IPC_WORKSPACE_LOCK);
     },
   },
 } as const;

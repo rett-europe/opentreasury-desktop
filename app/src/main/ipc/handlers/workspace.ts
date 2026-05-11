@@ -1,15 +1,22 @@
 // SPEC-026 #301 — Workspace lifecycle IPC handlers.
 //
-// Implements the 5 workspace channels defined in shared/ipc-contracts/workspace.ts:
+// Implements the 7 workspace channels defined in shared/ipc-contracts/workspace.ts:
 //   workspace:detect        — 5-state detection (fresh|join|unlock|recovery|migration)
 //   workspace:create        — fresh setup: generate MK + 12-word mnemonic
 //   workspace:confirmSetup  — persist MK after user confirms 3 challenge words
 //   workspace:enroll        — join an existing workspace via recovery code
 //   workspace:unlock        — silent unlock via safeStorage
 //   workspace:recover       — re-wrap MK via recovery code when safeStorage fails
+//   workspace:lock          — zeroize MK from in-memory session (MEDIUM-2)
 //
-// All Electron-specific dependencies (safeStorage, hostname) are injected for
+// All Electron-specific dependencies (safeStorage, hostname, homeDir) are injected for
 // testability — see WorkspaceDeps and buildProductionWorkspaceDeps().
+//
+// MEDIUM-3 (accepted risk): workspace:create returns the freshly-generated 12-word
+// mnemonic to the renderer for one-time display + confirmation. We accept this
+// because the renderer must show it to the user in plaintext anyway. Mitigation:
+// the pendingSetups entry holding the same mnemonic in main is bounded by a 5-min
+// TTL and a 10-entry cap (MEDIUM-1), and is wiped on confirmSetup or eviction.
 //
 // Key material lifecycle:
 //   - MK is generated in workspace:create and held in `pendingSetups` until
@@ -19,6 +26,7 @@
 //   - The EncryptedMultiDeviceEventLog reads the MK from the session singleton.
 
 import * as os from 'node:os';
+import * as path from 'node:path';
 import { promises as fs } from 'node:fs';
 import {
   workspaceDetectRequestSchema,
@@ -33,6 +41,7 @@ import {
   type WorkspaceEnrollResponse,
   type WorkspaceUnlockResponse,
   type WorkspaceRecoverResponse,
+  type WorkspaceLockResponse,
 } from '../../../shared/ipc-contracts/workspace.js';
 import { detectWorkspaceState } from '../../../core/workspace/detect.js';
 import { loadKeyFile, saveKeyFile } from '../../../core/eventLog/keyFile.js';
@@ -48,6 +57,7 @@ import { deriveRecoveryKey, DEFAULT_ARGON2_PARAMS } from '../../../core/crypto/r
 import { newUlid } from '../../ids.js';
 import {
   setActiveWorkspace,
+  clearActiveWorkspace,
   setLastDetectedFolderPath,
   getLastDetectedFolderPath,
 } from '../../workspace-session.js';
@@ -67,19 +77,47 @@ export interface WorkspaceDeps {
   hostname(): string;
   /** Current time — injectable for deterministic tests. */
   now(): Date;
+  /** User home directory root — injectable so tests can permit os.tmpdir(). */
+  homeDir(): string;
 }
 
-// ── Pending setup state ──────────────────────────────────────────────────────
+// ── Pending setup state (MEDIUM-1 hardening: TTL + cap) ─────────────────────
 // Holds in-memory MK + mnemonic between workspace:create and workspace:confirmSetup.
-// Keyed by the opaque setupToken returned to the renderer.
+// Keyed by the opaque setupToken returned to the renderer. Each entry is bounded
+// by a 5-minute TTL and the map is capped at 10 entries — overflow evicts oldest.
 
 interface PendingSetup {
   folderPath: string;
   mk: Uint8Array;
   mnemonic: string;
+  timer: ReturnType<typeof setTimeout>;
 }
 
+const PENDING_SETUP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const PENDING_SETUP_MAX = 10;
+
 const pendingSetups = new Map<string, PendingSetup>();
+
+function evictPendingSetup(setupToken: string): void {
+  const entry = pendingSetups.get(setupToken);
+  if (entry) {
+    clearTimeout(entry.timer);
+    wipe(entry.mk);
+    pendingSetups.delete(setupToken);
+  }
+}
+
+function storePendingSetup(setupToken: string, setup: Omit<PendingSetup, 'timer'>): void {
+  if (pendingSetups.size >= PENDING_SETUP_MAX) {
+    const oldestKey = pendingSetups.keys().next().value;
+    if (oldestKey !== undefined) evictPendingSetup(oldestKey);
+  }
+  const timer = setTimeout(() => evictPendingSetup(setupToken), PENDING_SETUP_TTL_MS);
+  if (typeof timer === 'object' && timer !== null && 'unref' in timer) {
+    (timer as { unref(): void }).unref();
+  }
+  pendingSetups.set(setupToken, { ...setup, timer });
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -134,31 +172,120 @@ function unwrapMkFromRecoveryKey(wrapRecovery: string, recoveryKey: Uint8Array):
   return unwrapKey({ ciphertext, nonce }, recoveryKey);
 }
 
+// ── Path boundary validation (HIGH-1 / LOW-1) ──────────────────────────────
+//
+// Allowlist policy: workspace folder must reside under the user's home directory
+// (os.homedir()) after full path resolution. This covers all realistic cases:
+// OneDrive, Desktop, Documents, and any custom sub-folder of home.
+// Rejected: UNC paths, Windows device prefixes, and '..' after resolve.
+//
+// homeDir is taken from WorkspaceDeps.homeDir() for testability.
+
+export function validateFolderBoundary(
+  folderPath: string,
+  homeDir: string,
+): { ok: true; normalized: string } | { ok: false; reason: string } {
+  if (folderPath.startsWith('\\\\')) {
+    return { ok: false, reason: 'UNC and Windows device paths are not allowed' };
+  }
+  const normalized = path.resolve(folderPath);
+  if (normalized.includes('..')) {
+    return { ok: false, reason: 'Path traversal detected' };
+  }
+  if (normalized.startsWith('\\\\?\\') || normalized.startsWith('\\\\.\\')) {
+    return { ok: false, reason: 'Windows device paths are not allowed' };
+  }
+  const normalizedHome = path.resolve(homeDir);
+  const homeWithSep = normalizedHome.endsWith(path.sep)
+    ? normalizedHome
+    : normalizedHome + path.sep;
+  if (normalized !== normalizedHome && !normalized.startsWith(homeWithSep)) {
+    return { ok: false, reason: 'Workspace folder must be within your home directory' };
+  }
+  return { ok: true, normalized };
+}
+
+// ── Error message sanitization (LOW-2) ────────────────────────────────────
+const WIN_ABS_PATH_RE = /[A-Za-z]:\\[^\s,'"]+/g;
+const UNC_PATH_RE = /\\\\[^\s,'"]+/g;
+const POSIX_ABS_PATH_RE = /\/[^\s,'"]+/g;
+
+function sanitizeFsError(raw: string): string {
+  return raw
+    .replace(WIN_ABS_PATH_RE, '<path>')
+    .replace(UNC_PATH_RE, '<path>')
+    .replace(POSIX_ABS_PATH_RE, '<path>');
+}
+
+// ── Rate limiter (LOW-3) ───────────────────────────────────────────────────
+const RATE_WINDOWS: Record<string, { maxCalls: number; windowMs: number }> = {
+  detect: { maxCalls: 60, windowMs: 60_000 },
+  create: { maxCalls: 10, windowMs: 60_000 },
+  confirmSetup: { maxCalls: 20, windowMs: 60_000 },
+  enroll: { maxCalls: 10, windowMs: 60_000 },
+  unlock: { maxCalls: 30, windowMs: 60_000 },
+  recover: { maxCalls: 10, windowMs: 60_000 },
+  lock: { maxCalls: 30, windowMs: 60_000 },
+};
+
+interface RateEntry {
+  count: number;
+  resetAt: number;
+}
+const rateCounters = new Map<string, RateEntry>();
+
+function checkRateLimit(channel: string): boolean {
+  const limit = RATE_WINDOWS[channel];
+  if (!limit) return true;
+  const now = Date.now();
+  const entry = rateCounters.get(channel);
+  if (!entry || now >= entry.resetAt) {
+    rateCounters.set(channel, { count: 1, resetAt: now + limit.windowMs });
+    return true;
+  }
+  if (entry.count >= limit.maxCalls) return false;
+  entry.count += 1;
+  return true;
+}
+
 function makeErrorResponse(code: string, message: string, field?: string) {
   return {
     ok: false as const,
-    error: { code, message, ...(field ? { field } : {}) },
+    error: { code, message: sanitizeFsError(message), ...(field ? { field } : {}) },
   };
+}
+
+function rateLimitedError() {
+  return makeErrorResponse('rate_limited', 'Too many requests. Please wait before retrying.');
 }
 
 // ── Handler factory ──────────────────────────────────────────────────────────
 
 export function createWorkspaceHandlers(deps: WorkspaceDeps) {
+  const homeDir = deps.homeDir();
+
   // ── workspace:detect ────────────────────────────────────────────────────
 
   async function handleDetect(raw: unknown): Promise<WorkspaceDetectResponse> {
+    if (!checkRateLimit('detect')) return rateLimitedError();
     const parsed = workspaceDetectRequestSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return makeErrorResponse('invalid_request', parsed.error.message);
     }
 
-    const folderPath = parsed.data.folderPath ?? getLastDetectedFolderPath() ?? undefined;
-    if (!folderPath) {
+    const rawFolderPath = parsed.data.folderPath ?? getLastDetectedFolderPath() ?? undefined;
+    if (!rawFolderPath) {
       return makeErrorResponse(
         'no_folder',
         'No workspace folder path provided or previously detected.',
       );
     }
+
+    const boundary = validateFolderBoundary(rawFolderPath, homeDir);
+    if (!boundary.ok) {
+      return makeErrorResponse('invalid_path', boundary.reason, 'folderPath');
+    }
+    const folderPath = boundary.normalized;
 
     try {
       const result = await detectWorkspaceState(
@@ -177,11 +304,17 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
   // ── workspace:create ─────────────────────────────────────────────────────
 
   async function handleCreate(raw: unknown): Promise<WorkspaceCreateResponse> {
+    if (!checkRateLimit('create')) return rateLimitedError();
     const parsed = workspaceCreateRequestSchema.safeParse(raw);
     if (!parsed.success) {
       return makeErrorResponse('invalid_request', parsed.error.message);
     }
-    const { folderPath } = parsed.data;
+
+    const boundary = validateFolderBoundary(parsed.data.folderPath, homeDir);
+    if (!boundary.ok) {
+      return makeErrorResponse('invalid_path', boundary.reason, 'folderPath');
+    }
+    const folderPath = boundary.normalized;
 
     // Validate folder path exists (or can be created).
     try {
@@ -212,8 +345,8 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     const mnemonic = generateMnemonic();
     const setupToken = newUlid();
 
-    // Store the pending setup. MK is held here until confirmSetup.
-    pendingSetups.set(setupToken, { folderPath, mk, mnemonic });
+    // Store the pending setup. MK is held here until confirmSetup (or TTL eviction).
+    storePendingSetup(setupToken, { folderPath, mk, mnemonic });
 
     // Track folder path for subsequent unlock/recover.
     setLastDetectedFolderPath(folderPath);
@@ -224,6 +357,7 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
   // ── workspace:confirmSetup ───────────────────────────────────────────────
 
   async function handleConfirmSetup(raw: unknown): Promise<WorkspaceConfirmSetupResponse> {
+    if (!checkRateLimit('confirmSetup')) return rateLimitedError();
     const parsed = workspaceConfirmSetupRequestSchema.safeParse(raw);
     if (!parsed.success) {
       return makeErrorResponse('invalid_request', parsed.error.message);
@@ -321,9 +455,8 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     // Persist the active workspace session with the unlocked MK.
     setActiveWorkspace({ folderPath, deviceId, mk: new Uint8Array(mk) });
 
-    // Clear pending setup (wipe original mk buffer).
-    wipe(mk);
-    pendingSetups.delete(setupToken);
+    // Clear pending setup (wipe original mk buffer + clear TTL timer).
+    evictPendingSetup(setupToken);
 
     const workspaceId = newUlid();
     return {
@@ -340,11 +473,17 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
   // ── workspace:enroll ─────────────────────────────────────────────────────
 
   async function handleEnroll(raw: unknown): Promise<WorkspaceEnrollResponse> {
+    if (!checkRateLimit('enroll')) return rateLimitedError();
     const parsed = workspaceEnrollRequestSchema.safeParse(raw);
     if (!parsed.success) {
       return makeErrorResponse('invalid_request', parsed.error.message);
     }
-    const { folderPath, mnemonic, deviceLabel } = parsed.data;
+    const { folderPath: rawFolderPath, mnemonic, deviceLabel } = parsed.data;
+    const boundary = validateFolderBoundary(rawFolderPath, homeDir);
+    if (!boundary.ok) {
+      return makeErrorResponse('invalid_path', boundary.reason, 'folderPath');
+    }
+    const folderPath = boundary.normalized;
     const deviceId = deps.deviceId();
     const now = deps.now();
 
@@ -450,6 +589,12 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
   // ── workspace:unlock ─────────────────────────────────────────────────────
 
   async function handleUnlock(raw: unknown): Promise<WorkspaceUnlockResponse> {
+    if (!checkRateLimit('unlock')) {
+      return {
+        ok: false,
+        error: { code: 'rate_limited', message: 'Too many requests. Please wait before retrying.' },
+      };
+    }
     workspaceUnlockRequestSchema?.parse(raw ?? {});
 
     if (!deps.isEncryptionAvailable()) {
@@ -518,6 +663,7 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
   // ── workspace:recover ─────────────────────────────────────────────────────
 
   async function handleRecover(raw: unknown): Promise<WorkspaceRecoverResponse> {
+    if (!checkRateLimit('recover')) return rateLimitedError();
     const parsed = workspaceRecoverRequestSchema.safeParse(raw);
     if (!parsed.success) {
       return makeErrorResponse('invalid_request', parsed.error.message);
@@ -630,6 +776,18 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     };
   }
 
+  // ── workspace:lock (MEDIUM-2) ────────────────────────────────────────────
+  function handleLock(_raw: unknown): WorkspaceLockResponse {
+    if (!checkRateLimit('lock')) {
+      return {
+        ok: false,
+        error: { code: 'rate_limited', message: 'Too many requests. Please wait before retrying.' },
+      };
+    }
+    clearActiveWorkspace();
+    return { ok: true };
+  }
+
   return {
     handleDetect,
     handleCreate,
@@ -637,6 +795,7 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     handleEnroll,
     handleUnlock,
     handleRecover,
+    handleLock,
   };
 }
 
@@ -657,6 +816,7 @@ export async function buildProductionWorkspaceDeps(): Promise<WorkspaceDeps> {
     safeStorageDecrypt: (ciphertext: Buffer) => safeStorage.decryptString(ciphertext),
     hostname: () => os.hostname(),
     now: () => new Date(),
+    homeDir: () => os.homedir(),
   };
 }
 
@@ -669,10 +829,12 @@ export {
   IPC_WORKSPACE_ENROLL,
   IPC_WORKSPACE_UNLOCK,
   IPC_WORKSPACE_RECOVER,
+  IPC_WORKSPACE_LOCK,
   workspaceDetectResponseSchema,
   workspaceCreateResponseSchema,
   workspaceConfirmSetupResponseSchema,
   workspaceEnrollResponseSchema,
   workspaceUnlockResponseSchema,
   workspaceRecoverResponseSchema,
+  workspaceLockResponseSchema,
 } from '../../../shared/ipc-contracts/workspace.js';
