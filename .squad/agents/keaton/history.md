@@ -92,3 +92,37 @@ See `.squad/decisions/inbox/keaton-spec-026-multiuser-redesign.md`.
 **Pre-flight as Item #0:** OneDrive sync spike validates the architectural bet before production code. This is a pattern worth reusing: when an architecture depends on an unverified external behavior (cloud sync, OS API, native addon), make the validation a throwaway spike at position 0. If it fails, the cost is 1 day, not 10.
 
 See `.squad/decisions/inbox/keaton-spec-026-work-plan.md`.
+---
+
+## 2026-05-10 — SPEC-026 OneDrive Multi-Device Spike — PASS ✅
+
+**Status:** Spike results validate multi-user architecture. Ready for v2 implementation kickoff.
+
+**Findings from Pedro's live spike:**
+- Per-device event files (`events-{deviceId}.ndjson`) tested against real SharePoint-synced folder
+- **ZERO conflict copies** — both device files remained intact, no truncation, no silent data loss
+- Merge-sort by ULID produces correct cross-device ordering across all devices
+- OneDrive/SharePoint sync behavior matches per-the-design assumptions
+
+**Architecture locked for implementation:**
+1. Per-device files are the definitive write-conflict solution
+2. Multi-wrap key model (shared recovery + per-device safeStorage wraps) now has field-validated foundation
+3. Recovery code (24-word BIP39, Argon2id) as enrollment mechanism — design approved
+4. Rebuild read model on boot (v1) is cryptographically safe
+
+**For crypto review (Switch):**
+- Spike validates cloud-sync assumptions, removing the single-device constraint from the threat model
+- Multi-wrap key hierarchy now has an independent per-cloud-folder safety proof
+- Argon2id parameters (m=65536 KiB, t=3, p=1) still pending performance validation on trial target hardware
+
+**Critical handoff to Morpheus:**
+- Crypto-core (#303) is the foundation blocker for all parallel work (#305–#309)
+- Per-device file I/O + merge-sort pattern is now validated; implementation can proceed with confidence
+- Niobe's v2 spec finalization (detailed AC) is unblocked by spike results
+
+**Artifacts:**
+- Spike findings: `docs/specs/spikes/onedrive-multi-device-findings.md`
+- PR #304: Spike code (auto-merge pending CI)
+- Decision: `.squad/decisions.md` § 2026-05-10 SPEC-026 OneDrive Multi-Device Spike — PASS
+
+

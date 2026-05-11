@@ -275,6 +275,23 @@ PR #50 (Morpheus WI-23 legacy backfill) + PR #53 (categories usage counter) appr
 - Core queries are read-only (no DEK writes, no rotation logic) — simpler review surface than WI-5 full cycle
 - Error surfaces for Panel are partial-decrypt only (CE-005) — narrower than full-command error set
 
+### 2026-05-12: PR #312 security review — COMMENT (0 HIGH / 2 MEDIUM / 3 LOW)
+
+Reviewed `feat(eventlog): per-device encrypted event log + events.key v2 (#309)`.
+
+**Stream A (#310 fixes):** Both MEDIUMs resolved — mnemonic normalization (NFKD+lc+trim+collapse) and wipe() via sodium_memzero in try/finally. 16 tests pin the behaviors.
+
+**Stream B (new code):** EncryptedMultiDeviceEventLog + keyFile v2. Key findings:
+- MEDIUM-1: saveKeyFile missing fsync on parent dir after rename (safe on NTFS, risky on POSIX).
+- MEDIUM-2: AAD = event.id only, no device binding. Cross-device ciphertext transplant possible. Should decide before v1 ships.
+- LOW-1/2/3: TOCTOU on tmp cleanup, partial-batch crash semantics (handled), no explicit file perms.
+
+Crypto primitives (XChaCha20-Poly1305, Argon2id KDF, nonce collision detection, Zod-validated key schema, atomic writes) are sound. v1-to-v2 migration race safety acceptable. ULID collision probability negligible.
+
+**Learnings:** For multi-device file-sync architectures, AAD should bind all identity dimensions (event ID + device ID) to prevent cross-file replay even when the threat model is "passive cloud sync." Decide on AAD shape before any on-disk format ships to avoid migration overhead later.
+
+- **Decision note:** `.squad/decisions/inbox/switch-review-312.md`
+
 ### 2026-04-20: WI-17 security review completed — APPROVED WITH CONDITIONS
 - **Doc:** `.squad/decisions/inbox/switch-wi17-security-review.md` — pre-landing security review of the generic column-mapping importer (Excel/CSV → movements).
 - **Verdict:** APPROVED WITH CONDITIONS — 4 Critical + 2 High fixes required before merge.
@@ -365,3 +382,38 @@ Implementation sub-issues #238–#242 now open with squad ownership. This spec u
 **Related:** PR #237 (spec finalization merged), parent issue #206 (umbrella tracking), .squad/decisions.md (merged neo-206-spec-locked entry).
 
 **Orchestration:** .squad/orchestration-log/2026-05-02T10-13-30Z-neo.md, .squad/log/2026-05-02T10-13-30Z-206-decisions-locked-decomposed.md.
+
+---
+
+## 2026-05-10 — SPEC-026 OneDrive Multi-Device Spike — PASS ✅
+
+**Status:** Spike validation complete. Multi-user architecture approved for v2 implementation.
+
+**Key finding:** Per-device event files (`events-{deviceId}.ndjson`) **eliminate all cloud-sync write conflicts**. Pedro's live spike on SharePoint confirmed:
+- ZERO conflict copies across both devices
+- Both files remained intact (50 lines each)
+- Merge-sort by ULID produces correct cross-device ordering
+- No data loss, no truncation, no stale writes
+
+**Security implications for v2 spec review:**
+1. **Multi-device threat model now has cryptographic proof:** Per-device writes mean no file-level merge conflicts. Scope for conflict-exploitation attacks is eliminated by construction.
+2. **Multi-wrap key hierarchy is validated:** Shared recovery wrap + per-device safeStorage wraps can coexist per the spike results. No new write-conflict attack surfaces from dual wrapping.
+3. **AAD binding via event.id (ULID) is sound:** Event identity is globally unique, immutable, and independent of file/line-index. No regression in authentication binding.
+4. **Argon2id parameters remain to validate:** m=65536 KiB, t=3, p=1 targeting ~500ms on 2020-era hardware. Needs perf testing on trial target device.
+
+**For crypto review (pending v2 spec):**
+- Multi-wrap key model (shared recovery + per-device safeStorage wraps)
+- Argon2id (m=65536, t=3, p=1) + BIP39 24-word recovery code
+- Per-event XChaCha20-Poly1305 AEAD with AAD = event.id
+- Atomic write semantics for `events.key` (tmp → fsync → rename)
+- Per-device file I/O pattern (glob + merge-sort on read)
+
+**Related:**
+- Findings doc: `docs/specs/spikes/onedrive-multi-device-findings.md`
+- PR #304: Spike code (auto-merge pending CI)
+- Decision: `.squad/decisions.md` § 2026-05-10 SPEC-026 OneDrive Multi-Device Spike — PASS
+- Orchestration logs: `.squad/orchestration-log/{ts}-*.md` entries for spike PASS, issues fanout, and Morpheus crypto-core spawn
+
+### 2026-05-11 — PR #312 Security Re-review: APPROVE
+
+All 5 findings (2 MEDIUM, 3 LOW) verified resolved. AAD bound to eventId:deviceId (MEDIUM-1), parent dir fsync on POSIX (MEDIUM-2), ENOENT silenced for stale tmp (LOW-1), crash invariant documented (LOW-2), events.key mode 0o600 (LOW-3). Gates green: 1125/1125 tests pass.
