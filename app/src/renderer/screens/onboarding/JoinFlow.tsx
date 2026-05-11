@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RecoveryCodeInput } from '../../components/onboarding';
-import { mockWorkspaceIpc } from '../../mocks/workspaceIpc';
 import './JoinFlow.css';
 
 type Step = 'entry' | 'success';
@@ -25,6 +24,7 @@ export function JoinFlow({ initialFolderPath, onComplete }: JoinFlowProps) {
   const [mnemonic, setMnemonic] = useState<string>('');
   const [deviceLabel, setDeviceLabel] = useState<string>('');
   const [isMnemonicValid, setIsMnemonicValid] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -60,20 +60,22 @@ export function JoinFlow({ initialFolderPath, onComplete }: JoinFlowProps) {
     setError(null);
 
     try {
-      const response = await mockWorkspaceIpc.enroll({
+      const response = await window.opentreasury.workspace.enroll({
         folderPath,
         mnemonic,
         deviceLabel: deviceLabel || undefined,
       });
 
       if (!response.ok) {
-        setError(response.error.message);
+        const nextAttempts = failedAttempts + 1;
+        setFailedAttempts(nextAttempts);
         setIsSubmitting(false);
 
         // Show help link after 5 attempts (AC7)
-        const attempts = mockWorkspaceIpc.__getFailedAttempts();
-        if (attempts >= 5) {
+        if (nextAttempts >= 5) {
           setError(response.error.message + ' ' + t('onboarding.join.help_after_5'));
+        } else {
+          setError(response.error.message);
         }
         return;
       }
@@ -84,7 +86,7 @@ export function JoinFlow({ initialFolderPath, onComplete }: JoinFlowProps) {
       setError(message);
       setIsSubmitting(false);
     }
-  }, [folderPath, mnemonic, deviceLabel, isMnemonicValid, t]);
+  }, [folderPath, mnemonic, deviceLabel, isMnemonicValid, failedAttempts, t]);
 
   if (step === 'success') {
     return (

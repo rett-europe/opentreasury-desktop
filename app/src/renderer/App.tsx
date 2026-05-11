@@ -11,6 +11,13 @@ import { PanelScreen } from './screens/PanelScreen/index.js';
 import { SaldoScreen } from './screens/SaldoScreen/index.js';
 import { PreferencesScreen } from './screens/PreferencesScreen/index.js';
 import { BootErrorPage, type BootErrorDetails } from './screens/BootErrorPage/index.js';
+import {
+  FreshSetupFlow,
+  JoinFlow,
+  RecoveryFlow,
+  MigrationScreen,
+} from './screens/onboarding/index.js';
+import type { WorkspaceState } from '../shared/ipc-contracts/workspace.js';
 import { thisYear } from './utils/datePresets.js';
 
 /**
@@ -61,6 +68,12 @@ export function App(): JSX.Element {
   // #242 — Boot error gate. If bootstrap/hydration failed, show BootErrorPage.
   const [bootError, setBootError] = useState<BootErrorDetails | null>(null);
 
+  // SPEC-026 — Workspace state after onboarding. `null` = detecting in flight.
+  // `ready` means workspace is unlocked and the main AppShell can render.
+  type WorkspaceRoutingState = WorkspaceState | 'ready';
+  const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceRoutingState | null>(null);
+  const [workspaceFolderPath, setWorkspaceFolderPath] = useState<string | undefined>(undefined);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -88,7 +101,54 @@ export function App(): JSX.Element {
         // Boot succeeded — check if we need onboarding
         const response = await window.opentreasury.onboarding.getStatus();
         if (cancelled) return;
-        setNeedsOnboarding(response.needsOnboarding);
+
+        if (response.needsOnboarding) {
+          setNeedsOnboarding(true);
+          return;
+        }
+
+        setNeedsOnboarding(false);
+
+        // SPEC-026 — Workspace detection. Determines which onboarding screen
+        // (or silent unlock) to show before the main AppShell.
+        try {
+          const detectResult = await window.opentreasury.workspace.detect();
+          if (cancelled) return;
+
+          if (!detectResult.ok) {
+            // Detection failed — fall through to AppShell rather than blocking.
+            // eslint-disable-next-line no-console
+            console.warn('[App] workspace:detect failed:', detectResult.error.message);
+            setWorkspaceStatus('ready');
+            return;
+          }
+
+          const { state, folderPath } = detectResult;
+          setWorkspaceFolderPath(folderPath);
+
+          if (state === 'unlock') {
+            // Attempt silent unlock via safeStorage. On failure, route to recovery.
+            const unlockResult = await window.opentreasury.workspace.unlock();
+            if (cancelled) return;
+            if (unlockResult.ok) {
+              setWorkspaceStatus('ready');
+            } else if (!unlockResult.ok && unlockResult.error.needsRecovery) {
+              setWorkspaceStatus('recovery');
+            } else {
+              // Unexpected unlock error — log and fall through to AppShell.
+              // eslint-disable-next-line no-console
+              console.warn('[App] workspace:unlock failed:', unlockResult.error.message);
+              setWorkspaceStatus('ready');
+            }
+          } else {
+            setWorkspaceStatus(state);
+          }
+        } catch (wsErr) {
+          // Workspace IPC unavailable (e.g., test harness) — proceed to AppShell.
+          // eslint-disable-next-line no-console
+          console.warn('[App] workspace detection failed; proceeding to app:', wsErr);
+          if (!cancelled) setWorkspaceStatus('ready');
+        }
       } catch (err) {
         // Bridge missing (e.g., test harness without preload mock) or IPC
         // failure — fall through to the main app rather than blocking on a
@@ -98,6 +158,7 @@ export function App(): JSX.Element {
         if (!cancelled) {
           setNeedsOnboarding(false);
           setBootError(null);
+          setWorkspaceStatus('ready');
         }
       }
     })();
@@ -157,6 +218,37 @@ export function App(): JSX.Element {
   if (needsOnboarding) {
     return <OnboardingScreen />;
   }
+
+  // SPEC-026 — Workspace routing. While workspace:detect (and optional unlock)
+  // are in flight, keep the screen blank (same strategy as the needsOnboarding
+  // probe — avoids flashing the main app before the decision lands).
+  if (workspaceStatus === null) {
+    return <></>;
+  }
+
+  if (workspaceStatus === 'fresh') {
+    return <FreshSetupFlow onComplete={() => setWorkspaceStatus('ready')} />;
+  }
+
+  if (workspaceStatus === 'join') {
+    return (
+      <JoinFlow
+        {...(workspaceFolderPath !== undefined ? { initialFolderPath: workspaceFolderPath } : {})}
+        onComplete={() => setWorkspaceStatus('ready')}
+      />
+    );
+  }
+
+  if (workspaceStatus === 'recovery') {
+    return <RecoveryFlow onComplete={() => setWorkspaceStatus('ready')} />;
+  }
+
+  if (workspaceStatus === 'migration') {
+    return <MigrationScreen folderPath={workspaceFolderPath} />;
+  }
+
+  // workspaceStatus === 'ready' (or 'unlock' during silent-unlock, which always
+  // resolves to 'ready' / 'recovery' before we render) → fall through to AppShell.
 
   const renderInsightsDetail = (): JSX.Element => {
     if (insightsDetail && insightsDetail.tagIds.length > 0) {

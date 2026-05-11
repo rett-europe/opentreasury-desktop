@@ -1,6 +1,7 @@
 export { FreshSetupFlow } from './FreshSetupFlow';
 export { JoinFlow } from './JoinFlow';
 export { RecoveryFlow } from './RecoveryFlow';
+export { MigrationScreen } from './MigrationScreen';
 export { FolderPickerScreen } from './FolderPickerScreen';
 export { RecoveryCodeDisplayScreen } from './RecoveryCodeDisplayScreen';
 export { RecoveryCodeConfirmScreen } from './RecoveryCodeConfirmScreen';
