@@ -1363,7 +1363,15 @@
         "title": "You're in.",
         "body": "OpenTreasury will unlock automatically from now on.",
         "continue": "Continue to Dashboard"
-      }
+      },
+      "folder_label": "Folder:"
+    },
+    "migration": {
+      "title": "Workspace needs migration",
+      "body": "This workspace uses the legacy unencrypted format. Run the migration script from a terminal, then relaunch the app.",
+      "command_label": "Command:",
+      "folder_label": "Folder:",
+      "footer": "After migration completes, relaunch OpenTreasury to continue."
     }
   },
   "recovery": {

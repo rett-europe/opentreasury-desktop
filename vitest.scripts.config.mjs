@@ -8,9 +8,7 @@ import * as path from 'node:path';
 // occur on Windows when drive-letter paths (C:\...) are fed into the glob
 // engine directly.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const scriptsTests = path
-  .resolve(__dirname, 'scripts/__tests__/**/*.test.mjs')
-  .replace(/\\/g, '/');
+const scriptsTests = path.resolve(__dirname, 'scripts/__tests__/**/*.test.mjs').replace(/\\/g, '/');
 
 // Vitest config for standalone Node scripts.
 // Run with: npx vitest run --config vitest.scripts.config.mjs

@@ -86,6 +86,8 @@ export function FreshSetupFlow({ onComplete }: FreshSetupFlowProps) {
       }
 
       setStep('complete');
+      setMnemonic(null);
+      setSetupToken(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);

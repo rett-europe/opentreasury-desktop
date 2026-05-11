@@ -1362,7 +1362,15 @@
         "title": "Ya estás dentro.",
         "body": "OpenTreasury se desbloqueará automáticamente a partir de ahora.",
         "continue": "Ir al panel"
-      }
+      },
+      "folder_label": "Carpeta:"
+    },
+    "migration": {
+      "title": "Este espacio de trabajo necesita migración",
+      "body": "Este espacio de trabajo usa el formato sin cifrar antiguo. Ejecuta el script de migración desde una terminal y vuelve a abrir la aplicación.",
+      "command_label": "Comando:",
+      "folder_label": "Carpeta:",
+      "footer": "Cuando termine la migración, vuelve a abrir OpenTreasury para continuar."
     }
   },
   "recovery": {

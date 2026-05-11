@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import './FreshSetupFlow.css';
 
 interface MigrationScreenProps {
@@ -14,6 +15,7 @@ interface MigrationScreenProps {
  * Minimal by design — this screen is seen at most twice, by the workspace admin.
  */
 export function MigrationScreen({ folderPath }: MigrationScreenProps) {
+  const { t } = useTranslation('common');
   const command = folderPath
     ? `node scripts/migrate-workspace.mjs "${folderPath}"`
     : 'node scripts/migrate-workspace.mjs <folder>';
@@ -21,26 +23,23 @@ export function MigrationScreen({ folderPath }: MigrationScreenProps) {
   return (
     <div className="ot-onboarding-screen">
       <div className="ot-onboarding-screen__content">
-        <h1 className="ot-onboarding-screen__title">Workspace needs migration</h1>
-        <p className="ot-onboarding-screen__body">
-          This workspace uses the legacy unencrypted format. Run the migration script from a
-          terminal, then relaunch the app.
-        </p>
+        <h1 className="ot-onboarding-screen__title">{t('onboarding.migration.title')}</h1>
+        <p className="ot-onboarding-screen__body">{t('onboarding.migration.body')}</p>
 
         <div className="ot-onboarding-screen__selected-path">
-          <strong>Command:</strong>
+          <strong>{t('onboarding.migration.command_label')}</strong>
           <br />
           <code>{command}</code>
         </div>
 
         {folderPath && (
           <div className="ot-onboarding-screen__selected-path" style={{ marginTop: '0.5rem' }}>
-            <strong>Folder:</strong> {folderPath}
+            <strong>{t('onboarding.migration.folder_label')}</strong> {folderPath}
           </div>
         )}
 
         <p className="ot-onboarding-screen__body" style={{ marginTop: '1rem', opacity: 0.7 }}>
-          After migration completes, relaunch OpenTreasury to continue.
+          {t('onboarding.migration.footer')}
         </p>
       </div>
     </div>

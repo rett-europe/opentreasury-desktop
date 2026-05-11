@@ -81,6 +81,7 @@ export function JoinFlow({ initialFolderPath, onComplete }: JoinFlowProps) {
       }
 
       setStep('success');
+      setMnemonic('');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -117,7 +118,7 @@ export function JoinFlow({ initialFolderPath, onComplete }: JoinFlowProps) {
         <div className="ot-join-flow__folder-section">
           {folderPath ? (
             <div className="ot-onboarding-screen__selected-path">
-              <strong>Folder:</strong> {folderPath}
+              <strong>{t('onboarding.join.folder_label')}</strong> {folderPath}
             </div>
           ) : (
             <button
