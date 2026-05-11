@@ -1,0 +1,33 @@
+.ot-join-flow__folder-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ot-join-flow__device-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-join-flow__device-label label {
+  font-size: var(--type-small-size);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.ot-join-flow__device-label-input {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--type-body-size);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: all 0.15s ease;
+}
+
+.ot-join-flow__device-label-input:focus {
+  outline: none;
+  border-color: var(--color-accent-default);
+  box-shadow: 0 0 0 3px var(--color-accent-alpha-20, rgba(0, 123, 255, 0.2));
+}

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
@@ -9,6 +9,12 @@ import { OnboardingScreen } from './OnboardingScreen.js';
 const mockGetStatus = vi.fn();
 const mockPickFolder = vi.fn();
 const mockSetDataDir = vi.fn();
+
+// Ensure i18n is initialized before tests run so translations are available
+// when the component first renders (same pattern as MovementsScreen.bulk.test.tsx).
+beforeAll(async () => {
+  await i18n.changeLanguage('en');
+});
 
 beforeEach(() => {
   mockGetStatus.mockReset();

@@ -1,0 +1,68 @@
+.ot-word-confirm-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ot-word-confirm-challenge__label {
+  font-size: var(--type-body-size);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.ot-word-confirm-challenge__helper {
+  font-size: var(--type-small-size);
+  color: var(--color-text-subtle);
+  line-height: 1.5;
+}
+
+.ot-word-confirm-challenge__inputs {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.ot-word-confirm-challenge__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 150px;
+}
+
+.ot-word-confirm-challenge__field-label {
+  font-size: var(--type-small-size);
+  color: var(--color-text-subtle);
+  font-weight: 500;
+}
+
+.ot-word-confirm-challenge__input {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--type-body-size);
+  font-family: var(--font-mono, 'Courier New', monospace);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: all 0.15s ease;
+}
+
+.ot-word-confirm-challenge__input:focus {
+  outline: none;
+  border-color: var(--color-accent-default);
+  box-shadow: 0 0 0 3px var(--color-accent-alpha-20, rgba(0, 123, 255, 0.2));
+}
+
+.ot-word-confirm-challenge__input--error {
+  border-color: var(--color-error, #dc3545);
+}
+
+.ot-word-confirm-challenge__input--success {
+  border-color: var(--color-success, #28a745);
+}
+
+.ot-word-confirm-challenge__error-text {
+  font-size: var(--type-small-size);
+  color: var(--color-error, #dc3545);
+  font-weight: 500;
+}

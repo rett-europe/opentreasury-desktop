@@ -7,6 +7,31 @@
 
 ## Recent Work
 
+### 2026-05-10 — Encryption Onboarding UX Scaffolding (PR #311, Issue #306 partial)
+
+**Context:** Scaffold the encryption onboarding UX flows (fresh setup, join, recovery) while Morpheus builds the real crypto-core (#310). Mock IPC responses allow parallel UI work.
+
+**Delivered:**
+- **IPC contracts** (`app/src/shared/ipc-contracts/workspace.ts`): WorkspaceState detection, create, confirm, enroll, unlock, recover
+- **Mock IPC adapter** (`app/src/renderer/mocks/workspaceIpc.ts`): In-memory mocked responses using `bip39` for mnemonics
+- **Shared components**: RecoveryCodeGrid, RecoveryCodeInput (BIP39 autocomplete), WordConfirmChallenge (3 random positions)
+- **Onboarding screens**: FreshSetupFlow (4 steps), JoinFlow (2 steps), RecoveryFlow (1 step)
+- **i18n strings**: EN + ES for onboarding.encryption, onboarding.join, recovery (AC19)
+- **Component tests**: RecoveryCodeInput (BIP39 validation), WordConfirmChallenge
+
+**Learnings:**
+- Mock-adapter pattern: Renderer mocks use `bip39` (safe), NOT crypto primitives (`sodium-native` stays in main)
+- IPC contract surface: setupToken pattern enables lazy MK generation (create → confirmSetup validates before persisting)
+- Component structure: Follow `{Component}/{Component.tsx, Component.css, Component.test.tsx, index.ts}` pattern
+- TypeScript strict: `exactOptionalPropertyTypes: true` requires explicit `| undefined` on optional props
+- Screen orchestrators: Top-level flow components own state, child screens are stateless with callbacks
+
+**Deferred:** Real IPC handlers (Morpheus #305/#310), route guard wiring (next Trinity PR), migration UI (#307), Print/PDF export logic
+
+**Artifact:** PR #311 (draft)
+
+---
+
 ### 2026-05-10 — SPEC-026 v2 Implementation Kickoff (ACTIVE)
 
 **Status:** 🚀 KICKOFF IN PROGRESS. Keaton's 8-issue plan APPROVED. Trinity assigned **#3 workspace detection routing** + **#4 onboarding UX**.
@@ -3475,3 +3500,10 @@ Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance o
 ### Gotchas
 - prettier ignores '.gitattributes' LF normalization but flagged the test file's long string concatenations - 'npm run format' fixed it cleanly.
 - 'npm run test' is heavy (~67s including Vitest startup) - prefer 'npx vitest run <path>' to iterate on a single file when wiring.
+
+## Learnings (2026-05-08 - PR #311 fix/onboarding-test-i18n)
+
+### i18n test setup pattern
+- **beforeAll hook**: All renderer component tests that use i18n must call wait i18n.changeLanguage('en') (or 'es') in a beforeAll hook before rendering components. Without this, translations won't resolve and tests will see raw i18n keys like 'onboarding.welcome.title' instead of translated text.
+- **JSON duplicate key pitfall**: JavaScript silently overwrites duplicate keys in JSON objects. If a locale file has two 'onboarding' keys at different depths, only the last one survives when imported. This caused onboarding.welcome.* translations to vanish. Fix: merge nested objects into a single parent key.
+- **Pattern source**: MovementsScreen.bulk.test.tsx demonstrates the canonical beforeAll + changeLanguage pattern. Future onboarding screen tests should follow the same approach.

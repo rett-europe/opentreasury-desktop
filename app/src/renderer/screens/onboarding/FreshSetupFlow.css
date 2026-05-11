@@ -1,0 +1,102 @@
+.ot-onboarding-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-8);
+  background: var(--color-surface);
+}
+
+.ot-onboarding-screen__content {
+  max-width: 600px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.ot-onboarding-screen__title {
+  font-size: var(--type-display-size);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.ot-onboarding-screen__body {
+  font-size: var(--type-body-size);
+  line-height: 1.6;
+  color: var(--color-text-subtle);
+  margin: 0;
+}
+
+.ot-onboarding-screen__selected-path {
+  padding: var(--space-4);
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-md);
+  font-size: var(--type-small-size);
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.ot-onboarding-screen__error {
+  padding: var(--space-4);
+  background: var(--color-error-bg, #fff5f5);
+  border: 1px solid var(--color-error, #dc3545);
+  border-radius: var(--radius-md);
+  color: var(--color-error, #dc3545);
+  font-size: var(--type-small-size);
+}
+
+.ot-onboarding-screen__footer-note {
+  font-size: var(--type-small-size);
+  color: var(--color-text-subtle);
+  font-style: italic;
+  margin: 0;
+}
+
+.ot-onboarding-screen__actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.ot-onboarding-screen__btn {
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--type-body-size);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ot-onboarding-screen__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ot-onboarding-screen__btn--secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.ot-onboarding-screen__btn--secondary:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-hover);
+}
+
+.ot-onboarding-screen__btn--primary {
+  background: var(--color-accent-default, #007bff);
+  color: var(--color-text-inverse, white);
+  border-color: var(--color-accent-default, #007bff);
+}
+
+.ot-onboarding-screen__btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-hover, #0056b3);
+  border-color: var(--color-accent-hover, #0056b3);
+}
+
+.ot-onboarding-screen__btn:active:not(:disabled) {
+  transform: scale(0.98);
+}

@@ -48,6 +48,27 @@ Language: ES + EN parity mandatory (`locales/{en,es}/common.json`). Target user:
 
 ## Learnings
 
+### 2026-05-14: PR #311 Token Review Fixes Applied
+
+**Task:** Fix 4 token naming issues identified in my design review of PR #311 (encryption onboarding UX).
+
+**Token Renames Applied:**
+1. `--color-accent` → `--color-accent-default` — Generic accent names should include explicit variant suffix to match other tokens (e.g., `--color-accent-hover`)
+2. `--color-accent-text` → `--color-text-inverse` — Text color for accent backgrounds should use the semantic `text-inverse` token, not a component-specific name
+3. Typography tokens: `--text-sm`/`--text-base`/`--text-2xl` → `--type-small-size`/`--type-body-size`/`--type-display-size` — Typography tokens should follow `--type-{role}-{property}` convention established in tokens.css v0.2
+
+**Addition:**
+4. `@media print` stylesheet added to RecoveryCodeGrid — Recovery codes should print cleanly (hide action buttons, ensure high-contrast borders)
+
+**Files Modified:**
+- `app/src/renderer/components/onboarding/RecoveryCodeGrid.css`
+- `app/src/renderer/components/onboarding/RecoveryCodeInput.css`
+- `app/src/renderer/components/onboarding/WordConfirmChallenge.css`
+- `app/src/renderer/screens/onboarding/FreshSetupFlow.css`
+- `app/src/renderer/screens/onboarding/JoinFlow.css`
+
+**Commit:** c6e1bdb
+
 ### 2026-05-02: Preferences Screen Extension — Profile, Appearance, Language Sections
 
 **Task:** Extend the Settings screen spec (renamed "Preferences") to cover Profile editing, Appearance (theme), and Language selection alongside the existing Dataset status / Data folder / Switch dataset sections.
@@ -848,6 +869,43 @@ Each panel has:
 1. **Scope vs filter hierarchy** — Temporal controls are NOT peer filters. They define the data universe; filters slice within it. Visual treatment must reflect this asymmetry.
 2. **Two-tier toolbar pattern** — Common in finance/analytics apps. Users scan top-to-bottom, temporal before categorical. Niobe should consider this layout family.
 3. **Token reuse over invention** — All four treatments achieved hierarchy using existing tokens. `--color-brand-surface` + `--color-divider` + typography weight is sufficient contrast vocabulary.
+
+---
+
+### 2026-05-XX: PR #311 Encryption Onboarding UX — Design Review
+
+**Verdict:** APPROVE-WITH-NITS
+**Branch:** squad/encryption-onboarding-ux
+**Scope:** RecoveryCodeGrid, RecoveryCodeInput, WordConfirmChallenge components + 7 onboarding screens
+
+**Key Findings:**
+
+1. **Token naming inconsistencies** — New CSS uses undefined shorthand tokens:
+   - `--color-accent` (should be `--color-accent-default`)
+   - `--color-surface` (should be `--color-surface-primary`)
+   - `--color-border` (should be `--color-border-default`)
+   - `--color-text` (should be `--color-text-primary`)
+   - `--text-sm/base/2xl` (should be `--type-small-size`, `--type-body-size`, `--type-display-size`)
+   
+   **Pattern locked:** tokens.css uses suffix naming convention (e.g., `--color-accent-default`, `--color-accent-hover`). Short aliases like `--color-accent` are not defined. Future components must use full token names.
+
+2. **Print stylesheet missing** — RecoveryCodeGrid has Print/Save-as-PDF buttons but no `@media print` block. Recovery codes are often printed by NGO staff for safekeeping. Add print-specific CSS that hides buttons, uses high-contrast backgrounds, and includes workspace name + date header.
+
+3. **Hardcoded fallback colors** — CSS uses blue fallbacks (`#007bff`) which conflict with brand purple. Remove fallbacks since tokens.css already resolves to purple via `--color-brand-primary`.
+
+**Strengths Noted:**
+- BEM naming consistent (`ot-{component}__{element}--{modifier}`)
+- Good accessibility patterns (aria-label, role="alert", aria-invalid)
+- Spacing uses token scale consistently (--space-2 through --space-8)
+- Focus states implemented (accent border + box-shadow)
+- WordConfirmChallenge error/success states are appropriately gentle (shows error only after touch + value present — not punishing for typos)
+
+**Design System Guidance for Encryption Screens:**
+- **Tone:** "Reassuring serious tool" — achieved via purple brand colors, generous whitespace, clear hierarchy. Avoid crypto-app aesthetics (dark themes, green terminal fonts).
+- **Recovery code grid:** 3×4 layout is correct. Numbers should be subordinate (smaller, muted color) to words (larger, monospace, high contrast).
+- **Print readiness:** Any component with a Print button must have a print stylesheet that produces clean, high-contrast output.
+
+**Next:** Trinity to batch-rename tokens, add print stylesheet. Mouse to re-review after fixes or flag for visual QA at 1024px/1366px viewports.
 4. **Prototype-parity rule applies** — All recipes go in `globals.css`, not component CSS. Component CSS imported after globals would shadow token updates.
 
 **SPEC LOCATION:** `.squad/decisions/inbox/mouse-movements-date-filter-visual.md`
