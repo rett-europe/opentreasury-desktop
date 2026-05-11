@@ -66,7 +66,7 @@ export function FolderPickerScreen({ onNext }: FolderPickerScreenProps) {
               className="ot-onboarding-screen__btn ot-onboarding-screen__btn--primary"
               onClick={handleNext}
             >
-              {t('onboarding.encryption.folder.continue')}\n{' '}
+              {t('onboarding.encryption.folder.continue')}
             </button>
           )}
         </div>
