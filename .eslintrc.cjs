@@ -185,6 +185,22 @@ module.exports = {
         'no-restricted-imports': 'off',
       },
     },
+    // Node scripts (.mjs): plain Node environment, not TypeScript-checked.
+    {
+      files: ['scripts/**/*.mjs'],
+      env: { node: true, es2022: true },
+      rules: {
+        // .mjs scripts are not TypeScript — disable TS-specific rules.
+        '@typescript-eslint/no-unused-vars': 'off',
+        '@typescript-eslint/consistent-type-imports': 'off',
+        '@typescript-eslint/no-explicit-any': 'off',
+        // Buffer, process, console are Node globals provided by env:node above.
+        'no-undef': 'off',
+        // import/default is not useful for CJS-wrapped packages in scripts.
+        'import/default': 'off',
+        'import/no-named-as-default-member': 'off',
+      },
+    },
   ],
   ignorePatterns: [
     'node_modules',

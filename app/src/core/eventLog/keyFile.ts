@@ -71,6 +71,15 @@ const deviceWrapSchema = z.object({
   label: z.string().min(1).max(120),
   wrap_safestorage: z.string().min(1),
   enrolled_at: z.string().datetime(),
+  /**
+   * Set to `true` only on device entries written by the one-shot migration
+   * script (`scripts/migrate-workspace.mjs`). Indicates that `wrap_safestorage`
+   * is NOT OS-encrypted material -- it contains the same ciphertext as
+   * `wrap_recovery` as a structural placeholder. Code that reads this entry
+   * MUST NOT call `safeStorage.decryptString()` on it; instead route to the
+   * re-enroll flow. Absent on all normal (app-created) device entries.
+   */
+  migration_placeholder: z.boolean().optional(),
 });
 
 export const keyFileV2Schema = z.object({

@@ -81,6 +81,40 @@
 - Read model rebuilt on every launch (safe, no cache v1)
 
 **Artifact:** `.squad/decisions.md` § "2026-05-10: SPEC-026 Implementation Plan Accepted" (8-issue table, milestone grouping, detailed issue specs, reconciliation)
+### 2026-05-11 — One-Shot Legacy Workspace Migration Script (Issue #308)
+
+**Context:** Pedro has 2 legacy v1 (plaintext) workspaces. The previously-planned
+in-app migration UX was dropped per the 2026-05-11 rescope directive. A one-shot
+terminal script ships instead. Code is effectively dead after Pedro's 2 workspaces
+are migrated.
+
+**Branch:** `squad/308-migration-script`
+
+**Deliverable:** `scripts/migrate-workspace.mjs` + `scripts/__tests__/migrate-workspace.test.mjs`
+
+**Key design choices:**
+- Script is a self-contained `.mjs` file — no TypeScript build step required.
+  Crypto logic from `app/src/core/crypto/` is inlined with `mirrors:` annotations.
+- ULID generation inlined (no external ULID package needed).
+- Recovery key derivation: Argon2id m=65536 KiB, t=4, p=1 (matches v2 defaults).
+- `events.key` written with `mode 0o600` on POSIX (mirrors `saveKeyFile`).
+- Migration device's `wrap_safestorage` = same as `wrap_recovery` (migration placeholder).
+  Pedro re-enrolls proper safeStorage wrap on first app open.
+- Original `events.ndjson` renamed to `.pre-encryption.bak`. **Never auto-deleted.**
+- Key file written LAST (per SPEC-026 §3.3 crash-safety contract).
+- Verification step: read back and decrypt 1-2 events before committing .bak rename.
+- Exit codes: 0 success, 1 user-cancelled, 2 invalid input, 3 internal error.
+
+**Learnings:**
+- TypeScript crypto modules cannot be imported directly from `.mjs` Node scripts —
+  inlining + mirroring is cleaner than a build step for a one-shot CLI tool.
+- BigInt math required for correct ULID generation (64-bit timestamps overflow Number).
+- `min(1)` constraint on `devices[]` in keyFileV2Schema means the migration device
+  entry is required even though Pedro's app device won't match it.
+- Argon2id KDF takes ~500ms; test timeout must be set to ≥60s.
+
+**Status:** Draft PR open, awaiting Cypher (test gate) + Switch (security gate) reviews.
+
 ### 2026-05-10 — Crypto Core Module (Issue #303 / PR #310)
 
 **Context:** Built the foundational crypto module for encryption-at-rest. Self-contained, Electron-free, designed for easy security review by Switch.

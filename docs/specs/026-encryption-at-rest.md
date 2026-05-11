@@ -560,6 +560,70 @@ go to `events-{mariaDeviceId}.ndjson`. Pedro's migrated events are in
   (folder picker, intro, show, confirm, done, join, recovery, export, errors).
   No hardcoded English in JSX.
 
+---
+
+> **⚠ SUPERSEDED (in-app UX):** The in-app migration UX described above (AC15,
+> AC16 wizard flow) is **dropped**. Only the one-shot terminal script below
+> ships for issue #308. The UI flow will not be implemented.
+
+## The one-shot script (#308)
+
+Pedro's 2 legacy (v1 plaintext) workspaces are migrated using a one-shot Node
+script. There is **no in-app migration UI** — this is intentional. The code path
+is dead after Pedro's 2 workspaces are migrated.
+
+### Usage
+
+```bash
+node scripts/migrate-workspace.mjs <workspace-folder>
+```
+
+**Example:**
+
+```bash
+node scripts/migrate-workspace.mjs ~/OneDrive/opentreasury/pedro-workspace
+```
+
+### What the script does
+
+1. Validates the workspace folder contains `events.ndjson` and is not already
+   encrypted (`events.key` absent, no `events-*.ndjson` files).
+2. Prompts for confirmation with a clear notice about what will happen.
+3. Generates a **12-word BIP39 recovery phrase** and prints it in a framed
+   warning block. Waits for ENTER before proceeding.
+4. Generates a fresh ULID as the migration device ID.
+5. Derives the recovery key via Argon2id (`m=65536 KiB, t=4, p=1`) and wraps
+   the Master Key under it.
+6. Writes `events.key` (v2 format) atomically with `mode 0o600` on POSIX.
+7. Streams `events.ndjson` line-by-line, encrypts each event with
+   `AAD = eventId + ":" + deviceId`, and writes to `events-{deviceId}.ndjson`.
+8. After fsync and a read-back verification, renames the original to
+   `events.ndjson.pre-encryption.bak`.
+9. **The `.bak` file is never auto-deleted.** Pedro deletes it manually once
+   confident the encrypted data is correct.
+
+### Migration placeholder convention
+
+The device entry written by the script sets `migration_placeholder: true` in
+`events.key`. This is a structural discriminator with a precise contract:
+
+- `wrap_safestorage` in migration entries is **not OS-encrypted material**. It
+  contains the same ciphertext as `wrap_recovery` (recovery-key-wrapped MK) as
+  a placeholder to satisfy the v2 schema's `devices[]` structure.
+- Any code reading `events.key` **must** check `entry.migration_placeholder`
+  before calling `safeStorage.decryptString()`. When `true`, skip the
+  safeStorage path entirely and route through the re-enroll / recovery flow.
+- Normal app-created device entries never have `migration_placeholder` set.
+- The `DeviceWrap` Zod schema in `app/src/core/eventLog/keyFile.ts` declares
+  this field as `migration_placeholder?: boolean` (optional) so the v2 schema
+  accepts both migration and normal entries transparently.
+
+### Scope note
+
+This script is intended **solely for Pedro's 2 legacy workspaces**. It will not
+be exposed in the app UI and is not part of the normal onboarding flow. New
+workspaces created by the app are encrypted from the first event.
+
 ## 11. Performance Budget
 
 **Read-model rebuild target: < 500 ms for 10 000 events.**
