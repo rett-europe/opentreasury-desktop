@@ -417,3 +417,7 @@ Implementation sub-issues #238–#242 now open with squad ownership. This spec u
 ### 2026-05-11 — PR #312 Security Re-review: APPROVE
 
 All 5 findings (2 MEDIUM, 3 LOW) verified resolved. AAD bound to eventId:deviceId (MEDIUM-1), parent dir fsync on POSIX (MEDIUM-2), ENOENT silenced for stale tmp (LOW-1), crash invariant documented (LOW-2), events.key mode 0o600 (LOW-3). Gates green: 1125/1125 tests pass.
+
+### 2025-07-07 — PR #314 Security Review: APPROVE
+
+Migration script (#308) reviewed. wrap_safestorage placeholder is safe (device ID mismatch + safeStorageDecrypt rejection). 0 Critical, 0 High, 1 Medium-advisory (no structural discriminator — recommend migration_placeholder flag), 2 Low. Gates green.
