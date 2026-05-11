@@ -396,3 +396,7 @@ Implementation sub-issues #238–#242 now open with squad ownership. This spec u
 - PR #304: Spike code (auto-merge pending CI)
 - Decision: `.squad/decisions.md` § 2026-05-10 SPEC-026 OneDrive Multi-Device Spike — PASS
 - Orchestration logs: `.squad/orchestration-log/{ts}-*.md` entries for spike PASS, issues fanout, and Morpheus crypto-core spawn
+
+### 2026-05-11 — PR #312 Security Re-review: APPROVE
+
+All 5 findings (2 MEDIUM, 3 LOW) verified resolved. AAD bound to eventId:deviceId (MEDIUM-1), parent dir fsync on POSIX (MEDIUM-2), ENOENT silenced for stale tmp (LOW-1), crash invariant documented (LOW-2), events.key mode 0o600 (LOW-3). Gates green: 1125/1125 tests pass.
