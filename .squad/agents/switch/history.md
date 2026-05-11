@@ -417,3 +417,14 @@ Implementation sub-issues #238–#242 now open with squad ownership. This spec u
 ### 2026-05-11 — PR #312 Security Re-review: APPROVE
 
 All 5 findings (2 MEDIUM, 3 LOW) verified resolved. AAD bound to eventId:deviceId (MEDIUM-1), parent dir fsync on POSIX (MEDIUM-2), ENOENT silenced for stale tmp (LOW-1), crash invariant documented (LOW-2), events.key mode 0o600 (LOW-3). Gates green: 1125/1125 tests pass.
+
+### 2025-07-07 — PR #314 Security Review: APPROVE
+
+Migration script (#308) reviewed. wrap_safestorage placeholder is safe (device ID mismatch + safeStorageDecrypt rejection). 0 Critical, 0 High, 1 Medium-advisory (no structural discriminator — recommend migration_placeholder flag), 2 Low. Gates green.
+
+### 2025-07-07 — PR #315 Security Review: REQUEST_CHANGES
+
+Workspace IPC handlers (#301). 1 HIGH (path traversal — renderer-supplied folderPath used in fs.mkdir/saveKeyFile with no boundary check), 3 MEDIUM (pendingSetups no TTL, mnemonic to renderer unbounded, no workspace:lock), 3 LOW. Blocks on HIGH fix.
+
+
+### 2025-07-08 — PR #315 Verify Pass: APPROVE — all 7 findings addressed in 707b1e9. Path traversal fixed (homedir allowlist + UNC/device-path rejection + 6 regression tests). pendingSetups bounded (5-min TTL + cap 10 + wipe). workspace:lock added. MEDIUM-3 mnemonic accepted risk is sound (inherent to BIP39 UX, mitigated by TTL/cap). Gates green (2 pre-existing RecoveryCodeInput flakes excluded).
