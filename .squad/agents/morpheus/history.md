@@ -3451,3 +3451,23 @@ Default dev workflow (`npm run dev`, `isPackaged=false`, no env overrides) still
 - Session log: `.squad/log/2026-05-10T14-19-22Z-spec026-spike-pass.md`
 
 
+
+## Learnings — 2026-05-12 (#309 PR #312)
+
+**Per-device file naming:** vents-{deviceId}.ndjson where deviceId is a 26-char Crockford ULID (regex `/^events-[0-9A-HJKMNP-TV-Z]{26}\.ndjson$/`). One writer per file; readers glob across all device files. Crockford excludes I, L, O, U.
+
+**AAD = event.id (ULID), not line index.** Globally unique, immutable, allows cross-device decrypt without coordination, and vent.id is the natural primary key of the event itself. Id-swap attacks fail decrypt with ENCRYPTED_EVENT_AUTH_FAILED.
+
+**On-disk line layout:** `{"id":"<ULID>","c":"<base64(nonce||cipher||tag)>"}\n` — id plaintext (needed for AAD before decrypt), ciphertext is the concatenated output of ncryptEvent(). Hand-built JSON to keep stable byte layout.
+
+**events.key v2 schema** persists rgon2_params inline (m=65536, t=4, p=1) for forward-compat. v1→v2 migration promotes the legacy wrap_safestorage to devices[0] + adds nrolled_at. loadKeyFile auto-migrates in memory only — caller chooses when to persist.
+
+**Two append patterns:**
+- Full-file rewrite (key file): tmp → fsync → rename.
+- Incremental append (NDJSON): open('a') + writeFile + sync + close. Never tmp+rename for appends.
+
+**Switch #310 MEDIUM fixes (Stream A):**
+1. `normalizeMnemonic()` (NFKD/lowercase/trim/collapse-ws) applied in validate + mnemonicToSeed.
+2. `wipe()` wraps `sodium.sodium_memzero`; `deriveRecoveryKey` zeros BIP39 seed in try/finally. JS GC caveats documented.
+
+**Worktree workflow:** When concurrent agents (Trinity, Niobe) are editing the renderer, work from a separate `git worktree add` so checkouts don't fight over branches. Run gates from repo root (no pp/package.json).
