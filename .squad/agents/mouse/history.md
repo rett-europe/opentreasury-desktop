@@ -48,6 +48,27 @@ Language: ES + EN parity mandatory (`locales/{en,es}/common.json`). Target user:
 
 ## Learnings
 
+### 2026-05-14: PR #311 Token Review Fixes Applied
+
+**Task:** Fix 4 token naming issues identified in my design review of PR #311 (encryption onboarding UX).
+
+**Token Renames Applied:**
+1. `--color-accent` → `--color-accent-default` — Generic accent names should include explicit variant suffix to match other tokens (e.g., `--color-accent-hover`)
+2. `--color-accent-text` → `--color-text-inverse` — Text color for accent backgrounds should use the semantic `text-inverse` token, not a component-specific name
+3. Typography tokens: `--text-sm`/`--text-base`/`--text-2xl` → `--type-small-size`/`--type-body-size`/`--type-display-size` — Typography tokens should follow `--type-{role}-{property}` convention established in tokens.css v0.2
+
+**Addition:**
+4. `@media print` stylesheet added to RecoveryCodeGrid — Recovery codes should print cleanly (hide action buttons, ensure high-contrast borders)
+
+**Files Modified:**
+- `app/src/renderer/components/onboarding/RecoveryCodeGrid.css`
+- `app/src/renderer/components/onboarding/RecoveryCodeInput.css`
+- `app/src/renderer/components/onboarding/WordConfirmChallenge.css`
+- `app/src/renderer/screens/onboarding/FreshSetupFlow.css`
+- `app/src/renderer/screens/onboarding/JoinFlow.css`
+
+**Commit:** c6e1bdb
+
 ### 2026-05-02: Preferences Screen Extension — Profile, Appearance, Language Sections
 
 **Task:** Extend the Settings screen spec (renamed "Preferences") to cover Profile editing, Appearance (theme), and Language selection alongside the existing Dataset status / Data folder / Switch dataset sections.
