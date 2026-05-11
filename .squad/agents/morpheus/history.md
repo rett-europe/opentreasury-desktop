@@ -7,6 +7,30 @@
 
 ## Recent Work
 
+### 2026-05-12 — PR #315 Security Fix (Switch review response)
+
+**Context:** Switch requested changes on PR #315 (workspace IPC). Addressed all 7 findings in commit `707b1e9` on branch `squad/301-workspace-ipc`.
+
+**Findings addressed:**
+
+- **HIGH-1 / LOW-1 — Path traversal:** Added `validateFolderBoundary(folderPath, homeDir)` exported function. Allowlist = `os.homedir()` subtree. Rejects UNC (`\\`), device paths (`\\?\`, `\\.\`), and `..` after `path.resolve()`. Applied to `handleDetect`, `handleCreate`, `handleEnroll`. `homeDir` injectable via `WorkspaceDeps.homeDir()`.
+- **MEDIUM-1 — pendingSetups TTL/cap:** `storePendingSetup()` + `evictPendingSetup()`. 5-min TTL (unrefed setTimeout), 10-entry cap, oldest-evict on overflow, immediate zeroize on confirmSetup success.
+- **MEDIUM-2 — workspace:lock:** New `workspace:lock` IPC channel (`IPC_WORKSPACE_LOCK`, schema, handler, registration, preload bridge).
+- **MEDIUM-3 — Mnemonic to renderer:** Documented as accepted risk in file header.
+- **LOW-2 — Error path leakage:** `sanitizeFsError()` strips absolute paths from error messages before renderer return.
+- **LOW-3 — Rate limiting:** Per-channel sliding-window (60/10/20/10/30/10/30 per minute).
+
+**Regression tests:** 15 new tests in `workspace.security.test.ts`.
+
+**Key learnings:**
+- **homeDir must be injectable for tests:** `os.tmpdir()` is not under `os.homedir()`. Adding `homeDir(): string` to `WorkspaceDeps` lets tests set `homeDir` to `path.dirname(tmpDir)`, so all existing tests pass without changing tmpDir locations.
+- **evictPendingSetup clears timers:** Using `clearTimeout(entry.timer)` in the eviction function prevents timer callbacks from firing after the entry is already removed.
+- **rate limiter must be module-level, not factory-level:** The `rateCounters` map and `checkRateLimit()` must live outside `createWorkspaceHandlers()` so rate limits persist across handler factory recreations (e.g., if tests create multiple handler instances).
+- **sanitizeFsError regex ordering:** Strip Windows paths (`C:\...`) before UNC paths (`\\...`) to avoid partial matches. POSIX strip last as catch-all.
+- **Branch stability on shared machine:** Another agent on this machine operates `squad/308-migration-script`. Between powershell sessions, the branch can get flipped back. Use `async` powershell sessions pinned to a shell ID to hold state, or commit early and push to anchor the branch.
+
+**Status:** All gates green. PR #315 pushed, marked ready, comment posted. Awaiting Switch re-review.
+
 ### 2026-05-12 — Workspace + IPC Contracts (Issue #301 / PR in progress)
 
 **Context:** Wired the SPEC-026 workspace lifecycle (detect/create/confirm/enroll/unlock/recover) behind typed IPC channels. Trinity had already merged `shared/ipc-contracts/workspace.ts` (the channel+schema contract) as part of her onboarding UX work (#311). Morpheus implemented the main-process handler factory and preload bridge against it.
