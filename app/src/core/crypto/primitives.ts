@@ -103,3 +103,28 @@ export function randomBytes(len: number): Uint8Array {
   sodium.randombytes_buf(buf);
   return buf;
 }
+
+/**
+ * Securely zero a buffer's contents. Wraps `sodium_memzero` which performs a
+ * compiler-barrier zero fill that cannot be optimized away.
+ *
+ * Switch review #310 MEDIUM-2 (2026-05-11): Call this on key material, KDF
+ * seeds, and other secrets after use. The aim is to shrink the window in
+ * which a secret survives in process memory (cold-boot, swap-file, and
+ * crash-dump exposure scenarios).
+ *
+ * Caveats — read before relying on this:
+ *   1. JS GC may have already copied the underlying bytes elsewhere
+ *      (string interning, sub-array views, V8 hidden classes). `wipe` only
+ *      guarantees the *passed-in* buffer is zeroed, not every prior copy.
+ *   2. Strings are immutable in JS — never store secrets in `string`. Use
+ *      `Uint8Array` / `Buffer` so `wipe` actually has something to zero.
+ *   3. This is a defense-in-depth measure, not a substitute for OS-level
+ *      protections (full-disk encryption, swap encryption).
+ *
+ * @param buf - Buffer to zero in place. Safe to call multiple times.
+ */
+export function wipe(buf: Uint8Array): void {
+  if (buf.length === 0) return;
+  sodium.sodium_memzero(buf);
+}
