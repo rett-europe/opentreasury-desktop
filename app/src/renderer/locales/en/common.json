@@ -1325,7 +1325,8 @@
       "folder": {
         "title": "Where should OpenTreasury store your data?",
         "body": "Choose a folder for your treasury workspace. If you plan to share with other board members, pick a folder inside OneDrive or a shared drive.",
-        "btn_choose": "Choose Folder…"
+        "btn_choose": "Choose Folder…",
+        "continue": "Continue"
       },
       "show": {
         "title": "Your data, encrypted and shared securely.",
@@ -1355,6 +1356,7 @@
       "mnemonic_label": "Recovery code (12 words)",
       "label_prompt": "What should we call this computer?",
       "btn_join": "Join",
+      "joining": "Joining...",
       "error": "That recovery code doesn't match. Please check and try again.",
       "help_after_5": "Need help? Contact support.",
       "success": {
@@ -1368,6 +1370,7 @@
     "title": "Welcome back.",
     "body": "To unlock your treasury data, please enter your 12-word recovery code.",
     "unlock": "Unlock",
+    "unlocking": "Unlocking...",
     "error": "That recovery code doesn't match. Please check and try again.",
     "help_after_5": "Need help? Contact support."
   }

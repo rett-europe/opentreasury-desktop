@@ -76,7 +76,7 @@ export function RecoveryFlow({ onComplete }: RecoveryFlowProps) {
             onClick={handleUnlock}
             disabled={!isMnemonicValid || isSubmitting}
           >
-            {isSubmitting ? 'Unlocking...' : t('recovery.unlock')}
+            {isSubmitting ? t('recovery.unlocking') : t('recovery.unlock')}
           </button>
         </div>
       </div>

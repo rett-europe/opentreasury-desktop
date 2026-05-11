@@ -1324,7 +1324,8 @@
       "folder": {
         "title": "¿Dónde debe OpenTreasury guardar tus datos?",
         "body": "Elige una carpeta para tu espacio de trabajo. Si planeas compartir con otros miembros de la junta, elige una carpeta dentro de OneDrive o una unidad compartida.",
-        "btn_choose": "Elegir carpeta…"
+        "btn_choose": "Elegir carpeta…",
+        "continue": "Continuar"
       },
       "show": {
         "title": "Tus datos, cifrados y compartidos de forma segura.",
@@ -1354,6 +1355,7 @@
       "mnemonic_label": "Código de recuperación (12 palabras)",
       "label_prompt": "¿Cómo deberíamos llamar a este equipo?",
       "btn_join": "Unirse",
+      "joining": "Uniéndose...",
       "error": "Ese código de recuperación no coincide. Comprueba e inténtalo de nuevo.",
       "help_after_5": "¿Necesitas ayuda? Contactar con soporte.",
       "success": {
@@ -1367,6 +1369,7 @@
     "title": "Bienvenido de nuevo.",
     "body": "Para desbloquear los datos de tu tesorería, introduce tu código de recuperación de 12 palabras.",
     "unlock": "Desbloquear",
+    "unlocking": "Desbloqueando...",
     "error": "Ese código de recuperación no coincide. Comprueba e inténtalo de nuevo.",
     "help_after_5": "¿Necesitas ayuda? Contactar con soporte."
   }

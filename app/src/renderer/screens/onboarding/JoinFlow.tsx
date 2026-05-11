@@ -154,7 +154,7 @@ export function JoinFlow({ initialFolderPath, onComplete }: JoinFlowProps) {
             onClick={handleJoin}
             disabled={!folderPath || !isMnemonicValid || isSubmitting}
           >
-            {isSubmitting ? 'Joining...' : t('onboarding.join.btn_join')}
+            {isSubmitting ? t('onboarding.join.joining') : t('onboarding.join.btn_join')}
           </button>
         </div>
       </div>
