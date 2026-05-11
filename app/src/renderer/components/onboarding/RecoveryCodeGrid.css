@@ -25,7 +25,7 @@
 }
 
 .ot-recovery-code-grid__word-number {
-  font-size: var(--text-sm);
+  font-size: var(--type-small-size);
   color: var(--color-text-subtle);
   font-weight: 500;
   min-width: 1.5rem;
@@ -33,14 +33,14 @@
 }
 
 .ot-recovery-code-grid__word-text {
-  font-size: var(--text-base);
+  font-size: var(--type-body-size);
   font-weight: 600;
   font-family: var(--font-mono, 'Courier New', monospace);
   color: var(--color-text);
 }
 
 .ot-recovery-code-grid__caption {
-  font-size: var(--text-sm);
+  font-size: var(--type-small-size);
   color: var(--color-text-subtle);
   line-height: 1.5;
   margin: 0;
@@ -58,7 +58,7 @@
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
-  font-size: var(--text-sm);
+  font-size: var(--type-small-size);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -74,12 +74,30 @@
 }
 
 .ot-recovery-code-grid__action-btn--primary {
-  background: var(--color-accent);
-  color: var(--color-accent-text);
-  border-color: var(--color-accent);
+  background: var(--color-accent-default);
+  color: var(--color-text-inverse);
+  border-color: var(--color-accent-default);
 }
 
 .ot-recovery-code-grid__action-btn--primary:hover {
   background: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
+}
+
+/* Print styles for recovery code printout */
+@media print {
+  .ot-recovery-code-grid__actions {
+    display: none;
+  }
+
+  .ot-recovery-code-grid__words {
+    border: 2px solid #000;
+    background: #fff;
+    page-break-inside: avoid;
+  }
+
+  .ot-recovery-code-grid__word-cell {
+    border: 1px solid #ccc;
+    background: #fff;
+  }
 }
