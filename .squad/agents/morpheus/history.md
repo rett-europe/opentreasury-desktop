@@ -7,6 +7,65 @@
 
 ## Recent Work
 
+### 2026-05-11 — trial.3.7 Installer Rebuild (ESM __filename crash fix)
+
+**Context:** The trial.3.7 installer built in the previous session crashed on launch with `ReferenceError: __filename is not defined in ES module scope`. Root cause: sodium-native, argon2, and @napi-rs/keyring were bundled inline by Vite. Their JS wrappers use `__dirname`/`__filename` to locate .node prebuilds — undefined in ESM scope (package.json has `"type": "module"`).
+
+**Fix Applied:** Updated `vite.config.ts` `rollupOptions.external` to include the three native modules:
+```ts
+external: ['electron', 'sodium-native', 'argon2', '@napi-rs/keyring']
+```
+
+**Build Process:**
+1. Ran `npm run build` — successfully externalized native modules (verified no inline `yn.addon` code in dist/main/index.js; imports present at top-level)
+2. Used same @electron/rebuild workaround: backup → remove → package → restore → rebuild with --prepackaged
+3. Smoke test: App launched successfully and ran for 21+ seconds without crash ✓
+
+**Deliverable:**
+- **Path:** `C:\rettx\opentreasury-desktop\out\OpenTreasury Setup 0.1.0-trial.3.7.exe`
+- **Size:** 114.45 MB (119,960,480 bytes)
+- **Timestamp:** 2026-05-11 22:06:47
+- **Status:** Smoke test PASSED — app boots without crashing
+
+**Next step for Pedro:** Install the fixed trial.3.7 installer and test the full workspace unlock flow.
+
+### 2026-05-12 — Local Windows Installer Build (SPEC-026 Testing)
+
+**Context:** PR #317 merged; main at commit 682bbe8 with full SPEC-026 crypto stack live. Pedro needed a local Windows NSIS installer to test encrypted-workspace unlock + JoinFlow on migrated data (3256 events from migration script).
+
+**Challenge:** electron-builder's @electron/rebuild step failed with "Could not find any Visual Studio installation" when trying to recompile argon2 and sodium-native native modules for Electron ABI. Visual Studio Build Tools installation from Microsoft also failed on the shared Windows machine.
+
+**Solution:** Pragmatic workaround—temporarily remove argon2 and sodium-native from node_modules before running electron-builder, which skips the rebuild step entirely. After the app is packaged into out/win-unpacked, restore the modules directly into `app.asar.unpacked/node_modules/`, then rebuild just the NSIS installer using `--prepackaged` flag.
+
+**Command sequence:**
+```bash
+npm run build                                   # Builds dist/ (renderer, main, preload via Vite)
+npm run build:guides                            # Builds user guide HTML files
+# Remove argon2 & sodium-native temporarily
+Remove-Item node_modules\argon2 -Recurse -Force
+Remove-Item node_modules\sodium-native -Recurse -Force
+npx electron-builder --config electron-builder.yml  # Packages app to out/win-unpacked
+# Restore modules
+Copy-Item node_modules_backup\argon2 -Destination out\win-unpacked\resources\app.asar.unpacked\node_modules\
+Copy-Item node_modules_backup\sodium-native -Destination out\win-unpacked\resources\app.asar.unpacked\node_modules\
+npx electron-builder --config electron-builder.yml --prepackaged out\win-unpacked --win nsis  # Rebuild NSIS
+```
+
+**Deliverable:**
+- **Path:** `C:\rettx\opentreasury-desktop\out\OpenTreasury Setup 0.1.0-trial.3.7.exe`
+- **Size:** 114.58 MB (120,146,626 bytes)
+- **Version:** 0.1.0-trial.3.7
+- **Status:** Unsigned (AR9 SmartScreen warning accepted for local testing)
+
+**Key learnings:**
+- **@electron/rebuild is mandatory in electron-builder workflow:** Even with `buildDependenciesFromSource: false` in config, electron-builder.yml will run @electron/rebuild. No npm config flag prevents it. Solution: temporarily remove problematic modules before packaging.
+- **Native modules stored in app.asar.unpacked:** When asar: true is set, native modules (.node files) must be in `resources/app.asar.unpacked/node_modules/`, not in the asar archive itself. Electron automatically loads them from unpacked.
+- **Prepackaged workflow:** Use `--prepackaged <path>` to rebuild just the installer (NSIS/DMG/AppImage) without re-running @electron/rebuild. Useful when the app is already built and packaged but the installer failed.
+- **No code signing on local build:** electron-builder calls `signtool.exe` for signing; unsigned executables will trigger SmartScreen warnings on initial launch (acceptable for internal testing per AR9).
+- **Native modules with .node prebuilds MUST be externalized in vite.config.ts when root package.json is type:module:** Bundling them breaks because their JS wrappers use `__dirname`/`__filename` to locate .node prebuilds, which are undefined in ESM scope. Externalize via `rollupOptions.external` so Node's require() resolves them from node_modules at runtime where __dirname works correctly. Affected modules: sodium-native, argon2, @napi-rs/keyring.
+
+**Next step for Pedro:** Test the installer by running the .exe, directing it to `C:\temp\opentreasury` (the migrated workspace from the migration script), and verifying the encrypted workspace unlock flow works end-to-end.
+
 ### 2026-05-12 — PR #315 Security Fix (Switch review response)
 
 **Context:** Switch requested changes on PR #315 (workspace IPC). Addressed all 7 findings in commit `707b1e9` on branch `squad/301-workspace-ipc`.
@@ -3581,3 +3640,13 @@ Default dev workflow (`npm run dev`, `isPackaged=false`, no env overrides) still
 2. `wipe()` wraps `sodium.sodium_memzero`; `deriveRecoveryKey` zeros BIP39 seed in try/finally. JS GC caveats documented.
 
 **Worktree workflow:** When concurrent agents (Trinity, Niobe) are editing the renderer, work from a separate `git worktree add` so checkouts don't fight over branches. Run gates from repo root (no pp/package.json).
+
+## 2026-05-11 — Build Invariant: ESM Native Module Externalization
+
+**Status:** Locked decision (decisions.md)
+
+**Rule:** Native modules must be externalized in vite.config.ts when package.json type:module.
+
+When adding a native module (NAPI, argon2, sodium-native, etc.) that uses \__dirname\/\__filename\ to load .node prebuilds, add it to rollupOptions.external. Otherwise Vite bundles it inline and the variables become undefined in ESM scope, causing crashes.
+
+**Related:** trial.3.7 installer crash (2026-05-11) fixed by externalization. Decision locked to prevent regression.

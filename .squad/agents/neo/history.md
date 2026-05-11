@@ -419,3 +419,12 @@ Pedro re-opened Saldo after #78 closed. Three rounds of feedback, all merged int
 **Locked rule (Pedro, #87):** When two CSS cues combine to over-signal (e.g., left guide + category separator forming a box), drop the weaker cue rather than tuning both — for row nesting, prefer indentation over borders.
 
 **Mechanic:** `gh pr review --approve` is blocked on owner-authored PRs; use `gh pr review --comment "APPROVE: ..."` so the signal is grep-able.
+## 2026-05-11 — Build Invariant: ESM Native Module Externalization
+
+**Status:** Locked decision (decisions.md)
+
+**Rule:** Native modules must be externalized in vite.config.ts when package.json type:module.
+
+When adding a native module (NAPI, argon2, sodium-native, etc.) that uses \__dirname\/\__filename\ to load .node prebuilds, add it to rollupOptions.external. Otherwise Vite bundles it inline and the variables become undefined in ESM scope, causing crashes.
+
+**Related:** trial.3.7 installer crash (2026-05-11) fixed by externalization. Decision locked to prevent regression.

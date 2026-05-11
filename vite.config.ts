@@ -48,7 +48,11 @@ export default defineConfig({
             outDir: resolve(__dirname, 'dist/main'),
             sourcemap: true,
             rollupOptions: {
-              external: ['electron'],
+              // Native modules MUST be external — their JS wrappers use __dirname/__filename
+              // to locate .node prebuilds, which is undefined when bundled into ESM output
+              // (root package.json has "type": "module"). Keeping them external lets Node's
+              // require() resolve them from node_modules at runtime, where __dirname works.
+              external: ['electron', 'sodium-native', 'argon2', '@napi-rs/keyring'],
             },
           },
         },

@@ -3535,3 +3535,13 @@ Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance o
 - **beforeAll hook**: All renderer component tests that use i18n must call wait i18n.changeLanguage('en') (or 'es') in a beforeAll hook before rendering components. Without this, translations won't resolve and tests will see raw i18n keys like 'onboarding.welcome.title' instead of translated text.
 - **JSON duplicate key pitfall**: JavaScript silently overwrites duplicate keys in JSON objects. If a locale file has two 'onboarding' keys at different depths, only the last one survives when imported. This caused onboarding.welcome.* translations to vanish. Fix: merge nested objects into a single parent key.
 - **Pattern source**: MovementsScreen.bulk.test.tsx demonstrates the canonical beforeAll + changeLanguage pattern. Future onboarding screen tests should follow the same approach.
+
+## 2026-05-11 — Build Invariant: ESM Native Module Externalization
+
+**Status:** Locked decision (decisions.md)
+
+**Rule:** Native modules must be externalized in vite.config.ts when package.json type:module.
+
+When adding a native module (NAPI, argon2, sodium-native, etc.) that uses \__dirname\/\__filename\ to load .node prebuilds, add it to rollupOptions.external. Otherwise Vite bundles it inline and the variables become undefined in ESM scope, causing crashes.
+
+**Related:** trial.3.7 installer crash (2026-05-11) fixed by externalization. Decision locked to prevent regression.
