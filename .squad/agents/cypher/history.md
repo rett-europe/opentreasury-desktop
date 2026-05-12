@@ -651,3 +651,15 @@ window.electron.invoke('dialog:pickImportFile', ...args)
 4. Test continues with resolved file data
 
 **Skills updated:** `.squad/skills/renderer-ipc-bridge-mocking/SKILL.md` — used by Trinity in PR #296, canonical reference for future test fixture work.
+
+## 2026-05-11 — Cross-Agent Notification: Electron Main CJS Post-Build Transformation
+
+**Build Pipeline Update:** The Electron main process now has a **guaranteed CommonJS post-build step** (scripts/build-main-cjs.mjs). This is automatic and transparent when running 
+pm run build. 
+
+**Why:** Electron's asar.unpacked redirect (native module loading) only works with CommonJS equire(), not ESM import. The root package.json has "type": "module", so Vite emits ESM by default. The post-build esbuild transformation reliably converts the main bundle to CJS.
+
+**Your action:** None required. Just run the standard build and import normally. If your code adds import.meta.url references to the main process, they're automatically polyfilled by the esbuild banner.
+
+**Reference:** .squad/decisions.md § "2026-05-11: Electron Main Process CJS Post-Build Transformation"
+

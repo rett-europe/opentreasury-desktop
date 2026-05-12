@@ -48,7 +48,10 @@ export default defineConfig({
             outDir: resolve(__dirname, 'dist/main'),
             sourcemap: true,
             rollupOptions: {
-              external: ['electron'],
+              // Native modules must be external — Electron's asar-aware require() resolves
+              // them from app.asar.unpacked at runtime. (Main is post-processed to CJS by
+              // scripts/build-main-cjs.mjs so require() works.)
+              external: ['electron', 'sodium-native', 'argon2', '@napi-rs/keyring'],
             },
           },
         },

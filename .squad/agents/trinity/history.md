@@ -3535,3 +3535,25 @@ Neo approved and locked dataset compatibility spec #206 per Pedro's acceptance o
 - **beforeAll hook**: All renderer component tests that use i18n must call wait i18n.changeLanguage('en') (or 'es') in a beforeAll hook before rendering components. Without this, translations won't resolve and tests will see raw i18n keys like 'onboarding.welcome.title' instead of translated text.
 - **JSON duplicate key pitfall**: JavaScript silently overwrites duplicate keys in JSON objects. If a locale file has two 'onboarding' keys at different depths, only the last one survives when imported. This caused onboarding.welcome.* translations to vanish. Fix: merge nested objects into a single parent key.
 - **Pattern source**: MovementsScreen.bulk.test.tsx demonstrates the canonical beforeAll + changeLanguage pattern. Future onboarding screen tests should follow the same approach.
+
+## 2026-05-11 — Build Invariant: ESM Native Module Externalization
+
+**Status:** Locked decision (decisions.md)
+
+**Rule:** Native modules must be externalized in vite.config.ts when package.json type:module.
+
+When adding a native module (NAPI, argon2, sodium-native, etc.) that uses \__dirname\/\__filename\ to load .node prebuilds, add it to rollupOptions.external. Otherwise Vite bundles it inline and the variables become undefined in ESM scope, causing crashes.
+
+**Related:** trial.3.7 installer crash (2026-05-11) fixed by externalization. Decision locked to prevent regression.
+
+## 2026-05-11 — Cross-Agent Notification: Electron Main CJS Post-Build Transformation
+
+**Build Pipeline Update:** The Electron main process now has a **guaranteed CommonJS post-build step** (scripts/build-main-cjs.mjs). This is automatic and transparent when running 
+pm run build. 
+
+**Why:** Electron's asar.unpacked redirect (native module loading) only works with CommonJS equire(), not ESM import. The root package.json has "type": "module", so Vite emits ESM by default. The post-build esbuild transformation reliably converts the main bundle to CJS.
+
+**Your action:** None required. Just run the standard build and import normally. If your code adds import.meta.url references to the main process, they're automatically polyfilled by the esbuild banner.
+
+**Reference:** .squad/decisions.md § "2026-05-11: Electron Main Process CJS Post-Build Transformation"
+

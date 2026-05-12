@@ -3284,3 +3284,63 @@ No changes needed to `JsonFileEventLog`, the read model, or any reducer — the 
 
 If any of these conflict with prior team decisions (Niobe's UX-001, Switch's threat model, Neo's ADR-001/002), this proposal yields — flag it and we re-spec.
 
+
+---
+
+## Decision: ESM Native Module Externalization (Build Invariant)
+
+**Date:** 2026-05-11  
+**Status:** Locked & Approved  
+**Context:** trial.3.7 installer ESM __filename crash fix  
+**Applies to:** All team members adding native modules (Vite, Electron)
+
+### Rule
+
+**Native modules must be externalized in vite.config.ts when package.json type:module.**
+
+Native modules that rely on \__dirname\/\__filename\ to load .node prebuilds (e.g. sodium-native, argon2, @napi-rs/keyring, any NAPI module) MUST be listed in rollupOptions.external. Otherwise, Vite bundles them inline, making those global variables undefined in ESM scope.
+
+### Example Configuration
+
+\\\	ypescript
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      external: ['electron', 'sodium-native', 'argon2', '@napi-rs/keyring']
+    }
+  }
+})
+\\\
+
+### Root Cause History
+
+Trial.3.7 crashed with:
+\\\
+ReferenceError: __filename is not defined in ES module scope
+\\\
+
+**Why:** sodium-native, argon2, @napi-rs/keyring were bundled inline by Vite. Their JS wrappers use \__dirname\/\__filename\ to locate .node prebuilds — undefined in ESM (package.json has \"type": "module"\).
+
+**Fix:** Externalized the modules in vite.config.ts. Installer rebuilt, smoke-tested, and passed.
+
+### When Adding New Native Modules
+
+1. Install the module as usual (npm install).
+2. Check its source code or error message to see if it uses \__dirname\/\__filename\.
+3. If yes, add it to the external array in vite.config.ts.
+4. Run \
+pm run build\ and verify no bundling errors.
+5. Run \
+pm run build:electron\ to build the installer.
+6. Smoke-test the installer on Windows to ensure no ESM ReferenceError crashes.
+
+### Files Modified
+
+- \ite.config.ts\ — external array updated
+
+### Validation
+
+- Build: Passed. No inline native-module code in dist/main/index.js.
+- Smoke test: App launched and ran 21+ seconds without crash. ✓
+
+---

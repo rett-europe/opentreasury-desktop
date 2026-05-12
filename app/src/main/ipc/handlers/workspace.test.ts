@@ -39,6 +39,7 @@ function makeDeps(overrides?: Partial<WorkspaceDeps>): WorkspaceDeps {
     hostname: () => 'TestMachine',
     now: () => new Date('2026-05-12T12:00:00.000Z'),
     homeDir: () => os.homedir(),
+    getConfiguredDataDir: () => null,
     ...overrides,
   };
 }
@@ -75,6 +76,24 @@ describe('workspace handlers', () => {
       const h = createWorkspaceHandlers(deps);
       const res = await h.handleDetect({});
       expect(res.ok).toBe(false);
+    });
+
+    it('falls back to getConfiguredDataDir when folderPath omitted and no last-detected path (cold-start fix)', async () => {
+      // Cold-start scenario: renderer calls detect() with no folderPath, the
+      // in-memory lastDetectedFolderPath is unset, but appConfig.dataDir has
+      // already been resolved by bootstrap and is exposed via getConfiguredDataDir.
+      // Detect must use it instead of returning `no_folder`.
+      const depsWithConfig = makeDeps({
+        homeDir: () => path.dirname(tmpDir),
+        getConfiguredDataDir: () => tmpDir,
+      });
+      const h = createWorkspaceHandlers(depsWithConfig);
+      const res = await h.handleDetect({});
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.folderPath).toBe(tmpDir);
+        expect(res.state).toBe('fresh');
+      }
     });
 
     it('returns join when events.key exists and device not enrolled', async () => {
@@ -201,6 +220,29 @@ describe('workspace handlers', () => {
       // Second call with same token should fail.
       const res2 = await h.handleConfirmSetup({ setupToken: createRes.setupToken, confirmWords });
       expect(res2.ok).toBe(false);
+    });
+
+    it('invokes installEncryptedEventLog with the device id and master key after success', async () => {
+      const calls: Array<{ deviceId: string; mkLength: number }> = [];
+      const h = createWorkspaceHandlers(
+        makeDeps({
+          homeDir: () => path.dirname(tmpDir),
+          installEncryptedEventLog: async (deviceId, mk) => {
+            calls.push({ deviceId, mkLength: mk.length });
+          },
+        }),
+      );
+      const createRes = await h.handleCreate({ folderPath: tmpDir });
+      if (!createRes.ok) throw new Error('create failed');
+      const words = createRes.mnemonic.split(' ');
+      const confirmRes = await h.handleConfirmSetup({
+        setupToken: createRes.setupToken,
+        confirmWords: { '1': words[0]!, '2': words[1]!, '3': words[2]! },
+      });
+      expect(confirmRes.ok).toBe(true);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]!.deviceId).toBe(DEVICE_A);
+      expect(calls[0]!.mkLength).toBe(32);
     });
   });
 
