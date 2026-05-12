@@ -3344,3 +3344,80 @@ pm run build:electron\ to build the installer.
 - Smoke test: App launched and ran 21+ seconds without crash. ✓
 
 ---
+
+
+---
+
+## Decision: e2e Electron launch convention — `args: ['.']`
+
+**Date:** 2026-05-12  
+**Author:** Morpheus  
+**PR:** #322 — `fix(ci): restore dist/main/index.js before e2e perf gate`
+
+### Rule
+
+All Playwright e2e specs MUST launch Electron via:
+
+```ts
+const app = await electron.launch({ args: ['.'] });
+```
+
+Never pass a direct path like `args: ['dist/main/index.js']` or `args: ['dist/main/index.cjs']`.
+
+### Why
+
+- Main-process bundle output is `dist/main/index.cjs` (post-SPEC-026; `scripts/build-main-cjs.mjs` converts ESM→CJS and deletes the original `index.js`). `package.json#main` already points there.
+- `args: ['.']` makes Electron resolve the entry point via `package.json#main`, which keeps `app.getName()` = `"opentreasury-desktop"` (so `userData` resolves to `%APPDATA%\opentreasury-desktop`, not `%APPDATA%\Electron`), and survives future renames of the main-process artifact.
+- Passing a file path bypasses `app.getName()` and breaks when the artifact is renamed — the actual failure mode of `tests/e2e/smoke.spec.ts` on main that took out `e2e · perf gate (main only)`.
+
+### Enforcement
+
+- Reviewers reject any hard-coded `dist/...` path in `electron.launch`.
+- Already documented in `.squad/skills/electron-ui-snapshots/SKILL.md`, `.squad/skills/perf-gate-verification/SKILL.md`, `.squad/skills/playwright-electron-doc-shots/SKILL.md`.
+
+---
+
+## Decision: SPEC-026 (#306) — Ship Gate Cleared
+
+**Date:** 2026-05-12  
+**Authors:** Cypher (QA), Switch (Security)  
+**PRs:** #321 (security review), #322 (CI fix), #323 (integration tests)  
+**Release reviewed:** `v0.1.0-trial.3.8` (`9f86c17`)  
+**Verdict:** ✅ APPROVED — SHIP. Issue #306 CLOSED.
+
+### Test coverage shipped (Cypher, PR #323)
+
+9 new test cases across 4 files. **Zero bugs found in production code.**
+
+| AC | Test file |
+|----|-----------|
+| AC10 | `app/src/core/eventLog/__tests__/multiDeviceConcurrent.test.ts` (concurrent write, no conflicts) |
+| AC14 | `app/src/core/eventLog/__tests__/aadTamper.test.ts` (AAD-bound AEAD rejects transplants) |
+| AC17 | `app/src/core/eventLog/__tests__/nonceUniqueness.test.ts` (3 devices × 100 events + process-restart) |
+| AC18 | `app/src/core/eventLog/__tests__/spec025Regression.test.ts` (plaintext vs ciphertext projection byte-for-byte) |
+| AC1–AC9, AC11–AC13, AC15–AC16, AC19 | `docs/security/spec-026-e2e-manual.md` — 4-scenario manual script for the ship build |
+
+**Test-author gotcha:** `EncryptedMultiDeviceEventLog.load()` short-circuits subsequent events against `seenIds` for cross-device duplicate absorption. Tests must use a **fresh instance** for the read pass after appending. Production behaviour is correct; this is a test-harness concern only.
+
+### Security verdict (Switch, PR #321)
+
+✅ APPROVED — SHIP. No Critical or High findings. Review doc at `docs/security/spec-026-review.md`. New playbook at `.squad/skills/security-review-checklist/SKILL.md`.
+
+### Non-blocking follow-ups (MUST be tracked)
+
+1. **Export-decrypted (AC8) — Medium.** When the handler is implemented, it MUST:
+   - take the mnemonic as the request payload,
+   - re-derive via Argon2id against the persisted `salt` + `argon2_params`,
+   - never trust the safeStorage-derived MK for this code path,
+   - wipe the recovery key in `finally`.
+   - **Switch sign-off required before merge.**
+
+2. **Spec/code drift on Argon2id `t` — Medium (doc-only).** `docs/specs/026-encryption-at-rest.md §4.1` documents `t=3`; shipped code uses `t=4`. Persisted `argon2_params` in `events.key` are correct, so encrypted workspaces are fine. **Oracle/Niobe to update the spec doc** (or revert code to `t=3` after a fresh benchmark — either is acceptable as long as spec and code agree).
+
+3. **`usedNonces` Set in `app/src/core/crypto/nonce.ts` is unbounded — Low.** Defensive memory-hygiene cleanup, lowest priority.
+
+### Scope of sign-off — what Switch is NOT signing off on
+
+- Future export-decrypted handler (separate review when implemented).
+- Future key-rotation / per-user revocation feature (explicit v1 non-goal).
+- Any new code path that holds the Master Key — every new consumer must follow the own-your-copy + wipe-on-finally pattern and get a security review before merge.
