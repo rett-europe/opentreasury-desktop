@@ -89,6 +89,18 @@ export interface WorkspaceDeps {
    * to recover the workspace location from persisted app config.
    */
   getConfiguredDataDir?: () => string | null;
+  /**
+   * SPEC-026 — Install the encrypted event log into the main-process
+   * bootstrap singleton after a successful confirmSetup / enroll / unlock /
+   * recover. The handler passes the device ULID and the unlocked Master Key
+   * (copied internally — caller retains ownership). After this resolves,
+   * `getEventLog()` returns the encrypted log and the in-memory read model
+   * has been hydrated from every per-device events file in the workspace.
+   *
+   * Optional so tests can stub a no-op; production wires it to
+   * `bootstrap.installEncryptedEventLog`.
+   */
+  installEncryptedEventLog?: (deviceId: string, mk: Uint8Array) => Promise<void>;
 }
 
 // ── Pending setup state (MEDIUM-1 hardening: TTL + cap) ─────────────────────
@@ -469,6 +481,17 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     // Persist the active workspace session with the unlocked MK.
     setActiveWorkspace({ folderPath, deviceId, mk: new Uint8Array(mk) });
 
+    // SPEC-026 — Install the encrypted event log so the renderer can read
+    // events on this freshly-created workspace.
+    try {
+      await deps.installEncryptedEventLog?.(deviceId, mk);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[workspace] confirmSetup: installEncryptedEventLog failed: ${(err as Error).message}`,
+      );
+    }
+
     // Clear pending setup (wipe original mk buffer + clear TTL timer).
     evictPendingSetup(setupToken);
 
@@ -588,6 +611,17 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     setActiveWorkspace({ folderPath, deviceId, mk });
     setLastDetectedFolderPath(folderPath);
 
+    // SPEC-026 — Install the encrypted event log so the renderer can read
+    // events from peer-device files (e.g. the workspace creator's events).
+    try {
+      await deps.installEncryptedEventLog?.(deviceId, mk);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[workspace] enroll: installEncryptedEventLog failed: ${(err as Error).message}`,
+      );
+    }
+
     return {
       ok: true,
       event: {
@@ -671,6 +705,18 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     }
 
     setActiveWorkspace({ folderPath, deviceId, mk });
+
+    // SPEC-026 — Install the encrypted event log so the renderer's first
+    // queries after silent unlock hit a hydrated read model.
+    try {
+      await deps.installEncryptedEventLog?.(deviceId, mk);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[workspace] unlock: installEncryptedEventLog failed: ${(err as Error).message}`,
+      );
+    }
+
     return { ok: true };
   }
 
@@ -779,6 +825,17 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
 
     setActiveWorkspace({ folderPath, deviceId, mk });
 
+    // SPEC-026 — Install the encrypted event log so the renderer sees events
+    // immediately after recovery, without needing a restart.
+    try {
+      await deps.installEncryptedEventLog?.(deviceId, mk);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[workspace] recover: installEncryptedEventLog failed: ${(err as Error).message}`,
+      );
+    }
+
     return {
       ok: true,
       event: {
@@ -821,7 +878,8 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
  */
 export async function buildProductionWorkspaceDeps(): Promise<WorkspaceDeps> {
   const { safeStorage } = await import('electron');
-  const { getDeviceId, getEffectiveEventLogDirOrNull } = await import('../../bootstrap.js');
+  const { getDeviceId, getEffectiveEventLogDirOrNull, installEncryptedEventLog } =
+    await import('../../bootstrap.js');
 
   return {
     deviceId: () => getDeviceId(),
@@ -835,6 +893,10 @@ export async function buildProductionWorkspaceDeps(): Promise<WorkspaceDeps> {
     // relative-to-userDataDir resolution rule as resolveEventLogDir). Returns
     // null while onboarding is pending (appConfig.dataDir === null).
     getConfiguredDataDir: () => getEffectiveEventLogDirOrNull(),
+    // SPEC-026 — Wire post-unlock event-log installation.
+    installEncryptedEventLog: async (deviceId: string, mk: Uint8Array) => {
+      await installEncryptedEventLog(deviceId, mk);
+    },
   };
 }
 

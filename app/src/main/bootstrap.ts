@@ -17,6 +17,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { JsonFileEventLog } from '../core/eventLog/index.js';
 import type { EventLog, DomainEvent } from '../core/eventLog/index.js';
+import { EncryptedMultiDeviceEventLog } from '../core/eventLog/EncryptedMultiDeviceEventLog.js';
 import { replayEvents, getReadModel } from '../core/query/reducers.js';
 import type { ReadModel } from '../core/query/types.js';
 import { buildDevSeedEvents } from './devSeed.js';
@@ -40,6 +41,7 @@ let datasetIdInstance: string | null = null;
 let effectiveEventLogDir: string | null = null;
 let bootstrapped = false;
 let onboardingPending = false;
+let encryptedWorkspacePending = false;
 let bootstrapError: BootstrapError | null = null;
 
 /**
@@ -87,13 +89,28 @@ export function shouldDeferEventLog(appConfig: AppConfig): boolean {
 
 export function getEventLog(): EventLog {
   if (eventLogInstance === null) {
-    throw new Error(
-      onboardingPending
-        ? '[bootstrap] getEventLog() unavailable while onboarding wizard is pending — register data IPC handlers only after the user picks a folder'
-        : '[bootstrap] getEventLog() called before initializeApp() resolved',
-    );
+    let detail: string;
+    if (onboardingPending) {
+      detail =
+        '[bootstrap] getEventLog() unavailable while onboarding wizard is pending — register data IPC handlers only after the user picks a folder';
+    } else if (encryptedWorkspacePending) {
+      detail =
+        '[bootstrap] getEventLog() unavailable for an encrypted workspace before unlock — wait for workspace:unlock / confirmSetup / enroll / recover to install the encrypted event log';
+    } else {
+      detail = '[bootstrap] getEventLog() called before initializeApp() resolved';
+    }
+    throw new Error(detail);
   }
   return eventLogInstance;
+}
+
+/**
+ * SPEC-026 — true when bootstrap detected an encrypted workspace (`events.key`
+ * exists in dataDir) and deliberately deferred event-log construction until the
+ * workspace is unlocked. Stays true until `installEncryptedEventLog()` runs.
+ */
+export function isEncryptedWorkspacePending(): boolean {
+  return encryptedWorkspacePending;
 }
 
 export function getHydratedReadModel(): ReadModel {
@@ -492,6 +509,32 @@ async function initializeAppUnsafe(): Promise<void> {
   );
   // eslint-disable-next-line no-console
   console.log(`[bootstrap] loaded dataset ID: ${datasetIdInstance}`);
+
+  // SPEC-026 — If this workspace is encrypted (events.key exists), defer
+  // event-log construction until workspace:unlock / confirmSetup / enroll /
+  // recover installs the encrypted log via installEncryptedEventLog(). The
+  // plaintext JsonFileEventLog cannot read events-<deviceId>.ndjson files,
+  // so building it here would hydrate 0 events and the renderer would see
+  // an empty dashboard forever (the production bug fixed alongside this
+  // change).
+  let isEncryptedWorkspace = false;
+  try {
+    await fs.access(path.join(dir, 'events.key'));
+    isEncryptedWorkspace = true;
+  } catch {
+    isEncryptedWorkspace = false;
+  }
+
+  if (isEncryptedWorkspace) {
+    encryptedWorkspacePending = true;
+    bootstrapped = true;
+    // eslint-disable-next-line no-console
+    console.log(
+      `[bootstrap] encrypted workspace detected at ${dir} — event log construction deferred until unlock`,
+    );
+    return;
+  }
+
   const innerLog = new JsonFileEventLog({ dir });
 
   // P1-3: Wrap in read-only proxy when appConfig.readOnly === true
@@ -525,4 +568,65 @@ async function initializeAppUnsafe(): Promise<void> {
 
   // eslint-disable-next-line no-console
   console.log(`[bootstrap] hydrated ${events.length} events from ${dir}`);
+}
+
+/**
+ * SPEC-026 — Construct the encrypted, per-device event log once the workspace
+ * is unlocked (master key in hand) and hydrate the read model from it.
+ *
+ * Called by the workspace IPC handlers (confirmSetup / enroll / unlock /
+ * recover) immediately after they set the active workspace session. After
+ * this returns, `getEventLog()` returns the encrypted log instance and the
+ * in-memory read model reflects every decrypted event from every
+ * `events-<deviceId>.ndjson` in the workspace.
+ *
+ * Idempotent: if the encrypted log is already installed for this `deviceId`
+ * and `dir`, returns immediately without re-loading.
+ *
+ * The `mk` argument is copied internally — the caller retains ownership of
+ * the original buffer (including the right to wipe it).
+ *
+ * Returns the number of events hydrated (useful for logging / diagnostics).
+ */
+export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array): Promise<number> {
+  if (!bootstrapped) {
+    throw new Error(
+      '[bootstrap] installEncryptedEventLog() called before initializeApp() resolved',
+    );
+  }
+  if (effectiveEventLogDir === null) {
+    throw new Error(
+      '[bootstrap] installEncryptedEventLog() called without an effective event log dir — onboarding not yet completed',
+    );
+  }
+
+  const dir = effectiveEventLogDir;
+  const existing = eventLogInstance;
+  if (existing instanceof EncryptedMultiDeviceEventLog && existing.owningDeviceId === deviceId) {
+    // Already installed (e.g., re-unlock without lock). Skip rehydration to
+    // avoid double-replaying events into the read model.
+    return 0;
+  }
+
+  // Own our own copy of the MK so the caller can wipe theirs without breaking
+  // the log's future append/load operations.
+  const mkCopy = new Uint8Array(mk);
+  const log = new EncryptedMultiDeviceEventLog({
+    dir,
+    deviceId,
+    masterKey: mkCopy,
+  });
+
+  const events = await log.load();
+  replayEvents(events as DomainEvent[]);
+
+  eventLogInstance = log;
+  encryptedWorkspacePending = false;
+
+  // eslint-disable-next-line no-console
+  console.log(
+    `[bootstrap] installed encrypted event log for device ${deviceId} — hydrated ${events.length} events from ${dir}`,
+  );
+
+  return events.length;
 }

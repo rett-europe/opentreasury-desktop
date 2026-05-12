@@ -221,6 +221,29 @@ describe('workspace handlers', () => {
       const res2 = await h.handleConfirmSetup({ setupToken: createRes.setupToken, confirmWords });
       expect(res2.ok).toBe(false);
     });
+
+    it('invokes installEncryptedEventLog with the device id and master key after success', async () => {
+      const calls: Array<{ deviceId: string; mkLength: number }> = [];
+      const h = createWorkspaceHandlers(
+        makeDeps({
+          homeDir: () => path.dirname(tmpDir),
+          installEncryptedEventLog: async (deviceId, mk) => {
+            calls.push({ deviceId, mkLength: mk.length });
+          },
+        }),
+      );
+      const createRes = await h.handleCreate({ folderPath: tmpDir });
+      if (!createRes.ok) throw new Error('create failed');
+      const words = createRes.mnemonic.split(' ');
+      const confirmRes = await h.handleConfirmSetup({
+        setupToken: createRes.setupToken,
+        confirmWords: { '1': words[0]!, '2': words[1]!, '3': words[2]! },
+      });
+      expect(confirmRes.ok).toBe(true);
+      expect(calls).toHaveLength(1);
+      expect(calls[0]!.deviceId).toBe(DEVICE_A);
+      expect(calls[0]!.mkLength).toBe(32);
+    });
   });
 
   // ── workspace:unlock ─────────────────────────────────────────────────────
