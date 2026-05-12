@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.8] — SPEC-026 encryption-at-rest wiring
+
+Complete wiring of encrypted event log into production unlock paths and workspace
+cold-start fallback. Migrated workspaces with encrypted event logs now load correctly
+instead of falling back to blank JSON. Closes #318.
+
+### Fixed
+
+- **Encrypted event log now wired into production unlock paths (SPEC-026, PR #318).** Event log initialization is integrated into cold-start workspace fallback, fresh-setup, JoinFlow, and recovery code unlock paths. Migrated workspaces with `events.key` + `events-{deviceId}.ndjson` now load correctly instead of falling back to a blank JSON log.
+- **Lazy data IPC handler registration — handlers now registered after workspace unlock (PR #318).** Handlers are registered after workspace unlock instead of at bootstrap, eliminating the race where the renderer queried IPC before the encrypted log was installed.
+- **Cold-start workspace fallback honors custom `dataDir` location (PR #318).** Uses `getConfiguredDataDir()` to respect `app-config.json` `dataDir` setting when workspace has been moved to a custom location (e.g., OneDrive).
+- **electron-builder configured to skip native rebuild (PR #318).** `npmRebuild: false` added to `electron-builder.yml` since prebuilds ship with sodium-native, argon2, and @napi-rs/keyring — rebuilding would fail locally and break packaged builds.
+
 ## [0.1.0-trial.3.7] — Edit modal polish & accessibility
 
 Polish and refinement of SPEC-025 status-based edit rules for transactions,
