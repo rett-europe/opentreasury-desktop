@@ -46,6 +46,7 @@ function makeDeps(overrides?: Partial<WorkspaceDeps>): WorkspaceDeps {
     hostname: () => 'IntegrationTestMachine',
     now: () => new Date('2026-05-12T12:00:00.000Z'),
     homeDir: () => os.tmpdir(),
+    getConfiguredDataDir: () => null,
     ...overrides,
   };
 }

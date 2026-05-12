@@ -32,6 +32,7 @@ function makeDeps(overrides?: Partial<WorkspaceDeps>): WorkspaceDeps {
     hostname: () => 'TestMachine',
     now: () => new Date('2026-05-12T12:00:00.000Z'),
     homeDir: () => os.homedir(),
+    getConfiguredDataDir: () => null,
     ...overrides,
   };
 }

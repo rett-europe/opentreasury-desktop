@@ -79,6 +79,16 @@ export interface WorkspaceDeps {
   now(): Date;
   /** User home directory root — injectable so tests can permit os.tmpdir(). */
   homeDir(): string;
+  /**
+   * Returns the configured workspace dataDir from appConfig, or null if unset
+   * (first-run, before user picked a folder). Resolved to an absolute path.
+   *
+   * Cold-start fallback for workspace:detect / workspace:unlock: when the
+   * renderer omits `folderPath` and the in-memory `lastDetectedFolderPath`
+   * has not been populated yet (fresh app launch), handlers consult this
+   * to recover the workspace location from persisted app config.
+   */
+  getConfiguredDataDir?: () => string | null;
 }
 
 // ── Pending setup state (MEDIUM-1 hardening: TTL + cap) ─────────────────────
@@ -273,7 +283,11 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
       return makeErrorResponse('invalid_request', parsed.error.message);
     }
 
-    const rawFolderPath = parsed.data.folderPath ?? getLastDetectedFolderPath() ?? undefined;
+    const rawFolderPath =
+      parsed.data.folderPath ??
+      getLastDetectedFolderPath() ??
+      deps.getConfiguredDataDir?.() ??
+      undefined;
     if (!rawFolderPath) {
       return makeErrorResponse(
         'no_folder',
@@ -608,7 +622,7 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
       };
     }
 
-    const folderPath = getLastDetectedFolderPath();
+    const folderPath = getLastDetectedFolderPath() ?? deps.getConfiguredDataDir?.() ?? null;
     if (!folderPath) {
       return makeErrorResponse(
         'no_workspace',
@@ -807,7 +821,7 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
  */
 export async function buildProductionWorkspaceDeps(): Promise<WorkspaceDeps> {
   const { safeStorage } = await import('electron');
-  const { getDeviceId } = await import('../../bootstrap.js');
+  const { getDeviceId, getEffectiveEventLogDirOrNull } = await import('../../bootstrap.js');
 
   return {
     deviceId: () => getDeviceId(),
@@ -817,6 +831,10 @@ export async function buildProductionWorkspaceDeps(): Promise<WorkspaceDeps> {
     hostname: () => os.hostname(),
     now: () => new Date(),
     homeDir: () => os.homedir(),
+    // Reuse bootstrap's already-resolved absolute path (applies the same
+    // relative-to-userDataDir resolution rule as resolveEventLogDir). Returns
+    // null while onboarding is pending (appConfig.dataDir === null).
+    getConfiguredDataDir: () => getEffectiveEventLogDirOrNull(),
   };
 }
 

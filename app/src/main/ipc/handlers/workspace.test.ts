@@ -39,6 +39,7 @@ function makeDeps(overrides?: Partial<WorkspaceDeps>): WorkspaceDeps {
     hostname: () => 'TestMachine',
     now: () => new Date('2026-05-12T12:00:00.000Z'),
     homeDir: () => os.homedir(),
+    getConfiguredDataDir: () => null,
     ...overrides,
   };
 }
@@ -75,6 +76,24 @@ describe('workspace handlers', () => {
       const h = createWorkspaceHandlers(deps);
       const res = await h.handleDetect({});
       expect(res.ok).toBe(false);
+    });
+
+    it('falls back to getConfiguredDataDir when folderPath omitted and no last-detected path (cold-start fix)', async () => {
+      // Cold-start scenario: renderer calls detect() with no folderPath, the
+      // in-memory lastDetectedFolderPath is unset, but appConfig.dataDir has
+      // already been resolved by bootstrap and is exposed via getConfiguredDataDir.
+      // Detect must use it instead of returning `no_folder`.
+      const depsWithConfig = makeDeps({
+        homeDir: () => path.dirname(tmpDir),
+        getConfiguredDataDir: () => tmpDir,
+      });
+      const h = createWorkspaceHandlers(depsWithConfig);
+      const res = await h.handleDetect({});
+      expect(res.ok).toBe(true);
+      if (res.ok) {
+        expect(res.folderPath).toBe(tmpDir);
+        expect(res.state).toBe('fresh');
+      }
     });
 
     it('returns join when events.key exists and device not enrolled', async () => {
