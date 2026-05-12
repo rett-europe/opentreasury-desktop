@@ -628,5 +628,19 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
     `[bootstrap] installed encrypted event log for device ${deviceId} — hydrated ${events.length} events from ${dir}`,
   );
 
+  // SPEC-026 — Data IPC handlers were deferred at startup because the
+  // workspace was locked. Register them now so the renderer's queries after
+  // unlock find live IPC channels. Dynamic import avoids the circular
+  // dependency between bootstrap.ts and ipc/handlers.ts.
+  try {
+    const { registerDataIpcHandlersIfDeferred } = await import('./ipc/handlers.js');
+    registerDataIpcHandlersIfDeferred();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[bootstrap] failed to register deferred data IPC handlers: ${(err as Error).message}`,
+    );
+  }
+
   return events.length;
 }

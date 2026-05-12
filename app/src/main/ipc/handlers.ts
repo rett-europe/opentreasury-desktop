@@ -292,9 +292,20 @@ import {
   getDeviceId,
   getDatasetId,
   isOnboardingPending,
+  isEncryptedWorkspacePending,
 } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { newUlid } from '../ids.js';
+
+// SPEC-026 — When bootstrap deferred event-log construction because the
+// workspace is encrypted and locked, IPC handler registration cannot eagerly
+// call getEventLog() (it would throw). We stash the IpcMain reference, skip
+// the data-handler block at startup, and re-run it from the workspace IPC
+// handlers once installEncryptedEventLog() has run (post-unlock /
+// confirmSetup / enroll / recover). Mirrors the onboarding-pending pattern
+// in #196.
+let deferredDataIpcMain: IpcMain | null = null;
+let dataIpcRegistered = false;
 
 export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('app:ping', (_event, raw: unknown) => {
@@ -562,6 +573,42 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
     );
     return;
   }
+
+  // SPEC-026 — Workspace is encrypted and not yet unlocked. Defer data-handler
+  // registration until the master key is loaded; the renderer at this point
+  // only needs the workspace:* and onboarding/profile/config IPCs already
+  // registered above. The renderer routes to JoinFlow / silent-unlock /
+  // recovery and never invokes data IPCs in this state.
+  if (isEncryptedWorkspacePending()) {
+    deferredDataIpcMain = ipcMain;
+    // eslint-disable-next-line no-console
+    console.log(
+      '[ipc] encrypted workspace pending unlock — deferring data IPC handler registration until installEncryptedEventLog runs',
+    );
+    return;
+  }
+
+  registerDataIpcHandlers(ipcMain);
+}
+
+/**
+ * SPEC-026 — Called by the workspace IPC handlers (via bootstrap's
+ * installEncryptedEventLog) right after the encrypted event log is installed
+ * and the read model has been hydrated. If startup deferred data-handler
+ * registration because the workspace was locked, register them now so the
+ * renderer's first queries after unlock find live IPC channels.
+ *
+ * Idempotent — second and subsequent calls are no-ops.
+ */
+export function registerDataIpcHandlersIfDeferred(): void {
+  if (dataIpcRegistered) return;
+  if (deferredDataIpcMain === null) return;
+  registerDataIpcHandlers(deferredDataIpcMain);
+}
+
+function registerDataIpcHandlers(ipcMain: IpcMain): void {
+  if (dataIpcRegistered) return;
+  dataIpcRegistered = true;
 
   const profile = getProfile();
   const transactionDeps = {
