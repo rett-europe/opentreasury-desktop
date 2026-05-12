@@ -24,14 +24,121 @@
 
 ## Tabla de contenidos
 
-1. [Primer lanzamiento: Configuración de perfil](#primer-lanzamiento-configuración-de-perfil)
-2. [Panel: Tu resumen de 90 días](#panel-tu-resumen-de-90-días)
-3. [Agregar una transacción](#agregar-una-transacción)
-4. [Saldo: Tus saldos por categoría](#saldo-tus-saldos-por-categoría)
-5. [Movimientos: Lista de transacciones y filtros](#movimientos-lista-de-transacciones-y-filtros)
-6. [Análisis: Tendencias y desgloses por categoría](#análisis-tendencias-y-desgloses-por-categoría)
-7. [Configuración: Carpeta de datos y modo de solo lectura](#configuración-carpeta-de-datos-y-modo-de-solo-lectura)
-8. [Copia de seguridad de tus datos](#copia-de-seguridad-de-tus-datos)
+1. [Primeros pasos: Tu espacio de trabajo cifrado](#primeros-pasos-tu-espacio-de-trabajo-cifrado)
+2. [Primer lanzamiento: Configuración de perfil](#primer-lanzamiento-configuración-de-perfil)
+3. [Panel: Tu resumen de 90 días](#panel-tu-resumen-de-90-días)
+4. [Agregar una transacción](#agregar-una-transacción)
+5. [Saldo: Tus saldos por categoría](#saldo-tus-saldos-por-categoría)
+6. [Movimientos: Lista de transacciones y filtros](#movimientos-lista-de-transacciones-y-filtros)
+7. [Análisis: Tendencias y desgloses por categoría](#análisis-tendencias-y-desgloses-por-categoría)
+8. [Configuración: Carpeta de datos y modo de solo lectura](#configuración-carpeta-de-datos-y-modo-de-solo-lectura)
+9. [Copia de seguridad de tus datos](#copia-de-seguridad-de-tus-datos)
+
+---
+
+## Primeros pasos: Tu espacio de trabajo cifrado
+
+La primera vez que abres OpenTreasury Desktop, la aplicación te guía por tres pantallas breves antes de mostrarte el panel: **elegir una carpeta**, **anotar un código de recuperación de 12 palabras** y **confirmar algunas de esas palabras**. Después de eso, listo — la aplicación se desbloquea sola en silencio cada día.
+
+Esta sección explica esas pantallas para la **primera persona** que crea un espacio de trabajo nuevo. Si te estás uniendo a un espacio de trabajo que otra persona ya ha creado (por ejemplo, otro miembro de la junta lo configuró y te ha pasado el código), salta a [Unirse a un espacio de trabajo desde un segundo equipo](#unirse-a-un-espacio-de-trabajo-desde-un-segundo-equipo).
+
+> ⚠️ **Anota las 12 palabras en papel. Guarda ese papel en un lugar seguro.**  
+> El equipo de OpenTreasury **no puede recuperarlas por ti.** Si todas las personas con el código de recuperación lo pierden, el espacio de trabajo no podrá abrirse de nuevo — por diseño. No hay puerta trasera.
+
+### Paso 1 — Elige dónde viven tus datos
+
+La primera pantalla se titula **"¿Dónde debe OpenTreasury guardar tus datos?"**. Haz clic en **Elegir carpeta…** y selecciona una carpeta de tu ordenador.
+
+Algunas recomendaciones:
+
+- **Si vas a compartir el espacio de trabajo con otros miembros de la junta o usarlo desde más de un ordenador**, elige una carpeta dentro de **OneDrive**, **SharePoint**, **Dropbox** o **Google Drive**. El proveedor en la nube sincronizará esa carpeta con todos los demás equipos que inicien sesión — así es como un segundo miembro de la junta ve las mismas transacciones que tú.
+- **Si solo tú vas a usar este espacio de trabajo**, una carpeta local normal (por ejemplo, `Documentos\OpenTreasury`) está bien.
+- La carpeta puede estar vacía (nuevo espacio de trabajo) o contener ya uno de una instalación anterior.
+
+Haz clic en **Continuar** una vez seleccionada la carpeta.
+
+> **Consejo:** Una carpeta sincronizada (OneDrive/Dropbox/etc.) es lo que permite que un segundo equipo vea el mismo espacio de trabajo. Cada equipo mantiene su propia copia de los datos — el proveedor en la nube simplemente los mantiene sincronizados.
+
+### Paso 2 — Tu código de recuperación de 12 palabras
+
+La siguiente pantalla se titula **"Tus datos, cifrados y compartidos de forma segura."**. Muestra **12 palabras en inglés** en una cuadrícula numerada (del 1 al 12).
+
+Estas 12 palabras son tu **código de recuperación**. Son la única forma de abrir este espacio de trabajo si:
+
+- Inicias sesión con otra cuenta de Windows.
+- Cambias a un ordenador nuevo.
+- Tu ordenador se pierde, se lo roban o lo restablecen.
+- Otro miembro de la junta quiere unirse al espacio de trabajo desde su propio equipo.
+
+#### Qué hacer, exactamente
+
+1. **Anota las 12 palabras en papel, en orden.** Numéralas del 1 al 12. El orden importa — "palabra 3 y luego palabra 4" no es lo mismo que "palabra 4 y luego palabra 3".
+2. **Guarda el papel en un lugar seguro** — el mismo sitio donde guardarías una copia del pasaporte, un testamento o la llave de una caja fuerte. No pegado al portátil. No en la misma mochila que el portátil.
+3. **Si compartes el espacio de trabajo con otros miembros de la junta, comparte con ellos las mismas 12 palabras** por un canal de confianza (en persona, mensaje cifrado, sobre cerrado). Las necesitarán para unirse desde su propio equipo.
+4. La aplicación también ofrece los botones **Imprimir** y **Guardar como PDF**. Si usas cualquiera de ellos, trata la impresión o el PDF igual que el papel — son la llave de tu tesorería.
+5. Cuando las hayas anotado, haz clic en **Lo he anotado**.
+
+> ⚠️ **Anota estas 12 palabras. El equipo de OpenTreasury no puede recuperarlas por ti.**  
+> Cualquiera que tenga las 12 palabras puede abrir el espacio de trabajo. Cualquiera que las pierda, y no tenga a quién pedírselas, no podrá. Ese es el compromiso que mantiene tu tesorería privada frente a proveedores en la nube y ladrones.
+
+### Paso 3 — Confirma algunas palabras
+
+La siguiente pantalla se titula **"Confirma tu código de recuperación"**. Te pide que escribas **3 de las 12 palabras** en posiciones concretas (por ejemplo, "palabra 2", "palabra 7", "palabra 11").
+
+Esto **no es un examen**. Es la aplicación asegurándose de que realmente has anotado las palabras antes de salir de esta pantalla. Si no puedes rellenarlas, vuelve atrás, mira tu papel e inténtalo de nuevo.
+
+Una vez que introduzcas las tres palabras correctamente y hagas clic en **Continuar**, la aplicación configura tu espacio de trabajo cifrado. Verás una pantalla breve de confirmación **"Tu espacio de trabajo está cifrado."** y luego continuarás a la **Configuración de perfil** descrita en la siguiente sección.
+
+### El día a día después de la configuración
+
+Una vez que el espacio de trabajo está configurado, **no necesitas introducir las 12 palabras cada día**. Cuando inicies sesión en Windows y abras OpenTreasury, la aplicación se desbloquea en silencio en segundo plano — como cualquier otra aplicación.
+
+Solo te pedirán el código de recuperación de 12 palabras de nuevo si:
+
+- Inicias sesión con otra cuenta de Windows en el mismo ordenador.
+- Instalas OpenTreasury en un ordenador nuevo.
+- Se reinstala Windows o se restablece tu perfil de usuario.
+
+En todos esos casos, introduces las 12 palabras una vez, y la aplicación volverá al desbloqueo silencioso a partir de entonces.
+
+### Unirse a un espacio de trabajo desde un segundo equipo
+
+Si otro miembro de la junta ya ha configurado el espacio de trabajo y te ha pasado las 12 palabras, unirse es sencillo:
+
+1. **En el nuevo ordenador**, instala OpenTreasury Desktop de la forma habitual.
+2. Abre la aplicación. En la pantalla **"¿Dónde debe OpenTreasury guardar tus datos?"**, elige la **misma carpeta compartida** que usa el primer equipo (por ejemplo, la misma carpeta de OneDrive a la que ambos tenéis acceso).
+3. La aplicación detecta un espacio de trabajo existente y muestra la pantalla **"Unirse a un espacio de trabajo existente"**.
+4. En **Código de recuperación (12 palabras)**, escribe las 12 palabras exactamente como te las pasaron, en orden, separadas por espacios.
+5. Cuando te lo pida, dale un nombre amigable a este equipo (por ejemplo, "Portátil de Pablo"). Esto solo ayuda a distinguir los equipos después.
+6. Haz clic en **Unirse**.
+
+Tras unos instantes verás **"Ya estás dentro."** y continuarás al panel. A partir de ahora, ambos equipos ven las mismas transacciones, y las ediciones hechas en un equipo se sincronizan con el otro a través de la carpeta compartida. Cada equipo se desbloquea en silencio después de la primera vez.
+
+### Si pierdes el acceso
+
+| Qué ha pasado | Qué hacer |
+|---|---|
+| **Aún tienes el papel con las 12 palabras, pero perdiste el ordenador o tienes uno nuevo.** | Instala OpenTreasury en el nuevo ordenador. Apúntalo a la carpeta compartida del espacio de trabajo (o restaura la carpeta desde la copia de tu proveedor en la nube). Introduce las 12 palabras una vez en la pantalla de **Unirse**. Estás dentro otra vez. |
+| **Has olvidado o perdido el papel de las 12 palabras, pero otro miembro de la junta aún lo tiene.** | Pídeselo. El código de recuperación se comparte entre toda la junta — cualquiera que lo tenga puede dárselo a cualquiera que lo necesite. |
+| **Todas las personas con el código de recuperación lo han perdido.** | El espacio de trabajo es **irrecuperable**. Por diseño — no hay puerta trasera ni línea de soporte que pueda restablecerlo. Si tienes una exportación manual anterior, restaura desde ahí. Si no, tendrás que empezar un espacio de trabajo nuevo. |
+
+Por eso anotar las palabras en papel y guardar ese papel en un lugar seguro es lo más importante que haces durante la configuración.
+
+### Qué protege el cifrado (y qué no)
+
+**El cifrado te protege frente a:**
+
+- Alguien que te robe el portátil. Sin el código de recuperación o tu contraseña de Windows, no pueden leer los datos de la tesorería.
+- Una brecha en el proveedor en la nube (OneDrive, Dropbox, Google Drive). Los archivos en la carpeta compartida están cifrados — inútiles sin las 12 palabras.
+- Otra persona que use el mismo ordenador con una cuenta de Windows **distinta**. No puede abrir tu espacio de trabajo desde su cuenta.
+
+**El cifrado NO te protege frente a:**
+
+- Alguien que use tu ordenador mientras tú estás con la sesión de Windows iniciada. Para ellos, la aplicación parece desbloqueada. **Bloquea la pantalla cuando te alejes.**
+- Malware ejecutándose en tu ordenador mientras lo estás usando.
+- Cualquier persona a la que le des las 12 palabras. El código de recuperación es la llave del espacio de trabajo — compártelo como compartirías las llaves de una caja fuerte.
+
+Si quieres una explicación más profunda del modelo de seguridad, consulta [SPEC-026 — Cifrado en reposo](../specs/026-encryption-at-rest.md) (para los técnicamente curiosos — el cuerpo de esta guía es la versión amigable).
 
 ---
 
