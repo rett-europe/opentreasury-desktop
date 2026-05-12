@@ -663,3 +663,25 @@ pm run build.
 
 **Reference:** .squad/decisions.md § "2026-05-11: Electron Main Process CJS Post-Build Transformation"
 
+
+### 2026-05-12 — SPEC-026 #306 Integration Tests SHIPPED (branch: squad/encryption-integration-tests)
+
+**Status:** PR opened, awaiting review (ship gate alongside Switch).
+
+**Scope delivered:**
+- `app/src/core/eventLog/__tests__/nonceUniqueness.test.ts` (AC17) — 3 devices × 100 events; assert `set(nonces).size === total_count`. Also a process-restart variant to catch any future regression that re-seeds nonce state on instance construction.
+- `app/src/core/eventLog/__tests__/multiDeviceConcurrent.test.ts` (AC10) — 2 devices × 100 events via `Promise.all`; assert zero conflict files, merged read = 200 events, AAD-per-source-device. Two variants: `append` path and `appendBatch` path.
+- `app/src/core/eventLog/__tests__/aadTamper.test.ts` (AC14) — in-workspace ciphertext transplant. Two variants: with dedup short-circuit (correct behavior — silently absorbed, no wrong-AAD decrypt) and without dedup (strict AEAD failure with stable `ENCRYPTED_EVENT_AUTH_FAILED` code).
+- `app/src/core/eventLog/__tests__/spec025Regression.test.ts` (AC18) — drives the same event sequence through `JsonFileEventLog` and `EncryptedMultiDeviceEventLog`; asserts byte-identical read-model projections. Three variants: basic round-trip, `pending → approved → pending` status flip via the real `updateTransaction` command, immutable-field guard.
+- `docs/security/spec-026-e2e-manual.md` — 4-scenario manual ship-gate script (fresh setup, multi-device join, recovery-from-safeStorage-failure, recovery-code typo).
+
+**ACs covered:** AC10, AC14, AC17, AC18 directly via integration tests; AC1–AC9, AC11–AC13, AC15–AC16 via documented manual script. AC18 indirectly proves AC19 (no plaintext data on disk) since the cipher snapshot reproduces plaintext projections from base64 ciphertext lines.
+
+## Learnings
+
+- **EncryptedMultiDeviceEventLog seenIds quirk.** `load()` short-circuits against the *same* in-memory `seenIds` populated by prior `append()` calls on that instance. Production bootstrap calls `load()` BEFORE any `append()`, so it's a non-issue, but tests must mirror that lifecycle — always create a fresh log instance for the read pass. Existing tests in `EncryptedMultiDeviceEventLog.test.ts` already follow this pattern (`const reopened = new EncryptedMultiDeviceEventLog(...)`); my regression helper now does too. **Not a production bug — keep this in mind for any future integration test.**
+- **Cross-file dedup is a feature, not a tamper window.** I initially expected the AAD-tamper test to throw `ENCRYPTED_EVENT_AUTH_FAILED` even when both legitimate files coexist. It doesn't — the loader walks files alphabetically, populates `seenIds` from device A's legitimate copy, then dedup-skips the transplanted duplicate in device B BEFORE decryption is attempted. Net result: the user sees the correct event, no wrong-AAD decrypt ever happens. The strict AEAD-rejection path is exercised by the "transplant into B with A's file removed" variant. Both outcomes are safe.
+- **Core cannot import main.** `app/src/core/**` is Electron-free (ADR-002 §2.4). For ULID generation in tests, inline a small Crockford-base32 helper using `node:crypto.randomBytes` instead of importing `main/ids.ts`. The existing `testUlid` from `core/test-helpers.ts` is fine when determinism is needed; use the inline `newUlid()` when uniqueness across hundreds of events matters.
+- **Nonce extraction from on-disk format.** `{"id":"...","c":"<base64>"}` — the first 24 bytes of the base64-decoded `c` field is the XChaCha20 nonce. Hex-encode it before adding to a Set for de-dup-checking; `Buffer.equals` doesn't work with `Set`.
+- **Pre-existing flake:** `app/src/renderer/components/onboarding/RecoveryCodeInput.test.tsx` — 5 tests inside pass cleanly; a post-teardown timer warning causes the suite to exit 1 intermittently. Unrelated to encryption work. Worth a separate cleanup ticket (likely a `vi.useFakeTimers` / `await` missing in the userEvent setup).
+
