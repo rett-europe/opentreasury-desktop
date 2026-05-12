@@ -8,7 +8,7 @@ import { defineConfig } from '@playwright/test';
  * package.json (name → opentreasury-desktop) and resolves userData correctly.
  *
  * Prerequisites:
- *   npm run build          — produces dist/main/index.js + dist/renderer/
+ *   npm run build          — produces dist/main/index.cjs + dist/renderer/
  *   npm run build:preload  — produces dist/preload/index.cjs
  *   (vite build already covers all three via vite-plugin-electron)
  *
