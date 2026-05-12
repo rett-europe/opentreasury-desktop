@@ -122,6 +122,19 @@ npx electron-builder --config electron-builder.yml --prepackaged out\win-unpacke
 - **Deliverable:** Pass/fail + findings (no production code)
 - **Timeline:** Pre-flight (complete before #1 filed)
 
+---
+
+### 2026-05-12 — Build & Installer Workflow Learning
+
+**Context:** During spec-026 testing, Pedro's session reinstalled the app with an OLD installer because `npm run build` was run (thinking it would regenerate the installer).
+
+**Key Finding:**
+- `npm run build` rebuilds **only dist/** (Vite transpile of src/ → dist/renderer, dist/main, dist/preload)
+- Installer regeneration requires `npm run package` (which invokes electron-builder, which creates out/win-unpacked and NSIS .exe)
+- **Consequence:** Every downstream agent touching the build flow (Trinity, Switch) should know this distinction
+
+**Propagated to:** Morpheus history (this file) for reference when working on CI/build processes.
+
 **Morpheus's full 8-issue scope (locked in `.squad/decisions.md`):**
 - **#0** OneDrive sync spike (S) → Pre-flight
 - **#1** Crypto core (L, with Switch review) → M1 (depends #0 pass)
