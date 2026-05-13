@@ -44,17 +44,25 @@ describe('detectWorkspaceState', () => {
     const result = await detectWorkspaceState(path.join(tmpDir, 'nonexistent'), DEVICE_A, true);
     expect(result.state).toBe('fresh');
     expect(result.hasDeviceWrap).toBe(false);
+    expect(result.hadLegacyFile).toBe(false);
   });
 
   it('returns fresh when folder is empty', async () => {
     const result = await detectWorkspaceState(tmpDir, DEVICE_A, true);
     expect(result.state).toBe('fresh');
+    expect(result.hadLegacyFile).toBe(false);
   });
 
-  it('returns migration when events.ndjson exists and no events.key', async () => {
+  it('returns fresh with hadLegacyFile=true when only legacy events.ndjson exists', async () => {
+    // SPEC-026 cleanup (.squad/decisions.md D2 / Pedro directive 2026-05-13):
+    // the legacy unencrypted format is no longer supported. A stray events.ndjson
+    // must NOT route to a migration screen — it collapses into fresh-setup,
+    // with hadLegacyFile surfaced so the UI can warn the user the file will
+    // be ignored.
     await fs.writeFile(path.join(tmpDir, 'events.ndjson'), '{}');
     const result = await detectWorkspaceState(tmpDir, DEVICE_A, true);
-    expect(result.state).toBe('migration');
+    expect(result.state).toBe('fresh');
+    expect(result.hadLegacyFile).toBe(true);
   });
 
   it('returns fresh when only device files exist (partial state — no key)', async () => {

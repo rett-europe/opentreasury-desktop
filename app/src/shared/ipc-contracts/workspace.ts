@@ -16,11 +16,12 @@ import { z } from 'zod';
 export const IPC_WORKSPACE_DETECT = 'workspace:detect';
 
 export const workspaceStateSchema = z.enum([
-  'fresh', // No events.key, no events-*.ndjson — first-run setup
+  'fresh', // No events.key, no events-*.ndjson — first-run setup (also returned
+  //                   for folders containing only a stray legacy events.ndjson;
+  //                   see hadLegacyFile on the detect response).
   'join', // events.key exists, this deviceId NOT in devices[]
   'unlock', // events.key exists, this deviceId in devices[], safeStorage works
   'recovery', // events.key exists, this deviceId in devices[], safeStorage fails
-  'migration', // Legacy events.ndjson (single file) exists, no events.key
 ]);
 
 export type WorkspaceState = z.infer<typeof workspaceStateSchema>;
@@ -38,6 +39,12 @@ export const workspaceDetectResponseSchema = z.discriminatedUnion('ok', [
     state: workspaceStateSchema,
     /** Current workspace folder path, if any */
     folderPath: z.string().optional(),
+    /**
+     * SPEC-026 cleanup — true when the folder contains a stray legacy
+     * unencrypted `events.ndjson`. Only meaningful when `state === 'fresh'`;
+     * the FreshSetupFlow footer surfaces a one-line hint when set.
+     */
+    hadLegacyFile: z.boolean().optional(),
   }),
   z.object({
     ok: z.literal(false),

@@ -1,7 +1,7 @@
 // SPEC-026 #301 — Workspace lifecycle IPC handlers.
 //
 // Implements the 7 workspace channels defined in shared/ipc-contracts/workspace.ts:
-//   workspace:detect        — 5-state detection (fresh|join|unlock|recovery|migration)
+//   workspace:detect        — 4-state detection (fresh|join|unlock|recovery)
 //   workspace:create        — fresh setup: generate MK + 12-word mnemonic
 //   workspace:confirmSetup  — persist MK after user confirms 3 challenge words
 //   workspace:enroll        — join an existing workspace via recovery code
@@ -321,7 +321,7 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
       );
       // Track the folder path so unlock/recover can use it without re-passing.
       setLastDetectedFolderPath(folderPath);
-      return { ok: true, state: result.state, folderPath };
+      return { ok: true, state: result.state, folderPath, hadLegacyFile: result.hadLegacyFile };
     } catch (err) {
       return makeErrorResponse('detection_failed', (err as Error).message);
     }
