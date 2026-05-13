@@ -68,6 +68,9 @@ export function App(): JSX.Element {
   type WorkspaceRoutingState = WorkspaceState | 'ready';
   const [workspaceStatus, setWorkspaceStatus] = useState<WorkspaceRoutingState | null>(null);
   const [workspaceFolderPath, setWorkspaceFolderPath] = useState<string | undefined>(undefined);
+  // SPEC-026 cleanup — surfaced to FreshSetupFlow so it can show a quiet hint
+  // when the chosen folder still contains a stray legacy `events.ndjson`.
+  const [workspaceHadLegacyFile, setWorkspaceHadLegacyFile] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +123,7 @@ export function App(): JSX.Element {
 
           const { state, folderPath } = detectResult;
           setWorkspaceFolderPath(folderPath);
+          setWorkspaceHadLegacyFile(detectResult.hadLegacyFile === true);
 
           if (state === 'unlock') {
             // Attempt silent unlock via safeStorage. On failure, route to recovery.
@@ -222,7 +226,12 @@ export function App(): JSX.Element {
   }
 
   if (workspaceStatus === 'fresh') {
-    return <FreshSetupFlow onComplete={() => setWorkspaceStatus('ready')} />;
+    return (
+      <FreshSetupFlow
+        hadLegacyFile={workspaceHadLegacyFile}
+        onComplete={() => setWorkspaceStatus('ready')}
+      />
+    );
   }
 
   if (workspaceStatus === 'join') {

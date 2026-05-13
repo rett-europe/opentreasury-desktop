@@ -4,9 +4,14 @@ import './FreshSetupFlow.css';
 
 interface FolderPickerScreenProps {
   onNext: (folderPath: string) => void;
+  /**
+   * SPEC-026 cleanup — when true, render a quiet hint that a legacy
+   * unencrypted file was found in the chosen folder and will be ignored.
+   */
+  hadLegacyFile?: boolean;
 }
 
-export function FolderPickerScreen({ onNext }: FolderPickerScreenProps) {
+export function FolderPickerScreen({ onNext, hadLegacyFile = false }: FolderPickerScreenProps) {
   const { t } = useTranslation('common');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +75,12 @@ export function FolderPickerScreen({ onNext }: FolderPickerScreenProps) {
             </button>
           )}
         </div>
+
+        {hadLegacyFile && (
+          <p className="ot-onboarding-screen__footer-note">
+            {t('onboarding.encryption.folder.legacy_file_hint')}
+          </p>
+        )}
       </div>
     </div>
   );
