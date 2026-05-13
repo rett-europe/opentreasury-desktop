@@ -58,6 +58,10 @@ See `.squad/decisions/inbox/keaton-encryption-ngo-refined.md`.
 
 ## Learnings
 
+### 2026-05-13: Legacy workspace format — full removal, no escape hatch
+
+Pedro called the legacy ndjson migration path dead, and the correct architectural response is to actually delete it — script, MigrationScreen, detection state, and stale docs — not to keep it as an "undocumented escape hatch." The detection state collapses cleanly from 5 → 4 (legacy folder → fresh-setup), and the dev-seed bug (re-poisoning fresh dev workspaces with plaintext ndjson) is best fixed by routing dev-seed through the production `EncryptedMultiDeviceEventLog` with a deterministic dev recovery code, so every dev launch exercises the real crypto path. The biggest hidden cost of the directive is documentation drift: PR #324 added the new encrypted-workspace section but the older "Backing Up Your Data" and "Encryption planned for v1" sections in `user-guide.{md,es.md}` now actively lie to users — those have to be rewritten in the same change set, not left for later.
+
 ### 2026-05-10: Multi-user pivot — single-device assumption invalidated
 
 **What broke:** The entire SPEC-026 design (and my keaton-encryption-ngo-refined.md proposal) assumed single-device, single-user. Pedro's directive made multi-user shared workspace (2–5 users, cloud-synced folder) a HARD requirement from day one. No phasing allowed — "single-device first, multi-user later" is explicitly rejected.

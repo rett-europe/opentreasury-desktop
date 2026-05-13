@@ -27,17 +27,6 @@
 //   "created_at":     "2026-05-12T11:59:59.000Z"
 // }
 //
-// Key file v1 (legacy single-device pre multi-user redesign) — modeled here
-// for forward-compat / migration only. Field shape:
-// {
-//   "version": 1,
-//   "wrap_safestorage": "...",
-//   "wrap_recovery":    "...",
-//   "salt":             "...",
-//   "argon2_params":    { ... },
-//   "created_at":       "..."
-// }
-//
 // Design notes:
 // - Pure-Node (no Electron import): the safeStorage KEK is provided by the
 //   main-process layer; this module only manipulates already-wrapped material.
@@ -45,7 +34,7 @@
 //   recovery wrap). They are persisted inside `events.key` so a future
 //   tuning of `DEFAULT_ARGON2_PARAMS` does not invalidate older workspaces.
 // - Atomic writes: `tmp → fsync → rename` per ADR-001 C8 and the SPEC-026
-//   crash-safety contract (§3.3 of the migration spec).
+//   crash-safety contract (§3.3 of the spec).
 
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
@@ -72,12 +61,9 @@ const deviceWrapSchema = z.object({
   wrap_safestorage: z.string().min(1),
   enrolled_at: z.string().datetime(),
   /**
-   * Set to `true` only on device entries written by the one-shot migration
-   * script (`scripts/migrate-workspace.mjs`). Indicates that `wrap_safestorage`
-   * is NOT OS-encrypted material -- it contains the same ciphertext as
-   * `wrap_recovery` as a structural placeholder. Code that reads this entry
-   * MUST NOT call `safeStorage.decryptString()` on it; instead route to the
-   * re-enroll flow. Absent on all normal (app-created) device entries.
+   * Legacy field (deprecated since trial.3.8). No longer populated by the app.
+   * Kept for forward-compat with any legacy v2 key files that may exist.
+   * If present, indicates the entry uses recovery-wrap-only (no safeStorage).
    */
   migration_placeholder: z.boolean().optional(),
 });

@@ -14,6 +14,7 @@
 
 import { app } from 'electron';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import * as fs from 'node:fs/promises';
 import { JsonFileEventLog } from '../core/eventLog/index.js';
 import type { EventLog, DomainEvent } from '../core/eventLog/index.js';
@@ -535,26 +536,82 @@ async function initializeAppUnsafe(): Promise<void> {
     return;
   }
 
-  const innerLog = new JsonFileEventLog({ dir });
+  // SPEC-026 cleanup (.squad/decisions.md D3 / Pedro directive 2026-05-13):
+  // when seeding is enabled AND the folder is genuinely empty, route the dev
+  // seed through the production EncryptedMultiDeviceEventLog write path so
+  // every dev launch exercises real crypto. The old behavior (plaintext
+  // events.ndjson) re-poisoned empty workspaces and forced MigrationScreen on
+  // every relaunch — that legacy state no longer exists; this is what
+  // replaces it.
+  let entriesAtDir: string[] = [];
+  try {
+    entriesAtDir = await fs.readdir(dir);
+  } catch {
+    /* folder may not exist yet — empty by definition for our purposes */
+  }
+  const DEVICE_FILE_RE = /^events-[0-9A-HJKMNP-TV-Z]{26}\.ndjson$/;
+  const folderHasAnyEventArtifact =
+    entriesAtDir.includes('events.ndjson') ||
+    entriesAtDir.includes('events.key') ||
+    entriesAtDir.some((f) => DEVICE_FILE_RE.test(f));
 
-  // P1-3: Wrap in read-only proxy when appConfig.readOnly === true
-  const log = appConfigInstance.readOnly ? createReadOnlyEventLog(innerLog) : innerLog;
+  if (!folderHasAnyEventArtifact && shouldSeed(app.isPackaged)) {
+    // Dynamic import keeps the dev-seed module (and its DEV_RECOVERY_MNEMONIC)
+    // out of the static import graph; the devKey.ts module also throws at
+    // load if NODE_ENV === 'production' (defense in depth).
+    const { seedEncryptedDevWorkspace } = await import('./devSeed/seedEncryptedWorkspace.js');
+    const { safeStorage } = await import('electron');
 
-  let events = await log.load();
-
-  if (events.length === 0 && shouldSeed(app.isPackaged)) {
     const seedEvents = buildDevSeedEvents({
       datasetId: datasetIdInstance,
       actorDeviceId: deviceIdInstance,
       actorUserId: profileInstance?.userId ?? fakeUlid('USER01'),
     });
-    for (const evt of seedEvents) {
-      await log.append(evt);
-    }
-    events = await log.load();
+
+    const safeStorageAvailable = (() => {
+      try {
+        return safeStorage.isEncryptionAvailable();
+      } catch {
+        return false;
+      }
+    })();
+
+    const { mk, log: encryptedLog } = await seedEncryptedDevWorkspace(
+      {
+        dir,
+        deviceId: deviceIdInstance,
+        hostname: os.hostname(),
+        safeStorageAvailable,
+        safeStorageEncrypt: (plaintext: string) => safeStorage.encryptString(plaintext),
+      },
+      seedEvents,
+    );
+
+    const eventsAfterSeed = await encryptedLog.load();
+    replayEvents(eventsAfterSeed as DomainEvent[]);
+
+    eventLogInstance = encryptedLog;
+    bootstrapped = true;
+    encryptedWorkspacePending = false;
+
+    // Wipe our copy of the MK — the log holds its own copy internally.
+    mk.fill(0);
+
     // eslint-disable-next-line no-console
-    console.log(`[bootstrap] dev-seed wrote ${seedEvents.length} events to ${dir} (first run)`);
-  } else if (events.length === 0) {
+    console.log(
+      `[bootstrap] dev-seed wrote ${seedEvents.length} encrypted events to ${dir} (first run)`,
+    );
+    return;
+  }
+
+  const innerLog = new JsonFileEventLog({ dir });
+
+  // P1-3: Wrap in read-only proxy when appConfig.readOnly === true
+  const log = appConfigInstance.readOnly ? createReadOnlyEventLog(innerLog) : innerLog;
+
+  const events = await log.load();
+
+  if (events.length === 0) {
     // eslint-disable-next-line no-console
     console.log(`[bootstrap] starting with empty event log at ${dir} (seed suppressed)`);
   }

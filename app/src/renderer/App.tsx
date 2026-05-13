@@ -11,12 +11,7 @@ import { PanelScreen } from './screens/PanelScreen/index.js';
 import { SaldoScreen } from './screens/SaldoScreen/index.js';
 import { PreferencesScreen } from './screens/PreferencesScreen/index.js';
 import { BootErrorPage, type BootErrorDetails } from './screens/BootErrorPage/index.js';
-import {
-  FreshSetupFlow,
-  JoinFlow,
-  RecoveryFlow,
-  MigrationScreen,
-} from './screens/onboarding/index.js';
+import { FreshSetupFlow, JoinFlow, RecoveryFlow } from './screens/onboarding/index.js';
 import type { WorkspaceState } from '../shared/ipc-contracts/workspace.js';
 import { thisYear } from './utils/datePresets.js';
 
@@ -241,10 +236,6 @@ export function App(): JSX.Element {
 
   if (workspaceStatus === 'recovery') {
     return <RecoveryFlow onComplete={() => setWorkspaceStatus('ready')} />;
-  }
-
-  if (workspaceStatus === 'migration') {
-    return <MigrationScreen folderPath={workspaceFolderPath} />;
   }
 
   // workspaceStatus === 'ready' (or 'unlock' during silent-unlock, which always
