@@ -210,3 +210,10 @@ All analysis in .squad/decisions/decisions.md under three new sections:
 - Tone: Friendly, concrete, patient. No jargon (no "escrow", "crypto", "IPC", "AEAD" in user prose; only in security/technical sections).
 - Audience: NGO admins, treasurers, non-technical coordinators. Assume PC/Windows literacy but not technical depth.
 - Structure: Single file, not split across multiple pages (single-doc posture for trial phase simplicity).
+
+
+### 2026-05-12 — SPEC-026 ship gate: Argon2id spec/code drift (Switch verdict)
+
+**Action item for Oracle/Niobe:** docs/specs/026-encryption-at-rest.md §4.1 documents Argon2id 	=3, but shipped code uses 	=4. The persisted rgon2_params in vents.key are correct, so encrypted workspaces in the field are unaffected — **doc-only fix**. Switch flagged as a Medium non-blocking follow-up in PR #321 (SPEC-026 security review). Update the spec to 	=4 (or revert code to 	=3 after a fresh benchmark — Switch is fine either way as long as spec and code agree).
+
+Full context: .squad/decisions/decisions.md § "Decision: SPEC-026 (#306) — Ship Gate Cleared", and .squad/orchestration-log/20260512T185035Z-switch.md.

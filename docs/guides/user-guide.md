@@ -24,14 +24,121 @@ Welcome to OpenTreasury Desktop! This guide will walk you through your first ses
 
 ## Table of Contents
 
-1. [First Launch: Profile Setup](#first-launch-profile-setup)
-2. [Dashboard: Your 90-Day Overview](#dashboard-your-90-day-overview)
-3. [Adding a Transaction](#adding-a-transaction)
-4. [Saldo: Your Category Balances](#saldo-your-category-balances)
-5. [Movements: Transaction List and Filtering](#movements-transaction-list-and-filtering)
-6. [Insights: Trends and Category Breakdowns](#insights-trends-and-category-breakdowns)
-7. [Settings: Data Folder and Read-Only Mode](#settings-data-folder-and-read-only-mode)
-8. [Backing Up Your Data](#backing-up-your-data)
+1. [Getting Started: Your Encrypted Workspace](#getting-started-your-encrypted-workspace)
+2. [First Launch: Profile Setup](#first-launch-profile-setup)
+3. [Dashboard: Your 90-Day Overview](#dashboard-your-90-day-overview)
+4. [Adding a Transaction](#adding-a-transaction)
+5. [Saldo: Your Category Balances](#saldo-your-category-balances)
+6. [Movements: Transaction List and Filtering](#movements-transaction-list-and-filtering)
+7. [Insights: Trends and Category Breakdowns](#insights-trends-and-category-breakdowns)
+8. [Settings: Data Folder and Read-Only Mode](#settings-data-folder-and-read-only-mode)
+9. [Backing Up Your Data](#backing-up-your-data)
+
+---
+
+## Getting Started: Your Encrypted Workspace
+
+The very first time you open OpenTreasury Desktop, the app walks you through three short screens before you ever see the dashboard: **choose a folder**, **write down a 12-word recovery code**, and **confirm a few of those words**. After that, you're done — the app unlocks itself silently every day from then on.
+
+This section explains those screens for the **first person** setting up a new treasury workspace. If you're joining a workspace someone else already created (for example, another board member set it up and shared a code with you), skip ahead to [Joining a Workspace from a Second Device](#joining-a-workspace-from-a-second-device).
+
+> ⚠️ **Write down the 12 words on paper. Keep that paper safe.**  
+> The OpenTreasury team **cannot recover them for you.** If everyone with the recovery code loses it, the workspace cannot be opened again — by design. There is no backdoor.
+
+### Step 1 — Choose where your data lives
+
+The first screen is titled **"Where should OpenTreasury store your data?"**. Click **Choose Folder…** and pick a folder on your computer.
+
+A few rules of thumb:
+
+- **If you'll share the workspace with other board members or use it from more than one computer**, pick a folder inside **OneDrive**, **SharePoint**, **Dropbox**, or **Google Drive**. The cloud provider will sync that folder to every other device that signs in — that's how a second board member sees the same transactions you do.
+- **If only you will ever use this workspace**, a normal local folder (e.g., `Documents\OpenTreasury`) is fine.
+- The folder can be empty (new workspace) or already contain a workspace from a previous install.
+
+Click **Continue** once the folder is selected.
+
+> **Tip:** A synced folder (OneDrive/Dropbox/etc.) is what lets a second device see the same workspace. Each device still keeps its own copy of the data — the cloud provider just keeps them in sync.
+
+### Step 2 — Your 12-word recovery code
+
+The next screen is titled **"Your data, encrypted and shared securely."**. It shows **12 English words** in a numbered grid (1 through 12).
+
+These 12 words are your **recovery code**. They are the only way to open this workspace if:
+
+- You sign in to a different Windows account.
+- You move to a new computer.
+- Your computer is lost, stolen, or reset.
+- Another board member wants to join the workspace from their own computer.
+
+#### What to do, exactly
+
+1. **Write the 12 words on paper, in order.** Number them 1 to 12. The order matters — "word 3 then word 4" is not the same as "word 4 then word 3".
+2. **Store the paper somewhere safe** — the same place you'd keep a passport copy, a will, or a safe-deposit key. Not taped to the laptop. Not in the same bag as the laptop.
+3. **If you share the workspace with other board members, share the same 12 words with them** through a channel you trust (in person, encrypted message, sealed envelope). They will need them to join from their own device.
+4. The app also offers **Print** and **Save as PDF** buttons. If you use either, treat the printout or PDF the same way you'd treat the paper — it's the key to your treasury.
+5. When you've written them down, click **I've written it down**.
+
+> ⚠️ **Write down these 12 words. The OpenTreasury team cannot recover them for you.**  
+> Anyone who has the 12 words can open the workspace. Anyone who loses them, and has no one else to ask, cannot. That's the trade-off that keeps your treasury private from cloud providers and thieves.
+
+### Step 3 — Confirm a few of the words
+
+The next screen is titled **"Confirm your recovery code"**. It asks you to type **3 of the 12 words** at specific positions (for example, "word 2", "word 7", "word 11").
+
+This is **not a test**. It's the app making sure you actually wrote the words down before you walk away from this screen. If you can't fill them in, go back, look at your paper, and try again.
+
+Once you enter the three words correctly and click **Continue**, the app sets up your encrypted workspace. You'll see a brief **"Your workspace is encrypted."** confirmation screen, then continue to the **Profile Setup** screen described in the next section.
+
+### Day-to-day after setup
+
+Once the workspace is set up, you **don't need to enter the 12 words every day**. When you sign in to Windows and open OpenTreasury, the app unlocks silently in the background — just like any other app.
+
+You will only be asked for the 12-word recovery code again if:
+
+- You sign in with a different Windows account on the same computer.
+- You install OpenTreasury on a new computer.
+- Windows is reinstalled, or your user profile is reset.
+
+In all those cases, enter the 12 words once, and the app will go back to silent unlock from then on.
+
+### Joining a workspace from a second device
+
+If another board member has already set up the workspace and shared the 12 words with you, joining is straightforward:
+
+1. **On the new computer**, install OpenTreasury Desktop the normal way.
+2. Open the app. On the **"Where should OpenTreasury store your data?"** screen, choose the **same shared folder** the first device uses (for example, the same OneDrive folder both of you have access to).
+3. The app detects an existing workspace and shows the **"Join an existing workspace"** screen.
+4. In **Recovery code (12 words)**, type the 12 words exactly as they were given to you, in order, separated by spaces.
+5. Give this computer a friendly name when prompted (e.g., "Pablo's laptop"). This just helps you tell devices apart later.
+6. Click **Join**.
+
+After a moment, you'll see **"You're in."** and continue to the dashboard. From now on, both devices see the same transactions, and edits made on one device sync to the other through the shared folder. Each device unlocks silently after the first time.
+
+### If you lose access
+
+| What happened | What to do |
+|---|---|
+| **You still have the 12-word paper, but lost the computer or got a new one.** | Install OpenTreasury on the new computer. Point it at the shared workspace folder (or restore the folder from your cloud provider's backup). Enter the 12 words once on the **Join** screen. You're back in. |
+| **You forgot or lost the 12-word paper, but another board member still has it.** | Ask them. The recovery code is shared across the whole board — anyone who has it can give it to anyone who needs it. |
+| **Everyone with the recovery code has lost it.** | The workspace is **unrecoverable**. This is by design — there is no backdoor and no support line that can reset it. If you have a manual export from before, restore from that. Otherwise, you'll need to start a new workspace. |
+
+This is why writing the words on paper, and keeping that paper somewhere safe, is the single most important thing you do during setup.
+
+### What encryption protects (and what it doesn't)
+
+**Encryption protects you from:**
+
+- Someone who steals your laptop. Without the recovery code or your Windows password, they cannot read your treasury data.
+- The cloud provider (OneDrive, Dropbox, Google Drive) being compromised. The files in the shared folder are scrambled — useless without the 12 words.
+- Another person who uses the same computer under a **different** Windows account. They can't open your workspace from their account.
+
+**Encryption does NOT protect against:**
+
+- Someone using your computer while you are signed in to Windows. To them, the app looks unlocked. **Lock your screen when you step away.**
+- Malware running on your computer while you're using it.
+- Anyone you give the 12 words to. The recovery code is the keys to the workspace — share it like you'd share keys to a safe.
+
+If you'd like a deeper write-up of the security model, see [SPEC-026 — Encryption at Rest](../specs/026-encryption-at-rest.md) (for the technically curious — the body of this guide is the friendly version).
 
 ---
 
