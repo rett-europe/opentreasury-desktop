@@ -1325,7 +1325,8 @@
         "title": "¿Dónde debe OpenTreasury guardar tus datos?",
         "body": "Elige una carpeta para tu espacio de trabajo. Si planeas compartir con otros miembros de la junta, elige una carpeta dentro de OneDrive o una unidad compartida.",
         "btn_choose": "Elegir carpeta…",
-        "continue": "Continuar"
+        "continue": "Continuar",
+        "legacy_file_hint": "Se encontró un archivo sin cifrar en esta carpeta y se ignorará. Muévelo o elimínalo si ya no lo necesitas."
       },
       "show": {
         "title": "Tus datos, cifrados y compartidos de forma segura.",
@@ -1364,13 +1365,6 @@
         "continue": "Ir al panel"
       },
       "folder_label": "Carpeta:"
-    },
-    "migration": {
-      "title": "Este espacio de trabajo necesita migración",
-      "body": "Este espacio de trabajo usa el formato sin cifrar antiguo. Ejecuta el script de migración desde una terminal y vuelve a abrir la aplicación.",
-      "command_label": "Comando:",
-      "folder_label": "Carpeta:",
-      "footer": "Cuando termine la migración, vuelve a abrir OpenTreasury para continuar."
     }
   },
   "recovery": {

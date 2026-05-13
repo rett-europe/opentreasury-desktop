@@ -1326,7 +1326,8 @@
         "title": "Where should OpenTreasury store your data?",
         "body": "Choose a folder for your treasury workspace. If you plan to share with other board members, pick a folder inside OneDrive or a shared drive.",
         "btn_choose": "Choose Folder…",
-        "continue": "Continue"
+        "continue": "Continue",
+        "legacy_file_hint": "An unencrypted file was found in this folder and will be ignored. Move or delete it if you no longer need it."
       },
       "show": {
         "title": "Your data, encrypted and shared securely.",
@@ -1365,13 +1366,6 @@
         "continue": "Continue to Dashboard"
       },
       "folder_label": "Folder:"
-    },
-    "migration": {
-      "title": "Workspace needs migration",
-      "body": "This workspace uses the legacy unencrypted format. Run the migration script from a terminal, then relaunch the app.",
-      "command_label": "Command:",
-      "folder_label": "Folder:",
-      "footer": "After migration completes, relaunch OpenTreasury to continue."
     }
   },
   "recovery": {

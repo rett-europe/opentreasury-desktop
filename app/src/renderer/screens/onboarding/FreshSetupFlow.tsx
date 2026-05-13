@@ -8,6 +8,12 @@ type Step = 'folder' | 'display' | 'confirm' | 'complete';
 
 interface FreshSetupFlowProps {
   onComplete: () => void;
+  /**
+   * SPEC-026 cleanup — when true, the folder picker step shows a quiet
+   * footer hint informing the user that a stray plaintext `events.ndjson`
+   * was detected in the workspace folder and will be ignored.
+   */
+  hadLegacyFile?: boolean;
 }
 
 /**
@@ -20,7 +26,7 @@ interface FreshSetupFlowProps {
  * State semantics (AC3): MK is generated lazily but NOT persisted until confirm passes.
  * If user closes app before Screen 3, MK is discarded on next launch.
  */
-export function FreshSetupFlow({ onComplete }: FreshSetupFlowProps) {
+export function FreshSetupFlow({ onComplete, hadLegacyFile = false }: FreshSetupFlowProps) {
   const [step, setStep] = useState<Step>('folder');
   const [, setFolderPath] = useState<string | null>(null);
   const [mnemonic, setMnemonic] = useState<string | null>(null);
@@ -111,7 +117,7 @@ export function FreshSetupFlow({ onComplete }: FreshSetupFlowProps) {
 
   switch (step) {
     case 'folder':
-      return <FolderPickerScreen onNext={handleFolderNext} />;
+      return <FolderPickerScreen onNext={handleFolderNext} hadLegacyFile={hadLegacyFile} />;
     case 'display':
       return mnemonic ? (
         <RecoveryCodeDisplayScreen mnemonic={mnemonic} onNext={handleDisplayNext} />
