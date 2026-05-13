@@ -390,12 +390,12 @@ _**Figura 7:** La pantalla Configuración muestra tu ruta de carpeta de datos ac
 
 ### Ubicación de carpeta de datos
 
-La fila **Carpeta de datos** muestra dónde se almacenan tus datos de transacciones. Esta es la carpeta que contiene tu archivo `events.ndjson` (el registro en texto plano de todas tus transacciones).
+La fila **Carpeta de datos** muestra dónde se almacenan tus datos de transacciones. Esta carpeta contiene archivos de eventos cifrados: un archivo `events-{deviceId}.ndjson` por dispositivo (por ejemplo, `events-laptop-maria.ndjson`), más un archivo compartido `events.key` que contiene la clave de cifrado (envuelta para almacenamiento seguro).
 
 - **Ruta actual:** Verás algo como `C:\Users\maria\OneDrive - Casa Esperanza\Treasury`. Esta es la carpeta que elegiste durante la configuración (o que cambiaste después).
 - **Botón de cambio:** Haz clic en **Cambiar** para elegir una carpeta diferente. Se abre un selector de carpetas. Navega a tu nueva ubicación, haz clic en Aceptar, y la aplicación se reinicia con la nueva carpeta.
 
-> **Importante:** Si cambias tu carpeta de datos, estás cambiando a un conjunto de datos diferente. Cualquier transacción en tu carpeta antigua no aparecerá en la nueva carpeta a menos que copies el archivo `events.ndjson` sobre. Para la mayoría de las ONG, estableces esto una vez durante la configuración de prueba y no lo cambias nuevamente. Consulta la [guía de implantación en prueba](./trial-deployment.md) para detalles sobre carpetas compartidas y configuración de OneDrive.
+> **Importante:** Si cambias tu carpeta de datos, estás cambiando a un conjunto de datos diferente. Cualquier transacción en tu carpeta antigua no aparecerá en la nueva carpeta a menos que copies la carpeta de espacio de trabajo completa (todos los archivos `events-*.ndjson` y `events.key`). Para la mayoría de las ONG, estableces esto una vez durante la configuración y no lo cambias nuevamente. Consulta la [guía de implantación en prueba](./trial-deployment.md) para detalles sobre carpetas compartidas y configuración de OneDrive.
 
 ### Modo de solo lectura
 
@@ -437,7 +437,11 @@ En la parte superior de la pantalla Configuración, verás:
 
 ## Copia de seguridad de tus datos
 
-Tus datos de transacciones se almacenan en un único archivo llamado **`events.ndjson`**, ubicado en la carpeta de datos que elegiste durante la configuración. Este archivo contiene cada transacción que hayas registrado alguna vez, en orden cronológico, como un registro en texto plano.
+Tus datos de transacciones se almacenan como un conjunto de archivos cifrados en la carpeta de datos que elegiste durante la configuración:
+- Un archivo **`events-{deviceId}.ndjson`** por dispositivo (por ejemplo, `events-laptop-maria.ndjson`), que contiene las transacciones registradas en ese dispositivo, cifradas en reposo.
+- Un archivo compartido **`events.key`** que contiene la clave de cifrado envuelta.
+
+Todas las transacciones, cuentas, categorías y etiquetas se almacenan cifradas en estos archivos.
 
 ### Dónde encontrar tu archivo de datos
 
@@ -445,18 +449,18 @@ Tus datos de transacciones se almacenan en un único archivo llamado **`events.n
 2. Mira la fila **Carpeta de datos**. Verás una ruta como:
    - `C:\Users\maria\OneDrive - Casa Esperanza\Treasury`
 3. Abre esa carpeta en Explorador de archivos (Windows) o Finder (Mac).
-4. Verás un archivo llamado **`events.ndjson`**.
+4. Verás archivos llamados **`events-{deviceId}.ndjson`** (uno por dispositivo, por ejemplo, `events-laptop-maria.ndjson`), y un archivo llamado **`events.key`**.
 
-Ese es todo tu conjunto de datos. Cada transacción, cuenta, categoría y etiqueta está en ese archivo.
+Juntos, estos archivos conforman todo tu conjunto de datos.
 
 ### Cómo hacer copia de seguridad de tus datos
 
 **Opción 1: Copia de seguridad automática de OneDrive (recomendada)**
 
 Si tu carpeta de datos está en **OneDrive para Empresas** o **SharePoint**, tus datos ya están respaldados automáticamente:
-- OneDrive sincroniza el archivo a la nube cada vez que cambia.
-- Tú (y tus compañeros) pueden acceder al mismo archivo desde cualquier laptop.
-- OneDrive mantiene histórico de versiones, así que si algo sale mal, puedes restaurar una versión anterior del archivo.
+- OneDrive sincroniza todos los archivos del espacio de trabajo (los archivos `events-*.ndjson` y `events.key`) a la nube cada vez que cambian.
+- Tú (y tus compañeros) pueden acceder al mismo espacio de trabajo desde cualquier laptop.
+- OneDrive mantiene histórico de versiones, así que si algo sale mal, puedes restaurar versiones anteriores de los archivos.
 
 **No se requiere trabajo adicional.** Solo asegúrate de que OneDrive está sincronizando correctamente (verifica el ícono de OneDrive en tu bandeja de sistema).
 
@@ -465,25 +469,26 @@ Si tu carpeta de datos está en **OneDrive para Empresas** o **SharePoint**, tus
 Si tu carpeta de datos está en tu disco duro local (no OneDrive), o si deseas una copia de seguridad adicional:
 
 1. Navega a tu carpeta de datos (ver arriba).
-2. **Copia** el archivo `events.ndjson` a una ubicación segura:
+2. **Copia la carpeta de espacio de trabajo completa** a una ubicación segura:
    - Una unidad USB externa
    - Una carpeta diferente en tu ordenador (por ejemplo, `Documentos\Copias de seguridad de tesorería`)
    - Un servicio de almacenamiento en la nube como Dropbox o Google Drive (si tu organización lo permite)
-3. Renombra la copia con una fecha (por ejemplo, `events-backup-2026-05-31.ndjson`) para que sepas cuándo la hiciste.
-4. Repite esto semanalmente o mensualmente, según la tolerancia al riesgo de tu ONG.
+3. Incluye todos los archivos `events-*.ndjson` y el archivo `events.key`.
+4. Renombra la copia de la carpeta con una fecha (por ejemplo, `Treasury-backup-2026-05-31`) para que sepas cuándo la hiciste.
+5. Repite esto semanalmente o mensualmente, según la tolerancia al riesgo de tu ONG.
 
-> **Consejo:** Si estás en OneDrive, también puedes descargar una copia de `events.ndjson` desde la interfaz web de OneDrive. Inicia sesión en [onedrive.com](https://onedrive.com), navega a tu carpeta de tesorería, haz clic derecho en el archivo y elige "Descargar". Esto te da una copia sin conexión en tu laptop.
+> **Consejo:** Si estás en OneDrive, también puedes descargar una copia de la carpeta de espacio de trabajo completa desde la interfaz web de OneDrive. Inicia sesión en [onedrive.com](https://onedrive.com), navega a tu carpeta de tesorería, selecciona todos los archivos y carpetas, y elige "Descargar". Esto te da una copia sin conexión en tu laptop.
 
 ### Restaurar desde una copia de seguridad
 
-Si pierdes tus datos (por ejemplo, eliminas accidentalmente el archivo `events.ndjson`, o tu laptop se bloquea):
+Si pierdes tus datos (por ejemplo, eliminas accidentalmente archivos del espacio de trabajo, o tu laptop se bloquea):
 
 1. Ve a tu ubicación de copia de seguridad (unidad USB, histórico de versiones de OneDrive, etc.).
-2. Copia el archivo de copia de seguridad en tu carpeta de datos.
-3. Renómbralo como `events.ndjson` (elimina el sufijo de fecha si lo agregaste).
+2. Copia la carpeta de espacio de trabajo de copia de seguridad completa en tu ubicación de datos.
+3. Asegúrate de que todos los archivos `events-*.ndjson` y el archivo `events.key` estén presentes.
 4. Reinicia OpenTreasury Desktop. La aplicación cargará los datos restaurados.
 
-> **Histórico de versiones de OneDrive:** Si estás en OneDrive y no hiciste una copia de seguridad manual, puedes restaurar una versión anterior del archivo. Haz clic derecho en `events.ndjson` en Explorador de archivos, elige "Histórico de versiones", y elige una fecha anterior al problema. OneDrive mantiene versiones durante 30 días (o más, según la configuración de tu organización).
+> **Histórico de versiones de OneDrive:** Si estás en OneDrive y no hiciste una copia de seguridad manual, puedes restaurar versiones anteriores de los archivos del espacio de trabajo. Haz clic derecho en cualquier archivo `events-*.ndjson` o `events.key` en Explorador de archivos, elige "Histórico de versiones", y elige una fecha anterior al problema. OneDrive mantiene versiones durante 30 días (o más, según la configuración de tu organización).
 
 ### ¿Qué sucede si desinstalo la aplicación?
 
@@ -494,21 +499,17 @@ Si desinstalo OpenTreasury Desktop:
 
 **Excepción:** Si elegiste una carpeta de datos dentro de `%APPDATA%` u otra carpeta del sistema, desinstalar _podría_ eliminarla (según la configuración de tu desinstalador). Por eso recomendamos usar OneDrive o una carpeta en tu árbol de Documentos u OneDrive.
 
-### Cifrado y seguridad (planeado para v1)
+### Cifrado y seguridad
 
-En la prueba, tu archivo `events.ndjson` es **texto plano**. Cualquiera con acceso a tu carpeta de datos puede abrirlo en un editor de texto y leer tus transacciones.
+Tu espacio de trabajo está cifrado en reposo usando **XChaCha20-Poly1305**, un cifrado estándar de la industria Cifrado autenticado con datos asociados (AEAD). Cada transacción se cifra individualmente antes de escribirse en los archivos `events-{deviceId}.ndjson`. La clave de cifrado (`events.key`) se envuelve para almacenamiento seguro: protegida silenciosamente por el almacén de claves del sistema operativo en el uso diario, y recuperable mediante un código de recuperación BIP39 de 12 palabras si es necesario (el mismo código usado para la inscripción del equipo). Esto significa:
 
-**Para la prueba:**
-- Mantén tu carpeta de datos en una ubicación **OneDrive para Empresas** o **SharePoint** compartida con controles de acceso apropiados. Solo tu equipo de tesorería debería tener acceso.
-- No coloques la carpeta en una ubicación pública o ampliamente compartida.
-- No envíes el archivo `events.ndjson` por correo electrónico. Si necesitas compartir datos con un auditor externo, usa las características de compartir de OneDrive y establece una fecha de vencimiento.
+- Incluso si alguien accede a tu OneDrive o carpeta compartida, los archivos de eventos son texto cifrado y no se pueden leer sin la clave de cifrado.
+- Solo los usuarios que conocen el código de recuperación pueden desbloquear el espacio de trabajo y leer los datos cifrados.
+- Cada miembro del equipo se inscribe ingresando el código de recuperación; una vez inscrito, su dispositivo almacena la clave de forma segura en el almacén de claves del SO (Administrador de credenciales de Windows, Llavero de macOS o Servicio secreto de Linux).
 
-**En v1 (próximamente):**
-- El archivo `events.ndjson` estará cifrado usando AEAD estándar de la industria (Cifrado autenticado con datos asociados).
-- Solo los usuarios con la clave de cifrado correcta (derivada de la contraseña compartida de tu ONG o una credencial de Azure Entra ID) podrán leer el archivo.
-- Esto añade una capa de protección incluso si alguien obtiene acceso a tu carpeta OneDrive.
+Mantén tu código de recuperación en un lugar seguro — es tu clave para el espacio de trabajo y para incorporar nuevos miembros del equipo.
 
-Para detalles completos sobre la postura de seguridad de la prueba y qué viene en v1, consulta la [guía de implantación en prueba](./trial-deployment.md), Parte 6.
+Para detalles técnicos completos sobre el diseño del cifrado, la jerarquía de claves y el modelo de amenaza, consulta la [especificación de Cifrado en reposo](../specs/026-encryption-at-rest.md).
 
 ---
 

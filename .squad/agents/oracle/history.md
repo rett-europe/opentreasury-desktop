@@ -217,3 +217,22 @@ All analysis in .squad/decisions/decisions.md under three new sections:
 **Action item for Oracle/Niobe:** docs/specs/026-encryption-at-rest.md §4.1 documents Argon2id 	=3, but shipped code uses 	=4. The persisted rgon2_params in vents.key are correct, so encrypted workspaces in the field are unaffected — **doc-only fix**. Switch flagged as a Medium non-blocking follow-up in PR #321 (SPEC-026 security review). Update the spec to 	=4 (or revert code to 	=3 after a fresh benchmark — Switch is fine either way as long as spec and code agree).
 
 Full context: .squad/decisions/decisions.md § "Decision: SPEC-026 (#306) — Ship Gate Cleared", and .squad/orchestration-log/20260512T185035Z-switch.md.
+
+### 2026-05-14 — Legacy-format doc removal (PR #325, Keaton D4 plan item #7)
+
+**Status:** ✅ COMPLETED. PR #325 rewrote docs/guides/user-guide.md and docs/guides/user-guide.es.md to remove legacy-format references.
+
+**Scope:** Keaton's D4 directive: rewrite 5 sections in both guides to reflect encrypted-from-day-1 reality instead of trial plaintext.
+
+**Changes:**
+1. Data folder location: plaintext `events.ndjson` → per-device encrypted files (`events-{deviceId}.ndjson` + `events.key`)
+2. Where to find your data file: single plaintext file → encrypted file set model
+3. How to back up your data: file-level → folder-level backup (entire workspace)
+4. Restoring from a backup: file-level → folder-level restore
+5. Encryption and security: "planned for v1" → shipped reality (XChaCha20-Poly1305 AEAD, per-event encryption, OS keystore + BIP39 recovery code wrapping)
+
+**EN/ES lockstep:** Both guides kept in perfect parallel structure. Section headings translated; technical details (file paths, API references) remain English in both.
+
+**Verification:** `npm run build:guides` passed; `git grep "events\.ndjson" -- docs/guides/user-guide*.md` returned zero hits; no migration-script references.
+
+**Pattern note:** Bilingual user guide updates require careful section-by-section translation of headings while preserving code samples and technical references unchanged. The approach worked cleanly for PR #324 (encrypted workspace setup) and carries forward here.
