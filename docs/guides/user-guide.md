@@ -390,12 +390,12 @@ _**Figure 7:** The Settings screen shows your current data folder path and a rea
 
 ### Data folder location
 
-The **Data folder** row shows where your transaction data is stored. This is the folder that holds your `events.ndjson` file (the plain-text log of all your transactions).
+The **Data folder** row shows where your transaction data is stored. This folder contains encrypted event files: one `events-{deviceId}.ndjson` file per device (e.g., `events-laptop-maria.ndjson`), plus a shared `events.key` file that holds the encryption key (wrapped for secure storage).
 
 - **Current path:** You'll see something like `C:\Users\maria\OneDrive - Casa Esperanza\Treasury`. This is the folder you picked during setup (or changed later).
 - **Change button:** Click **Change** to pick a different folder. A folder picker opens. Navigate to your new location, click OK, and the app restarts with the new folder.
 
-> **Important:** If you change your data folder, you're switching to a different dataset. Any transactions in your old folder won't appear in the new folder unless you copy the `events.ndjson` file over. For most NGOs, you set this once during trial setup and don't change it again. See the [trial deployment guide](./trial-deployment.md) for details on shared folders and OneDrive setup.
+> **Important:** If you change your data folder, you're switching to a different dataset. Any transactions in your old folder won't appear in the new folder unless you copy the entire workspace folder (all `events-*.ndjson` files and `events.key`). For most NGOs, you set this once during setup and don't change it again. See the [trial deployment guide](./trial-deployment.md) for details on shared folders and OneDrive setup.
 
 ### Read-only mode
 
@@ -437,7 +437,11 @@ At the top of the Settings screen, you'll see:
 
 ## Backing Up Your Data
 
-Your transaction data is stored in a single file called **`events.ndjson`**, located in the data folder you chose during setup. This file contains every transaction you've ever recorded, in chronological order, as a plain-text log.
+Your transaction data is stored as a set of encrypted files in the data folder you chose during setup:
+- One **`events-{deviceId}.ndjson`** file per device (e.g., `events-laptop-maria.ndjson`), containing the transactions recorded on that device, encrypted at rest.
+- One shared **`events.key`** file containing the wrapped encryption key.
+
+All transactions, accounts, categories, and tags are stored encrypted across these files.
 
 ### Where to find your data file
 
@@ -445,18 +449,18 @@ Your transaction data is stored in a single file called **`events.ndjson`**, loc
 2. Look at the **Data folder** row. You'll see a path like:
    - `C:\Users\maria\OneDrive - Casa Esperanza\Treasury`
 3. Open that folder in File Explorer (Windows) or Finder (Mac).
-4. You'll see a file named **`events.ndjson`**.
+4. You'll see files named **`events-{deviceId}.ndjson`** (one per device, e.g., `events-laptop-maria.ndjson`), and a file named **`events.key`**.
 
-That's your entire dataset. Every transaction, account, category, and tag is in that file.
+Together, these files make up your entire dataset.
 
 ### How to back up your data
 
 **Option 1: Automatic OneDrive backup (recommended)**
 
 If your data folder is in **OneDrive for Business** or **SharePoint**, your data is already backed up automatically:
-- OneDrive syncs the file to the cloud every time it changes.
-- You (and your teammates) can access the same file from any laptop.
-- OneDrive keeps version history, so if something goes wrong, you can restore an older version of the file.
+- OneDrive syncs all workspace files (the `events-*.ndjson` files and `events.key`) to the cloud every time they change.
+- You (and your teammates) can access the same workspace from any laptop.
+- OneDrive keeps version history, so if something goes wrong, you can restore older versions of the files.
 
 **No extra work needed.** Just make sure OneDrive is syncing properly (check the OneDrive icon in your system tray).
 
@@ -465,25 +469,26 @@ If your data folder is in **OneDrive for Business** or **SharePoint**, your data
 If your data folder is on your local hard drive (not OneDrive), or if you want an extra backup:
 
 1. Navigate to your data folder (see above).
-2. **Copy** the `events.ndjson` file to a safe location:
+2. **Copy the entire workspace folder** to a safe location:
    - An external USB drive
    - A different folder on your computer (e.g., `Documents\Treasury Backups`)
    - A cloud storage service like Dropbox or Google Drive (if your organization allows it)
-3. Rename the copy with a date (e.g., `events-backup-2026-05-31.ndjson`) so you know when you made it.
-4. Repeat this weekly or monthly, depending on your NGO's risk tolerance.
+3. Include all `events-*.ndjson` files and the `events.key` file.
+4. Rename the folder copy with a date (e.g., `Treasury-backup-2026-05-31`) so you know when you made it.
+5. Repeat this weekly or monthly, depending on your NGO's risk tolerance.
 
-> **Tip:** If you're in OneDrive, you can also download a copy of `events.ndjson` from the OneDrive web interface. Log in to [onedrive.com](https://onedrive.com), navigate to your Treasury folder, right-click the file, and choose "Download". This gives you an offline backup on your laptop.
+> **Tip:** If you're in OneDrive, you can also download a copy of the entire workspace folder from the OneDrive web interface. Log in to [onedrive.com](https://onedrive.com), navigate to your Treasury folder, select all files and folders, and choose "Download". This gives you an offline backup on your laptop.
 
 ### Restoring from a backup
 
-If you lose your data (e.g., you accidentally delete the `events.ndjson` file, or your laptop crashes):
+If you lose your data (e.g., you accidentally delete workspace files, or your laptop crashes):
 
 1. Go to your backup location (USB drive, OneDrive version history, etc.).
-2. Copy the backup file back into your data folder.
-3. Rename it to `events.ndjson` (remove the date suffix if you added one).
+2. Copy the entire backup workspace folder back into your data location.
+3. Make sure all `events-*.ndjson` files and the `events.key` file are present.
 4. Restart OpenTreasury Desktop. The app will load the restored data.
 
-> **OneDrive version history:** If you're in OneDrive and you didn't make a manual backup, you can restore a previous version of the file. Right-click `events.ndjson` in File Explorer, choose "Version history", and pick a date before the problem occurred. OneDrive keeps versions for 30 days (or longer, depending on your organization's settings).
+> **OneDrive version history:** If you're in OneDrive and you didn't make a manual backup, you can restore previous versions of the workspace files. Right-click any `events-*.ndjson` or `events.key` file in File Explorer, choose "Version history", and pick a date before the problem occurred. OneDrive keeps versions for 30 days (or longer, depending on your organization's settings).
 
 ### What happens if you uninstall the app?
 
@@ -494,21 +499,17 @@ If you uninstall OpenTreasury Desktop:
 
 **Exception:** If you chose a data folder inside `%APPDATA%` or another system folder, uninstalling _might_ delete it (depending on your uninstaller settings). This is why we recommend using OneDrive or a folder in your Documents or OneDrive tree.
 
-### Encryption and security (planned for v1)
+### Encryption and security
 
-In the trial, your `events.ndjson` file is **plain text**. Anyone with access to your data folder can open it in a text editor and read your transactions.
+Your workspace is encrypted at rest using **XChaCha20-Poly1305**, an industry-standard Authenticated Encryption with Associated Data (AEAD) cipher. Each transaction is encrypted individually before being written to the `events-{deviceId}.ndjson` files. The encryption key (`events.key`) is wrapped for secure storage: silently protected by your operating system's keystore on daily use, and recoverable via a 12-word BIP39 recovery code if needed (the same code used for team enrollment). This means:
 
-**For the trial:**
-- Keep your data folder in a **shared OneDrive for Business** or **SharePoint** location with proper access controls. Only your treasury team should have access.
-- Don't put the folder in a public or widely shared location.
-- Don't email the `events.ndjson` file around. If you need to share data with an external auditor, use OneDrive's sharing features and set an expiration date.
+- Even if someone accesses your OneDrive or shared folder, the event files are ciphertext and unreadable without the encryption key.
+- Only users who know the recovery code can unlock the workspace and read the encrypted data.
+- Each team member enrolls by entering the recovery code; once enrolled, their device stores the key securely in the OS keystore (Windows Credential Manager, macOS Keychain, or Linux Secret Service).
 
-**In v1 (coming soon):**
-- The `events.ndjson` file will be encrypted using industry-standard AEAD (Authenticated Encryption with Associated Data).
-- Only users with the correct encryption key (derived from your NGO's shared password or an Azure Entra ID credential) will be able to read the file.
-- This adds a layer of protection even if someone gains access to your OneDrive folder.
+Keep your recovery code in a safe place — it's your key to the workspace and to onboarding new team members.
 
-For full details on the trial's security posture and what's coming in v1, see the [trial deployment guide](./trial-deployment.md), Part 6.
+For full technical details on the encryption design, key hierarchy, and threat model, see the [Encryption at Rest specification](../specs/026-encryption-at-rest.md).
 
 ---
 
