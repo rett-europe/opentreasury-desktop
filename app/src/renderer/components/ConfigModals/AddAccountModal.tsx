@@ -251,7 +251,7 @@ export function AddAccountModal({
 
       <div className="ot-config-modal__field">
         <label htmlFor="acc-label" className="ot-config-modal__label">
-          Etiqueta de uso
+          {t('configuracion.cuentas.label')}
           <span className="ot-config-modal__label-hint">{t('configuracion.optional')}</span>
         </label>
         <input
@@ -260,13 +260,10 @@ export function AddAccountModal({
           type="text"
           value={label}
           maxLength={30}
-          placeholder="p. ej. Principal, Operaciones, Eventos…"
+          placeholder={t('configuracion.cuentas.labelPlaceholder')}
           onChange={(e) => setLabel(e.target.value)}
         />
-        <span className="ot-config-modal__field-hint">
-          Describe el propósito interno (Principal, Operaciones, Reserva…). No se aplica a los
-          movimientos — es solo un metadato de la cuenta.
-        </span>
+        <span className="ot-config-modal__field-hint">{t('configuracion.cuentas.labelHint')}</span>
       </div>
 
       <div className="ot-config-modal__row">
@@ -290,8 +287,16 @@ export function AddAccountModal({
             <button
               type="button"
               className="ot-config-modal__affix-btn"
-              title={revealIban ? 'Ocultar IBAN' : 'Mostrar IBAN'}
-              aria-label={revealIban ? 'Ocultar IBAN' : 'Mostrar IBAN'}
+              title={
+                revealIban
+                  ? t('configuracion.cuentas.iban.hide')
+                  : t('configuracion.cuentas.iban.show')
+              }
+              aria-label={
+                revealIban
+                  ? t('configuracion.cuentas.iban.hide')
+                  : t('configuracion.cuentas.iban.show')
+              }
               onClick={() => setRevealIban((v) => !v)}
             >
               {revealIban ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -299,14 +304,14 @@ export function AddAccountModal({
           </div>
           <span className="ot-config-modal__field-hint">
             {isPaypal
-              ? 'Las cuentas PayPal no usan IBAN.'
-              : 'En la UI solo se muestran los últimos 4 dígitos salvo revelado explícito.'}
+              ? t('configuracion.cuentas.ibanHint.paypal')
+              : t('configuracion.cuentas.ibanHint.default')}
           </span>
         </div>
 
         <div className="ot-config-modal__field">
           <span className="ot-config-modal__label" id="acc-color-label">
-            Color
+            {t('configuracion.cuentas.color')}
           </span>
           <div
             className="ot-config-modal__palette"
@@ -334,7 +339,7 @@ export function AddAccountModal({
               checked={isPaypal}
               onChange={(e) => setIsPaypal(e.target.checked)}
             />
-            Es una plataforma externa (PayPal, Stripe…)
+            {t('configuracion.cuentas.externalPlatformToggle')}
           </label>
         </div>
       </div>
@@ -370,17 +375,20 @@ export function AddAccountModal({
       </div>
 
       <div className="ot-config-modal__field">
-        <span className="ot-config-modal__label">Vista previa</span>
+        <span className="ot-config-modal__label">{t('configuracion.previewLabel')}</span>
         <div className="ot-config-modal__preview-box">
           <span className="ot-config__entity-icon" style={{ background: color }} aria-hidden="true">
             <Landmark size={16} />
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 'var(--font-weight-medium)' }}>
-              {name || 'Nombre de la cuenta'}
+              {name || t('configuracion.cuentas.preview.namePlaceholder')}
             </div>
             <div className="ot-config__meta-text">
-              {bankName || (isPaypal ? 'Plataforma externa' : 'Cuenta bancaria')}
+              {bankName ||
+                (isPaypal
+                  ? t('configuracion.cuentas.row.externalPlatform')
+                  : t('configuracion.cuentas.row.bankAccount'))}
             </div>
           </div>
           {label ? (

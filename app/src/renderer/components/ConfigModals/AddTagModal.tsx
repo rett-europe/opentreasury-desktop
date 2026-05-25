@@ -141,7 +141,7 @@ export function AddTagModal({
 
       <div className="ot-config-modal__field">
         <span className="ot-config-modal__label" id="tag-color-label">
-          Color
+          {t('configuracion.etiquetas.color')}
         </span>
         <div
           className="ot-config-modal__palette"
@@ -166,7 +166,7 @@ export function AddTagModal({
       </div>
 
       <div className="ot-config-modal__field">
-        <span className="ot-config-modal__label">Vista previa</span>
+        <span className="ot-config-modal__label">{t('configuracion.previewLabel')}</span>
         <div className="ot-config-modal__preview-box">
           <span
             className="ot-config__tag-pill"
@@ -176,7 +176,7 @@ export function AddTagModal({
             }}
           >
             <TagIcon size={10} aria-hidden="true" />
-            {name || 'Nombre de la etiqueta'}
+            {name || t('configuracion.etiquetas.preview.namePlaceholder')}
           </span>
           <span
             className="ot-config__swatch-lg"

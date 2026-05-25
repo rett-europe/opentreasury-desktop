@@ -324,7 +324,11 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
       ) : (
         <>
           <div className="ot-config__filter-bar">
-            <div className="ot-filter-bar__chips" role="tablist" aria-label="Filtro de tipo">
+            <div
+              className="ot-filter-bar__chips"
+              role="tablist"
+              aria-label={t('configuracion.categorias.filter.ariaLabel')}
+            >
               {(['all', 'income', 'expense'] as const).map((k) => (
                 <button
                   key={k}

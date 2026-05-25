@@ -7,6 +7,29 @@
 
 ## Recent Work
 
+### 2026-04-26 — Accounts/Tags i18n EN translations (fix/accounts-i18n-en-strings)
+
+**Context:** Pedro reported the Accounts tab + Add Bank Account modal showed Spanish strings even on the EN locale. Trinity swept the entire Configuración subtab area for the same bug class.
+
+**Delivered (commit 57f4d05):** 7 files changed, ~25 new i18n keys added in both EN and ES bundles.
+- `CuentasTab.tsx`: account count plural, total balance label, search placeholder, filter count, row bank/external type, IBAN show/hide, column headers, empty-match cell
+- `AddAccountModal.tsx`: usage label + placeholder + hint, IBAN show/hide, IBAN hints (paypal/default), color label, external-platform toggle, preview heading, preview fallbacks
+- `EtiquetasTab.tsx`: tag count plural, search placeholder, filter count, empty-match cell
+- `AddTagModal.tsx`: color label, preview heading, preview name fallback
+- `CategoriasTab.tsx`: filter chips aria-label (single fix — rest of file was already clean)
+- `en/common.json` + `es/common.json`: new keys (ES preserves original wording verbatim)
+
+**Learnings:**
+- Same bug class as `EtiquetasTab` / `AddTagModal` — sibling files in `screens/ConfiguracionScreen` and `components/ConfigModals` should be swept together when touching any one of them
+- `AddCategoryModal.tsx`, `ConfigModalShell.tsx`, `ArchiveConfirmModal.tsx`, and `errorMap.ts` are already cleanly localized — do not touch on i18n sweeps
+- Key conventions chosen (see decision inbox `trinity-accounts-i18n-keys.md`): shared `configuracion.filterCount` / `configuracion.previewLabel` at top level; reused `cuentas.iban.show`/`.hide` and `cuentas.row.bankAccount`/`.externalPlatform` across tab + modal
+- Pluralization: i18next `_one`/`_other` suffix with `t(key, { count })` — both locales must include both suffixed keys
+- Gates: typecheck ✓, eslint on 5 modified files ✓, prettier --check ✓ (after one --write fix on AddAccountModal), full vitest 1198 passed/0 failed
+
+**Artifact:** branch `fix/accounts-i18n-en-strings`, commit 57f4d05 (not pushed)
+
+---
+
 ### 2026-05-12 — PR #317 Renderer IPC Wireup (squad/307-renderer-ipc-wireup, Issue #307)
 
 **Context:** Replace all `mockWorkspaceIpc.*` usage in onboarding screens with real `window.opentreasury.workspace.*` IPC (shipped by Morpheus in PR #315 / d7b1ea7). Add `MigrationScreen` for the `migration` workspace state. Wire workspace detection into App.tsx bootstrap flow.
@@ -1226,7 +1249,9 @@ Morpheus refactored the dry-run error structure from { row, field, reason: strin
 When backend provides error codes instead of free-form strings, always create a complete i18n mapping for **all** possible codes (not just the ones you've seen in testing). Use defaultValue in t() calls to gracefully handle unknown codes.
 
 **Integration note:**  
-Since Morpheus changed the error schema field from eason to code + aw, the rendering logic simplified — no need for string-matching helper functions. Direct 	(\rrorCodes.\, { raw: err.raw }) pattern.
+Since Morpheus changed the error schema field from 
+eason to code + 
+aw, the rendering logic simplified — no need for string-matching helper functions. Direct 	(\rrorCodes.\, { raw: err.raw }) pattern.
 
 **Validation:**
 - ✅ Typecheck passes
@@ -3462,7 +3487,8 @@ Fixed two renderer-only UI bugs where account identification was broken — pair
 5. Added \ccountId: string\ field to Movement type for stable filtering
 6. Added \console.warn\ when \ccountsMap.get()\ fails to flag legacy data drift in dev
 
-**Data model impact:** Added \eadonly accountId: string\ to \Movement\ interface in \	ypes/movement.ts\. Updated mock data builder to map account display names to mock accountIds. This is safe because the field was already present in the wire shape (\MovementRecord\) — the bug was that the UI projection (\Movement\) was discarding it.
+**Data model impact:** Added \
+eadonly accountId: string\ to \Movement\ interface in \	ypes/movement.ts\. Updated mock data builder to map account display names to mock accountIds. This is safe because the field was already present in the wire shape (\MovementRecord\) — the bug was that the UI projection (\Movement\) was discarding it.
 
 **For Trinity:** When building dropdowns for filtering, always use stable identifiers (IDs) as the option values and display labels as the option text. Never filter on display strings — they're user-facing and can change. Build filter options from the configured list (not from observed data rows) to ensure all configured items appear regardless of current data. This applies to all entity dropdowns (accounts, categories, tags).
 
@@ -3551,7 +3577,8 @@ When adding a native module (NAPI, argon2, sodium-native, etc.) that uses \__dir
 **Build Pipeline Update:** The Electron main process now has a **guaranteed CommonJS post-build step** (scripts/build-main-cjs.mjs). This is automatic and transparent when running 
 pm run build. 
 
-**Why:** Electron's asar.unpacked redirect (native module loading) only works with CommonJS equire(), not ESM import. The root package.json has "type": "module", so Vite emits ESM by default. The post-build esbuild transformation reliably converts the main bundle to CJS.
+**Why:** Electron's asar.unpacked redirect (native module loading) only works with CommonJS 
+equire(), not ESM import. The root package.json has "type": "module", so Vite emits ESM by default. The post-build esbuild transformation reliably converts the main bundle to CJS.
 
 **Your action:** None required. Just run the standard build and import normally. If your code adds import.meta.url references to the main process, they're automatically polyfilled by the esbuild banner.
 
@@ -3581,3 +3608,4 @@ pm run build.
 4. Branch was named `fix/transaction-list-refresh-after-create` but the fix is at the storage layer and applies to every write handler. The branch name is fine for the user-facing PR title; the commit message documents the real surface.
 
 **Files changed:** `app/src/core/eventLog/EncryptedMultiDeviceEventLog.ts`, `app/src/core/eventLog/__tests__/EncryptedMultiDeviceEventLog.test.ts`. Commit `6f0ef7f` on `fix/transaction-list-refresh-after-create`. Not pushed.
+
