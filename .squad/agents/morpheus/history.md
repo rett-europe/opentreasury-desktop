@@ -3761,3 +3761,16 @@ When adding a native module (NAPI, argon2, sodium-native, etc.) that uses \__dir
 
 **`npmRebuild: false` in electron-builder.yml skips @electron/rebuild entirely.** When native modules ship with prebuilds (sodium-native, argon2, @napi-rs/keyring), set this to avoid node-gyp/Visual Studio errors on machines without build tools.
 
+
+### 2026-05-25 — Code review of 6f0ef7f (Trinity's encrypted-log dedup fix) → APPROVE w/ follow-up
+
+**Context:** Reviewed Trinity's one-line fix to `EncryptedMultiDeviceEventLog.load()` cross-file dedup. Verdict: APPROVE WITH FOLLOW-UP. Full verdict in `.squad/decisions/inbox/morpheus-review-6f0ef7f.md`.
+
+## Learnings
+
+- **The `(after > before)` projection-gate idiom in IPC handlers is fragile.** It lives in 8+ handlers (`accounts`, `categories`, `tags`, `notes` ×3, `import`, `transaction-splits`, `bulkUpdate`) and silently masks any `EventLog` implementation whose `load()` doesn't faithfully reflect on-disk state. A stronger contract would be `append()` returning `{ added: boolean }` (or the projection driven by an event-emission hook from the log itself) — but that's a future spec, not a fix.
+- **All IPC handler integration tests use `JsonFileEventLog`.** That's exactly why this bug shipped — the encrypted adapter is only exercised by unit tests of itself. The encrypted adapter has its own correctness invariants (per-device files, AAD binding to `id+deviceId`, AEAD failure handling) that `JsonFileEventLog` doesn't share. At minimum we need one IPC-handler integration test wired to `EncryptedMultiDeviceEventLog`.
+- **`this.seenIds` in the encrypted log serves TWO purposes that look identical but aren't:** (1) `append()` short-circuit for idempotency within a process lifetime, (2) `load()` cross-file dedup so the same event id appearing in two device files (recovery re-emit) is only returned once. Trinity's fix correctly separates (1) and (2) by introducing a per-call `loadedIds` Set for (2) while leaving `this.seenIds` doing (1). My own earlier history note about ""use a fresh log instance for read-back verification"" was the smell — that workaround was hiding this bug.
+- **JsonFileEventLog is structurally immune** to this class of bug because its `load()` doesn't skip already-seen ids during read — it always pushes and then `seenIds.add`. The encrypted adapter diverged because it needed cross-FILE dedup; the divergence is where the bug crept in.
+- **`load()` is called TWICE per IPC write** (once for `before`, once for `after`). Each call decrypts the entire log. Negligible at trial-3 dataset size but a latent perf hotspot; track for when dataset grows.
+

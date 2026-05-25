@@ -442,3 +442,25 @@ pm run build.
 
 **Reference:** .squad/decisions.md § "2026-05-11: Electron Main Process CJS Post-Build Transformation"
 
+
+### 2026-05-25: EncryptedMultiDeviceEventLog dedup invariant — anti-replay analysis
+
+**Trigger:** Reviewed Trinity's fix (commit 6f0ef7f) scoping `load()` cross-file dedup from process-wide `this.seenIds` to a per-call `loadedIds` set.
+
+**Dedup invariant (corrected):** Cross-file dedup belongs to `load()` only — it must be scoped to a single invocation so that an `append()` on the same instance does not poison the next `load()`. Append idempotency belongs to `append()`/`appendBatch()` — it uses the persistent `this.seenIds`, which `load()` continues to populate.
+
+**Anti-replay analysis:** The `EncryptedMultiDeviceEventLog` does NOT rely on in-memory state for anti-replay. Anti-replay is enforced cryptographically by AAD = `event.id + ":" + deviceId` passed to XChaCha20-Poly1305. Three implications:
+1. Transplanting a ciphertext from `events-{A}.ndjson` into `events-{B}.ndjson` fails at decrypt (different deviceId in AAD).
+2. Replacing a peer's file with an older version succeeds — but only with legitimate, previously-authored ciphertexts. The "replay" reduces to "the user has an older snapshot of peer's data", which is by design for v1 (no version vector).
+3. A process-wide in-memory `seenIds` cannot defend against either of the above (an attacker can wait out a restart). So removing it from the `load()` path costs nothing security-wise.
+
+**Reusable rule for encrypted-log surface:** In an event-sourced read model rebuilt from disk on each `load()`, the dedup-state must be scoped to ONE load invocation. Process-wide caches of "events I have already seen" only make sense for *append-idempotency* (don't double-write what I already wrote). Conflating the two is a staleness bug AND, in the worst case, a covert availability bug (a malicious peer could push an event id you already saw to silently suppress your own writes if `load()` consulted shared state — not exploitable here because anti-replay is at AEAD layer, but the design smell is real).
+
+**Risk note (memory):** `this.seenIds` grows monotonically across all events ever loaded in a session. ULID strings (~50 bytes each in V8) × NGO-scale events (≪ 10⁶) = under 50 MB worst case. Acceptable. Tracked as follow-up F2.
+
+**Test surface I want before SPEC-026 #309 ships (not blocking the bugfix):**
+- Peer file mutated between two loads on the same instance — second load must reflect new state.
+- Long-session memory bound for `seenIds` (smoke test or comment with budget).
+- Recovery-flow re-emit + cross-file dedup tiebreak: confirm "first by filename sort" is the chosen rule.
+
+**Verdict on 6f0ef7f:** APPROVE WITH FOLLOW-UP (see `.squad/decisions/inbox/switch-review-6f0ef7f.md`).
