@@ -90,7 +90,8 @@
     "skeleton": "No transactions yet. Once you add some, your cashflow will appear here.",
     "card": {
       "count_one": "{{count}} transaction",
-      "count_other": "{{count}} transactions"
+      "count_other": "{{count}} transactions",
+      "clickLabel": "View {{name}} transactions"
     },
     "recent": {
       "type": {

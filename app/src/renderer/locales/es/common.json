@@ -90,7 +90,8 @@
     "skeleton": "Aún no hay movimientos. En cuanto registres alguno, verás aquí tu flujo de caja.",
     "card": {
       "count_one": "{{count}} movimiento",
-      "count_other": "{{count}} movimientos"
+      "count_other": "{{count}} movimientos",
+      "clickLabel": "Ver movimientos de {{name}}"
     },
     "recent": {
       "type": {
