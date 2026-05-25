@@ -13,7 +13,7 @@ import { PreferencesScreen } from './screens/PreferencesScreen/index.js';
 import { BootErrorPage, type BootErrorDetails } from './screens/BootErrorPage/index.js';
 import { FreshSetupFlow, JoinFlow, RecoveryFlow } from './screens/onboarding/index.js';
 import type { WorkspaceState } from '../shared/ipc-contracts/workspace.js';
-import { thisYear } from './utils/datePresets.js';
+import { thisMonth, thisYear } from './utils/datePresets.js';
 
 /**
  * App entry — wires AppShell (UX-006) around the current route.
@@ -305,7 +305,13 @@ export function App(): JSX.Element {
           {...(movementsInitialFilters ? { initialFilters: movementsInitialFilters } : {})}
         />
       ) : route === 'panel' ? (
-        <PanelScreen onNavigateToMovementsWithAccount={navigateToMovementsWithFilters} />
+        <PanelScreen
+          onNavigateToMovementsWithAccount={navigateToMovementsWithFilters}
+          onSeeAllMovements={() => {
+            const range = thisMonth(new Date());
+            navigateToMovementsWithFilters({ windowStart: range.from, windowEnd: range.to });
+          }}
+        />
       ) : route === 'insights' ? (
         <InsightsScreen
           onTagSelect={(tagId) => {

@@ -46,8 +46,10 @@ interface PanelData {
  */
 export function PanelScreen({
   onNavigateToMovementsWithAccount,
+  onSeeAllMovements,
 }: {
   readonly onNavigateToMovementsWithAccount?: (filters: { accountId: string }) => void;
+  readonly onSeeAllMovements?: () => void;
 } = {}): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
@@ -370,9 +372,14 @@ export function PanelScreen({
           }}
         />
         <div className="ot-panel-recent__footer">
-          <a className="ot-panel-recent__link" href="/movements?range=this-month">
+          <button
+            type="button"
+            className="ot-panel-recent__link"
+            onClick={onSeeAllMovements}
+            disabled={!onSeeAllMovements}
+          >
             {t('panel.cta.view-all-movements')} →
-          </a>
+          </button>
         </div>
       </div>
 
