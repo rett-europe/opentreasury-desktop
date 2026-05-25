@@ -90,7 +90,8 @@
     "skeleton": "No transactions yet. Once you add some, your cashflow will appear here.",
     "card": {
       "count_one": "{{count}} transaction",
-      "count_other": "{{count}} transactions"
+      "count_other": "{{count}} transactions",
+      "clickLabel": "View {{name}} transactions"
     },
     "recent": {
       "type": {
@@ -473,6 +474,8 @@
     "archivedBadge": "(archived)",
     "unarchive": "Restore",
     "unarchiveTooltip": "Restore",
+    "filterCount": "{{matched}} of {{total}}",
+    "previewLabel": "Preview",
     "delete": {
       "usage": {
         "withCount_one": "{{count}} linked transaction",
@@ -508,7 +511,42 @@
       "add": "Add account",
       "name": "Account name",
       "bank": "Bank",
+      "label": "Usage label",
+      "labelPlaceholder": "e.g. Main, Operations, Events…",
+      "labelHint": "Describe the internal purpose (Main, Operations, Reserve…). It doesn't apply to transactions — it's just account metadata.",
+      "color": "Color",
+      "externalPlatformToggle": "It's an external platform (PayPal, Stripe…)",
       "openingBalance": "Opening balance (€)",
+      "columns": {
+        "name": "Name",
+        "bank": "Bank",
+        "label": "Label",
+        "iban": "IBAN",
+        "balance": "Balance"
+      },
+      "stats": {
+        "count_one": "{{count}} account",
+        "count_other": "{{count}} accounts",
+        "totalBalance": "Total balance:"
+      },
+      "filter": {
+        "search": "Search by name, bank, label or IBAN…"
+      },
+      "row": {
+        "bankAccount": "Bank account",
+        "externalPlatform": "External platform"
+      },
+      "iban": {
+        "show": "Show IBAN",
+        "hide": "Hide IBAN"
+      },
+      "ibanHint": {
+        "default": "Only the last 4 digits are shown in the UI unless explicitly revealed.",
+        "paypal": "PayPal accounts don't use IBAN."
+      },
+      "preview": {
+        "namePlaceholder": "Account name"
+      },
       "modal": {
         "title": "New account",
         "editTitle": "Edit account",
@@ -537,7 +575,8 @@
       },
       "empty": {
         "title": "No accounts yet",
-        "body": "Add your first bank or PayPal account to start recording transactions."
+        "body": "Add your first bank or PayPal account to start recording transactions.",
+        "noMatch": "No account matches the search."
       }
     },
     "categorias": {
@@ -559,7 +598,8 @@
         "income": "Income",
         "expense": "Expense",
         "search": "Search categories…",
-        "none": "No category matches the search."
+        "none": "No category matches the search.",
+        "ariaLabel": "Filter by type"
       },
       "stats": {
         "total_one": "{{count}} category",
@@ -666,6 +706,17 @@
       "subtitle": "Cross-cutting labels for campaigns, projects, or any tag-based view.",
       "add": "Add tag",
       "name": "Tag name",
+      "color": "Color",
+      "stats": {
+        "count_one": "{{count}} tag",
+        "count_other": "{{count}} tags"
+      },
+      "filter": {
+        "search": "Search tags…"
+      },
+      "preview": {
+        "namePlaceholder": "Tag name"
+      },
       "modal": {
         "title": "New tag",
         "editTitle": "Edit tag"
@@ -693,7 +744,8 @@
       },
       "empty": {
         "title": "No tags yet",
-        "body": "Tags let you mark cross-cutting themes like \"COVID-19\" or \"Grant A\"."
+        "body": "Tags let you mark cross-cutting themes like \"COVID-19\" or \"Grant A\".",
+        "noMatch": "No tag matches the search."
       }
     },
     "error": {

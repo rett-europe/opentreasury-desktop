@@ -36,6 +36,10 @@
 }
 
 .ot-panel-recent__link {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
   font-size: var(--font-size-14);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);

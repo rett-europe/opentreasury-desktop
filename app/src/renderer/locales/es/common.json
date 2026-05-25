@@ -90,7 +90,8 @@
     "skeleton": "Aún no hay movimientos. En cuanto registres alguno, verás aquí tu flujo de caja.",
     "card": {
       "count_one": "{{count}} movimiento",
-      "count_other": "{{count}} movimientos"
+      "count_other": "{{count}} movimientos",
+      "clickLabel": "Ver movimientos de {{name}}"
     },
     "recent": {
       "type": {
@@ -473,6 +474,8 @@
     "archivedBadge": "(archivada)",
     "unarchive": "Restaurar",
     "unarchiveTooltip": "Restaurar",
+    "filterCount": "{{matched}} de {{total}}",
+    "previewLabel": "Vista previa",
     "delete": {
       "usage": {
         "withCount_one": "{{count}} movimiento asociado",
@@ -508,7 +511,42 @@
       "add": "Añadir cuenta",
       "name": "Nombre de la cuenta",
       "bank": "Banco",
+      "label": "Etiqueta de uso",
+      "labelPlaceholder": "p. ej. Principal, Operaciones, Eventos…",
+      "labelHint": "Describe el propósito interno (Principal, Operaciones, Reserva…). No se aplica a los movimientos — es solo un metadato de la cuenta.",
+      "color": "Color",
+      "externalPlatformToggle": "Es una plataforma externa (PayPal, Stripe…)",
       "openingBalance": "Saldo inicial (€)",
+      "columns": {
+        "name": "Nombre",
+        "bank": "Banco",
+        "label": "Etiqueta",
+        "iban": "IBAN",
+        "balance": "Saldo"
+      },
+      "stats": {
+        "count_one": "{{count}} cuenta",
+        "count_other": "{{count}} cuentas",
+        "totalBalance": "Saldo total:"
+      },
+      "filter": {
+        "search": "Buscar por nombre, banco, etiqueta o IBAN…"
+      },
+      "row": {
+        "bankAccount": "Cuenta bancaria",
+        "externalPlatform": "Plataforma externa"
+      },
+      "iban": {
+        "show": "Mostrar IBAN",
+        "hide": "Ocultar IBAN"
+      },
+      "ibanHint": {
+        "default": "En la UI solo se muestran los últimos 4 dígitos salvo revelado explícito.",
+        "paypal": "Las cuentas PayPal no usan IBAN."
+      },
+      "preview": {
+        "namePlaceholder": "Nombre de la cuenta"
+      },
       "modal": {
         "title": "Nueva cuenta",
         "editTitle": "Editar cuenta",
@@ -537,7 +575,8 @@
       },
       "empty": {
         "title": "Aún no hay cuentas",
-        "body": "Añade tu primera cuenta bancaria o PayPal para empezar a registrar movimientos."
+        "body": "Añade tu primera cuenta bancaria o PayPal para empezar a registrar movimientos.",
+        "noMatch": "Ninguna cuenta coincide con la búsqueda."
       }
     },
     "categorias": {
@@ -559,7 +598,8 @@
         "income": "Ingresos",
         "expense": "Gastos",
         "search": "Buscar categoría…",
-        "none": "Ninguna categoría coincide con la búsqueda."
+        "none": "Ninguna categoría coincide con la búsqueda.",
+        "ariaLabel": "Filtro de tipo"
       },
       "stats": {
         "total_one": "{{count}} categoría",
@@ -666,6 +706,17 @@
       "subtitle": "Etiquetas transversales para campañas, proyectos o cualquier vista por tag.",
       "add": "Añadir etiqueta",
       "name": "Nombre de la etiqueta",
+      "color": "Color",
+      "stats": {
+        "count_one": "{{count}} etiqueta",
+        "count_other": "{{count}} etiquetas"
+      },
+      "filter": {
+        "search": "Buscar etiqueta…"
+      },
+      "preview": {
+        "namePlaceholder": "Nombre de la etiqueta"
+      },
       "modal": {
         "title": "Nueva etiqueta",
         "editTitle": "Editar etiqueta"
@@ -693,7 +744,8 @@
       },
       "empty": {
         "title": "Aún no hay etiquetas",
-        "body": "Las etiquetas te permiten marcar temas transversales como «COVID-19» o «Beca A»."
+        "body": "Las etiquetas te permiten marcar temas transversales como «COVID-19» o «Beca A».",
+        "noMatch": "Ninguna etiqueta coincide con la búsqueda."
       }
     },
     "error": {

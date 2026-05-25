@@ -249,6 +249,12 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
 
     const eventFiles = entries.filter((f) => EVENTS_FILE_RE.test(f)).sort();
     const events: DomainEvent[] = [];
+    // Cross-file dedup is scoped to a single load() call so that an event
+    // appended on this instance (which adds its id to `seenIds`) is still
+    // returned by a subsequent load(). Otherwise the IPC handlers' guarded
+    // projection (`if (after > before) apply(...)`) silently skips writes
+    // and the read model goes stale until process restart.
+    const loadedIds = new Set<string>();
 
     for (const fileName of eventFiles) {
       const filePath = path.join(this.dir, fileName);
@@ -278,7 +284,7 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
           continue;
         }
 
-        if (this.seenIds.has(parsed.id)) {
+        if (loadedIds.has(parsed.id)) {
           // Cross-file dedup: same event id appearing in two devices' files
           // (which can happen if a recovery flow re-emits the same event)
           // is silently de-duplicated, keeping the first occurrence.
@@ -320,6 +326,7 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
 
         events.push(event);
         this.seenIds.add(parsed.id);
+        loadedIds.add(parsed.id);
       }
     }
 

@@ -685,3 +685,14 @@ pm run build.
 - **Nonce extraction from on-disk format.** `{"id":"...","c":"<base64>"}` — the first 24 bytes of the base64-decoded `c` field is the XChaCha20 nonce. Hex-encode it before adding to a Set for de-dup-checking; `Buffer.equals` doesn't work with `Set`.
 - **Pre-existing flake:** `app/src/renderer/components/onboarding/RecoveryCodeInput.test.tsx` — 5 tests inside pass cleanly; a post-teardown timer warning causes the suite to exit 1 intermittently. Unrelated to encryption work. Worth a separate cleanup ticket (likely a `vi.useFakeTimers` / `await` missing in the userEvent setup).
 
+
+
+---
+
+## 2026-05-25 — Team update: encrypted-log dedup regression coverage landed
+
+Trinity fixed a dedup bug in `EncryptedMultiDeviceEventLog` (commit `6f0ef7f` on `fix/transaction-list-refresh-after-create`) where `load()` cross-file dedup ran against the same `seenIds` Set that `append()` populated — silently swallowing the just-appended event on the next `load()` and starving IPC write-handler projection gates. Fix: per-`load()` `loadedIds` Set; `seenIds` now scopes to `append()` idempotency only. +9 src LOC, +28 test LOC, 286 tests across 30 files green.
+
+Regression test added: `app/src/core/eventLog/__tests__/EncryptedMultiDeviceEventLog.test.ts` covers the `append() -> load()` round-trip invariant. Morpheus (storage) and Switch (security, SPEC-026 final-say) are reviewing the fix in parallel — verdicts not yet in inbox at this writing. They may flag additional test gaps (cross-device replay, contract-test sweep across every `EventLog` impl, per-write-surface encrypted-log integration test) worth folding into the SPEC-026 integration test issue (#7) when the verdicts land.
+
+See `.squad/decisions.md` § "2026-05-25: Encrypted event log `load()` dedup must be load-scoped".

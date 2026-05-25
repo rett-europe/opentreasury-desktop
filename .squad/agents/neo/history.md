@@ -440,3 +440,14 @@ pm run build.
 
 **Reference:** .squad/decisions.md § "2026-05-11: Electron Main Process CJS Post-Build Transformation"
 
+
+
+---
+
+## 2026-05-25 — Team update: SPEC-026 primitive patched (encrypted-log dedup)
+
+Trinity authored, Morpheus + Switch reviewed (verdicts pending) a fix to `EncryptedMultiDeviceEventLog` on branch `fix/transaction-list-refresh-after-create` (commit `6f0ef7f`, not pushed). Symptom: manually created transactions did not appear in MovementsScreen until app restart. Root cause: process-wide `seenIds` Set used for both `append()` idempotency AND `load()` cross-file dedup, so any `load()` after `append()` on the same instance silently dropped the new event; every encrypted-mode write path was affected.
+
+Fix is minimal — `load()` now uses a per-invocation `loadedIds` Set; `seenIds` scopes to `append()` only. +9 src LOC, +28 test LOC. The team-implication note in `decisions.md` flags a SPEC-026 contract-test gap: existing IPC-handler tests run against `JsonFileEventLog` / `InMemoryEventLog` and cannot catch this regression class. Worth threading into the SPEC-026 ship-plan as either a per-impl contract test or a per-write-surface encrypted-log integration test.
+
+See `.squad/decisions.md` § "2026-05-25: Encrypted event log `load()` dedup must be load-scoped".

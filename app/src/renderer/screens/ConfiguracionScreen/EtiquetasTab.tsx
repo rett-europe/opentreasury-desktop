@@ -108,9 +108,7 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
           <p className="ot-page-header__subtitle">{t('configuracion.etiquetas.subtitle')}</p>
           {state.kind === 'loaded' && state.tags.length > 0 ? (
             <div className="ot-page-header__stats">
-              <span>
-                {state.tags.length} etiqueta{state.tags.length !== 1 ? 's' : ''}
-              </span>
+              <span>{t('configuracion.etiquetas.stats.count', { count: state.tags.length })}</span>
             </div>
           ) : null}
         </div>
@@ -162,7 +160,7 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
               <Search size={14} />
               <input
                 type="text"
-                placeholder="Buscar etiqueta…"
+                placeholder={t('configuracion.etiquetas.filter.search')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -176,14 +174,17 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
               {t('configuracion.archivedToggle')}
             </label>
             <span className="ot-config__filter-count">
-              {filteredTags.length} de {visibleTags.length}
+              {t('configuracion.filterCount', {
+                matched: filteredTags.length,
+                total: visibleTags.length,
+              })}
             </span>
           </div>
 
           {filteredTags.length === 0 ? (
             <div className="ot-config__table-wrapper">
               <div className="ot-config__table-empty">
-                Ninguna etiqueta coincide con la búsqueda.
+                {t('configuracion.etiquetas.empty.noMatch')}
               </div>
             </div>
           ) : (

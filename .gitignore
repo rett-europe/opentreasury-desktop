@@ -36,6 +36,10 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Local test output captures
+vitest_out.txt
+*.vitest.log
+
 # Local user data — event logs / backups must NEVER be committed.
 # The app stores these under %APPDATA%/opentreasury-desktop/ by default,
 # but guard against accidental copies landing inside the working tree.

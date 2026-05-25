@@ -194,6 +194,34 @@ describe('EncryptedMultiDeviceEventLog', () => {
     expect(reread.map((e) => e.id)).toEqual([e1.id, e2.id]);
   });
 
+  // Regression: load() on the same instance must include events written by
+  // a preceding append() in the same process. The IPC create/update/delete
+  // handlers gate the in-memory projection on `(await load()).length` growing
+  // before vs. after `append()`; if `load()` filtered out the just-appended
+  // event via the process-wide `seenIds` set, the projection was silently
+  // skipped and new writes did not appear in `getReadModel()` until the
+  // process restarted.
+  it('load() returns events appended on the same instance (no seenIds skip)', async () => {
+    const log = new EncryptedMultiDeviceEventLog({
+      dir: tmpDir,
+      deviceId: DEVICE_A,
+      masterKey: mk,
+    });
+    const e1 = makeEvent(ulid('SAME0001'), DEVICE_A);
+    const e2 = makeEvent(ulid('SAME0002'), DEVICE_A);
+
+    const initial = await log.load();
+    expect(initial).toHaveLength(0);
+
+    await log.append(e1);
+    const afterFirst = await log.load();
+    expect(afterFirst.map((e) => e.id)).toEqual([e1.id]);
+
+    await log.append(e2);
+    const afterSecond = await log.load();
+    expect(afterSecond.map((e) => e.id)).toEqual([e1.id, e2.id]);
+  });
+
   // ---- AAD / tamper rejection --------------------------------------------
 
   it('throws ENCRYPTED_EVENT_AUTH_FAILED if the on-disk id no longer matches the AAD', async () => {

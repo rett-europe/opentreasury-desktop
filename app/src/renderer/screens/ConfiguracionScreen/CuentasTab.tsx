@@ -138,11 +138,11 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
           {state.kind === 'loaded' && state.accounts.length > 0 ? (
             <div className="ot-page-header__stats">
               <span>
-                {state.accounts.length} cuenta{state.accounts.length !== 1 ? 's' : ''}
+                {t('configuracion.cuentas.stats.count', { count: state.accounts.length })}
               </span>
               <span className="ot-page-header__stat-separator">·</span>
               <span>
-                Saldo total:{' '}
+                {t('configuracion.cuentas.stats.totalBalance')}{' '}
                 <strong
                   style={{
                     color:
@@ -205,7 +205,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
               <Search size={14} />
               <input
                 type="text"
-                placeholder="Buscar por nombre, banco, etiqueta o IBAN…"
+                placeholder={t('configuracion.cuentas.filter.search')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -219,7 +219,10 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
               {t('configuracion.archivedToggle')}
             </label>
             <span className="ot-config__filter-count">
-              {filteredAccounts.length} de {visibleAccounts.length}
+              {t('configuracion.filterCount', {
+                matched: filteredAccounts.length,
+                total: visibleAccounts.length,
+              })}
             </span>
           </div>
 
@@ -237,11 +240,11 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
               <thead>
                 <tr>
                   <th></th>
-                  <th>Nombre</th>
-                  <th>Banco</th>
-                  <th>Etiqueta</th>
-                  <th>IBAN</th>
-                  <th className="align-right">Saldo</th>
+                  <th>{t('configuracion.cuentas.columns.name')}</th>
+                  <th>{t('configuracion.cuentas.columns.bank')}</th>
+                  <th>{t('configuracion.cuentas.columns.label')}</th>
+                  <th>{t('configuracion.cuentas.columns.iban')}</th>
+                  <th className="align-right">{t('configuracion.cuentas.columns.balance')}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -272,7 +275,9 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                             ) : null}
                           </div>
                           <div className="ot-config__meta-text">
-                            {a.isPaypal ? 'Plataforma externa' : 'Cuenta bancaria'}
+                            {a.isPaypal
+                              ? t('configuracion.cuentas.row.externalPlatform')
+                              : t('configuracion.cuentas.row.bankAccount')}
                           </div>
                         </td>
                         <td className="ot-config__cell-truncate" title={a.bankName || ''}>
@@ -311,8 +316,16 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                               <button
                                 type="button"
                                 className="ot-config__row-action-btn"
-                                title={isRevealed ? 'Ocultar IBAN' : 'Mostrar IBAN'}
-                                aria-label={isRevealed ? 'Ocultar IBAN' : 'Mostrar IBAN'}
+                                title={
+                                  isRevealed
+                                    ? t('configuracion.cuentas.iban.hide')
+                                    : t('configuracion.cuentas.iban.show')
+                                }
+                                aria-label={
+                                  isRevealed
+                                    ? t('configuracion.cuentas.iban.hide')
+                                    : t('configuracion.cuentas.iban.show')
+                                }
                                 onClick={() => toggleReveal(a.id)}
                               >
                                 {isRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -373,7 +386,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                 ) : (
                   <tr>
                     <td colSpan={7} className="ot-config__table-empty">
-                      Ninguna cuenta coincide con la búsqueda.
+                      {t('configuracion.cuentas.empty.noMatch')}
                     </td>
                   </tr>
                 )}

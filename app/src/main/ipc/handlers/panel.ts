@@ -47,16 +47,18 @@ export async function handleGetAccounts(
   // legacy enveloped event had it) — we project it as null, which the
   // Panel renderer already tolerates.
   return {
-    accounts: coreGetAccounts().map((a) => ({
-      id: a.id,
-      bankName: a.bankName ?? '',
-      bankNameShort: null,
-      accountLabel: a.label ?? a.name,
-      color: a.color ?? null,
-      sortOrder: a.sortOrder,
-      isActive: a.archivedAt === undefined,
-      createdAt: a.createdAt,
-    })),
+    accounts: coreGetAccounts()
+      .filter((a) => a.archivedAt === undefined)
+      .map((a) => ({
+        id: a.id,
+        bankName: a.bankName ?? '',
+        bankNameShort: null,
+        accountLabel: a.label ?? a.name,
+        color: a.color ?? null,
+        sortOrder: a.sortOrder,
+        isActive: true,
+        createdAt: a.createdAt,
+      })),
   };
 }
 

@@ -7,6 +7,10 @@
 
 ## Recent Work
 
+### 2026-05-25 — Team update: Configuración i18n key inventory expanded (Trinity, fix/accounts-i18n-en-strings)
+
+Heads-up on the `configuracion.*` namespace you own copy patterns for: Trinity translated residual ES strings on the Cuentas / Etiquetas / Categorías tabs and AddAccount / AddTag modals to use the i18n layer (~25 new keys symmetric EN/ES, branch `fix/accounts-i18n-en-strings`, commit `57f4d05`, awaiting Pedro push). EN coverage now matches ES; Spanish wording preserved verbatim — no copy changes on your side. New keys follow the convention captured in `decisions.md` (2026-05-25): pluralized counts use `_one` / `_other`; shared cross-entity keys at `configuracion.*` top level (`filterCount`, `previewLabel`); per-entity keys under `configuracion.{cuentas,etiquetas,categorias}.section.key`; IBAN show/hide + bank-account-type labels are shared between row and modal. Future translatable surfaces in this area should follow the same pattern.
+
 ### 2026-05-11 — PR #317 UX/Copy Review (Renderer IPC Wireup)
 
 REQUEST_CHANGES: MigrationScreen.tsx has zero i18n (all strings hardcoded in English, no locale keys in EN/ES); format:check fails on Morpheus's migrate-workspace files (Prettier debt from #314). Non-blocking: JoinFlow.tsx:120 hardcodes "Folder:" label. Command text, folder path display, and all other onboarding copy (JoinFlow/RecoveryFlow/FreshSetupFlow) are correct and tone-consistent.

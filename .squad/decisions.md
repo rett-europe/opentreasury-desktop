@@ -2,6 +2,20 @@
 
 ## Active Decisions
 
+### 2026-05-25: Encrypted event log `load()` dedup must be load-scoped, not process-scoped (Trinity)
+
+**By:** Trinity (acting on Pedro's bug report)
+**Commit:** `6f0ef7f` on `fix/transaction-list-refresh-after-create` (not pushed; Morpheus + Switch reviews pending at decision-time)
+
+**What:** `EncryptedMultiDeviceEventLog.load()` now uses a `loadedIds` Set scoped to a single `load()` invocation for cross-device dedup, instead of the process-wide `this.seenIds` set. `this.seenIds` continues to be populated for `append()` idempotency only.
+
+**Why:** All IPC write handlers (`transaction.ts`, `transaction-splits.ts`, `accounts.ts`, `categories.ts`, `tags.ts`, `import.ts`, bulk ops) gate the in-memory projection on `if ((await eventLog.load()).length > beforeLength) apply(event)`. The previous implementation mutated `seenIds` from both `append()` and `load()`, so calling `load()` immediately after `append()` on the same instance silently dropped the appended event during dedup. Length didn't grow → projection never ran → `getReadModel()` stayed stale until the next process boot replayed events into a fresh `seenIds`. The user-visible symptom was: "manually created transaction saved successfully but does not appear in the list until you restart the app". This affected every encrypted-mode write path; the same bug also impacted account / category / tag / split / import creation. `JsonFileEventLog` was unaffected.
+
+**Team implication:**
+- Any future event-log implementation MUST guarantee that `(await log.load()).length` reflects all `append()`s made on the same instance in the same process. Add a round-trip same-instance test before merging.
+- The `(after > before)` projection-gate pattern in IPC handlers is acceptable, but it relies entirely on this `load()` semantic. If we change the projection gate (e.g., to make `append()` return whether it wrote), document the migration carefully.
+- Tests that exercise IPC handlers with `JsonFileEventLog` or `InMemoryEventLog` are insufficient to catch this class of regression. We need at least one encrypted-log integration test per write surface — or a contract test that runs every event-log impl through the same `append → load` invariants.
+
 ### 2026-05-11: Electron Main Process CJS Post-Build Transformation (Morpheus, Coordinator)
 
 **Date:** 2026-05-11  
@@ -7554,7 +7568,8 @@ PR #91 (Saldo compare-mode layout) went 3 iterations because Mouse interpreted t
 - **Mouse asks:** "Is this what the prototype shows?"
 - **Trinity asks:** "Is the React tree correct?"
 
-This reduces single-agent risk and keeps roles aligned with outing.md.
+This reduces single-agent risk and keeps roles aligned with 
+outing.md.
 
 #### Locked Rules
 
@@ -9813,9 +9828,29 @@ Release cuts must incorporate packaging workflow (build + package + verify times
 ## 2026-05-13 Decisions
 
 - **2026-05-13 (Morpheus):** PR #314 — device wrap migration_placeholder discriminator flag (Zod schema optional boolean, machine-checkable intent, backward compat, migration-device entries checked before safeStorage.decryptString)
+- **2026-05-13 (Pedro directive):** Legacy unencrypted workspace format is DEAD. All workspaces are encrypted (SPEC-026) from first launch. No migration screen, no legacy ndjson, no migrate-workspace script in production. Dev-seed must also produce encrypted events. Trial cohort is fully on encrypted format — carrying detection/migration UI is dead weight.
+- **2026-05-13 (Keaton, D1):** `scripts/migrate-workspace.mjs` deleted entirely (PR #326). No "undocumented escape hatch" — half-dead code rots. Stale legacy folders post-SPEC-026 are dev seeds, not user data; recovery is "point at a new folder".
+- **2026-05-13 (Keaton, D2):** Bootstrap on legacy-only folder routes to fresh-setup (collapse `migration` state into `fresh` in `app/src/core/workspace/detect.ts`). Pre-existing `events.ndjson` left untouched on disk; renderer shows a one-line "unencrypted file ignored" hint on fresh-setup screen.
+- **2026-05-13 (Keaton, D3):** Dev-seed routes through the production `EncryptedMultiDeviceEventLog` write path using a deterministic dev recovery code (`app/src/main/devSeed/devKey.ts`, gated `NODE_ENV !== 'production'`). Three wins: dev exercises real crypto on every launch, wiped keystores unlock predictably, no parallel code path to maintain.
+- **2026-05-13 (Keaton, D4):** User-guide ES + EN cleanup — "events.ndjson" plaintext references rewritten as encrypted per-device file model (`events-{deviceId}.ndjson` + `events.key`); backup/restore is folder-level; "Encryption and security (planned for v1)" section rewritten as shipped.
+- **2026-05-13 (Fenster, D-fenster-1):** Dev recovery mnemonic = canonical BIP39 test vector `abandon abandon abandon ... about`. Valid checksum by construction (no special-casing), and `abandon abandon` is unmistakably a dev placeholder when grepped — picked over a freshly-generated valid phrase precisely because it signals "throwaway" loud and clear.
+- **2026-05-13 (Fenster, D-fenster-2):** `NODE_ENV` guard for `devKey.ts` is a module-load `throw` (defense in depth on top of dynamic-import tree-shaking). Catches the runtime case where a non-dev-seed code path imports the module; complementary to Cypher's build-time bundle assertion (work item #5), not redundant.
+- **2026-05-13 (Fenster, D-fenster-3):** PR #326 consolidates Keaton work items #1 + #2 + #4 (Morpheus's migrate-script delete + Fenster's bootstrap/detect changes + dev-seed encrypted write path) into a single commit. Cross-agent working-tree capture during parallel session. Future-proofing rule: each agent commits to its own branch before long verification steps.
 
 
 ## 2026-05-XX Decisions (Prior to review)
 
 - **2025-07-07 (Switch):** PR #314 security review — migration script placeholder wrap safe (migration device ID never matches real device, safeStorage.decryptString would throw, atomic writes + proper crash recovery validated ✅), approve
+
+
+## 2026-05-25 Decisions
+
+- **2026-05-25 (Trinity):** i18n key conventions for Configuración subtabs (Cuentas / Etiquetas / Categorías and AddAccount / AddTag modals). New translatable surfaces in this area MUST follow these rules to keep the EN ↔ ES key inventory symmetric:
+  - Pluralized counts use i18next `_one` / `_other` suffix (e.g. `configuracion.cuentas.stats.count_one` / `_other`) with `t(key, { count })`.
+  - Shared keys reused across entities live at `configuracion.*` top level: `configuracion.filterCount` (with `{{matched}}` / `{{total}}` interpolation) and `configuracion.previewLabel`.
+  - Per-entity keys live under `configuracion.{cuentas,etiquetas,categorias}.*` and follow `entity.section.key` hierarchy.
+  - IBAN show/hide labels reused between CuentasTab row and AddAccountModal: `configuracion.cuentas.iban.show` / `.hide`.
+  - Bank-account-type labels reused between CuentasTab row and AddAccountModal preview: `configuracion.cuentas.row.bankAccount` / `.externalPlatform`.
+  - Spanish wording preserved verbatim — fix-up was EN-only.
+  - Shipped on `fix/accounts-i18n-en-strings` commit `57f4d05` (~25 keys, 7 files, vitest 1198/1198 ✅).
 
