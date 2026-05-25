@@ -3557,3 +3557,27 @@ pm run build.
 
 **Reference:** .squad/decisions.md § "2026-05-11: Electron Main Process CJS Post-Build Transformation"
 
+
+### 2026-04-24 — Encrypted event log: same-instance `append` then `load` dropped the just-written event
+
+**Bug Pedro reported:** "create a new transaction manually → save → return to transaction view → newly added transaction doesn't show up". Affected production builds (encrypted event log), not tests using `JsonFileEventLog` / `InMemoryEventLog`.
+
+**Initial hypotheses (all wrong):**
+- Filter scope (`thisMonth` upper bound = `utcToday`, future dates excluded) — plausible but not Pedro's repro.
+- Renderer race in `handleSubmitTransaction` — code path correct.
+- Timezone edge in `AddTransactionModal` default date (`new Date().toISOString().slice(0,10)` is UTC) — real but minor, not the reported bug.
+- Idempotency guard `if (after > before) apply()` in `transaction.ts` — suspicious but each event log impl I read first appeared to read fresh from disk.
+
+**Actual root cause (`app/src/core/eventLog/EncryptedMultiDeviceEventLog.ts`):** `load()` did cross-device dedup against the process-wide `this.seenIds` set. `append()` adds the event id to `seenIds` after fsync. So the very next `load()` saw the id already in `seenIds` and **skipped** the just-appended line via `continue`. The IPC handlers (transactions, splits, accounts, categories, tags, imports — every write path) gate the in-memory projection on `if ((await load()).length > beforeLength) apply(event)`. Length didn't grow → projection never applied → `getReadModel()` stayed stale until the process restarted and replayed all events into a fresh `seenIds`. `JsonFileEventLog` was unaffected because it does not skip already-seen ids during load.
+
+**Fix:** scope cross-file dedup to a `loadedIds` Set local to each `load()` invocation. Continue populating `this.seenIds` for `append()` idempotency.
+
+**Test:** new regression in `EncryptedMultiDeviceEventLog.test.ts` — same-instance `append → load` round-trip now returns the appended event; cross-device dedup still works. All 286 tests across event-log + IPC handler suites pass.
+
+**Lessons (for future me, and the team):**
+1. When a write succeeds but the read model is stale, the suspect is the projection gate, not the renderer. The IPC `(after > before)` guard is **only** as good as `load()` semantics.
+2. `EncryptedMultiDeviceEventLog` and `JsonFileEventLog` have subtly different `load()` semantics around dedup. Tests using `JsonFileEventLog` / `InMemoryEventLog` cannot catch this class of bug — we need same-instance `append → load` coverage in the encrypted impl specifically.
+3. Process-lifetime sets shared between `append()` and `load()` are an anti-pattern when both mutate the set. Use a load-scoped set for per-load dedup; keep the process-scoped set for `append()` idempotency only.
+4. Branch was named `fix/transaction-list-refresh-after-create` but the fix is at the storage layer and applies to every write handler. The branch name is fine for the user-facing PR title; the commit message documents the real surface.
+
+**Files changed:** `app/src/core/eventLog/EncryptedMultiDeviceEventLog.ts`, `app/src/core/eventLog/__tests__/EncryptedMultiDeviceEventLog.test.ts`. Commit `6f0ef7f` on `fix/transaction-list-refresh-after-create`. Not pushed.

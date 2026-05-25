@@ -2,6 +2,20 @@
 
 ## Active Decisions
 
+### 2026-05-25: Encrypted event log `load()` dedup must be load-scoped, not process-scoped (Trinity)
+
+**By:** Trinity (acting on Pedro's bug report)
+**Commit:** `6f0ef7f` on `fix/transaction-list-refresh-after-create` (not pushed; Morpheus + Switch reviews pending at decision-time)
+
+**What:** `EncryptedMultiDeviceEventLog.load()` now uses a `loadedIds` Set scoped to a single `load()` invocation for cross-device dedup, instead of the process-wide `this.seenIds` set. `this.seenIds` continues to be populated for `append()` idempotency only.
+
+**Why:** All IPC write handlers (`transaction.ts`, `transaction-splits.ts`, `accounts.ts`, `categories.ts`, `tags.ts`, `import.ts`, bulk ops) gate the in-memory projection on `if ((await eventLog.load()).length > beforeLength) apply(event)`. The previous implementation mutated `seenIds` from both `append()` and `load()`, so calling `load()` immediately after `append()` on the same instance silently dropped the appended event during dedup. Length didn't grow → projection never ran → `getReadModel()` stayed stale until the next process boot replayed events into a fresh `seenIds`. The user-visible symptom was: "manually created transaction saved successfully but does not appear in the list until you restart the app". This affected every encrypted-mode write path; the same bug also impacted account / category / tag / split / import creation. `JsonFileEventLog` was unaffected.
+
+**Team implication:**
+- Any future event-log implementation MUST guarantee that `(await log.load()).length` reflects all `append()`s made on the same instance in the same process. Add a round-trip same-instance test before merging.
+- The `(after > before)` projection-gate pattern in IPC handlers is acceptable, but it relies entirely on this `load()` semantic. If we change the projection gate (e.g., to make `append()` return whether it wrote), document the migration carefully.
+- Tests that exercise IPC handlers with `JsonFileEventLog` or `InMemoryEventLog` are insufficient to catch this class of regression. We need at least one encrypted-log integration test per write surface — or a contract test that runs every event-log impl through the same `append → load` invariants.
+
 ### 2026-05-11: Electron Main Process CJS Post-Build Transformation (Morpheus, Coordinator)
 
 **Date:** 2026-05-11  
@@ -7554,7 +7568,8 @@ PR #91 (Saldo compare-mode layout) went 3 iterations because Mouse interpreted t
 - **Mouse asks:** "Is this what the prototype shows?"
 - **Trinity asks:** "Is the React tree correct?"
 
-This reduces single-agent risk and keeps roles aligned with outing.md.
+This reduces single-agent risk and keeps roles aligned with 
+outing.md.
 
 #### Locked Rules
 
