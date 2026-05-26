@@ -821,3 +821,268 @@ function resolveSubId(categoryKey: string, subName: string): string | null {
   if (idx < 0) return null;
   return fakeUlid(`${categoryKey}S${idx}`);
 }
+
+// ============================================================================
+// Perf-seed builder — Option B for the e2e perf gate.
+//
+// Mirrors the deterministic structure that scripts/perf-seed.mjs used in its
+// pre-SPEC-026 (plaintext NDJSON) life: 5 accounts, 8 categories, 24
+// subcategories, 6 tags, and N tx.created events generated through a mulberry32
+// PRNG seeded with 0x52657474 ('Rett'). The output is byte-deterministic
+// across runs with the same `txCount` and PRNG seed, which is what perf
+// benchmarking requires for stable medians.
+//
+// Why separate from buildDevSeedEvents:
+//   - The dev demo seed (TRANSACTIONS + backfill) is curated for UX
+//     screenshots and tutorial flows. It must stay untouched so `npm run dev`
+//     keeps producing the exact data dev/QA expect to see.
+//   - The perf seed is a synthetic blob optimised for volume + determinism
+//     against the same WI-23 flat envelope shape the rest of the app consumes.
+// ============================================================================
+
+const PERF_PRNG_SEED = 0x52657474; // 'Rett' as hex — must match perf-seed.mjs
+
+interface PerfAccountSeed {
+  key: string;
+  bankName: string;
+  bankNameShort: string;
+  label: string;
+}
+
+interface PerfCategorySeed {
+  key: string;
+  name: string;
+  type: 'income' | 'expense';
+  subs: readonly string[];
+}
+
+interface PerfTagSeed {
+  key: string;
+  name: string;
+  color: string;
+}
+
+const PERF_ACCOUNTS: readonly PerfAccountSeed[] = [
+  { key: 'ACCUNI', bankName: 'Unicaja Banco', bankNameShort: 'Unicaja', label: 'Principal' },
+  { key: 'ACCOPS', bankName: 'CaixaBank', bankNameShort: 'Caixa 5315', label: 'Operaciones' },
+  { key: 'ACCFIN', bankName: 'CaixaBank', bankNameShort: 'Caixa FinRett', label: 'FinRett' },
+  { key: 'ACCEVT', bankName: 'CaixaBank', bankNameShort: 'Caixa 0951', label: 'Eventos' },
+  { key: 'ACCPPL', bankName: 'PayPal', bankNameShort: 'PayPal', label: 'Donaciones' },
+];
+
+const PERF_CATEGORIES: readonly PerfCategorySeed[] = [
+  {
+    key: 'CATACT',
+    name: 'Actividades',
+    type: 'expense',
+    subs: ['Talleres', 'Terapias', 'Formación'],
+  },
+  {
+    key: 'CATADM',
+    name: 'Administrativo',
+    type: 'expense',
+    subs: ['Material oficina', 'Servicios profesionales', 'Seguros', 'Comisiones'],
+  },
+  {
+    key: 'CATCUO',
+    name: 'Cuotas',
+    type: 'income',
+    subs: ['Cuota Socio Anual', 'Cuota Socio Mensual', 'Cuota Familia'],
+  },
+  {
+    key: 'CATDON',
+    name: 'Donaciones',
+    type: 'income',
+    subs: ['Individuales', 'Empresas', 'Anónimas'],
+  },
+  {
+    key: 'CATEVT',
+    name: 'Eventos',
+    type: 'income',
+    subs: ['Galas benéficas', 'Mercadillos', 'Carreras solidarias', 'Charlas'],
+  },
+  {
+    key: 'CATGAS',
+    name: 'Gastos',
+    type: 'expense',
+    subs: ['Alquiler', 'Suministros', 'Transporte', 'Comunicación', 'Comisiones'],
+  },
+  { key: 'CATSUB', name: 'Subvenciones', type: 'income', subs: ['Públicas', 'Privadas'] },
+  { key: 'CATTEA', name: 'Teaming', type: 'income', subs: ['Teaming'] },
+];
+
+const PERF_TAGS: readonly PerfTagSeed[] = [
+  { key: 'TAGRAR', name: 'Día Enfermedades Raras', color: 'oklch(0.78 0.10 330)' },
+  { key: 'TAGCAL', name: 'Calendarios 2026', color: 'oklch(0.78 0.10 280)' },
+  { key: 'TAGGAL', name: 'Gala Benéfica 2026', color: 'oklch(0.78 0.10 55)' },
+  { key: 'TAGRET', name: 'Reto Deportivo', color: 'oklch(0.78 0.10 220)' },
+  { key: 'TAGSEM', name: 'Semana Rett', color: 'oklch(0.78 0.10 180)' },
+  { key: 'TAGMER', name: 'Mercadillo Solidario', color: 'oklch(0.78 0.10 95)' },
+];
+
+const PERF_DESCRIPTIONS: readonly string[] = [
+  'Donante',
+  'Cuota socio',
+  'Cuota familia',
+  'Subvención pública',
+  'Donación corporativa',
+  'Recaudación gala',
+  'Recaudación mercadillo',
+  'Pago taller',
+  'Pago terapia',
+  'Recibo alquiler',
+  'Recibo suministros',
+  'Envío postal',
+  'Compra material oficina',
+  'Servicio imprenta',
+  'Seguro RC',
+  'Comisión mantenimiento',
+  'Teaming mensual',
+];
+
+const PERF_BASE_TS = Date.parse('2026-04-19T08:00:00.000Z');
+function perfEnvelopeIso(offsetMinutes: number): string {
+  return new Date(PERF_BASE_TS + offsetMinutes * 60_000).toISOString();
+}
+
+export interface PerfSeedDeps {
+  datasetId: string;
+  actorDeviceId: string;
+  actorUserId: string;
+  txCount: number;
+  /**
+   * Optional PRNG seed override. Defaults to 0x52657474 ('Rett'). Tests use
+   * this to verify determinism across two calls with the same seed.
+   */
+  prngSeed?: number;
+}
+
+/**
+ * Build a deterministic event stream for perf benchmarking.
+ *
+ * Output:
+ *   - 5 × AccountCreated
+ *   - 8 × CategoryCreated + 24 × SubcategoryCreated
+ *   - 6 × TagCreated
+ *   - txCount × tx.created  (WI-23 unified flat envelope)
+ *
+ * Two calls with the same `{ txCount, prngSeed }` produce byte-identical
+ * payloads — required for stable medians in `tests/e2e/movements-perf.spec.ts`.
+ * The date range walks 2023-01-01 → current month so the "this month" filter
+ * always sees data regardless of when CI runs.
+ */
+export function buildPerfSeedEvents(deps: PerfSeedDeps): DomainEvent[] {
+  const { datasetId, actorDeviceId, actorUserId, txCount } = deps;
+  if (!Number.isFinite(txCount) || txCount < 0 || !Number.isInteger(txCount)) {
+    throw new Error(`[devSeed] buildPerfSeedEvents: invalid txCount=${String(txCount)}`);
+  }
+
+  const rng = mulberry32(deps.prngSeed ?? PERF_PRNG_SEED);
+  const pickP = <T>(arr: readonly T[]): T => arr[Math.floor(rng() * arr.length)]!;
+  const randIntP = (min: number, max: number): number => Math.floor(rng() * (max - min + 1)) + min;
+
+  const events: DomainEvent[] = [];
+  let envOrdinal = 0;
+
+  PERF_ACCOUNTS.forEach((acc, sortOrder) => {
+    events.push({
+      type: 'AccountCreated',
+      id: fakeUlid(acc.key),
+      name: acc.label,
+      bankName: acc.bankName,
+      label: acc.label,
+      color: 'oklch(0.72 0.11 265)',
+      currency: 'EUR',
+      openingBalance: 0,
+      sortOrder,
+      createdAt: perfEnvelopeIso(envOrdinal++),
+    } as DomainEvent);
+  });
+
+  PERF_CATEGORIES.forEach((cat, catIdx) => {
+    const catId = fakeUlid(cat.key);
+    events.push({
+      type: 'CategoryCreated',
+      id: catId,
+      name: cat.name,
+      kind: cat.type,
+      sortOrder: catIdx,
+      createdAt: perfEnvelopeIso(envOrdinal++),
+    } as DomainEvent);
+    cat.subs.forEach((subName, i) => {
+      events.push({
+        type: 'SubcategoryCreated',
+        id: fakeUlid(`${cat.key}S${i}`),
+        parentCategoryId: catId,
+        name: subName,
+        createdAt: perfEnvelopeIso(envOrdinal++),
+      } as DomainEvent);
+    });
+  });
+
+  PERF_TAGS.forEach((tag, tagIdx) => {
+    events.push({
+      type: 'TagCreated',
+      id: fakeUlid(tag.key),
+      name: tag.name,
+      color: tag.color,
+      sortOrder: tagIdx,
+      createdAt: perfEnvelopeIso(envOrdinal++),
+    } as DomainEvent);
+  });
+
+  // Date window — rolls forward so "current month" always has hits.
+  const _now = new Date();
+  const SEED_END_YEAR = _now.getUTCFullYear();
+  const SEED_END_MONTH = _now.getUTCMonth() + 1;
+  const SEED_START_YEAR = 2023;
+
+  const randomDateIso = (): string => {
+    const year = randIntP(SEED_START_YEAR, SEED_END_YEAR);
+    const maxMonth = year === SEED_END_YEAR ? SEED_END_MONTH : 12;
+    const month = randIntP(1, maxMonth);
+    const maxDay = [4, 6, 9, 11].includes(month) ? 30 : month === 2 ? 28 : 31;
+    const day = randIntP(1, maxDay);
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  };
+
+  for (let i = 0; i < txCount; i++) {
+    const cat = PERF_CATEGORIES[Math.floor(rng() * PERF_CATEGORIES.length)]!;
+    const subIdx = Math.floor(rng() * cat.subs.length);
+    const acc = PERF_ACCOUNTS[Math.floor(rng() * PERF_ACCOUNTS.length)]!;
+    const date = randomDateIso();
+    const rawAmount = randIntP(5, 5000) + rng();
+    const tagIds: string[] = [];
+    if (rng() < 0.12) {
+      tagIds.push(fakeUlid(pickP(PERF_TAGS).key));
+    }
+    const createdAt = `${date}T12:00:${String(i % 60).padStart(2, '0')}.000Z`;
+    events.push({
+      id: fakeUlid(`EVTTX${String(i).padStart(7, '0')}`),
+      type: 'tx.created',
+      datasetId,
+      actorDeviceId,
+      actorUserId,
+      actorIdentitySource: 'local',
+      createdAt,
+      dekVersion: 0,
+      version: 1,
+      payload: {
+        id: fakeUlid(`TX${String(i).padStart(7, '0')}`),
+        date,
+        type: cat.type,
+        amount: Math.round(rawAmount * 100) / 100,
+        currency: 'EUR',
+        description: `${pickP(PERF_DESCRIPTIONS)} #${String(i).padStart(5, '0')}`,
+        accountId: fakeUlid(acc.key),
+        categoryId: fakeUlid(cat.key),
+        subcategoryId: fakeUlid(`${cat.key}S${subIdx}`),
+        tagIds,
+        status: rng() < 0.05 ? 'pending' : 'approved',
+        createdAt,
+      },
+    } as DomainEvent);
+  }
+
+  return events;
+}

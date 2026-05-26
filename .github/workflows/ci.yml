@@ -5,6 +5,14 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_perf_gate:
+        description: 'Also run the e2e perf gate against this ref'
+        required: false
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
 
 jobs:
   quality:
@@ -43,8 +51,16 @@ jobs:
     runs-on: ubuntu-latest
     # Gate on main pushes only — PRs can be flakier on shared GH runners.
     # Revisit after a week of data; tighten to PR-blocking if stable.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Also runnable on demand via the Actions tab (workflow_dispatch) for
+    # branch-level validation of perf-seed / encrypted-workspace changes;
+    # dispatch runs regardless of `quality` (lets us validate the perf gate
+    # even when an unrelated unit-test flake is red).
     needs: quality
+    if: |
+      always() && (
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.quality.result == 'success') ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_perf_gate == 'true')
+      )
     permissions:
       contents: read
     steps:
@@ -67,10 +83,16 @@ jobs:
       - name: Install Playwright system dependencies
         run: npx playwright install --with-deps chromium
 
-      - name: Seed perf data
-        run: npm run perf:seed -- --count=5000 --dir=perf-events
-
       # xvfb-run provides a virtual framebuffer so Electron can open a window
-      # on a headless Linux runner.
-      - name: Run e2e tests
-        run: xvfb-run --auto-servernum npm run e2e
+      # on a headless Linux runner. We force safeStorage to use Electron's
+      # built-in "basic" fallback cipher (via OT_PASSWORD_STORE → command-line
+      # switch in app/src/main/index.ts) so the seeder doesn't need a working
+      # gnome-keyring + libsecret + DBus session on the runner.
+      - name: Seed perf data + run e2e tests
+        env:
+          OT_PASSWORD_STORE: basic
+        run: |
+          xvfb-run --auto-servernum -- bash -c '
+            npm run perf:seed -- --count=5000 --dir=perf-events && \
+            npm run e2e
+          '

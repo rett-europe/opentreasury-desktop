@@ -69,8 +69,13 @@ test.describe('MovementsScreen mount perf budget', () => {
       // "opentreasury-desktop" as the app name and resolves userData correctly.
       // args: ['dist/main/index.js'] would fall back to app.getName() = "Electron"
       // and write to %APPDATA%\Electron instead of %APPDATA%\opentreasury-desktop.
+      const electronLaunchArgs = ['.'];
+      const passwordStore = process.env.OT_PASSWORD_STORE ?? (process.env.CI ? 'basic' : '');
+      if (passwordStore) {
+        electronLaunchArgs.unshift(`--password-store=${passwordStore}`);
+      }
       const app = await electron.launch({
-        args: ['.'],
+        args: electronLaunchArgs,
         env: {
           ...process.env,
           // Point the bootstrap at the pre-seeded perf dataset.
@@ -78,6 +83,10 @@ test.describe('MovementsScreen mount perf budget', () => {
           // Suppress the dev-seed auto-write so the event log stays exactly
           // what perf:seed wrote (avoids a slow append on first launch).
           OT_SEED: 'none',
+          // Match the safeStorage backend used by the seed. On CI the seed
+          // uses --password-store=basic; the CLI flag above is what Chromium
+          // actually reads — the env var is mirrored for diagnostic logging.
+          OT_PASSWORD_STORE: passwordStore,
         },
       });
 

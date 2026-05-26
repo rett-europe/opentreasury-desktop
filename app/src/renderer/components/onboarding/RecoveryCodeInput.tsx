@@ -36,6 +36,19 @@ export function RecoveryCodeInput({
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // Track the pending blur-dismiss timeout so we can cancel it on unmount,
+  // preventing setState-after-teardown warnings (and unhandled errors under
+  // jsdom) when tests/screens unmount the component before the 200ms delay.
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current !== null) {
+        clearTimeout(blurTimeoutRef.current);
+        blurTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const hasError = !!errorText;
 
@@ -153,7 +166,11 @@ export function RecoveryCodeInput({
                 onKeyDown={(e) => handleKeyDown(idx, e)}
                 onFocus={() => setFocusedIndex(idx)}
                 onBlur={() => {
-                  setTimeout(() => {
+                  if (blurTimeoutRef.current !== null) {
+                    clearTimeout(blurTimeoutRef.current);
+                  }
+                  blurTimeoutRef.current = setTimeout(() => {
+                    blurTimeoutRef.current = null;
                     setFocusedIndex(null);
                     setSuggestions([]);
                   }, 200);

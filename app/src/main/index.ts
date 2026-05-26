@@ -4,6 +4,7 @@ import {
   app,
   BrowserWindow,
   ipcMain,
+  safeStorage,
   session,
   Menu,
   shell,
@@ -14,9 +15,20 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { registerIpcHandlers } from './ipc/handlers.js';
 import { initializeApp } from './bootstrap.js';
+import { isHeadlessSeedRequested, runHeadlessSeed } from './headlessSeed.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Allow CI / dev to force Electron's safeStorage backend. The actual switch
+// is passed on the Electron command line (see scripts/perf-seed.mjs and
+// tests/e2e/movements-perf.spec.ts) because Chromium reads it during early
+// init before JS would call appendSwitch. This env-driven appendSwitch is a
+// belt-and-suspenders fallback for entry points that don't set the CLI flag.
+const passwordStoreOverride = process.env['OT_PASSWORD_STORE']?.trim();
+if (passwordStoreOverride && !app.commandLine.hasSwitch('password-store')) {
+  app.commandLine.appendSwitch('password-store', passwordStoreOverride);
+}
 
 // Production-only adjustments — keep dev workflow intact.
 if (app.isPackaged) {
@@ -155,32 +167,59 @@ function buildHelpMenu(): void {
   Menu.setApplicationMenu(menu);
 }
 
-void app.whenReady().then(async () => {
-  installCspHeader();
-  buildHelpMenu();
-  // WI-4′ — hydrate the read model from the local NDJSON event log BEFORE
-  // handlers are registered, so the first IPC query sees real data (and the
-  // dev-seed has run on first launch).
-  //
-  // #242: If bootstrap fails (corrupt dataset.json, schema mismatch, hydration
-  // error), catch the error and register IPC handlers anyway so the renderer
-  // can query boot status and show the BootErrorPage. The app remains in a
-  // "boot failed" state; getEventLog() will throw if called.
-  try {
-    await initializeApp();
-  } catch (err) {
+// SPEC-026 Option B — headless seed mode for the e2e perf gate. When
+// OT_HEADLESS_SEED=1, scripts/perf-seed.mjs has spawned us solely to write
+// an encrypted workspace and exit. Branching here (before app.whenReady())
+// keeps the normal `npm run dev` path completely untouched: no IPC handlers,
+// no BrowserWindow, no CSP header — just seed and quit.
+if (isHeadlessSeedRequested()) {
+  runHeadlessSeed().catch((err: unknown) => {
     // eslint-disable-next-line no-console
-    console.error('[main] Bootstrap failed:', err);
-    // Continue to register IPC handlers so the renderer can query boot status
-  }
-  registerIpcHandlers(ipcMain);
-  createMainWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+    console.error('[headlessSeed] failed:', err);
+    process.exit(1);
   });
-});
+} else {
+  void app.whenReady().then(async () => {
+    // When --password-store=basic is active (CI / headless Linux),
+    // safeStorage.isEncryptionAvailable() returns false by design unless we
+    // explicitly opt into plaintext mode. The perf-seed wrote its workspace
+    // with the same opt-in, so we need to match it here to silent-unlock.
+    // Dev/test only — packaged builds never pass --password-store=basic.
+    if (
+      app.commandLine.getSwitchValue('password-store') === 'basic' &&
+      typeof safeStorage.setUsePlainTextEncryption === 'function'
+    ) {
+      safeStorage.setUsePlainTextEncryption(true);
+      // eslint-disable-next-line no-console
+      console.log('[main] safeStorage plaintext mode enabled (--password-store=basic)');
+    }
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+    installCspHeader();
+    buildHelpMenu();
+    // WI-4′ — hydrate the read model from the local NDJSON event log BEFORE
+    // handlers are registered, so the first IPC query sees real data (and the
+    // dev-seed has run on first launch).
+    //
+    // #242: If bootstrap fails (corrupt dataset.json, schema mismatch, hydration
+    // error), catch the error and register IPC handlers anyway so the renderer
+    // can query boot status and show the BootErrorPage. The app remains in a
+    // "boot failed" state; getEventLog() will throw if called.
+    try {
+      await initializeApp();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[main] Bootstrap failed:', err);
+      // Continue to register IPC handlers so the renderer can query boot status
+    }
+    registerIpcHandlers(ipcMain);
+    createMainWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+    });
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') app.quit();
+  });
+}
