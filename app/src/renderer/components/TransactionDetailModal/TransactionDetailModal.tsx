@@ -590,20 +590,16 @@ export function TransactionDetailModal({
                     <dt>{t('transactionDetail.fields.currency')}</dt>
                     <dd>{transaction.currency}</dd>
                   </div>
+                  {transaction.reference ? (
+                    <div className="ot-transaction-detail-modal__field">
+                      <dt>{t('transactionDetail.fields.reference')}</dt>
+                      <dd className="ot-transaction-detail-modal__field-mono">
+                        {transaction.reference}
+                      </dd>
+                    </div>
+                  ) : null}
                 </dl>
               </section>
-
-              {transaction.reference ? (
-                <section
-                  className="ot-transaction-detail-modal__extra"
-                  aria-label={t('transactionDetail.fields.reference')}
-                >
-                  <h2 className="ot-transaction-detail-modal__extra-label">
-                    {t('transactionDetail.fields.reference')}
-                  </h2>
-                  <p className="ot-transaction-detail-modal__reference">{transaction.reference}</p>
-                </section>
-              ) : null}
 
               {transaction.details ? (
                 <section

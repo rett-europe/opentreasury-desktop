@@ -146,6 +146,15 @@ describe('TransactionDetailModal', () => {
     expect(screen.getByText('Monthly donation')).toBeTruthy();
   });
 
+  it('renders reference inside the metadata two-column grid (not a standalone block)', () => {
+    const { container } = renderModal({ ...baseTx, reference: 'INV-2026-0042' });
+    const refCell = screen.getByText('INV-2026-0042');
+    // Reference must live inside the grid (`<dl>` styled as 2-column grid),
+    // not as a standalone "extra" section.
+    expect(refCell.closest('.ot-transaction-detail-modal__grid')).not.toBeNull();
+    expect(container.querySelector('.ot-transaction-detail-modal__reference')).toBeNull();
+  });
+
   it('hides reference and details blocks when null/undefined', () => {
     renderModal(baseTx);
     expect(screen.queryByText('INV-2026-0042')).toBeNull();
