@@ -8,6 +8,7 @@ import type {
   AddNoteResponse,
   ListNotesResponse,
   DeleteNoteResponse,
+  EditNoteResponse,
 } from '../../../shared/ipc-contracts/notes.js';
 
 const TX_ID = '01HZTX00000000000000000000';
@@ -189,6 +190,137 @@ describe('NotesThread', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Note is too long|Nota demasiado larga/i)).toBeTruthy();
+    });
+  });
+
+  describe('edit-note flow', () => {
+    const ORIGINAL_TEXT = 'original text';
+    const UPDATED_TEXT = 'updated text';
+
+    function setupWithSingleNote(opts?: { editResp?: EditNoteResponse }): {
+      editFn: ReturnType<typeof vi.fn>;
+      listFn: ReturnType<typeof vi.fn>;
+    } {
+      const listFn = vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          notes: [
+            { id: NOTE_ID, txId: TX_ID, text: ORIGINAL_TEXT, createdAt: '2026-04-20T10:32:00Z' },
+          ],
+        } satisfies ListNotesResponse)
+        .mockResolvedValueOnce({
+          ok: true,
+          notes: [
+            { id: NOTE_ID, txId: TX_ID, text: UPDATED_TEXT, createdAt: '2026-04-20T10:32:00Z' },
+          ],
+        } satisfies ListNotesResponse);
+      const editResp: EditNoteResponse = opts?.editResp ?? {
+        ok: true,
+        event: {
+          type: 'tx.note.edited',
+          id: NOTE_ID,
+          noteId: NOTE_ID,
+          txId: TX_ID,
+          text: UPDATED_TEXT,
+          editedAt: '2026-04-22T09:00:00Z',
+        },
+      };
+      const editFn = vi.fn().mockResolvedValue(editResp);
+      mountBridge({ list: listFn, edit: editFn });
+      return { editFn, listFn };
+    }
+
+    it('exposes an Edit button for each note', async () => {
+      setupWithSingleNote();
+      renderThread();
+      await waitFor(() => {
+        expect(screen.getByText(ORIGINAL_TEXT)).toBeTruthy();
+      });
+      expect(screen.getByRole('button', { name: /Edit note|Editar nota/i })).toBeTruthy();
+    });
+
+    it('opens an inline textarea pre-filled with the note text when Edit is clicked', async () => {
+      setupWithSingleNote();
+      renderThread();
+      await waitFor(() => {
+        expect(screen.getByText(ORIGINAL_TEXT)).toBeTruthy();
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Edit note|Editar nota/i }));
+      const ta = screen.getByLabelText(
+        /Edit note text|Editar texto de la nota/i,
+      ) as HTMLTextAreaElement;
+      expect(ta.value).toBe(ORIGINAL_TEXT);
+    });
+
+    it('cancels edit without calling editNote and keeps the original text', async () => {
+      const { editFn } = setupWithSingleNote();
+      renderThread();
+      await waitFor(() => {
+        expect(screen.getByText(ORIGINAL_TEXT)).toBeTruthy();
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Edit note|Editar nota/i }));
+      const ta = screen.getByLabelText(
+        /Edit note text|Editar texto de la nota/i,
+      ) as HTMLTextAreaElement;
+      fireEvent.change(ta, { target: { value: 'discarded' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Cancel$|^Cancelar$/ }));
+      expect(editFn).not.toHaveBeenCalled();
+      expect(screen.getByText(ORIGINAL_TEXT)).toBeTruthy();
+    });
+
+    it('saves edited note via editNote and refreshes the list', async () => {
+      const { editFn } = setupWithSingleNote();
+      renderThread();
+      await waitFor(() => {
+        expect(screen.getByText(ORIGINAL_TEXT)).toBeTruthy();
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Edit note|Editar nota/i }));
+      const ta = screen.getByLabelText(
+        /Edit note text|Editar texto de la nota/i,
+      ) as HTMLTextAreaElement;
+      fireEvent.change(ta, { target: { value: UPDATED_TEXT } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$|^Guardar$/ }));
+      await waitFor(() => {
+        expect(editFn).toHaveBeenCalledWith({ noteId: NOTE_ID, text: UPDATED_TEXT });
+      });
+      await waitFor(() => {
+        expect(screen.getByText(UPDATED_TEXT)).toBeTruthy();
+      });
+    });
+
+    it('disables Save when text is empty or trimmed-empty', async () => {
+      setupWithSingleNote();
+      renderThread();
+      await waitFor(() => {
+        expect(screen.getByText(ORIGINAL_TEXT)).toBeTruthy();
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Edit note|Editar nota/i }));
+      const ta = screen.getByLabelText(
+        /Edit note text|Editar texto de la nota/i,
+      ) as HTMLTextAreaElement;
+      fireEvent.change(ta, { target: { value: '   ' } });
+      const save = screen.getByRole('button', { name: /^Save$|^Guardar$/ }) as HTMLButtonElement;
+      expect(save.disabled).toBe(true);
+    });
+
+    it('surfaces backend edit errors with localized messages', async () => {
+      setupWithSingleNote({
+        editResp: { ok: false, error: { code: 'TEXT_TOO_LONG', message: 'raw' } },
+      });
+      renderThread();
+      await waitFor(() => {
+        expect(screen.getByText(ORIGINAL_TEXT)).toBeTruthy();
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Edit note|Editar nota/i }));
+      const ta = screen.getByLabelText(
+        /Edit note text|Editar texto de la nota/i,
+      ) as HTMLTextAreaElement;
+      fireEvent.change(ta, { target: { value: 'something new' } });
+      fireEvent.click(screen.getByRole('button', { name: /^Save$|^Guardar$/ }));
+      await waitFor(() => {
+        expect(screen.getByText(/Note is too long|Nota demasiado larga/i)).toBeTruthy();
+      });
     });
   });
 });

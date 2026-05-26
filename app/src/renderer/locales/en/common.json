@@ -458,6 +458,10 @@
     "empty": "No notes yet. Add the first one.",
     "deleteAria": "Delete note",
     "deleteConfirm": "Delete this note?",
+    "editAria": "Edit note",
+    "editLabel": "Edit note text",
+    "editSaveButton": "Save",
+    "editCancelButton": "Cancel",
     "errors": {
       "TX_NOT_FOUND": "Transaction not found.",
       "NOTE_NOT_FOUND": "Note not found.",
