@@ -31,8 +31,21 @@
   flex-direction: column;
   gap: var(--space-5);
   max-height: 88vh;
-  overflow-y: auto;
+  min-height: 0;
+  overflow: hidden;
   padding: var(--space-6);
+  box-sizing: border-box;
+}
+
+/* Some consumers (AddTransactionModal, BulkClassifyModal, BulkAddLabelModal)
+ * wrap the body + footer in a <form>. Make that form the same flex column so
+ * the body still scrolls and the footer still sticks. */
+.ot-transaction-detail-modal__content > form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .ot-transaction-detail-modal__header {
@@ -43,6 +56,7 @@
   margin: 0;
   padding-bottom: var(--space-4);
   border-bottom: 1px solid var(--color-border-default, var(--color-border));
+  flex-shrink: 0;
 }
 
 .ot-transaction-detail-modal__title {
@@ -134,12 +148,15 @@
 /* Edit body — contains summary header + TransactionFormFields.
  * Same structure as read-body: summary at top, then form fields.
  * This ensures view↔edit toggle only morphs value cells.
- * min-height matches read-body to eliminate size flicker on mode toggle. */
+ * Scrolls inside the modal so the footer stays anchored regardless of
+ * content length (#5 — long notes no longer overlap footer buttons). */
 .ot-transaction-detail-modal__edit-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  min-height: 520px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .ot-transaction-detail-modal__error {
@@ -150,12 +167,16 @@
   font-size: var(--font-size-sm);
 }
 
-/* Read body — contains transaction details + notes */
+/* Read body — contains transaction details + notes. Scrolls inside the
+ * modal so the footer (Editar / Cerrar) stays anchored even when the notes
+ * thread grows long (#5). */
 .ot-transaction-detail-modal__read-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  min-height: 520px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .ot-transaction-detail-modal__summary {
@@ -236,6 +257,10 @@
   font-size: var(--font-size-sm, 0.875rem);
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
+}
+
+.ot-transaction-detail-modal__field-mono {
+  font-family: var(--font-family-mono, ui-monospace, monospace);
 }
 
 .ot-transaction-detail-modal__details {
@@ -337,6 +362,7 @@
   align-items: center;
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-border-default, var(--color-border));
+  flex-shrink: 0;
 }
 
 .ot-transaction-detail-modal__footer-actions {
