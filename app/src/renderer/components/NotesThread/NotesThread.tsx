@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Trash2 } from 'lucide-react';
+import { Edit, Trash2 } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { formatDateTime } from '../../utils/dateFormat.js';
 import * as notesApi from '../../services/notesApi.js';
@@ -28,6 +28,13 @@ export function NotesThread({ txId }: NotesThreadProps): JSX.Element {
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Per-note edit state. Only one note may be in edit mode at a time.
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+  const [editingSubmitting, setEditingSubmitting] = useState(false);
+  const [editingError, setEditingError] = useState<string | null>(null);
+  const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -101,6 +108,59 @@ export function NotesThread({ txId }: NotesThreadProps): JSX.Element {
     [refresh, t],
   );
 
+  const handleStartEdit = useCallback((note: TransactionNote) => {
+    setEditingNoteId(note.id);
+    setEditingText(note.text);
+    setEditingError(null);
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingNoteId(null);
+    setEditingText('');
+    setEditingError(null);
+  }, []);
+
+  const handleSaveEdit = useCallback(
+    async (noteId: string) => {
+      const text = editingText.trim();
+      if (!text) return;
+      if (text.length > NOTE_TEXT_MAX_LENGTH) return;
+      setEditingSubmitting(true);
+      setEditingError(null);
+      try {
+        const resp = await notesApi.editNote({ noteId, text });
+        if (!resp.ok) {
+          setEditingError(
+            t(`notes.errors.${resp.error.code}`, { defaultValue: resp.error.message }),
+          );
+          return;
+        }
+        setEditingNoteId(null);
+        setEditingText('');
+        await refresh();
+      } catch (err) {
+        setEditingError(err instanceof Error ? err.message : t('notes.errors.INTERNAL'));
+      } finally {
+        setEditingSubmitting(false);
+      }
+    },
+    [editingText, refresh, t],
+  );
+
+  // Auto-focus the textarea when entering edit mode.
+  useEffect(() => {
+    if (editingNoteId && editTextareaRef.current) {
+      editTextareaRef.current.focus();
+      // Move caret to end of existing text.
+      const len = editTextareaRef.current.value.length;
+      editTextareaRef.current.setSelectionRange(len, len);
+    }
+  }, [editingNoteId]);
+
+  const editingRemaining = NOTE_TEXT_MAX_LENGTH - editingText.length;
+  const editingOverLimit = editingText.length > NOTE_TEXT_MAX_LENGTH;
+  const editingEmpty = editingText.trim().length === 0;
+
   const remaining = NOTE_TEXT_MAX_LENGTH - draft.length;
   const overLimit = draft.length > NOTE_TEXT_MAX_LENGTH;
 
@@ -160,25 +220,100 @@ export function NotesThread({ txId }: NotesThreadProps): JSX.Element {
         ) : state.notes.length === 0 ? (
           <p className="ot-notes-thread__placeholder">{t('notes.empty')}</p>
         ) : (
-          state.notes.map((note) => (
-            <article key={note.id} className="ot-notes-thread__card">
-              <header className="ot-notes-thread__card-header">
-                <time className="ot-notes-thread__timestamp" dateTime={note.createdAt}>
-                  {formatDateTime(note.createdAt, locale)}
-                </time>
-                <button
-                  type="button"
-                  className="ot-notes-thread__delete"
-                  onClick={() => handleDelete(note)}
-                  aria-label={t('notes.deleteAria')}
-                  title={t('notes.deleteAria')}
-                >
-                  <Trash2 size={14} aria-hidden="true" />
-                </button>
-              </header>
-              <p className="ot-notes-thread__text">{note.text}</p>
-            </article>
-          ))
+          state.notes.map((note) => {
+            const isEditing = editingNoteId === note.id;
+            const editInputId = `ot-notes-thread-edit-${note.id}`;
+            const editCounterId = `${editInputId}-counter`;
+            return (
+              <article key={note.id} className="ot-notes-thread__card">
+                <header className="ot-notes-thread__card-header">
+                  <time className="ot-notes-thread__timestamp" dateTime={note.createdAt}>
+                    {formatDateTime(note.createdAt, locale)}
+                  </time>
+                  {!isEditing && (
+                    <div className="ot-notes-thread__card-actions">
+                      <button
+                        type="button"
+                        className="ot-notes-thread__action ot-notes-thread__edit"
+                        onClick={() => handleStartEdit(note)}
+                        aria-label={t('notes.editAria')}
+                        title={t('notes.editAria')}
+                        disabled={editingNoteId !== null}
+                      >
+                        <Edit size={14} aria-hidden="true" />
+                      </button>
+                      <button
+                        type="button"
+                        className="ot-notes-thread__action ot-notes-thread__delete"
+                        onClick={() => handleDelete(note)}
+                        aria-label={t('notes.deleteAria')}
+                        title={t('notes.deleteAria')}
+                        disabled={editingNoteId !== null}
+                      >
+                        <Trash2 size={14} aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
+                </header>
+                {isEditing ? (
+                  <div className="ot-notes-thread__edit-form">
+                    <label className="ot-notes-thread__edit-label" htmlFor={editInputId}>
+                      {t('notes.editLabel')}
+                    </label>
+                    <textarea
+                      id={editInputId}
+                      ref={editTextareaRef}
+                      className="ot-notes-thread__textarea"
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      maxLength={NOTE_TEXT_MAX_LENGTH + 100}
+                      rows={3}
+                      disabled={editingSubmitting}
+                      aria-describedby={editCounterId}
+                    />
+                    <div className="ot-notes-thread__edit-controls">
+                      <span
+                        id={editCounterId}
+                        className={
+                          editingOverLimit
+                            ? 'ot-notes-thread__counter ot-notes-thread__counter--over'
+                            : 'ot-notes-thread__counter'
+                        }
+                        aria-live="polite"
+                      >
+                        {t('notes.counter', { remaining: editingRemaining })}
+                      </span>
+                      <div className="ot-notes-thread__edit-buttons">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={handleCancelEdit}
+                          disabled={editingSubmitting}
+                        >
+                          {t('notes.editCancelButton')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={() => void handleSaveEdit(note.id)}
+                          disabled={editingSubmitting || editingOverLimit || editingEmpty}
+                        >
+                          {editingSubmitting ? t('common.saving') : t('notes.editSaveButton')}
+                        </Button>
+                      </div>
+                    </div>
+                    {editingError ? (
+                      <div className="ot-notes-thread__error" role="alert">
+                        {editingError}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="ot-notes-thread__text">{note.text}</p>
+                )}
+              </article>
+            );
+          })
         )}
       </div>
     </section>

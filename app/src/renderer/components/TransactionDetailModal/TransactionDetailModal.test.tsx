@@ -146,9 +146,22 @@ describe('TransactionDetailModal', () => {
     expect(screen.getByText('Monthly donation')).toBeTruthy();
   });
 
-  it('hides reference and details blocks when null/undefined', () => {
+  it('renders reference inside the metadata two-column grid (not a standalone block)', () => {
+    const { container } = renderModal({ ...baseTx, reference: 'INV-2026-0042' });
+    const refCell = screen.getByText('INV-2026-0042');
+    // Reference must live inside the grid (`<dl>` styled as 2-column grid),
+    // not as a standalone "extra" section.
+    expect(refCell.closest('.ot-transaction-detail-modal__grid')).not.toBeNull();
+    expect(container.querySelector('.ot-transaction-detail-modal__reference')).toBeNull();
+  });
+
+  it('hides reference value and details block when null/undefined (Reference row still shown as `none`)', () => {
     renderModal(baseTx);
+    // The literal reference value is absent
     expect(screen.queryByText('INV-2026-0042')).toBeNull();
+    // But the Reference label is still rendered (with a `—` placeholder)
+    // so users always see all metadata fields at a glance.
+    expect(screen.getByText(/^Reference$|^Referencia$/)).toBeTruthy();
   });
 
   it('renders notes thread container in read-only mode', () => {

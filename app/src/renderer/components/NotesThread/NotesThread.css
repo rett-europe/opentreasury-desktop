@@ -110,6 +110,44 @@
   font-variant-numeric: tabular-nums;
 }
 
+.ot-notes-thread__card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.ot-notes-thread__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.ot-notes-thread__action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ot-notes-thread__action:focus-visible {
+  outline: 2px solid var(--color-brand-primary);
+  outline-offset: 1px;
+}
+
+.ot-notes-thread__edit:hover:not(:disabled) {
+  background: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+}
+
 .ot-notes-thread__delete {
   display: inline-flex;
   align-items: center;
@@ -127,7 +165,7 @@
     color 0.15s ease;
 }
 
-.ot-notes-thread__delete:hover {
+.ot-notes-thread__delete:hover:not(:disabled) {
   background: color-mix(in oklch, var(--color-expense-default) 14%, transparent);
   color: var(--color-expense-default);
 }
@@ -135,6 +173,30 @@
 .ot-notes-thread__delete:focus-visible {
   outline: 2px solid var(--color-brand-primary);
   outline-offset: 1px;
+}
+
+.ot-notes-thread__edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ot-notes-thread__edit-label {
+  font-size: var(--font-size-xs, 0.75rem);
+  color: var(--color-text-secondary);
+}
+
+.ot-notes-thread__edit-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.ot-notes-thread__edit-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .ot-notes-thread__text {
