@@ -285,6 +285,7 @@
     },
     "cta": {
       "new": "New Transaction",
+      "refresh": "Refresh",
       "clear-filters": "Clear filters",
       "widen-range": "Widen range",
       "first-tx": "Record first transaction"

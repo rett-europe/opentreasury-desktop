@@ -5,6 +5,7 @@ import {
   FolderOpen,
   Landmark,
   Plus,
+  RefreshCw,
   X,
   TrendingUp,
   TrendingDown,
@@ -909,6 +910,17 @@ export function MovementsScreen({
           <p className="ot-page-header__subtitle">{t('movements.subtitle')}</p>
         </div>
         <div className="ot-page-header__actions">
+          <Button
+            variant="secondary"
+            size="md"
+            leadingIcon={<RefreshCw size={16} />}
+            disabled={state.kind === 'loading'}
+            onClick={() => void loadAll()}
+            aria-label={t('movements.cta.refresh')}
+            title={t('movements.cta.refresh')}
+          >
+            {t('movements.cta.refresh')}
+          </Button>
           <Button
             variant="primary"
             size="md"
