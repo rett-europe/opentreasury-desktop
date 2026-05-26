@@ -597,7 +597,12 @@ export function TransactionDetailModal({
                         {transaction.reference}
                       </dd>
                     </div>
-                  ) : null}
+                  ) : (
+                    <div className="ot-transaction-detail-modal__field">
+                      <dt>{t('transactionDetail.fields.reference')}</dt>
+                      <dd>{t('transactionDetail.fields.none')}</dd>
+                    </div>
+                  )}
                 </dl>
               </section>
 

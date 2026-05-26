@@ -155,9 +155,13 @@ describe('TransactionDetailModal', () => {
     expect(container.querySelector('.ot-transaction-detail-modal__reference')).toBeNull();
   });
 
-  it('hides reference and details blocks when null/undefined', () => {
+  it('hides reference value and details block when null/undefined (Reference row still shown as `none`)', () => {
     renderModal(baseTx);
+    // The literal reference value is absent
     expect(screen.queryByText('INV-2026-0042')).toBeNull();
+    // But the Reference label is still rendered (with a `—` placeholder)
+    // so users always see all metadata fields at a glance.
+    expect(screen.getByText(/^Reference$|^Referencia$/)).toBeTruthy();
   });
 
   it('renders notes thread container in read-only mode', () => {
