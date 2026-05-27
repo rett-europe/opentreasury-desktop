@@ -146,6 +146,40 @@ describe('TransactionDetailModal', () => {
     expect(screen.getByText('Monthly donation')).toBeTruthy();
   });
 
+  it('renders the account as a pill with a color dot (matching the table)', () => {
+    const { container } = renderModal(baseTx);
+    const pill = container.querySelector('.ot-account-pill');
+    expect(pill).not.toBeNull();
+    expect(pill?.textContent).toMatch(/Ops Account/);
+    expect(pill?.querySelector('.ot-account-pill__dot')).not.toBeNull();
+  });
+
+  it('renders the status inside an ot-badge--{status} badge', () => {
+    const { container } = renderModal({ ...baseTx, status: 'pending' });
+    const badge = container.querySelector('.ot-badge.ot-badge--pending');
+    expect(badge).not.toBeNull();
+    expect(badge?.textContent).toMatch(/Pending|Pendiente/);
+  });
+
+  it('renders an uncategorized badge when the transaction has no category', () => {
+    const { container } = renderModal(baseTx);
+    const badge = container.querySelector('.ot-badge.ot-badge--uncategorized');
+    expect(badge).not.toBeNull();
+    expect(badge?.textContent).toMatch(/Uncategorized|Sin categorizar/);
+  });
+
+  it('renders tag chips when the transaction has tags', () => {
+    const { container } = renderModal({ ...baseTx, tagIds: ['tag-a', 'tag-b', 'tag-c'] });
+    const chips = container.querySelectorAll('.ot-tag-chip');
+    expect(chips.length).toBe(3);
+  });
+
+  it('renders a muted placeholder for tags when the transaction has no tags', () => {
+    const { container } = renderModal(baseTx);
+    // No chip row when there are no tags.
+    expect(container.querySelector('.ot-tag-chip')).toBeNull();
+  });
+
   it('renders reference as a standalone extra block (matching the details block styling)', () => {
     const { container } = renderModal({ ...baseTx, reference: 'INV-2026-0042' });
     const refCell = screen.getByText('INV-2026-0042');
@@ -153,7 +187,9 @@ describe('TransactionDetailModal', () => {
     // NOT inside the metadata two-column grid.
     expect(refCell.closest('.ot-transaction-detail-modal__grid')).toBeNull();
     expect(refCell.closest('.ot-transaction-detail-modal__extra')).not.toBeNull();
-    expect(container.querySelector('.ot-transaction-detail-modal__reference')).not.toBeNull();
+    // Both Reference and Details use the shared longtext block class.
+    const longtextBlocks = container.querySelectorAll('.ot-transaction-detail-modal__longtext');
+    expect(longtextBlocks.length).toBe(2);
   });
 
   it('always renders Reference and Details labels (with `—` placeholder) when values are null/undefined', () => {

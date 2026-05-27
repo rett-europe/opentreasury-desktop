@@ -10,6 +10,8 @@ import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js'
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import { getSplits } from '../../services/splitsApi.js';
+import { getTagColor } from '../../utils/tagColor.js';
+import { getStatusBadgeClass } from '../../utils/statusBadge.js';
 import './TransactionDetailModal.css';
 
 // SPEC-023 — local type for split child (mirrors core/query/types.TransactionSplit
@@ -384,6 +386,7 @@ export function TransactionDetailModal({
 
   const account = accounts.find((a) => a.id === transaction.accountId);
   const accountLabel = account?.accountLabel ?? transaction.accountId;
+  const accountColor = account?.color ?? 'var(--color-brand-primary)';
 
   // Resolve FK IDs to display names — never show raw IDs in the UI
   const category = categories.find((c) => c.id === transaction.categoryId);
@@ -392,12 +395,20 @@ export function TransactionDetailModal({
     .flatMap((c) => c.subcategories ?? [])
     .find((s) => s?.id === transaction.subcategoryId);
   const resolvedSubcategoryLabel = subcategoryLabel ?? subcategory?.name ?? null;
-  const resolvedTagLabels: readonly string[] =
-    tagLabels ??
-    transaction.tagIds
-      ?.map((tid) => tags.find((t) => t.id === tid)?.name)
-      .filter((n): n is string => !!n) ??
-    [];
+  // For chip rendering we need (id, name, color) tuples in the
+  // transaction's tag order. We resolve from `tags` + `transaction.tagIds`
+  // and fall back to `tagLabels` (positional) when no tag record is found.
+  const resolvedTagChips: ReadonlyArray<{ id: string; name: string; color: string }> = (
+    transaction.tagIds ?? []
+  ).map((tid, idx) => {
+    const tag = tags.find((t) => t.id === tid);
+    const name = tag?.name ?? tagLabels?.[idx] ?? tid;
+    return {
+      id: tid,
+      name,
+      color: getTagColor({ color: tag?.color, name }, tid),
+    };
+  });
 
   const amountClass = transaction.type === 'income' ? 'ot-amount--income' : 'ot-amount--expense';
   const signed = transaction.type === 'expense' ? -transaction.amount : transaction.amount;
@@ -564,27 +575,72 @@ export function TransactionDetailModal({
                 <dl className="ot-transaction-detail-modal__grid">
                   <div className="ot-transaction-detail-modal__field">
                     <dt>{t('transactionDetail.fields.account')}</dt>
-                    <dd>{accountLabel}</dd>
+                    <dd>
+                      <span
+                        className="ot-account-pill"
+                        title={accountLabel}
+                        style={{
+                          background: `color-mix(in oklch, ${accountColor} 18%, transparent)`,
+                          color: 'var(--color-text-primary)',
+                        }}
+                      >
+                        <span
+                          className="ot-account-pill__dot"
+                          aria-hidden="true"
+                          style={{ background: accountColor }}
+                        />
+                        {accountLabel}
+                      </span>
+                    </dd>
                   </div>
                   <div className="ot-transaction-detail-modal__field">
                     <dt>{t('transactionDetail.fields.category')}</dt>
-                    <dd>{resolvedCategoryLabel ?? t('transactionDetail.fields.none')}</dd>
+                    <dd>
+                      {resolvedCategoryLabel ? (
+                        resolvedCategoryLabel
+                      ) : (
+                        <span className="ot-badge ot-badge--uncategorized">
+                          {t('movements.uncategorized')}
+                        </span>
+                      )}
+                    </dd>
                   </div>
                   <div className="ot-transaction-detail-modal__field">
                     <dt>{t('transactionDetail.fields.subcategory')}</dt>
-                    <dd>{resolvedSubcategoryLabel ?? t('transactionDetail.fields.none')}</dd>
+                    <dd>
+                      {resolvedSubcategoryLabel ?? (
+                        <span className="ot-text-muted">{t('transactionDetail.fields.none')}</span>
+                      )}
+                    </dd>
                   </div>
                   <div className="ot-transaction-detail-modal__field">
                     <dt>{t('transactionDetail.fields.tags')}</dt>
                     <dd>
-                      {resolvedTagLabels.length > 0
-                        ? resolvedTagLabels.join(', ')
-                        : t('transactionDetail.fields.none')}
+                      {resolvedTagChips.length > 0 ? (
+                        <span className="ot-tag-chip-row">
+                          {resolvedTagChips.map((chip) => (
+                            <span
+                              key={chip.id}
+                              className="ot-tag-chip"
+                              style={{ ['--ot-tag-color' as string]: chip.color }}
+                              title={chip.name}
+                            >
+                              {chip.name}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="ot-text-muted">{t('transactionDetail.fields.none')}</span>
+                      )}
                     </dd>
                   </div>
                   <div className="ot-transaction-detail-modal__field">
                     <dt>{t('transactionDetail.fields.status')}</dt>
-                    <dd>{t(`movements.status.${transaction.status}`)}</dd>
+                    <dd>
+                      <span className={getStatusBadgeClass(transaction.status)}>
+                        {t(`movements.status.${transaction.status}`)}
+                      </span>
+                    </dd>
                   </div>
                   <div className="ot-transaction-detail-modal__field">
                     <dt>{t('transactionDetail.fields.currency')}</dt>
@@ -594,9 +650,10 @@ export function TransactionDetailModal({
               </section>
 
               {/* Reference + Details are rendered as standalone "extra" sections
-                  (matching styling: subtle bg pill, padding, rounded corners) so
-                  the two free-form fields look visually consistent. Always
-                  rendered, even when empty, with the `—` placeholder. */}
+                  using the shared ``__longtext`` block (subtle bg pill, padding,
+                  rounded corners) so the two free-form fields look visually
+                  consistent. Always rendered, even when empty, with the ``—``
+                  placeholder. */}
               <section
                 className="ot-transaction-detail-modal__extra"
                 aria-label={t('transactionDetail.fields.reference')}
@@ -604,7 +661,7 @@ export function TransactionDetailModal({
                 <h2 className="ot-transaction-detail-modal__extra-label">
                   {t('transactionDetail.fields.reference')}
                 </h2>
-                <p className="ot-transaction-detail-modal__reference">
+                <p className="ot-transaction-detail-modal__longtext">
                   {transaction.reference ?? t('transactionDetail.fields.none')}
                 </p>
               </section>
@@ -616,7 +673,7 @@ export function TransactionDetailModal({
                 <h2 className="ot-transaction-detail-modal__extra-label">
                   {t('transactionDetail.fields.details')}
                 </h2>
-                <p className="ot-transaction-detail-modal__details">
+                <p className="ot-transaction-detail-modal__longtext">
                   {transaction.details ?? t('transactionDetail.fields.none')}
                 </p>
               </section>

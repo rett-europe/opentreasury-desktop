@@ -18,8 +18,8 @@ export const TAG_COLORS = [
 ] as const;
 
 export interface TagLike {
-  readonly color?: string | null;
-  readonly name?: string | null;
+  readonly color?: string | null | undefined;
+  readonly name?: string | null | undefined;
 }
 
 export function getTagColor(tag: TagLike | undefined, fallbackId: string): string {
