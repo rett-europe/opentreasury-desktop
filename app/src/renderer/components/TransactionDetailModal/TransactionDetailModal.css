@@ -259,10 +259,6 @@
   overflow-wrap: anywhere;
 }
 
-.ot-transaction-detail-modal__field-mono {
-  font-family: var(--font-family-mono, ui-monospace, monospace);
-}
-
 .ot-transaction-detail-modal__details {
   margin: 0;
   padding: var(--space-3);

@@ -590,33 +590,36 @@ export function TransactionDetailModal({
                     <dt>{t('transactionDetail.fields.currency')}</dt>
                     <dd>{transaction.currency}</dd>
                   </div>
-                  {transaction.reference ? (
-                    <div className="ot-transaction-detail-modal__field">
-                      <dt>{t('transactionDetail.fields.reference')}</dt>
-                      <dd className="ot-transaction-detail-modal__field-mono">
-                        {transaction.reference}
-                      </dd>
-                    </div>
-                  ) : (
-                    <div className="ot-transaction-detail-modal__field">
-                      <dt>{t('transactionDetail.fields.reference')}</dt>
-                      <dd>{t('transactionDetail.fields.none')}</dd>
-                    </div>
-                  )}
                 </dl>
               </section>
 
-              {transaction.details ? (
-                <section
-                  className="ot-transaction-detail-modal__extra"
-                  aria-label={t('transactionDetail.fields.details')}
-                >
-                  <h2 className="ot-transaction-detail-modal__extra-label">
-                    {t('transactionDetail.fields.details')}
-                  </h2>
-                  <p className="ot-transaction-detail-modal__details">{transaction.details}</p>
-                </section>
-              ) : null}
+              {/* Reference + Details are rendered as standalone "extra" sections
+                  (matching styling: subtle bg pill, padding, rounded corners) so
+                  the two free-form fields look visually consistent. Always
+                  rendered, even when empty, with the `—` placeholder. */}
+              <section
+                className="ot-transaction-detail-modal__extra"
+                aria-label={t('transactionDetail.fields.reference')}
+              >
+                <h2 className="ot-transaction-detail-modal__extra-label">
+                  {t('transactionDetail.fields.reference')}
+                </h2>
+                <p className="ot-transaction-detail-modal__reference">
+                  {transaction.reference ?? t('transactionDetail.fields.none')}
+                </p>
+              </section>
+
+              <section
+                className="ot-transaction-detail-modal__extra"
+                aria-label={t('transactionDetail.fields.details')}
+              >
+                <h2 className="ot-transaction-detail-modal__extra-label">
+                  {t('transactionDetail.fields.details')}
+                </h2>
+                <p className="ot-transaction-detail-modal__details">
+                  {transaction.details ?? t('transactionDetail.fields.none')}
+                </p>
+              </section>
 
               {/* SPEC-023 — split children display (collapsed by default) */}
               {rawRecord?.hasSplits && splitChildren.length > 0 && (

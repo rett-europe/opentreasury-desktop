@@ -146,22 +146,25 @@ describe('TransactionDetailModal', () => {
     expect(screen.getByText('Monthly donation')).toBeTruthy();
   });
 
-  it('renders reference inside the metadata two-column grid (not a standalone block)', () => {
+  it('renders reference as a standalone extra block (matching the details block styling)', () => {
     const { container } = renderModal({ ...baseTx, reference: 'INV-2026-0042' });
     const refCell = screen.getByText('INV-2026-0042');
-    // Reference must live inside the grid (`<dl>` styled as 2-column grid),
-    // not as a standalone "extra" section.
-    expect(refCell.closest('.ot-transaction-detail-modal__grid')).not.toBeNull();
-    expect(container.querySelector('.ot-transaction-detail-modal__reference')).toBeNull();
+    // Reference is rendered as a standalone "extra" section (matching Details),
+    // NOT inside the metadata two-column grid.
+    expect(refCell.closest('.ot-transaction-detail-modal__grid')).toBeNull();
+    expect(refCell.closest('.ot-transaction-detail-modal__extra')).not.toBeNull();
+    expect(container.querySelector('.ot-transaction-detail-modal__reference')).not.toBeNull();
   });
 
-  it('hides reference value and details block when null/undefined (Reference row still shown as `none`)', () => {
+  it('always renders Reference and Details labels (with `—` placeholder) when values are null/undefined', () => {
     renderModal(baseTx);
-    // The literal reference value is absent
+    // The literal values are absent
     expect(screen.queryByText('INV-2026-0042')).toBeNull();
-    // But the Reference label is still rendered (with a `—` placeholder)
+    expect(screen.queryByText('Monthly donation')).toBeNull();
+    // But both labels are still rendered (with the `—` placeholder)
     // so users always see all metadata fields at a glance.
     expect(screen.getByText(/^Reference$|^Referencia$/)).toBeTruthy();
+    expect(screen.getByText(/^Details$|^Detalles$/)).toBeTruthy();
   });
 
   it('renders notes thread container in read-only mode', () => {
