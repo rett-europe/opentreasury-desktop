@@ -248,22 +248,7 @@
   font-weight: 600;
 }
 
-.ot-transaction-detail-modal__reference {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-surface-secondary);
-  border-radius: var(--radius-md);
-  font-family: var(--font-family-mono, ui-monospace, monospace);
-  font-size: var(--font-size-sm, 0.875rem);
-  color: var(--color-text-primary);
-  overflow-wrap: anywhere;
-}
-
-.ot-transaction-detail-modal__field-mono {
-  font-family: var(--font-family-mono, ui-monospace, monospace);
-}
-
-.ot-transaction-detail-modal__details {
+.ot-transaction-detail-modal__longtext {
   margin: 0;
   padding: var(--space-3);
   background: var(--color-surface-secondary);

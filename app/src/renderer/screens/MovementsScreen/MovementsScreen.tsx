@@ -26,6 +26,7 @@ import { SplitTransactionModal } from '../../components/SplitTransactionModal/in
 import { TransactionsTable } from '../../components/TransactionsTable/index.js';
 import type { TransactionRow } from '../../components/TransactionsTable/index.js';
 import { listMovements } from '../../services/movementsApi.js';
+import { rehydrate } from '../../services/queryApi.js';
 import {
   bulkAddLabelToTransactions,
   bulkUpdateTransactions,
@@ -413,6 +414,22 @@ export function MovementsScreen({
   const handleRetry = useCallback(() => {
     void loadAll();
   }, [loadAll]);
+
+  // Refresh button: re-read the event log from disk first so we pick up
+  // events written by other instances against the same shared workspace,
+  // THEN re-fetch via loadAll. If rehydrate fails, surface a toast and skip
+  // loadAll so the user knows the displayed data may still be stale.
+  // Initial mount and `configRevision`-driven reloads intentionally skip
+  // rehydrate — on cold start the model is already authoritative.
+  const handleRefresh = useCallback(async () => {
+    const result = await rehydrate();
+    if (!result.ok) {
+      setBulkSuccessMessage(t('movements.refresh.failed'));
+      setTimeout(() => setBulkSuccessMessage(null), 5000);
+      return;
+    }
+    await loadAll();
+  }, [loadAll, t]);
 
   // ─── Bulk approve ────────────────────────────────────────────────────────
   // Open the bulk-approve confirmation: partition the current selection
@@ -915,7 +932,7 @@ export function MovementsScreen({
             size="md"
             leadingIcon={<RefreshCw size={16} />}
             disabled={state.kind === 'loading'}
-            onClick={() => void loadAll()}
+            onClick={() => void handleRefresh()}
             aria-label={t('movements.cta.refresh')}
             title={t('movements.cta.refresh')}
           >

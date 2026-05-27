@@ -234,6 +234,7 @@
   "movements": {
     "title": "Movimientos",
     "subtitle": "Filtra por rango para ver tus movimientos.",
+    "uncategorized": "Sin categorizar",
     "empty": {
       "pick-range": {
         "title": "Elige un rango de fechas",
@@ -289,6 +290,9 @@
       "clear-filters": "Limpiar filtros",
       "widen-range": "Ampliar rango",
       "first-tx": "Registrar primer movimiento"
+    },
+    "refresh": {
+      "failed": "No se pudo refrescar. Inténtalo de nuevo."
     },
     "search": {
       "resultCount": "{{matched}} de {{total}}",

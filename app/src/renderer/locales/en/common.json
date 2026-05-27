@@ -234,6 +234,7 @@
   "movements": {
     "title": "Transactions",
     "subtitle": "Pick a range to see your transactions.",
+    "uncategorized": "Uncategorized",
     "empty": {
       "pick-range": {
         "title": "Pick a date range",
@@ -289,6 +290,9 @@
       "clear-filters": "Clear filters",
       "widen-range": "Widen range",
       "first-tx": "Record first transaction"
+    },
+    "refresh": {
+      "failed": "Refresh failed. Please try again."
     },
     "search": {
       "resultCount": "{{matched}} of {{total}}",

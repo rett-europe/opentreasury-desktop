@@ -21,6 +21,7 @@ import type { EventLog, DomainEvent } from '../core/eventLog/index.js';
 import { EncryptedMultiDeviceEventLog } from '../core/eventLog/EncryptedMultiDeviceEventLog.js';
 import { replayEvents, getReadModel } from '../core/query/reducers.js';
 import type { ReadModel } from '../core/query/types.js';
+import { createRehydrateReadModelFromDisk, type RehydrateResult } from './query/rehydrate.js';
 import { buildDevSeedEvents } from './devSeed.js';
 import { loadProfile, type Profile } from './profile.js';
 import { loadAppConfig, saveAppConfig, type AppConfig } from './config.js';
@@ -119,6 +120,51 @@ export function getHydratedReadModel(): ReadModel {
     throw new Error('[bootstrap] getHydratedReadModel() called before initializeApp() resolved');
   }
   return getReadModel();
+}
+
+/**
+ * Re-read the on-disk event log and rebuild the in-memory read model. Used
+ * by the `query:rehydrate` IPC handler so the renderer can pick up events
+ * appended by another desktop instance against the same shared workspace
+ * (see `query/rehydrate.ts` for the full rationale and concurrency notes).
+ *
+ * Returns a discriminated union so callers can surface a toast on failure
+ * without throwing across the IPC boundary. Concurrent callers share a
+ * single in-flight `eventLog.load()`; once that flight settles, the next
+ * call starts a fresh one.
+ *
+ * Re-binds the rehydrate closure whenever the underlying event log instance
+ * changes (e.g. after `installEncryptedEventLog`) so we always pull from the
+ * currently installed log rather than a stale reference.
+ */
+let rehydrateForLog: EventLog | null = null;
+let rehydrateImpl: (() => Promise<RehydrateResult>) | null = null;
+
+export async function rehydrateFromDisk(): Promise<RehydrateResult> {
+  if (eventLogInstance === null) {
+    let detail: string;
+    if (onboardingPending) {
+      detail = 'event log unavailable — onboarding wizard is pending';
+    } else if (encryptedWorkspacePending) {
+      detail = 'event log unavailable — encrypted workspace is locked';
+    } else {
+      detail = 'event log unavailable — bootstrap has not completed';
+    }
+    return {
+      ok: false,
+      error: { code: 'no_event_log', message: detail },
+    };
+  }
+
+  if (rehydrateImpl === null || rehydrateForLog !== eventLogInstance) {
+    rehydrateForLog = eventLogInstance;
+    rehydrateImpl = createRehydrateReadModelFromDisk({
+      eventLog: eventLogInstance,
+      replayEvents,
+    });
+  }
+
+  return rehydrateImpl();
 }
 
 /**

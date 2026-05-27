@@ -4,6 +4,8 @@ import type { TableColumn } from '../Table/Table.js';
 import type { SortDirection } from '../Table/index.js';
 import { formatDate } from '../../utils/dateFormat.js';
 import { formatCurrency } from '../../utils/numberFormat.js';
+import { getTagColor } from '../../utils/tagColor.js';
+import { getStatusBadgeClass } from '../../utils/statusBadge.js';
 import './TransactionsTable.css';
 
 export type TransactionRowType = 'income' | 'expense';
@@ -82,25 +84,10 @@ export function TransactionsTable({
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
 
-  const TAG_COLORS = ['#9b72cf', '#4e8bd6', '#e06b6b', '#6ca974', '#d6a94e', '#b06bd6'] as const;
-
-  const tagColor = (tagId: string): string => {
-    const tag = tagLookup.get(tagId);
-    if (tag?.color) return tag.color;
-    const tagName = tag?.name ?? tagId;
-    let h = 0;
-    for (let i = 0; i < tagName.length; i += 1) {
-      h = (h * 31 + tagName.charCodeAt(i)) >>> 0;
-    }
-    return TAG_COLORS[h % TAG_COLORS.length] as string;
-  };
+  const tagColor = (tagId: string): string => getTagColor(tagLookup.get(tagId), tagId);
 
   const statusLabel = (s: TransactionRowStatus) => t(`movements.status.${s}`);
-  const statusClass = (s: TransactionRowStatus): string => {
-    if (s === 'pending') return 'ot-badge ot-badge--pending';
-    if (s === 'rejected') return 'ot-badge ot-badge--rejected';
-    return 'ot-badge ot-badge--approved';
-  };
+  const statusClass = getStatusBadgeClass;
 
   const columns: TableColumn<TransactionRow>[] = [
     ...(showSelectColumn

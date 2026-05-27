@@ -57,6 +57,7 @@ import {
   type MovementRecord,
   type MovementsListRequest,
 } from '../shared/ipc-contracts/movements.js';
+import { IPC_QUERY_REHYDRATE, type QueryRehydrateResponse } from '../shared/ipc-contracts/query.js';
 import {
   IPC_ACCOUNTS_CREATE,
   IPC_ACCOUNTS_LIST,
@@ -325,6 +326,11 @@ const api = {
   movements: {
     list: (req?: MovementsListRequest): Promise<MovementRecord[]> => {
       return ipcRenderer.invoke(IPC_MOVEMENTS_LIST, req ?? {});
+    },
+  },
+  query: {
+    rehydrate: (): Promise<QueryRehydrateResponse> => {
+      return ipcRenderer.invoke(IPC_QUERY_REHYDRATE, {});
     },
   },
   accounts: {
