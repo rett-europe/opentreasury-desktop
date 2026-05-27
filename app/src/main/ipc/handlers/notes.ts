@@ -28,10 +28,12 @@ import {
   addNoteRequestSchema,
   deleteNoteRequestSchema,
   editNoteRequestSchema,
+  listAllNotesRequestSchema,
   listNotesRequestSchema,
   type AddNoteResponse,
   type DeleteNoteResponse,
   type EditNoteResponse,
+  type ListAllNotesResponse,
   type ListNotesResponse,
   type NoteErrorCode,
 } from '../../../shared/ipc-contracts/notes.js';
@@ -141,6 +143,44 @@ export function createListNotesHandler(
       // TX_NOT_FOUND semantics, uncomment the check below.
       const notes = model.notes.get(parsed.data.txId) ?? [];
       return { ok: true, notes: notes.map((n) => ({ ...n })) };
+    } catch (err) {
+      return { ok: false, error: internal(err) };
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// transaction:note:listAll — bulk-list every note grouped by tx id. Powers
+// the Movements search index; renderer needs all note text in one shot.
+// Read-only over the in-memory read model — no event log access needed.
+// ---------------------------------------------------------------------------
+
+export function createListAllNotesHandler(
+  deps: Pick<NoteHandlerDeps, 'getReadModel'>,
+): (raw: unknown) => Promise<ListAllNotesResponse> {
+  return async function handleListAllNotes(raw: unknown): Promise<ListAllNotesResponse> {
+    try {
+      const parsed = listAllNotesRequestSchema.safeParse(raw ?? {});
+      if (!parsed.success) {
+        return {
+          ok: false,
+          error: schemaInvalid(
+            parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+          ),
+        };
+      }
+
+      const model = deps.getReadModel();
+      // Build a plain object keyed by txId. We clone each note so callers
+      // can't mutate the read model through the wire payload.
+      const notesByTxId: Record<
+        string,
+        Array<{ id: string; txId: string; text: string; createdAt: string }>
+      > = {};
+      for (const [txId, notes] of model.notes) {
+        notesByTxId[txId] = notes.map((n) => ({ ...n }));
+      }
+      return { ok: true, notesByTxId };
     } catch (err) {
       return { ok: false, error: internal(err) };
     }

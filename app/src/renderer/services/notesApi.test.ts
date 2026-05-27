@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { addNote, listNotes, deleteNote } from './notesApi.js';
+import { addNote, listNotes, listAllNotes, deleteNote } from './notesApi.js';
 import type {
   AddNoteResponse,
   ListNotesResponse,
+  ListAllNotesResponse,
   DeleteNoteResponse,
   TransactionNote,
 } from '../../shared/ipc-contracts/notes.js';
@@ -17,6 +18,7 @@ const EVT_ID = '01HZEVT0000000000000000000';
 function stub(note: {
   add?: ReturnType<typeof vi.fn>;
   list?: ReturnType<typeof vi.fn>;
+  listAll?: ReturnType<typeof vi.fn>;
   edit?: ReturnType<typeof vi.fn>;
   delete?: ReturnType<typeof vi.fn>;
 }): void {
@@ -108,6 +110,39 @@ describe('notesApi', () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('expected error');
     expect(result.error.code).toBe('TEXT_TOO_LONG');
+  });
+
+  it('listAllNotes forwards empty request and returns grouped notes', async () => {
+    const payload: ListAllNotesResponse = {
+      ok: true,
+      notesByTxId: {
+        [TX_ID]: [fixtureNote],
+      },
+    };
+    const fn = vi.fn().mockResolvedValue(payload);
+    stub({ listAll: fn });
+
+    const result = await listAllNotes();
+
+    expect(fn).toHaveBeenCalledWith({});
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected success');
+    expect(result.notesByTxId[TX_ID]).toHaveLength(1);
+    expect(result.notesByTxId[TX_ID]![0]!.text).toBe('Called donor.');
+  });
+
+  it('listAllNotes propagates INTERNAL errors', async () => {
+    const payload: ListAllNotesResponse = {
+      ok: false,
+      error: { code: 'INTERNAL', message: 'boom' },
+    };
+    const fn = vi.fn().mockResolvedValue(payload);
+    stub({ listAll: fn });
+
+    const result = await listAllNotes();
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('expected error');
+    expect(result.error.code).toBe('INTERNAL');
   });
 
   // Silence unused-import lint for EVT_ID (reserved for future event-roundtrip

@@ -115,10 +115,12 @@ import {
 import {
   IPC_TRANSACTION_NOTE_ADD,
   IPC_TRANSACTION_NOTE_LIST,
+  IPC_TRANSACTION_NOTE_LIST_ALL,
   IPC_TRANSACTION_NOTE_EDIT,
   IPC_TRANSACTION_NOTE_DELETE,
   addNoteResponseSchema,
   listNotesResponseSchema,
+  listAllNotesResponseSchema,
   editNoteResponseSchema,
   deleteNoteResponseSchema,
 } from '../../shared/ipc-contracts/notes.js';
@@ -186,6 +188,7 @@ import {
 import {
   createAddNoteHandler,
   createListNotesHandler,
+  createListAllNotesHandler,
   createEditNoteHandler,
   createDeleteNoteHandler,
 } from './handlers/notes.js';
@@ -833,6 +836,7 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
 
   const handleAddNote = createAddNoteHandler(noteDeps);
   const handleListNotes = createListNotesHandler({ getReadModel });
+  const handleListAllNotes = createListAllNotesHandler({ getReadModel });
   const handleEditNote = createEditNoteHandler(noteDeps);
   const handleDeleteNote = createDeleteNoteHandler(noteDeps);
 
@@ -844,6 +848,11 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_TRANSACTION_NOTE_LIST, async (_event, raw: unknown) => {
     const response = await handleListNotes(raw);
     return listNotesResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_TRANSACTION_NOTE_LIST_ALL, async (_event, raw: unknown) => {
+    const response = await handleListAllNotes(raw);
+    return listAllNotesResponseSchema.parse(response);
   });
 
   ipcMain.handle(IPC_TRANSACTION_NOTE_EDIT, async (_event, raw: unknown) => {
