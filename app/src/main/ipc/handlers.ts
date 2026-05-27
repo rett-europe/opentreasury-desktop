@@ -55,6 +55,7 @@ import {
   IPC_MOVEMENTS_LIST,
   movementsListResponseSchema,
 } from '../../shared/ipc-contracts/movements.js';
+import { IPC_QUERY_REHYDRATE } from '../../shared/ipc-contracts/query.js';
 import {
   IPC_ACCOUNTS_CREATE,
   IPC_ACCOUNTS_LIST,
@@ -149,6 +150,7 @@ import {
   createTransactionBulkAddLabelHandler,
 } from './handlers/transaction.js';
 import { createMovementsListHandler } from './handlers/movements.js';
+import { createQueryRehydrateHandler } from './handlers/query.js';
 import {
   createAccountsCreateHandler,
   createAccountsListHandler,
@@ -293,6 +295,7 @@ import {
   getDatasetId,
   isOnboardingPending,
   isEncryptedWorkspacePending,
+  rehydrateFromDisk,
 } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { newUlid } from '../ids.js';
@@ -663,6 +666,16 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_MOVEMENTS_LIST, async (_event, raw: unknown) => {
     const response = await handleMovementsList(raw);
     return movementsListResponseSchema.parse(response);
+  });
+
+  // Multi-instance staleness fix: forces a fresh `eventLog.load()` +
+  // `replayEvents()` so renderer queries that follow pick up events written
+  // by other desktop instances on the same shared workspace. Channel is
+  // intentionally generic (`query:rehydrate`) — other screens can adopt it
+  // without a contract break.
+  const handleQueryRehydrate = createQueryRehydrateHandler({ rehydrateFromDisk });
+  ipcMain.handle(IPC_QUERY_REHYDRATE, async (_event, raw: unknown) => {
+    return handleQueryRehydrate(raw);
   });
 
   // WI-15-lite — Configuración (accounts / categories / tags) create + list.
