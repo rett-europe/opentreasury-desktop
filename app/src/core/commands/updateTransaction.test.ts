@@ -329,3 +329,50 @@ describe('updateTransaction', () => {
     }
   });
 });
+
+describe('updateTransaction — empty-string ID regression (label-removal bug)', () => {
+  it('normalizes empty-string categoryId/subcategoryId to null in the event payload', () => {
+    const existingTx = {
+      id: TX_ID,
+      date: '2026-04-01',
+      type: 'expense' as const,
+      amount: 100,
+      currency: 'EUR' as const,
+      description: 'Old',
+      accountId: ACCOUNT_ID,
+      categoryId: null,
+      subcategoryId: null,
+      tagIds: [] as readonly string[],
+      status: 'approved' as const,
+      createdAt: '2026-04-01T00:00:00Z',
+      reference: null,
+      details: null,
+    };
+
+    // Simulate a renderer path that emits '' for "no category" — the bug
+    // before the fix would propagate this empty string into the event payload
+    // and fail the strict tx.updated payload schema (length 26 or null).
+    const input: UpdateTransactionInput = {
+      id: TX_ID,
+      date: '2026-04-15',
+      type: 'expense',
+      amount: 100,
+      description: 'Updated description',
+      categoryId: '',
+      subcategoryId: '',
+    };
+
+    const deps = createTestDeps({
+      now: () => new Date('2026-04-21T10:00:00Z'),
+      newId: () => EVT_ID,
+      readModel: mockReadModel([existingTx]),
+    });
+
+    const result = updateTransaction(input, deps);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.payload.categoryId).toBeNull();
+    expect(result.value.payload.subcategoryId).toBeNull();
+  });
+});

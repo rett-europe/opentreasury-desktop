@@ -226,3 +226,14 @@ describe('createTransaction — determinism', () => {
     expect(result.value.payload.createdAt).toBe('2026-06-01T00:00:00.000Z');
   });
 });
+
+describe('createTransaction — empty-string ID regression', () => {
+  it('normalizes empty-string categoryId/subcategoryId to null in the event payload', () => {
+    const deps = baseDeps();
+    const result = createTransaction(baseInput({ categoryId: '', subcategoryId: '' }), deps);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.payload.categoryId).toBeNull();
+    expect(result.value.payload.subcategoryId).toBeNull();
+  });
+});
