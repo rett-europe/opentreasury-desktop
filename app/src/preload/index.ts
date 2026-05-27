@@ -140,12 +140,15 @@ import {
 import {
   IPC_TRANSACTION_NOTE_ADD,
   IPC_TRANSACTION_NOTE_LIST,
+  IPC_TRANSACTION_NOTE_LIST_ALL,
   IPC_TRANSACTION_NOTE_EDIT,
   IPC_TRANSACTION_NOTE_DELETE,
   type AddNoteRequest,
   type AddNoteResponse,
   type ListNotesRequest,
   type ListNotesResponse,
+  type ListAllNotesRequest,
+  type ListAllNotesResponse,
   type EditNoteRequest,
   type EditNoteResponse,
   type DeleteNoteRequest,
@@ -303,6 +306,9 @@ const api = {
       },
       list: (req: ListNotesRequest): Promise<ListNotesResponse> => {
         return ipcRenderer.invoke(IPC_TRANSACTION_NOTE_LIST, req);
+      },
+      listAll: (req?: ListAllNotesRequest): Promise<ListAllNotesResponse> => {
+        return ipcRenderer.invoke(IPC_TRANSACTION_NOTE_LIST_ALL, req ?? {});
       },
       edit: (req: EditNoteRequest): Promise<EditNoteResponse> => {
         return ipcRenderer.invoke(IPC_TRANSACTION_NOTE_EDIT, req);

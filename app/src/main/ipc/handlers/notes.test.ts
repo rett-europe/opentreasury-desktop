@@ -12,6 +12,7 @@ import {
   createAddNoteHandler,
   createDeleteNoteHandler,
   createEditNoteHandler,
+  createListAllNotesHandler,
   createListNotesHandler,
 } from './notes';
 import type { EventLog, DomainEvent } from '../../../core/eventLog/EventLog';
@@ -476,5 +477,142 @@ describe('transaction:note:delete handler', () => {
     expect(r2.ok).toBe(false);
     if (r2.ok) return;
     expect(r2.error.code).toBe('NOTE_NOT_FOUND');
+  });
+});
+
+describe('transaction:note:listAll handler', () => {
+  beforeEach(() => {
+    resetReadModel();
+    seedAccountAndTx();
+  });
+
+  it('returns the populated record when notes exist for multiple transactions', async () => {
+    // Seed a second transaction so we can verify the grouping by txId.
+    // Use applyEvent (NOT replayEvents) — replayEvents resets the read
+    // model first and would wipe out TX_ID created by seedAccountAndTx.
+    const TX2 = testUlid('TX02');
+    applyEvent({
+      id: testUlid('EVTTX2'),
+      type: 'tx.created',
+      datasetId: DATASET_ID,
+      actorDeviceId: DEVICE_ID,
+      createdAt: '2026-04-21T12:00:00.000Z',
+      dekVersion: 0,
+      version: 1,
+      payload: {
+        id: TX2,
+        date: '2026-04-21',
+        type: 'expense',
+        amount: 50,
+        currency: 'EUR',
+        description: 'Lunch',
+        accountId: ACCOUNT_ID,
+        categoryId: null,
+        subcategoryId: null,
+        tagIds: [],
+        status: 'approved',
+        createdAt: '2026-04-21T12:00:00.000Z',
+      },
+    } as DomainEvent);
+
+    const eventLog = new InMemoryEventLog();
+    const ids = [
+      testUlid('EVT1'),
+      testUlid('NOTE1'),
+      testUlid('EVT2'),
+      testUlid('NOTE2'),
+      testUlid('EVT3'),
+      testUlid('NOTE3'),
+    ];
+    const stamps = [
+      '2026-04-20T10:32:00.000Z',
+      '2026-04-20T11:00:00.000Z',
+      '2026-04-21T12:30:00.000Z',
+    ];
+    let k = 0;
+    const add = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date(stamps[k++]!),
+        newId: idGen(ids),
+      }),
+    );
+    await add({ txId: TX_ID, text: 'Called donor.' });
+    await add({ txId: TX_ID, text: 'Followed up.' });
+    await add({ txId: TX2, text: 'Receipt scanned.' });
+
+    const handle = createListAllNotesHandler({ getReadModel });
+    const response = await handle({});
+    expect(response.ok).toBe(true);
+    if (!response.ok) return;
+
+    expect(Object.keys(response.notesByTxId).sort()).toEqual([TX_ID, TX2].sort());
+    expect(response.notesByTxId[TX_ID]).toHaveLength(2);
+    expect(response.notesByTxId[TX_ID]!.map((n) => n.text)).toEqual([
+      'Called donor.',
+      'Followed up.',
+    ]);
+    expect(response.notesByTxId[TX2]).toHaveLength(1);
+    expect(response.notesByTxId[TX2]![0]!.text).toBe('Receipt scanned.');
+  });
+
+  it('returns an empty record when no notes exist', async () => {
+    const handle = createListAllNotesHandler({ getReadModel });
+    const response = await handle({});
+    expect(response.ok).toBe(true);
+    if (!response.ok) return;
+    expect(response.notesByTxId).toEqual({});
+  });
+
+  it('accepts both undefined and {} as request payload', async () => {
+    const handle = createListAllNotesHandler({ getReadModel });
+    const r1 = await handle(undefined);
+    expect(r1.ok).toBe(true);
+    const r2 = await handle({});
+    expect(r2.ok).toBe(true);
+  });
+
+  it('returns SCHEMA_INVALID when request contains extra fields (strict schema)', async () => {
+    const handle = createListAllNotesHandler({ getReadModel });
+    const response = await handle({ unexpected: 'field' });
+    expect(response.ok).toBe(false);
+    if (response.ok) return;
+    expect(response.error.code).toBe('SCHEMA_INVALID');
+  });
+
+  it('returned notes are decoupled from the read model (no shared references)', async () => {
+    const eventLog = new InMemoryEventLog();
+    const add = createAddNoteHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T10:32:00.000Z'),
+        newId: idGen([testUlid('EVT1'), testUlid('NOTE1')]),
+      }),
+    );
+    await add({ txId: TX_ID, text: 'Immutable.' });
+
+    const handle = createListAllNotesHandler({ getReadModel });
+    const response = await handle({});
+    expect(response.ok).toBe(true);
+    if (!response.ok) return;
+
+    // Mutating the wire payload must not affect the in-memory read model.
+    response.notesByTxId[TX_ID]![0]!.text = 'mutated';
+    const live = getReadModel().notes.get(TX_ID);
+    expect(live?.[0]?.text).toBe('Immutable.');
+  });
+
+  it('wraps unexpected throws as INTERNAL', async () => {
+    const handle = createListAllNotesHandler({
+      getReadModel: (() => {
+        throw new Error('boom');
+      }) as unknown as typeof getReadModel,
+    });
+    const response = await handle({});
+    expect(response.ok).toBe(false);
+    if (response.ok) return;
+    expect(response.error.code).toBe('INTERNAL');
   });
 });

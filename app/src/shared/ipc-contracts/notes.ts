@@ -24,6 +24,7 @@ import { z } from 'zod';
 
 export const IPC_TRANSACTION_NOTE_ADD = 'transaction:note:add';
 export const IPC_TRANSACTION_NOTE_LIST = 'transaction:note:list';
+export const IPC_TRANSACTION_NOTE_LIST_ALL = 'transaction:note:listAll';
 export const IPC_TRANSACTION_NOTE_EDIT = 'transaction:note:edit';
 export const IPC_TRANSACTION_NOTE_DELETE = 'transaction:note:delete';
 
@@ -154,6 +155,28 @@ export const listNotesResponseSchema = z.discriminatedUnion('ok', [
 ]);
 
 export type ListNotesResponse = z.infer<typeof listNotesResponseSchema>;
+
+// ============================================================================
+// transaction:note:listAll — bulk-list every note grouped by transaction ID.
+// Powers the Movements search index (SPEC-024): the renderer needs all note
+// text up-front to build the haystack, and N round-trips per tx is too slow.
+// Wire shape uses a plain object (z.record) so structured-clone keeps it JSON
+// safe; the renderer turns it back into a Map.
+// ============================================================================
+
+export const listAllNotesRequestSchema = z.object({}).strict();
+
+export type ListAllNotesRequest = z.infer<typeof listAllNotesRequestSchema>;
+
+export const listAllNotesResponseSchema = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    notesByTxId: z.record(z.array(transactionNoteSchema)),
+  }),
+  z.object({ ok: z.literal(false), error: noteErrorSchema }),
+]);
+
+export type ListAllNotesResponse = z.infer<typeof listAllNotesResponseSchema>;
 
 // ============================================================================
 // transaction:note:edit — future-proofing. Trinity may or may not surface in WI-19.

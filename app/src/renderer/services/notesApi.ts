@@ -7,6 +7,8 @@ import type {
   AddNoteResponse,
   ListNotesRequest,
   ListNotesResponse,
+  ListAllNotesRequest,
+  ListAllNotesResponse,
   EditNoteRequest,
   EditNoteResponse,
   DeleteNoteRequest,
@@ -21,6 +23,16 @@ export async function addNote(input: AddNoteRequest): Promise<AddNoteResponse> {
 /** List all notes for a transaction (oldest first per Neo's spec). */
 export async function listNotes(input: ListNotesRequest): Promise<ListNotesResponse> {
   return window.opentreasury.transaction.note.list(input);
+}
+
+/**
+ * Bulk-list every note grouped by transaction id. Used by MovementsScreen
+ * to populate the search-index haystack — the search includes note text, so
+ * we need all notes up-front. The response is a JSON-safe object; callers
+ * typically rebuild it into a `Map<txId, TransactionNote[]>`.
+ */
+export async function listAllNotes(input: ListAllNotesRequest = {}): Promise<ListAllNotesResponse> {
+  return window.opentreasury.transaction.note.listAll(input);
 }
 
 /** Edit an existing note. Future-proofing — WI-19 UI may not expose. */
