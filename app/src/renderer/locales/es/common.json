@@ -234,6 +234,7 @@
   "movements": {
     "title": "Movimientos",
     "subtitle": "Filtra por rango para ver tus movimientos.",
+    "uncategorized": "Sin categorizar",
     "empty": {
       "pick-range": {
         "title": "Elige un rango de fechas",
