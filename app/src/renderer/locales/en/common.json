@@ -290,6 +290,9 @@
       "widen-range": "Widen range",
       "first-tx": "Record first transaction"
     },
+    "refresh": {
+      "failed": "Refresh failed. Please try again."
+    },
     "search": {
       "resultCount": "{{matched}} of {{total}}",
       "empty": {
