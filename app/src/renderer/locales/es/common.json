@@ -319,6 +319,10 @@
         "label": "Categoría",
         "all": "Todas las categorías"
       },
+      "tag": {
+        "label": "Filtrar por etiqueta",
+        "all": "Todas las etiquetas"
+      },
       "dateRange": {
         "label": "Período",
         "presets": {

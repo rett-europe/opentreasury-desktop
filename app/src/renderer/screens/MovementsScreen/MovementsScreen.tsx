@@ -6,6 +6,7 @@ import {
   Landmark,
   Plus,
   RefreshCw,
+  Tag,
   X,
   TrendingUp,
   TrendingDown,
@@ -287,6 +288,11 @@ export function MovementsScreen({
     () => initialFilters?.accountId ?? 'all',
   );
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  // Single-select tag filter (separate from the AND-intersection `tagIdsFilter`
+  // below which is driven by the Insights drilldown). Holds the tag ID — not
+  // the name — because tag names aren't guaranteed unique and `MovementRecord`
+  // references tags by ID.
+  const [tagFilter, setTagFilter] = useState<string>('all');
   // Tag intersection filter (AND semantics) — populated by the Insights
   // drilldown footer link via `initialFilters`. UI to add/remove tag chips
   // beyond the initial pre-applied set is deferred to a follow-up PR; for
@@ -689,6 +695,11 @@ export function MovementsScreen({
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [allRows]);
 
+  const tagOptions = useMemo(
+    () => tags.slice().sort((a, b) => a.name.localeCompare(b.name)),
+    [tags],
+  );
+
   const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'long' }), [locale]);
   const monthNames = useMemo(() => {
     const out: string[] = [];
@@ -742,6 +753,10 @@ export function MovementsScreen({
           if (!tagSet.has(required)) return false;
         }
       }
+      if (tagFilter !== 'all') {
+        const record = state.kind === 'loaded' ? state.rawRecords.find((r) => r.id === m.id) : null;
+        if (!(record?.tagIds ?? []).includes(tagFilter)) return false;
+      }
       if (minN != null && !Number.isNaN(minN) && m.amount < minN) return false;
       if (maxN != null && !Number.isNaN(maxN) && m.amount > maxN) return false;
       if (uncategorizedOnly) {
@@ -768,6 +783,7 @@ export function MovementsScreen({
     categoryLookup,
     dateFilter,
     tagIdsFilter,
+    tagFilter,
     minAmount,
     maxAmount,
     uncategorizedOnly,
@@ -790,6 +806,7 @@ export function MovementsScreen({
     typeFilter !== 'all' ||
     accountFilter !== 'all' ||
     categoryFilter !== 'all' ||
+    tagFilter !== 'all' ||
     !isDefaultDateFilter ||
     tagIdsFilter.length > 0 ||
     minAmount.trim() !== '' ||
@@ -800,6 +817,7 @@ export function MovementsScreen({
     setTypeFilter('all');
     setAccountFilter('all');
     setCategoryFilter('all');
+    setTagFilter('all');
     setDateFilter(DEFAULT_MOVEMENTS_DATE_FILTER);
     setTagIdsFilter([]);
     setIsCustomOpen(false);
@@ -1269,6 +1287,23 @@ export function MovementsScreen({
               {categoryOptions.map((c) => (
                 <option key={c} value={c}>
                   {c}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="ot-filter-bar__input">
+            <Tag size={14} aria-hidden="true" />
+            <span className="ot-visually-hidden">{t('movements.filters.tag.label')}</span>
+            <select
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+              aria-label={t('movements.filters.tag.label')}
+            >
+              <option value="all">{t('movements.filters.tag.all')}</option>
+              {tagOptions.map((tag) => (
+                <option key={tag.id} value={tag.id}>
+                  {tag.name}
                 </option>
               ))}
             </select>
