@@ -174,8 +174,10 @@ export function updateTransaction(
     currency: 'EUR', // Always EUR
     description: input.description,
     accountId: existing.accountId, // Immutable — use stored value
-    categoryId: input.categoryId ?? null,
-    subcategoryId: input.subcategoryId ?? null,
+    // `||` (not `??`): treat empty-string ID as "no category" so we never
+    // emit '' into the event payload (event schema requires ULID-or-null).
+    categoryId: input.categoryId || null,
+    subcategoryId: input.subcategoryId || null,
     tagIds: input.tagIds ? [...input.tagIds] : [],
     status: input.status ?? existing.status, // Preserve existing status if not provided
     createdAt: existing.createdAt, // Preserve original creation timestamp

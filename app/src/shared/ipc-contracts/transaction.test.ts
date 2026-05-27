@@ -5,9 +5,17 @@
 // These assertions pin the IPC boundary contract Trinity depends on.
 
 import { describe, expect, it } from 'vitest';
-import { createTransactionRequestSchema } from './transaction';
+import {
+  createTransactionRequestSchema,
+  updateTransactionRequestSchema,
+  bulkUpdateTransactionRequestSchema,
+} from './transaction';
 
 const ACCOUNT_ID = '01HZACC0000000000000000000';
+const TX_ID = '01HZTX00000000000000000000';
+const CAT_ID = '01HZCAT0000000000000000000';
+const SUBCAT_ID = '01HZSUB0000000000000000000';
+const CORR_ID = '01HZCOR0000000000000000000';
 
 function baseInput() {
   return {
@@ -137,5 +145,151 @@ describe('createTransactionRequestSchema — reference/details (WI-19)', () => {
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
     expect(parsed.data.reference).toHaveLength(119);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Regression — empty-string category/subcategory IDs must normalize to null.
+//
+// Original bug: `categoryId: z.string().nullable().optional()` accepted '',
+// the IPC handler did `?? null` (passed '' through), and the core command
+// embedded '' into the tx.updated event payload — which then failed the strict
+// `z.string().length(26).nullable()` event schema with a too_small error.
+// The schema must accept '' (some renderer code paths emit it) AND normalize
+// it to null so downstream layers never observe the empty string.
+// ----------------------------------------------------------------------------
+
+describe('createTransactionRequestSchema — nullable ID normalization', () => {
+  it('accepts and normalizes empty-string categoryId/subcategoryId to null', () => {
+    const parsed = createTransactionRequestSchema.safeParse({
+      ...baseInput(),
+      categoryId: '',
+      subcategoryId: '',
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.categoryId).toBeNull();
+    expect(parsed.data.subcategoryId).toBeNull();
+  });
+
+  it('accepts a valid 26-char ULID for categoryId and subcategoryId', () => {
+    const parsed = createTransactionRequestSchema.safeParse({
+      ...baseInput(),
+      categoryId: CAT_ID,
+      subcategoryId: SUBCAT_ID,
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.categoryId).toBe(CAT_ID);
+    expect(parsed.data.subcategoryId).toBe(SUBCAT_ID);
+  });
+
+  it('accepts explicit null and undefined for categoryId/subcategoryId', () => {
+    const parsedNull = createTransactionRequestSchema.safeParse({
+      ...baseInput(),
+      categoryId: null,
+      subcategoryId: null,
+    });
+    expect(parsedNull.success).toBe(true);
+    if (!parsedNull.success) return;
+    expect(parsedNull.data.categoryId).toBeNull();
+    expect(parsedNull.data.subcategoryId).toBeNull();
+
+    const parsedUndef = createTransactionRequestSchema.safeParse(baseInput());
+    expect(parsedUndef.success).toBe(true);
+    if (!parsedUndef.success) return;
+    expect(parsedUndef.data.categoryId).toBeUndefined();
+    expect(parsedUndef.data.subcategoryId).toBeUndefined();
+  });
+
+  it('rejects non-empty non-ULID strings for categoryId/subcategoryId', () => {
+    const parsedShort = createTransactionRequestSchema.safeParse({
+      ...baseInput(),
+      categoryId: 'abc',
+    });
+    expect(parsedShort.success).toBe(false);
+
+    const parsedLong = createTransactionRequestSchema.safeParse({
+      ...baseInput(),
+      subcategoryId: '0'.repeat(27),
+    });
+    expect(parsedLong.success).toBe(false);
+  });
+});
+
+describe('updateTransactionRequestSchema — nullable ID normalization', () => {
+  const baseUpdate = () => ({
+    id: TX_ID,
+    date: '2026-04-20',
+    type: 'expense' as const,
+    amount: 50,
+    description: 'Coffee',
+  });
+
+  it('accepts and normalizes empty-string categoryId/subcategoryId to null (regression: label removal)', () => {
+    const parsed = updateTransactionRequestSchema.safeParse({
+      ...baseUpdate(),
+      categoryId: '',
+      subcategoryId: '',
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.categoryId).toBeNull();
+    expect(parsed.data.subcategoryId).toBeNull();
+  });
+
+  it('accepts a valid 26-char ULID for categoryId and subcategoryId', () => {
+    const parsed = updateTransactionRequestSchema.safeParse({
+      ...baseUpdate(),
+      categoryId: CAT_ID,
+      subcategoryId: SUBCAT_ID,
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.categoryId).toBe(CAT_ID);
+    expect(parsed.data.subcategoryId).toBe(SUBCAT_ID);
+  });
+
+  it('rejects non-empty non-ULID strings for categoryId', () => {
+    const parsed = updateTransactionRequestSchema.safeParse({
+      ...baseUpdate(),
+      categoryId: 'cat1',
+    });
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe('bulkUpdateTransactionRequestSchema — nullable ID normalization', () => {
+  const baseBulk = () => ({
+    ids: [TX_ID],
+    correlationId: CORR_ID,
+  });
+
+  it('accepts and normalizes empty-string categoryId/subcategoryId to null', () => {
+    const parsed = bulkUpdateTransactionRequestSchema.safeParse({
+      ...baseBulk(),
+      categoryId: '',
+      subcategoryId: '',
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.categoryId).toBeNull();
+    expect(parsed.data.subcategoryId).toBeNull();
+  });
+
+  it('keeps undefined as undefined (bulk semantics: "do not change")', () => {
+    const parsed = bulkUpdateTransactionRequestSchema.safeParse(baseBulk());
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.categoryId).toBeUndefined();
+    expect(parsed.data.subcategoryId).toBeUndefined();
+  });
+
+  it('rejects non-empty non-ULID strings for categoryId', () => {
+    const parsed = bulkUpdateTransactionRequestSchema.safeParse({
+      ...baseBulk(),
+      categoryId: 'not-a-ulid',
+    });
+    expect(parsed.success).toBe(false);
   });
 });

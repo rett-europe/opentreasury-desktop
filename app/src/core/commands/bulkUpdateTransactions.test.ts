@@ -289,3 +289,53 @@ describe('bulkUpdateTransactions', () => {
     expect(result.events[0]!.payload.tagIds).toEqual([TAG_ID2, TAG_ID3]);
   });
 });
+
+describe('bulkUpdateTransactions — empty-string ID regression', () => {
+  it('normalizes empty-string categoryId/subcategoryId to null in event payloads', () => {
+    const now = new Date('2026-04-24T10:00:00Z');
+    const tx = makeTx(TX1, { categoryId: CAT_ID });
+
+    const input: BulkUpdateInput = {
+      ids: [TX1],
+      categoryId: '',
+      subcategoryId: '',
+      correlationId: CORRELATION,
+    };
+
+    const deps = createTestDeps({
+      now: () => now,
+      newId: () => testUlid('EVT1'),
+      readModel: mockReadModel([tx]),
+    });
+
+    const result = bulkUpdateTransactions(input, deps);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.events[0]!.payload.categoryId).toBeNull();
+    expect(result.events[0]!.payload.subcategoryId).toBeNull();
+  });
+
+  it('preserves existing categoryId when input.categoryId is undefined', () => {
+    const now = new Date('2026-04-24T10:00:00Z');
+    const tx = makeTx(TX1, { categoryId: CAT_ID });
+
+    const input: BulkUpdateInput = {
+      ids: [TX1],
+      status: 'pending',
+      correlationId: CORRELATION,
+    };
+
+    const deps = createTestDeps({
+      now: () => now,
+      newId: () => testUlid('EVT1'),
+      readModel: mockReadModel([tx]),
+    });
+
+    const result = bulkUpdateTransactions(input, deps);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.events[0]!.payload.categoryId).toBe(CAT_ID);
+  });
+});

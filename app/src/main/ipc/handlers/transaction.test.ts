@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   createTransactionCreateHandler,
+  createTransactionUpdateHandler,
   createTransactionBulkUpdateHandler,
   createTransactionBulkAddLabelHandler,
 } from './transaction';
@@ -516,6 +517,7 @@ describe('transaction:bulkUpdate handler — unexpected errors', () => {
 import {
   bulkUpdateTransactionResponseSchema,
   bulkAddLabelTransactionResponseSchema,
+  updateTransactionResponseSchema,
 } from '../../../shared/ipc-contracts/transaction';
 
 describe('transaction:bulkUpdate — response survives Zod response-schema parse', () => {
@@ -1029,5 +1031,85 @@ describe('transaction:bulkAddLabel — response survives Zod response-schema par
     });
 
     expect(() => bulkAddLabelTransactionResponseSchema.parse(response)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression — transaction:update with empty-string category/subcategory IDs.
+//
+// Production trigger (PR #334 testing, trial.3.11): "removed a label from a
+// transaction" caused a ZodError with too_small / length-26 messages on
+// event.payload.categoryId. The renderer path produced categoryId: '' which
+// slipped through the (then) permissive wire schema, then through the
+// handler's `?? null` coalesce (which only handles null/undefined), and was
+// finally written into the tx.updated event payload — which strictly requires
+// a 26-char ULID or null.
+//
+// The fix is multi-layer (wire schema transform '' → null, handler `|| null`,
+// and core command `|| null`). This test pins the IPC layer.
+// ---------------------------------------------------------------------------
+describe('transaction:update handler — empty-string ID regression', () => {
+  beforeEach(() => {
+    resetReadModel();
+    seedAccount();
+  });
+
+  it('returns ok=true and emits a tx.updated event with categoryId/subcategoryId=null', async () => {
+    // First, seed an existing transaction so the update has something to target.
+    const eventLog = new InMemoryEventLog();
+    const createEvtId = testUlid('EVTC');
+    const createTxId = testUlid('TXEM');
+    const createIds = [createEvtId, createTxId];
+    let ci = 0;
+
+    const createHandle = createTransactionCreateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-20T12:00:00.000Z'),
+        newId: () => createIds[ci++]!,
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+      }),
+    );
+    const createResponse = await createHandle(baseInput());
+    expect(createResponse.ok).toBe(true);
+    if (!createResponse.ok) return;
+
+    const updateEvtId = testUlid('EVTU');
+    const updateHandle = createTransactionUpdateHandler(
+      createTestDeps({
+        eventLog,
+        getReadModel,
+        now: () => new Date('2026-04-21T12:00:00.000Z'),
+        newId: () => updateEvtId,
+        datasetId: DATASET_ID,
+        actorDeviceId: DEVICE_ID,
+      }),
+    );
+
+    // The exact production payload shape that used to throw a ZodError.
+    const response = await updateHandle({
+      id: createTxId,
+      date: '2026-04-20',
+      type: 'income',
+      amount: 100,
+      description: 'Test donation (edited)',
+      categoryId: '',
+      subcategoryId: '',
+      tagIds: [],
+    });
+
+    expect(response.ok).toBe(true);
+    if (!response.ok) {
+      throw new Error(`Update failed: ${response.error.code} — ${response.error.message}`);
+    }
+    expect(response.event.type).toBe('tx.updated');
+    expect(response.event.payload.categoryId).toBeNull();
+    expect(response.event.payload.subcategoryId).toBeNull();
+
+    // And the event passes the strict response schema — i.e. the regression
+    // path is fully closed end-to-end (request → core → event mirror schema).
+    expect(() => updateTransactionResponseSchema.parse(response)).not.toThrow();
   });
 });

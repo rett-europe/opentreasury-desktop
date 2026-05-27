@@ -166,8 +166,11 @@ export function createTransaction(
     currency: input.currency,
     description: input.description,
     accountId: input.accountId,
-    categoryId: input.categoryId ?? null,
-    subcategoryId: input.subcategoryId ?? null,
+    // `||` (not `??`): treat empty-string ID as "no category" too. The IPC
+    // schema and handler already normalize, but the command is callable
+    // directly from tests and future code paths so this is a final defense.
+    categoryId: input.categoryId || null,
+    subcategoryId: input.subcategoryId || null,
     tagIds: input.tagIds ? [...input.tagIds] : [],
     status: input.status ?? 'approved',
     createdAt,

@@ -83,9 +83,12 @@ export function bulkUpdateTransactions(
       currency: 'EUR',
       description: existing.description,
       accountId: existing.accountId,
-      categoryId: input.categoryId !== undefined ? (input.categoryId ?? null) : existing.categoryId,
+      // `||` (not `??`): treat empty-string ID as "clear category" so we
+      // never emit '' into the event payload (event schema requires
+      // ULID-or-null). `undefined` still means "don't change this field".
+      categoryId: input.categoryId !== undefined ? input.categoryId || null : existing.categoryId,
       subcategoryId:
-        input.subcategoryId !== undefined ? (input.subcategoryId ?? null) : existing.subcategoryId,
+        input.subcategoryId !== undefined ? input.subcategoryId || null : existing.subcategoryId,
       tagIds: input.tagIds !== undefined ? [...input.tagIds] : [...existing.tagIds],
       status: (input.status ?? existing.status) as TransactionStatus,
       createdAt: existing.createdAt,
