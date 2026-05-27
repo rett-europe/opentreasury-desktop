@@ -81,8 +81,10 @@ export function createTransactionCreateHandler(
         amount: parsed.data.amount,
         currency: parsed.data.currency,
         description: parsed.data.description,
-        categoryId: parsed.data.categoryId ?? null,
-        subcategoryId: parsed.data.subcategoryId ?? null,
+        // Defensive: schema already normalizes '' → null, but `|| null` keeps
+        // the IPC layer correct even if the schema is loosened in the future.
+        categoryId: parsed.data.categoryId || null,
+        subcategoryId: parsed.data.subcategoryId || null,
         tagIds: parsed.data.tagIds ?? [],
         status: parsed.data.status ?? 'approved',
       };
@@ -172,8 +174,10 @@ export function createTransactionUpdateHandler(
         type: parsed.data.type,
         amount: parsed.data.amount,
         description: parsed.data.description,
-        categoryId: parsed.data.categoryId ?? null,
-        subcategoryId: parsed.data.subcategoryId ?? null,
+        // Defensive: schema normalizes '' → null. `|| null` keeps the IPC
+        // layer correct even if the schema is loosened in the future.
+        categoryId: parsed.data.categoryId || null,
+        subcategoryId: parsed.data.subcategoryId || null,
         tagIds: parsed.data.tagIds ?? [],
         status: parsed.data.status ?? undefined,
         reference: parsed.data.reference,
@@ -369,8 +373,13 @@ export function createTransactionBulkUpdateHandler(
 
       const input: BulkUpdateInput = {
         ids: parsed.data.ids,
-        categoryId: parsed.data.categoryId,
-        subcategoryId: parsed.data.subcategoryId,
+        // Preserve `undefined` (= "don't change this field") semantics while
+        // still normalizing '' → null so the merged event payload never
+        // carries an empty-string ULID slot.
+        categoryId:
+          parsed.data.categoryId === undefined ? undefined : parsed.data.categoryId || null,
+        subcategoryId:
+          parsed.data.subcategoryId === undefined ? undefined : parsed.data.subcategoryId || null,
         tagIds: parsed.data.tagIds,
         status: parsed.data.status,
         correlationId: parsed.data.correlationId,

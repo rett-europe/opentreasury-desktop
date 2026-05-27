@@ -73,6 +73,18 @@ const freeTextField = (maxLen: number) =>
     })
     .pipe(z.string().max(maxLen).nullable());
 
+// ID-shape (ULID, 26-char Crockford base32) request field that also tolerates
+// the empty-string "clear" sentinel some renderer code paths emit. Normalizes
+// '' → null so downstream layers never see the empty string, which prevents
+// it from leaking into event payloads (where the schema requires length 26 or
+// null and would otherwise throw a Zod validation error).
+const nullableIdRequestField = () =>
+  z
+    .union([z.string().length(26), z.literal('')])
+    .nullable()
+    .optional()
+    .transform((v) => (v === '' ? null : v));
+
 // Boundary-level schema — validates the shape of the untrusted IPC payload.
 // Business-rule validation (e.g. accountId exists) happens in the command.
 export const createTransactionRequestSchema = z.object({
@@ -82,8 +94,8 @@ export const createTransactionRequestSchema = z.object({
   amount: z.number().positive().finite(),
   currency: z.literal('EUR'),
   description: z.string().min(1).max(500),
-  categoryId: z.string().nullable().optional(),
-  subcategoryId: z.string().nullable().optional(),
+  categoryId: nullableIdRequestField(),
+  subcategoryId: nullableIdRequestField(),
   tagIds: z.array(z.string()).optional(),
   status: transactionStatusSchema.optional(),
   // WI-19 — optional user-supplied metadata. Normalized to string|null.
@@ -173,8 +185,8 @@ export const updateTransactionRequestSchema = z.object({
   type: transactionTypeSchema,
   amount: z.number().positive().finite(),
   description: z.string().min(1).max(500),
-  categoryId: z.string().nullable().optional(),
-  subcategoryId: z.string().nullable().optional(),
+  categoryId: nullableIdRequestField(),
+  subcategoryId: nullableIdRequestField(),
   tagIds: z.array(z.string()).optional(),
   status: transactionStatusSchema.optional(),
   reference: freeTextField(120).optional(),
@@ -271,8 +283,8 @@ export type DeleteTransactionResponse = z.infer<typeof deleteTransactionResponse
 
 export const bulkUpdateTransactionRequestSchema = z.object({
   ids: z.array(z.string().min(1)).min(1),
-  categoryId: z.string().nullable().optional(),
-  subcategoryId: z.string().nullable().optional(),
+  categoryId: nullableIdRequestField(),
+  subcategoryId: nullableIdRequestField(),
   tagIds: z.array(z.string()).optional(),
   status: transactionStatusSchema.optional(),
   correlationId: z.string().min(1),
