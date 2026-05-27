@@ -27,6 +27,7 @@ import { TransactionsTable } from '../../components/TransactionsTable/index.js';
 import type { TransactionRow } from '../../components/TransactionsTable/index.js';
 import { listMovements } from '../../services/movementsApi.js';
 import { rehydrate } from '../../services/queryApi.js';
+import { listAllNotes } from '../../services/notesApi.js';
 import {
   bulkAddLabelToTransactions,
   bulkUpdateTransactions,
@@ -38,6 +39,7 @@ import { getAccounts } from '../../services/panelApi.js';
 import { listCategories } from '../../services/categoriesApi.js';
 import { listTags } from '../../services/tagsApi.js';
 import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
+import type { TransactionNote } from '../../../shared/ipc-contracts/notes.js';
 import type {
   CreateTransactionRequest,
   UpdateTransactionRequest,
@@ -276,6 +278,13 @@ export function MovementsScreen({
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<readonly CategoryRecord[]>([]);
   const [tags, setTags] = useState<readonly TagRecord[]>([]);
+  // SPEC-024 / bug from trial.3.11: the search box must match against note
+  // text. We bulk-fetch every note in loadAll() and feed the map into the
+  // search-index lookup tables. Refreshed alongside the rest of the
+  // reference data on Refresh / configRevision-driven reloads.
+  const [notesByTxId, setNotesByTxId] = useState<ReadonlyMap<string, readonly TransactionNote[]>>(
+    () => new Map(),
+  );
 
   // Selected transaction for detail modal — now includes the raw record
   // so we can check hasSplits and access split metadata.
@@ -372,13 +381,20 @@ export function MovementsScreen({
   const loadAll = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const [accountsResp, records, categoriesResp, tagsResp] = await Promise.all([
+      const [accountsResp, records, categoriesResp, tagsResp, notesResp] = await Promise.all([
         getAccounts(),
         listMovements(),
         // Reference-data calls may fail if Morpheus's handlers aren't online
         // yet; swallow so the main movements list keeps working.
         listCategories().catch(() => ({ categories: [] as readonly CategoryRecord[] })),
         listTags().catch(() => ({ tags: [] as readonly TagRecord[] })),
+        // Notes fuel the search index. If the bulk-list handler isn't
+        // registered (older main) we degrade gracefully — search just won't
+        // match against note text on that build, matching the legacy behavior.
+        listAllNotes().catch(() => ({
+          ok: true as const,
+          notesByTxId: {} as Record<string, TransactionNote[]>,
+        })),
       ]);
 
       const accountsMap = new Map(accountsResp.accounts.map((a) => [a.id, a]));
@@ -398,6 +414,14 @@ export function MovementsScreen({
       setAccounts(accountsResp.accounts);
       setCategories(categoriesResp.categories);
       setTags(tagsResp.tags);
+      // Rebuild the notes map from the bulk-list response. On error the
+      // catch above produced an `{ ok: true, notesByTxId: {} }` shape, so we
+      // can branch on `ok` uniformly here.
+      if (notesResp.ok) {
+        setNotesByTxId(new Map(Object.entries(notesResp.notesByTxId)));
+      } else {
+        setNotesByTxId(new Map());
+      }
       setState({ kind: 'loaded', rows, rawRecords: records });
     } catch (err) {
       setState({
@@ -626,7 +650,11 @@ export function MovementsScreen({
         ),
       ),
       tagNameById: new Map(tags.map((t) => [t.id, t.name])),
-      notesByTxId: new Map(), // Notes not yet in MovementRecord
+      // Bug fix (trial.3.11): notes are now bulk-fetched in loadAll() so the
+      // search index can match against note text. `notesByTxId` re-renders
+      // the index when notes refresh; structurally the Map<string,
+      // TransactionNote[]> satisfies LookupTables' `{ text: string }[]`.
+      notesByTxId,
       splitsByTxId: new Map(), // TODO: Fetch splits separately for search
     };
 
@@ -646,7 +674,7 @@ export function MovementsScreen({
       };
       return buildHaystack(tx, lookups);
     });
-  }, [state, accounts, categories, tags]);
+  }, [state, accounts, categories, tags, notesByTxId]);
 
   // Map Movement[] → TransactionRow[] for the shared table
   const transactionRows: readonly TransactionRow[] = useMemo(() => {
