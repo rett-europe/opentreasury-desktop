@@ -47,6 +47,22 @@ describe('NotesThread', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     delete (window as unknown as { opentreasury?: unknown }).opentreasury;
+    // jsdom doesn't implement HTMLDialogElement.{showModal, close}; stub so
+    // the in-tree ConfirmDialog (which replaced window.confirm for note
+    // deletion to fix the trial.3.12 frozen-inputs bug) can open. Guarded
+    // so we don't reinstall over a previous polyfill across tests.
+    if (typeof HTMLDialogElement !== 'undefined') {
+      if (!HTMLDialogElement.prototype.showModal) {
+        HTMLDialogElement.prototype.showModal = function showModal() {
+          this.setAttribute('open', '');
+        };
+      }
+      if (!HTMLDialogElement.prototype.close) {
+        HTMLDialogElement.prototype.close = function close() {
+          this.removeAttribute('open');
+        };
+      }
+    }
   });
 
   it('renders empty-state message when no notes exist', async () => {
@@ -126,7 +142,7 @@ describe('NotesThread', () => {
     expect(listFn).toHaveBeenCalledTimes(2);
   });
 
-  it('deletes a note after confirmation and re-fetches the list', async () => {
+  it('shows a ConfirmDialog and deletes a note after confirmation, then re-fetches the list', async () => {
     const listFn = vi
       .fn()
       .mockResolvedValueOnce({
@@ -146,7 +162,10 @@ describe('NotesThread', () => {
     const deleteFn = vi.fn().mockResolvedValue(deleteResp);
     mountBridge({ list: listFn, delete: deleteFn });
 
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    // We REPLACED window.confirm with a state-driven dialog to avoid
+    // freezing renderer keyboard input (trial.3.12 bug). Assert window.confirm
+    // is never called, then interact with the new confirm dialog instead.
+    const confirmSpy = vi.spyOn(window, 'confirm');
 
     renderThread();
 
@@ -157,13 +176,58 @@ describe('NotesThread', () => {
     const delBtn = screen.getByRole('button', { name: /Delete note|Eliminar nota/i });
     fireEvent.click(delBtn);
 
+    // The confirm dialog should now be open. Find it by role=alertdialog
+    // and click its destructive Delete button.
+    const confirmDialog = await waitFor(() => {
+      const dlg = screen.getByRole('alertdialog');
+      expect(dlg).toBeTruthy();
+      return dlg;
+    });
+    expect(confirmDialog.textContent ?? '').toMatch(/Delete this note|¿Eliminar esta nota/i);
+
+    // The destructive variant — find the danger-styled button (not the
+    // ghost Cancel).
+    const dangerBtn = confirmDialog.querySelector(
+      '.ot-button--destructive',
+    ) as HTMLButtonElement | null;
+    expect(dangerBtn).not.toBeNull();
+    fireEvent.click(dangerBtn!);
+
     await waitFor(() => {
-      expect(confirmSpy).toHaveBeenCalled();
       expect(deleteFn).toHaveBeenCalledWith({ noteId: NOTE_ID });
     });
     await waitFor(() => {
       expect(screen.getByText(/No notes yet|Aún no hay notas/i)).toBeTruthy();
     });
+
+    // The whole point of this fix: the native window.confirm() must
+    // never have been called.
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it('cancels the delete when the user clicks Cancel in the ConfirmDialog', async () => {
+    const listFn = vi.fn().mockResolvedValue({
+      ok: true,
+      notes: [{ id: NOTE_ID, txId: TX_ID, text: 'safe', createdAt: '2026-04-20T10:32:00Z' }],
+    } satisfies ListNotesResponse);
+    const deleteFn = vi.fn();
+    mountBridge({ list: listFn, delete: deleteFn });
+
+    renderThread();
+
+    await waitFor(() => expect(screen.getByText('safe')).toBeTruthy());
+
+    const delBtn = screen.getByRole('button', { name: /Delete note|Eliminar nota/i });
+    fireEvent.click(delBtn);
+
+    const confirmDialog = await waitFor(() => screen.getByRole('alertdialog'));
+    const cancelBtn = confirmDialog.querySelector('.ot-button--ghost') as HTMLButtonElement | null;
+    expect(cancelBtn).not.toBeNull();
+    fireEvent.click(cancelBtn!);
+
+    // No delete IPC, and the note is still there.
+    expect(deleteFn).not.toHaveBeenCalled();
+    expect(screen.getByText('safe')).toBeTruthy();
   });
 
   it('surfaces backend errors with localized messages', async () => {

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Edit, Trash2 } from 'lucide-react';
 import { Button } from '../Button/index.js';
+import { ConfirmDialog } from '../ConfirmDialog/index.js';
 import { formatDateTime } from '../../utils/dateFormat.js';
 import * as notesApi from '../../services/notesApi.js';
 import { NOTE_TEXT_MAX_LENGTH, type TransactionNote } from '../../../shared/ipc-contracts/notes.js';
@@ -35,6 +36,13 @@ export function NotesThread({ txId }: NotesThreadProps): JSX.Element {
   const [editingSubmitting, setEditingSubmitting] = useState(false);
   const [editingError, setEditingError] = useState<string | null>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Delete confirmation — state-driven instead of `window.confirm()` because
+  // calling the native confirm from inside an open <dialog> in Electron
+  // corrupts keyboard-input routing to the WebContents (every input in the
+  // app stops accepting keystrokes until window blur+focus). See
+  // ConfirmDialog component header for the full story.
+  const [noteToDelete, setNoteToDelete] = useState<TransactionNote | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -87,26 +95,30 @@ export function NotesThread({ txId }: NotesThreadProps): JSX.Element {
     [draft, txId, refresh, t],
   );
 
-  const handleDelete = useCallback(
-    async (note: TransactionNote) => {
-      // eslint-disable-next-line no-alert
-      if (!window.confirm(t('notes.deleteConfirm'))) return;
-      setActionError(null);
-      try {
-        const resp = await notesApi.deleteNote({ noteId: note.id });
-        if (!resp.ok) {
-          setActionError(
-            t(`notes.errors.${resp.error.code}`, { defaultValue: resp.error.message }),
-          );
-          return;
-        }
-        await refresh();
-      } catch (err) {
-        setActionError(err instanceof Error ? err.message : t('notes.errors.INTERNAL'));
+  const requestDelete = useCallback((note: TransactionNote) => {
+    setNoteToDelete(note);
+  }, []);
+
+  const cancelDelete = useCallback(() => {
+    setNoteToDelete(null);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    const note = noteToDelete;
+    if (!note) return;
+    setNoteToDelete(null);
+    setActionError(null);
+    try {
+      const resp = await notesApi.deleteNote({ noteId: note.id });
+      if (!resp.ok) {
+        setActionError(t(`notes.errors.${resp.error.code}`, { defaultValue: resp.error.message }));
+        return;
       }
-    },
-    [refresh, t],
-  );
+      await refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t('notes.errors.INTERNAL'));
+    }
+  }, [noteToDelete, refresh, t]);
 
   const handleStartEdit = useCallback((note: TransactionNote) => {
     setEditingNoteId(note.id);
@@ -245,7 +257,7 @@ export function NotesThread({ txId }: NotesThreadProps): JSX.Element {
                       <button
                         type="button"
                         className="ot-notes-thread__action ot-notes-thread__delete"
-                        onClick={() => handleDelete(note)}
+                        onClick={() => requestDelete(note)}
                         aria-label={t('notes.deleteAria')}
                         title={t('notes.deleteAria')}
                         disabled={editingNoteId !== null}
@@ -316,6 +328,18 @@ export function NotesThread({ txId }: NotesThreadProps): JSX.Element {
           })
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={noteToDelete !== null}
+        title={t('notes.deleteConfirmTitle')}
+        message={t('notes.deleteConfirm')}
+        confirmLabel={t('notes.deleteConfirmCta')}
+        variant="destructive"
+        onConfirm={() => {
+          void confirmDelete();
+        }}
+        onCancel={cancelDelete}
+      />
     </section>
   );
 }
