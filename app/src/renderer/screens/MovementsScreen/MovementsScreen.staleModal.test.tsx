@@ -305,4 +305,84 @@ describe('MovementsScreen — detail modal freshness + close-after-save UX', () 
     expect(updateTransaction).toHaveBeenCalledTimes(1);
     expect(listMovementsCallCount).toBeGreaterThanOrEqual(2);
   }, 15000);
+
+  // Regression — trial.3.12 "frozen inputs" Layer-2 contract.
+  //
+  // Bug: the detail modal used to live INSIDE the
+  // `{state.kind === 'loaded' && <>...</>}` fragment. When the post-save
+  // loadAll() flipped state to 'loading', the modal unmounted with its
+  // <dialog> still in showModal() state — leaking Chromium's top-layer
+  // ownership and freezing every input in the app after ~3 such saves.
+  //
+  // Fix: lift the modal out of the conditional so it stays mounted across
+  // the loading transition. This test holds listMovements pending while
+  // verifying the <dialog> DOM node is still in the document during the
+  // entire 'loading' window — i.e. it was never unmounted by the parent's
+  // conditional render.
+  it('detail modal stays mounted while loadAll() is in flight (no top-layer leak)', async () => {
+    vi.useRealTimers();
+    localStorage.setItem('opentreasury:movements:dateFilter', JSON.stringify({ kind: 'all' }));
+
+    // First load resolves immediately so we can open the modal.
+    // Second load is held pending — this simulates the loading window
+    // during which the bug used to unmount the modal.
+    let resolveSecondLoad: ((records: MovementRecord[]) => void) | null = null;
+    let callCount = 0;
+    vi.mocked(listMovements).mockImplementation(async () => {
+      callCount += 1;
+      if (callCount === 1) return [makeRecord([])];
+      return await new Promise<MovementRecord[]>((resolve) => {
+        resolveSecondLoad = resolve;
+      });
+    });
+
+    const { rerender } = render(
+      <I18nextProvider i18n={i18n}>
+        <MovementsScreen configRevision={0} />
+      </I18nextProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByRole('table')).not.toBeNull();
+    });
+
+    // Open the detail modal.
+    const descCell = await screen.findByText('Stale modal repro tx');
+    fireEvent.click(descCell.closest('tr')!);
+
+    const dialogBeforeReload = await waitFor(() => {
+      const dlg = document.querySelector('dialog[aria-labelledby="ot-transaction-detail-title"]');
+      if (!dlg) throw new Error('detail modal not yet mounted');
+      return dlg;
+    });
+
+    // Trigger a reload via configRevision bump. This calls loadAll(), which
+    // flips state to 'loading' for the entire duration the second
+    // listMovements promise is pending.
+    rerender(
+      <I18nextProvider i18n={i18n}>
+        <MovementsScreen configRevision={1} />
+      </I18nextProvider>,
+    );
+
+    // Give React several flush cycles to apply the 'loading' state.
+    await waitFor(() => {
+      // The loading placeholder for the table-region should now be visible.
+      expect(screen.queryByText(/Cargando|Loading/i)).not.toBeNull();
+    });
+
+    // Critical assertion: the <dialog> DOM node from BEFORE the reload is
+    // still in the document. If MovementsScreen had unmounted us via a
+    // conditional render, the original node would be gone (a fresh one
+    // would mount later when state goes back to 'loaded'). The reference
+    // equality check is what catches the leak: same node, same identity,
+    // never removed.
+    expect(document.contains(dialogBeforeReload)).toBe(true);
+
+    // Release the pending load so the test can tear down cleanly.
+    resolveSecondLoad?.([makeRecord([])]);
+    await waitFor(() => {
+      expect(screen.queryByRole('table')).not.toBeNull();
+    });
+  }, 10000);
 });

@@ -174,7 +174,15 @@ export function PanelScreen({
     });
   }, [data]);
 
-  if (state === 'skeleton') {
+  // Only render the skeleton placeholder for the *initial* load (when we
+  // have no data yet). Subsequent reloads triggered by mutations (e.g. the
+  // detail modal's onUpdate calls `loadPanel()` which sets state back to
+  // 'skeleton') must NOT replace the loaded view, because the open
+  // <TransactionDetailModal> lives in the loaded branch. Unmounting a
+  // native dialog mid-open leaks Chromium's top-layer ownership and
+  // freezes every input in the app. See
+  // hooks/useCloseDialogOnUnmount for the full story.
+  if (state === 'skeleton' && !data) {
     return (
       <div>
         <header className="ot-page-header">
@@ -216,7 +224,11 @@ export function PanelScreen({
     );
   }
 
-  if (state === 'error' || !data) {
+  // Once `data` is populated we always render the loaded view, even if a
+  // subsequent reload puts `state` back into 'skeleton' or 'error' — the
+  // open <TransactionDetailModal> must stay mounted to avoid the native
+  // dialog top-layer leak (see hooks/useCloseDialogOnUnmount).
+  if (state === 'error' && !data) {
     return (
       <div>
         <header className="ot-page-header">
@@ -241,6 +253,11 @@ export function PanelScreen({
       </div>
     );
   }
+
+  // Defensive: by this point data should always be non-null (skeleton +
+  // error guards above), but keep the TS narrowing safe in case a future
+  // state transition leaves us in an unexpected combo.
+  if (!data) return <></>;
 
   const {
     accounts,
