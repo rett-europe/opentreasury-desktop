@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { newUlid } from '../../utils/ulid.js';
+import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 import './ProfileSetupModal.css';
 
 export interface ProfileSetupData {
@@ -61,6 +62,9 @@ export function ProfileSetupModal({ isOpen, onComplete }: ProfileSetupModalProps
       dialog.close();
     }
   }, [isOpen]);
+
+  // Top-layer safety: see hooks/useCloseDialogOnUnmount for context.
+  useCloseDialogOnUnmount(dialogRef);
 
   useEffect(() => {
     const dialog = dialogRef.current;

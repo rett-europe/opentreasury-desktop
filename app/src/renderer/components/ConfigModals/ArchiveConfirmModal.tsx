@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { ConfigMutationError } from '../../services/configMutationsApi.js';
 import { mapConfigMutationErrorToMessage } from './errorMap.js';
+import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 import './ConfigModal.css';
 
 export type ArchiveEntity = 'cuentas' | 'categorias' | 'etiquetas' | 'subcategorias';
@@ -44,6 +45,9 @@ export function ArchiveConfirmModal({
       setError(null);
     }
   }, [isOpen]);
+
+  // Top-layer safety: see hooks/useCloseDialogOnUnmount for context.
+  useCloseDialogOnUnmount(dialogRef);
 
   useEffect(() => {
     const dialog = dialogRef.current;

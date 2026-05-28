@@ -9,6 +9,7 @@ import type { Account, RecentTransaction } from '../../../shared/ipc-contracts/p
 import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
+import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 import { getSplits } from '../../services/splitsApi.js';
 import { getTagColor } from '../../utils/tagColor.js';
 import { getStatusBadgeClass } from '../../utils/statusBadge.js';
@@ -161,6 +162,12 @@ export function TransactionDetailModal({
       dialog.close();
     }
   }, [isOpen]);
+
+  // Belt-and-braces: if React unmounts us while the dialog is still open
+  // (e.g. a parent's conditional render flips), force-close so Chromium
+  // releases the top-layer and the rest of the page stays interactive.
+  // See hooks/useCloseDialogOnUnmount for the full bug story.
+  useCloseDialogOnUnmount(dialogRef);
 
   // Close on Escape + backdrop click
   useEffect(() => {

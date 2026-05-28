@@ -9,6 +9,7 @@ import type {
 } from '../../../shared/ipc-contracts/transaction.js';
 import type { TagRecord } from '../../types/config.js';
 import { newUlid } from '../../utils/ulid.js';
+import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 // Reuse the detail-modal shell — same dialog styling as view / add / edit /
 // bulk-classify.
 import '../TransactionDetailModal/TransactionDetailModal.css';
@@ -91,6 +92,9 @@ export function BulkAddLabelModal({
       dialog.close();
     }
   }, [isOpen]);
+
+  // Top-layer safety: see hooks/useCloseDialogOnUnmount for context.
+  useCloseDialogOnUnmount(dialogRef);
 
   // Reset form + error state each time the modal re-opens so stale failures
   // from a previous attempt never leak across openings.

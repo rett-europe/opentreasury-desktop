@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { TransactionFormFields } from '../TransactionFormFields/index.js';
+import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 import type { CreateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
@@ -86,6 +87,9 @@ export function AddTransactionModal({
       dialog.close();
     }
   }, [isOpen]);
+
+  // Top-layer safety: see hooks/useCloseDialogOnUnmount for context.
+  useCloseDialogOnUnmount(dialogRef);
 
   // Reset form when modal opens.
   useEffect(() => {

@@ -9,6 +9,7 @@ import type {
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import './TransactionFormModal.css';
+import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 
 export interface TransactionFormData {
   id?: string;
@@ -107,6 +108,9 @@ export function TransactionFormModal({
       dialog.close();
     }
   }, [isOpen]);
+
+  // Top-layer safety: see hooks/useCloseDialogOnUnmount for context.
+  useCloseDialogOnUnmount(dialogRef);
 
   // Reset or populate form when modal opens
   useEffect(() => {

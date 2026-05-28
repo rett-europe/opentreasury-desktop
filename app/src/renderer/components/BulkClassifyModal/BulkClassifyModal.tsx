@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { CategoryPickerRows } from '../CategoryPickerRows/index.js';
+import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 import type {
   BulkUpdateTransactionFailure,
   BulkUpdateTransactionRequest,
@@ -75,6 +76,9 @@ export function BulkClassifyModal({
       dialog.close();
     }
   }, [isOpen]);
+
+  // Top-layer safety: see hooks/useCloseDialogOnUnmount for context.
+  useCloseDialogOnUnmount(dialogRef);
 
   // Reset form + error state each time the modal re-opens so stale failures
   // from a previous attempt never leak across openings.

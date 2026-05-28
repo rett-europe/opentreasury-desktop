@@ -9,6 +9,7 @@ import { listAccounts } from '../../services/accountsApi.js';
 import * as importApi from '../../services/importApi.js';
 import type { AccountRecord } from '../../types/config.js';
 import type { DryRunResponse, ColumnMapping } from '../../../shared/ipc-contracts/import.js';
+import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 
 type SheetMetadata = {
   name: string;
@@ -101,6 +102,10 @@ export function ImportWizard({ isOpen, onClose, onComplete }: ImportWizardProps)
       setState(INITIAL_STATE);
     }
   }, [isOpen]);
+
+  // Top-layer safety: see hooks/useCloseDialogOnUnmount for context.
+  useCloseDialogOnUnmount(dialogRef);
+  useCloseDialogOnUnmount(cancelConfirmRef);
 
   useEffect(() => {
     const dialog = dialogRef.current;
