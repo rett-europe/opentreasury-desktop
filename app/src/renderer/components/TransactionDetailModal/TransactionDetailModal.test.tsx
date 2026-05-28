@@ -408,4 +408,47 @@ describe('TransactionDetailModal', () => {
       expect(dateInput.disabled).toBe(true);
     });
   });
+
+  // Regression — trial.3.12 "frozen inputs" bug ------------------------------
+  //
+  // Bug: after editing ~3 transactions in a row, every input box in the app
+  // stopped accepting keyboard input. Root cause was the parent
+  // (MovementsScreen) unmounting this modal while the underlying <dialog>
+  // was still in showModal() state — Chromium's top-layer ownership leaked
+  // and the rest of the page stayed `inert`.
+  //
+  // Layer-1 contract enforced here: if React unmounts us with the dialog
+  // still open, the cleanup forcibly closes it so the top layer is
+  // released. The MovementsScreen integration test covers Layer 2 (the
+  // modal staying mounted across loading transitions).
+  describe('unmount cleanup (frozen-inputs regression)', () => {
+    it('closes the dialog when the component unmounts while still open', () => {
+      const { unmount, container } = renderModal(baseTx);
+
+      const dialog = container.querySelector('dialog') as HTMLDialogElement | null;
+      expect(dialog).not.toBeNull();
+      // The mount effect should have opened the dialog via showModal()
+      // (stubbed in beforeEach to set the `open` attribute).
+      expect(dialog?.hasAttribute('open')).toBe(true);
+
+      unmount();
+
+      // The cleanup effect from useCloseDialogOnUnmount must have invoked
+      // dialog.close() (stubbed to remove the `open` attribute) so the
+      // browser releases the top layer. Without this, the page would stay
+      // inert and inputs would freeze app-wide.
+      expect(dialog?.hasAttribute('open')).toBe(false);
+    });
+
+    it('is a no-op when the dialog is already closed at unmount', () => {
+      const { unmount, container } = renderModal(null); // isOpen=false
+
+      const dialog = container.querySelector('dialog') as HTMLDialogElement | null;
+      expect(dialog).not.toBeNull();
+      expect(dialog?.hasAttribute('open')).toBe(false);
+
+      // Should not throw or change anything.
+      expect(() => unmount()).not.toThrow();
+    });
+  });
 });

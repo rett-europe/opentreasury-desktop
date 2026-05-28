@@ -143,6 +143,7 @@ module.exports = {
     // Renderer tsconfig excludes @types/node; re-declare here for clarity.
     {
       files: ['app/src/renderer/**/*.{ts,tsx}'],
+      excludedFiles: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],
       rules: {
         'no-restricted-imports': [
           'error',
@@ -154,6 +155,27 @@ module.exports = {
               { name: 'node:path', message: 'Renderer has no path access.' },
               { name: 'electron', message: 'Renderer cannot import electron (ADR-001 C6).' },
             ],
+          },
+        ],
+        // Anti-regression for the trial.3.12 frozen-inputs bug (PR #338).
+        // window.confirm / window.alert / window.prompt corrupt Chromium's
+        // keyboard-input routing to the renderer when called from inside an
+        // open <dialog>. Use the ConfirmDialog component instead.
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector:
+              "CallExpression[callee.object.name='window'][callee.property.name=/^(confirm|alert|prompt)$/]",
+            message:
+              'window.confirm/alert/prompt corrupt Electron renderer keyboard-input state and freeze every input in the app. Use the ConfirmDialog component (app/src/renderer/components/ConfirmDialog) instead.',
+          },
+          {
+            // Catch the unqualified form too — `confirm('…')` resolves to
+            // window.confirm at runtime in the renderer.
+            selector:
+              "CallExpression[callee.type='Identifier'][callee.name=/^(confirm|alert|prompt)$/]",
+            message:
+              'Bare confirm/alert/prompt resolve to window.confirm/alert/prompt, which corrupt Electron renderer keyboard-input state. Use the ConfirmDialog component instead.',
           },
         ],
       },

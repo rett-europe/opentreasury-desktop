@@ -450,9 +450,13 @@
     "editButton": "Editar",
     "deleteButton": "Eliminar",
     "deleteConfirm": "¿Seguro que quieres eliminar este movimiento? Esta acción no se puede deshacer.",
+    "deleteConfirmTitle": "Eliminar movimiento",
+    "deleteConfirmCta": "Eliminar",
     "prevButton": "Movimiento anterior",
     "nextButton": "Movimiento siguiente",
     "discardChangesConfirm": "Tienes cambios sin guardar. ¿Descartarlos y navegar?",
+    "discardChangesConfirmTitle": "Descartar cambios",
+    "discardChangesConfirmCta": "Descartar",
     "editLock": {
       "statusLockedHint": "Cambia el estado a Pendiente para editar"
     }
@@ -466,6 +470,8 @@
     "empty": "Aún no hay notas. Añade la primera.",
     "deleteAria": "Eliminar nota",
     "deleteConfirm": "¿Eliminar esta nota?",
+    "deleteConfirmTitle": "Eliminar nota",
+    "deleteConfirmCta": "Eliminar",
     "editAria": "Editar nota",
     "editLabel": "Editar texto de la nota",
     "editSaveButton": "Guardar",

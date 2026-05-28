@@ -1074,6 +1074,79 @@ export function MovementsScreen({
         }}
       />
 
+      {/*
+        Modals are rendered OUTSIDE the `state.kind === 'loaded'` branch
+        below. Reason: when a save triggers `loadAll()`, the parent state
+        flips to `loading` for a tick before swinging back to `loaded`.
+        If the dialog lives inside the loaded fragment it unmounts during
+        that flip, leaking the native <dialog> top-layer (Chromium marks
+        the rest of the page inert and keyboard input freezes app-wide
+        after ~3 saves). Keeping the modal mounted lets the existing
+        `isOpen` effect close/reopen it cleanly — and the
+        useCloseDialogOnUnmount hook on each modal still defends against
+        any other path that unmounts us mid-open.
+      */}
+      <TransactionDetailModal
+        isOpen={selectedTx !== null}
+        onClose={() => {
+          setSelectedId(null);
+        }}
+        transaction={selectedTx}
+        rawRecord={selectedRawRecord}
+        accounts={accounts}
+        categories={categories}
+        tags={tags}
+        transactionIds={transactionIds}
+        currentIndex={currentTransactionIndex}
+        onNavigate={handleNavigate}
+        onUpdate={async (input: UpdateTransactionRequest) => {
+          const result = await updateTransaction(input);
+          if (!result.ok) {
+            throw new Error(result.error.message);
+          }
+          // UX: after a successful edit-save we close the detail
+          // modal entirely and return the user to the bare
+          // movements list. Pedro's directive (verbatim):
+          //   "Close everything — return to the transaction list
+          //    (simplest, no flash)"
+          // Prior behaviour relied on the modal staying open in
+          // view mode after save, which produced a 1-2s flash
+          // (edit modal disappears during the loadAll() loading
+          // state, then the view modal re-mounts with the fresh
+          // record). Clearing selectedId here makes the detail
+          // modal unmount synchronously in the same render that
+          // applies the refreshed read-model — no flash, no
+          // auto-reopen.
+          await loadAll();
+          setSelectedId(null);
+        }}
+        onDelete={async (id: string) => {
+          const result = await deleteTransaction({ id });
+          if (!result.ok) {
+            throw new Error(result.error.message);
+          }
+          // Reload movements list to reflect changes
+          await loadAll();
+          setSelectedId(null);
+        }}
+        onOpenSplit={() => {
+          if (selectedRawRecord) {
+            openSplitModal(selectedRawRecord);
+          }
+        }}
+      />
+
+      <SplitTransactionModal
+        isOpen={isSplitModalOpen}
+        onClose={closeSplitModal}
+        transaction={splitTargetTx}
+        categories={categories}
+        onSplitSaved={async () => {
+          closeSplitModal();
+          await loadAll();
+        }}
+      />
+
       <div className="ot-filter-bar">
         <div
           className="ot-filter-bar__row ot-filter-bar__row--scope"
@@ -1505,67 +1578,6 @@ export function MovementsScreen({
               />
             </div>
           )}
-
-          <TransactionDetailModal
-            isOpen={selectedTx !== null}
-            onClose={() => {
-              setSelectedId(null);
-            }}
-            transaction={selectedTx}
-            rawRecord={selectedRawRecord}
-            accounts={accounts}
-            categories={categories}
-            tags={tags}
-            transactionIds={transactionIds}
-            currentIndex={currentTransactionIndex}
-            onNavigate={handleNavigate}
-            onUpdate={async (input: UpdateTransactionRequest) => {
-              const result = await updateTransaction(input);
-              if (!result.ok) {
-                throw new Error(result.error.message);
-              }
-              // UX: after a successful edit-save we close the detail
-              // modal entirely and return the user to the bare
-              // movements list. Pedro's directive (verbatim):
-              //   "Close everything — return to the transaction list
-              //    (simplest, no flash)"
-              // Prior behaviour relied on the modal staying open in
-              // view mode after save, which produced a 1-2s flash
-              // (edit modal disappears during the loadAll() loading
-              // state, then the view modal re-mounts with the fresh
-              // record). Clearing selectedId here makes the detail
-              // modal unmount synchronously in the same render that
-              // applies the refreshed read-model — no flash, no
-              // auto-reopen.
-              await loadAll();
-              setSelectedId(null);
-            }}
-            onDelete={async (id: string) => {
-              const result = await deleteTransaction({ id });
-              if (!result.ok) {
-                throw new Error(result.error.message);
-              }
-              // Reload movements list to reflect changes
-              await loadAll();
-              setSelectedId(null);
-            }}
-            onOpenSplit={() => {
-              if (selectedRawRecord) {
-                openSplitModal(selectedRawRecord);
-              }
-            }}
-          />
-
-          <SplitTransactionModal
-            isOpen={isSplitModalOpen}
-            onClose={closeSplitModal}
-            transaction={splitTargetTx}
-            categories={categories}
-            onSplitSaved={async () => {
-              closeSplitModal();
-              await loadAll();
-            }}
-          />
         </>
       )}
     </div>

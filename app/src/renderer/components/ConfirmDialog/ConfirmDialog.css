@@ -1,0 +1,55 @@
+/* ConfirmDialog — state-driven yes/no confirmation modal.
+ *
+ * Visual language mirrors BulkApproveConfirmModal (compact card, no header
+ * strip, anchored footer with Cancel + Confirm). Kept the two stylesheets
+ * separate so future copy/layout tweaks on either side don't bleed across.
+ *
+ * Tokens used: --space-3..8, --radius-lg, --shadow-lg,
+ * --color-surface-primary, --color-text-primary, --color-text-secondary.
+ */
+
+.ot-confirm-dialog {
+  width: min(440px, 92vw);
+  max-width: 92vw;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  background: var(--color-surface-primary);
+  color: var(--color-text-primary);
+}
+
+.ot-confirm-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.ot-confirm-dialog__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-8);
+}
+
+.ot-confirm-dialog__title {
+  margin: 0;
+  font-size: var(--font-size-18);
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+.ot-confirm-dialog__message {
+  margin: 0;
+  font-size: var(--font-size-14);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.ot-confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+}

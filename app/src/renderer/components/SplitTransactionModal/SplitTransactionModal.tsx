@@ -6,6 +6,7 @@ import { formatDate } from '../../utils/dateFormat.js';
 import { parseLocaleAmount } from '../../utils/numberFormat.js';
 import { newUlid } from '../../utils/ulid.js';
 import { createSplit, removeSplit, getSplits } from '../../services/splitsApi.js';
+import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
 import type { CategoryRecord } from '../../types/config.js';
 import {
@@ -114,6 +115,9 @@ export function SplitTransactionModal({
       dialog.close();
     }
   }, [isOpen]);
+
+  // Top-layer safety: see hooks/useCloseDialogOnUnmount for context.
+  useCloseDialogOnUnmount(dialogRef);
 
   useEffect(() => {
     const dialog = dialogRef.current;

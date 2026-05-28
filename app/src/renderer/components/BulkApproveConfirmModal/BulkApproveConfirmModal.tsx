@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../Button/index.js';
+import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 import './BulkApproveConfirmModal.css';
 
 export interface BulkApproveConfirmModalProps {
@@ -48,6 +49,9 @@ export function BulkApproveConfirmModal({
       dialog.close();
     }
   }, [isOpen]);
+
+  // Top-layer safety: see hooks/useCloseDialogOnUnmount for context.
+  useCloseDialogOnUnmount(dialogRef);
 
   useEffect(() => {
     if (isOpen) {
