@@ -1,3 +1,0 @@
-style(WI-23): prettier --write 4 files (CI format:check)
-
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
