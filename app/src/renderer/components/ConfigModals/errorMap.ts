@@ -11,6 +11,8 @@ export function mapConfigErrorToFieldKey(code: string): string {
       return 'nameDuplicate';
     case 'OPENING_BALANCE_INVALID':
       return 'openingBalanceInvalid';
+    case 'OPENING_BALANCE_LOCKED':
+      return 'openingBalanceLocked';
     case 'COLOR_INVALID':
       return 'colorInvalid';
     case 'SCHEMA_INVALID':

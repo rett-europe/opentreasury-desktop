@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Eye, EyeOff, Landmark, Tag as TagIcon } from 'lucide-react';
-import { createAccount } from '../../services/accountsApi.js';
+import { createAccount, listAccountsUsage } from '../../services/accountsApi.js';
 import { updateAccount } from '../../services/configMutationsApi.js';
 import type {
   AccountRecord,
@@ -56,6 +56,11 @@ export function AddAccountModal({
   const [errors, setErrors] = useState<Errors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Edit-mode only — usage_count for `record`. `undefined` while loading or
+  // when not in edit mode; the opening-balance field stays disabled while
+  // loading so we never speculatively allow an edit that turns out to be
+  // locked. Fetched once per modal open via `accounts:listUsage`.
+  const [usageCount, setUsageCount] = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (isOpen) {
@@ -80,7 +85,32 @@ export function AddAccountModal({
       setErrors({});
       setGeneralError(null);
       setSubmitting(false);
+      setUsageCount(undefined);
     }
+  }, [isOpen, mode, record]);
+
+  // Fetch usage_count once when the modal opens in edit mode. Determines
+  // whether the opening-balance field becomes editable (zero transactions)
+  // or stays locked (any transactions → directs user to balance adjustment).
+  useEffect(() => {
+    if (!isOpen || mode !== 'edit' || !record) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const resp = await listAccountsUsage();
+        if (cancelled) return;
+        const entry = resp.usage.find((u) => u.accountId === record.id);
+        setUsageCount(entry?.transactionCount ?? 0);
+      } catch {
+        if (cancelled) return;
+        // On failure, fall back to "locked" — safer than speculatively
+        // enabling an edit that may not be permitted.
+        setUsageCount(Number.POSITIVE_INFINITY);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, mode, record]);
 
   const validate = useCallback((): boolean => {
@@ -111,6 +141,9 @@ export function AddAccountModal({
     [t],
   );
 
+  const openingBalanceEditableInEditMode = mode === 'edit' && usageCount === 0;
+  const openingBalanceDisabled = mode === 'edit' && !openingBalanceEditableInEditMode;
+
   const handleSubmit = useCallback(async () => {
     setGeneralError(null);
     if (!validate()) return;
@@ -118,6 +151,15 @@ export function AddAccountModal({
     try {
       const parsed = openingBalance.trim() === '' ? undefined : Number(openingBalance);
       if (mode === 'edit' && record) {
+        // Only forward openingBalance when the field was editable (account
+        // has zero transactions) AND the user-entered value actually
+        // differs from the current value. The handler also dedupes no-ops,
+        // but stripping here keeps the wire payload tidy.
+        const includeOpeningBalance =
+          openingBalanceEditableInEditMode &&
+          parsed !== undefined &&
+          Number.isFinite(parsed) &&
+          parsed !== record.openingBalance;
         const changes = {
           name: name.trim(),
           bankName: bankName.trim() || undefined,
@@ -125,13 +167,14 @@ export function AddAccountModal({
           iban: !isPaypal && iban.trim() ? iban.trim() : undefined,
           color,
           isPaypal,
+          ...(includeOpeningBalance ? { openingBalance: parsed } : {}),
         };
         await updateAccount(record.id, changes);
         const updated: AccountRecord = {
           id: record.id,
           name: changes.name,
           currency: record.currency,
-          openingBalance: record.openingBalance,
+          openingBalance: includeOpeningBalance ? parsed! : record.openingBalance,
           sortOrder: record.sortOrder,
           createdAt: record.createdAt,
           ...(changes.bankName !== undefined ? { bankName: changes.bankName } : {}),
@@ -192,6 +235,7 @@ export function AddAccountModal({
     mode,
     record,
     t,
+    openingBalanceEditableInEditMode,
   ]);
 
   return (
@@ -359,12 +403,16 @@ export function AddAccountModal({
           onChange={(e) => setOpeningBalance(e.target.value)}
           aria-invalid={Boolean(errors.openingBalance)}
           aria-describedby={errors.openingBalance ? 'acc-opening-err' : undefined}
-          readOnly={mode === 'edit'}
-          disabled={mode === 'edit'}
+          readOnly={openingBalanceDisabled}
+          disabled={openingBalanceDisabled}
         />
         {mode === 'edit' ? (
           <span className="ot-config-modal__field-hint">
-            {t('configuracion.cuentas.modal.openingBalanceImmutable')}
+            {usageCount === undefined
+              ? t('configuracion.cuentas.modal.openingBalanceImmutable')
+              : openingBalanceEditableInEditMode
+                ? t('configuracion.cuentas.form.openingBalance.editableHint')
+                : t('configuracion.errors.openingBalanceLocked', { count: usageCount })}
           </span>
         ) : null}
         {errors.openingBalance ? (

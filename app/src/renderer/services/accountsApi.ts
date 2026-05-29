@@ -4,6 +4,7 @@
 import type {
   AccountsListRequest,
   AccountsListResponse,
+  AccountsListUsageResponse,
   CreateAccountRequest,
   CreateAccountResponse,
 } from '../../shared/ipc-contracts/accounts.js';
@@ -11,6 +12,16 @@ import type {
 /** List accounts (server sort order). Pass `includeArchived: true` to surface archived records. */
 export async function listAccounts(req?: AccountsListRequest): Promise<AccountsListResponse> {
   return window.opentreasury.accounts.list(req);
+}
+
+/**
+ * Per-account transaction-count aggregate. Mirrors `listCategoriesUsage`.
+ * Renderer (AddAccountModal) uses this to decide whether the opening-balance
+ * field is editable — only accounts with `transactionCount === 0` may have
+ * their opening balance changed.
+ */
+export async function listAccountsUsage(): Promise<AccountsListUsageResponse> {
+  return window.opentreasury.accounts.listUsage();
 }
 
 /**

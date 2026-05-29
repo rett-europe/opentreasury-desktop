@@ -11,6 +11,7 @@ import { z } from 'zod';
 
 export const IPC_ACCOUNTS_CREATE = 'accounts:create';
 export const IPC_ACCOUNTS_LIST = 'accounts:list';
+export const IPC_ACCOUNTS_LIST_USAGE = 'accounts:listUsage';
 export const IPC_ACCOUNTS_UPDATE = 'accounts:update';
 export const IPC_ACCOUNTS_ARCHIVE = 'accounts:archive';
 export const IPC_ACCOUNTS_UNARCHIVE = 'accounts:unarchive';
@@ -47,6 +48,10 @@ export const accountChangesSchema = z
     iban: z.string().optional(),
     color: z.string().optional(),
     isPaypal: z.boolean().optional(),
+    // Allowed only when the account has no transactions (handler-enforced).
+    // See AddAccountModal — UI gates this on `accounts:listUsage`, and the
+    // handler re-checks defensively before emitting the event.
+    openingBalance: z.number().optional(),
   })
   .refine((c) => Object.values(c).some((v) => v !== undefined), {
     message: 'changes must be non-empty',
@@ -129,6 +134,7 @@ export const accountErrorCodeSchema = z.enum([
   'NAME_EMPTY',
   'NAME_DUPLICATE',
   'OPENING_BALANCE_INVALID',
+  'OPENING_BALANCE_LOCKED',
   'NOT_FOUND',
   'ALREADY_ARCHIVED',
   'NOT_ARCHIVED',
@@ -174,6 +180,33 @@ export type AccountsListResponse = z.infer<typeof accountsListResponseSchema>;
 
 // Renderer-side alias matching Trinity's existing types/config.ts shape.
 export type ListAccountsResponse = AccountsListResponse;
+
+// ============================================================================
+// Usage counters — per-account transaction count
+// ============================================================================
+//
+// Mirrors the categories:usage IPC. Per-account aggregate computed over the
+// movements read model in a single O(N) pass. Used by AddAccountModal to
+// decide whether the opening balance field is editable (only when an account
+// has zero transactions). Accounts with no movements are absent from the
+// response — callers treat absence as zero.
+
+export const accountUsageRecordSchema = z.object({
+  accountId: z.string().min(1),
+  transactionCount: z.number().int().nonnegative(),
+});
+
+export type AccountUsageRecord = z.infer<typeof accountUsageRecordSchema>;
+
+export const accountsListUsageRequestSchema = z.object({}).optional();
+
+export type AccountsListUsageRequest = z.infer<typeof accountsListUsageRequestSchema>;
+
+export const accountsListUsageResponseSchema = z.object({
+  usage: z.array(accountUsageRecordSchema),
+});
+
+export type AccountsListUsageResponse = z.infer<typeof accountsListUsageResponseSchema>;
 
 // ============================================================================
 // WI-21 — Update / Archive / Unarchive

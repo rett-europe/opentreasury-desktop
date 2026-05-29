@@ -60,6 +60,26 @@ export function selectActiveAccounts(model: ReadModel): AccountRecord[] {
   return selectAccounts(model).filter((a) => a.archivedAt === undefined);
 }
 
+// Per-account usage aggregate over the movements read model.
+//   • transactionCount: movements whose `accountId` matches.
+// Single O(N) pass over `model.transactions`; emits one record per account
+// referenced by at least one transaction. Accounts with no movements are
+// absent from the result (renderer treats absence as zero — keeps the wire
+// payload small for empty datasets). Mirrors `selectCategoryUsage`.
+//
+// Used by AddAccountModal to gate the opening-balance edit affordance: only
+// accounts with `transactionCount === 0` may have their opening balance
+// edited (otherwise the user is directed to a balance-adjustment flow).
+export function selectAccountUsage(
+  model: ReadModel,
+): { accountId: string; transactionCount: number }[] {
+  const tally = new Map<string, number>();
+  for (const tx of model.transactions) {
+    tally.set(tx.accountId, (tally.get(tx.accountId) ?? 0) + 1);
+  }
+  return Array.from(tally, ([accountId, transactionCount]) => ({ accountId, transactionCount }));
+}
+
 export function selectCategories(model: ReadModel): CategoryRecord[] {
   return model.configCategories.map((c) => ({
     id: c.id,

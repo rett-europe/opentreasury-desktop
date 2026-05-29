@@ -23,12 +23,17 @@ import {
   unarchiveAccountRequestSchema,
   updateAccountRequestSchema,
   type AccountRecord,
+  type AccountsListUsageResponse,
   type ArchiveAccountResponse,
   type CreateAccountResponse,
   type UnarchiveAccountResponse,
   type UpdateAccountResponse,
 } from '../../../shared/ipc-contracts/accounts.js';
-import { selectAccounts, selectActiveAccounts } from '../../projections/config.js';
+import {
+  selectAccounts,
+  selectAccountUsage,
+  selectActiveAccounts,
+} from '../../projections/config.js';
 
 export interface AccountsHandlerDeps {
   readonly eventLog: EventLog;
@@ -153,6 +158,20 @@ export function createAccountsListHandler(
   };
 }
 
+// Per-account transaction-count aggregate. Read-only; no event-log activity.
+// Computed on demand from the in-memory read model (single O(N) pass over
+// `model.transactions`). Mirrors `categories:usage`. Renderer (AddAccountModal)
+// fetches once on mount and uses it to gate the opening-balance edit
+// affordance — only accounts with zero transactions may have their opening
+// balance changed (defence-in-depth: the update handler re-checks).
+export function createAccountsListUsageHandler(
+  deps: Pick<AccountsHandlerDeps, 'getReadModel'>,
+): () => Promise<AccountsListUsageResponse> {
+  return async function handleAccountsListUsage(): Promise<AccountsListUsageResponse> {
+    return { usage: selectAccountUsage(deps.getReadModel()) };
+  };
+}
+
 export function createAccountsUpdateHandler(
   deps: AccountsHandlerDeps,
 ): (raw: unknown) => Promise<UpdateAccountResponse> {
@@ -211,6 +230,42 @@ export function createAccountsUpdateHandler(
         const trimmed = normalised.color.trim();
         if (trimmed.length === 0) delete normalised.color;
         else normalised.color = trimmed;
+      }
+
+      // Opening balance is only mutable while the account has no
+      // transactions — see the AccountUpdated schema relaxation. The renderer
+      // disables the field when usage > 0, but we re-check here so a
+      // malformed IPC call can't slip past the UI gate.
+      if (normalised.openingBalance !== undefined) {
+        if (!Number.isFinite(normalised.openingBalance)) {
+          return {
+            ok: false,
+            error: {
+              code: 'OPENING_BALANCE_INVALID',
+              message: 'Opening balance must be a finite number',
+              field: 'openingBalance',
+            },
+          };
+        }
+        const usage = selectAccountUsage(deps.getReadModel()).find((u) => u.accountId === id);
+        const transactionCount = usage?.transactionCount ?? 0;
+        if (transactionCount > 0) {
+          return {
+            ok: false,
+            error: {
+              code: 'OPENING_BALANCE_LOCKED',
+              message: 'Opening balance can only be edited when the account has no transactions.',
+              field: 'openingBalance',
+            },
+          };
+        }
+        // Suppress no-op opening-balance changes so the event log doesn't
+        // carry meaningless updates. If openingBalance was the only field in
+        // the patch and it matches the current value, the empty-changes
+        // check below will reject with SCHEMA_INVALID.
+        if (normalised.openingBalance === current.openingBalance) {
+          delete normalised.openingBalance;
+        }
       }
 
       // After normalisation, whitespace-only optional fields have been

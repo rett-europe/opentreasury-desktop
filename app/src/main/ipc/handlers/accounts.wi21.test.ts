@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { DomainEvent, EventLog } from '../../../core/eventLog/EventLog';
-import { getReadModel, resetReadModel } from '../../../core/query/reducers';
+import { applyEvent, getReadModel, resetReadModel } from '../../../core/query/reducers';
 import {
   createAccountsArchiveHandler,
   createAccountsCreateHandler,
@@ -157,6 +157,127 @@ describe('accounts:update', () => {
     expect(resp.ok).toBe(false);
     if (resp.ok) return;
     expect(resp.error.code).toBe('SCHEMA_INVALID');
+  });
+
+  // -------------------------------------------------------------------------
+  // openingBalance — editable only while the account has zero transactions.
+  // The renderer (AddAccountModal) gates the affordance on `accounts:listUsage`;
+  // these tests pin the defence-in-depth check inside the handler.
+  // -------------------------------------------------------------------------
+
+  function applyTxCreated(accountId: string, txId: string): void {
+    // Minimal `tx.created` envelope — only `accountId` matters for
+    // selectAccountUsage. Mirrors the helper in categories.test.ts.
+    applyEvent({
+      type: 'tx.created',
+      id: txId,
+      datasetId: 'DATA0000000000000000000000',
+      actorDeviceId: 'DEV10000000000000000000000',
+      occurredAt: '2026-04-22T00:00:00.000Z',
+      schemaVersion: 1,
+      dekVersion: 0,
+      payload: {
+        id: txId,
+        date: '2026-04-22',
+        type: 'expense',
+        amount: 10,
+        currency: 'EUR',
+        description: 'tx',
+        accountId,
+        categoryId: null,
+        subcategoryId: null,
+        tagIds: [],
+        status: 'approved',
+        createdAt: '2026-04-22T00:00:00.000Z',
+      },
+    } as unknown as DomainEvent);
+  }
+
+  it('allows openingBalance edit when the account has zero transactions', async () => {
+    const deps = makeDeps();
+    const create = createAccountsCreateHandler(deps);
+    const update = createAccountsUpdateHandler(deps);
+    const created = await create({ name: 'Empty', openingBalance: 100 });
+    if (!created.ok) throw new Error('seed failed');
+
+    const resp = await update({
+      id: created.event.id,
+      changes: { openingBalance: 250 },
+    });
+    expect(resp.ok).toBe(true);
+    if (!resp.ok) return;
+    expect(resp.event.changes.openingBalance).toBe(250);
+    expect(getReadModel().configAccounts[0]!.openingBalance).toBe(250);
+  });
+
+  it('rejects openingBalance edit with OPENING_BALANCE_LOCKED when the account has transactions', async () => {
+    const deps = makeDeps();
+    const create = createAccountsCreateHandler(deps);
+    const update = createAccountsUpdateHandler(deps);
+    const created = await create({ name: 'WithTx', openingBalance: 100 });
+    if (!created.ok) throw new Error('seed failed');
+    applyTxCreated(created.event.id, 'TX1');
+
+    const before = (await deps.eventLog.load()).length;
+    const resp = await update({
+      id: created.event.id,
+      changes: { openingBalance: 250 },
+    });
+    expect(resp.ok).toBe(false);
+    if (resp.ok) return;
+    expect(resp.error.code).toBe('OPENING_BALANCE_LOCKED');
+    expect(resp.error.field).toBe('openingBalance');
+    // No event was appended — read model unchanged.
+    expect((await deps.eventLog.load()).length).toBe(before);
+    expect(getReadModel().configAccounts[0]!.openingBalance).toBe(100);
+  });
+
+  it('allows non-openingBalance edits regardless of usage_count', async () => {
+    const deps = makeDeps();
+    const create = createAccountsCreateHandler(deps);
+    const update = createAccountsUpdateHandler(deps);
+    const created = await create({ name: 'Busy' });
+    if (!created.ok) throw new Error('seed failed');
+    applyTxCreated(created.event.id, 'TX1');
+    applyTxCreated(created.event.id, 'TX2');
+
+    const resp = await update({
+      id: created.event.id,
+      changes: { color: '#abcdef' },
+    });
+    expect(resp.ok).toBe(true);
+    if (!resp.ok) return;
+    expect(resp.event.changes.color).toBe('#abcdef');
+    expect('openingBalance' in resp.event.changes).toBe(false);
+  });
+
+  it('strips a no-op openingBalance (new value === current) from the changes patch', async () => {
+    const deps = makeDeps();
+    const create = createAccountsCreateHandler(deps);
+    const update = createAccountsUpdateHandler(deps);
+    const created = await create({ name: 'A1', openingBalance: 100 });
+    if (!created.ok) throw new Error('seed failed');
+
+    // openingBalance matches current → must be stripped from the event; the
+    // other field (color) keeps the patch alive.
+    const resp = await update({
+      id: created.event.id,
+      changes: { openingBalance: 100, color: '#111' },
+    });
+    expect(resp.ok).toBe(true);
+    if (!resp.ok) return;
+    expect('openingBalance' in resp.event.changes).toBe(false);
+    expect(resp.event.changes.color).toBe('#111');
+
+    // …and if openingBalance is the ONLY field and it's a no-op, the handler
+    // collapses to SCHEMA_INVALID (no event emitted).
+    const empty = await update({
+      id: created.event.id,
+      changes: { openingBalance: 100 },
+    });
+    expect(empty.ok).toBe(false);
+    if (empty.ok) return;
+    expect(empty.error.code).toBe('SCHEMA_INVALID');
   });
 });
 

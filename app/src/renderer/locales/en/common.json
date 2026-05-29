@@ -536,6 +536,11 @@
       "color": "Color",
       "externalPlatformToggle": "It's an external platform (PayPal, Stripe…)",
       "openingBalance": "Opening balance (€)",
+      "form": {
+        "openingBalance": {
+          "editableHint": "Editable while the account has no transactions."
+        }
+      },
       "columns": {
         "name": "Name",
         "bank": "Bank",
@@ -569,7 +574,7 @@
       "modal": {
         "title": "New account",
         "editTitle": "Edit account",
-        "openingBalanceImmutable": "Opening balance can't be changed after account creation."
+        "openingBalanceImmutable": "Opening balance can only be edited when the account has no transactions yet."
       },
       "actions": {
         "edit": "Edit",
@@ -775,6 +780,7 @@
       "nameTooLong": "Name is too long.",
       "nameDuplicate": "Another item already uses this name.",
       "openingBalanceInvalid": "Opening balance must be a valid number.",
+      "openingBalanceLocked": "Opening balance is locked because the account has {{count}} transaction(s). Use balance adjustment to reconcile.",
       "colorInvalid": "That color isn't valid.",
       "schemaInvalid": "Some of the data is invalid.",
       "notFound": "This item no longer exists. Refresh the list and try again.",

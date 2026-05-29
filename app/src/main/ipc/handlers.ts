@@ -59,11 +59,13 @@ import { IPC_QUERY_REHYDRATE } from '../../shared/ipc-contracts/query.js';
 import {
   IPC_ACCOUNTS_CREATE,
   IPC_ACCOUNTS_LIST,
+  IPC_ACCOUNTS_LIST_USAGE,
   IPC_ACCOUNTS_UPDATE,
   IPC_ACCOUNTS_ARCHIVE,
   IPC_ACCOUNTS_UNARCHIVE,
   createAccountResponseSchema,
   accountsListResponseSchema,
+  accountsListUsageResponseSchema,
   updateAccountResponseSchema,
   archiveAccountResponseSchema,
   unarchiveAccountResponseSchema,
@@ -156,6 +158,7 @@ import { createQueryRehydrateHandler } from './handlers/query.js';
 import {
   createAccountsCreateHandler,
   createAccountsListHandler,
+  createAccountsListUsageHandler,
   createAccountsUpdateHandler,
   createAccountsArchiveHandler,
   createAccountsUnarchiveHandler,
@@ -691,6 +694,7 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
 
   const handleAccountsCreate = createAccountsCreateHandler(configDeps);
   const handleAccountsList = createAccountsListHandler({ getReadModel });
+  const handleAccountsListUsage = createAccountsListUsageHandler({ getReadModel });
   const handleAccountsUpdate = createAccountsUpdateHandler(configDeps);
   const handleAccountsArchive = createAccountsArchiveHandler(configDeps);
   const handleAccountsUnarchive = createAccountsUnarchiveHandler(configDeps);
@@ -701,6 +705,10 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_ACCOUNTS_LIST, async (_event, raw: unknown) => {
     const response = await handleAccountsList(raw);
     return accountsListResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_ACCOUNTS_LIST_USAGE, async () => {
+    const response = await handleAccountsListUsage();
+    return accountsListUsageResponseSchema.parse(response);
   });
   ipcMain.handle(IPC_ACCOUNTS_UPDATE, async (_event, raw: unknown) => {
     const response = await handleAccountsUpdate(raw);

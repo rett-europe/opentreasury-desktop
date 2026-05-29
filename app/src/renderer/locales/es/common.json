@@ -536,6 +536,11 @@
       "color": "Color",
       "externalPlatformToggle": "Es una plataforma externa (PayPal, Stripe…)",
       "openingBalance": "Saldo inicial (€)",
+      "form": {
+        "openingBalance": {
+          "editableHint": "Editable mientras la cuenta no tenga movimientos."
+        }
+      },
       "columns": {
         "name": "Nombre",
         "bank": "Banco",
@@ -569,7 +574,7 @@
       "modal": {
         "title": "Nueva cuenta",
         "editTitle": "Editar cuenta",
-        "openingBalanceImmutable": "El saldo inicial no puede modificarse después de crear la cuenta."
+        "openingBalanceImmutable": "El saldo inicial solo se puede modificar cuando la cuenta aún no tiene movimientos."
       },
       "actions": {
         "edit": "Editar",
@@ -775,6 +780,7 @@
       "nameTooLong": "El nombre es demasiado largo.",
       "nameDuplicate": "Ya existe un elemento con ese nombre.",
       "openingBalanceInvalid": "El saldo inicial debe ser un número válido.",
+      "openingBalanceLocked": "El saldo inicial está bloqueado porque la cuenta tiene {{count}} movimiento(s). Usa el ajuste de saldo para reconciliar.",
       "colorInvalid": "Ese color no es válido.",
       "schemaInvalid": "Algunos datos no son válidos.",
       "notFound": "El elemento ya no existe. Actualiza la lista e inténtalo de nuevo.",

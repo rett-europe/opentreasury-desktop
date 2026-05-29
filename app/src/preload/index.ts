@@ -61,6 +61,7 @@ import { IPC_QUERY_REHYDRATE, type QueryRehydrateResponse } from '../shared/ipc-
 import {
   IPC_ACCOUNTS_CREATE,
   IPC_ACCOUNTS_LIST,
+  IPC_ACCOUNTS_LIST_USAGE,
   IPC_ACCOUNTS_UPDATE,
   IPC_ACCOUNTS_ARCHIVE,
   IPC_ACCOUNTS_UNARCHIVE,
@@ -68,6 +69,7 @@ import {
   type CreateAccountResponse,
   type AccountsListRequest,
   type AccountsListResponse,
+  type AccountsListUsageResponse,
   type UpdateAccountRequest,
   type UpdateAccountResponse,
   type ArchiveAccountRequest,
@@ -345,6 +347,9 @@ const api = {
     },
     list: (req?: AccountsListRequest): Promise<AccountsListResponse> => {
       return ipcRenderer.invoke(IPC_ACCOUNTS_LIST, req ?? {});
+    },
+    listUsage: (): Promise<AccountsListUsageResponse> => {
+      return ipcRenderer.invoke(IPC_ACCOUNTS_LIST_USAGE);
     },
     update: (req: UpdateAccountRequest): Promise<UpdateAccountResponse> => {
       return ipcRenderer.invoke(IPC_ACCOUNTS_UPDATE, req);
