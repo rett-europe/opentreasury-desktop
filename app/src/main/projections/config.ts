@@ -121,3 +121,76 @@ export function selectTags(model: ReadModel): TagRecord[] {
 export function selectActiveTags(model: ReadModel): TagRecord[] {
   return selectTags(model).filter((t) => t.archivedAt === undefined);
 }
+
+// ---------------------------------------------------------------------------
+// Hard-delete safety projections — count transactions (and, where relevant,
+// split children) that reference each entity. The delete handlers use these
+// to gate `usage_count === 0`; the renderer fetches them to gate the UI.
+//
+// Splits (SPEC-023) only carry `categoryId` and `subcategoryId` — accounts
+// and tags are not split-referenced. Tags live on `tx.tagIds[]` only.
+// ---------------------------------------------------------------------------
+
+export function selectAccountUsage(
+  model: ReadModel,
+): { accountId: string; transactionCount: number }[] {
+  const tally = new Map<string, number>();
+  for (const tx of model.transactions) {
+    tally.set(tx.accountId, (tally.get(tx.accountId) ?? 0) + 1);
+  }
+  return Array.from(tally, ([accountId, transactionCount]) => ({ accountId, transactionCount }));
+}
+
+// Sums references on transactions + split children with the same categoryId.
+// (selectCategoryUsage above intentionally excludes splits to keep the
+// existing renderer counter semantics; this helper is the delete-safety one.)
+export function selectCategoryDeleteUsage(
+  model: ReadModel,
+): { categoryId: string; transactionCount: number }[] {
+  const tally = new Map<string, number>();
+  for (const tx of model.transactions) {
+    if (tx.categoryId === null) continue;
+    tally.set(tx.categoryId, (tally.get(tx.categoryId) ?? 0) + 1);
+  }
+  for (const rows of model.splits.values()) {
+    for (const row of rows) {
+      if (row.categoryId === null) continue;
+      tally.set(row.categoryId, (tally.get(row.categoryId) ?? 0) + 1);
+    }
+  }
+  return Array.from(tally, ([categoryId, transactionCount]) => ({
+    categoryId,
+    transactionCount,
+  }));
+}
+
+// Sums references on transactions + split children with the same subcategoryId.
+export function selectSubcategoryUsage(
+  model: ReadModel,
+): { subcategoryId: string; transactionCount: number }[] {
+  const tally = new Map<string, number>();
+  for (const tx of model.transactions) {
+    if (tx.subcategoryId === null) continue;
+    tally.set(tx.subcategoryId, (tally.get(tx.subcategoryId) ?? 0) + 1);
+  }
+  for (const rows of model.splits.values()) {
+    for (const row of rows) {
+      if (row.subcategoryId === null) continue;
+      tally.set(row.subcategoryId, (tally.get(row.subcategoryId) ?? 0) + 1);
+    }
+  }
+  return Array.from(tally, ([subcategoryId, transactionCount]) => ({
+    subcategoryId,
+    transactionCount,
+  }));
+}
+
+export function selectTagUsage(model: ReadModel): { tagId: string; transactionCount: number }[] {
+  const tally = new Map<string, number>();
+  for (const tx of model.transactions) {
+    for (const tagId of tx.tagIds) {
+      tally.set(tagId, (tally.get(tagId) ?? 0) + 1);
+    }
+  }
+  return Array.from(tally, ([tagId, transactionCount]) => ({ tagId, transactionCount }));
+}
