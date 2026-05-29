@@ -11,7 +11,11 @@ import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 import { ConfirmDialog } from '../ConfirmDialog/index.js';
-import { parseLocaleAmount } from '../../utils/numberFormat.js';
+import {
+  decimalSeparatorForLocale,
+  formatAmountForInput,
+  parseLocaleAmount,
+} from '../../utils/numberFormat.js';
 import { getSplits } from '../../services/splitsApi.js';
 import { getTagColor } from '../../utils/tagColor.js';
 import { getStatusBadgeClass } from '../../utils/statusBadge.js';
@@ -88,6 +92,9 @@ export function TransactionDetailModal({
 }: TransactionDetailModalProps): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
+  // Decimal separator for the active locale — drives both the input
+  // sanitizer (in TransactionFormFields) and the pre-fill formatter below.
+  const decimalSep = decimalSeparatorForLocale(i18n.language);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // Edit mode state — true when user clicked "Editar", false when viewing/after cancel
@@ -128,7 +135,12 @@ export function TransactionDetailModal({
     if (isEditMode && transaction) {
       setDate(transaction.date);
       setType(transaction.type);
-      setAmount(transaction.amount.toString());
+      // Use the locale-aware formatter so the pre-filled value uses the
+      // correct decimal separator (`423,89` in ES, `423.89` in EN). Without
+      // this, `Number.toString()` always emits `.` and clashes with the
+      // strict per-locale validator, which would silently reject the
+      // displayed character on the user's next keystroke.
+      setAmount(formatAmountForInput(transaction.amount, decimalSep));
       setDescription(transaction.description);
       setAccountId(transaction.accountId);
       setCategoryId(transaction.categoryId ?? '');
@@ -140,7 +152,7 @@ export function TransactionDetailModal({
       setErrors({});
       setGeneralError(null);
     }
-  }, [isEditMode, transaction]);
+  }, [isEditMode, transaction, decimalSep]);
 
   // SPEC-023 — Load split children when opening a split parent (read-only mode).
   useEffect(() => {

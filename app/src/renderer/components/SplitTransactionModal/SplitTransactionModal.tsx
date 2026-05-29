@@ -4,9 +4,10 @@ import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { formatDate } from '../../utils/dateFormat.js';
 import {
-  parseLocaleAmount,
-  isValidAmountInput,
   decimalSeparatorForLocale,
+  formatAmountForInput,
+  isValidAmountInput,
+  parseLocaleAmount,
 } from '../../utils/numberFormat.js';
 import { newUlid } from '../../utils/ulid.js';
 import { createSplit, removeSplit, getSplits } from '../../services/splitsApi.js';
@@ -76,7 +77,10 @@ export function SplitTransactionModal({
         if (result.ok) {
           const rows: SplitRow[] = result.splits.map((s) => ({
             id: s.splitId,
-            amountEur: (s.amountCents / 100).toFixed(2),
+            // Locale-aware pre-fill — emits `423,89` in ES, `423.89` in EN.
+            // The strict per-locale input validator would otherwise reject
+            // the wrong separator on the user's next keystroke.
+            amountEur: formatAmountForInput(s.amountCents / 100, decimalSep),
             categoryId: s.categoryId ?? '',
             subcategoryId: s.subcategoryId ?? '',
             comment: s.comment ?? '',
@@ -104,7 +108,7 @@ export function SplitTransactionModal({
       console.error('Failed to load splits:', err);
       setGeneralError(t('splits.modal.saveError', { reason: 'INTERNAL' }));
     });
-  }, [isOpen, transaction, t]);
+  }, [isOpen, transaction, t, decimalSep]);
 
   useEffect(() => {
     if (splits.length === 0) return;

@@ -12,6 +12,7 @@ import './TransactionFormModal.css';
 import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 import {
   decimalSeparatorForLocale,
+  formatAmountForInput,
   isValidAmountInput,
   parseLocaleAmount,
 } from '../../utils/numberFormat.js';
@@ -126,7 +127,9 @@ export function TransactionFormModal({
         // Edit mode: pre-fill from initialData
         setDate(initialData.date);
         setType(initialData.type);
-        setAmount(initialData.amount.toString());
+        // Locale-aware pre-fill so the displayed character matches the
+        // strict per-locale validator (no `.` clash in ES, no `,` in EN).
+        setAmount(formatAmountForInput(initialData.amount, decimalSep));
         setDescription(initialData.description);
         setAccountId(initialData.accountId);
         setCategoryId(initialData.categoryId ?? '');
@@ -152,7 +155,7 @@ export function TransactionFormModal({
       setErrors({});
       setGeneralError(null);
     }
-  }, [isOpen, mode, initialData, accounts]);
+  }, [isOpen, mode, initialData, accounts, decimalSep]);
 
   // Close on Escape (native dialog behavior) + backdrop click
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   decimalSeparatorForLocale,
+  formatAmountForInput,
   formatCurrency,
   isValidAmountInput,
   parseLocaleAmount,
@@ -182,4 +183,57 @@ describe('decimalSeparatorForLocale', () => {
       expect(decimalSeparatorForLocale(locale)).toBe(',');
     },
   );
+});
+
+describe('formatAmountForInput', () => {
+  it('uses comma decimal for ES locale', () => {
+    expect(formatAmountForInput(423.89, ',')).toBe('423,89');
+  });
+
+  it('uses period decimal for EN locale', () => {
+    expect(formatAmountForInput(423.89, '.')).toBe('423.89');
+  });
+
+  it('emits a bare integer when there is no fractional part (ES)', () => {
+    expect(formatAmountForInput(1331, ',')).toBe('1331');
+  });
+
+  it('emits a bare integer when there is no fractional part (EN)', () => {
+    expect(formatAmountForInput(1331, '.')).toBe('1331');
+  });
+
+  it('emits "0" for zero', () => {
+    expect(formatAmountForInput(0, ',')).toBe('0');
+    expect(formatAmountForInput(0, '.')).toBe('0');
+  });
+
+  it('preserves the sign on negatives (ES)', () => {
+    expect(formatAmountForInput(-50.5, ',')).toBe('-50,5');
+  });
+
+  it('preserves the sign on negatives (EN)', () => {
+    expect(formatAmountForInput(-50.5, '.')).toBe('-50.5');
+  });
+
+  it('returns an empty string for NaN', () => {
+    expect(formatAmountForInput(NaN, ',')).toBe('');
+    expect(formatAmountForInput(NaN, '.')).toBe('');
+  });
+
+  it('returns an empty string for ±Infinity', () => {
+    expect(formatAmountForInput(Infinity, ',')).toBe('');
+    expect(formatAmountForInput(-Infinity, ',')).toBe('');
+  });
+
+  it('round-trips: every formatted value is accepted by the strict validator (ES)', () => {
+    for (const v of [0, 1, 1331, 423.89, -50.5, 999999999999, 0.05]) {
+      expect(isValidAmountInput(formatAmountForInput(v, ','), ',')).toBe(true);
+    }
+  });
+
+  it('round-trips: every formatted value is accepted by the strict validator (EN)', () => {
+    for (const v of [0, 1, 1331, 423.89, -50.5, 999999999999, 0.05]) {
+      expect(isValidAmountInput(formatAmountForInput(v, '.'), '.')).toBe(true);
+    }
+  });
 });

@@ -122,3 +122,28 @@ export function isValidAmountInput(candidate: string, decimalSep: '.' | ','): bo
 export function decimalSeparatorForLocale(locale: string): '.' | ',' {
   return locale.startsWith('en') ? '.' : ',';
 }
+
+/**
+ * Convert a numeric amount to a locale-correct input-field string.
+ *
+ * The renderer holds amount inputs as `string` so the user's typed text
+ * round-trips cleanly through `parseLocaleAmount`. When pre-filling such an
+ * input from a stored number, `Number.prototype.toString()` always emits a
+ * period as the decimal separator — which then visually clashes with the
+ * locale (e.g. shows `423.89` in a Spanish modal) and, under the strict
+ * per-locale validator, is rejected as an invalid character on the next
+ * keystroke.
+ *
+ * Produces the right string for the locale: `"423,89"` for ES, `"423.89"`
+ * for EN. Non-finite inputs (NaN, ±Infinity) become an empty string so the
+ * field stays unset. Does NOT add thousands grouping — input fields never
+ * carry thousands separators under the strict-validator rule.
+ *
+ * @param amount     - Stored numeric amount (e.g. `transaction.amount`).
+ * @param decimalSep - The locale's decimal separator: `.` (en) or `,` (es).
+ */
+export function formatAmountForInput(amount: number, decimalSep: '.' | ','): string {
+  if (!Number.isFinite(amount)) return '';
+  const raw = amount.toString();
+  return decimalSep === ',' ? raw.replace('.', ',') : raw;
+}

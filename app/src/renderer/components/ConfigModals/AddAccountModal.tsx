@@ -11,9 +11,10 @@ import { ConfigModalShell } from './ConfigModalShell.js';
 import { mapConfigErrorToFieldKey } from './errorMap.js';
 import { CATEGORY_PALETTE } from './AddCategoryModal.js';
 import {
+  decimalSeparatorForLocale,
+  formatAmountForInput,
   isValidAmountInput,
   parseLocaleAmount,
-  decimalSeparatorForLocale,
 } from '../../utils/numberFormat.js';
 
 export interface AddAccountModalProps {
@@ -74,7 +75,13 @@ export function AddAccountModal({
         setIban(record.iban ?? '');
         setColor(record.color ?? CATEGORY_PALETTE[0] ?? '#6d4d8c');
         setIsPaypal(Boolean(record.isPaypal));
-        setOpeningBalance(String(record.openingBalance ?? ''));
+        // Locale-aware pre-fill so the existing balance reads `423,89` in ES
+        // (and survives the strict per-locale validator on the next keystroke).
+        setOpeningBalance(
+          record.openingBalance == null
+            ? ''
+            : formatAmountForInput(record.openingBalance, decimalSep),
+        );
       } else {
         setName('');
         setBankName('');
@@ -89,7 +96,7 @@ export function AddAccountModal({
       setGeneralError(null);
       setSubmitting(false);
     }
-  }, [isOpen, mode, record]);
+  }, [isOpen, mode, record, decimalSep]);
 
   const validate = useCallback((): boolean => {
     const next: Errors = {};
