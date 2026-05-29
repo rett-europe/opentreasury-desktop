@@ -10,6 +10,7 @@ import type {
 import { ConfigModalShell } from './ConfigModalShell.js';
 import { mapConfigErrorToFieldKey } from './errorMap.js';
 import { CATEGORY_PALETTE } from './AddCategoryModal.js';
+import { isValidAmountInput, parseLocaleAmount } from '../../utils/numberFormat.js';
 
 export interface AddAccountModalProps {
   readonly isOpen: boolean;
@@ -89,7 +90,11 @@ export function AddAccountModal({
     else if (name.trim().length > 80) next.name = t('configuracion.errors.nameTooLong');
 
     if (openingBalance.trim() !== '') {
-      const n = Number(openingBalance);
+      // ES locale sweep: parse via `parseLocaleAmount` so opening balances
+      // typed in the Spanish style (`1.331,85`) are accepted alongside `.`
+      // decimals. Returns NaN for empty / non-numeric, which `Number.isFinite`
+      // rejects below.
+      const n = parseLocaleAmount(openingBalance);
       if (!Number.isFinite(n))
         next.openingBalance = t('configuracion.errors.openingBalanceInvalid');
     }
@@ -116,7 +121,7 @@ export function AddAccountModal({
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const parsed = openingBalance.trim() === '' ? undefined : Number(openingBalance);
+      const parsed = openingBalance.trim() === '' ? undefined : parseLocaleAmount(openingBalance);
       if (mode === 'edit' && record) {
         const changes = {
           name: name.trim(),
@@ -352,11 +357,23 @@ export function AddAccountModal({
         <input
           id="acc-opening"
           className="ot-config-modal__input"
-          type="number"
-          step="0.01"
+          // ES locale sweep: `type="text"` + `inputMode="decimal"` so the
+          // opening balance accepts comma-decimal input (e.g. `1331,85`).
+          // Sibling fix to PR #347 (transaction form / movements filter) —
+          // applies the same pattern Pedro hit during trial.3.13 testing.
+          type="text"
+          inputMode="decimal"
           value={openingBalance}
-          placeholder="0.00"
-          onChange={(e) => setOpeningBalance(e.target.value)}
+          placeholder="0,00"
+          onChange={(e) => {
+            // Sanitize keystrokes so the field can't fill up with invalid
+            // characters (e.g. "1..2", "1,,2"). parseLocaleAmount in validate()
+            // would still flag the garbage, but the UX of allowing typed
+            // garbage is unacceptable.
+            if (isValidAmountInput(e.target.value)) {
+              setOpeningBalance(e.target.value);
+            }
+          }}
           aria-invalid={Boolean(errors.openingBalance)}
           aria-describedby={errors.openingBalance ? 'acc-opening-err' : undefined}
           readOnly={mode === 'edit'}

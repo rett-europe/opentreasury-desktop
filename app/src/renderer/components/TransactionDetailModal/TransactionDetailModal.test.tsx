@@ -487,5 +487,26 @@ describe('TransactionDetailModal', () => {
       const call = await editAmountAndSave('1.331,85');
       expect(call.amount).toBe(1331.85);
     });
+
+    it('silently rejects garbage keystrokes (e.g. `1..2`) — input value is unchanged', () => {
+      renderModal({ ...baseTx, status: 'pending' });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+
+      const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
+      expect(amountInput).not.toBeNull();
+
+      // Baseline value from the seeded tx is `150` (RecentTransaction.amount.toString()).
+      const baseline = amountInput.value;
+      expect(baseline).toBe('150');
+
+      // Garbage gets dropped by the guard — React doesn't update state, so the
+      // input reverts to the last good value on each rejected keystroke.
+      fireEvent.change(amountInput, { target: { value: '1.....,2,..' } });
+      expect(amountInput.value).toBe(baseline);
+      fireEvent.change(amountInput, { target: { value: '1..2' } });
+      expect(amountInput.value).toBe(baseline);
+      fireEvent.change(amountInput, { target: { value: 'abc' } });
+      expect(amountInput.value).toBe(baseline);
+    });
   });
 });

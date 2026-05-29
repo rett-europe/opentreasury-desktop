@@ -126,5 +126,26 @@ describe('AddTransactionModal', () => {
       const input = await submitWithAmount('1.331,85');
       expect(input.amount).toBe(1331.85);
     });
+
+    it('silently rejects garbage keystrokes (e.g. `1..2`) — input value is unchanged', () => {
+      renderModal(true);
+      const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
+      expect(amountInput).not.toBeNull();
+
+      // Establish a valid baseline.
+      fireEvent.change(amountInput, { target: { value: '1331,85' } });
+      expect(amountInput.value).toBe('1331,85');
+
+      // Pedro's garbage: `1.....,2,..` — the guard rejects, React doesn't
+      // update state, the input reverts to the last good value.
+      fireEvent.change(amountInput, { target: { value: '1.....,2,..' } });
+      expect(amountInput.value).toBe('1331,85');
+
+      // Same for the textbook invalid cases.
+      fireEvent.change(amountInput, { target: { value: '1..2' } });
+      expect(amountInput.value).toBe('1331,85');
+      fireEvent.change(amountInput, { target: { value: 'abc' } });
+      expect(amountInput.value).toBe('1331,85');
+    });
   });
 });

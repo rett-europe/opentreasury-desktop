@@ -76,3 +76,37 @@ export function parseLocaleAmount(input: string): number {
 
   return parseFloat(normalized);
 }
+
+/**
+ * Validate a typed amount-input candidate as the user types.
+ *
+ * Returns `true` when `candidate` is either a valid intermediate state (empty
+ * string, lone `-`, partial decimal like `1331,`) or a fully-formed amount in
+ * either ES (`1.331,85`) or EN (`1,331.85`) locale shape. Returns `false` for
+ * garbage keystrokes that should never enter the input — e.g. letters, two
+ * dots, two commas, or a stray `-` mid-string.
+ *
+ * Used as a guard in `onChange` handlers on currency inputs: when the user
+ * types an invalid character we silently drop the keystroke, so the input
+ * value reverts to the previous valid state (mirroring `type="number"` UX).
+ *
+ * Rules:
+ *   - Allowed characters: digits `0-9`, `.`, `,`, `-`.
+ *   - At most one `-`, only at position 0.
+ *   - At most one `.` in the entire string.
+ *   - At most one `,` in the entire string.
+ *   - Empty string and lone `-` are accepted (intermediate states).
+ *
+ * @param candidate - The full prospective input value after the keystroke.
+ * @returns `true` if the candidate is acceptable, `false` to reject.
+ */
+export function isValidAmountInput(candidate: string): boolean {
+  if (candidate === '' || candidate === '-') return true;
+  if (!/^[\d.,-]+$/.test(candidate)) return false;
+  // Only one '-', and only at position 0.
+  if (/-/.test(candidate.slice(1))) return false;
+  // At most one '.' and one ','.
+  if ((candidate.match(/\./g) ?? []).length > 1) return false;
+  if ((candidate.match(/,/g) ?? []).length > 1) return false;
+  return true;
+}

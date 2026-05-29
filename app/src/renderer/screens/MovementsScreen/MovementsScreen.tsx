@@ -59,7 +59,7 @@ import {
 } from '../../utils/movementsDateFilter.js';
 import { formatDateRange } from '../../utils/dateFormat.js';
 import { newUlid } from '../../utils/ulid.js';
-import { parseLocaleAmount } from '../../utils/numberFormat.js';
+import { isValidAmountInput, parseLocaleAmount } from '../../utils/numberFormat.js';
 import {
   buildHaystack,
   searchMovements,
@@ -1425,7 +1425,11 @@ export function MovementsScreen({
               inputMode="decimal"
               placeholder="0"
               value={minAmount}
-              onChange={(e) => setMinAmount(e.target.value)}
+              onChange={(e) => {
+                if (isValidAmountInput(e.target.value)) {
+                  setMinAmount(e.target.value);
+                }
+              }}
               aria-label={t('movements.filters.amountMin')}
             />
           </label>
@@ -1437,7 +1441,11 @@ export function MovementsScreen({
               inputMode="decimal"
               placeholder="∞"
               value={maxAmount}
-              onChange={(e) => setMaxAmount(e.target.value)}
+              onChange={(e) => {
+                if (isValidAmountInput(e.target.value)) {
+                  setMaxAmount(e.target.value);
+                }
+              }}
               aria-label={t('movements.filters.amountMax')}
             />
           </label>

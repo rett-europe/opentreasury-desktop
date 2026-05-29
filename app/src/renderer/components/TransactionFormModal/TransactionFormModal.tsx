@@ -10,7 +10,7 @@ import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import './TransactionFormModal.css';
 import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
-import { parseLocaleAmount } from '../../utils/numberFormat.js';
+import { isValidAmountInput, parseLocaleAmount } from '../../utils/numberFormat.js';
 
 export interface TransactionFormData {
   id?: string;
@@ -375,7 +375,11 @@ export function TransactionFormModal({
                 type="text"
                 inputMode="decimal"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  if (isValidAmountInput(e.target.value)) {
+                    setAmount(e.target.value);
+                  }
+                }}
                 placeholder="0,00"
                 className="ot-transaction-form-modal__input"
                 aria-invalid={!!errors.amount}

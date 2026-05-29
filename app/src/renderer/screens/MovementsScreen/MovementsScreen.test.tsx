@@ -459,5 +459,22 @@ describe('MovementsScreen', () => {
       });
       expect(screen.getByText('Big donation')).toBeTruthy();
     });
+
+    it('silently rejects garbage keystrokes in the min-amount input', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(countDataRows()).toBe(3));
+
+      const minInput = getMinAmountInput();
+      fireEvent.change(minInput, { target: { value: '100,50' } });
+      expect(minInput.value).toBe('100,50');
+
+      // Pedro's regression: typing `1.....,2,..` must not mutate the input.
+      fireEvent.change(minInput, { target: { value: '1.....,2,..' } });
+      expect(minInput.value).toBe('100,50');
+      fireEvent.change(minInput, { target: { value: '1..2' } });
+      expect(minInput.value).toBe('100,50');
+      fireEvent.change(minInput, { target: { value: 'abc' } });
+      expect(minInput.value).toBe('100,50');
+    });
   });
 });

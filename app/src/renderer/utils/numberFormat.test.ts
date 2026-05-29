@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCurrency, parseLocaleAmount } from './numberFormat.js';
+import { formatCurrency, isValidAmountInput, parseLocaleAmount } from './numberFormat.js';
 
 describe('formatCurrency', () => {
   it('formats EUR in es-ES with comma decimal and trailing euro symbol', () => {
@@ -70,4 +70,33 @@ describe('parseLocaleAmount', () => {
   it('trims surrounding whitespace', () => {
     expect(parseLocaleAmount('  42,5  ')).toBe(42.5);
   });
+});
+
+describe('isValidAmountInput', () => {
+  // Valid intermediate / fully-formed states.
+  it.each([
+    '',
+    '-',
+    '0',
+    '1',
+    '1234',
+    '1,2',
+    '1.2',
+    '1.331,85',
+    '1,331.85',
+    '-1331,85',
+    '1331,',
+    '.85',
+    ',85',
+  ])('accepts %j', (v) => {
+    expect(isValidAmountInput(v)).toBe(true);
+  });
+
+  // Reject garbage keystrokes the input should silently swallow.
+  it.each(['a', '1abc', '1..2', '1,,2', '1.2.3', '1,2,3', '1-2', '-1-', '1.....,2,..'])(
+    'rejects %j',
+    (v) => {
+      expect(isValidAmountInput(v)).toBe(false);
+    },
+  );
 });

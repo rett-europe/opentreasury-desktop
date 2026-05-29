@@ -3,6 +3,7 @@ import { TagChipPicker } from '../TagChipPicker/index.js';
 import { CategoryPickerRows } from '../CategoryPickerRows/index.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
+import { isValidAmountInput } from '../../utils/numberFormat.js';
 import './TransactionFormFields.css';
 
 export interface TransactionFormFieldsProps {
@@ -227,7 +228,13 @@ export function TransactionFormFields({
               type="text"
               inputMode="decimal"
               value={amount}
-              onChange={(e) => onAmountChange(e.target.value)}
+              onChange={(e) => {
+                // Reject garbage keystrokes (e.g. "1..2", "1,,2") at the input
+                // boundary so the field can't fill up with invalid characters.
+                if (isValidAmountInput(e.target.value)) {
+                  onAmountChange(e.target.value);
+                }
+              }}
               placeholder="0,00"
               className="ot-tx-fields__input"
               aria-invalid={!!errors.amount}
@@ -469,7 +476,11 @@ export function TransactionFormFields({
             type="text"
             inputMode="decimal"
             value={amount}
-            onChange={(e) => onAmountChange(e.target.value)}
+            onChange={(e) => {
+              if (isValidAmountInput(e.target.value)) {
+                onAmountChange(e.target.value);
+              }
+            }}
             placeholder="0,00"
             className="ot-tx-fields__input"
             aria-invalid={!!errors.amount}

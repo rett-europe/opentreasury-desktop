@@ -86,4 +86,31 @@ describe('TransactionFormModal — comma-decimal amount input (ES locale sweep)'
     const input = await submitWithAmount('1.331,85');
     expect(input.amount).toBe(1331.85);
   });
+
+  it('silently rejects garbage keystrokes (e.g. `1..2`) — input value is unchanged', () => {
+    render(
+      <I18nextProvider i18n={i18n}>
+        <TransactionFormModal
+          mode="add"
+          isOpen={true}
+          onClose={vi.fn()}
+          onSubmit={vi.fn()}
+          accounts={mockAccounts}
+        />
+      </I18nextProvider>,
+    );
+
+    const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
+    expect(amountInput).not.toBeNull();
+
+    fireEvent.change(amountInput, { target: { value: '1331,85' } });
+    expect(amountInput.value).toBe('1331,85');
+
+    fireEvent.change(amountInput, { target: { value: '1.....,2,..' } });
+    expect(amountInput.value).toBe('1331,85');
+    fireEvent.change(amountInput, { target: { value: '1..2' } });
+    expect(amountInput.value).toBe('1331,85');
+    fireEvent.change(amountInput, { target: { value: 'abc' } });
+    expect(amountInput.value).toBe('1331,85');
+  });
 });
