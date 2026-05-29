@@ -47,6 +47,11 @@ export const accountChangesSchema = z
     iban: z.string().optional(),
     color: z.string().optional(),
     isPaypal: z.boolean().optional(),
+    // Editable post-creation as of trial.3.13 (see the matching comment on
+    // configAccountUpdatedEventSchema). The handler validates `Number.isFinite`
+    // and no-op-strips when the new value equals the current, so no-op writes
+    // are still rejected.
+    openingBalance: z.number().optional(),
   })
   .refine((c) => Object.values(c).some((v) => v !== undefined), {
     message: 'changes must be non-empty',

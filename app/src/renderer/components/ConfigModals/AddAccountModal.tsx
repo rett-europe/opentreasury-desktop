@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, Eye, EyeOff, Landmark, Tag as TagIcon } from 'lucide-react';
 import { createAccount } from '../../services/accountsApi.js';
@@ -8,7 +8,9 @@ import type {
   CreateAccountResponse,
 } from '../../../shared/ipc-contracts/accounts.js';
 import { ConfigModalShell } from './ConfigModalShell.js';
+import { ConfirmDialog } from '../ConfirmDialog/index.js';
 import { mapConfigErrorToFieldKey } from './errorMap.js';
+import { formatCurrency } from '../../utils/numberFormat.js';
 import { CATEGORY_PALETTE } from './AddCategoryModal.js';
 
 export interface AddAccountModalProps {
@@ -17,6 +19,13 @@ export interface AddAccountModalProps {
   readonly onSaved: (account: AccountRecord) => void;
   readonly mode?: 'add' | 'edit';
   readonly record?: AccountRecord | null;
+  /**
+   * Number of transactions already attached to the account. Drives the
+   * "are you sure?" confirmation when the user changes the opening balance
+   * in edit mode. Omitted / `0` means the change is safe to apply directly
+   * (no derived data to shift). Only consulted in `mode === 'edit'`.
+   */
+  readonly usageCount?: number;
 }
 
 interface Errors {
@@ -42,8 +51,9 @@ export function AddAccountModal({
   onSaved,
   mode = 'add',
   record = null,
+  usageCount,
 }: AddAccountModalProps): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
 
   const [name, setName] = useState('');
   const [bankName, setBankName] = useState('');
@@ -56,6 +66,11 @@ export function AddAccountModal({
   const [errors, setErrors] = useState<Errors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Pending confirm-dialog state. When the user clicks Save and the edit
+  // would shift the opening balance on an account that already has
+  // transactions, we stash the parsed value here and open ConfirmDialog.
+  // Null = no pending confirm.
+  const [pendingOpeningBalance, setPendingOpeningBalance] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -80,6 +95,7 @@ export function AddAccountModal({
       setErrors({});
       setGeneralError(null);
       setSubmitting(false);
+      setPendingOpeningBalance(null);
     }
   }, [isOpen, mode, record]);
 
@@ -111,88 +127,149 @@ export function AddAccountModal({
     [t],
   );
 
-  const handleSubmit = useCallback(async () => {
-    setGeneralError(null);
-    if (!validate()) return;
-    setSubmitting(true);
-    try {
-      const parsed = openingBalance.trim() === '' ? undefined : Number(openingBalance);
-      if (mode === 'edit' && record) {
-        const changes = {
+  // Actually fire the IPC + close the modal. Extracted so the edit-mode
+  // confirm dialog (opening-balance shift on an account with transactions)
+  // can call it after the user confirms.
+  const performSave = useCallback(
+    async (parsedOpeningBalance: number | undefined) => {
+      setSubmitting(true);
+      try {
+        if (mode === 'edit' && record) {
+          // Only include `openingBalance` on the wire when it actually
+          // moves. The handler also no-op-strips, but pruning here keeps
+          // the patch minimal and avoids issuing a write at all when the
+          // user only changed other fields. Without this, an unchanged
+          // input would still serialise `openingBalance: <same value>`.
+          const includeOpening =
+            parsedOpeningBalance !== undefined && parsedOpeningBalance !== record.openingBalance;
+          const changes = {
+            name: name.trim(),
+            bankName: bankName.trim() || undefined,
+            label: label.trim() || undefined,
+            iban: !isPaypal && iban.trim() ? iban.trim() : undefined,
+            color,
+            isPaypal,
+            ...(includeOpening ? { openingBalance: parsedOpeningBalance } : {}),
+          };
+          await updateAccount(record.id, changes);
+          const updated: AccountRecord = {
+            id: record.id,
+            name: changes.name,
+            currency: record.currency,
+            openingBalance: includeOpening
+              ? (parsedOpeningBalance as number)
+              : record.openingBalance,
+            sortOrder: record.sortOrder,
+            createdAt: record.createdAt,
+            ...(changes.bankName !== undefined ? { bankName: changes.bankName } : {}),
+            ...(changes.label !== undefined ? { label: changes.label } : {}),
+            ...(changes.iban !== undefined ? { iban: changes.iban } : {}),
+            ...(changes.color !== undefined ? { color: changes.color } : {}),
+            ...(changes.isPaypal !== undefined ? { isPaypal: changes.isPaypal } : {}),
+            ...(record.archivedAt !== undefined ? { archivedAt: record.archivedAt } : {}),
+          };
+          onSaved(updated);
+          onClose();
+          return;
+        }
+        const resp = await createAccount({
           name: name.trim(),
           bankName: bankName.trim() || undefined,
           label: label.trim() || undefined,
           iban: !isPaypal && iban.trim() ? iban.trim() : undefined,
           color,
           isPaypal,
-        };
-        await updateAccount(record.id, changes);
-        const updated: AccountRecord = {
-          id: record.id,
-          name: changes.name,
-          currency: record.currency,
-          openingBalance: record.openingBalance,
-          sortOrder: record.sortOrder,
-          createdAt: record.createdAt,
-          ...(changes.bankName !== undefined ? { bankName: changes.bankName } : {}),
-          ...(changes.label !== undefined ? { label: changes.label } : {}),
-          ...(changes.iban !== undefined ? { iban: changes.iban } : {}),
-          ...(changes.color !== undefined ? { color: changes.color } : {}),
-          ...(changes.isPaypal !== undefined ? { isPaypal: changes.isPaypal } : {}),
-          ...(record.archivedAt !== undefined ? { archivedAt: record.archivedAt } : {}),
-        };
-        onSaved(updated);
+          openingBalance: parsedOpeningBalance,
+        });
+        if (!resp.ok) {
+          applyServerError(resp);
+          return;
+        }
+        onSaved({
+          id: resp.event.id,
+          name: resp.event.name,
+          currency: resp.event.currency,
+          openingBalance: resp.event.openingBalance,
+          sortOrder: resp.event.sortOrder,
+          createdAt: resp.event.createdAt,
+          ...(resp.event.bankName !== undefined ? { bankName: resp.event.bankName } : {}),
+          ...(resp.event.label !== undefined ? { label: resp.event.label } : {}),
+          ...(resp.event.iban !== undefined ? { iban: resp.event.iban } : {}),
+          ...(resp.event.color !== undefined ? { color: resp.event.color } : {}),
+          ...(resp.event.isPaypal !== undefined ? { isPaypal: resp.event.isPaypal } : {}),
+        });
         onClose();
-        return;
+      } catch (err) {
+        setGeneralError(
+          err instanceof Error ? err.message : t('configuracion.errors.submitFailed'),
+        );
+      } finally {
+        setSubmitting(false);
       }
-      const resp = await createAccount({
-        name: name.trim(),
-        bankName: bankName.trim() || undefined,
-        label: label.trim() || undefined,
-        iban: !isPaypal && iban.trim() ? iban.trim() : undefined,
-        color,
-        isPaypal,
-        openingBalance: parsed,
-      });
-      if (!resp.ok) {
-        applyServerError(resp);
-        return;
-      }
-      onSaved({
-        id: resp.event.id,
-        name: resp.event.name,
-        currency: resp.event.currency,
-        openingBalance: resp.event.openingBalance,
-        sortOrder: resp.event.sortOrder,
-        createdAt: resp.event.createdAt,
-        ...(resp.event.bankName !== undefined ? { bankName: resp.event.bankName } : {}),
-        ...(resp.event.label !== undefined ? { label: resp.event.label } : {}),
-        ...(resp.event.iban !== undefined ? { iban: resp.event.iban } : {}),
-        ...(resp.event.color !== undefined ? { color: resp.event.color } : {}),
-        ...(resp.event.isPaypal !== undefined ? { isPaypal: resp.event.isPaypal } : {}),
-      });
-      onClose();
-    } catch (err) {
-      setGeneralError(err instanceof Error ? err.message : t('configuracion.errors.submitFailed'));
-    } finally {
-      setSubmitting(false);
+    },
+    [
+      mode,
+      record,
+      name,
+      bankName,
+      label,
+      iban,
+      color,
+      isPaypal,
+      onSaved,
+      onClose,
+      applyServerError,
+      t,
+    ],
+  );
+
+  const handleSubmit = useCallback(async () => {
+    setGeneralError(null);
+    if (!validate()) return;
+    const parsed = openingBalance.trim() === '' ? undefined : Number(openingBalance);
+    // Edit mode: if the user is shifting the opening balance on an account
+    // that already has transactions, intercept the save with a confirmation
+    // dialog so they understand the downstream impact. The handler permits
+    // the change unconditionally; the dialog is a UX-only safety net.
+    if (
+      mode === 'edit' &&
+      record &&
+      parsed !== undefined &&
+      parsed !== record.openingBalance &&
+      (usageCount ?? 0) > 0
+    ) {
+      setPendingOpeningBalance(parsed);
+      return;
     }
-  }, [
-    validate,
-    openingBalance,
-    name,
-    bankName,
-    label,
-    iban,
-    color,
-    isPaypal,
-    onSaved,
-    onClose,
-    applyServerError,
-    mode,
-    record,
-    t,
-  ]);
+    await performSave(parsed);
+  }, [validate, openingBalance, mode, record, usageCount, performSave]);
+
+  const handleConfirmOpeningBalanceChange = useCallback(() => {
+    const parsed = pendingOpeningBalance;
+    setPendingOpeningBalance(null);
+    if (parsed === null) return;
+    void performSave(parsed);
+  }, [pendingOpeningBalance, performSave]);
+
+  const handleCancelOpeningBalanceChange = useCallback(() => {
+    // Bare close — keep the in-flight input value so the user can adjust
+    // and try again. Mirrors the no-data-loss behavior of the other
+    // discard/confirm dialogs in the app.
+    setPendingOpeningBalance(null);
+  }, []);
+
+  const locale = i18n.language || 'en';
+  const openingBalanceChangeBody = useMemo(() => {
+    if (pendingOpeningBalance === null || !record) return '';
+    const oldBalance = record.openingBalance;
+    const newBalance = pendingOpeningBalance;
+    return t('configuracion.cuentas.openingBalanceChange.body', {
+      count: usageCount ?? 0,
+      oldBalance: formatCurrency(oldBalance, locale),
+      newBalance: formatCurrency(newBalance, locale),
+      delta: formatCurrency(newBalance - oldBalance, locale),
+    });
+  }, [pendingOpeningBalance, record, usageCount, locale, t]);
 
   return (
     <ConfigModalShell
@@ -359,12 +436,10 @@ export function AddAccountModal({
           onChange={(e) => setOpeningBalance(e.target.value)}
           aria-invalid={Boolean(errors.openingBalance)}
           aria-describedby={errors.openingBalance ? 'acc-opening-err' : undefined}
-          readOnly={mode === 'edit'}
-          disabled={mode === 'edit'}
         />
         {mode === 'edit' ? (
           <span className="ot-config-modal__field-hint">
-            {t('configuracion.cuentas.modal.openingBalanceImmutable')}
+            {t('configuracion.cuentas.form.openingBalance.editHint')}
           </span>
         ) : null}
         {errors.openingBalance ? (
@@ -410,6 +485,16 @@ export function AddAccountModal({
           </span>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={pendingOpeningBalance !== null}
+        title={t('configuracion.cuentas.openingBalanceChange.title')}
+        message={openingBalanceChangeBody}
+        confirmLabel={t('configuracion.cuentas.openingBalanceChange.confirm')}
+        cancelLabel={t('common.cancel')}
+        variant="default"
+        onConfirm={handleConfirmOpeningBalanceChange}
+        onCancel={handleCancelOpeningBalanceChange}
+      />
     </ConfigModalShell>
   );
 }

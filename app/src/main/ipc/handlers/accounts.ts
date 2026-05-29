@@ -212,6 +212,27 @@ export function createAccountsUpdateHandler(
         if (trimmed.length === 0) delete normalised.color;
         else normalised.color = trimmed;
       }
+      // Opening balance: validate finite (mirrors the create handler's check)
+      // and strip when the new value equals the current — Pedro's "fix the
+      // wrong opening balance" flow only needs to emit an event when the
+      // value actually moves. The renderer guards the shift behind a confirm
+      // dialog when the account has transactions; the handler stays
+      // permissive so a future Saldo Inicial widget can call this directly.
+      if (normalised.openingBalance !== undefined) {
+        if (!Number.isFinite(normalised.openingBalance)) {
+          return {
+            ok: false,
+            error: {
+              code: 'OPENING_BALANCE_INVALID',
+              message: 'Opening balance must be a finite number',
+              field: 'openingBalance',
+            },
+          };
+        }
+        if (normalised.openingBalance === current.openingBalance) {
+          delete normalised.openingBalance;
+        }
+      }
 
       // After normalisation, whitespace-only optional fields have been
       // dropped. If nothing meaningful remains, reject — the event log

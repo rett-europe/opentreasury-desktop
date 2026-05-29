@@ -158,6 +158,62 @@ describe('accounts:update', () => {
     if (resp.ok) return;
     expect(resp.error.code).toBe('SCHEMA_INVALID');
   });
+
+  // trial.3.13 — opening balance is editable post-creation. Pedro's real-world
+  // use case is fixing an account whose original opening balance was wrong
+  // (e.g. seeded as €0 when it should have been €1.331,85). The handler
+  // accepts the change unconditionally; no `OPENING_BALANCE_LOCKED` /
+  // usage-count gate exists. The renderer guards the shift behind a confirm
+  // dialog when transactions are attached.
+  it('updates openingBalance and projects the new value onto the read model', async () => {
+    const deps = makeDeps();
+    const create = createAccountsCreateHandler(deps);
+    const update = createAccountsUpdateHandler(deps);
+    const created = await create({ name: 'Wrong opening', openingBalance: 0 });
+    if (!created.ok) throw new Error('seed failed');
+
+    const resp = await update({
+      id: created.event.id,
+      changes: { openingBalance: 1331.85 },
+    });
+    expect(resp.ok).toBe(true);
+    if (!resp.ok) return;
+    expect(resp.event.changes.openingBalance).toBe(1331.85);
+    expect(getReadModel().configAccounts[0]!.openingBalance).toBe(1331.85);
+  });
+
+  it('no-op-strips openingBalance when the new value equals the current', async () => {
+    const deps = makeDeps();
+    const create = createAccountsCreateHandler(deps);
+    const update = createAccountsUpdateHandler(deps);
+    const created = await create({ name: 'A1', openingBalance: 42 });
+    if (!created.ok) throw new Error('seed failed');
+
+    const resp = await update({
+      id: created.event.id,
+      changes: { openingBalance: 42 },
+    });
+    expect(resp.ok).toBe(false);
+    if (resp.ok) return;
+    expect(resp.error.code).toBe('SCHEMA_INVALID');
+  });
+
+  it('rejects a non-finite openingBalance with OPENING_BALANCE_INVALID', async () => {
+    const deps = makeDeps();
+    const create = createAccountsCreateHandler(deps);
+    const update = createAccountsUpdateHandler(deps);
+    const created = await create({ name: 'A1', openingBalance: 10 });
+    if (!created.ok) throw new Error('seed failed');
+
+    const resp = await update({
+      id: created.event.id,
+      changes: { openingBalance: Number.POSITIVE_INFINITY },
+    });
+    expect(resp.ok).toBe(false);
+    if (resp.ok) return;
+    expect(resp.error.code).toBe('OPENING_BALANCE_INVALID');
+    expect(resp.error.field).toBe('openingBalance');
+  });
 });
 
 describe('accounts:archive / unarchive', () => {

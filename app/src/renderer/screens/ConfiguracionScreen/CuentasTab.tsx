@@ -6,6 +6,7 @@ import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
 import { AddAccountModal, ArchiveConfirmModal } from '../../components/ConfigModals/index.js';
 import { listAccounts } from '../../services/accountsApi.js';
+import { listMovements } from '../../services/movementsApi.js';
 import {
   archiveAccount,
   ConfigMutationError,
@@ -42,6 +43,11 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ConfigAccount | null>(null);
+  // Per-account transaction count for the editing target. Drives the
+  // "Are you sure?" confirmation when the user changes the opening balance.
+  // `null` means "still loading" (we treat as 0 in the modal, so a fast
+  // confirm-skip is fine — the dialog is a UX hint, not a correctness gate).
+  const [editingUsageCount, setEditingUsageCount] = useState<number | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ConfigAccount | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -77,6 +83,27 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
     },
     [load, onListChanged],
   );
+
+  const openEditModal = useCallback((account: ConfigAccount) => {
+    setEditing(account);
+    setEditingUsageCount(null);
+    // Fire-and-forget: the count is only consulted on Save inside the
+    // modal. If the listMovements call is slow or fails the modal still
+    // works — the confirm dialog just won't fire (worst case: the user
+    // can save without seeing the safety prompt).
+    void listMovements({ accountId: account.id })
+      .then((rows) => {
+        setEditingUsageCount(rows.length);
+      })
+      .catch(() => {
+        setEditingUsageCount(0);
+      });
+  }, []);
+
+  const closeEditModal = useCallback(() => {
+    setEditing(null);
+    setEditingUsageCount(null);
+  }, []);
 
   const handleArchive = useCallback(async () => {
     if (!archiveTarget) return;
@@ -364,7 +391,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                                   className="ot-config__row-action-btn"
                                   title={t('configuracion.cuentas.actions.editTooltip')}
                                   aria-label={t('configuracion.cuentas.actions.editTooltip')}
-                                  onClick={() => setEditing(a)}
+                                  onClick={() => openEditModal(a)}
                                 >
                                   <Edit size={14} />
                                 </button>
@@ -405,7 +432,8 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
         isOpen={editing !== null}
         mode="edit"
         record={editing}
-        onClose={() => setEditing(null)}
+        usageCount={editingUsageCount ?? 0}
+        onClose={closeEditModal}
         onSaved={handleSaved}
       />
       <ArchiveConfirmModal

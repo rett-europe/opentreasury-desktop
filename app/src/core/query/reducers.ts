@@ -179,6 +179,9 @@ export function applyEvent(event: DomainEvent): void {
         ...(event.changes.iban !== undefined ? { iban: event.changes.iban } : {}),
         ...(event.changes.color !== undefined ? { color: event.changes.color } : {}),
         ...(event.changes.isPaypal !== undefined ? { isPaypal: event.changes.isPaypal } : {}),
+        ...(event.changes.openingBalance !== undefined
+          ? { openingBalance: event.changes.openingBalance }
+          : {}),
       };
       const nextAccounts = [...readModel.configAccounts];
       nextAccounts[idx] = patched;

@@ -212,6 +212,13 @@ export const configAccountUpdatedEventSchema = z.object({
       iban: z.string().optional(),
       color: z.string().optional(),
       isPaypal: z.boolean().optional(),
+      // Editable post-creation as of trial.3.13. Pedro's real-world need is
+      // fixing an opening balance that was wrong at account-creation time
+      // (e.g. seeded as €0 when it should have been €1.331,85) for accounts
+      // that already have transactions. The renderer guards behind a confirm
+      // dialog when usage_count > 0; the handler no-op-strips when the new
+      // value equals the current so we never write a noise event.
+      openingBalance: z.number().optional(),
     })
     .refine((c) => Object.keys(c).length > 0, { message: 'changes must be non-empty' }),
   updatedAt: z.string().datetime(),

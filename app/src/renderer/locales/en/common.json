@@ -568,8 +568,17 @@
       },
       "modal": {
         "title": "New account",
-        "editTitle": "Edit account",
-        "openingBalanceImmutable": "Opening balance can't be changed after account creation."
+        "editTitle": "Edit account"
+      },
+      "form": {
+        "openingBalance": {
+          "editHint": "Changing the opening balance will recompute the current balance and all balance-based charts."
+        }
+      },
+      "openingBalanceChange": {
+        "title": "Change opening balance",
+        "body": "This account has {{count}} transaction(s). Changing the opening balance from {{oldBalance}} to {{newBalance}} will shift the current balance by {{delta}}. This affects all balance-based charts and KPIs.",
+        "confirm": "Change opening balance"
       },
       "actions": {
         "edit": "Edit",
