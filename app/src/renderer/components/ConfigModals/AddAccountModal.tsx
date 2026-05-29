@@ -10,7 +10,7 @@ import type {
 import { ConfigModalShell } from './ConfigModalShell.js';
 import { ConfirmDialog } from '../ConfirmDialog/index.js';
 import { mapConfigErrorToFieldKey } from './errorMap.js';
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { formatCurrency, parseLocaleAmount } from '../../utils/numberFormat.js';
 import { CATEGORY_PALETTE } from './AddCategoryModal.js';
 
 export interface AddAccountModalProps {
@@ -105,7 +105,12 @@ export function AddAccountModal({
     else if (name.trim().length > 80) next.name = t('configuracion.errors.nameTooLong');
 
     if (openingBalance.trim() !== '') {
-      const n = Number(openingBalance);
+      // ES locale uses `,` as the decimal separator. The input is rendered
+      // as `type="text"` (not `number`) so the user's raw text — comma or
+      // dot — survives the round-trip. `parseLocaleAmount` returns NaN
+      // for empty / non-numeric input; the `isFinite` check below catches
+      // both that and ±Infinity.
+      const n = parseLocaleAmount(openingBalance);
       if (!Number.isFinite(n))
         next.openingBalance = t('configuracion.errors.openingBalanceInvalid');
     }
@@ -226,7 +231,10 @@ export function AddAccountModal({
   const handleSubmit = useCallback(async () => {
     setGeneralError(null);
     if (!validate()) return;
-    const parsed = openingBalance.trim() === '' ? undefined : Number(openingBalance);
+    // parseLocaleAmount accepts both `,` (ES) and `.` (EN) decimal
+    // separators using the last-separator-wins rule, so the user can type
+    // `1331,85` or `1.331,85` or `1331.85` and they all become 1331.85.
+    const parsed = openingBalance.trim() === '' ? undefined : parseLocaleAmount(openingBalance);
     // Edit mode: if the user is shifting the opening balance on an account
     // that already has transactions, intercept the save with a confirmation
     // dialog so they understand the downstream impact. The handler permits
@@ -429,10 +437,15 @@ export function AddAccountModal({
         <input
           id="acc-opening"
           className="ot-config-modal__input"
-          type="number"
-          step="0.01"
+          // type="text" + inputMode="decimal" so the user can type the ES
+          // comma-decimal (`1331,85` / `1.331,85`) without the browser
+          // stripping it. parseLocaleAmount in handleSubmit handles both
+          // `,` and `.` decimals. Mirrors the pattern landed for the
+          // balance-adjustment modal in PR #346.
+          type="text"
+          inputMode="decimal"
           value={openingBalance}
-          placeholder="0.00"
+          placeholder="0,00"
           onChange={(e) => setOpeningBalance(e.target.value)}
           aria-invalid={Boolean(errors.openingBalance)}
           aria-describedby={errors.openingBalance ? 'acc-opening-err' : undefined}

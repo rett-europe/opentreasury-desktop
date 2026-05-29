@@ -241,3 +241,64 @@ describe('AddAccountModal — opening-balance change confirmation', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+// trial.3.13 follow-up — Pedro hit this trying to fix his PayPal account's
+// opening balance: typing `1331,85` (ES comma-decimal) failed because the
+// input was `type="number"` and parsing went through `Number()`. The input
+// is now `type="text"` + parseLocaleAmount (same pattern as PR #346's
+// BalanceAdjustmentModal fix), so both `,` and `.` decimals work.
+describe('AddAccountModal — comma-decimal input (ES locale)', () => {
+  it('parses `1331,85` (comma decimal) and sends 1331.85 to the IPC', async () => {
+    const { bridge, onSaved, onClose } = await renderEdit(7);
+    changeOpeningBalanceInput('1331,85');
+    clickSave();
+    expect(isConfirmDialogOpen()).toBe(true);
+
+    // Body should show the dialog with delta computed from 1331.85.
+    const dialog = getConfirmDialog()!;
+    expect(dialog.textContent).toContain('1,331.85');
+
+    const confirmBtn = dialog.querySelector(
+      '.ot-confirm-dialog__confirm',
+    ) as HTMLButtonElement | null;
+    await act(async () => {
+      fireEvent.click(confirmBtn!);
+    });
+
+    expect(bridge.update).toHaveBeenCalledTimes(1);
+    const [req] = bridge.update.mock.calls[0]!;
+    expect(req.changes.openingBalance).toBe(1331.85);
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('parses `1.331,85` (ES thousands + decimal) and sends 1331.85 to the IPC', async () => {
+    const { bridge, onSaved, onClose } = await renderEdit(7);
+    changeOpeningBalanceInput('1.331,85');
+    clickSave();
+    expect(isConfirmDialogOpen()).toBe(true);
+
+    const dialog = getConfirmDialog()!;
+    expect(dialog.textContent).toContain('1,331.85');
+
+    const confirmBtn = dialog.querySelector(
+      '.ot-confirm-dialog__confirm',
+    ) as HTMLButtonElement | null;
+    await act(async () => {
+      fireEvent.click(confirmBtn!);
+    });
+
+    expect(bridge.update).toHaveBeenCalledTimes(1);
+    const [req] = bridge.update.mock.calls[0]!;
+    expect(req.changes.openingBalance).toBe(1331.85);
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the input as type="text" with inputMode="decimal"', async () => {
+    await renderEdit(0);
+    const input = getOpeningInput();
+    expect(input.getAttribute('type')).toBe('text');
+    expect(input.getAttribute('inputmode')).toBe('decimal');
+  });
+});
