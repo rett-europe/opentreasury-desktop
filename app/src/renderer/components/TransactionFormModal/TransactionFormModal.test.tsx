@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
@@ -42,7 +42,28 @@ const mockAccounts: Account[] = [
 // callers in the renderer (AddTransactionModal embeds TransactionFormFields
 // directly), but we keep the comma-decimal pattern consistent so that if /
 // when this modal is wired up again it won't reintroduce the truncation bug.
-describe('TransactionFormModal — comma-decimal amount input (ES locale sweep)', () => {
+describe('TransactionFormModal — comma-decimal amount input (ES locale)', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('es');
+  });
+  afterAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
+  function renderModal() {
+    return render(
+      <I18nextProvider i18n={i18n}>
+        <TransactionFormModal
+          mode="add"
+          isOpen={true}
+          onClose={vi.fn()}
+          onSubmit={vi.fn()}
+          accounts={mockAccounts}
+        />
+      </I18nextProvider>,
+    );
+  }
+
   async function submitWithAmount(typed: string): Promise<CreateTransactionRequest> {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     render(
@@ -82,24 +103,20 @@ describe('TransactionFormModal — comma-decimal amount input (ES locale sweep)'
     expect(input.amount).toBe(1331.85);
   });
 
-  it('parses `1.331,85` (Spanish thousands + decimal) into 1331.85 for the IPC call', async () => {
-    const input = await submitWithAmount('1.331,85');
-    expect(input.amount).toBe(1331.85);
+  it('rejects thousands grouping (`1.331,85`) at input — the dot never enters state', () => {
+    renderModal();
+    const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
+
+    fireEvent.change(amountInput, { target: { value: '1331,85' } });
+    expect(amountInput.value).toBe('1331,85');
+
+    // `.` is the wrong separator in ES under the strict per-locale rule.
+    fireEvent.change(amountInput, { target: { value: '1.331,85' } });
+    expect(amountInput.value).toBe('1331,85');
   });
 
   it('silently rejects garbage keystrokes (e.g. `1..2`) — input value is unchanged', () => {
-    render(
-      <I18nextProvider i18n={i18n}>
-        <TransactionFormModal
-          mode="add"
-          isOpen={true}
-          onClose={vi.fn()}
-          onSubmit={vi.fn()}
-          accounts={mockAccounts}
-        />
-      </I18nextProvider>,
-    );
-
+    renderModal();
     const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
     expect(amountInput).not.toBeNull();
 

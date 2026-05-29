@@ -3,7 +3,7 @@ import { TagChipPicker } from '../TagChipPicker/index.js';
 import { CategoryPickerRows } from '../CategoryPickerRows/index.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
-import { isValidAmountInput } from '../../utils/numberFormat.js';
+import { isValidAmountInput, decimalSeparatorForLocale } from '../../utils/numberFormat.js';
 import './TransactionFormFields.css';
 
 export interface TransactionFormFieldsProps {
@@ -94,7 +94,10 @@ export function TransactionFormFields({
   originalStatus,
   hasSplits = false,
 }: TransactionFormFieldsProps): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  // Derive the locale's decimal separator once per render so the input
+  // sanitizer rejects the wrong separator (e.g. `.` in ES, `,` in EN).
+  const decimalSep = decimalSeparatorForLocale(i18n.language);
 
   // SPEC-025 — status-based field lock derivation.
   // Lock applies only if the transaction was `approved` when the modal opened
@@ -229,9 +232,10 @@ export function TransactionFormFields({
               inputMode="decimal"
               value={amount}
               onChange={(e) => {
-                // Reject garbage keystrokes (e.g. "1..2", "1,,2") at the input
+                // Reject garbage keystrokes (wrong separator, multiple
+                // separators, > 2 decimals, > 12 integer digits) at the input
                 // boundary so the field can't fill up with invalid characters.
-                if (isValidAmountInput(e.target.value)) {
+                if (isValidAmountInput(e.target.value, decimalSep)) {
                   onAmountChange(e.target.value);
                 }
               }}
@@ -477,7 +481,7 @@ export function TransactionFormFields({
             inputMode="decimal"
             value={amount}
             onChange={(e) => {
-              if (isValidAmountInput(e.target.value)) {
+              if (isValidAmountInput(e.target.value, decimalSep)) {
                 onAmountChange(e.target.value);
               }
             }}

@@ -59,7 +59,11 @@ import {
 } from '../../utils/movementsDateFilter.js';
 import { formatDateRange } from '../../utils/dateFormat.js';
 import { newUlid } from '../../utils/ulid.js';
-import { isValidAmountInput, parseLocaleAmount } from '../../utils/numberFormat.js';
+import {
+  decimalSeparatorForLocale,
+  isValidAmountInput,
+  parseLocaleAmount,
+} from '../../utils/numberFormat.js';
 import {
   buildHaystack,
   searchMovements,
@@ -270,6 +274,9 @@ export function MovementsScreen({
 }: MovementsScreenProps = {}): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
+  // Decimal separator for the active locale — drives the input sanitizer on
+  // the min/max amount filters.
+  const decimalSep = decimalSeparatorForLocale(i18n.language);
 
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
   const [sortBy, setSortBy] = useState<SortColumn>('date');
@@ -1426,7 +1433,7 @@ export function MovementsScreen({
               placeholder="0"
               value={minAmount}
               onChange={(e) => {
-                if (isValidAmountInput(e.target.value)) {
+                if (isValidAmountInput(e.target.value, decimalSep)) {
                   setMinAmount(e.target.value);
                 }
               }}
@@ -1442,7 +1449,7 @@ export function MovementsScreen({
               placeholder="∞"
               value={maxAmount}
               onChange={(e) => {
-                if (isValidAmountInput(e.target.value)) {
+                if (isValidAmountInput(e.target.value, decimalSep)) {
                   setMaxAmount(e.target.value);
                 }
               }}

@@ -10,7 +10,11 @@ import type {
 import { ConfigModalShell } from './ConfigModalShell.js';
 import { mapConfigErrorToFieldKey } from './errorMap.js';
 import { CATEGORY_PALETTE } from './AddCategoryModal.js';
-import { isValidAmountInput, parseLocaleAmount } from '../../utils/numberFormat.js';
+import {
+  isValidAmountInput,
+  parseLocaleAmount,
+  decimalSeparatorForLocale,
+} from '../../utils/numberFormat.js';
 
 export interface AddAccountModalProps {
   readonly isOpen: boolean;
@@ -44,7 +48,10 @@ export function AddAccountModal({
   mode = 'add',
   record = null,
 }: AddAccountModalProps): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  // Decimal separator for the active locale — drives the opening-balance
+  // input sanitizer.
+  const decimalSep = decimalSeparatorForLocale(i18n.language);
 
   const [name, setName] = useState('');
   const [bankName, setBankName] = useState('');
@@ -366,11 +373,12 @@ export function AddAccountModal({
           value={openingBalance}
           placeholder="0,00"
           onChange={(e) => {
-            // Sanitize keystrokes so the field can't fill up with invalid
-            // characters (e.g. "1..2", "1,,2"). parseLocaleAmount in validate()
-            // would still flag the garbage, but the UX of allowing typed
-            // garbage is unacceptable.
-            if (isValidAmountInput(e.target.value)) {
+            // Sanitize keystrokes (locale-aware) so the field can't fill up
+            // with invalid characters (wrong separator, > 2 decimals, > 12
+            // integer digits). parseLocaleAmount in validate() would still
+            // flag the garbage, but the UX of allowing typed garbage is
+            // unacceptable.
+            if (isValidAmountInput(e.target.value, decimalSep)) {
               setOpeningBalance(e.target.value);
             }
           }}

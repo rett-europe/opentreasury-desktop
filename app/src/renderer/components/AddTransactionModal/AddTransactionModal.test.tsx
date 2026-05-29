@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
@@ -85,10 +85,18 @@ describe('AddTransactionModal', () => {
   });
 
   // ES locale sweep — regression for the comma-decimal bug Pedro hit during
-  // trial.3.13 integration testing. The amount input must accept both
-  // `1331,85` (Spanish decimal) and `1.331,85` (Spanish thousands + decimal)
-  // and forward the correct numeric value to the IPC submit handler.
-  describe('comma-decimal amount input (ES locale sweep)', () => {
+  // trial.3.13 integration testing. The amount input must accept `1331,85`
+  // (Spanish decimal) and forward the correct numeric value to the IPC submit
+  // handler. Thousands grouping (`1.331,85`) is deliberately rejected at
+  // input — the display layer adds it via `formatCurrency`.
+  describe('comma-decimal amount input (ES locale)', () => {
+    beforeAll(async () => {
+      await i18n.changeLanguage('es');
+    });
+    afterAll(async () => {
+      await i18n.changeLanguage('en');
+    });
+
     async function submitWithAmount(typed: string): Promise<CreateTransactionRequest> {
       onSubmit.mockResolvedValue(undefined);
       renderModal(true);
@@ -122,9 +130,18 @@ describe('AddTransactionModal', () => {
       expect(input.amount).toBe(1331.85);
     });
 
-    it('parses `1.331,85` (Spanish thousands + decimal) into 1331.85 for the IPC call', async () => {
-      const input = await submitWithAmount('1.331,85');
-      expect(input.amount).toBe(1331.85);
+    it('rejects thousands grouping (`1.331,85`) at input — the dot never enters state', () => {
+      renderModal(true);
+      const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
+
+      // Type a valid baseline first.
+      fireEvent.change(amountInput, { target: { value: '1331,85' } });
+      expect(amountInput.value).toBe('1331,85');
+
+      // Spanish thousands grouping uses `.`, which is the WRONG separator in
+      // ES under the strict per-locale rule. The keystroke is silently dropped.
+      fireEvent.change(amountInput, { target: { value: '1.331,85' } });
+      expect(amountInput.value).toBe('1331,85');
     });
 
     it('silently rejects garbage keystrokes (e.g. `1..2`) — input value is unchanged', () => {

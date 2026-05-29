@@ -10,7 +10,11 @@ import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import './TransactionFormModal.css';
 import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
-import { isValidAmountInput, parseLocaleAmount } from '../../utils/numberFormat.js';
+import {
+  decimalSeparatorForLocale,
+  isValidAmountInput,
+  parseLocaleAmount,
+} from '../../utils/numberFormat.js';
 
 export interface TransactionFormData {
   id?: string;
@@ -71,7 +75,9 @@ export function TransactionFormModal({
   tags = [],
   initialData = null,
 }: TransactionFormModalProps): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  // Locale decimal separator drives the input sanitizer below.
+  const decimalSep = decimalSeparatorForLocale(i18n.language);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // Form state — defaults match the prototype (today, approved status, EUR)
@@ -376,7 +382,7 @@ export function TransactionFormModal({
                 inputMode="decimal"
                 value={amount}
                 onChange={(e) => {
-                  if (isValidAmountInput(e.target.value)) {
+                  if (isValidAmountInput(e.target.value, decimalSep)) {
                     setAmount(e.target.value);
                   }
                 }}

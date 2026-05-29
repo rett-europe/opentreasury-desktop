@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { formatCurrency, isValidAmountInput, parseLocaleAmount } from './numberFormat.js';
+import {
+  decimalSeparatorForLocale,
+  formatCurrency,
+  isValidAmountInput,
+  parseLocaleAmount,
+} from './numberFormat.js';
 
 describe('formatCurrency', () => {
   it('formats EUR in es-ES with comma decimal and trailing euro symbol', () => {
@@ -72,31 +77,109 @@ describe('parseLocaleAmount', () => {
   });
 });
 
-describe('isValidAmountInput', () => {
-  // Valid intermediate / fully-formed states.
+describe('isValidAmountInput (ES — decimalSep = ",")', () => {
+  // Valid intermediate / fully-formed states under the Spanish rule.
   it.each([
     '',
     '-',
     '0',
     '1',
     '1234',
-    '1,2',
-    '1.2',
-    '1.331,85',
-    '1,331.85',
-    '-1331,85',
+    '1331,85',
     '1331,',
-    '.85',
     ',85',
+    '-1331,85',
+    '0,5',
+    '999999999999', // 12-digit integer at the cap
+    '999999999999,99', // integer at cap + 2 decimals
   ])('accepts %j', (v) => {
-    expect(isValidAmountInput(v)).toBe(true);
+    expect(isValidAmountInput(v, ',')).toBe(true);
   });
 
-  // Reject garbage keystrokes the input should silently swallow.
-  it.each(['a', '1abc', '1..2', '1,,2', '1.2.3', '1,2,3', '1-2', '-1-', '1.....,2,..'])(
-    'rejects %j',
-    (v) => {
-      expect(isValidAmountInput(v)).toBe(false);
+  // Reject everything that isn't a single comma-decimal number.
+  it.each([
+    'a',
+    '1abc',
+    // Period is the wrong separator in ES — no longer accepted at input.
+    '1.85',
+    '1.331,85',
+    '1,331.85',
+    '999.999,99',
+    // Multiple commas (incl. the previous "looks like thousands" forms).
+    '1,,2',
+    '1,2,3',
+    '1,2,3,4,5',
+    // More than 2 decimal digits.
+    '1,234',
+    '1,999',
+    // Integer too long (13 digits, one past the cap).
+    '1234567890123',
+    // Pedro's degenerate input.
+    '1.331123123213123123,85555555',
+    // Stray sign.
+    '1-2',
+    '-1-',
+  ])('rejects %j', (v) => {
+    expect(isValidAmountInput(v, ',')).toBe(false);
+  });
+});
+
+describe('isValidAmountInput (EN — decimalSep = ".")', () => {
+  // Valid under the English rule (period decimal, no thousands grouping).
+  it.each([
+    '',
+    '-',
+    '0',
+    '1',
+    '1234',
+    '1331.85',
+    '1331.',
+    '.85',
+    '-1331.85',
+    '0.5',
+    '999999999999',
+    '999999999999.99',
+  ])('accepts %j', (v) => {
+    expect(isValidAmountInput(v, '.')).toBe(true);
+  });
+
+  // Reject the wrong separator and any grouping / garbage.
+  it.each([
+    'a',
+    '1abc',
+    // Comma is the wrong separator in EN — no longer accepted at input.
+    '1,85',
+    '1,331.85',
+    '1.331,85',
+    '1,234,567.89',
+    // Multiple dots.
+    '1..2',
+    '1.2.3',
+    '1.2.3.4',
+    // More than 2 decimal digits.
+    '1.234',
+    '1.999',
+    // Integer too long.
+    '1234567890123',
+    // Pedro's degenerate input.
+    '1.331123123213123123,85555555',
+    // Stray sign.
+    '1-2',
+    '-1-',
+  ])('rejects %j', (v) => {
+    expect(isValidAmountInput(v, '.')).toBe(false);
+  });
+});
+
+describe('decimalSeparatorForLocale', () => {
+  it.each(['en', 'en-US', 'en-GB'])('returns "." for %j', (locale) => {
+    expect(decimalSeparatorForLocale(locale)).toBe('.');
+  });
+
+  it.each(['es', 'es-ES', 'es-MX', 'fr', 'de', 'it', 'pt-BR'])(
+    'returns "," for %j (non-English)',
+    (locale) => {
+      expect(decimalSeparatorForLocale(locale)).toBe(',');
     },
   );
 });

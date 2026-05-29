@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
@@ -47,7 +47,14 @@ const baseTx: MovementRecord = {
 // form and called out splits as the other place that takes amount strings.
 // `handleAmountChange` already parses with `parseLocaleAmount`; the guard
 // just prevents the raw input from filling up with garbage like `1.....,2,..`.
-describe('SplitTransactionModal — amount keystroke sanitization (ES locale sweep)', () => {
+describe('SplitTransactionModal — amount keystroke sanitization (ES locale)', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('es');
+  });
+  afterAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
   it('silently rejects garbage keystrokes in a split amount input', async () => {
     render(
       <I18nextProvider i18n={i18n}>

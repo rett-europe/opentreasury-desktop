@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, beforeAll, afterEach, afterAll } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
@@ -355,7 +355,14 @@ describe('MovementsScreen', () => {
   // `1.000,00`) and parse them via `parseLocaleAmount`. The inputs are
   // `type="text"` so the browser doesn't reject the comma in locales that
   // expect a `.` decimal.
-  describe('amount filter: comma-decimal input', () => {
+  describe('amount filter: comma-decimal input (ES locale)', () => {
+    beforeAll(async () => {
+      await i18n.changeLanguage('es');
+    });
+    afterAll(async () => {
+      await i18n.changeLanguage('en');
+    });
+
     function getMinAmountInput(): HTMLInputElement {
       // The aria-label resolves to the i18n string `movements.filters.amountMin`,
       // which is `"min €"` in both locales (en/es). Match permissively.
@@ -383,8 +390,8 @@ describe('MovementsScreen', () => {
 
     beforeEach(() => {
       // Seed three transactions at distinct amounts so the filter changes
-      // are visible: 100.50, 200.00 (defaults) + 1331.85 to exercise the
-      // thousands-separator code path.
+      // are visible: 100.50, 200.00 (defaults) + 1331.85 to exercise a
+      // higher-magnitude row.
       vi.mocked(listMovements).mockResolvedValue([
         ...mockMovements,
         {
@@ -447,17 +454,32 @@ describe('MovementsScreen', () => {
       expect(screen.queryByText('Big donation')).toBeNull();
     });
 
-    it('min amount `1.000,00` (Spanish thousands + decimal) keeps only rows ≥ 1000', async () => {
+    it('min amount `1000,00` (no thousands grouping) keeps only rows ≥ 1000', async () => {
       renderWithI18n();
       await waitFor(() => expect(countDataRows()).toBe(3));
 
-      fireEvent.change(getMinAmountInput(), { target: { value: '1.000,00' } });
+      // Plain integer + comma decimal — thousands grouping is rejected at
+      // input in ES under the strict per-locale rule.
+      fireEvent.change(getMinAmountInput(), { target: { value: '1000,00' } });
 
       await waitFor(() => {
         // Only the 1331.85 row remains.
         expect(countDataRows()).toBe(1);
       });
       expect(screen.getByText('Big donation')).toBeTruthy();
+    });
+
+    it('rejects thousands grouping (`1.000,00`) at input — the dot never enters state', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(countDataRows()).toBe(3));
+
+      const minInput = getMinAmountInput();
+      fireEvent.change(minInput, { target: { value: '100,50' } });
+      expect(minInput.value).toBe('100,50');
+
+      // `.` is the wrong separator in ES under the strict per-locale rule.
+      fireEvent.change(minInput, { target: { value: '1.000,00' } });
+      expect(minInput.value).toBe('100,50');
     });
 
     it('silently rejects garbage keystrokes in the min-amount input', async () => {

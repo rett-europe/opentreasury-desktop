@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
@@ -454,9 +454,17 @@ describe('TransactionDetailModal', () => {
 
   // ES locale sweep — regression for the comma-decimal bug Pedro hit during
   // trial.3.13 integration testing. The edit-mode amount input must accept
-  // both `1331,85` (Spanish decimal) and `1.331,85` (Spanish thousands +
-  // decimal) and forward the correct numeric value to the IPC update handler.
-  describe('comma-decimal amount input (ES locale sweep)', () => {
+  // `1331,85` (Spanish decimal) and forward the correct numeric value to the
+  // IPC update handler. Thousands grouping is rejected at input — the
+  // display layer adds it via `formatCurrency`.
+  describe('comma-decimal amount input (ES locale)', () => {
+    beforeAll(async () => {
+      await i18n.changeLanguage('es');
+    });
+    afterAll(async () => {
+      await i18n.changeLanguage('en');
+    });
+
     async function editAmountAndSave(typed: string) {
       const handleUpdate = vi.fn().mockResolvedValue(undefined);
       // Start with a `pending` transaction so amount is editable (SPEC-025 lock).
@@ -483,9 +491,17 @@ describe('TransactionDetailModal', () => {
       expect(call.amount).toBe(1331.85);
     });
 
-    it('parses `1.331,85` (Spanish thousands + decimal) into 1331.85 for the IPC update', async () => {
-      const call = await editAmountAndSave('1.331,85');
-      expect(call.amount).toBe(1331.85);
+    it('rejects thousands grouping (`1.331,85`) at input — the dot never enters state', () => {
+      renderModal({ ...baseTx, status: 'pending' });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+      const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
+
+      fireEvent.change(amountInput, { target: { value: '1331,85' } });
+      expect(amountInput.value).toBe('1331,85');
+
+      // `.` is the wrong separator in ES under the strict per-locale rule.
+      fireEvent.change(amountInput, { target: { value: '1.331,85' } });
+      expect(amountInput.value).toBe('1331,85');
     });
 
     it('silently rejects garbage keystrokes (e.g. `1..2`) — input value is unchanged', () => {

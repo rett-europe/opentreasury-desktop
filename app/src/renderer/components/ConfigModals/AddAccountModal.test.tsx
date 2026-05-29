@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
@@ -25,7 +25,14 @@ beforeEach(() => {
 // same way the transaction-form amount inputs do. This guard pairs with the
 // `parseLocaleAmount` conversion handled in the sibling comma-decimal PR
 // (#345); applied here so the protection is in place regardless of merge order.
-describe('AddAccountModal — opening-balance keystroke sanitization', () => {
+describe('AddAccountModal — opening-balance keystroke sanitization (ES locale)', () => {
+  beforeAll(async () => {
+    await i18n.changeLanguage('es');
+  });
+  afterAll(async () => {
+    await i18n.changeLanguage('en');
+  });
+
   it('silently rejects garbage keystrokes in the opening-balance input', () => {
     render(
       <I18nextProvider i18n={i18n}>

@@ -3,7 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { formatDate } from '../../utils/dateFormat.js';
-import { parseLocaleAmount, isValidAmountInput } from '../../utils/numberFormat.js';
+import {
+  parseLocaleAmount,
+  isValidAmountInput,
+  decimalSeparatorForLocale,
+} from '../../utils/numberFormat.js';
 import { newUlid } from '../../utils/ulid.js';
 import { createSplit, removeSplit, getSplits } from '../../services/splitsApi.js';
 import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
@@ -40,6 +44,8 @@ export function SplitTransactionModal({
 }: SplitTransactionModalProps): JSX.Element {
   const { t, i18n } = useTranslation('common');
   const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
+  // Decimal separator for the active locale — drives the per-row input sanitizer.
+  const decimalSep = decimalSeparatorForLocale(i18n.language);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   const [splits, setSplits] = useState<SplitRow[]>([]);
@@ -170,11 +176,10 @@ export function SplitTransactionModal({
   };
 
   const handleAmountChange = (id: string, value: string): void => {
-    // Reject garbage keystrokes (e.g. "1..2", "1,,2") at the input boundary
-    // so the field can't fill up with invalid characters. parseLocaleAmount
-    // would still return NaN for them, but the UX of allowing typed garbage
-    // is unacceptable (Pedro regression — trial.3.13).
-    if (!isValidAmountInput(value)) return;
+    // Reject garbage keystrokes at the input boundary so the field can't fill
+    // up with invalid characters. parseLocaleAmount would still return NaN
+    // for them, but the UX of allowing typed garbage is unacceptable.
+    if (!isValidAmountInput(value, decimalSep)) return;
     setSplits(splits.map((s) => (s.id === id ? { ...s, amountEur: value } : s)));
   };
 
