@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Tag as TagIcon, Search, Edit, Archive, RotateCcw } from 'lucide-react';
+import { Plus, Tag as TagIcon, Search, Edit, Archive, RotateCcw, Trash2 } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
 import { AddTagModal, ArchiveConfirmModal } from '../../components/ConfigModals/index.js';
+import { ConfirmDialog } from '../../components/ConfirmDialog/index.js';
 import { listTags } from '../../services/tagsApi.js';
 import {
   archiveTag,
   ConfigMutationError,
+  deleteTag,
   isArchived,
+  listTagsUsage,
   unarchiveTag,
   type ConfigTag,
 } from '../../services/configMutationsApi.js';
@@ -41,14 +44,20 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ConfigTag | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ConfigTag | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ConfigTag | null>(null);
+  const [usage, setUsage] = useState<ReadonlyMap<string, number>>(() => new Map());
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const resp = await listTags({ includeArchived: showArchived });
+      const [resp, usageResp] = await Promise.all([
+        listTags({ includeArchived: showArchived }),
+        listTagsUsage(),
+      ]);
       setState({ kind: 'loaded', tags: resp.tags as readonly ConfigTag[] });
+      setUsage(new Map(usageResp.usage.map((u) => [u.tagId, u.transactionCount])));
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : 'unknown' });
     }
@@ -91,6 +100,35 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
     },
     [load, onListChanged, t],
   );
+
+  const deleteUsage = deleteTarget ? (usage.get(deleteTarget.id) ?? 0) : 0;
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    try {
+      if (deleteUsage > 0) {
+        await archiveTag(target.id);
+      } else {
+        await deleteTag(target.id);
+      }
+      await load();
+      onListChanged?.();
+    } catch (err) {
+      const message =
+        err instanceof ConfigMutationError
+          ? err.code === 'HAS_REFERENCES'
+            ? t('configuracion.etiquetas.delete.error.hasReferences', {
+                count: err.transactionCount ?? 0,
+              })
+            : mapConfigMutationErrorToMessage(err, t)
+          : err instanceof Error
+            ? err.message
+            : t('configuracion.errors.submitFailed');
+      setState({ kind: 'error', message });
+      await load();
+    }
+  }, [deleteTarget, deleteUsage, load, onListChanged, t]);
 
   const visibleTags =
     state.kind === 'loaded' ? state.tags.filter((tg) => showArchived || !isArchived(tg)) : [];
@@ -221,14 +259,24 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
                       </div>
                       <div className="ot-config__tag-grid-actions">
                         {archived ? (
-                          <button
-                            className="ot-config__row-action-btn"
-                            title={t('configuracion.unarchiveTooltip')}
-                            aria-label={t('configuracion.unarchiveTooltip')}
-                            onClick={() => void handleUnarchive(tg.id)}
-                          >
-                            <RotateCcw size={14} />
-                          </button>
+                          <>
+                            <button
+                              className="ot-config__row-action-btn"
+                              title={t('configuracion.unarchiveTooltip')}
+                              aria-label={t('configuracion.unarchiveTooltip')}
+                              onClick={() => void handleUnarchive(tg.id)}
+                            >
+                              <RotateCcw size={14} />
+                            </button>
+                            <button
+                              className="ot-config__row-action-btn"
+                              title={t('configuracion.etiquetas.delete.actionTooltip')}
+                              aria-label={t('configuracion.etiquetas.delete.actionTooltip')}
+                              onClick={() => setDeleteTarget(tg)}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </>
                         ) : (
                           <>
                             <button
@@ -246,6 +294,14 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
                               onClick={() => setArchiveTarget(tg)}
                             >
                               <Archive size={14} />
+                            </button>
+                            <button
+                              className="ot-config__row-action-btn"
+                              title={t('configuracion.etiquetas.delete.actionTooltip')}
+                              aria-label={t('configuracion.etiquetas.delete.actionTooltip')}
+                              onClick={() => setDeleteTarget(tg)}
+                            >
+                              <Trash2 size={14} />
                             </button>
                           </>
                         )}
@@ -273,6 +329,27 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
         name={archiveTarget?.name ?? ''}
         onClose={() => setArchiveTarget(null)}
         onConfirm={handleArchive}
+      />
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        variant={deleteUsage > 0 ? 'default' : 'destructive'}
+        title={t(
+          deleteUsage > 0
+            ? 'configuracion.etiquetas.delete.confirmHasRefs.title'
+            : 'configuracion.etiquetas.delete.confirmEmpty.title',
+        )}
+        message={
+          deleteUsage > 0
+            ? t('configuracion.etiquetas.delete.confirmHasRefs.body', { count: deleteUsage })
+            : t('configuracion.etiquetas.delete.confirmEmpty.body')
+        }
+        confirmLabel={t(
+          deleteUsage > 0
+            ? 'configuracion.etiquetas.delete.confirmHasRefs.archiveCta'
+            : 'configuracion.etiquetas.delete.confirmEmpty.confirmCta',
+        )}
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
       />
     </>
   );

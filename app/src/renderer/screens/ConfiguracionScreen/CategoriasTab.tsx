@@ -1,17 +1,31 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Folder, Search, Edit, Archive, RotateCcw, Check, X as XIcon } from 'lucide-react';
+import {
+  Plus,
+  Folder,
+  Search,
+  Edit,
+  Archive,
+  RotateCcw,
+  Check,
+  X as XIcon,
+  Trash2,
+} from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
 import { AddCategoryModal, ArchiveConfirmModal } from '../../components/ConfigModals/index.js';
+import { ConfirmDialog } from '../../components/ConfirmDialog/index.js';
 import { listCategories, getCategoriesUsage } from '../../services/categoriesApi.js';
 import {
   archiveCategory,
   archiveSubcategory,
   ConfigMutationError,
   createSubcategory,
+  deleteCategory,
+  deleteSubcategory,
   isArchived,
+  listSubcategoriesUsage,
   unarchiveCategory,
   unarchiveSubcategory,
   updateSubcategory,
@@ -67,6 +81,15 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
   const [editing, setEditing] = useState<ConfigCategory | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ConfigCategory | null>(null);
   const [subArchiveTarget, setSubArchiveTarget] = useState<SubcategoryRecord | null>(null);
+  // WI-21-followup — hard-delete targets + per-subcategory usage map.
+  // Categories already expose `usage` (transactionCount/classifiedCount via
+  // getCategoriesUsage); subcategories get their own listSubcategoriesUsage
+  // IPC. The category delete handler also sums references from the parent's
+  // subcategories on the server side, but we surface a UI gate here too so
+  // the destructive CTA never shows up for a category that has movements.
+  const [deleteCatTarget, setDeleteCatTarget] = useState<ConfigCategory | null>(null);
+  const [deleteSubTarget, setDeleteSubTarget] = useState<SubcategoryRecord | null>(null);
+  const [subUsage, setSubUsage] = useState<ReadonlyMap<string, number>>(() => new Map());
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -85,9 +108,10 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const [resp, usageResp] = await Promise.all([
+      const [resp, usageResp, subUsageResp] = await Promise.all([
         listCategories({ includeArchived: showArchived }),
         getCategoriesUsage(),
+        listSubcategoriesUsage(),
       ]);
       const cats = resp.categories as readonly ConfigCategory[];
       setState({ kind: 'loaded', categories: cats });
@@ -99,6 +123,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
           ]),
         ),
       );
+      setSubUsage(new Map(subUsageResp.usage.map((u) => [u.subcategoryId, u.transactionCount])));
       setSelectedId((prev) => {
         if (prev && cats.some((c) => c.id === prev)) return prev;
         return cats[0]?.id ?? null;
@@ -253,6 +278,77 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
     },
     [load, t],
   );
+
+  // WI-21-followup — category usage (for delete gate) sums the category's
+  // direct transactionCount PLUS the usage of all its subcategories (the
+  // handler does the same on the server side; this mirror keeps the UI in
+  // sync so the destructive CTA never appears when refs exist).
+  const deleteCatUsage = useMemo(() => {
+    if (!deleteCatTarget) return 0;
+    let sum = usage.get(deleteCatTarget.id)?.transactionCount ?? 0;
+    for (const sub of deleteCatTarget.subcategories ?? []) {
+      sum += subUsage.get(sub.id) ?? 0;
+    }
+    return sum;
+  }, [deleteCatTarget, usage, subUsage]);
+  const deleteSubUsageCount = deleteSubTarget ? (subUsage.get(deleteSubTarget.id) ?? 0) : 0;
+
+  const handleConfirmCatDelete = useCallback(async () => {
+    if (!deleteCatTarget) return;
+    const target = deleteCatTarget;
+    setDeleteCatTarget(null);
+    try {
+      if (deleteCatUsage > 0) {
+        await archiveCategory(target.id);
+      } else {
+        await deleteCategory(target.id);
+      }
+      await load();
+      onListChanged?.();
+    } catch (err) {
+      const message =
+        err instanceof ConfigMutationError
+          ? err.code === 'HAS_REFERENCES'
+            ? t('configuracion.categorias.delete.error.hasReferences', {
+                count: err.transactionCount ?? 0,
+              })
+            : mapConfigMutationErrorToMessage(err, t)
+          : err instanceof Error
+            ? err.message
+            : t('configuracion.errors.submitFailed');
+      setState({ kind: 'error', message });
+      await load();
+    }
+  }, [deleteCatTarget, deleteCatUsage, load, onListChanged, t]);
+
+  const handleConfirmSubDelete = useCallback(async () => {
+    if (!deleteSubTarget) return;
+    const target = deleteSubTarget;
+    setDeleteSubTarget(null);
+    setSubError(null);
+    try {
+      if (deleteSubUsageCount > 0) {
+        await archiveSubcategory(target.id, target.parentCategoryId);
+      } else {
+        await deleteSubcategory({ id: target.id, parentId: target.parentCategoryId });
+      }
+      await load();
+      onListChanged?.();
+    } catch (err) {
+      const message =
+        err instanceof ConfigMutationError
+          ? err.code === 'HAS_REFERENCES'
+            ? t('configuracion.subcategorias.delete.error.hasReferences', {
+                count: err.transactionCount ?? 0,
+              })
+            : mapConfigMutationErrorToMessage(err, t)
+          : err instanceof Error
+            ? err.message
+            : t('configuracion.errors.submitFailed');
+      setSubError(message);
+      await load();
+    }
+  }, [deleteSubTarget, deleteSubUsageCount, load, onListChanged, t]);
 
   const selectedSubs = useMemo<readonly SubcategoryRecord[]>(
     () => (selected?.subcategories ?? []) as readonly SubcategoryRecord[],
@@ -435,14 +531,24 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                         {renderKindPill(c.kind)}
                         <span className="ot-config__list-row-actions">
                           {archived ? (
-                            <button
-                              className="ot-config__row-action-btn"
-                              title={t('configuracion.unarchiveTooltip')}
-                              aria-label={t('configuracion.unarchiveTooltip')}
-                              onClick={() => void handleUnarchive(c.id)}
-                            >
-                              <RotateCcw size={14} />
-                            </button>
+                            <>
+                              <button
+                                className="ot-config__row-action-btn"
+                                title={t('configuracion.unarchiveTooltip')}
+                                aria-label={t('configuracion.unarchiveTooltip')}
+                                onClick={() => void handleUnarchive(c.id)}
+                              >
+                                <RotateCcw size={14} />
+                              </button>
+                              <button
+                                className="ot-config__row-action-btn"
+                                title={t('configuracion.categorias.delete.actionTooltip')}
+                                aria-label={t('configuracion.categorias.delete.actionTooltip')}
+                                onClick={() => setDeleteCatTarget(c)}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
                           ) : (
                             <>
                               <button
@@ -460,6 +566,14 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                                 onClick={() => setArchiveTarget(c)}
                               >
                                 <Archive size={14} />
+                              </button>
+                              <button
+                                className="ot-config__row-action-btn"
+                                title={t('configuracion.categorias.delete.actionTooltip')}
+                                aria-label={t('configuracion.categorias.delete.actionTooltip')}
+                                onClick={() => setDeleteCatTarget(c)}
+                              >
+                                <Trash2 size={14} />
                               </button>
                             </>
                           )}
@@ -596,14 +710,26 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                                   ) : null}
                                 </span>
                                 {archived ? (
-                                  <button
-                                    className="ot-config__row-action-btn"
-                                    title={t('configuracion.unarchiveTooltip')}
-                                    aria-label={t('configuracion.unarchiveTooltip')}
-                                    onClick={() => void doSubUnarchive(sub)}
-                                  >
-                                    <RotateCcw size={14} />
-                                  </button>
+                                  <>
+                                    <button
+                                      className="ot-config__row-action-btn"
+                                      title={t('configuracion.unarchiveTooltip')}
+                                      aria-label={t('configuracion.unarchiveTooltip')}
+                                      onClick={() => void doSubUnarchive(sub)}
+                                    >
+                                      <RotateCcw size={14} />
+                                    </button>
+                                    <button
+                                      className="ot-config__row-action-btn"
+                                      title={t('configuracion.subcategorias.delete.actionTooltip')}
+                                      aria-label={t(
+                                        'configuracion.subcategorias.delete.actionTooltip',
+                                      )}
+                                      onClick={() => setDeleteSubTarget(sub)}
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
                                 ) : (
                                   <>
                                     <button
@@ -631,6 +757,16 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                                       onClick={() => setSubArchiveTarget(sub)}
                                     >
                                       <Archive size={14} />
+                                    </button>
+                                    <button
+                                      className="ot-config__row-action-btn"
+                                      title={t('configuracion.subcategorias.delete.actionTooltip')}
+                                      aria-label={t(
+                                        'configuracion.subcategorias.delete.actionTooltip',
+                                      )}
+                                      onClick={() => setDeleteSubTarget(sub)}
+                                    >
+                                      <Trash2 size={14} />
                                     </button>
                                   </>
                                 )}
@@ -731,6 +867,50 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
         name={subArchiveTarget?.name ?? ''}
         onClose={() => setSubArchiveTarget(null)}
         onConfirm={doSubArchive}
+      />
+      <ConfirmDialog
+        isOpen={deleteCatTarget !== null}
+        variant={deleteCatUsage > 0 ? 'default' : 'destructive'}
+        title={t(
+          deleteCatUsage > 0
+            ? 'configuracion.categorias.delete.confirmHasRefs.title'
+            : 'configuracion.categorias.delete.confirmEmpty.title',
+        )}
+        message={
+          deleteCatUsage > 0
+            ? t('configuracion.categorias.delete.confirmHasRefs.body', { count: deleteCatUsage })
+            : t('configuracion.categorias.delete.confirmEmpty.body')
+        }
+        confirmLabel={t(
+          deleteCatUsage > 0
+            ? 'configuracion.categorias.delete.confirmHasRefs.archiveCta'
+            : 'configuracion.categorias.delete.confirmEmpty.confirmCta',
+        )}
+        onConfirm={() => void handleConfirmCatDelete()}
+        onCancel={() => setDeleteCatTarget(null)}
+      />
+      <ConfirmDialog
+        isOpen={deleteSubTarget !== null}
+        variant={deleteSubUsageCount > 0 ? 'default' : 'destructive'}
+        title={t(
+          deleteSubUsageCount > 0
+            ? 'configuracion.subcategorias.delete.confirmHasRefs.title'
+            : 'configuracion.subcategorias.delete.confirmEmpty.title',
+        )}
+        message={
+          deleteSubUsageCount > 0
+            ? t('configuracion.subcategorias.delete.confirmHasRefs.body', {
+                count: deleteSubUsageCount,
+              })
+            : t('configuracion.subcategorias.delete.confirmEmpty.body')
+        }
+        confirmLabel={t(
+          deleteSubUsageCount > 0
+            ? 'configuracion.subcategorias.delete.confirmHasRefs.archiveCta'
+            : 'configuracion.subcategorias.delete.confirmEmpty.confirmCta',
+        )}
+        onConfirm={() => void handleConfirmSubDelete()}
+        onCancel={() => setDeleteSubTarget(null)}
       />
     </>
   );
