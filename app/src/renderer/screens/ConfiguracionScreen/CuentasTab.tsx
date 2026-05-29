@@ -10,6 +10,7 @@ import {
   BalanceAdjustmentModal,
 } from '../../components/ConfigModals/index.js';
 import { listAccounts } from '../../services/accountsApi.js';
+import { getAccountBalances } from '../../services/panelApi.js';
 import {
   archiveAccount,
   ConfigMutationError,
@@ -22,7 +23,15 @@ import type { AccountRecord } from '../../types/config.js';
 
 type State =
   | { kind: 'loading' }
-  | { kind: 'loaded'; accounts: readonly ConfigAccount[] }
+  | {
+      kind: 'loaded';
+      accounts: readonly ConfigAccount[];
+      // Per-account `net` from `panel.getAccountBalances` (income − expense
+      // across all transactions). Combined with `openingBalance` to render
+      // the live "current balance" column, so balance adjustments (and any
+      // other tx) update the Accounts list immediately.
+      balancesById: ReadonlyMap<string, number>;
+    }
   | { kind: 'error'; message: string };
 
 export interface CuentasTabProps {
@@ -64,8 +73,23 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const resp = await listAccounts({ includeArchived: showArchived });
-      setState({ kind: 'loaded', accounts: resp.accounts as readonly ConfigAccount[] });
+      // Fetch the account list and per-account balance aggregates in parallel.
+      // If only the balances call fails (e.g. transient IPC error) we still
+      // render the list with `balancesById` empty — the row cell + total
+      // gracefully fall back to opening balance only.
+      const [listResp, balancesResp] = await Promise.all([
+        listAccounts({ includeArchived: showArchived }),
+        getAccountBalances().catch(() => null),
+      ]);
+      const balancesById = new Map<string, number>();
+      if (balancesResp) {
+        for (const b of balancesResp.balances) balancesById.set(b.accountId, b.net);
+      }
+      setState({
+        kind: 'loaded',
+        accounts: listResp.accounts as readonly ConfigAccount[],
+        balancesById,
+      });
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : 'unknown' });
     }
@@ -129,9 +153,15 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
     );
   });
 
+  const balancesById = state.kind === 'loaded' ? state.balancesById : new Map<string, number>();
+  const currentBalanceFor = (a: ConfigAccount): number =>
+    a.openingBalance + (balancesById.get(a.id) ?? 0);
+
   const totalBalance =
     state.kind === 'loaded'
-      ? state.accounts.filter((a) => !isArchived(a)).reduce((sum, a) => sum + a.openingBalance, 0)
+      ? state.accounts
+          .filter((a) => !isArchived(a))
+          .reduce((sum, a) => sum + currentBalanceFor(a), 0)
       : 0;
 
   return (
@@ -344,13 +374,13 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                           className="align-right"
                           style={{
                             color:
-                              a.openingBalance >= 0
+                              currentBalanceFor(a) >= 0
                                 ? 'var(--color-status-success)'
                                 : 'var(--color-status-error)',
                             fontWeight: 'var(--font-weight-medium)',
                           }}
                         >
-                          {fmtCurrency.format(a.openingBalance)}
+                          {fmtCurrency.format(currentBalanceFor(a))}
                         </td>
                         <td>
                           <div className="ot-config__row-actions">
