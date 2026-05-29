@@ -4,6 +4,7 @@ import { createTransaction } from '../../services/transactionApi.js';
 import { getAccountBalances } from '../../services/panelApi.js';
 import type { ConfigAccount } from '../../services/configMutationsApi.js';
 import { ADJUSTMENT_DETAILS_MARKER } from '../../../shared/constants/transactionMarkers.js';
+import { parseLocaleAmount } from '../../utils/numberFormat.js';
 import { ConfigModalShell } from './ConfigModalShell.js';
 
 export interface BalanceAdjustmentModalProps {
@@ -116,10 +117,15 @@ export function BalanceAdjustmentModal({
     }).format(local);
   }, [date, i18n.language]);
 
+  // Locale-tolerant parsing: accept both "1331.85" (en) and "1331,85" / "1.331,85"
+  // (es). The "last separator wins" rule in parseLocaleAmount means ambiguous
+  // input like "10.000" resolves to 10 (treats `.000` as decimal); users who
+  // mean ten thousand should type "10000" or "10000,00". This trade-off is
+  // acceptable here because the modal is amounts-in-euros (whole + cents) and
+  // the live "Adjustment" preview makes mistakes immediately visible.
   const targetNumber = useMemo(() => {
-    const trimmed = target.trim();
-    if (trimmed === '') return null;
-    const n = Number(trimmed);
+    if (target.trim() === '') return null;
+    const n = parseLocaleAmount(target);
     return Number.isFinite(n) ? n : null;
   }, [target]);
 
@@ -233,8 +239,11 @@ export function BalanceAdjustmentModal({
         <input
           id="bal-adj-target"
           className="ot-config-modal__input"
-          type="number"
-          step="0.01"
+          // `type="text"` (not `number`) so the field accepts both `.` and `,`
+          // as decimal separators in any locale — HTML number inputs reject
+          // comma-decimal entirely in en-US-configured browsers, which breaks
+          // Spanish users who naturally type "1331,85".
+          type="text"
           inputMode="decimal"
           value={target}
           placeholder="0.00"

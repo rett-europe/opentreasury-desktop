@@ -207,6 +207,43 @@ describe('BalanceAdjustmentModal', () => {
     expect(getSaveButton().disabled).toBe(true);
   });
 
+  it('accepts comma-decimal input (Spanish style) and computes the delta', async () => {
+    // current = 10227.81; target typed as "1331,85" (comma-decimal) should
+    // parse to 1331.85 and produce a delta of −8895.96.
+    installOpentreasuryStub({ net: 9227.81 }); // 1000 opening + 9227.81 net = 10227.81
+    renderModal();
+    await flushBalanceLoad();
+
+    const target = document.getElementById('bal-adj-target') as HTMLInputElement;
+    fireEvent.change(target, { target: { value: '1331,85' } });
+
+    // Adjustment row shows the expected negative delta (unicode minus).
+    expect(screen.getByText(/−€8,895\.96/)).not.toBeNull();
+    expect(getSaveButton().disabled).toBe(false);
+  });
+
+  it('also accepts Spanish thousands+decimal style ("1.331,85")', async () => {
+    installOpentreasuryStub({ net: 9227.81 }); // current = 10227.81
+    renderModal();
+    await flushBalanceLoad();
+
+    const target = document.getElementById('bal-adj-target') as HTMLInputElement;
+    fireEvent.change(target, { target: { value: '1.331,85' } });
+
+    expect(screen.getByText(/−€8,895\.96/)).not.toBeNull();
+    expect(getSaveButton().disabled).toBe(false);
+  });
+
+  it('disables Save for non-numeric input', async () => {
+    installOpentreasuryStub({ net: 0 });
+    renderModal();
+    await flushBalanceLoad();
+
+    const target = document.getElementById('bal-adj-target') as HTMLInputElement;
+    fireEvent.change(target, { target: { value: 'abc' } });
+    expect(getSaveButton().disabled).toBe(true);
+  });
+
   it('calls createTransaction with a positive-delta income payload on Save', async () => {
     const { createFn } = installOpentreasuryStub({ net: 0 }); // current = 1000
     const { onClose, onSaved } = renderModal();
