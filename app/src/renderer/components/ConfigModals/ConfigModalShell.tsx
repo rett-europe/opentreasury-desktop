@@ -9,10 +9,17 @@ import './ConfigModal.css';
 export interface ConfigModalShellProps {
   readonly isOpen: boolean;
   readonly titleKey: string;
+  /** Optional i18n interpolation values for `titleKey` (e.g. `{ accountName }`). */
+  readonly titleValues?: Readonly<Record<string, string | number>>;
   readonly onClose: () => void;
   readonly onSubmit: () => Promise<void> | void;
   readonly generalError?: string | null;
   readonly submitting?: boolean;
+  /**
+   * Disable the submit button even when not submitting (e.g. invalid form).
+   * Cancel remains enabled so users can always close the modal.
+   */
+  readonly submitDisabled?: boolean;
   readonly submitLabelKey?: string;
   readonly submittingLabelKey?: string;
   readonly children: ReactNode;
@@ -30,10 +37,12 @@ export interface ConfigModalShellProps {
 export function ConfigModalShell({
   isOpen,
   titleKey,
+  titleValues,
   onClose,
   onSubmit,
   generalError,
   submitting = false,
+  submitDisabled = false,
   submitLabelKey = 'common.save',
   submittingLabelKey = 'common.saving',
   children,
@@ -105,7 +114,7 @@ export function ConfigModalShell({
       <div className="ot-config-modal__content">
         <header className="ot-config-modal__header">
           <h2 id="ot-config-modal-title" className="ot-config-modal__title">
-            {t(titleKey)}
+            {titleValues ? t(titleKey, titleValues) : t(titleKey)}
           </h2>
           <button
             type="button"
@@ -130,7 +139,7 @@ export function ConfigModalShell({
             <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
               {t('common.cancel')}
             </Button>
-            <Button type="submit" variant="primary" disabled={submitting}>
+            <Button type="submit" variant="primary" disabled={submitting || submitDisabled}>
               {submitting ? t(submittingLabelKey) : t(submitLabelKey)}
             </Button>
           </footer>

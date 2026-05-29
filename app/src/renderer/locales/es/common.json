@@ -596,6 +596,22 @@
         "title": "Aún no hay cuentas",
         "body": "Añade tu primera cuenta bancaria o PayPal para empezar a registrar movimientos.",
         "noMatch": "Ninguna cuenta coincide con la búsqueda."
+      },
+      "adjustBalance": {
+        "actionTooltip": "Ajustar saldo",
+        "modal": {
+          "title": "Ajustar saldo — {{accountName}}",
+          "currentBalance": "Saldo actual",
+          "targetBalance": "¿Cuál debería ser el saldo actual?",
+          "delta": "Ajuste",
+          "description": "Descripción",
+          "descriptionDefault": "Ajuste de saldo — {{date}}",
+          "date": "Fecha",
+          "save": "Crear ajuste",
+          "cancel": "Cancelar",
+          "noChange": "Sin cambio — el objetivo coincide con el saldo actual.",
+          "errorGeneric": "No se pudo crear el ajuste. Inténtalo de nuevo."
+        }
       }
     },
     "categorias": {

@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Landmark, Search, Edit, Archive, Eye, EyeOff, RotateCcw } from 'lucide-react';
+import { Plus, Landmark, Search, Edit, Archive, Eye, EyeOff, RotateCcw, Scale } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
-import { AddAccountModal, ArchiveConfirmModal } from '../../components/ConfigModals/index.js';
+import {
+  AddAccountModal,
+  ArchiveConfirmModal,
+  BalanceAdjustmentModal,
+} from '../../components/ConfigModals/index.js';
 import { listAccounts } from '../../services/accountsApi.js';
 import {
   archiveAccount,
@@ -43,6 +47,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ConfigAccount | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ConfigAccount | null>(null);
+  const [adjusting, setAdjusting] = useState<ConfigAccount | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [revealed, setRevealed] = useState<ReadonlySet<string>>(() => new Set());
@@ -350,14 +355,26 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                         <td>
                           <div className="ot-config__row-actions">
                             {archived ? (
-                              <button
-                                className="ot-config__row-action-btn"
-                                title={t('configuracion.unarchiveTooltip')}
-                                aria-label={t('configuracion.unarchiveTooltip')}
-                                onClick={() => void handleUnarchive(a.id)}
-                              >
-                                <RotateCcw size={14} />
-                              </button>
+                              <>
+                                <button
+                                  className="ot-config__row-action-btn"
+                                  title={t('configuracion.cuentas.adjustBalance.actionTooltip')}
+                                  aria-label={t(
+                                    'configuracion.cuentas.adjustBalance.actionTooltip',
+                                  )}
+                                  onClick={() => setAdjusting(a)}
+                                >
+                                  <Scale size={14} />
+                                </button>
+                                <button
+                                  className="ot-config__row-action-btn"
+                                  title={t('configuracion.unarchiveTooltip')}
+                                  aria-label={t('configuracion.unarchiveTooltip')}
+                                  onClick={() => void handleUnarchive(a.id)}
+                                >
+                                  <RotateCcw size={14} />
+                                </button>
+                              </>
                             ) : (
                               <>
                                 <button
@@ -367,6 +384,16 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                                   onClick={() => setEditing(a)}
                                 >
                                   <Edit size={14} />
+                                </button>
+                                <button
+                                  className="ot-config__row-action-btn"
+                                  title={t('configuracion.cuentas.adjustBalance.actionTooltip')}
+                                  aria-label={t(
+                                    'configuracion.cuentas.adjustBalance.actionTooltip',
+                                  )}
+                                  onClick={() => setAdjusting(a)}
+                                >
+                                  <Scale size={14} />
                                 </button>
                                 <button
                                   className="ot-config__row-action-btn"
@@ -414,6 +441,15 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
         name={archiveTarget?.name ?? ''}
         onClose={() => setArchiveTarget(null)}
         onConfirm={handleArchive}
+      />
+      <BalanceAdjustmentModal
+        isOpen={adjusting !== null}
+        account={adjusting}
+        onClose={() => setAdjusting(null)}
+        onSaved={() => {
+          void load();
+          onListChanged?.();
+        }}
       />
     </>
   );
