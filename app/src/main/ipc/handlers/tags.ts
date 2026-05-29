@@ -5,6 +5,7 @@ import type { EventLog } from '../../../core/eventLog/index.js';
 import type {
   ConfigTagArchivedEvent,
   ConfigTagCreatedEvent,
+  ConfigTagDeletedEvent,
   ConfigTagUnarchivedEvent,
   ConfigTagUpdatedEvent,
 } from '../../../core/events/schemas.js';
@@ -13,15 +14,18 @@ import type { ReadModel } from '../../../core/query/types.js';
 import {
   archiveTagRequestSchema,
   createTagRequestSchema,
+  deleteTagRequestSchema,
   unarchiveTagRequestSchema,
   updateTagRequestSchema,
   type ArchiveTagResponse,
   type CreateTagResponse,
+  type DeleteTagResponse,
   type TagRecord,
+  type TagsUsageResponse,
   type UnarchiveTagResponse,
   type UpdateTagResponse,
 } from '../../../shared/ipc-contracts/tags.js';
-import { selectActiveTags, selectTags } from '../../projections/config.js';
+import { selectActiveTags, selectTags, selectTagUsage } from '../../projections/config.js';
 
 export interface TagsHandlerDeps {
   readonly eventLog: EventLog;
@@ -275,5 +279,69 @@ export function createTagsUnarchiveHandler(
       const message = err instanceof Error ? err.message : String(err);
       return { ok: false, error: { code: 'INTERNAL', message } };
     }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// WI-21-followup — hard-delete (gated on usage_count === 0).
+// ---------------------------------------------------------------------------
+
+function countTagUsage(model: ReadModel, tagId: string): number {
+  const found = selectTagUsage(model).find((u) => u.tagId === tagId);
+  return found?.transactionCount ?? 0;
+}
+
+export function createTagsDeleteHandler(
+  deps: TagsHandlerDeps,
+): (raw: unknown) => Promise<DeleteTagResponse> {
+  return async function handleTagsDelete(raw: unknown): Promise<DeleteTagResponse> {
+    try {
+      const parsed = deleteTagRequestSchema.safeParse(raw);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          error: {
+            code: 'SCHEMA_INVALID',
+            message: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+          },
+        };
+      }
+      const { id } = parsed.data;
+      const model = deps.getReadModel();
+      const current = model.configTags.find((t) => t.id === id);
+      if (!current) {
+        return { ok: false, error: { code: 'NOT_FOUND', message: `Tag ${id} not found` } };
+      }
+      const transactionCount = countTagUsage(model, id);
+      if (transactionCount > 0) {
+        return {
+          ok: false,
+          error: {
+            code: 'HAS_REFERENCES',
+            message: `Tag ${id} is referenced by ${transactionCount} transaction(s)`,
+            transactionCount,
+          },
+        };
+      }
+      const event: ConfigTagDeletedEvent = {
+        type: 'TagDeleted',
+        id: deps.newId(),
+        tagId: id,
+        deletedAt: deps.now().toISOString(),
+      };
+      await appendAndApply(deps, event);
+      return { ok: true, event };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: { code: 'INTERNAL', message } };
+    }
+  };
+}
+
+export function createTagsUsageHandler(
+  deps: Pick<TagsHandlerDeps, 'getReadModel'>,
+): () => Promise<TagsUsageResponse> {
+  return async function handleTagsUsage(): Promise<TagsUsageResponse> {
+    return { usage: selectTagUsage(deps.getReadModel()) };
   };
 }

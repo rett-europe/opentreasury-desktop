@@ -10,10 +10,12 @@ import type { EventLog } from '../../../core/eventLog/index.js';
 import type {
   ConfigCategoryArchivedEvent,
   ConfigCategoryCreatedEvent,
+  ConfigCategoryDeletedEvent,
   ConfigCategoryUnarchivedEvent,
   ConfigCategoryUpdatedEvent,
   ConfigSubcategoryArchivedEvent,
   ConfigSubcategoryCreatedEvent,
+  ConfigSubcategoryDeletedEvent,
   ConfigSubcategoryUnarchivedEvent,
   ConfigSubcategoryUpdatedEvent,
 } from '../../../core/events/schemas.js';
@@ -24,6 +26,8 @@ import {
   archiveSubcategoryRequestSchema,
   createCategoryRequestSchema,
   createSubcategoryRequestSchema,
+  deleteCategoryRequestSchema,
+  deleteSubcategoryRequestSchema,
   unarchiveCategoryRequestSchema,
   unarchiveSubcategoryRequestSchema,
   updateCategoryRequestSchema,
@@ -34,6 +38,9 @@ import {
   type CategoryRecord,
   type CreateCategoryResponse,
   type CreateSubcategoryResponse,
+  type DeleteCategoryResponse,
+  type DeleteSubcategoryResponse,
+  type SubcategoriesUsageResponse,
   type UnarchiveCategoryResponse,
   type UnarchiveSubcategoryResponse,
   type UpdateCategoryResponse,
@@ -42,7 +49,9 @@ import {
 import {
   selectActiveCategories,
   selectCategories,
+  selectCategoryDeleteUsage,
   selectCategoryUsage,
+  selectSubcategoryUsage,
 } from '../../projections/config.js';
 
 export interface CategoriesHandlerDeps {
@@ -590,5 +599,144 @@ export function createSubcategoriesUnarchiveHandler(
       const message = err instanceof Error ? err.message : String(err);
       return { ok: false, error: { code: 'INTERNAL', message } };
     }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// WI-21-followup — hard-delete (gated on usage_count === 0).
+// Categories must have zero referencing transactions OR split children. The
+// guarantee is checked at the moment the event is appended; reducers can
+// then drop the entity (and its nested subcategories, for CategoryDeleted)
+// without orphaning a transaction reference.
+// ---------------------------------------------------------------------------
+
+function countCategoryUsage(model: ReadModel, categoryId: string): number {
+  const found = selectCategoryDeleteUsage(model).find((u) => u.categoryId === categoryId);
+  return found?.transactionCount ?? 0;
+}
+
+function countSubcategoryUsage(model: ReadModel, subcategoryId: string): number {
+  const found = selectSubcategoryUsage(model).find((u) => u.subcategoryId === subcategoryId);
+  return found?.transactionCount ?? 0;
+}
+
+export function createCategoriesDeleteHandler(
+  deps: CategoriesHandlerDeps,
+): (raw: unknown) => Promise<DeleteCategoryResponse> {
+  return async function handleCategoriesDelete(raw: unknown): Promise<DeleteCategoryResponse> {
+    try {
+      const parsed = deleteCategoryRequestSchema.safeParse(raw);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          error: {
+            code: 'SCHEMA_INVALID',
+            message: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+          },
+        };
+      }
+      const { id } = parsed.data;
+      const model = deps.getReadModel();
+      const current = model.configCategories.find((c) => c.id === id);
+      if (!current) {
+        return { ok: false, error: { code: 'NOT_FOUND', message: `Category ${id} not found` } };
+      }
+      // Aggregate references across the category itself AND its nested
+      // subcategories — deleting a parent that still has referenced children
+      // would orphan those references too.
+      let transactionCount = countCategoryUsage(model, id);
+      for (const sub of current.subcategories) {
+        transactionCount += countSubcategoryUsage(model, sub.id);
+      }
+      if (transactionCount > 0) {
+        return {
+          ok: false,
+          error: {
+            code: 'HAS_REFERENCES',
+            message: `Category ${id} is referenced by ${transactionCount} transaction(s)`,
+            transactionCount,
+          },
+        };
+      }
+      const event: ConfigCategoryDeletedEvent = {
+        type: 'CategoryDeleted',
+        id: deps.newId(),
+        categoryId: id,
+        deletedAt: deps.now().toISOString(),
+      };
+      await appendAndApply(deps, event);
+      return { ok: true, event };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: { code: 'INTERNAL', message } };
+    }
+  };
+}
+
+export function createSubcategoriesDeleteHandler(
+  deps: CategoriesHandlerDeps,
+): (raw: unknown) => Promise<DeleteSubcategoryResponse> {
+  return async function handleSubcategoriesDelete(
+    raw: unknown,
+  ): Promise<DeleteSubcategoryResponse> {
+    try {
+      const parsed = deleteSubcategoryRequestSchema.safeParse(raw);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          error: {
+            code: 'SCHEMA_INVALID',
+            message: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+          },
+        };
+      }
+      const { id, parentCategoryId } = parsed.data;
+      const model = deps.getReadModel();
+      const parent = model.configCategories.find((c) => c.id === parentCategoryId);
+      if (!parent) {
+        return {
+          ok: false,
+          error: {
+            code: 'PARENT_NOT_FOUND',
+            message: `Parent category ${parentCategoryId} not found`,
+          },
+        };
+      }
+      const current = parent.subcategories.find((s) => s.id === id);
+      if (!current) {
+        return { ok: false, error: { code: 'NOT_FOUND', message: `Subcategory ${id} not found` } };
+      }
+      const transactionCount = countSubcategoryUsage(model, id);
+      if (transactionCount > 0) {
+        return {
+          ok: false,
+          error: {
+            code: 'HAS_REFERENCES',
+            message: `Subcategory ${id} is referenced by ${transactionCount} transaction(s)`,
+            transactionCount,
+          },
+        };
+      }
+      const event: ConfigSubcategoryDeletedEvent = {
+        type: 'SubcategoryDeleted',
+        id: deps.newId(),
+        subcategoryId: id,
+        parentCategoryId,
+        deletedAt: deps.now().toISOString(),
+      };
+      await appendAndApply(deps, event);
+      return { ok: true, event };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: { code: 'INTERNAL', message } };
+    }
+  };
+}
+
+export function createSubcategoriesUsageHandler(
+  deps: Pick<CategoriesHandlerDeps, 'getReadModel'>,
+): () => Promise<SubcategoriesUsageResponse> {
+  return async function handleSubcategoriesUsage(): Promise<SubcategoriesUsageResponse> {
+    return { usage: selectSubcategoryUsage(deps.getReadModel()) };
   };
 }
