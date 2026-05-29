@@ -252,3 +252,106 @@ describe('WI-21 — backward compatibility', () => {
     expect(model.configTags[0]?.archivedAt).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// WI-21-followup — hard-delete reducer transitions. The handler is responsible
+// for the usage-count gate; the reducer assumes safety and just drops the
+// entity. Includes the cascade case where deleting a category also drops its
+// inlined subcategories (per the reducer's CategoryDeleted branch).
+// ---------------------------------------------------------------------------
+
+describe('WI-21-followup reducers — hard-delete', () => {
+  beforeEach(() => resetReadModel());
+
+  it('AccountDeleted removes the account from the read model', () => {
+    applyEvent(seedAccount());
+    applyEvent({
+      type: 'AccountDeleted',
+      id: 'evt-ad-1',
+      accountId: 'A1',
+      deletedAt: ISO('2026-05-29T10:00:00Z'),
+    });
+    expect(getReadModel().configAccounts).toEqual([]);
+  });
+
+  it('AccountDeleted for unknown id is a no-op', () => {
+    applyEvent(seedAccount());
+    applyEvent({
+      type: 'AccountDeleted',
+      id: 'evt-ad-2',
+      accountId: 'missing',
+      deletedAt: ISO('2026-05-29T10:00:00Z'),
+    });
+    expect(getReadModel().configAccounts).toHaveLength(1);
+  });
+
+  it('CategoryDeleted drops the category AND its nested subcategories', () => {
+    applyEvent(seedCategory('C1', 'Parent'));
+    applyEvent({
+      type: 'SubcategoryCreated',
+      id: 'S1',
+      parentCategoryId: 'C1',
+      name: 'Child',
+      createdAt: ISO('2026-05-29T09:00:00Z'),
+    });
+    applyEvent({
+      type: 'CategoryDeleted',
+      id: 'evt-cd-1',
+      categoryId: 'C1',
+      deletedAt: ISO('2026-05-29T10:00:00Z'),
+    });
+    const model = getReadModel();
+    expect(model.configCategories).toEqual([]);
+  });
+
+  it('SubcategoryDeleted removes the subcategory from its parent only', () => {
+    applyEvent(seedCategory('C1', 'Parent'));
+    applyEvent({
+      type: 'SubcategoryCreated',
+      id: 'S1',
+      parentCategoryId: 'C1',
+      name: 'A',
+      createdAt: ISO('2026-05-29T09:00:00Z'),
+    });
+    applyEvent({
+      type: 'SubcategoryCreated',
+      id: 'S2',
+      parentCategoryId: 'C1',
+      name: 'B',
+      createdAt: ISO('2026-05-29T09:00:00Z'),
+    });
+    applyEvent({
+      type: 'SubcategoryDeleted',
+      id: 'evt-sd-1',
+      subcategoryId: 'S1',
+      parentCategoryId: 'C1',
+      deletedAt: ISO('2026-05-29T10:00:00Z'),
+    });
+    const parent = getReadModel().configCategories[0];
+    expect(parent?.subcategories.map((s) => s.id)).toEqual(['S2']);
+  });
+
+  it('TagDeleted removes the tag from the read model', () => {
+    applyEvent(seedTag());
+    applyEvent({
+      type: 'TagDeleted',
+      id: 'evt-td-1',
+      tagId: 'T1',
+      deletedAt: ISO('2026-05-29T10:00:00Z'),
+    });
+    expect(getReadModel().configTags).toEqual([]);
+  });
+
+  it('replaying a *Deleted event twice is a no-op (idempotent reducer)', () => {
+    applyEvent(seedAccount());
+    const del = {
+      type: 'AccountDeleted' as const,
+      id: 'evt-ad-3',
+      accountId: 'A1',
+      deletedAt: ISO('2026-05-29T10:00:00Z'),
+    };
+    applyEvent(del);
+    expect(() => applyEvent(del)).not.toThrow();
+    expect(getReadModel().configAccounts).toEqual([]);
+  });
+});
