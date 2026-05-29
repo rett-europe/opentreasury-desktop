@@ -212,6 +212,10 @@ export const configAccountUpdatedEventSchema = z.object({
       iban: z.string().optional(),
       color: z.string().optional(),
       isPaypal: z.boolean().optional(),
+      // Allowed only when the account has no transactions (handler-enforced).
+      // Backward-compatible: pre-existing events without this field in the
+      // changes patch parse unchanged.
+      openingBalance: z.number().optional(),
     })
     .refine((c) => Object.keys(c).length > 0, { message: 'changes must be non-empty' }),
   updatedAt: z.string().datetime(),

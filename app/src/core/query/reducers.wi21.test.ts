@@ -59,6 +59,20 @@ describe('WI-21 reducers — Account archive lifecycle', () => {
     expect(acc?.openingBalance).toBe(100); // untouched
   });
 
+  it('AccountUpdated patches openingBalance when present in the changes payload', () => {
+    applyEvent(seedAccount());
+    applyEvent({
+      type: 'AccountUpdated',
+      id: 'evt-ob',
+      accountId: 'A1',
+      changes: { openingBalance: 250.5 },
+      updatedAt: ISO('2026-04-22T10:00:00Z'),
+    });
+    const [acc] = getReadModel().configAccounts;
+    expect(acc?.openingBalance).toBe(250.5);
+    expect(acc?.name).toBe('Banco ABC'); // unchanged
+  });
+
   it('AccountArchived stamps archivedAt; AccountUnarchived clears it', () => {
     applyEvent(seedAccount());
     applyEvent({
