@@ -59,6 +59,7 @@ import {
 } from '../../utils/movementsDateFilter.js';
 import { formatDateRange } from '../../utils/dateFormat.js';
 import { newUlid } from '../../utils/ulid.js';
+import { parseLocaleAmount } from '../../utils/numberFormat.js';
 import {
   buildHaystack,
   searchMovements,
@@ -748,8 +749,12 @@ export function MovementsScreen({
   }, []);
 
   const filteredRows = useMemo(() => {
-    const minN = minAmount.trim() === '' ? null : Number(minAmount);
-    const maxN = maxAmount.trim() === '' ? null : Number(maxAmount);
+    // ES locale sweep: parse with `parseLocaleAmount` so users can type
+    // `100,50` (Spanish decimal) in the min/max amount filters and get the
+    // same result as `100.50`. Returns NaN for non-numeric input, which the
+    // `Number.isNaN` guards below preserve.
+    const minN = minAmount.trim() === '' ? null : parseLocaleAmount(minAmount);
+    const maxN = maxAmount.trim() === '' ? null : parseLocaleAmount(maxAmount);
     // Build a lookup of tagIds per movement id so we can apply the
     // drilldown-driven AND filter without re-mapping the wire shape.
     const tagIdsByMovementId = new Map<string, ReadonlySet<string>>();
@@ -1413,7 +1418,10 @@ export function MovementsScreen({
           <label className="ot-filter-bar__input ot-filter-bar__input--amount">
             <span className="ot-filter-bar__prefix">{t('movements.filters.amountMin')}</span>
             <input
-              type="number"
+              // ES locale sweep: `type="text"` so the browser doesn't reject
+              // comma-decimal input (e.g. `100,50`). `parseLocaleAmount` in
+              // the filter predicate above accepts both `,` and `.` separators.
+              type="text"
               inputMode="decimal"
               placeholder="0"
               value={minAmount}
@@ -1425,7 +1433,7 @@ export function MovementsScreen({
           <label className="ot-filter-bar__input ot-filter-bar__input--amount">
             <span className="ot-filter-bar__prefix">{t('movements.filters.amountMax')}</span>
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
               placeholder="∞"
               value={maxAmount}

@@ -11,6 +11,7 @@ import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 import { ConfirmDialog } from '../ConfirmDialog/index.js';
+import { parseLocaleAmount } from '../../utils/numberFormat.js';
 import { getSplits } from '../../services/splitsApi.js';
 import { getTagColor } from '../../utils/tagColor.js';
 import { getStatusBadgeClass } from '../../utils/statusBadge.js';
@@ -230,8 +231,10 @@ export function TransactionDetailModal({
       newErrors.type = t('movements.form.errors.typeInvalid');
     }
 
-    const amountNum = Number(amount);
-    if (!amount || Number.isNaN(amountNum) || amountNum <= 0) {
+    // ES locale sweep: parse with `parseLocaleAmount` so `1331,85` and
+    // `1.331,85` are accepted alongside `1331.85` / `1,331.85`.
+    const amountNum = parseLocaleAmount(amount);
+    if (!amount || !Number.isFinite(amountNum) || amountNum <= 0) {
       newErrors.amount = t('movements.form.errors.amountNonPositive');
     }
 
@@ -273,7 +276,7 @@ export function TransactionDetailModal({
         id: transaction.id,
         date,
         type,
-        amount: Number(amount),
+        amount: parseLocaleAmount(amount),
         description: description.trim(),
         categoryId: categoryId || undefined,
         subcategoryId: subcategoryId || undefined,

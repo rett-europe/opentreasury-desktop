@@ -451,4 +451,41 @@ describe('TransactionDetailModal', () => {
       expect(() => unmount()).not.toThrow();
     });
   });
+
+  // ES locale sweep — regression for the comma-decimal bug Pedro hit during
+  // trial.3.13 integration testing. The edit-mode amount input must accept
+  // both `1331,85` (Spanish decimal) and `1.331,85` (Spanish thousands +
+  // decimal) and forward the correct numeric value to the IPC update handler.
+  describe('comma-decimal amount input (ES locale sweep)', () => {
+    async function editAmountAndSave(typed: string) {
+      const handleUpdate = vi.fn().mockResolvedValue(undefined);
+      // Start with a `pending` transaction so amount is editable (SPEC-025 lock).
+      renderModal({ ...baseTx, status: 'pending' }, { onUpdate: handleUpdate });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+
+      const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
+      expect(amountInput).not.toBeNull();
+      // The input must be text + decimal inputMode so the browser accepts comma.
+      expect(amountInput.type).toBe('text');
+      expect(amountInput.inputMode).toBe('decimal');
+
+      fireEvent.change(amountInput, { target: { value: typed } });
+      // The user's raw typed string round-trips in state — no silent coercion.
+      expect(amountInput.value).toBe(typed);
+
+      fireEvent.click(screen.getByRole('button', { name: /Save|Guardar/i }));
+      await vi.waitFor(() => expect(handleUpdate).toHaveBeenCalled());
+      return handleUpdate.mock.calls[0]![0];
+    }
+
+    it('parses `1331,85` (Spanish decimal) into 1331.85 for the IPC update', async () => {
+      const call = await editAmountAndSave('1331,85');
+      expect(call.amount).toBe(1331.85);
+    });
+
+    it('parses `1.331,85` (Spanish thousands + decimal) into 1331.85 for the IPC update', async () => {
+      const call = await editAmountAndSave('1.331,85');
+      expect(call.amount).toBe(1331.85);
+    });
+  });
 });

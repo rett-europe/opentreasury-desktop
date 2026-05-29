@@ -10,6 +10,7 @@ import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import './TransactionFormModal.css';
 import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
+import { parseLocaleAmount } from '../../utils/numberFormat.js';
 
 export interface TransactionFormData {
   id?: string;
@@ -183,8 +184,10 @@ export function TransactionFormModal({
       newErrors.type = t('movements.form.errors.typeInvalid');
     }
 
-    const amountNum = Number(amount);
-    if (!amount || Number.isNaN(amountNum) || amountNum <= 0) {
+    // ES locale sweep: parse with `parseLocaleAmount` so `1331,85` and
+    // `1.331,85` are accepted alongside `1331.85` / `1,331.85`.
+    const amountNum = parseLocaleAmount(amount);
+    if (!amount || !Number.isFinite(amountNum) || amountNum <= 0) {
       newErrors.amount = t('movements.form.errors.amountNonPositive');
     }
 
@@ -227,7 +230,7 @@ export function TransactionFormModal({
           const input: CreateTransactionRequest = {
             date,
             type,
-            amount: Number(amount),
+            amount: parseLocaleAmount(amount),
             currency: 'EUR',
             description: description.trim(),
             accountId,
@@ -248,7 +251,7 @@ export function TransactionFormModal({
             id: initialData.id,
             date,
             type,
-            amount: Number(amount),
+            amount: parseLocaleAmount(amount),
             description: description.trim(),
             categoryId: categoryId || undefined,
             subcategoryId: subcategoryId || undefined,
@@ -366,12 +369,14 @@ export function TransactionFormModal({
               </label>
               <input
                 id="tx-amount"
-                type="number"
-                step="0.01"
-                min="0"
+                // ES locale sweep: `type="text"` + `inputMode="decimal"` so
+                // users can type comma-decimal amounts (e.g. `1331,85`).
+                // Parsing happens in handleSubmit/validate via `parseLocaleAmount`.
+                type="text"
+                inputMode="decimal"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
+                placeholder="0,00"
                 className="ot-transaction-form-modal__input"
                 aria-invalid={!!errors.amount}
                 aria-describedby={errors.amount ? 'error-amount' : undefined}

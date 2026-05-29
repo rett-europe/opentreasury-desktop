@@ -220,12 +220,15 @@ export function TransactionFormFields({
             </label>
             <input
               id="tx-amount"
-              type="number"
-              step="0.01"
-              min="0"
+              // ES locale sweep: `type="text"` + `inputMode="decimal"` so users
+              // can type comma-decimal amounts (e.g. `1331,85`). The raw string
+              // is round-tripped through state; parsing happens in callers via
+              // `parseLocaleAmount` from utils/numberFormat.
+              type="text"
+              inputMode="decimal"
               value={amount}
               onChange={(e) => onAmountChange(e.target.value)}
-              placeholder="0.00"
+              placeholder="0,00"
               className="ot-tx-fields__input"
               aria-invalid={!!errors.amount}
               aria-describedby={
@@ -460,12 +463,14 @@ export function TransactionFormFields({
           </label>
           <input
             id="tx-amount"
-            type="number"
-            step="0.01"
-            min="0"
+            // ES locale sweep: `type="text"` + `inputMode="decimal"` so users
+            // can type comma-decimal amounts (e.g. `1331,85`). Same rationale
+            // as the row-1 amount input above.
+            type="text"
+            inputMode="decimal"
             value={amount}
             onChange={(e) => onAmountChange(e.target.value)}
-            placeholder="0.00"
+            placeholder="0,00"
             className="ot-tx-fields__input"
             aria-invalid={!!errors.amount}
             aria-describedby={errors.amount ? 'error-amount' : undefined}

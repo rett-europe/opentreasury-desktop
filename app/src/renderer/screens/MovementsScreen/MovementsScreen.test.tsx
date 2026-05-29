@@ -347,4 +347,117 @@ describe('MovementsScreen', () => {
       expect(chip.getAttribute('aria-checked')).toBe('true');
     });
   });
+
+  // ── Amount filter (ES locale sweep) ──────────────────────────────────
+  //
+  // Regression for the comma-decimal bug Pedro hit during trial.3.13. The
+  // min/max amount filters must accept Spanish-style numbers (`100,50` and
+  // `1.000,00`) and parse them via `parseLocaleAmount`. The inputs are
+  // `type="text"` so the browser doesn't reject the comma in locales that
+  // expect a `.` decimal.
+  describe('amount filter: comma-decimal input', () => {
+    function getMinAmountInput(): HTMLInputElement {
+      // The aria-label resolves to the i18n string `movements.filters.amountMin`,
+      // which is `"min €"` in both locales (en/es). Match permissively.
+      const input = document.querySelector<HTMLInputElement>(
+        'input[aria-label*="min" i][inputmode="decimal"]',
+      );
+      if (!input) throw new Error('min-amount input not found');
+      return input;
+    }
+
+    function getMaxAmountInput(): HTMLInputElement {
+      const input = document.querySelector<HTMLInputElement>(
+        'input[aria-label*="max" i][inputmode="decimal"]',
+      );
+      if (!input) throw new Error('max-amount input not found');
+      return input;
+    }
+
+    function countDataRows(): number {
+      const table = screen.queryByRole('table');
+      if (!table) return 0;
+      // Exclude the header row.
+      return table.querySelectorAll('tbody tr').length;
+    }
+
+    beforeEach(() => {
+      // Seed three transactions at distinct amounts so the filter changes
+      // are visible: 100.50, 200.00 (defaults) + 1331.85 to exercise the
+      // thousands-separator code path.
+      vi.mocked(listMovements).mockResolvedValue([
+        ...mockMovements,
+        {
+          id: 'mov-3',
+          date: '2026-04-16',
+          type: 'income',
+          amount: 1331.85,
+          currency: 'EUR',
+          description: 'Big donation',
+          accountId: 'acc-1',
+          categoryId: null,
+          subcategoryId: null,
+          tagIds: [],
+          status: 'approved',
+          createdAt: '2026-04-16T10:00:00Z',
+        },
+      ]);
+    });
+
+    it('min amount input is `type="text"` + `inputMode="decimal"`', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
+
+      const minInput = getMinAmountInput();
+      expect(minInput.type).toBe('text');
+      expect(minInput.inputMode).toBe('decimal');
+
+      const maxInput = getMaxAmountInput();
+      expect(maxInput.type).toBe('text');
+      expect(maxInput.inputMode).toBe('decimal');
+    });
+
+    it('min amount `150,50` (Spanish decimal) keeps rows ≥ 150.5', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(countDataRows()).toBe(3));
+
+      fireEvent.change(getMinAmountInput(), { target: { value: '150,50' } });
+
+      await waitFor(() => {
+        // 100.50 is filtered out; 200.00 and 1331.85 remain.
+        expect(countDataRows()).toBe(2);
+      });
+      expect(screen.queryByText('Test expense')).toBeNull();
+      expect(screen.getByText('Test income')).toBeTruthy();
+      expect(screen.getByText('Big donation')).toBeTruthy();
+    });
+
+    it('max amount `150,50` (Spanish decimal) keeps rows ≤ 150.5', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(countDataRows()).toBe(3));
+
+      fireEvent.change(getMaxAmountInput(), { target: { value: '150,50' } });
+
+      await waitFor(() => {
+        // Only 100.50 stays.
+        expect(countDataRows()).toBe(1);
+      });
+      expect(screen.getByText('Test expense')).toBeTruthy();
+      expect(screen.queryByText('Test income')).toBeNull();
+      expect(screen.queryByText('Big donation')).toBeNull();
+    });
+
+    it('min amount `1.000,00` (Spanish thousands + decimal) keeps only rows ≥ 1000', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(countDataRows()).toBe(3));
+
+      fireEvent.change(getMinAmountInput(), { target: { value: '1.000,00' } });
+
+      await waitFor(() => {
+        // Only the 1331.85 row remains.
+        expect(countDataRows()).toBe(1);
+      });
+      expect(screen.getByText('Big donation')).toBeTruthy();
+    });
+  });
 });

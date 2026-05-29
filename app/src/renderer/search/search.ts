@@ -67,6 +67,10 @@ export function parseQuery(q: string): { tokens: string[]; phrases: string[] } {
  */
 export function matchAmount(token: string, amountCents: number): boolean {
   // Try to parse as decimal number with , or . separator
+  // TODO(perocha, trial.3.13+): unify with `parseLocaleAmount` from
+  // utils/numberFormat so search-query parsing matches the form inputs'
+  // ES-locale handling (1.234,56 / 1,234.56 / 1234,56 / 1234.56). Out of
+  // scope for the comma-decimal sweep PR — touched there only as a TODO.
   const normalized = token.replace(',', '.');
   const parsed = Number.parseFloat(normalized);
 
