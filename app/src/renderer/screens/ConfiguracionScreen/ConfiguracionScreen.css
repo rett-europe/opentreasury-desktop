@@ -202,8 +202,24 @@
   transition: opacity 150ms ease;
 }
 
-.ot-config__table tbody tr:hover .ot-config__row-actions {
+.ot-config__table tbody tr:hover .ot-config__row-actions,
+.ot-config__row-actions:focus-within {
   opacity: 1;
+}
+
+/* Touch / small viewports — the hover-to-reveal pattern hides the actions
+ * entirely. Surface them by default so users can find Delete/Archive/Edit
+ * without depending on a hover state the device can't deliver. */
+@media (hover: none) {
+  .ot-config__row-actions {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 900px) {
+  .ot-config__row-actions {
+    opacity: 1;
+  }
 }
 
 .ot-config__row-action-btn {

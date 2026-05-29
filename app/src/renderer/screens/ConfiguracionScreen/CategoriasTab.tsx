@@ -541,7 +541,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                                 <RotateCcw size={14} />
                               </button>
                               <button
-                                className="ot-config__row-action-btn"
+                                className="ot-config__row-action-btn ot-config__row-action-btn--danger"
                                 title={t('configuracion.categorias.delete.actionTooltip')}
                                 aria-label={t('configuracion.categorias.delete.actionTooltip')}
                                 onClick={() => setDeleteCatTarget(c)}
@@ -568,7 +568,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                                 <Archive size={14} />
                               </button>
                               <button
-                                className="ot-config__row-action-btn"
+                                className="ot-config__row-action-btn ot-config__row-action-btn--danger"
                                 title={t('configuracion.categorias.delete.actionTooltip')}
                                 aria-label={t('configuracion.categorias.delete.actionTooltip')}
                                 onClick={() => setDeleteCatTarget(c)}
@@ -720,7 +720,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                                       <RotateCcw size={14} />
                                     </button>
                                     <button
-                                      className="ot-config__row-action-btn"
+                                      className="ot-config__row-action-btn ot-config__row-action-btn--danger"
                                       title={t('configuracion.subcategorias.delete.actionTooltip')}
                                       aria-label={t(
                                         'configuracion.subcategorias.delete.actionTooltip',
@@ -759,7 +759,7 @@ export function CategoriasTab({ onListChanged }: CategoriasTabProps): JSX.Elemen
                                       <Archive size={14} />
                                     </button>
                                     <button
-                                      className="ot-config__row-action-btn"
+                                      className="ot-config__row-action-btn ot-config__row-action-btn--danger"
                                       title={t('configuracion.subcategorias.delete.actionTooltip')}
                                       aria-label={t(
                                         'configuracion.subcategorias.delete.actionTooltip',

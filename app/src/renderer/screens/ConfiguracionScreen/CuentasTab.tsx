@@ -288,11 +288,11 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
               <colgroup>
                 <col style={{ width: '56px' }} />
                 <col style={{ width: '22%' }} />
-                <col style={{ width: '18%' }} />
                 <col style={{ width: '16%' }} />
+                <col style={{ width: '14%' }} />
                 <col style={{ width: '22%' }} />
                 <col style={{ width: '14%' }} />
-                <col style={{ width: '80px' }} />
+                <col style={{ width: '120px' }} />
               </colgroup>
               <thead>
                 <tr>
@@ -417,7 +417,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                                   <RotateCcw size={14} />
                                 </button>
                                 <button
-                                  className="ot-config__row-action-btn"
+                                  className="ot-config__row-action-btn ot-config__row-action-btn--danger"
                                   title={t('configuracion.cuentas.delete.actionTooltip')}
                                   aria-label={t('configuracion.cuentas.delete.actionTooltip')}
                                   onClick={() => setDeleteTarget(a)}
@@ -444,7 +444,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                                   <Archive size={14} />
                                 </button>
                                 <button
-                                  className="ot-config__row-action-btn"
+                                  className="ot-config__row-action-btn ot-config__row-action-btn--danger"
                                   title={t('configuracion.cuentas.delete.actionTooltip')}
                                   aria-label={t('configuracion.cuentas.delete.actionTooltip')}
                                   onClick={() => setDeleteTarget(a)}

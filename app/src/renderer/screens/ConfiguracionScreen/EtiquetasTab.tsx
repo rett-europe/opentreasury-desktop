@@ -269,7 +269,7 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
                               <RotateCcw size={14} />
                             </button>
                             <button
-                              className="ot-config__row-action-btn"
+                              className="ot-config__row-action-btn ot-config__row-action-btn--danger"
                               title={t('configuracion.etiquetas.delete.actionTooltip')}
                               aria-label={t('configuracion.etiquetas.delete.actionTooltip')}
                               onClick={() => setDeleteTarget(tg)}
@@ -296,7 +296,7 @@ export function EtiquetasTab({ onListChanged }: EtiquetasTabProps): JSX.Element 
                               <Archive size={14} />
                             </button>
                             <button
-                              className="ot-config__row-action-btn"
+                              className="ot-config__row-action-btn ot-config__row-action-btn--danger"
                               title={t('configuracion.etiquetas.delete.actionTooltip')}
                               aria-label={t('configuracion.etiquetas.delete.actionTooltip')}
                               onClick={() => setDeleteTarget(tg)}
