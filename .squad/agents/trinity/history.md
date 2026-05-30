@@ -3609,3 +3609,17 @@ equire(), not ESM import. The root package.json has "type": "module", so Vite em
 
 **Files changed:** `app/src/core/eventLog/EncryptedMultiDeviceEventLog.ts`, `app/src/core/eventLog/__tests__/EncryptedMultiDeviceEventLog.test.ts`. Commit `6f0ef7f` on `fix/transaction-list-refresh-after-create`. Not pushed.
 
+---
+
+## 2026-05-15 — SPEC-027 Export Feature (Squad decision consolidation)
+
+**Context:** Niobe completed Draft specs for Export (CSV/XLSX) feature. Switch performed security analysis. Mouse provided UI/design guidance. Scribe orchestrated decision consolidation into canonical decisions.md.
+
+**Scope:** Export statement rows as CSV or XLSX with full decryption in main process only (renderer never sees plaintext). Atomic file write with audit entry. Reusable UI components only.
+
+**Status:** Draft (13 Open Questions awaiting Pedro approval before → In Review).
+
+**Your role (Trinity):** Implementation pending OQ-1 through OQ-7 answers (gate model, M2 supersession, audit behavior, XLSX enum, row cap, save destination, confirmation copy).
+
+**Reference:** `.squad/decisions/decisions.md` § SPEC-027 Export Feature + 13 Open Questions section.
+

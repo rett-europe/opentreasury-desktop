@@ -1202,3 +1202,92 @@ All analysis in .squad/decisions/decisions.md under three new sections:
 **Action:** May touch Trinity (settings UI row for data folder), Niobe (first-run UX specs), Mouse (if visual work needed). Stand by for Pedro go-ahead.
 
 **Files:** Orchestration logs in .squad/orchestration-log/2026-04-29T10-24-31-{link,switch,morpheus}.md. Session log in .squad/log/2026-04-29T10-24-31-trial-readiness-analysis.md.
+
+---
+
+### 2026-05-XX: Export Feature UI Design Notes (Spec-Authoring for Niobe)
+
+**Context:** Product owner (Pedro) requested new Export feature (navbar "Export" option → CSV/Excel export with filters). Niobe is authoring the formal feature spec + UX spec. Morpheus relayed request for my UI/design input as a required collaborator.
+
+**Task:** Produce design notes covering navbar entry point, export dialog/screen layout, states, accessibility, component reuse — for Niobe to incorporate into her spec.
+
+**What shipped (design notes only, no code):**
+- ✅ `.squad/decisions/inbox/mouse-export-ui.md` — 10-section design spec covering:
+  1. Navbar "Export" entry point (sidebar, after Importación, Lucide `Download` icon)
+  2. Export screen layout (full route, NOT modal — too complex for modal pattern)
+  3. Filter section (date-range picker + chip-multi-select for accounts/categories/subcategories/labels — all reused from Movements/config patterns)
+  4. Format selection (radio button group, card-style: CSV vs Excel/.xlsx)
+  5. Secret entry section (password-style input with reveal toggle — IBAN pattern; Switch to provide terminology)
+  6. States (9 states: filters-empty, counting, ready, zero-results, exporting, success, auth-error, crypto-error, file-write-error)
+  7. Accessibility (keyboard nav, ARIA landmarks/live regions, AA contrast, light/dark/reduced-motion)
+  8. Component reuse map (100% existing components — zero new components needed)
+  9. Dependencies on Niobe (screen vs modal, success feedback, filename pattern, save location, count threshold, filter persistence) + Switch (secret terminology, auth failure copy, per-export vs session unlock)
+  10. Token audit (zero new tokens needed — all existing in `tokens.css`)
+
+**Key design decisions:**
+
+1. **Full screen (not modal):** Export involves multi-criteria filtering + format choice + secret entry. Too heavy for compact-confirm-modal pattern. Follows Movements precedent: filter-heavy operations are full routes, not modals.
+
+2. **Component reuse strategy:** 100% reused components:
+   - Date range picker (Movements screen UX-003 §4 — same 6 presets + custom)
+   - Chip-multi-select (TagChipPicker / ChipMultiSelect from config-screen-pattern)
+   - Radio button group (UX-001 device-name card-style pattern, adapted)
+   - Secret input + reveal toggle (IBAN masking pattern from config-screen-pattern §6)
+   - Buttons, banners, toast (existing Button component + `.ot-banner--*` classes)
+   - Busy state (transient-busy-state skill — 30s safety timeout, multi-clearer pattern)
+
+3. **Secret entry visual treatment:** Horizontal rule separator before secret section to signal "authentication boundary." Visual weight matches security sensitivity. Switch MUST provide:
+   - User-facing term (e.g., "contraseña maestra", "clave de descifrado")
+   - Input mechanism (password field, biometric, keychain-derived)
+   - Auth failure copy
+   - Per-export vs session-based unlock model
+
+4. **State machine (9 states):** Comprehensive state coverage including transient-busy-state pattern for export in-progress (spinner, disabled inputs, 30s safety timeout). Success feedback via toast (recommended) or inline banner (Niobe to decide). Error states distinguish auth failure vs crypto failure vs file-write failure.
+
+5. **Accessibility baseline:** WCAG AA compliant (all tokens already verified in `tokens.md` §1.4). Full keyboard nav (tab order defined), ARIA landmarks (`<main>`, `<form>`, `role="group"`, `role="radiogroup"`), live regions for count updates + busy state + errors. Light/dark mode inherited from app shell theme. Reduced-motion: swap spinner animation to static text.
+
+6. **Zero new tokens:** All referenced tokens exist in `tokens.css` per design-token-single-source skill. No component-private variables needed (layout handled by CSS Grid with `--space-*` tokens).
+
+**Patterns established:**
+
+- **Filter-heavy screen pattern:** When a feature involves 4+ filter criteria + format/config choices + sensitive action (decrypt), it's a full route, not a modal. Modal is for yes/no confirmations (compact-confirm-modal) or simple forms (<3 fields).
+
+- **Sensitive action visual separator:** Horizontal rule (`<hr>`, `--color-border-subtle`) before secret-entry sections signals authentication boundary. Spatial separation reduces accidental submission.
+
+- **Chip-multi-select as canonical filter UI:** Accounts, categories, subcategories, labels all use chip-multi-select pattern. Empty state = "Todas las [entity]". Pills reuse config-screen-pattern visual primitives (account-pill, tag-pill, folder-icon).
+
+- **Transient-busy-state for export-type operations:** File picker, export, external process — all need multi-clearer busy state (focus listener + pointer listener + visibility listener + 30s safety timeout). Export applies this pattern with `pointer-events: none` on filter section during export.
+
+**Dependencies flagged for Niobe:**
+
+1. Screen vs modal decision (recommendation: screen)
+2. Success feedback mechanism (recommendation: toast)
+3. Filename convention pattern
+4. Save location (Downloads folder or native dialog)
+5. Count threshold for warning banner (recommendation: 5000, same as UX-003 §6 E8)
+6. Filter persistence across navigation (recommendation: reset, same as Movements)
+
+**Dependencies flagged for Switch:**
+
+1. Secret material terminology (placeholder `"[secret material]"` in spec)
+2. Input type (password field, biometric, keychain-derived)
+3. Validation rules (if password-based)
+4. Auth failure vs decrypt failure error distinction
+5. Per-export vs session-based unlock model (recommendation: per-export, more secure)
+
+**Files created:**
+- `.squad/decisions/inbox/mouse-export-ui.md` — Full design spec (10 sections, 240+ lines)
+
+**Status:** Design notes complete. Blocked on Niobe (incorporate into formal spec) + Switch (security verdicts). No code — this was spec-authoring only.
+
+**Learnings:**
+
+- **Spec-authoring vs implementation:** As Mouse, my role in spec-authoring is to provide *visual design guidance* (what it looks like, states, tokens, component reuse), NOT to write the formal UX spec (Niobe) or implement (Trinity). This task clarified the boundary: design notes are inputs to Niobe's spec, not replacements.
+
+- **100% component reuse is achievable for filter-heavy screens:** Export screen composes entirely from existing patterns (Movements date-range picker, config chip-multi-select, UX-001 radio cards, IBAN reveal toggle). No new components needed. This validates the design system's coverage for NGO admin workflows.
+
+- **Security-sensitive UI needs spatial separation:** Horizontal rule + vertical gap before secret-entry section signals "authentication boundary" visually. Learned from config-screen-pattern's master-detail layout: spatial weight = semantic weight.
+
+- **Dependency flagging is part of spec-authoring:** Design notes MUST flag dependencies on other agents (Niobe for UX flow decisions, Switch for security terminology/model). Unresolved dependencies block implementation — make them explicit early.
+
+- **Transient-busy-state pattern applies beyond file pickers:** Originally learned for ImportWizard file picker (PR #289), now applied to export. General rule: any operation whose completion is not directly awaitable from renderer (native dialogs, IPC calls that can hang, external processes) needs multi-clearer busy state + safety timeout.
