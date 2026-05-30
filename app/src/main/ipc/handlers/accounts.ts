@@ -12,6 +12,7 @@ import type { EventLog } from '../../../core/eventLog/index.js';
 import type {
   ConfigAccountArchivedEvent,
   ConfigAccountCreatedEvent,
+  ConfigAccountDeletedEvent,
   ConfigAccountUnarchivedEvent,
   ConfigAccountUpdatedEvent,
 } from '../../../core/events/schemas.js';
@@ -20,15 +21,22 @@ import type { ReadModel } from '../../../core/query/types.js';
 import {
   archiveAccountRequestSchema,
   createAccountRequestSchema,
+  deleteAccountRequestSchema,
   unarchiveAccountRequestSchema,
   updateAccountRequestSchema,
   type AccountRecord,
+  type AccountsUsageResponse,
   type ArchiveAccountResponse,
   type CreateAccountResponse,
+  type DeleteAccountResponse,
   type UnarchiveAccountResponse,
   type UpdateAccountResponse,
 } from '../../../shared/ipc-contracts/accounts.js';
-import { selectAccounts, selectActiveAccounts } from '../../projections/config.js';
+import {
+  selectAccounts,
+  selectAccountUsage,
+  selectActiveAccounts,
+} from '../../projections/config.js';
 
 export interface AccountsHandlerDeps {
   readonly eventLog: EventLog;
@@ -359,5 +367,70 @@ export function createAccountsUnarchiveHandler(
       const message = err instanceof Error ? err.message : String(err);
       return { ok: false, error: { code: 'INTERNAL', message } };
     }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// WI-21-followup — hard-delete (gated on usage_count === 0).
+// ---------------------------------------------------------------------------
+
+function countAccountUsage(model: ReadModel, accountId: string): number {
+  const found = selectAccountUsage(model).find((u) => u.accountId === accountId);
+  return found?.transactionCount ?? 0;
+}
+
+export function createAccountsDeleteHandler(
+  deps: AccountsHandlerDeps,
+): (raw: unknown) => Promise<DeleteAccountResponse> {
+  return async function handleAccountsDelete(raw: unknown): Promise<DeleteAccountResponse> {
+    try {
+      const parsed = deleteAccountRequestSchema.safeParse(raw);
+      if (!parsed.success) {
+        return {
+          ok: false,
+          error: {
+            code: 'SCHEMA_INVALID',
+            message: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+          },
+        };
+      }
+      const { id } = parsed.data;
+      const model = deps.getReadModel();
+      const current = model.configAccounts.find((a) => a.id === id);
+      if (!current) {
+        return { ok: false, error: { code: 'NOT_FOUND', message: `Account ${id} not found` } };
+      }
+      const transactionCount = countAccountUsage(model, id);
+      if (transactionCount > 0) {
+        // Critical safety gate — do NOT append any event.
+        return {
+          ok: false,
+          error: {
+            code: 'HAS_REFERENCES',
+            message: `Account ${id} is referenced by ${transactionCount} transaction(s)`,
+            transactionCount,
+          },
+        };
+      }
+      const event: ConfigAccountDeletedEvent = {
+        type: 'AccountDeleted',
+        id: deps.newId(),
+        accountId: id,
+        deletedAt: deps.now().toISOString(),
+      };
+      await appendAndApply(deps, event);
+      return { ok: true, event };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: { code: 'INTERNAL', message } };
+    }
+  };
+}
+
+export function createAccountsUsageHandler(
+  deps: Pick<AccountsHandlerDeps, 'getReadModel'>,
+): () => Promise<AccountsUsageResponse> {
+  return async function handleAccountsUsage(): Promise<AccountsUsageResponse> {
+    return { usage: selectAccountUsage(deps.getReadModel()) };
   };
 }

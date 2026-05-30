@@ -62,11 +62,15 @@ import {
   IPC_ACCOUNTS_UPDATE,
   IPC_ACCOUNTS_ARCHIVE,
   IPC_ACCOUNTS_UNARCHIVE,
+  IPC_ACCOUNTS_DELETE,
+  IPC_ACCOUNTS_USAGE,
   createAccountResponseSchema,
   accountsListResponseSchema,
+  accountsUsageResponseSchema,
   updateAccountResponseSchema,
   archiveAccountResponseSchema,
   unarchiveAccountResponseSchema,
+  deleteAccountResponseSchema,
 } from '../../shared/ipc-contracts/accounts.js';
 import {
   IPC_CATEGORIES_CREATE,
@@ -75,20 +79,26 @@ import {
   IPC_CATEGORIES_ARCHIVE,
   IPC_CATEGORIES_UNARCHIVE,
   IPC_CATEGORIES_USAGE,
+  IPC_CATEGORIES_DELETE,
   IPC_SUBCATEGORIES_CREATE,
   IPC_SUBCATEGORIES_UPDATE,
   IPC_SUBCATEGORIES_ARCHIVE,
   IPC_SUBCATEGORIES_UNARCHIVE,
+  IPC_SUBCATEGORIES_DELETE,
+  IPC_SUBCATEGORIES_USAGE,
   createCategoryResponseSchema,
   categoriesListResponseSchema,
   categoriesUsageResponseSchema,
+  subcategoriesUsageResponseSchema,
   updateCategoryResponseSchema,
   archiveCategoryResponseSchema,
   unarchiveCategoryResponseSchema,
+  deleteCategoryResponseSchema,
   createSubcategoryResponseSchema,
   updateSubcategoryResponseSchema,
   archiveSubcategoryResponseSchema,
   unarchiveSubcategoryResponseSchema,
+  deleteSubcategoryResponseSchema,
 } from '../../shared/ipc-contracts/categories.js';
 import {
   IPC_TAGS_CREATE,
@@ -96,11 +106,15 @@ import {
   IPC_TAGS_UPDATE,
   IPC_TAGS_ARCHIVE,
   IPC_TAGS_UNARCHIVE,
+  IPC_TAGS_DELETE,
+  IPC_TAGS_USAGE,
   createTagResponseSchema,
   tagsListResponseSchema,
+  tagsUsageResponseSchema,
   updateTagResponseSchema,
   archiveTagResponseSchema,
   unarchiveTagResponseSchema,
+  deleteTagResponseSchema,
 } from '../../shared/ipc-contracts/tags.js';
 import {
   IPC_IMPORT_STAGE_FILE,
@@ -159,6 +173,8 @@ import {
   createAccountsUpdateHandler,
   createAccountsArchiveHandler,
   createAccountsUnarchiveHandler,
+  createAccountsDeleteHandler,
+  createAccountsUsageHandler,
 } from './handlers/accounts.js';
 import {
   createCategoriesCreateHandler,
@@ -167,10 +183,13 @@ import {
   createCategoriesArchiveHandler,
   createCategoriesUnarchiveHandler,
   createCategoriesUsageHandler,
+  createCategoriesDeleteHandler,
   createSubcategoriesCreateHandler,
   createSubcategoriesUpdateHandler,
   createSubcategoriesArchiveHandler,
   createSubcategoriesUnarchiveHandler,
+  createSubcategoriesDeleteHandler,
+  createSubcategoriesUsageHandler,
 } from './handlers/categories.js';
 import {
   createTagsCreateHandler,
@@ -178,6 +197,8 @@ import {
   createTagsUpdateHandler,
   createTagsArchiveHandler,
   createTagsUnarchiveHandler,
+  createTagsDeleteHandler,
+  createTagsUsageHandler,
 } from './handlers/tags.js';
 import {
   createStageFileHandler,
@@ -694,6 +715,8 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
   const handleAccountsUpdate = createAccountsUpdateHandler(configDeps);
   const handleAccountsArchive = createAccountsArchiveHandler(configDeps);
   const handleAccountsUnarchive = createAccountsUnarchiveHandler(configDeps);
+  const handleAccountsDelete = createAccountsDeleteHandler(configDeps);
+  const handleAccountsUsage = createAccountsUsageHandler({ getReadModel });
   ipcMain.handle(IPC_ACCOUNTS_CREATE, async (_event, raw: unknown) => {
     const response = await handleAccountsCreate(raw);
     return createAccountResponseSchema.parse(response);
@@ -714,6 +737,14 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
     const response = await handleAccountsUnarchive(raw);
     return unarchiveAccountResponseSchema.parse(response);
   });
+  ipcMain.handle(IPC_ACCOUNTS_DELETE, async (_event, raw: unknown) => {
+    const response = await handleAccountsDelete(raw);
+    return deleteAccountResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_ACCOUNTS_USAGE, async () => {
+    const response = await handleAccountsUsage();
+    return accountsUsageResponseSchema.parse(response);
+  });
 
   const handleCategoriesCreate = createCategoriesCreateHandler(configDeps);
   const handleCategoriesList = createCategoriesListHandler({ getReadModel });
@@ -721,10 +752,13 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
   const handleCategoriesUpdate = createCategoriesUpdateHandler(configDeps);
   const handleCategoriesArchive = createCategoriesArchiveHandler(configDeps);
   const handleCategoriesUnarchive = createCategoriesUnarchiveHandler(configDeps);
+  const handleCategoriesDelete = createCategoriesDeleteHandler(configDeps);
   const handleSubcategoriesCreate = createSubcategoriesCreateHandler(configDeps);
   const handleSubcategoriesUpdate = createSubcategoriesUpdateHandler(configDeps);
   const handleSubcategoriesArchive = createSubcategoriesArchiveHandler(configDeps);
   const handleSubcategoriesUnarchive = createSubcategoriesUnarchiveHandler(configDeps);
+  const handleSubcategoriesDelete = createSubcategoriesDeleteHandler(configDeps);
+  const handleSubcategoriesUsage = createSubcategoriesUsageHandler({ getReadModel });
   ipcMain.handle(IPC_CATEGORIES_CREATE, async (_event, raw: unknown) => {
     const response = await handleCategoriesCreate(raw);
     return createCategoryResponseSchema.parse(response);
@@ -765,12 +799,26 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
     const response = await handleSubcategoriesUnarchive(raw);
     return unarchiveSubcategoryResponseSchema.parse(response);
   });
+  ipcMain.handle(IPC_CATEGORIES_DELETE, async (_event, raw: unknown) => {
+    const response = await handleCategoriesDelete(raw);
+    return deleteCategoryResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_SUBCATEGORIES_DELETE, async (_event, raw: unknown) => {
+    const response = await handleSubcategoriesDelete(raw);
+    return deleteSubcategoryResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_SUBCATEGORIES_USAGE, async () => {
+    const response = await handleSubcategoriesUsage();
+    return subcategoriesUsageResponseSchema.parse(response);
+  });
 
   const handleTagsCreate = createTagsCreateHandler(configDeps);
   const handleTagsList = createTagsListHandler({ getReadModel });
   const handleTagsUpdate = createTagsUpdateHandler(configDeps);
   const handleTagsArchive = createTagsArchiveHandler(configDeps);
   const handleTagsUnarchive = createTagsUnarchiveHandler(configDeps);
+  const handleTagsDelete = createTagsDeleteHandler(configDeps);
+  const handleTagsUsage = createTagsUsageHandler({ getReadModel });
   ipcMain.handle(IPC_TAGS_CREATE, async (_event, raw: unknown) => {
     const response = await handleTagsCreate(raw);
     return createTagResponseSchema.parse(response);
@@ -790,6 +838,14 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_TAGS_UNARCHIVE, async (_event, raw: unknown) => {
     const response = await handleTagsUnarchive(raw);
     return unarchiveTagResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_TAGS_DELETE, async (_event, raw: unknown) => {
+    const response = await handleTagsDelete(raw);
+    return deleteTagResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_TAGS_USAGE, async () => {
+    const response = await handleTagsUsage();
+    return tagsUsageResponseSchema.parse(response);
   });
 
   // WI-17 — Import handlers

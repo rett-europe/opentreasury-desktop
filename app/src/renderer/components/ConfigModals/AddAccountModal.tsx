@@ -10,7 +10,13 @@ import type {
 import { ConfigModalShell } from './ConfigModalShell.js';
 import { ConfirmDialog } from '../ConfirmDialog/index.js';
 import { mapConfigErrorToFieldKey } from './errorMap.js';
-import { formatCurrency, parseLocaleAmount } from '../../utils/numberFormat.js';
+import {
+  decimalSeparatorForLocale,
+  formatAmountForInput,
+  formatCurrency,
+  isValidAmountInput,
+  parseLocaleAmount,
+} from '../../utils/numberFormat.js';
 import { CATEGORY_PALETTE } from './AddCategoryModal.js';
 
 export interface AddAccountModalProps {
@@ -54,6 +60,7 @@ export function AddAccountModal({
   usageCount,
 }: AddAccountModalProps): JSX.Element {
   const { t, i18n } = useTranslation('common');
+  const decimalSep = decimalSeparatorForLocale(i18n.language);
 
   const [name, setName] = useState('');
   const [bankName, setBankName] = useState('');
@@ -81,7 +88,11 @@ export function AddAccountModal({
         setIban(record.iban ?? '');
         setColor(record.color ?? CATEGORY_PALETTE[0] ?? '#6d4d8c');
         setIsPaypal(Boolean(record.isPaypal));
-        setOpeningBalance(String(record.openingBalance ?? ''));
+        setOpeningBalance(
+          record.openingBalance == null
+            ? ''
+            : formatAmountForInput(record.openingBalance, decimalSep),
+        );
       } else {
         setName('');
         setBankName('');
@@ -97,7 +108,7 @@ export function AddAccountModal({
       setSubmitting(false);
       setPendingOpeningBalance(null);
     }
-  }, [isOpen, mode, record]);
+  }, [isOpen, mode, record, decimalSep]);
 
   const validate = useCallback((): boolean => {
     const next: Errors = {};
@@ -446,7 +457,15 @@ export function AddAccountModal({
           inputMode="decimal"
           value={openingBalance}
           placeholder="0,00"
-          onChange={(e) => setOpeningBalance(e.target.value)}
+          onChange={(e) => {
+            // Sanitize keystrokes so the field can't fill up with invalid
+            // characters (e.g. "1..2", "1,,2"). parseLocaleAmount in validate()
+            // would still flag the garbage, but the UX of allowing typed
+            // garbage is unacceptable.
+            if (isValidAmountInput(e.target.value, decimalSep)) {
+              setOpeningBalance(e.target.value);
+            }
+          }}
           aria-invalid={Boolean(errors.openingBalance)}
           aria-describedby={errors.openingBalance ? 'acc-opening-err' : undefined}
         />

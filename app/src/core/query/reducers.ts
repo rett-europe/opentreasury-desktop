@@ -363,6 +363,49 @@ export function applyEvent(event: DomainEvent): void {
       break;
     }
 
+    // -----------------------------------------------------------------------
+    // Hard-delete events. Handler guarantees usage_count === 0 before
+    // appending, so dropping the entity from the read model cannot orphan a
+    // transaction reference. If a race did leave a dangling refs, the
+    // renderer already shows `—` for unresolved category/subcategory/tag ids
+    // (existing fallback). Reducers stay idempotent: missing-id is a no-op.
+    // -----------------------------------------------------------------------
+
+    case 'AccountDeleted': {
+      const next = readModel.configAccounts.filter((a) => a.id !== event.accountId);
+      if (next.length === readModel.configAccounts.length) break;
+      readModel = { ...readModel, configAccounts: next };
+      break;
+    }
+
+    case 'CategoryDeleted': {
+      const next = readModel.configCategories.filter((c) => c.id !== event.categoryId);
+      if (next.length === readModel.configCategories.length) break;
+      readModel = { ...readModel, configCategories: next };
+      break;
+    }
+
+    case 'SubcategoryDeleted': {
+      const parentIdx = readModel.configCategories.findIndex(
+        (c) => c.id === event.parentCategoryId,
+      );
+      if (parentIdx < 0) break;
+      const parent = readModel.configCategories[parentIdx]!;
+      const nextSubs = parent.subcategories.filter((s) => s.id !== event.subcategoryId);
+      if (nextSubs.length === parent.subcategories.length) break;
+      const nextCats = [...readModel.configCategories];
+      nextCats[parentIdx] = { ...parent, subcategories: nextSubs };
+      readModel = { ...readModel, configCategories: nextCats };
+      break;
+    }
+
+    case 'TagDeleted': {
+      const next = readModel.configTags.filter((t) => t.id !== event.tagId);
+      if (next.length === readModel.configTags.length) break;
+      readModel = { ...readModel, configTags: next };
+      break;
+    }
+
     case 'movement.imported': {
       const newTx: Transaction = {
         id: event.id,

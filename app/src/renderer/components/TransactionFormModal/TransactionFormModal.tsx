@@ -10,6 +10,12 @@ import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import './TransactionFormModal.css';
 import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
+import {
+  decimalSeparatorForLocale,
+  formatAmountForInput,
+  isValidAmountInput,
+  parseLocaleAmount,
+} from '../../utils/numberFormat.js';
 
 export interface TransactionFormData {
   id?: string;
@@ -70,7 +76,9 @@ export function TransactionFormModal({
   tags = [],
   initialData = null,
 }: TransactionFormModalProps): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  // Locale decimal separator drives the input sanitizer below.
+  const decimalSep = decimalSeparatorForLocale(i18n.language);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // Form state — defaults match the prototype (today, approved status, EUR)
@@ -119,7 +127,9 @@ export function TransactionFormModal({
         // Edit mode: pre-fill from initialData
         setDate(initialData.date);
         setType(initialData.type);
-        setAmount(initialData.amount.toString());
+        // Locale-aware pre-fill so the displayed character matches the
+        // strict per-locale validator (no `.` clash in ES, no `,` in EN).
+        setAmount(formatAmountForInput(initialData.amount, decimalSep));
         setDescription(initialData.description);
         setAccountId(initialData.accountId);
         setCategoryId(initialData.categoryId ?? '');
@@ -145,7 +155,7 @@ export function TransactionFormModal({
       setErrors({});
       setGeneralError(null);
     }
-  }, [isOpen, mode, initialData, accounts]);
+  }, [isOpen, mode, initialData, accounts, decimalSep]);
 
   // Close on Escape (native dialog behavior) + backdrop click
   useEffect(() => {
@@ -183,8 +193,10 @@ export function TransactionFormModal({
       newErrors.type = t('movements.form.errors.typeInvalid');
     }
 
-    const amountNum = Number(amount);
-    if (!amount || Number.isNaN(amountNum) || amountNum <= 0) {
+    // ES locale sweep: parse with `parseLocaleAmount` so `1331,85` and
+    // `1.331,85` are accepted alongside `1331.85` / `1,331.85`.
+    const amountNum = parseLocaleAmount(amount);
+    if (!amount || !Number.isFinite(amountNum) || amountNum <= 0) {
       newErrors.amount = t('movements.form.errors.amountNonPositive');
     }
 
@@ -227,7 +239,7 @@ export function TransactionFormModal({
           const input: CreateTransactionRequest = {
             date,
             type,
-            amount: Number(amount),
+            amount: parseLocaleAmount(amount),
             currency: 'EUR',
             description: description.trim(),
             accountId,
@@ -248,7 +260,7 @@ export function TransactionFormModal({
             id: initialData.id,
             date,
             type,
-            amount: Number(amount),
+            amount: parseLocaleAmount(amount),
             description: description.trim(),
             categoryId: categoryId || undefined,
             subcategoryId: subcategoryId || undefined,
@@ -366,12 +378,18 @@ export function TransactionFormModal({
               </label>
               <input
                 id="tx-amount"
-                type="number"
-                step="0.01"
-                min="0"
+                // ES locale sweep: `type="text"` + `inputMode="decimal"` so
+                // users can type comma-decimal amounts (e.g. `1331,85`).
+                // Parsing happens in handleSubmit/validate via `parseLocaleAmount`.
+                type="text"
+                inputMode="decimal"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
+                onChange={(e) => {
+                  if (isValidAmountInput(e.target.value, decimalSep)) {
+                    setAmount(e.target.value);
+                  }
+                }}
+                placeholder="0,00"
                 className="ot-transaction-form-modal__input"
                 aria-invalid={!!errors.amount}
                 aria-describedby={errors.amount ? 'error-amount' : undefined}

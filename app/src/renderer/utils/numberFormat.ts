@@ -76,3 +76,74 @@ export function parseLocaleAmount(input: string): number {
 
   return parseFloat(normalized);
 }
+
+/**
+ * Validate a typed amount-input candidate as the user types — STRICT per-locale.
+ *
+ * Returns `true` when `candidate` is a valid amount under the locale's
+ * decimal separator: digits + at most one `decimalSep` + an optional leading
+ * `-`. Thousands grouping is NOT accepted at input time (the UI inserts it
+ * at display time via `formatCurrency`).
+ *
+ * Used as a guard in `onChange` handlers on currency inputs: when the user
+ * types an invalid character we silently drop the keystroke, so the input
+ * value reverts to the previous valid state (mirroring `type="number"` UX).
+ *
+ * Rules:
+ *   1. Allowed characters: digits `0-9`, exactly one `decimalSep`, and an
+ *      optional leading `-`. The other separator character is rejected.
+ *   2. Integer part: up to 12 digits (omittable, supporting `,85` / `.85`).
+ *   3. Decimal part: up to 2 digits after `decimalSep` (omittable, so a
+ *      trailing separator like `1331,` is allowed as an intermediate state).
+ *   4. Empty string and lone `-` are accepted (intermediate states).
+ *
+ * @param candidate  - The full prospective input value after the keystroke.
+ * @param decimalSep - The locale's decimal separator: `.` (en) or `,` (es).
+ * @returns `true` if the candidate is acceptable, `false` to reject.
+ */
+export function isValidAmountInput(candidate: string, decimalSep: '.' | ','): boolean {
+  if (candidate === '' || candidate === '-') return true;
+  const escapedSep = decimalSep === '.' ? '\\.' : ',';
+  // Optional sign, up to 12 integer digits, optional `sep` + up to 2 decimal
+  // digits. Integer and decimal parts may be empty (`,85`, `1331,` are mid-typing).
+  const re = new RegExp(`^-?\\d{0,12}(${escapedSep}\\d{0,2})?$`);
+  return re.test(candidate);
+}
+
+/**
+ * Returns the decimal separator used by the given BCP 47 locale.
+ *
+ * Spanish (and continental European locales generally) use `,`; English
+ * (US/UK) uses `.`. We default to `,` for any non-English locale because the
+ * Rett Spain pilot is the active deployment and ES is the project's primary
+ * UI language. Callers should derive this once from `i18n.language` and pass
+ * it to `isValidAmountInput`.
+ */
+export function decimalSeparatorForLocale(locale: string): '.' | ',' {
+  return locale.startsWith('en') ? '.' : ',';
+}
+
+/**
+ * Convert a numeric amount to a locale-correct input-field string.
+ *
+ * The renderer holds amount inputs as `string` so the user's typed text
+ * round-trips cleanly through `parseLocaleAmount`. When pre-filling such an
+ * input from a stored number, `Number.prototype.toString()` always emits a
+ * period as the decimal separator — which then visually clashes with the
+ * locale (e.g. shows `423.89` in a Spanish modal) and, under the strict
+ * per-locale validator, is rejected as an invalid character on the next
+ * keystroke.
+ *
+ * Produces the right string for the locale: `"423,89"` for ES, `"423.89"`
+ * for EN. Non-finite inputs (NaN, ±Infinity) become an empty string so the
+ * field stays unset. Does NOT add thousands grouping — input fields never
+ * carry thousands separators under the strict-validator rule.
+ *
+ * @param amount     - Stored numeric amount (e.g. `transaction.amount`).
+ * @param decimalSep - The locale's decimal separator: `.` (en) or `,` (es).
+ */
+export function formatAmountForInput(amount: number, decimalSep: '.' | ','): string {
+  if (!Number.isFinite(amount)) return '';
+  const raw = amount.toString();
+  return decimalSep === ',' ? raw.replace('.', ',') : raw;
+}

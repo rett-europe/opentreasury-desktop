@@ -18,8 +18,11 @@
 
 import type {
   AccountRecord,
+  AccountsUsageResponse,
   ArchiveAccountRequest,
   ArchiveAccountResponse,
+  DeleteAccountRequest,
+  DeleteAccountResponse,
   UnarchiveAccountRequest,
   UnarchiveAccountResponse,
   UpdateAccountRequest,
@@ -34,6 +37,11 @@ import type {
   CategoryRecord,
   CreateSubcategoryRequest,
   CreateSubcategoryResponse,
+  DeleteCategoryRequest,
+  DeleteCategoryResponse,
+  DeleteSubcategoryRequest,
+  DeleteSubcategoryResponse,
+  SubcategoriesUsageResponse,
   SubcategoryRecord,
   UnarchiveCategoryRequest,
   UnarchiveCategoryResponse,
@@ -47,7 +55,10 @@ import type {
 import type {
   ArchiveTagRequest,
   ArchiveTagResponse,
+  DeleteTagRequest,
+  DeleteTagResponse,
   TagRecord,
+  TagsUsageResponse,
   UnarchiveTagRequest,
   UnarchiveTagResponse,
   UpdateTagRequest,
@@ -121,22 +132,29 @@ interface OpenTreasurySurface {
     readonly update?: MethodBridge<UpdateAccountRequest, UpdateAccountResponse>;
     readonly archive?: MethodBridge<ArchiveAccountRequest, ArchiveAccountResponse>;
     readonly unarchive?: MethodBridge<UnarchiveAccountRequest, UnarchiveAccountResponse>;
+    readonly delete?: MethodBridge<DeleteAccountRequest, DeleteAccountResponse>;
+    readonly usage?: () => Promise<AccountsUsageResponse>;
   };
   readonly categories?: {
     readonly update?: MethodBridge<UpdateCategoryRequest, UpdateCategoryResponse>;
     readonly archive?: MethodBridge<ArchiveCategoryRequest, ArchiveCategoryResponse>;
     readonly unarchive?: MethodBridge<UnarchiveCategoryRequest, UnarchiveCategoryResponse>;
+    readonly delete?: MethodBridge<DeleteCategoryRequest, DeleteCategoryResponse>;
     readonly subcategory?: {
       readonly create?: MethodBridge<CreateSubcategoryRequest, CreateSubcategoryResponse>;
       readonly update?: MethodBridge<UpdateSubcategoryRequest, UpdateSubcategoryResponse>;
       readonly archive?: MethodBridge<ArchiveSubcategoryRequest, ArchiveSubcategoryResponse>;
       readonly unarchive?: MethodBridge<UnarchiveSubcategoryRequest, UnarchiveSubcategoryResponse>;
+      readonly delete?: MethodBridge<DeleteSubcategoryRequest, DeleteSubcategoryResponse>;
+      readonly usage?: () => Promise<SubcategoriesUsageResponse>;
     };
   };
   readonly tags?: {
     readonly update?: MethodBridge<UpdateTagRequest, UpdateTagResponse>;
     readonly archive?: MethodBridge<ArchiveTagRequest, ArchiveTagResponse>;
     readonly unarchive?: MethodBridge<UnarchiveTagRequest, UnarchiveTagResponse>;
+    readonly delete?: MethodBridge<DeleteTagRequest, DeleteTagResponse>;
+    readonly usage?: () => Promise<TagsUsageResponse>;
   };
 }
 
@@ -150,6 +168,9 @@ interface ContractError {
   readonly code: string;
   readonly message: string;
   readonly field?: string | undefined;
+  // WI-21-followup — populated on HAS_REFERENCES errors so the UI can
+  // render "X transactions reference this …".
+  readonly transactionCount?: number | undefined;
 }
 
 type MutationResponse<Ev> =
@@ -160,11 +181,14 @@ type MutationResponse<Ev> =
 export class ConfigMutationError extends Error {
   public readonly code: string;
   public readonly field: string | undefined;
+  // WI-21-followup — only populated when `code === 'HAS_REFERENCES'`.
+  public readonly transactionCount: number | undefined;
   public constructor(error: ContractError) {
     super(error.message);
     this.name = 'ConfigMutationError';
     this.code = error.code;
     this.field = error.field;
+    this.transactionCount = error.transactionCount;
   }
 }
 
@@ -295,4 +319,61 @@ export async function unarchiveSubcategory(id: string, parentCategoryId: string)
     'categories.subcategory.unarchive',
     { id, parentCategoryId },
   );
+}
+
+// ---------------------------------------------------------------------------
+// WI-21-followup — hard-delete + usage helpers. Each delete unwraps the
+// discriminated union and throws ConfigMutationError on failure; the renderer
+// branches on `err.code === 'HAS_REFERENCES'` and reads `err.transactionCount`
+// to render the helpful "X transactions reference this entity" message.
+// ---------------------------------------------------------------------------
+
+export async function deleteAccount(id: string): Promise<void> {
+  await invokeTyped(surface().accounts?.delete, 'accounts.delete', { id });
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  await invokeTyped(surface().categories?.delete, 'categories.delete', { id });
+}
+
+export async function deleteSubcategory(params: {
+  readonly id: string;
+  readonly parentId: string;
+}): Promise<void> {
+  await invokeTyped(surface().categories?.subcategory?.delete, 'categories.subcategory.delete', {
+    id: params.id,
+    parentCategoryId: params.parentId,
+  });
+}
+
+export async function deleteTag(id: string): Promise<void> {
+  await invokeTyped(surface().tags?.delete, 'tags.delete', { id });
+}
+
+// Usage list IPCs — used by the UI to gate the Delete button per row.
+
+export async function listAccountsUsage(): Promise<AccountsUsageResponse> {
+  const fn = surface().accounts?.usage;
+  if (!fn) {
+    throw new Error('preload method "accounts.usage" is not exposed on window.opentreasury');
+  }
+  return fn();
+}
+
+export async function listSubcategoriesUsage(): Promise<SubcategoriesUsageResponse> {
+  const fn = surface().categories?.subcategory?.usage;
+  if (!fn) {
+    throw new Error(
+      'preload method "categories.subcategory.usage" is not exposed on window.opentreasury',
+    );
+  }
+  return fn();
+}
+
+export async function listTagsUsage(): Promise<TagsUsageResponse> {
+  const fn = surface().tags?.usage;
+  if (!fn) {
+    throw new Error('preload method "tags.usage" is not exposed on window.opentreasury');
+  }
+  return fn();
 }

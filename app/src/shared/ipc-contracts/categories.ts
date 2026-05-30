@@ -30,10 +30,13 @@ export const IPC_CATEGORIES_UPDATE = 'categories:update';
 export const IPC_CATEGORIES_ARCHIVE = 'categories:archive';
 export const IPC_CATEGORIES_UNARCHIVE = 'categories:unarchive';
 export const IPC_CATEGORIES_USAGE = 'categories:usage';
+export const IPC_CATEGORIES_DELETE = 'categories:delete';
 export const IPC_SUBCATEGORIES_CREATE = 'subcategories:create';
 export const IPC_SUBCATEGORIES_UPDATE = 'subcategories:update';
 export const IPC_SUBCATEGORIES_ARCHIVE = 'subcategories:archive';
 export const IPC_SUBCATEGORIES_UNARCHIVE = 'subcategories:unarchive';
+export const IPC_SUBCATEGORIES_DELETE = 'subcategories:delete';
+export const IPC_SUBCATEGORIES_USAGE = 'subcategories:usage';
 
 // ============================================================================
 // Wire-level events
@@ -145,6 +148,26 @@ export const subcategoryUnarchivedEventSchema = z.object({
 
 export type SubcategoryUnarchivedEvent = z.infer<typeof subcategoryUnarchivedEventSchema>;
 
+// WI-21-followup — hard-delete events (gated on usage_count === 0 by handler).
+export const categoryDeletedEventSchema = z.object({
+  type: z.literal('CategoryDeleted'),
+  id: z.string().min(1),
+  categoryId: z.string().min(1),
+  deletedAt: z.string().datetime(),
+});
+
+export type CategoryDeletedEvent = z.infer<typeof categoryDeletedEventSchema>;
+
+export const subcategoryDeletedEventSchema = z.object({
+  type: z.literal('SubcategoryDeleted'),
+  id: z.string().min(1),
+  subcategoryId: z.string().min(1),
+  parentCategoryId: z.string().min(1),
+  deletedAt: z.string().datetime(),
+});
+
+export type SubcategoryDeletedEvent = z.infer<typeof subcategoryDeletedEventSchema>;
+
 // ============================================================================
 // Read-model record
 // ============================================================================
@@ -208,6 +231,7 @@ export const categoryErrorCodeSchema = z.enum([
   'PARENT_NOT_FOUND',
   'ALREADY_ARCHIVED',
   'NOT_ARCHIVED',
+  'HAS_REFERENCES',
   'SCHEMA_INVALID',
   'INTERNAL',
 ]);
@@ -218,6 +242,9 @@ export const categoryErrorSchema = z.object({
   code: categoryErrorCodeSchema,
   message: z.string(),
   field: z.string().optional(),
+  // Populated on HAS_REFERENCES so the UI can render
+  // "X transactions reference this category/subcategory".
+  transactionCount: z.number().int().nonnegative().optional(),
 });
 
 export type CategoryError = z.infer<typeof categoryErrorSchema>;
@@ -376,3 +403,48 @@ export const unarchiveSubcategoryResponseSchema = z.discriminatedUnion('ok', [
 ]);
 
 export type UnarchiveSubcategoryResponse = z.infer<typeof unarchiveSubcategoryResponseSchema>;
+
+// ============================================================================
+// WI-21-followup — Hard-delete (gated on usage_count === 0)
+// ============================================================================
+
+export const deleteCategoryRequestSchema = z.object({
+  id: z.string().min(1),
+});
+
+export type DeleteCategoryRequest = z.infer<typeof deleteCategoryRequestSchema>;
+
+export const deleteCategoryResponseSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), event: categoryDeletedEventSchema }),
+  z.object({ ok: z.literal(false), error: categoryErrorSchema }),
+]);
+
+export type DeleteCategoryResponse = z.infer<typeof deleteCategoryResponseSchema>;
+
+export const deleteSubcategoryRequestSchema = z.object({
+  id: z.string().min(1),
+  parentCategoryId: z.string().min(1),
+});
+
+export type DeleteSubcategoryRequest = z.infer<typeof deleteSubcategoryRequestSchema>;
+
+export const deleteSubcategoryResponseSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), event: subcategoryDeletedEventSchema }),
+  z.object({ ok: z.literal(false), error: categoryErrorSchema }),
+]);
+
+export type DeleteSubcategoryResponse = z.infer<typeof deleteSubcategoryResponseSchema>;
+
+// Subcategories usage counter (categories already has `categoryUsageRecord`).
+export const subcategoryUsageRecordSchema = z.object({
+  subcategoryId: z.string().min(1),
+  transactionCount: z.number().int().nonnegative(),
+});
+
+export type SubcategoryUsageRecord = z.infer<typeof subcategoryUsageRecordSchema>;
+
+export const subcategoriesUsageResponseSchema = z.object({
+  usage: z.array(subcategoryUsageRecordSchema),
+});
+
+export type SubcategoriesUsageResponse = z.infer<typeof subcategoriesUsageResponseSchema>;

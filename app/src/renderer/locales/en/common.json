@@ -605,6 +605,42 @@
         "title": "No accounts yet",
         "body": "Add your first bank or PayPal account to start recording transactions.",
         "noMatch": "No account matches the search."
+      },
+      "delete": {
+        "actionTooltip": "Delete",
+        "confirmEmpty": {
+          "title": "Delete this account?",
+          "body": "This will permanently delete the account. This action cannot be undone.",
+          "confirmCta": "Delete"
+        },
+        "confirmHasRefs": {
+          "title": "Cannot delete — has transactions",
+          "body_one": "This account is referenced by {{count}} transaction. Hard delete is not allowed.",
+          "body_other": "This account is referenced by {{count}} transactions. Hard delete is not allowed.",
+          "archiveCta": "Archive instead"
+        },
+        "error": {
+          "hasReferences_one": "Cannot delete: {{count}} transaction references this account.",
+          "hasReferences_other": "Cannot delete: {{count}} transactions reference this account.",
+          "notFound": "Account not found.",
+          "internal": "Could not delete. Please try again."
+        }
+      },
+      "adjustBalance": {
+        "actionTooltip": "Adjust balance",
+        "modal": {
+          "title": "Adjust balance — {{accountName}}",
+          "currentBalance": "Current balance",
+          "targetBalance": "What should the current balance be?",
+          "delta": "Adjustment",
+          "description": "Description",
+          "descriptionDefault": "Balance adjustment — {{date}}",
+          "date": "Date",
+          "save": "Create adjustment",
+          "cancel": "Cancel",
+          "noChange": "No change — the target is the current balance.",
+          "errorGeneric": "Could not create adjustment. Please try again."
+        }
       }
     },
     "categorias": {
@@ -691,6 +727,26 @@
       "empty": {
         "title": "No categories yet",
         "body": "Create categories to group your income and expenses."
+      },
+      "delete": {
+        "actionTooltip": "Delete",
+        "confirmEmpty": {
+          "title": "Delete this category?",
+          "body": "This will permanently delete the category and its subcategories. This action cannot be undone.",
+          "confirmCta": "Delete"
+        },
+        "confirmHasRefs": {
+          "title": "Cannot delete — has transactions",
+          "body_one": "This category is referenced by {{count}} transaction. Hard delete is not allowed.",
+          "body_other": "This category is referenced by {{count}} transactions. Hard delete is not allowed.",
+          "archiveCta": "Archive instead"
+        },
+        "error": {
+          "hasReferences_one": "Cannot delete: {{count}} transaction references this category.",
+          "hasReferences_other": "Cannot delete: {{count}} transactions reference this category.",
+          "notFound": "Category not found.",
+          "internal": "Could not delete. Please try again."
+        }
       }
     },
     "subcategorias": {
@@ -727,7 +783,27 @@
         "unarchiveSuccess": "Subcategory restored",
         "updateSuccess": "Subcategory updated"
       },
-      "empty": "This category has no subcategories yet."
+      "empty": "This category has no subcategories yet.",
+      "delete": {
+        "actionTooltip": "Delete",
+        "confirmEmpty": {
+          "title": "Delete this subcategory?",
+          "body": "This will permanently delete the subcategory. This action cannot be undone.",
+          "confirmCta": "Delete"
+        },
+        "confirmHasRefs": {
+          "title": "Cannot delete — has transactions",
+          "body_one": "This subcategory is referenced by {{count}} transaction. Hard delete is not allowed.",
+          "body_other": "This subcategory is referenced by {{count}} transactions. Hard delete is not allowed.",
+          "archiveCta": "Archive instead"
+        },
+        "error": {
+          "hasReferences_one": "Cannot delete: {{count}} transaction references this subcategory.",
+          "hasReferences_other": "Cannot delete: {{count}} transactions reference this subcategory.",
+          "notFound": "Subcategory not found.",
+          "internal": "Could not delete. Please try again."
+        }
+      }
     },
     "etiquetas": {
       "heading": "Tags",
@@ -774,6 +850,26 @@
         "title": "No tags yet",
         "body": "Tags let you mark cross-cutting themes like \"COVID-19\" or \"Grant A\".",
         "noMatch": "No tag matches the search."
+      },
+      "delete": {
+        "actionTooltip": "Delete",
+        "confirmEmpty": {
+          "title": "Delete this tag?",
+          "body": "This will permanently delete the tag. This action cannot be undone.",
+          "confirmCta": "Delete"
+        },
+        "confirmHasRefs": {
+          "title": "Cannot delete — has transactions",
+          "body_one": "This tag is referenced by {{count}} transaction. Hard delete is not allowed.",
+          "body_other": "This tag is referenced by {{count}} transactions. Hard delete is not allowed.",
+          "archiveCta": "Archive instead"
+        },
+        "error": {
+          "hasReferences_one": "Cannot delete: {{count}} transaction references this tag.",
+          "hasReferences_other": "Cannot delete: {{count}} transactions reference this tag.",
+          "notFound": "Tag not found.",
+          "internal": "Could not delete. Please try again."
+        }
       }
     },
     "error": {
@@ -789,6 +885,7 @@
       "notFound": "This item no longer exists. Refresh the list and try again.",
       "alreadyArchived": "This item was already archived.",
       "notArchived": "This item isn't archived.",
+      "hasReferences": "Can't delete: linked transactions exist. Archive it instead.",
       "internal": "An internal error occurred. Please try again.",
       "submitFailed": "Couldn't save. Please try again."
     }

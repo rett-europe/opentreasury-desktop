@@ -64,16 +64,21 @@ import {
   IPC_ACCOUNTS_UPDATE,
   IPC_ACCOUNTS_ARCHIVE,
   IPC_ACCOUNTS_UNARCHIVE,
+  IPC_ACCOUNTS_DELETE,
+  IPC_ACCOUNTS_USAGE,
   type CreateAccountRequest,
   type CreateAccountResponse,
   type AccountsListRequest,
   type AccountsListResponse,
+  type AccountsUsageResponse,
   type UpdateAccountRequest,
   type UpdateAccountResponse,
   type ArchiveAccountRequest,
   type ArchiveAccountResponse,
   type UnarchiveAccountRequest,
   type UnarchiveAccountResponse,
+  type DeleteAccountRequest,
+  type DeleteAccountResponse,
 } from '../shared/ipc-contracts/accounts.js';
 import {
   IPC_CATEGORIES_CREATE,
@@ -82,21 +87,27 @@ import {
   IPC_CATEGORIES_ARCHIVE,
   IPC_CATEGORIES_UNARCHIVE,
   IPC_CATEGORIES_USAGE,
+  IPC_CATEGORIES_DELETE,
   IPC_SUBCATEGORIES_CREATE,
   IPC_SUBCATEGORIES_UPDATE,
   IPC_SUBCATEGORIES_ARCHIVE,
   IPC_SUBCATEGORIES_UNARCHIVE,
+  IPC_SUBCATEGORIES_DELETE,
+  IPC_SUBCATEGORIES_USAGE,
   type CreateCategoryRequest,
   type CreateCategoryResponse,
   type CategoriesListRequest,
   type CategoriesListResponse,
   type CategoriesUsageResponse,
+  type SubcategoriesUsageResponse,
   type UpdateCategoryRequest,
   type UpdateCategoryResponse,
   type ArchiveCategoryRequest,
   type ArchiveCategoryResponse,
   type UnarchiveCategoryRequest,
   type UnarchiveCategoryResponse,
+  type DeleteCategoryRequest,
+  type DeleteCategoryResponse,
   type CreateSubcategoryRequest,
   type CreateSubcategoryResponse,
   type UpdateSubcategoryRequest,
@@ -105,6 +116,8 @@ import {
   type ArchiveSubcategoryResponse,
   type UnarchiveSubcategoryRequest,
   type UnarchiveSubcategoryResponse,
+  type DeleteSubcategoryRequest,
+  type DeleteSubcategoryResponse,
 } from '../shared/ipc-contracts/categories.js';
 import {
   IPC_TAGS_CREATE,
@@ -112,16 +125,21 @@ import {
   IPC_TAGS_UPDATE,
   IPC_TAGS_ARCHIVE,
   IPC_TAGS_UNARCHIVE,
+  IPC_TAGS_DELETE,
+  IPC_TAGS_USAGE,
   type CreateTagRequest,
   type CreateTagResponse,
   type TagsListRequest,
   type TagsListResponse,
+  type TagsUsageResponse,
   type UpdateTagRequest,
   type UpdateTagResponse,
   type ArchiveTagRequest,
   type ArchiveTagResponse,
   type UnarchiveTagRequest,
   type UnarchiveTagResponse,
+  type DeleteTagRequest,
+  type DeleteTagResponse,
 } from '../shared/ipc-contracts/tags.js';
 import {
   IPC_IMPORT_STAGE_FILE,
@@ -355,6 +373,12 @@ const api = {
     unarchive: (req: UnarchiveAccountRequest): Promise<UnarchiveAccountResponse> => {
       return ipcRenderer.invoke(IPC_ACCOUNTS_UNARCHIVE, req);
     },
+    delete: (req: DeleteAccountRequest): Promise<DeleteAccountResponse> => {
+      return ipcRenderer.invoke(IPC_ACCOUNTS_DELETE, req);
+    },
+    usage: (): Promise<AccountsUsageResponse> => {
+      return ipcRenderer.invoke(IPC_ACCOUNTS_USAGE);
+    },
   },
   categories: {
     create: (req: CreateCategoryRequest): Promise<CreateCategoryResponse> => {
@@ -375,6 +399,9 @@ const api = {
     unarchive: (req: UnarchiveCategoryRequest): Promise<UnarchiveCategoryResponse> => {
       return ipcRenderer.invoke(IPC_CATEGORIES_UNARCHIVE, req);
     },
+    delete: (req: DeleteCategoryRequest): Promise<DeleteCategoryResponse> => {
+      return ipcRenderer.invoke(IPC_CATEGORIES_DELETE, req);
+    },
     subcategory: {
       create: (req: CreateSubcategoryRequest): Promise<CreateSubcategoryResponse> => {
         return ipcRenderer.invoke(IPC_SUBCATEGORIES_CREATE, req);
@@ -387,6 +414,12 @@ const api = {
       },
       unarchive: (req: UnarchiveSubcategoryRequest): Promise<UnarchiveSubcategoryResponse> => {
         return ipcRenderer.invoke(IPC_SUBCATEGORIES_UNARCHIVE, req);
+      },
+      delete: (req: DeleteSubcategoryRequest): Promise<DeleteSubcategoryResponse> => {
+        return ipcRenderer.invoke(IPC_SUBCATEGORIES_DELETE, req);
+      },
+      usage: (): Promise<SubcategoriesUsageResponse> => {
+        return ipcRenderer.invoke(IPC_SUBCATEGORIES_USAGE);
       },
     },
   },
@@ -405,6 +438,12 @@ const api = {
     },
     unarchive: (req: UnarchiveTagRequest): Promise<UnarchiveTagResponse> => {
       return ipcRenderer.invoke(IPC_TAGS_UNARCHIVE, req);
+    },
+    delete: (req: DeleteTagRequest): Promise<DeleteTagResponse> => {
+      return ipcRenderer.invoke(IPC_TAGS_DELETE, req);
+    },
+    usage: (): Promise<TagsUsageResponse> => {
+      return ipcRenderer.invoke(IPC_TAGS_USAGE);
     },
   },
   insights: {

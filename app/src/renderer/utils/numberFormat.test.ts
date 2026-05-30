@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatCurrency, parseLocaleAmount } from './numberFormat.js';
+import {
+  decimalSeparatorForLocale,
+  formatAmountForInput,
+  formatCurrency,
+  isValidAmountInput,
+  parseLocaleAmount,
+} from './numberFormat.js';
 
 describe('formatCurrency', () => {
   it('formats EUR in es-ES with comma decimal and trailing euro symbol', () => {
@@ -69,5 +75,165 @@ describe('parseLocaleAmount', () => {
 
   it('trims surrounding whitespace', () => {
     expect(parseLocaleAmount('  42,5  ')).toBe(42.5);
+  });
+});
+
+describe('isValidAmountInput (ES — decimalSep = ",")', () => {
+  // Valid intermediate / fully-formed states under the Spanish rule.
+  it.each([
+    '',
+    '-',
+    '0',
+    '1',
+    '1234',
+    '1331,85',
+    '1331,',
+    ',85',
+    '-1331,85',
+    '0,5',
+    '999999999999', // 12-digit integer at the cap
+    '999999999999,99', // integer at cap + 2 decimals
+  ])('accepts %j', (v) => {
+    expect(isValidAmountInput(v, ',')).toBe(true);
+  });
+
+  // Reject everything that isn't a single comma-decimal number.
+  it.each([
+    'a',
+    '1abc',
+    // Period is the wrong separator in ES — no longer accepted at input.
+    '1.85',
+    '1.331,85',
+    '1,331.85',
+    '999.999,99',
+    // Multiple commas (incl. the previous "looks like thousands" forms).
+    '1,,2',
+    '1,2,3',
+    '1,2,3,4,5',
+    // More than 2 decimal digits.
+    '1,234',
+    '1,999',
+    // Integer too long (13 digits, one past the cap).
+    '1234567890123',
+    // Pedro's degenerate input.
+    '1.331123123213123123,85555555',
+    // Stray sign.
+    '1-2',
+    '-1-',
+  ])('rejects %j', (v) => {
+    expect(isValidAmountInput(v, ',')).toBe(false);
+  });
+});
+
+describe('isValidAmountInput (EN — decimalSep = ".")', () => {
+  // Valid under the English rule (period decimal, no thousands grouping).
+  it.each([
+    '',
+    '-',
+    '0',
+    '1',
+    '1234',
+    '1331.85',
+    '1331.',
+    '.85',
+    '-1331.85',
+    '0.5',
+    '999999999999',
+    '999999999999.99',
+  ])('accepts %j', (v) => {
+    expect(isValidAmountInput(v, '.')).toBe(true);
+  });
+
+  // Reject the wrong separator and any grouping / garbage.
+  it.each([
+    'a',
+    '1abc',
+    // Comma is the wrong separator in EN — no longer accepted at input.
+    '1,85',
+    '1,331.85',
+    '1.331,85',
+    '1,234,567.89',
+    // Multiple dots.
+    '1..2',
+    '1.2.3',
+    '1.2.3.4',
+    // More than 2 decimal digits.
+    '1.234',
+    '1.999',
+    // Integer too long.
+    '1234567890123',
+    // Pedro's degenerate input.
+    '1.331123123213123123,85555555',
+    // Stray sign.
+    '1-2',
+    '-1-',
+  ])('rejects %j', (v) => {
+    expect(isValidAmountInput(v, '.')).toBe(false);
+  });
+});
+
+describe('decimalSeparatorForLocale', () => {
+  it.each(['en', 'en-US', 'en-GB'])('returns "." for %j', (locale) => {
+    expect(decimalSeparatorForLocale(locale)).toBe('.');
+  });
+
+  it.each(['es', 'es-ES', 'es-MX', 'fr', 'de', 'it', 'pt-BR'])(
+    'returns "," for %j (non-English)',
+    (locale) => {
+      expect(decimalSeparatorForLocale(locale)).toBe(',');
+    },
+  );
+});
+
+describe('formatAmountForInput', () => {
+  it('uses comma decimal for ES locale', () => {
+    expect(formatAmountForInput(423.89, ',')).toBe('423,89');
+  });
+
+  it('uses period decimal for EN locale', () => {
+    expect(formatAmountForInput(423.89, '.')).toBe('423.89');
+  });
+
+  it('emits a bare integer when there is no fractional part (ES)', () => {
+    expect(formatAmountForInput(1331, ',')).toBe('1331');
+  });
+
+  it('emits a bare integer when there is no fractional part (EN)', () => {
+    expect(formatAmountForInput(1331, '.')).toBe('1331');
+  });
+
+  it('emits "0" for zero', () => {
+    expect(formatAmountForInput(0, ',')).toBe('0');
+    expect(formatAmountForInput(0, '.')).toBe('0');
+  });
+
+  it('preserves the sign on negatives (ES)', () => {
+    expect(formatAmountForInput(-50.5, ',')).toBe('-50,5');
+  });
+
+  it('preserves the sign on negatives (EN)', () => {
+    expect(formatAmountForInput(-50.5, '.')).toBe('-50.5');
+  });
+
+  it('returns an empty string for NaN', () => {
+    expect(formatAmountForInput(NaN, ',')).toBe('');
+    expect(formatAmountForInput(NaN, '.')).toBe('');
+  });
+
+  it('returns an empty string for ±Infinity', () => {
+    expect(formatAmountForInput(Infinity, ',')).toBe('');
+    expect(formatAmountForInput(-Infinity, ',')).toBe('');
+  });
+
+  it('round-trips: every formatted value is accepted by the strict validator (ES)', () => {
+    for (const v of [0, 1, 1331, 423.89, -50.5, 999999999999, 0.05]) {
+      expect(isValidAmountInput(formatAmountForInput(v, ','), ',')).toBe(true);
+    }
+  });
+
+  it('round-trips: every formatted value is accepted by the strict validator (EN)', () => {
+    for (const v of [0, 1, 1331, 423.89, -50.5, 999999999999, 0.05]) {
+      expect(isValidAmountInput(formatAmountForInput(v, '.'), '.')).toBe(true);
+    }
   });
 });
