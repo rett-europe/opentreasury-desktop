@@ -616,6 +616,22 @@
           "notFound": "Account not found.",
           "internal": "Could not delete. Please try again."
         }
+      },
+      "adjustBalance": {
+        "actionTooltip": "Adjust balance",
+        "modal": {
+          "title": "Adjust balance — {{accountName}}",
+          "currentBalance": "Current balance",
+          "targetBalance": "What should the current balance be?",
+          "delta": "Adjustment",
+          "description": "Description",
+          "descriptionDefault": "Balance adjustment — {{date}}",
+          "date": "Date",
+          "save": "Create adjustment",
+          "cancel": "Cancel",
+          "noChange": "No change — the target is the current balance.",
+          "errorGeneric": "Could not create adjustment. Please try again."
+        }
       }
     },
     "categorias": {

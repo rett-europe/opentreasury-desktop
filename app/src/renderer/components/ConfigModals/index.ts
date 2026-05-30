@@ -3,3 +3,5 @@ export { AddCategoryModal, CATEGORY_PALETTE } from './AddCategoryModal.js';
 export { AddTagModal } from './AddTagModal.js';
 export { ArchiveConfirmModal } from './ArchiveConfirmModal.js';
 export type { ArchiveEntity } from './ArchiveConfirmModal.js';
+export { BalanceAdjustmentModal } from './BalanceAdjustmentModal.js';
+export type { BalanceAdjustmentModalProps } from './BalanceAdjustmentModal.js';

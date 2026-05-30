@@ -10,13 +10,19 @@ import {
   EyeOff,
   RotateCcw,
   Trash2,
+  Scale,
 } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
-import { AddAccountModal, ArchiveConfirmModal } from '../../components/ConfigModals/index.js';
+import {
+  AddAccountModal,
+  ArchiveConfirmModal,
+  BalanceAdjustmentModal,
+} from '../../components/ConfigModals/index.js';
 import { ConfirmDialog } from '../../components/ConfirmDialog/index.js';
 import { listAccounts } from '../../services/accountsApi.js';
+import { getAccountBalances } from '../../services/panelApi.js';
 import {
   archiveAccount,
   ConfigMutationError,
@@ -31,7 +37,15 @@ import type { AccountRecord } from '../../types/config.js';
 
 type State =
   | { kind: 'loading' }
-  | { kind: 'loaded'; accounts: readonly ConfigAccount[] }
+  | {
+      kind: 'loaded';
+      accounts: readonly ConfigAccount[];
+      // Per-account `net` from `panel.getAccountBalances` (income − expense
+      // across all transactions). Combined with `openingBalance` to render
+      // the live "current balance" column, so balance adjustments (and any
+      // other tx) update the Accounts list immediately.
+      balancesById: ReadonlyMap<string, number>;
+    }
   | { kind: 'error'; message: string };
 
 export interface CuentasTabProps {
@@ -61,6 +75,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   // on usage > 0 to surface the "Archive instead" CTA.
   const [deleteTarget, setDeleteTarget] = useState<ConfigAccount | null>(null);
   const [usage, setUsage] = useState<ReadonlyMap<string, number>>(() => new Map());
+  const [adjusting, setAdjusting] = useState<ConfigAccount | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [revealed, setRevealed] = useState<ReadonlySet<string>>(() => new Set());
@@ -77,11 +92,24 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      const [resp, usageResp] = await Promise.all([
+      // Fetch the account list, per-account balance aggregates, and per-account
+      // usage in parallel. If only the balances call fails (transient IPC) we
+      // still render the list with `balancesById` empty — the row cell + total
+      // gracefully fall back to opening balance only.
+      const [listResp, balancesResp, usageResp] = await Promise.all([
         listAccounts({ includeArchived: showArchived }),
+        getAccountBalances().catch(() => null),
         listAccountsUsage(),
       ]);
-      setState({ kind: 'loaded', accounts: resp.accounts as readonly ConfigAccount[] });
+      const balancesById = new Map<string, number>();
+      if (balancesResp) {
+        for (const b of balancesResp.balances) balancesById.set(b.accountId, b.net);
+      }
+      setState({
+        kind: 'loaded',
+        accounts: listResp.accounts as readonly ConfigAccount[],
+        balancesById,
+      });
       setUsage(new Map(usageResp.usage.map((u) => [u.accountId, u.transactionCount])));
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : 'unknown' });
@@ -181,9 +209,15 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
     );
   });
 
+  const balancesById = state.kind === 'loaded' ? state.balancesById : new Map<string, number>();
+  const currentBalanceFor = (a: ConfigAccount): number =>
+    a.openingBalance + (balancesById.get(a.id) ?? 0);
+
   const totalBalance =
     state.kind === 'loaded'
-      ? state.accounts.filter((a) => !isArchived(a)).reduce((sum, a) => sum + a.openingBalance, 0)
+      ? state.accounts
+          .filter((a) => !isArchived(a))
+          .reduce((sum, a) => sum + currentBalanceFor(a), 0)
       : 0;
 
   return (
@@ -396,13 +430,13 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                           className="align-right"
                           style={{
                             color:
-                              a.openingBalance >= 0
+                              currentBalanceFor(a) >= 0
                                 ? 'var(--color-status-success)'
                                 : 'var(--color-status-error)',
                             fontWeight: 'var(--font-weight-medium)',
                           }}
                         >
-                          {fmtCurrency.format(a.openingBalance)}
+                          {fmtCurrency.format(currentBalanceFor(a))}
                         </td>
                         <td>
                           <div className="ot-config__row-actions">
@@ -434,6 +468,16 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                                   onClick={() => setEditing(a)}
                                 >
                                   <Edit size={14} />
+                                </button>
+                                <button
+                                  className="ot-config__row-action-btn"
+                                  title={t('configuracion.cuentas.adjustBalance.actionTooltip')}
+                                  aria-label={t(
+                                    'configuracion.cuentas.adjustBalance.actionTooltip',
+                                  )}
+                                  onClick={() => setAdjusting(a)}
+                                >
+                                  <Scale size={14} />
                                 </button>
                                 <button
                                   className="ot-config__row-action-btn"
@@ -510,6 +554,15 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
         )}
         onConfirm={() => void handleConfirmDelete()}
         onCancel={() => setDeleteTarget(null)}
+      />
+      <BalanceAdjustmentModal
+        isOpen={adjusting !== null}
+        account={adjusting}
+        onClose={() => setAdjusting(null)}
+        onSaved={() => {
+          void load();
+          onListChanged?.();
+        }}
       />
     </>
   );
