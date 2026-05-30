@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, beforeAll, afterEach, afterAll } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
@@ -345,6 +345,158 @@ describe('MovementsScreen', () => {
     await waitFor(() => {
       const chip = screen.getByRole('radio', { name: /^Este mes$|^This month$/i });
       expect(chip.getAttribute('aria-checked')).toBe('true');
+    });
+  });
+
+  // ── Amount filter (ES locale sweep) ──────────────────────────────────
+  //
+  // Regression for the comma-decimal bug Pedro hit during trial.3.13. The
+  // min/max amount filters must accept Spanish-style numbers (`100,50` and
+  // `1.000,00`) and parse them via `parseLocaleAmount`. The inputs are
+  // `type="text"` so the browser doesn't reject the comma in locales that
+  // expect a `.` decimal.
+  describe('amount filter: comma-decimal input (ES locale)', () => {
+    beforeAll(async () => {
+      await i18n.changeLanguage('es');
+    });
+    afterAll(async () => {
+      await i18n.changeLanguage('en');
+    });
+
+    function getMinAmountInput(): HTMLInputElement {
+      // The aria-label resolves to the i18n string `movements.filters.amountMin`,
+      // which is `"min €"` in both locales (en/es). Match permissively.
+      const input = document.querySelector<HTMLInputElement>(
+        'input[aria-label*="min" i][inputmode="decimal"]',
+      );
+      if (!input) throw new Error('min-amount input not found');
+      return input;
+    }
+
+    function getMaxAmountInput(): HTMLInputElement {
+      const input = document.querySelector<HTMLInputElement>(
+        'input[aria-label*="max" i][inputmode="decimal"]',
+      );
+      if (!input) throw new Error('max-amount input not found');
+      return input;
+    }
+
+    function countDataRows(): number {
+      const table = screen.queryByRole('table');
+      if (!table) return 0;
+      // Exclude the header row.
+      return table.querySelectorAll('tbody tr').length;
+    }
+
+    beforeEach(() => {
+      // Seed three transactions at distinct amounts so the filter changes
+      // are visible: 100.50, 200.00 (defaults) + 1331.85 to exercise a
+      // higher-magnitude row.
+      vi.mocked(listMovements).mockResolvedValue([
+        ...mockMovements,
+        {
+          id: 'mov-3',
+          date: '2026-04-16',
+          type: 'income',
+          amount: 1331.85,
+          currency: 'EUR',
+          description: 'Big donation',
+          accountId: 'acc-1',
+          categoryId: null,
+          subcategoryId: null,
+          tagIds: [],
+          status: 'approved',
+          createdAt: '2026-04-16T10:00:00Z',
+        },
+      ]);
+    });
+
+    it('min amount input is `type="text"` + `inputMode="decimal"`', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
+
+      const minInput = getMinAmountInput();
+      expect(minInput.type).toBe('text');
+      expect(minInput.inputMode).toBe('decimal');
+
+      const maxInput = getMaxAmountInput();
+      expect(maxInput.type).toBe('text');
+      expect(maxInput.inputMode).toBe('decimal');
+    });
+
+    it('min amount `150,50` (Spanish decimal) keeps rows ≥ 150.5', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(countDataRows()).toBe(3));
+
+      fireEvent.change(getMinAmountInput(), { target: { value: '150,50' } });
+
+      await waitFor(() => {
+        // 100.50 is filtered out; 200.00 and 1331.85 remain.
+        expect(countDataRows()).toBe(2);
+      });
+      expect(screen.queryByText('Test expense')).toBeNull();
+      expect(screen.getByText('Test income')).toBeTruthy();
+      expect(screen.getByText('Big donation')).toBeTruthy();
+    });
+
+    it('max amount `150,50` (Spanish decimal) keeps rows ≤ 150.5', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(countDataRows()).toBe(3));
+
+      fireEvent.change(getMaxAmountInput(), { target: { value: '150,50' } });
+
+      await waitFor(() => {
+        // Only 100.50 stays.
+        expect(countDataRows()).toBe(1);
+      });
+      expect(screen.getByText('Test expense')).toBeTruthy();
+      expect(screen.queryByText('Test income')).toBeNull();
+      expect(screen.queryByText('Big donation')).toBeNull();
+    });
+
+    it('min amount `1000,00` (no thousands grouping) keeps only rows ≥ 1000', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(countDataRows()).toBe(3));
+
+      // Plain integer + comma decimal — thousands grouping is rejected at
+      // input in ES under the strict per-locale rule.
+      fireEvent.change(getMinAmountInput(), { target: { value: '1000,00' } });
+
+      await waitFor(() => {
+        // Only the 1331.85 row remains.
+        expect(countDataRows()).toBe(1);
+      });
+      expect(screen.getByText('Big donation')).toBeTruthy();
+    });
+
+    it('rejects thousands grouping (`1.000,00`) at input — the dot never enters state', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(countDataRows()).toBe(3));
+
+      const minInput = getMinAmountInput();
+      fireEvent.change(minInput, { target: { value: '100,50' } });
+      expect(minInput.value).toBe('100,50');
+
+      // `.` is the wrong separator in ES under the strict per-locale rule.
+      fireEvent.change(minInput, { target: { value: '1.000,00' } });
+      expect(minInput.value).toBe('100,50');
+    });
+
+    it('silently rejects garbage keystrokes in the min-amount input', async () => {
+      renderWithI18n();
+      await waitFor(() => expect(countDataRows()).toBe(3));
+
+      const minInput = getMinAmountInput();
+      fireEvent.change(minInput, { target: { value: '100,50' } });
+      expect(minInput.value).toBe('100,50');
+
+      // Pedro's regression: typing `1.....,2,..` must not mutate the input.
+      fireEvent.change(minInput, { target: { value: '1.....,2,..' } });
+      expect(minInput.value).toBe('100,50');
+      fireEvent.change(minInput, { target: { value: '1..2' } });
+      expect(minInput.value).toBe('100,50');
+      fireEvent.change(minInput, { target: { value: 'abc' } });
+      expect(minInput.value).toBe('100,50');
     });
   });
 });
