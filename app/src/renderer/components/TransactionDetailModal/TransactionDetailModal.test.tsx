@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
@@ -449,6 +449,80 @@ describe('TransactionDetailModal', () => {
 
       // Should not throw or change anything.
       expect(() => unmount()).not.toThrow();
+    });
+  });
+
+  // ES locale sweep — regression for the comma-decimal bug Pedro hit during
+  // trial.3.13 integration testing. The edit-mode amount input must accept
+  // `1331,85` (Spanish decimal) and forward the correct numeric value to the
+  // IPC update handler. Thousands grouping is rejected at input — the
+  // display layer adds it via `formatCurrency`.
+  describe('comma-decimal amount input (ES locale)', () => {
+    beforeAll(async () => {
+      await i18n.changeLanguage('es');
+    });
+    afterAll(async () => {
+      await i18n.changeLanguage('en');
+    });
+
+    async function editAmountAndSave(typed: string) {
+      const handleUpdate = vi.fn().mockResolvedValue(undefined);
+      // Start with a `pending` transaction so amount is editable (SPEC-025 lock).
+      renderModal({ ...baseTx, status: 'pending' }, { onUpdate: handleUpdate });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+
+      const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
+      expect(amountInput).not.toBeNull();
+      // The input must be text + decimal inputMode so the browser accepts comma.
+      expect(amountInput.type).toBe('text');
+      expect(amountInput.inputMode).toBe('decimal');
+
+      fireEvent.change(amountInput, { target: { value: typed } });
+      // The user's raw typed string round-trips in state — no silent coercion.
+      expect(amountInput.value).toBe(typed);
+
+      fireEvent.click(screen.getByRole('button', { name: /Save|Guardar/i }));
+      await vi.waitFor(() => expect(handleUpdate).toHaveBeenCalled());
+      return handleUpdate.mock.calls[0]![0];
+    }
+
+    it('parses `1331,85` (Spanish decimal) into 1331.85 for the IPC update', async () => {
+      const call = await editAmountAndSave('1331,85');
+      expect(call.amount).toBe(1331.85);
+    });
+
+    it('rejects thousands grouping (`1.331,85`) at input — the dot never enters state', () => {
+      renderModal({ ...baseTx, status: 'pending' });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+      const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
+
+      fireEvent.change(amountInput, { target: { value: '1331,85' } });
+      expect(amountInput.value).toBe('1331,85');
+
+      // `.` is the wrong separator in ES under the strict per-locale rule.
+      fireEvent.change(amountInput, { target: { value: '1.331,85' } });
+      expect(amountInput.value).toBe('1331,85');
+    });
+
+    it('silently rejects garbage keystrokes (e.g. `1..2`) — input value is unchanged', () => {
+      renderModal({ ...baseTx, status: 'pending' });
+      fireEvent.click(screen.getByRole('button', { name: /Edit|Editar/i }));
+
+      const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
+      expect(amountInput).not.toBeNull();
+
+      // Baseline value from the seeded tx is `150` (RecentTransaction.amount.toString()).
+      const baseline = amountInput.value;
+      expect(baseline).toBe('150');
+
+      // Garbage gets dropped by the guard — React doesn't update state, so the
+      // input reverts to the last good value on each rejected keystroke.
+      fireEvent.change(amountInput, { target: { value: '1.....,2,..' } });
+      expect(amountInput.value).toBe(baseline);
+      fireEvent.change(amountInput, { target: { value: '1..2' } });
+      expect(amountInput.value).toBe(baseline);
+      fireEvent.change(amountInput, { target: { value: 'abc' } });
+      expect(amountInput.value).toBe(baseline);
     });
   });
 });

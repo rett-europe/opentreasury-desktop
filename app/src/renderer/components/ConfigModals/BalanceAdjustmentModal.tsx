@@ -4,7 +4,11 @@ import { createTransaction } from '../../services/transactionApi.js';
 import { getAccountBalances } from '../../services/panelApi.js';
 import type { ConfigAccount } from '../../services/configMutationsApi.js';
 import { ADJUSTMENT_DETAILS_MARKER } from '../../../shared/constants/transactionMarkers.js';
-import { parseLocaleAmount } from '../../utils/numberFormat.js';
+import {
+  decimalSeparatorForLocale,
+  isValidAmountInput,
+  parseLocaleAmount,
+} from '../../utils/numberFormat.js';
 import { ConfigModalShell } from './ConfigModalShell.js';
 
 export interface BalanceAdjustmentModalProps {
@@ -45,6 +49,7 @@ export function BalanceAdjustmentModal({
   onSaved,
 }: BalanceAdjustmentModalProps): JSX.Element {
   const { t, i18n } = useTranslation('common');
+  const decimalSep = decimalSeparatorForLocale(i18n.language);
 
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
   const [target, setTarget] = useState('');
@@ -247,7 +252,11 @@ export function BalanceAdjustmentModal({
           inputMode="decimal"
           value={target}
           placeholder="0.00"
-          onChange={(e) => setTarget(e.target.value)}
+          onChange={(e) => {
+            if (isValidAmountInput(e.target.value, decimalSep)) {
+              setTarget(e.target.value);
+            }
+          }}
           autoFocus
         />
       </div>

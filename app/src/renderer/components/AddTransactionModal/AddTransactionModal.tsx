@@ -7,6 +7,7 @@ import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js'
 import type { CreateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
+import { parseLocaleAmount } from '../../utils/numberFormat.js';
 // Reuse the detail modal's shell styling so Add and View/Edit look identical —
 // same width, padding, header/footer, summary strip. Field layout itself comes
 // from the shared <TransactionFormFields/> component.
@@ -146,8 +147,11 @@ export function AddTransactionModal({
       newErrors.type = t('movements.form.errors.typeInvalid');
     }
 
-    const amountNum = Number(amount);
-    if (!amount || Number.isNaN(amountNum) || amountNum <= 0) {
+    // ES locale sweep: parse with `parseLocaleAmount` so `1331,85` and
+    // `1.331,85` are accepted alongside `1331.85` / `1,331.85`. Returns NaN
+    // for empty / non-numeric, which `Number.isFinite` rejects.
+    const amountNum = parseLocaleAmount(amount);
+    if (!amount || !Number.isFinite(amountNum) || amountNum <= 0) {
       newErrors.amount = t('movements.form.errors.amountNonPositive');
     }
 
@@ -189,7 +193,7 @@ export function AddTransactionModal({
         const input: CreateTransactionRequest = {
           date,
           type,
-          amount: Number(amount),
+          amount: parseLocaleAmount(amount),
           currency: 'EUR',
           description: description.trim(),
           accountId,

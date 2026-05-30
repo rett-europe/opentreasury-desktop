@@ -10,6 +10,12 @@ import type {
 import { ConfigModalShell } from './ConfigModalShell.js';
 import { mapConfigErrorToFieldKey } from './errorMap.js';
 import { CATEGORY_PALETTE } from './AddCategoryModal.js';
+import {
+  decimalSeparatorForLocale,
+  formatAmountForInput,
+  isValidAmountInput,
+  parseLocaleAmount,
+} from '../../utils/numberFormat.js';
 
 export interface AddAccountModalProps {
   readonly isOpen: boolean;
@@ -43,7 +49,10 @@ export function AddAccountModal({
   mode = 'add',
   record = null,
 }: AddAccountModalProps): JSX.Element {
-  const { t } = useTranslation('common');
+  const { t, i18n } = useTranslation('common');
+  // Decimal separator for the active locale — drives the opening-balance
+  // input sanitizer.
+  const decimalSep = decimalSeparatorForLocale(i18n.language);
 
   const [name, setName] = useState('');
   const [bankName, setBankName] = useState('');
@@ -66,7 +75,13 @@ export function AddAccountModal({
         setIban(record.iban ?? '');
         setColor(record.color ?? CATEGORY_PALETTE[0] ?? '#6d4d8c');
         setIsPaypal(Boolean(record.isPaypal));
-        setOpeningBalance(String(record.openingBalance ?? ''));
+        // Locale-aware pre-fill so the existing balance reads `423,89` in ES
+        // (and survives the strict per-locale validator on the next keystroke).
+        setOpeningBalance(
+          record.openingBalance == null
+            ? ''
+            : formatAmountForInput(record.openingBalance, decimalSep),
+        );
       } else {
         setName('');
         setBankName('');
@@ -81,7 +96,7 @@ export function AddAccountModal({
       setGeneralError(null);
       setSubmitting(false);
     }
-  }, [isOpen, mode, record]);
+  }, [isOpen, mode, record, decimalSep]);
 
   const validate = useCallback((): boolean => {
     const next: Errors = {};
@@ -89,7 +104,11 @@ export function AddAccountModal({
     else if (name.trim().length > 80) next.name = t('configuracion.errors.nameTooLong');
 
     if (openingBalance.trim() !== '') {
-      const n = Number(openingBalance);
+      // ES locale sweep: parse via `parseLocaleAmount` so opening balances
+      // typed in the Spanish style (`1.331,85`) are accepted alongside `.`
+      // decimals. Returns NaN for empty / non-numeric, which `Number.isFinite`
+      // rejects below.
+      const n = parseLocaleAmount(openingBalance);
       if (!Number.isFinite(n))
         next.openingBalance = t('configuracion.errors.openingBalanceInvalid');
     }
@@ -116,7 +135,7 @@ export function AddAccountModal({
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const parsed = openingBalance.trim() === '' ? undefined : Number(openingBalance);
+      const parsed = openingBalance.trim() === '' ? undefined : parseLocaleAmount(openingBalance);
       if (mode === 'edit' && record) {
         const changes = {
           name: name.trim(),
@@ -352,11 +371,24 @@ export function AddAccountModal({
         <input
           id="acc-opening"
           className="ot-config-modal__input"
-          type="number"
-          step="0.01"
+          // ES locale sweep: `type="text"` + `inputMode="decimal"` so the
+          // opening balance accepts comma-decimal input (e.g. `1331,85`).
+          // Sibling fix to PR #347 (transaction form / movements filter) —
+          // applies the same pattern Pedro hit during trial.3.13 testing.
+          type="text"
+          inputMode="decimal"
           value={openingBalance}
-          placeholder="0.00"
-          onChange={(e) => setOpeningBalance(e.target.value)}
+          placeholder="0,00"
+          onChange={(e) => {
+            // Sanitize keystrokes (locale-aware) so the field can't fill up
+            // with invalid characters (wrong separator, > 2 decimals, > 12
+            // integer digits). parseLocaleAmount in validate() would still
+            // flag the garbage, but the UX of allowing typed garbage is
+            // unacceptable.
+            if (isValidAmountInput(e.target.value, decimalSep)) {
+              setOpeningBalance(e.target.value);
+            }
+          }}
           aria-invalid={Boolean(errors.openingBalance)}
           aria-describedby={errors.openingBalance ? 'acc-opening-err' : undefined}
           readOnly={mode === 'edit'}
