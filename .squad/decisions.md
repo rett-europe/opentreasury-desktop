@@ -2,6 +2,52 @@
 
 ## Active Decisions
 
+### 2026-05-30: SPEC-027 Export Authorization Gate — Option A (typed EXPORTAR) Approved (Switch, Niobe)
+
+**Date:** 2026-05-30  
+**Status:** ✅ DECIDED (OQ1 resolved)  
+**Agents:** Switch (Security), Niobe (Spec/UX)  
+**Related:** SPEC-027 Export Feature § Open Question 1
+
+#### Decision Summary
+
+**SPEC-027 OQ1 Authorization Gate:** Resolved to **Option A (typed EXPORTAR + audit + rate-limit)** with 7 hard conditions. Per-word verification (2-of-12 as gate) rejected as cryptographically infeasible.
+
+#### Key Finding (Switch)
+
+Plaintext 12-word mnemonic is NOT retained in main-process memory after daily safeStorage unlock (SPEC-026 §4.2). On a normal silent-unlock session, the mnemonic never enters memory. Per-word verification therefore cannot work without either:
+- **(a) Retaining full mnemonic in memory for session** (unacceptable — expands secret footprint; contradicts "MK only in memory" posture)
+- **(b) Storing per-word commitments** (trivially offline-crackable against 2048-word BIP39 list; leaks mnemonic to anyone with `events.key` read access)
+
+Both paths rejected on security grounds. The reframed "2 random words as presence gate" is not implementable.
+
+#### Approved Gate Model: Option A
+
+1. **Typed confirmation word:** User types `EXPORTAR` (ES locale) or `EXPORT` (EN locale), case-insensitive
+2. **Mandatory audit entry before I/O:** Signed audit log entry with `action: "export.csv"` or `"export.xlsx"` appended before any plaintext byte written to disk
+3. **Main-process rate-limit:** Maximum 3 export operations per 15-minute window per workspace
+4. **Lockout on confirmation failures:** 5 consecutive mistypes → 5-minute UI disable
+5. **Audit logging of gate pass/fail:** Diagnostic log only (not hash-chained signed log); no input logged (redaction rule)
+6. **No mnemonic retention:** Plaintext mnemonic MUST be zeroized after transient enrollment/recovery/export-decrypted flows
+7. **Future escalation:** OS biometric re-authentication (Windows Hello / Touch ID) as optional v1.1 upgrade
+
+#### Threat-Model Clarity
+
+**What Option A protects:** Casual unauthorized person at unlocked app trying to export. Requires conscious typed action + audit trail. Defends against accidental/opportunistic export.
+
+**What it does NOT protect:** (1) Attacker with main-process code execution (already has MK, gate irrelevant). (2) Attacker who knows the confirmation word and is physically present (proceeds normally). (3) Compromised renderer invoking IPC directly (rate-limit slows but doesn't prevent; no UI-level gate defends this class).
+
+Option A is an **intent verification and audit mechanism**, not a cryptographic boundary.
+
+#### Spec Integration (Niobe)
+
+- Updated `docs/specs/027-export.md` OQ1 with approved gate model and Switch verdict summary
+- Added changelog row dated 2026-05-16
+- Cross-referenced FR15 (confirmation modal UX) and FR18 (mandatory audit entry)
+- Spec remains Draft pending answers to remaining OQ2–OQ13
+
+---
+
 ### 2026-05-25: Encrypted event log `load()` dedup must be load-scoped, not process-scoped (Trinity)
 
 **By:** Trinity (acting on Pedro's bug report)

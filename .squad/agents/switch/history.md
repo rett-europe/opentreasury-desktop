@@ -508,3 +508,13 @@ Reusable for any sensitive declassification.
 src/core/storage/** stay un-importable from the renderer's tsconfig. Any new
 feature that "needs decrypted rows in the renderer" should consume the existing
 in-memory read model, not open a new decryption surface.
+
+## Learnings
+
+### 2026-05-16 — Export auth gate ruling (SPEC-027 OQ1)
+
+**Key fact:** The daily-unlock path (SPEC-026 decision table row 3) uses `safeStorage` — the user types nothing, and the plaintext 12-word mnemonic is NEVER loaded into main-process memory during a normal session. The mnemonic is only transiently present during enrollment, recovery, and the export-decrypted escape hatch, and must be zeroized after Argon2id derivation completes.
+
+**Verdict reached:** ACCEPTABLE-WITH-CONDITIONS. The "2 random words" presence gate is infeasible in any secure form (retaining mnemonic = unacceptable secret-lifetime expansion; stored per-word commitments = trivially crackable against 2048-word BIP39 list). Approved Option A (typed EXPORTAR + audit + main-process rate-limit) as the v1 gate. OS biometric re-auth deferred to v1.1.
+
+**Deliverable:** `.squad/decisions/inbox/switch-export-auth-gate-verdict.md`

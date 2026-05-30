@@ -159,8 +159,8 @@ naming and format choice.
   be indexed by Windows Search, may be uploaded by sync clients, may appear
   in OS "Recent files", and is the user's responsibility from that point
   (Switch §2.2). Confirmation is **typed** — the user types the word
-  `EXPORTAR` (ES) or `EXPORT` (EN). See Open Question 1 for whether a 12-word
-  re-auth is layered on top.
+  `EXPORTAR` (ES) or `EXPORT` (EN). (Open Question 1 resolved to Option A —
+  typed confirmation only; no 12-word re-auth.)
 - **FR16 — Atomic write.** The main process writes to a sibling temp file in
   the **same destination directory** (e.g., `export.csv.partial`) and
   atomically renames to the final name on success. On any failure the partial
@@ -576,6 +576,80 @@ this section restates the decisions Niobe is committing the spec to.
    Niobe's recommendation: **Option A** for v1, with Option B as a
    per-workspace policy in v1.1.
 
+   > **Resolved (security verdict, 2026-05-16):**
+   >
+   > **Switch's ruling on the reframed authorization-gate proposal**
+   >
+   > The product owner reframed the previously-rejected "2-of-12" key-derivation
+   > idea as a lightweight *authorization/presence gate*: prompting the user for
+   > 2 random words from the 12-word mnemonic at export time, solely to verify
+   > that the human present is authorized (defending against "someone using an
+   > already-unlocked app without permission"). Switch evaluated this reframed
+   > proposal under the new intent.
+   >
+   > **Verdict: ACCEPTABLE-WITH-CONDITIONS.** The *intent* is legitimate, but
+   > the proposed *per-word verification mechanism* is **REJECTED**. The
+   > approved gate is **Option A** (typed `EXPORTAR`/`EXPORT` confirmation +
+   > mandatory audit entry + main-process rate-limiting/lockout).
+   >
+   > **Mnemonic-retention finding:** Per SPEC-026 §4.2, the plaintext 12-word
+   > mnemonic is **NOT retained** in main-process memory after daily silent
+   > unlock (the daily unlock path uses the per-device `safeStorage` wrap; the
+   > mnemonic is never entered and never loaded into memory). The mnemonic is
+   > only present transiently during fresh setup, enrollment, recovery, and
+   > export-decrypted flows, where it is used to derive the recovery wrapping
+   > key via Argon2id, then immediately zeroized. Retaining it for the session
+   > is unacceptable (expands secret footprint; contradicts the "MK only in
+   > memory" posture). Storing per-word commitments is also unacceptable: each
+   > BIP39 word represents ~11 bits of entropy (2048 candidates), making
+   > individual word commitments trivially offline-crackable even with
+   > Argon2id-hardening (~3.4 hours to brute-force all 12 words). **Conclusion:**
+   > No per-word verification can be built securely without either retaining the
+   > full mnemonic in memory (unacceptable) or storing crackable commitments
+   > (leaks the mnemonic to anyone with read access to `events.key`).
+   >
+   > **Approved gate (Option A) with mandatory conditions:**
+   > 1. **Typed confirmation word:** User must type `EXPORTAR` (ES locale) or
+   >    `EXPORT` (EN locale) in the pre-export confirmation modal.
+   >    Case-insensitive match (already in FR15).
+   > 2. **Mandatory audit entry before I/O:** Signed audit-log entry with
+   >    `action: "export.csv"` or `action: "export.xlsx"` appended *before* any
+   >    plaintext byte is written to disk (already in FR18).
+   > 3. **Main-process rate-limit:** Maximum **3 export operations per 15-minute
+   >    window** per workspace. After the 3rd export, further attempts are
+   >    blocked until the window expires. State must live in main process (not
+   >    renderer), defending against scripted exfiltration via IPC.
+   > 4. **Lockout on confirmation failures:** **5 consecutive mistypes** of the
+   >    confirmation word lock the Export screen for **5 minutes** (UI disabled,
+   >    IPC handler rejects). Addresses fat-finger UX; cheap and consistent.
+   > 5. **Audit logging of gate pass/fail:** Log `export.gate_pass` or
+   >    `export.gate_fail` in the local diagnostic log only (not in the
+   >    hash-chained signed audit log) for post-incident analysis. **Never log
+   >    the typed input** (redaction rule).
+   > 6. **No mnemonic retention:** The plaintext 12-word mnemonic MUST NOT be
+   >    retained in main-process memory beyond the enrollment/recovery/
+   >    export-decrypted flows where it is transiently needed for Argon2id
+   >    derivation. After derivation completes, the Buffer holding the phrase
+   >    must be zeroized (`buf.fill(0)` or `sodium_memzero`). Explicit, testable
+   >    requirement.
+   > 7. **Future escalation (v1.1):** OS biometric re-authentication (Windows
+   >    Hello / Touch ID) as an optional per-workspace policy, gating Export.
+   >    Deferred — not a v1 blocker.
+   >
+   > **Threat-model clarity:** Option A (typed EXPORTAR + audit + rate-limit)
+   > protects against a casual unauthorized person who sits at an unlocked app
+   > and tries to export (they must know the exact word, type it consciously,
+   > action is audited). The rate-limit prevents scripted bulk exfiltration via
+   > IPC. This is a **deliberate-action gate**, not a cryptographic boundary. It
+   > does NOT protect against: (a) an attacker with code execution in the main
+   > process (they have the MK in memory and can decrypt without the UI); (b) an
+   > attacker who knows the confirmation word and is physically present; (c) a
+   > compromised renderer that can invoke IPC directly (rate-limiting slows but
+   > does not prevent eventual export). No UI-level gate can defend against (a)
+   > or (c) — those require process-isolation and code-integrity measures
+   > orthogonal to this feature. The gate's value is making export a conscious,
+   > logged, non-accidental act.
+
 2. **(from Switch §5 Q2) Relationship to the M2 "export-decrypted" escape
    hatch (`.squad/decisions.md` Item 6).** Is SPEC-027 the M2 item,
    delivered earlier? Or does the Settings-screen JSON dump remain a
@@ -641,3 +715,4 @@ this section restates the decisions Niobe is committing the spec to.
 | Date | Status | By | Notes |
 |---|---|---|---|
 | 2026-05-15 | Draft | Niobe | Initial draft from Pedro's brief + Switch §1–§5 security verdict + Mouse UI notes. 17 ACs, 13 open questions, "2-of-12" gate explicitly rejected per Switch. |
+| 2026-05-16 | Draft | Niobe | Open Question 1 resolved: reframed authorization-gate proposal ruled ACCEPTABLE-WITH-CONDITIONS by Switch; Option A is the approved gate; per-word verification rejected on retention/entropy grounds. Rate-limit (3/15min), lockout (5 mistypes → 5min), audit/diagnostic logging, mnemonic zeroization, and biometric deferral (v1.1) conditions added. |
