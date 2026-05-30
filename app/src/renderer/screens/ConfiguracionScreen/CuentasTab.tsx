@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Landmark, Search, Edit, Archive, Eye, EyeOff, RotateCcw, Scale } from 'lucide-react';
+import {
+  Plus,
+  Landmark,
+  Search,
+  Edit,
+  Archive,
+  Eye,
+  EyeOff,
+  RotateCcw,
+  Trash2,
+  Scale,
+} from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
@@ -9,12 +20,15 @@ import {
   ArchiveConfirmModal,
   BalanceAdjustmentModal,
 } from '../../components/ConfigModals/index.js';
+import { ConfirmDialog } from '../../components/ConfirmDialog/index.js';
 import { listAccounts } from '../../services/accountsApi.js';
 import { getAccountBalances } from '../../services/panelApi.js';
 import {
   archiveAccount,
   ConfigMutationError,
+  deleteAccount,
   isArchived,
+  listAccountsUsage,
   unarchiveAccount,
   type ConfigAccount,
 } from '../../services/configMutationsApi.js';
@@ -56,6 +70,11 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ConfigAccount | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ConfigAccount | null>(null);
+  // WI-21-followup — hard-delete target + per-account usage (transactionCount
+  // by id). Loaded alongside the accounts list so the dialog body can branch
+  // on usage > 0 to surface the "Archive instead" CTA.
+  const [deleteTarget, setDeleteTarget] = useState<ConfigAccount | null>(null);
+  const [usage, setUsage] = useState<ReadonlyMap<string, number>>(() => new Map());
   const [adjusting, setAdjusting] = useState<ConfigAccount | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -73,13 +92,14 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      // Fetch the account list and per-account balance aggregates in parallel.
-      // If only the balances call fails (e.g. transient IPC error) we still
-      // render the list with `balancesById` empty — the row cell + total
+      // Fetch the account list, per-account balance aggregates, and per-account
+      // usage in parallel. If only the balances call fails (transient IPC) we
+      // still render the list with `balancesById` empty — the row cell + total
       // gracefully fall back to opening balance only.
-      const [listResp, balancesResp] = await Promise.all([
+      const [listResp, balancesResp, usageResp] = await Promise.all([
         listAccounts({ includeArchived: showArchived }),
         getAccountBalances().catch(() => null),
+        listAccountsUsage(),
       ]);
       const balancesById = new Map<string, number>();
       if (balancesResp) {
@@ -90,6 +110,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
         accounts: listResp.accounts as readonly ConfigAccount[],
         balancesById,
       });
+      setUsage(new Map(usageResp.usage.map((u) => [u.accountId, u.transactionCount])));
     } catch (err) {
       setState({ kind: 'error', message: err instanceof Error ? err.message : 'unknown' });
     }
@@ -132,6 +153,41 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
     },
     [load, onListChanged, t],
   );
+
+  // WI-21-followup — hard-delete confirm handler. The button is gated in two
+  // places: (a) the UI hides the destructive confirm CTA when usage > 0 and
+  // surfaces "Archive instead"; (b) the IPC handler re-checks usage server-
+  // side and returns HAS_REFERENCES if a race introduced a transaction
+  // between the listUsage fetch and the click.
+  const deleteUsage = deleteTarget ? (usage.get(deleteTarget.id) ?? 0) : 0;
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null);
+    try {
+      if (deleteUsage > 0) {
+        // User clicked "Archive instead".
+        await archiveAccount(target.id);
+      } else {
+        await deleteAccount(target.id);
+      }
+      await load();
+      onListChanged?.();
+    } catch (err) {
+      const message =
+        err instanceof ConfigMutationError
+          ? err.code === 'HAS_REFERENCES'
+            ? t('configuracion.cuentas.delete.error.hasReferences', {
+                count: err.transactionCount ?? 0,
+              })
+            : mapConfigMutationErrorToMessage(err, t)
+          : err instanceof Error
+            ? err.message
+            : t('configuracion.errors.submitFailed');
+      setState({ kind: 'error', message });
+      await load();
+    }
+  }, [deleteTarget, deleteUsage, load, onListChanged, t]);
 
   const fmtCurrency = new Intl.NumberFormat(i18n.language.startsWith('es') ? 'es-ES' : 'en-US', {
     style: 'currency',
@@ -266,11 +322,11 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
               <colgroup>
                 <col style={{ width: '56px' }} />
                 <col style={{ width: '22%' }} />
-                <col style={{ width: '18%' }} />
                 <col style={{ width: '16%' }} />
+                <col style={{ width: '14%' }} />
                 <col style={{ width: '22%' }} />
                 <col style={{ width: '14%' }} />
-                <col style={{ width: '80px' }} />
+                <col style={{ width: '120px' }} />
               </colgroup>
               <thead>
                 <tr>
@@ -388,21 +444,19 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                               <>
                                 <button
                                   className="ot-config__row-action-btn"
-                                  title={t('configuracion.cuentas.adjustBalance.actionTooltip')}
-                                  aria-label={t(
-                                    'configuracion.cuentas.adjustBalance.actionTooltip',
-                                  )}
-                                  onClick={() => setAdjusting(a)}
-                                >
-                                  <Scale size={14} />
-                                </button>
-                                <button
-                                  className="ot-config__row-action-btn"
                                   title={t('configuracion.unarchiveTooltip')}
                                   aria-label={t('configuracion.unarchiveTooltip')}
                                   onClick={() => void handleUnarchive(a.id)}
                                 >
                                   <RotateCcw size={14} />
+                                </button>
+                                <button
+                                  className="ot-config__row-action-btn ot-config__row-action-btn--danger"
+                                  title={t('configuracion.cuentas.delete.actionTooltip')}
+                                  aria-label={t('configuracion.cuentas.delete.actionTooltip')}
+                                  onClick={() => setDeleteTarget(a)}
+                                >
+                                  <Trash2 size={14} />
                                 </button>
                               </>
                             ) : (
@@ -432,6 +486,14 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                                   onClick={() => setArchiveTarget(a)}
                                 >
                                   <Archive size={14} />
+                                </button>
+                                <button
+                                  className="ot-config__row-action-btn ot-config__row-action-btn--danger"
+                                  title={t('configuracion.cuentas.delete.actionTooltip')}
+                                  aria-label={t('configuracion.cuentas.delete.actionTooltip')}
+                                  onClick={() => setDeleteTarget(a)}
+                                >
+                                  <Trash2 size={14} />
                                 </button>
                               </>
                             )}
@@ -471,6 +533,27 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
         name={archiveTarget?.name ?? ''}
         onClose={() => setArchiveTarget(null)}
         onConfirm={handleArchive}
+      />
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        variant={deleteUsage > 0 ? 'default' : 'destructive'}
+        title={t(
+          deleteUsage > 0
+            ? 'configuracion.cuentas.delete.confirmHasRefs.title'
+            : 'configuracion.cuentas.delete.confirmEmpty.title',
+        )}
+        message={
+          deleteUsage > 0
+            ? t('configuracion.cuentas.delete.confirmHasRefs.body', { count: deleteUsage })
+            : t('configuracion.cuentas.delete.confirmEmpty.body')
+        }
+        confirmLabel={t(
+          deleteUsage > 0
+            ? 'configuracion.cuentas.delete.confirmHasRefs.archiveCta'
+            : 'configuracion.cuentas.delete.confirmEmpty.confirmCta',
+        )}
+        onConfirm={() => void handleConfirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
       />
       <BalanceAdjustmentModal
         isOpen={adjusting !== null}

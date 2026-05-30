@@ -597,6 +597,26 @@
         "body": "Añade tu primera cuenta bancaria o PayPal para empezar a registrar movimientos.",
         "noMatch": "Ninguna cuenta coincide con la búsqueda."
       },
+      "delete": {
+        "actionTooltip": "Eliminar",
+        "confirmEmpty": {
+          "title": "¿Eliminar esta cuenta?",
+          "body": "Se eliminará la cuenta de forma permanente. Esta acción no se puede deshacer.",
+          "confirmCta": "Eliminar"
+        },
+        "confirmHasRefs": {
+          "title": "No se puede eliminar — tiene movimientos",
+          "body_one": "Esta cuenta está referenciada por {{count}} movimiento. La eliminación permanente no está permitida.",
+          "body_other": "Esta cuenta está referenciada por {{count}} movimientos. La eliminación permanente no está permitida.",
+          "archiveCta": "Archivar en su lugar"
+        },
+        "error": {
+          "hasReferences_one": "No se puede eliminar: {{count}} movimiento hace referencia a esta cuenta.",
+          "hasReferences_other": "No se puede eliminar: {{count}} movimientos hacen referencia a esta cuenta.",
+          "notFound": "La cuenta no existe.",
+          "internal": "No se pudo eliminar. Inténtalo de nuevo."
+        }
+      },
       "adjustBalance": {
         "actionTooltip": "Ajustar saldo",
         "modal": {
@@ -698,6 +718,26 @@
       "empty": {
         "title": "Aún no hay categorías",
         "body": "Crea categorías para agrupar tus ingresos y gastos."
+      },
+      "delete": {
+        "actionTooltip": "Eliminar",
+        "confirmEmpty": {
+          "title": "¿Eliminar esta categoría?",
+          "body": "Se eliminará la categoría y sus subcategorías de forma permanente. Esta acción no se puede deshacer.",
+          "confirmCta": "Eliminar"
+        },
+        "confirmHasRefs": {
+          "title": "No se puede eliminar — tiene movimientos",
+          "body_one": "Esta categoría está referenciada por {{count}} movimiento. La eliminación permanente no está permitida.",
+          "body_other": "Esta categoría está referenciada por {{count}} movimientos. La eliminación permanente no está permitida.",
+          "archiveCta": "Archivar en su lugar"
+        },
+        "error": {
+          "hasReferences_one": "No se puede eliminar: {{count}} movimiento hace referencia a esta categoría.",
+          "hasReferences_other": "No se puede eliminar: {{count}} movimientos hacen referencia a esta categoría.",
+          "notFound": "La categoría no existe.",
+          "internal": "No se pudo eliminar. Inténtalo de nuevo."
+        }
       }
     },
     "subcategorias": {
@@ -734,7 +774,27 @@
         "unarchiveSuccess": "Subcategoría restaurada",
         "updateSuccess": "Subcategoría actualizada"
       },
-      "empty": "Esta categoría aún no tiene subcategorías."
+      "empty": "Esta categoría aún no tiene subcategorías.",
+      "delete": {
+        "actionTooltip": "Eliminar",
+        "confirmEmpty": {
+          "title": "¿Eliminar esta subcategoría?",
+          "body": "Se eliminará la subcategoría de forma permanente. Esta acción no se puede deshacer.",
+          "confirmCta": "Eliminar"
+        },
+        "confirmHasRefs": {
+          "title": "No se puede eliminar — tiene movimientos",
+          "body_one": "Esta subcategoría está referenciada por {{count}} movimiento. La eliminación permanente no está permitida.",
+          "body_other": "Esta subcategoría está referenciada por {{count}} movimientos. La eliminación permanente no está permitida.",
+          "archiveCta": "Archivar en su lugar"
+        },
+        "error": {
+          "hasReferences_one": "No se puede eliminar: {{count}} movimiento hace referencia a esta subcategoría.",
+          "hasReferences_other": "No se puede eliminar: {{count}} movimientos hacen referencia a esta subcategoría.",
+          "notFound": "La subcategoría no existe.",
+          "internal": "No se pudo eliminar. Inténtalo de nuevo."
+        }
+      }
     },
     "etiquetas": {
       "heading": "Etiquetas",
@@ -781,6 +841,26 @@
         "title": "Aún no hay etiquetas",
         "body": "Las etiquetas te permiten marcar temas transversales como «COVID-19» o «Beca A».",
         "noMatch": "Ninguna etiqueta coincide con la búsqueda."
+      },
+      "delete": {
+        "actionTooltip": "Eliminar",
+        "confirmEmpty": {
+          "title": "¿Eliminar esta etiqueta?",
+          "body": "Se eliminará la etiqueta de forma permanente. Esta acción no se puede deshacer.",
+          "confirmCta": "Eliminar"
+        },
+        "confirmHasRefs": {
+          "title": "No se puede eliminar — tiene movimientos",
+          "body_one": "Esta etiqueta está referenciada por {{count}} movimiento. La eliminación permanente no está permitida.",
+          "body_other": "Esta etiqueta está referenciada por {{count}} movimientos. La eliminación permanente no está permitida.",
+          "archiveCta": "Archivar en su lugar"
+        },
+        "error": {
+          "hasReferences_one": "No se puede eliminar: {{count}} movimiento hace referencia a esta etiqueta.",
+          "hasReferences_other": "No se puede eliminar: {{count}} movimientos hacen referencia a esta etiqueta.",
+          "notFound": "La etiqueta no existe.",
+          "internal": "No se pudo eliminar. Inténtalo de nuevo."
+        }
       }
     },
     "error": {
@@ -796,6 +876,7 @@
       "notFound": "El elemento ya no existe. Actualiza la lista e inténtalo de nuevo.",
       "alreadyArchived": "Este elemento ya estaba archivado.",
       "notArchived": "Este elemento no está archivado.",
+      "hasReferences": "No se puede eliminar: hay movimientos asociados. Archívalo en su lugar.",
       "internal": "Ocurrió un error interno. Inténtalo de nuevo.",
       "submitFailed": "No se pudo guardar. Inténtalo de nuevo."
     }

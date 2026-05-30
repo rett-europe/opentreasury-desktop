@@ -10,6 +10,8 @@ export const IPC_TAGS_LIST = 'tags:list';
 export const IPC_TAGS_UPDATE = 'tags:update';
 export const IPC_TAGS_ARCHIVE = 'tags:archive';
 export const IPC_TAGS_UNARCHIVE = 'tags:unarchive';
+export const IPC_TAGS_DELETE = 'tags:delete';
+export const IPC_TAGS_USAGE = 'tags:usage';
 
 // ============================================================================
 // Wire-level events
@@ -67,6 +69,16 @@ export const tagUnarchivedEventSchema = z.object({
 
 export type TagUnarchivedEvent = z.infer<typeof tagUnarchivedEventSchema>;
 
+// WI-21-followup — hard-delete event (gated on usage_count === 0 by handler).
+export const tagDeletedEventSchema = z.object({
+  type: z.literal('TagDeleted'),
+  id: z.string().min(1),
+  tagId: z.string().min(1),
+  deletedAt: z.string().datetime(),
+});
+
+export type TagDeletedEvent = z.infer<typeof tagDeletedEventSchema>;
+
 // ============================================================================
 // Read-model record
 // ============================================================================
@@ -104,6 +116,7 @@ export const tagErrorCodeSchema = z.enum([
   'NOT_FOUND',
   'ALREADY_ARCHIVED',
   'NOT_ARCHIVED',
+  'HAS_REFERENCES',
   'SCHEMA_INVALID',
   'INTERNAL',
 ]);
@@ -114,6 +127,8 @@ export const tagErrorSchema = z.object({
   code: tagErrorCodeSchema,
   message: z.string(),
   field: z.string().optional(),
+  // Populated on HAS_REFERENCES.
+  transactionCount: z.number().int().nonnegative().optional(),
 });
 
 export type TagError = z.infer<typeof tagErrorSchema>;
@@ -188,3 +203,33 @@ export const unarchiveTagResponseSchema = z.discriminatedUnion('ok', [
 ]);
 
 export type UnarchiveTagResponse = z.infer<typeof unarchiveTagResponseSchema>;
+
+// ============================================================================
+// WI-21-followup — Hard-delete (gated on usage_count === 0)
+// ============================================================================
+
+export const deleteTagRequestSchema = z.object({
+  id: z.string().min(1),
+});
+
+export type DeleteTagRequest = z.infer<typeof deleteTagRequestSchema>;
+
+export const deleteTagResponseSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), event: tagDeletedEventSchema }),
+  z.object({ ok: z.literal(false), error: tagErrorSchema }),
+]);
+
+export type DeleteTagResponse = z.infer<typeof deleteTagResponseSchema>;
+
+export const tagUsageRecordSchema = z.object({
+  tagId: z.string().min(1),
+  transactionCount: z.number().int().nonnegative(),
+});
+
+export type TagUsageRecord = z.infer<typeof tagUsageRecordSchema>;
+
+export const tagsUsageResponseSchema = z.object({
+  usage: z.array(tagUsageRecordSchema),
+});
+
+export type TagsUsageResponse = z.infer<typeof tagsUsageResponseSchema>;

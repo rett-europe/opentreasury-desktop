@@ -21,6 +21,8 @@ export function mapConfigErrorToFieldKey(code: string): string {
       return 'alreadyArchived';
     case 'NOT_ARCHIVED':
       return 'notArchived';
+    case 'HAS_REFERENCES':
+      return 'hasReferences';
     case 'INTERNAL':
       return 'internal';
     default:

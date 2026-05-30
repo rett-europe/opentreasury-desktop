@@ -14,6 +14,8 @@ export const IPC_ACCOUNTS_LIST = 'accounts:list';
 export const IPC_ACCOUNTS_UPDATE = 'accounts:update';
 export const IPC_ACCOUNTS_ARCHIVE = 'accounts:archive';
 export const IPC_ACCOUNTS_UNARCHIVE = 'accounts:unarchive';
+export const IPC_ACCOUNTS_DELETE = 'accounts:delete';
+export const IPC_ACCOUNTS_USAGE = 'accounts:usage';
 
 // ============================================================================
 // Wire-level events — flat shape Trinity consumes from handler responses
@@ -82,6 +84,17 @@ export const accountUnarchivedEventSchema = z.object({
 
 export type AccountUnarchivedEvent = z.infer<typeof accountUnarchivedEventSchema>;
 
+// WI-21-followup — hard-delete event. Handler gates it on usage_count === 0
+// (see `selectAccountUsage`); reducer drops the account from the read model.
+export const accountDeletedEventSchema = z.object({
+  type: z.literal('AccountDeleted'),
+  id: z.string().min(1),
+  accountId: z.string().min(1),
+  deletedAt: z.string().datetime(),
+});
+
+export type AccountDeletedEvent = z.infer<typeof accountDeletedEventSchema>;
+
 // ============================================================================
 // Read-model record — return shape for accounts:list
 // ============================================================================
@@ -132,6 +145,7 @@ export const accountErrorCodeSchema = z.enum([
   'NOT_FOUND',
   'ALREADY_ARCHIVED',
   'NOT_ARCHIVED',
+  'HAS_REFERENCES',
   'SCHEMA_INVALID',
   'INTERNAL',
 ]);
@@ -142,6 +156,9 @@ export const accountErrorSchema = z.object({
   code: accountErrorCodeSchema,
   message: z.string(),
   field: z.string().optional(),
+  // Populated on HAS_REFERENCES errors so the UI can render
+  // "X transactions reference this account".
+  transactionCount: z.number().int().nonnegative().optional(),
 });
 
 export type AccountError = z.infer<typeof accountErrorSchema>;
@@ -218,3 +235,38 @@ export const unarchiveAccountResponseSchema = z.discriminatedUnion('ok', [
 ]);
 
 export type UnarchiveAccountResponse = z.infer<typeof unarchiveAccountResponseSchema>;
+
+// ============================================================================
+// WI-21-followup — Hard-delete (gated on usage_count === 0)
+// ============================================================================
+
+export const deleteAccountRequestSchema = z.object({
+  id: z.string().min(1),
+});
+
+export type DeleteAccountRequest = z.infer<typeof deleteAccountRequestSchema>;
+
+export const deleteAccountResponseSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), event: accountDeletedEventSchema }),
+  z.object({ ok: z.literal(false), error: accountErrorSchema }),
+]);
+
+export type DeleteAccountResponse = z.infer<typeof deleteAccountResponseSchema>;
+
+// ============================================================================
+// Usage counters — used by the renderer to gate the Delete button per row,
+// and by the handler to reject HAS_REFERENCES when usage_count > 0.
+// ============================================================================
+
+export const accountUsageRecordSchema = z.object({
+  accountId: z.string().min(1),
+  transactionCount: z.number().int().nonnegative(),
+});
+
+export type AccountUsageRecord = z.infer<typeof accountUsageRecordSchema>;
+
+export const accountsUsageResponseSchema = z.object({
+  usage: z.array(accountUsageRecordSchema),
+});
+
+export type AccountsUsageResponse = z.infer<typeof accountsUsageResponseSchema>;

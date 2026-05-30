@@ -358,6 +358,57 @@ export const configTagUnarchivedEventSchema = z.object({
 export type ConfigTagUnarchivedEvent = z.infer<typeof configTagUnarchivedEventSchema>;
 
 // ---------------------------------------------------------------------------
+// Hard-delete events — Configuración accounts / categories / subcategories /
+// tags. Net-new in this slice; the WI-21 ruling kept the door open for these
+// once usage-count enforcement gated them (see Switch's history.md line ~330:
+// "gate hard-delete behind usage-count enforcement"). The IPC handlers
+// guarantee `usage_count === 0` at the moment the event is appended, so
+// reducers can safely drop the entity from the read model without orphaning
+// any transaction reference.
+//
+// Same flat wire shape as the matching `*Archived` events. Net-new event
+// `type` values — JsonFileEventLog has no allow-list, only legacy-rejection,
+// so existing logs replay unchanged.
+// ---------------------------------------------------------------------------
+
+export const configAccountDeletedEventSchema = z.object({
+  type: z.literal('AccountDeleted'),
+  id: z.string().min(1), // Event ULID (log dedupe key).
+  accountId: z.string().min(1),
+  deletedAt: z.string().datetime(),
+});
+
+export type ConfigAccountDeletedEvent = z.infer<typeof configAccountDeletedEventSchema>;
+
+export const configCategoryDeletedEventSchema = z.object({
+  type: z.literal('CategoryDeleted'),
+  id: z.string().min(1),
+  categoryId: z.string().min(1),
+  deletedAt: z.string().datetime(),
+});
+
+export type ConfigCategoryDeletedEvent = z.infer<typeof configCategoryDeletedEventSchema>;
+
+export const configSubcategoryDeletedEventSchema = z.object({
+  type: z.literal('SubcategoryDeleted'),
+  id: z.string().min(1),
+  subcategoryId: z.string().min(1),
+  parentCategoryId: z.string().min(1),
+  deletedAt: z.string().datetime(),
+});
+
+export type ConfigSubcategoryDeletedEvent = z.infer<typeof configSubcategoryDeletedEventSchema>;
+
+export const configTagDeletedEventSchema = z.object({
+  type: z.literal('TagDeleted'),
+  id: z.string().min(1),
+  tagId: z.string().min(1),
+  deletedAt: z.string().datetime(),
+});
+
+export type ConfigTagDeletedEvent = z.infer<typeof configTagDeletedEventSchema>;
+
+// ---------------------------------------------------------------------------
 // WI-17 — Import events (flat wire-style events, no envelope).
 // Coexist with enveloped and WI-15-lite events on the same NDJSON log.
 // ---------------------------------------------------------------------------
@@ -569,6 +620,10 @@ export type DomainEvent =
   | ConfigTagUpdatedEvent
   | ConfigTagArchivedEvent
   | ConfigTagUnarchivedEvent
+  | ConfigAccountDeletedEvent
+  | ConfigCategoryDeletedEvent
+  | ConfigSubcategoryDeletedEvent
+  | ConfigTagDeletedEvent
   | MovementImportedEvent
   | ImportMappingUpdatedEvent
   | TransactionNoteAddedEvent
