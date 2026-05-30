@@ -568,8 +568,17 @@
       },
       "modal": {
         "title": "Nueva cuenta",
-        "editTitle": "Editar cuenta",
-        "openingBalanceImmutable": "El saldo inicial no puede modificarse después de crear la cuenta."
+        "editTitle": "Editar cuenta"
+      },
+      "form": {
+        "openingBalance": {
+          "editHint": "Cambiar el saldo inicial recalculará el saldo actual y todos los gráficos basados en el saldo."
+        }
+      },
+      "openingBalanceChange": {
+        "title": "Cambiar saldo inicial",
+        "body": "Esta cuenta tiene {{count}} movimiento(s). Cambiar el saldo inicial de {{oldBalance}} a {{newBalance}} desplazará el saldo actual en {{delta}}. Esto afectará todos los gráficos y KPIs basados en el saldo.",
+        "confirm": "Cambiar saldo inicial"
       },
       "actions": {
         "edit": "Editar",

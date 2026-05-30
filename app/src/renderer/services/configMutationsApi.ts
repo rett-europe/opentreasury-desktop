@@ -88,9 +88,11 @@ export function isArchived(record: ArchivableMeta | null | undefined): boolean {
 // Update / archive / unarchive change shapes
 // ---------------------------------------------------------------------------
 
-// NOTE: openingBalance is intentionally omitted. Accounts are event-sourced;
-// the genesis opening balance is immutable — mutating it would corrupt the
-// reconstructed balance history.
+// Opening balance is editable post-creation (trial.3.13). Pedro's real use
+// case is fixing an opening balance that was wrong at account-creation time
+// for an account that already has transactions; the modal guards the shift
+// behind a confirm dialog when usage_count > 0 and the handler no-op-strips
+// when the new value matches the current.
 export interface UpdateAccountChanges {
   readonly name?: string | undefined;
   readonly bankName?: string | undefined;
@@ -98,6 +100,7 @@ export interface UpdateAccountChanges {
   readonly iban?: string | undefined;
   readonly color?: string | undefined;
   readonly isPaypal?: boolean | undefined;
+  readonly openingBalance?: number | undefined;
 }
 
 export interface UpdateCategoryChanges {

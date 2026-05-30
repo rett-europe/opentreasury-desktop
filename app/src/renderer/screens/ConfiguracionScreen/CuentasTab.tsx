@@ -9,8 +9,8 @@ import {
   Eye,
   EyeOff,
   RotateCcw,
-  Trash2,
   Scale,
+  Trash2,
 } from 'lucide-react';
 
 import { Button } from '../../components/Button/index.js';
@@ -22,6 +22,7 @@ import {
 } from '../../components/ConfigModals/index.js';
 import { ConfirmDialog } from '../../components/ConfirmDialog/index.js';
 import { listAccounts } from '../../services/accountsApi.js';
+import { listMovements } from '../../services/movementsApi.js';
 import { getAccountBalances } from '../../services/panelApi.js';
 import {
   archiveAccount,
@@ -69,13 +70,18 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ConfigAccount | null>(null);
+  // Per-account transaction count for the editing target. Drives the
+  // "Are you sure?" confirmation when the user changes the opening balance.
+  // `null` means "still loading" (we treat as 0 in the modal, so a fast
+  // confirm-skip is fine — the dialog is a UX hint, not a correctness gate).
+  const [editingUsageCount, setEditingUsageCount] = useState<number | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<ConfigAccount | null>(null);
+  const [adjusting, setAdjusting] = useState<ConfigAccount | null>(null);
   // WI-21-followup — hard-delete target + per-account usage (transactionCount
   // by id). Loaded alongside the accounts list so the dialog body can branch
   // on usage > 0 to surface the "Archive instead" CTA.
   const [deleteTarget, setDeleteTarget] = useState<ConfigAccount | null>(null);
   const [usage, setUsage] = useState<ReadonlyMap<string, number>>(() => new Map());
-  const [adjusting, setAdjusting] = useState<ConfigAccount | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [revealed, setRevealed] = useState<ReadonlySet<string>>(() => new Set());
@@ -92,9 +98,9 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
     try {
-      // Fetch the account list, per-account balance aggregates, and per-account
-      // usage in parallel. If only the balances call fails (transient IPC) we
-      // still render the list with `balancesById` empty — the row cell + total
+      // Fetch the account list, per-account balance aggregates, and usage in parallel.
+      // If only the balances call fails (e.g. transient IPC error) we still
+      // render the list with `balancesById` empty — the row cell + total
       // gracefully fall back to opening balance only.
       const [listResp, balancesResp, usageResp] = await Promise.all([
         listAccounts({ includeArchived: showArchived }),
@@ -127,6 +133,27 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
     },
     [load, onListChanged],
   );
+
+  const openEditModal = useCallback((account: ConfigAccount) => {
+    setEditing(account);
+    setEditingUsageCount(null);
+    // Fire-and-forget: the count is only consulted on Save inside the
+    // modal. If the listMovements call is slow or fails the modal still
+    // works — the confirm dialog just won't fire (worst case: the user
+    // can save without seeing the safety prompt).
+    void listMovements({ accountId: account.id })
+      .then((rows) => {
+        setEditingUsageCount(rows.length);
+      })
+      .catch(() => {
+        setEditingUsageCount(0);
+      });
+  }, []);
+
+  const closeEditModal = useCallback(() => {
+    setEditing(null);
+    setEditingUsageCount(null);
+  }, []);
 
   const handleArchive = useCallback(async () => {
     if (!archiveTarget) return;
@@ -444,6 +471,16 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                               <>
                                 <button
                                   className="ot-config__row-action-btn"
+                                  title={t('configuracion.cuentas.adjustBalance.actionTooltip')}
+                                  aria-label={t(
+                                    'configuracion.cuentas.adjustBalance.actionTooltip',
+                                  )}
+                                  onClick={() => setAdjusting(a)}
+                                >
+                                  <Scale size={14} />
+                                </button>
+                                <button
+                                  className="ot-config__row-action-btn"
                                   title={t('configuracion.unarchiveTooltip')}
                                   aria-label={t('configuracion.unarchiveTooltip')}
                                   onClick={() => void handleUnarchive(a.id)}
@@ -465,7 +502,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                                   className="ot-config__row-action-btn"
                                   title={t('configuracion.cuentas.actions.editTooltip')}
                                   aria-label={t('configuracion.cuentas.actions.editTooltip')}
-                                  onClick={() => setEditing(a)}
+                                  onClick={() => openEditModal(a)}
                                 >
                                   <Edit size={14} />
                                 </button>
@@ -524,7 +561,8 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
         isOpen={editing !== null}
         mode="edit"
         record={editing}
-        onClose={() => setEditing(null)}
+        usageCount={editingUsageCount ?? 0}
+        onClose={closeEditModal}
         onSaved={handleSaved}
       />
       <ArchiveConfirmModal
@@ -533,6 +571,15 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
         name={archiveTarget?.name ?? ''}
         onClose={() => setArchiveTarget(null)}
         onConfirm={handleArchive}
+      />
+      <BalanceAdjustmentModal
+        isOpen={adjusting !== null}
+        account={adjusting}
+        onClose={() => setAdjusting(null)}
+        onSaved={() => {
+          void load();
+          onListChanged?.();
+        }}
       />
       <ConfirmDialog
         isOpen={deleteTarget !== null}
@@ -554,15 +601,6 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
         )}
         onConfirm={() => void handleConfirmDelete()}
         onCancel={() => setDeleteTarget(null)}
-      />
-      <BalanceAdjustmentModal
-        isOpen={adjusting !== null}
-        account={adjusting}
-        onClose={() => setAdjusting(null)}
-        onSaved={() => {
-          void load();
-          onListChanged?.();
-        }}
       />
     </>
   );
