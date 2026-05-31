@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.14] — SPEC-027 Export (CSV/XLSX)
+
+Adds the Export feature: a dedicated, date-range-first Export screen that lets
+you export filtered movements to CSV or Excel, with the encrypted dataset never
+leaving the main process in plaintext. Implements SPEC-027 end to end. Closes
+#352.
+
+### Added
+
+- **Export screen (SPEC-027, PR #352).** New "Export" navbar entry opening a
+  full-page `/export` screen. Filters reuse the existing Movements read-model
+  query patterns (account, category, subcategory, date range, label) — no
+  parallel query pipeline. Mandatory-filter gate (FR23): a date range plus at
+  least one additional filter is required before Export is enabled, with an
+  accessible hint; v1 caps exports at 100k rows.
+- **CSV + Excel output.** CSV uses `;` as the default separator; `.xlsx`
+  export via the 13-column set (FR11). Filenames follow the active locale.
+- **Streaming main-process pipeline (Morpheus/Switch).** AEAD decryption runs
+  in the main process using the already-unlocked master key; the renderer never
+  sees plaintext rows or file paths. OS save dialog defaults to Documents and
+  hard-blocks (FR14) any destination inside the encrypted workspace
+  (`EXPORT_DEST_INSIDE_WORKSPACE`, no "save anyway"); atomic temp-then-rename
+  write.
+- **Export authorization gate (Option A).** Typed `EXPORTAR`/`EXPORT`
+  confirmation; a signed audit entry is written before the first byte;
+  rate-limit of 3 exports / 15 min; lockout after 5 mistypes → 5 min cooldown.
+  Typed input is never logged. Export failures are recorded both on-chain
+  (`result: "failed"`) and to local diagnostics.
+- **IPC `export:prepare` / `export:run` channels** with Zod contracts validated
+  at the boundary (spec §7), plus `export.csv` / `export.xlsx` added to the
+  crypto-spec §8.2 audit `action` enum.
+
+### Changed
+
+- **Export screen styling aligned with app conventions (PR #352).** Filter
+  chips adopt an opt-in colored variant matching the account-pill look (entity
+  colors for accounts, categories, subcategories inheriting category color, and
+  labels); the screen fills the content width and uses the shared page-header
+  and font tokens for consistency with the rest of the app.
+
 ### Docs
 
 - **SPEC-027 — Export (CSV/XLSX) accepted (In Review → Accepted).** Reviewer-acceptance gate passed after merge to `main` (PR #349). All three gating reviewers approved: Neo (architecture), Switch (security), and Link (product) — each APPROVE-WITH-NITS, no blocking items. The export read-model query reuses the existing Movements query patterns (no parallel pipeline); the Option-A security gate and its 7 conditions, the FR14 encrypted-workspace hard-block, dual failure-audit, and the `export.xlsx` audit-enum addition are all reflected; product scope matches the owner brief and v1 boundaries. SPEC-027 and its paired UX spec (`docs/ux/specs/spec-027-export.md`) are cleared for implementation. Non-blocking nits captured in each spec's §13 Status History.
