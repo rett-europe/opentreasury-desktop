@@ -1,7 +1,7 @@
 # SPEC-027 (UX) — Export (CSV / XLSX)
 
-> **Status:** In Review · **Owner:** Niobe · **Last updated:** 2026-05-31
-> **Reviewers:** Neo (architecture), Switch (security), Link (product)
+> **Status:** Accepted · **Owner:** Niobe · **Last updated:** 2026-05-31
+> **Reviewers:** Neo (architecture) ✅ · Switch (security) ✅ · Link (product) ✅ — all approved 2026-05-31
 > **Paired feature spec:** [`docs/specs/027-export.md`](../../specs/027-export.md)
 > **Paired Design:** Pending — Mouse (visual polish; design notes in `.squad/decisions/inbox/mouse-export-ui.md`)
 > **Security input:** [`.squad/decisions/inbox/switch-export-security.md`](../../../.squad/decisions/inbox/switch-export-security.md)
@@ -370,3 +370,4 @@ additions:
 |---|---|---|---|
 | 2026-05-15 | Draft | Niobe | Initial UX spec; 11 states, EXP-1/2/3 screen ids, 12 edge cases, ES+EN copy table, accessibility coverage, traceability to paired feature spec. |
 | 2026-05-31 | In Review | Niobe | All 13 feature-spec OQs resolved by Pedro. OQ5: added `needs-additional-filter` state, updated happy path, state diagram, copy (ES+EN), a11y (aria-disabled + aria-live hint). OQ6: `path-warn-workspace`→`path-blocked-workspace` (hard refusal, single CTA "Choose another location"), updated edge-case #12, EXP-3 modal copy. OQ9: locale-aware filename prefix. OQ10: semicolon CSV copy. OQ12: in-app toast (no change). OQ13: ?q= out of scope (not planned). Moved Draft→In Review. |
+| 2026-05-31 | Accepted | Neo · Switch · Link | Accepted in lockstep with the paired feature spec (`docs/specs/027-export.md` §13) after the reviewer-acceptance gate. Neo (architecture), Switch (security), and Link (product) all returned APPROVE-WITH-NITS, no blocking items. UX-level nits to close before Mouse handoff: open questions UX-A (OS share button), UX-B (`showItemInFolder` vs `openPath`), UX-C (determinate progress bar threshold). Cleared for implementation. |
