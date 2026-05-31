@@ -97,6 +97,7 @@ flowchart LR
 | PRD-020 | Recurring transactions | Planned | M4 | Link | Pedro, Niobe | TBD |
 | PRD-021 | Multi-account reconciliation | Planned | M4 | Link | Pedro, Niobe | TBD |
 | PRD-022 | Attachments (receipts) | Planned | M4 | Link | Pedro, Switch, Niobe | TBD |
+| PRD-027 | Export (CSV/XLSX) | In progress | M4 | Link | Pedro, Switch, Neo | [SPEC-027](../specs/027-export.md) |
 
 ### Out of v1 (never scheduled unless triggered — see [roadmap §5](./roadmap-v1.md#5-out-of-v1-deferred--explicit-triggers))
 

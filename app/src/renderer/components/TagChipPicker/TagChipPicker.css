@@ -35,6 +35,55 @@
   border: 1px solid transparent;
 }
 
+.ot-tag-chip__swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Colored variant — renders each chip as the exact same pill used for accounts
+   across the app (`.ot-account-pill`): an oklch 18% tint of the entity's own
+   colour, a solid 6px colour dot, no border, text in the primary colour. Falls
+   back to the brand primary when an entity has no configured colour. Selection
+   is signalled by a stronger tint + a solid colour ring (inset box-shadow, so
+   there's no height shift) plus the checkmark.
+
+   Scoped under `.ot-tag-chip-picker` so these rules out-specify the global
+   `.ot-tag-chip` recipe in globals.css (which otherwise forces a uniform
+   brand-primary tint via `--ot-tag-color`). */
+.ot-tag-chip-picker .ot-tag-chip--colored {
+  --ot-chip-color: var(--color-brand-primary);
+  gap: 6px;
+  padding: 4px 11px;
+  font-size: var(--font-size-13, 13px);
+  font-weight: var(--font-weight-medium);
+  background: color-mix(in oklch, var(--ot-chip-color) 18%, transparent);
+  border-color: transparent;
+  color: var(--color-text-primary);
+}
+
+.ot-tag-chip-picker .ot-tag-chip--colored .ot-tag-chip__swatch {
+  background: var(--ot-chip-color);
+}
+
+.ot-tag-chip-picker .ot-tag-chip--colored:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--ot-chip-color) 26%, transparent);
+  border-color: transparent;
+}
+
+.ot-tag-chip-picker .ot-tag-chip--colored.ot-tag-chip--selected {
+  background: color-mix(in oklch, var(--ot-chip-color) 30%, transparent);
+  border-color: transparent;
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px var(--ot-chip-color);
+}
+
+.ot-tag-chip-picker .ot-tag-chip--colored.ot-tag-chip--selected:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--ot-chip-color) 38%, transparent);
+  border-color: transparent;
+}
+
 .ot-tag-chip:focus-visible {
   outline: 2px solid var(--color-brand-primary);
   outline-offset: 1px;

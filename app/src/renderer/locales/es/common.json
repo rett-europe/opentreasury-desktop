@@ -16,6 +16,89 @@
     "save": "Guardar",
     "saving": "Guardando…"
   },
+  "export": {
+    "title": "Exportar Movimientos",
+    "subtitle": "Exporta transacciones a CSV o Excel (.xlsx). Los datos se descifrarán antes de exportar.",
+    "filters": {
+      "dateRange": "Rango de fechas",
+      "from": "Desde",
+      "to": "Hasta",
+      "invalidRange": "La fecha final debe ser posterior a la fecha inicial.",
+      "accounts": "Cuentas",
+      "categories": "Categorías",
+      "subcategories": "Subcategorías",
+      "labels": "Etiquetas"
+    },
+    "presets": {
+      "this-month": "Este mes",
+      "last-month": "Mes pasado",
+      "last-3-months": "Últimos 3 meses",
+      "this-year": "Este año",
+      "last-year": "Año pasado",
+      "last-12-months": "Últimos 12 meses"
+    },
+    "clearFilters": "Limpiar filtros",
+    "empty": {
+      "pickRange": "Selecciona un rango de fechas para comenzar."
+    },
+    "counting": "Contando movimientos…",
+    "ready": "{{n}} movimientos coinciden con estos filtros.",
+    "emptyResults": "No hay movimientos que coincidan con estos filtros.",
+    "aboveCap": "Demasiados movimientos ({{n}}). Acota los filtros para exportar como máximo 100 000.",
+    "largeWarning": "Este rango incluye {{n}} movimientos. La exportación puede tardar unos segundos.",
+    "exporting": "Exportando…",
+    "progress": "Exportando {{done}} de {{total}} movimientos…",
+    "success": "{{n}} movimientos exportados a {{basename}}.",
+    "showInFolder": "Mostrar en carpeta",
+    "format": {
+      "legend": "Formato",
+      "csv": "CSV (valores separados por punto y coma)",
+      "excel": "Excel (.xlsx)",
+      "csvHelper": "Compatible con Excel en español. Texto plano UTF-8.",
+      "excelHelper": "Archivo nativo de Excel con formato automático de columnas."
+    },
+    "needsFilter": {
+      "banner": "Selecciona al menos un filtro adicional (cuenta, categoría, subcategoría o etiqueta) para continuar.",
+      "tooltip": "Selecciona un filtro adicional."
+    },
+    "btn": {
+      "cancel": "Cancelar",
+      "export": "Exportar"
+    },
+    "confirm": {
+      "title": "Vas a exportar una copia descifrada",
+      "b1": "El archivo NO estará cifrado.",
+      "b2": "Cualquier persona con acceso al archivo podrá leer todas las transacciones que exportes.",
+      "b3": "Si lo guardas en una carpeta sincronizada (OneDrive, Dropbox, iCloud), también se copiará a la nube.",
+      "b4": "Trátalo como dinero en efectivo: tú eres responsable de a dónde va.",
+      "typed": "Escribe {{word}} para continuar",
+      "continue": "Continuar",
+      "lockout": "Demasiados intentos. Vuelve a intentarlo en {{minutes}} min."
+    },
+    "block": {
+      "workspace": {
+        "title": "No puedes guardar aquí",
+        "body": "No puedes guardar una copia descifrada dentro de la carpeta compartida del tesoro. Elige otra ubicación.",
+        "choose": "Elegir otra ubicación"
+      }
+    },
+    "error": {
+      "retry": "Reintentar"
+    },
+    "errors": {
+      "EXPORT_DEST_INSIDE_WORKSPACE": "No puedes guardar una copia descifrada dentro de la carpeta del tesoro. Elige otra ubicación.",
+      "EXPORT_ROW_CAP_EXCEEDED": "Demasiados movimientos para exportar. Acota los filtros (máximo 100 000).",
+      "EXPORT_MIN_FILTERS": "Selecciona un rango de fechas y al menos un filtro adicional.",
+      "EXPORT_RATE_LIMITED": "Has alcanzado el límite de exportaciones. Inténtalo de nuevo en unos minutos.",
+      "EXPORT_LOCKED_OUT": "Demasiados intentos de confirmación. Espera unos minutos antes de volver a intentarlo.",
+      "EXPORT_TOKEN_INVALID": "La sesión de exportación caducó. Vuelve a intentarlo.",
+      "EXPORT_DEST_TEMP_DIR": "No puedes guardar en una carpeta temporal del sistema. Elige otra ubicación.",
+      "EXPORT_WRITE_FAILED": "No se pudo guardar el archivo. Comprueba la ubicación e inténtalo de nuevo.",
+      "EXPORT_NO_WORKSPACE": "No hay un tesoro desbloqueado. Vuelve a iniciar sesión.",
+      "EXPORT_AUDIT_FAILED": "No se pudo registrar la auditoría de la exportación. Inténtalo de nuevo o consulta a tu administrador.",
+      "EXPORT_INTERNAL": "Ocurrió un error inesperado durante la exportación. Inténtalo de nuevo."
+    }
+  },
   "shell": {
     "nav": {
       "panel": "Panel",
@@ -27,7 +110,8 @@
       "cuentas": "Cuentas",
       "categorias": "Categorías",
       "etiquetas": "Etiquetas",
-      "preferences": "Preferencias"
+      "preferences": "Preferencias",
+      "export": "Exportar"
     },
     "theme": {
       "label": "Tema",

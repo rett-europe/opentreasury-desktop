@@ -1,0 +1,63 @@
+.ot-export-confirm {
+  border: none;
+  border-radius: var(--radius-lg, 12px);
+  padding: 0;
+  max-width: 480px;
+  width: 90vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+.ot-export-confirm::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.ot-export-confirm__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  padding: var(--space-5, 24px);
+}
+
+.ot-export-confirm__title {
+  margin: 0;
+  font-size: var(--font-size-lg, 1.25rem);
+}
+
+.ot-export-confirm__warnings {
+  margin: 0;
+  padding-left: 1.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--color-text, #111827);
+}
+
+.ot-export-confirm__label {
+  font-weight: 600;
+  font-size: var(--font-size-sm, 0.875rem);
+}
+
+.ot-export-confirm__input {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: var(--radius-md, 6px);
+  font-size: var(--font-size-md, 1rem);
+  letter-spacing: 0.05em;
+}
+
+.ot-export-confirm__input:disabled {
+  background: var(--color-surface-muted, #f3f4f6);
+}
+
+.ot-export-confirm__lockout {
+  color: var(--color-danger, #dc2626);
+  font-size: var(--font-size-sm, 0.875rem);
+  margin: 0;
+}
+
+.ot-export-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2, 8px);
+  margin-top: var(--space-2, 8px);
+}

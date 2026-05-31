@@ -469,7 +469,7 @@ Each chunk contains a JSON-lines sequence (after decryption), where each line is
   "actor_device_id": "…",
   "actor_user_identity": "maria@ngo.org",
   "action": "tx.created" | "tx.updated" | "tx.deleted" |
-            "import.csv" | "export.csv" |
+            "import.csv" | "export.csv" | "export.xlsx" |
             "device.enrolled" | "device.revoked" |
             "dek.rotated" | "admin.transferred" |
             "dataset.created" | "snapshot.taken",

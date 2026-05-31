@@ -323,6 +323,16 @@ import {
 } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { newUlid } from '../ids.js';
+import {
+  IPC_EXPORT_PREPARE,
+  IPC_EXPORT_RUN,
+  IPC_EXPORT_REVEAL,
+  exportPrepareResponseSchema,
+  exportRunResponseSchema,
+  exportRevealResponseSchema,
+} from '../../shared/ipc-contracts/export.js';
+import { createExportHandlers } from './handlers/export.js';
+import { getActiveWorkspace } from '../workspace-session.js';
 
 // SPEC-026 — When bootstrap deferred event-log construction because the
 // workspace is encrypted and locked, IPC handler registration cannot eagerly
@@ -947,5 +957,30 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_TRANSACTION_SPLIT_GET, async (_event, raw: unknown) => {
     const response = await handleGetSplits(raw);
     return getSplitsResponseSchema.parse(response);
+  });
+
+  // SPEC-027 — Export (CSV / XLSX). The prepare/run/reveal handlers need the
+  // invoke `event` (save dialog parent window, progress channel, per-window
+  // token binding), so they are not the pure `(raw) => response` factories used
+  // above.
+  const exportHandlers = createExportHandlers({
+    getActiveWorkspace,
+    getReadModel,
+    getDatasetId: () => getDatasetId(),
+    getActorUserIdentity: () => getProfile()?.userId ?? getDeviceId(),
+    newUlid,
+    now: () => Date.now(),
+  });
+  ipcMain.handle(IPC_EXPORT_PREPARE, async (event, raw: unknown) => {
+    const response = await exportHandlers.prepare(event, raw);
+    return exportPrepareResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_EXPORT_RUN, async (event, raw: unknown) => {
+    const response = await exportHandlers.run(event, raw);
+    return exportRunResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_EXPORT_REVEAL, async (event, raw: unknown) => {
+    const response = await exportHandlers.reveal(event, raw);
+    return exportRevealResponseSchema.parse(response);
   });
 }

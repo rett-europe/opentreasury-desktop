@@ -19,6 +19,28 @@ declare module 'sodium-native' {
 
   export function randombytes_buf(buf: Uint8Array): void;
 
+  // BLAKE2b generic hash (SPEC-027 audit + provenance).
+  export const crypto_generichash_BYTES: number;
+  export const crypto_generichash_BYTES_MIN: number;
+  export const crypto_generichash_BYTES_MAX: number;
+  export function crypto_generichash(out: Uint8Array, input: Uint8Array, key?: Uint8Array): void;
+
+  // Ed25519 detached signatures (SPEC-027 audit log).
+  export const crypto_sign_PUBLICKEYBYTES: number;
+  export const crypto_sign_SECRETKEYBYTES: number;
+  export const crypto_sign_BYTES: number;
+  export function crypto_sign_keypair(publicKey: Uint8Array, secretKey: Uint8Array): void;
+  export function crypto_sign_detached(
+    signature: Uint8Array,
+    message: Uint8Array,
+    secretKey: Uint8Array,
+  ): void;
+  export function crypto_sign_verify_detached(
+    signature: Uint8Array,
+    message: Uint8Array,
+    publicKey: Uint8Array,
+  ): boolean;
+
   /**
    * Securely zero a buffer's bytes. Uses a compiler-barrier zero fill so the
    * write cannot be optimized away. See

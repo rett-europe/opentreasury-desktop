@@ -59,6 +59,19 @@ import {
 } from '../shared/ipc-contracts/movements.js';
 import { IPC_QUERY_REHYDRATE, type QueryRehydrateResponse } from '../shared/ipc-contracts/query.js';
 import {
+  IPC_EXPORT_PREPARE,
+  IPC_EXPORT_RUN,
+  IPC_EXPORT_PROGRESS,
+  IPC_EXPORT_REVEAL,
+  exportProgressSchema,
+  type ExportPrepareRequest,
+  type ExportPrepareResponse,
+  type ExportRunRequest,
+  type ExportRunResponse,
+  type ExportRevealResponse,
+  type ExportProgress,
+} from '../shared/ipc-contracts/export.js';
+import {
   IPC_ACCOUNTS_CREATE,
   IPC_ACCOUNTS_LIST,
   IPC_ACCOUNTS_UPDATE,
@@ -350,6 +363,32 @@ const api = {
   movements: {
     list: (req?: MovementsListRequest): Promise<MovementRecord[]> => {
       return ipcRenderer.invoke(IPC_MOVEMENTS_LIST, req ?? {});
+    },
+  },
+  export: {
+    prepare: (req: ExportPrepareRequest): Promise<ExportPrepareResponse> => {
+      return ipcRenderer.invoke(IPC_EXPORT_PREPARE, req);
+    },
+    run: (req: ExportRunRequest): Promise<ExportRunResponse> => {
+      return ipcRenderer.invoke(IPC_EXPORT_RUN, req);
+    },
+    reveal: (): Promise<ExportRevealResponse> => {
+      return ipcRenderer.invoke(IPC_EXPORT_REVEAL, {});
+    },
+    /**
+     * Subscribe to main→renderer export progress (counts only). Returns an
+     * unsubscribe function. The payload is Zod-validated before reaching the
+     * callback so a malformed event can never surface to the UI.
+     */
+    onProgress: (cb: (progress: ExportProgress) => void): (() => void) => {
+      const listener = (_event: unknown, raw: unknown): void => {
+        const parsed = exportProgressSchema.safeParse(raw);
+        if (parsed.success) cb(parsed.data);
+      };
+      ipcRenderer.on(IPC_EXPORT_PROGRESS, listener);
+      return () => {
+        ipcRenderer.removeListener(IPC_EXPORT_PROGRESS, listener);
+      };
     },
   },
   query: {
