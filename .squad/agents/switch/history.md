@@ -464,3 +464,57 @@ pm run build.
 - Recovery-flow re-emit + cross-file dedup tiebreak: confirm "first by filename sort" is the chosen rule.
 
 **Verdict on 6f0ef7f:** APPROVE WITH FOLLOW-UP (see `.squad/decisions/inbox/switch-review-6f0ef7f.md`).
+
+## Learnings
+
+### 2026 — Export (CSV/XLSX) feature security review (Niobe spec input)
+
+**"Partial recovery code" idea is a recurring anti-pattern.** Pedro floated
+"enter 2 of the 12 BIP39 positions to authorize decrypted export." Cryptographically
+incoherent against our actual model (SPEC-026 §4): the MK is already unwrapped and
+resident in main-process memory after the unlock gate. A subset of mnemonic words
+cannot derive the Argon2id-wrapped recovery key (KDF is all-or-nothing). Even a
+side-channel local verifier of 2 words = ~22 bits — trivially brute-forced. Document
+this so the same proposal doesn't resurface for the next "sensitive action" feature.
+**Rule going forward:** any new "re-auth for sensitive action" must be one of
+(a) UX-only confirmation + audit entry, (b) full mnemonic re-entry verified by
+unwrapping wrap_recovery and constant-time-comparing to in-memory MK, or
+(c) OS biometric via safeStorage/Hello/Touch ID. Nothing else.
+
+**Plaintext export is a declassification event, not a "feature".** Treat every
+plaintext write as an audited boundary crossing. Pattern that should be reusable
+across CSV, XLSX, JSON dump, audit-log export, future PDF export:
+1. User-chosen path via dialog.showSaveDialog from **main** (renderer never
+   supplies path strings — R12/R18).
+2. Hard-warn if destination is inside the encrypted workspace folder.
+3. Never stage in os.tmpdir(); write .partial in the destination dir and
+   atomic-rename.
+4. Stream-decrypt + stream-write; zeroise buffers in inally.
+5. Signed audit entry **before** file write (so abort/crash leaves a trace),
+   ction from the crypto-spec §8.2 enum.
+6. Filter values are PII-equivalent — redact them in logs (R15).
+
+**Audit ction enum already covers xport.csv — XLSX needs a spec patch.**
+The crypto-spec §8.2 enum is the source of truth; any new export format requires
+amending it (small patch, I pre-approve XLSX). Don't let features sneak new
+action strings into runtime code without updating the spec.
+
+**IPC pattern for "user-confirmed sensitive action":** two-channel
+prepare/run with a short-TTL one-shot confirmation token (≤ 60 s, 1 pending per
+window). Same shape as pending-setup TTL eviction (security-review-checklist §2).
+Reusable for any sensitive declassification.
+
+**Renderer boundary holds.** Reinforced that src/core/crypto/** and
+src/core/storage/** stay un-importable from the renderer's tsconfig. Any new
+feature that "needs decrypted rows in the renderer" should consume the existing
+in-memory read model, not open a new decryption surface.
+
+## Learnings
+
+### 2026-05-16 — Export auth gate ruling (SPEC-027 OQ1)
+
+**Key fact:** The daily-unlock path (SPEC-026 decision table row 3) uses `safeStorage` — the user types nothing, and the plaintext 12-word mnemonic is NEVER loaded into main-process memory during a normal session. The mnemonic is only transiently present during enrollment, recovery, and the export-decrypted escape hatch, and must be zeroized after Argon2id derivation completes.
+
+**Verdict reached:** ACCEPTABLE-WITH-CONDITIONS. The "2 random words" presence gate is infeasible in any secure form (retaining mnemonic = unacceptable secret-lifetime expansion; stored per-word commitments = trivially crackable against 2048-word BIP39 list). Approved Option A (typed EXPORTAR + audit + main-process rate-limit) as the v1 gate. OS biometric re-auth deferred to v1.1.
+
+**Deliverable:** `.squad/decisions/inbox/switch-export-auth-gate-verdict.md`

@@ -2,6 +2,87 @@
 
 ## Active Decisions
 
+### 2026-05-31: SPEC-027 Export — All 13 Open Questions Resolved; Draft→In Review (Pedro, Niobe, Switch)
+
+**Date:** 2026-05-31  
+**Status:** ✅ DECIDED (all OQs resolved, spec moved to In Review)  
+**Agents:** Niobe (Spec/UX), Switch (Security), Pedro (Product Owner)  
+**Related:** SPEC-027 Export Feature, SPEC-027 UX, decisions.md Item 6
+
+#### Decision Summary
+
+Pedro answered all 13 Open Questions on SPEC-027. Two are requirement changes (OQ5, OQ6); the rest are confirmations. Switch approved the OQ6 hardening.
+
+#### Resolutions
+
+1. **OQ1 (Gate model):** MVP = Option A (typed EXPORTAR/EXPORT + 7 mandatory conditions). No secret/code entry in v1. Biometric deferred to v1.1/v2.
+2. **OQ2 (M2 escape hatch):** SPEC-027 supersedes Item 6 (export-decrypted). Issue #305 is closable.
+3. **OQ3 (Failure audit):** Export failures logged BOTH on-chain (`result: "failed"`) AND to local diagnostics.
+4. **OQ4 (export.xlsx enum):** Add `"export.xlsx"` to crypto-spec §8.2 `action` enum in same PR.
+5. **OQ5 (Row cap + mandatory filter — REQUIREMENT CHANGE):** 100k hard cap confirmed. NEW: full/unfiltered export NOT allowed. User MUST select date range (mandatory) + ≥1 additional filter (account/category/subcategory/label). Export disabled until satisfied. New FR23, AC18.
+6. **OQ6 (Save destination — REQUIREMENT CHANGE):** Default = Documents; never os.tmpdir(). FR14 warn→HARD BLOCK (Switch approved). Saving inside dataset root refused; save dialog re-opens. No "Save anyway". IPC error code `EXPORT_DEST_INSIDE_WORKSPACE` (CE-EXP-001).
+7. **OQ7 (Confirmation modal copy):** Proceed via crypto-error-copy-catalog process.
+8. **OQ8 (Column set):** FR11's 13 columns are the v1 set, no additions.
+9. **OQ9 (Filename language):** Active locale (`Movimientos` ES, `Movements` EN).
+10. **OQ10 (CSV separator):** Semicolon (`;`) — Spanish-Excel friendly.
+11. **OQ11 (Filter persistence):** Reset on re-entry (Movements parity).
+12. **OQ12 (Success feedback):** In-app toast (already spec'd).
+13. **OQ13 (?q= pre-seed):** Dropped from scope entirely — not even deferred.
+
+#### Team Impact
+
+- **Morpheus:** IPC `ExportPrepareResponse.warnings` loses `"path-inside-workspace"`; add `EXPORT_DEST_INSIDE_WORKSPACE` error code. CSV delimiter = semicolon.
+- **Trinity:** New `NeedsAdditionalFilter` state; EXP-3 modal is refusal (single CTA), not warning.
+- **Cypher:** New tests for minimum filter set, hard-block path guard, semicolon CSV.
+
+---
+
+### 2026-05-30: SPEC-027 Export Authorization Gate — Option A (typed EXPORTAR) Approved (Switch, Niobe)
+
+**Date:** 2026-05-30  
+**Status:** ✅ DECIDED (OQ1 resolved)  
+**Agents:** Switch (Security), Niobe (Spec/UX)  
+**Related:** SPEC-027 Export Feature § Open Question 1
+
+#### Decision Summary
+
+**SPEC-027 OQ1 Authorization Gate:** Resolved to **Option A (typed EXPORTAR + audit + rate-limit)** with 7 hard conditions. Per-word verification (2-of-12 as gate) rejected as cryptographically infeasible.
+
+#### Key Finding (Switch)
+
+Plaintext 12-word mnemonic is NOT retained in main-process memory after daily safeStorage unlock (SPEC-026 §4.2). On a normal silent-unlock session, the mnemonic never enters memory. Per-word verification therefore cannot work without either:
+- **(a) Retaining full mnemonic in memory for session** (unacceptable — expands secret footprint; contradicts "MK only in memory" posture)
+- **(b) Storing per-word commitments** (trivially offline-crackable against 2048-word BIP39 list; leaks mnemonic to anyone with `events.key` read access)
+
+Both paths rejected on security grounds. The reframed "2 random words as presence gate" is not implementable.
+
+#### Approved Gate Model: Option A
+
+1. **Typed confirmation word:** User types `EXPORTAR` (ES locale) or `EXPORT` (EN locale), case-insensitive
+2. **Mandatory audit entry before I/O:** Signed audit log entry with `action: "export.csv"` or `"export.xlsx"` appended before any plaintext byte written to disk
+3. **Main-process rate-limit:** Maximum 3 export operations per 15-minute window per workspace
+4. **Lockout on confirmation failures:** 5 consecutive mistypes → 5-minute UI disable
+5. **Audit logging of gate pass/fail:** Diagnostic log only (not hash-chained signed log); no input logged (redaction rule)
+6. **No mnemonic retention:** Plaintext mnemonic MUST be zeroized after transient enrollment/recovery/export-decrypted flows
+7. **Future escalation:** OS biometric re-authentication (Windows Hello / Touch ID) as optional v1.1 upgrade
+
+#### Threat-Model Clarity
+
+**What Option A protects:** Casual unauthorized person at unlocked app trying to export. Requires conscious typed action + audit trail. Defends against accidental/opportunistic export.
+
+**What it does NOT protect:** (1) Attacker with main-process code execution (already has MK, gate irrelevant). (2) Attacker who knows the confirmation word and is physically present (proceeds normally). (3) Compromised renderer invoking IPC directly (rate-limit slows but doesn't prevent; no UI-level gate defends this class).
+
+Option A is an **intent verification and audit mechanism**, not a cryptographic boundary.
+
+#### Spec Integration (Niobe)
+
+- Updated `docs/specs/027-export.md` OQ1 with approved gate model and Switch verdict summary
+- Added changelog row dated 2026-05-16
+- Cross-referenced FR15 (confirmation modal UX) and FR18 (mandatory audit entry)
+- Spec remains Draft pending answers to remaining OQ2–OQ13
+
+---
+
 ### 2026-05-25: Encrypted event log `load()` dedup must be load-scoped, not process-scoped (Trinity)
 
 **By:** Trinity (acting on Pedro's bug report)
@@ -307,6 +388,9 @@ Keaton's fully-scoped 8-issue breakdown for SPEC-026 v2 implementation. Estimate
   - Settings screen: "Export decrypted copy" CTA
   - Modal: Reason collection, recovery code entry, format picker
   - Success: "Your export is ready" + file location
+- **⚠️ Superseded (2026-05-31):** SPEC-027 (filtered CSV/XLSX export) replaces
+  this escape hatch. Issue #305 is unnecessary / closable — the filtered export
+  covers all use cases and is audited, gated, and user-friendly.
 
 **Item 7 — Encryption Integration Tests (Cypher + Switch)**
 - **Deliverable:** Full e2e test suite (Playwright + backend validators)

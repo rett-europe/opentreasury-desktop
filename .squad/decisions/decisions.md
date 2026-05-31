@@ -3421,3 +3421,176 @@ Never pass a direct path like `args: ['dist/main/index.js']` or `args: ['dist/ma
 - Future export-decrypted handler (separate review when implemented).
 - Future key-rotation / per-user revocation feature (explicit v1 non-goal).
 - Any new code path that holds the Master Key — every new consumer must follow the own-your-copy + wipe-on-finally pattern and get a security review before merge.
+
+---
+
+## Decision: SPEC-027 Export Feature (Draft) — Security Analysis + UI/UX + Spec Authoring
+
+**Date:** 2026-05-15  
+**Triaged by:** Morpheus (relay for Pedro)  
+**Team:** Switch (Security Engineer), Mouse (UI Designer), Niobe (Spec/UX Analyst)  
+**Status:** Draft specs authored; 13 Open Questions awaiting Pedro answers  
+**Files produced:**
+- `docs/specs/027-export.md` (Draft)
+- `docs/ux/specs/spec-027-export.md` (Draft)
+- `.squad/decisions/inbox/switch-export-security.md` (security analysis)
+- `.squad/decisions/inbox/mouse-export-ui.md` (UI notes)
+- `.squad/decisions/inbox/niobe-export-spec.md` (spec summary)
+
+### What Was Shipped
+
+A complete Draft specification pair for navbar **Export (CSV/XLSX)** feature — decryption + streaming write in main process only, two Zod-validated IPC channels, audit entry before file write, 100% reuse of existing UI components, 9 distinct states documented with state machine.
+
+### Key Decisions
+
+#### ✅ Approved
+
+- **Export mechanism:** Decryption + file write in main process only; renderer never sees plaintext rows or paths
+- **IPC contract:** Two Zod-validated channels (`export:prepare`, `export:run`); no path strings from renderer
+- **In-memory safety:** Stream one row, zero-fill buffers, atomic rename (no temp files in os.tmpdir())
+- **Audit entry:** Written **before** file produced; signed, includes canonical-JSON filter hash (not plaintext)
+- **Component reuse:** 100% existing components (date-range picker, chip-multi-select, buttons, reveal toggle, banners, toast) — zero new components needed
+
+#### ❌ Rejected
+
+- **"2-of-12 secret positions" gate:** Cryptographically unsound. Argon2id is all-or-nothing; 2-word subset cannot derive wrap_recovery key. Any side-channel check (stored per-word hashes) provides ~22 bits entropy (trivially brute-forced offline) and adds new secret artefact to local store. Rejected on three independent grounds; no exceptions.
+
+#### 🟡 Open (Awaiting Pedro)
+
+**13 Open Questions** consolidated from all three agents (Switch, Mouse, Niobe):
+
+1. **Gate model for export.** Option A (UX confirmation + typed-word), Option B (full 12-word re-entry), or defer Option C (OS biometric) to v1.1? *(Recommendation: A for v1.)*
+2. **M2 "export-decrypted escape hatch" relationship** (decisions.md Item 6). Does SPEC-027 supersede it? *(Recommendation: yes — one path, not two.)*
+3. **Failure audit entries.** Log export failures on-chain, or only successes? *(Recommendation: log both.)*
+4. **XLSX in audit action enum.** Add `"export.xlsx"` to crypto-spec §8.2? *(Switch pre-approved.)*
+5. **Row cap.** Confirm 100k rows v1 hard cap? *(Recommendation: yes, surfaced in UI.)*
+6. **Default save destination.** Confirm: Documents folder (not encrypted workspace, not os.tmpdir()); warn (not block) on workspace writes?
+7. **Confirmation-modal copy (ES+EN).** Approve drafted copy via crypto-error-copy-catalog process?
+8. **Column set (FR11).** 13 columns correct, or add Notes/ImportBatchId/CreatedAt/UpdatedAt/CreatedBy?
+9. **Filename language.** Default ES (regardless of locale) or follow active locale?
+10. **CSV separator.** RFC 4180 comma+dot v1, or locale-aware `;`+`,`?
+11. **Filter persistence.** Reset or persist across navigation?
+12. **Success feedback.** In-app toast or OS native notification?
+13. **Export search results.** Accept `?q=` URL param to pre-seed filters? *(Recommendation: defer to v1.1.)*
+
+### Blockers to In Review
+
+- **Open Questions 1–7 must be answered** before spec can move from Draft → In Review
+- **Especially:** Gate model (Q1) and M2 relationship (Q2) are the critical path items
+
+### Artifacts
+
+- **Specs:** docs/specs/027-export.md (Draft), docs/ux/specs/spec-027-export.md (Draft)
+- **Decision notes:** Merged from `.squad/decisions/inbox/` (see below)
+- **Orchestration logs:** `.squad/orchestration-log/2026-05-15T14-{32,33,34}Z-{switch,mouse,niobe}.md`
+- **Session log:** `.squad/log/2026-05-15T14-35-00Z-export-spec.md`
+
+---
+
+## Decision: Export Feature — Security Analysis (Switch)
+
+**Author:** Switch (Security Engineer)  
+**Date:** 2026-05-15  
+**Status:** Input to the Export spec (final analysis; not the spec itself)
+
+### Executive Verdict
+
+| Item | Verdict | Section |
+|---|---|---|
+| "Force the user to enter 2 of the 12 positions of the recovery code to decrypt for export" | 🔴 **REJECTED.** Cryptographically incoherent. Provides ZERO crypto value and ~22 bits of brute-force-trivial entropy. | §1 |
+| Writing decrypted PII to CSV/XLSX | ⚠️ **ACCEPTABLE with mandatory safeguards** (user-chosen path, explicit warning, audit entry, no temp-file leakage). | §2 |
+| Decryption + file write location in Electron | ✅ **MAIN PROCESS ONLY**, behind one Zod-validated IPC channel. Renderer must never see plaintext rows or the MK. | §3 |
+| Traceability | Export spec MUST satisfy R3, R6, R8, R11, R12, R15, R18 and crypto-spec §2.1, §4, §8.2 (`action` enum includes `export.csv`). | §4 |
+
+### The "2-of-12 Positions" Verdict
+
+**🔴 REJECTED on three independent grounds:**
+
+1. **Cannot derive any key.** Argon2id is deterministic all-or-nothing: `KDF(full_phrase, salt, params) → key`. 2-word subset yields unrelated output — no key unwraps `wrap_recovery`.
+2. **~22 bits entropy (trivially brute-forced).** Side-channel check adds new secret artefact to local store; anyone with `events.key` runs 4 M guesses in seconds.
+3. **Contradicts SPEC-026 trust model.** Recovery code is a team-enrollment secret. Partial entry doesn't add a confidentiality boundary the model doesn't already concede.
+
+### Three Viable Gate Options (A/B/C for Pedro)
+
+- **Option A (RECOMMENDED for v1):** No extra crypto gate; UX confirmation + typed-word + mandatory audit entry. Matches crypto-spec §8.3 audit-export precedent.
+- **Option B:** Full 12-word re-entry as re-auth. Cryptographically coherent but UX-heavy. Reasonable as admin-only or configurable setting.
+- **Option C:** OS biometric / re-auth via safeStorage round-trip or Windows Hello / Touch ID. Best UX/security balance; defer to v1.1 (uneven platform support).
+
+### Hard Security Rules (Non-Negotiable)
+
+1. **Main process only.** Renderer never sees plaintext rows, paths, or MK.
+2. **One Zod-validated IPC channel pair.** No renderer-supplied paths.
+3. **Never use os.tmpdir().** Write directly to final destination with atomic rename.
+4. **Audit entry before file written.** Crash still leaves a trace.
+5. **No plaintext temp files.** All safety nets for in-memory row streaming.
+6. **PII redaction in logs.** Counts and bytes only — never filter values or file paths.
+
+---
+
+## Decision: Export Feature — UI Design Notes (Mouse)
+
+**Author:** Mouse (UI Designer)  
+**Date:** 2026-05-15  
+**Status:** Input to the Export spec (design guidance; not the spec itself)
+
+### Design Decisions
+
+1. **Entry point:** Sidebar nav item "Exportar" (after Importación), Lucide Download icon
+2. **Layout:** Full screen (not modal), route-based (`/export`)
+3. **Filter section:** Reuses Movements date-range picker + chip-multi-select (accounts/categories/subcategories/labels). 2-col grid desktop, 1-col mobile.
+4. **Format selection:** Radio button group (CSV vs Excel), card-style options similar to UX-001 device-name
+5. **Secret entry:** Password-style input with reveal toggle (IBAN pattern). Horizontal rule above signals auth boundary. **Depends on Switch for final term/mechanism.**
+6. **States:** 9 states (filters-empty, counting, ready, zero-results, exporting, success, auth-error, crypto-error, file-write-error) with state machine diagram
+7. **Accessibility:** Full keyboard nav, ARIA landmarks/live regions, AA contrast, light/dark/reduced-motion support
+8. **Component reuse:** 100% existing components. Zero new components needed.
+
+### Component Reuse Map
+
+| UI element | Reuse pattern | Source |
+|---|---|---|
+| Date range picker | Movements screen component | UX-003 §4 |
+| Chip-multi-select | `ChipMultiSelect` generic | config-screen-pattern |
+| Buttons | Existing Button library | All variants |
+| Reveal toggle | IBAN reveal pattern | config-screen-pattern §6 |
+| Banners/toast | `.ot-banner--*` + `.ot-toast` | UX-006 error-banner pattern |
+
+### Open Questions for Niobe/Switch (6 items)
+
+1. Screen vs Modal decision (assumes full screen; defers to Niobe)
+2. Success feedback mechanism (toast or inline banner?)
+3. Filename convention (template for generated filenames?)
+4. Save location (OS Downloads folder assumption)
+5. Count threshold for warning (assumes 5000 rows, same as UX-003 §6 E8)
+6. Filter persistence across navigation (recommend: reset, same as Movements §11 Q4)
+
+---
+
+## Decision: Export Feature — SPEC-027 Spec Authoring (Niobe)
+
+**Author:** Niobe (Spec / UX Analyst)  
+**Date:** 2026-05-15  
+**Status:** Draft specs authored, 13 Open Questions for Pedro
+
+### What Was Delivered
+
+A Draft pair of specs for the navbar **Export (CSV/XLSX)** feature:
+- **Feature spec** (`docs/specs/027-export.md`): Functional requirements, IPC contract, security wiring, acceptance criteria, 13 open questions
+- **UX spec** (`docs/ux/specs/spec-027-export.md`): Screen layout, states, accessibility, component reuse, copy guidance
+
+### One-Paragraph Design Summary
+
+A new `Exportar` / `Export` item lands in the sidebar between `Importación` and any future `Configuración`, using Lucide `Download` icon. It routes to a full-page `/export` screen (date range required — Pedro's rule) with optional filters for account, category, subcategory, label. All components reuse existing patterns (date-range picker, chip-multi-select, etc.). On Export, the user passes a typed-word confirmation modal (`EXPORTAR` / `EXPORT`) explaining the file is unencrypted, syncable, indexable, and "to be treated like cash". The Electron main process owns the save dialog, path validation (with hard warning if user points at encrypted workspace folder, never os.tmpdir()), streaming decryption, atomic file write, rate limit, and signed audit entry — written **before** first byte hits disk. Two Zod-validated IPC channels (`export:prepare`, `export:run`) carry only the filter set, one-shot confirmation token, and counts/basenames back. Renderer never sees a path string or plaintext row. Every Switch-mandated security requirement (R3, R6, R8, R11, R12, R15, R17, R18 + crypto-spec §1.1, §2, §2.1, §8.2, §8.3, §11) is wired into §8 and acceptance criteria.
+
+### The "2-of-12" Verdict
+
+Switch's analysis (`.squad/decisions/inbox/switch-export-security.md` §1) rejected it as cryptographically unsound. The spec presents real gate options (A/B/C) as an open question rather than committing to a design that contradicts the crypto-spec.
+
+### Consolidated Open Questions (13 items for Pedro)
+
+**Critical path:** OQ-1 (gate model), OQ-2 (M2 relationship), OQ-3–7 (failure audit, XLSX enum, row cap, destination, copy) must be answered before Draft → In Review.
+
+### What I Am NOT Signing Off (until OQ-1–7 answered)
+
+- Anything that lets the renderer touch decrypted rows, paths, or the MK.
+- Anything labelled "partial recovery code" — per Switch's hard-no.
+- A spec moving from Draft → In Review without OQ-1–7 answered.
