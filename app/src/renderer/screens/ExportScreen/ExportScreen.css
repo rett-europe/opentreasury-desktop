@@ -1,35 +1,15 @@
 .ot-export {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4, 16px);
-  padding: var(--space-5, 24px);
-  max-width: 920px;
-  margin: 0 auto;
+  gap: var(--space-6, 24px);
   width: 100%;
-}
-
-.ot-export__header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1, 4px);
-}
-
-.ot-export__title {
-  font-size: var(--font-size-xl, 1.5rem);
-  font-weight: 600;
-  margin: 0;
-}
-
-.ot-export__subtitle {
-  color: var(--color-text-muted, #6b7280);
-  margin: 0;
 }
 
 .ot-export__filters,
 .ot-export__formats {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4, 16px);
+  gap: var(--space-5, 20px);
 }
 
 .ot-export__group {
@@ -47,7 +27,7 @@
 
 .ot-export__legend {
   font-weight: 600;
-  font-size: var(--font-size-sm, 0.875rem);
+  font-size: var(--font-size-16, 16px);
   padding: 0;
 }
 
@@ -62,7 +42,7 @@
   background: var(--color-surface, #fff);
   border-radius: var(--radius-pill, 999px);
   padding: 4px 12px;
-  font-size: var(--font-size-sm, 0.875rem);
+  font-size: var(--font-size-14, 14px);
   cursor: pointer;
 }
 
@@ -83,7 +63,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: var(--font-size-sm, 0.875rem);
+  font-size: var(--font-size-14, 14px);
 }
 
 .ot-export__date-label input {
@@ -123,7 +103,7 @@
 .ot-export__count-warning,
 .ot-export__needs-filter {
   color: var(--color-warning, #b45309);
-  font-size: var(--font-size-sm, 0.875rem);
+  font-size: var(--font-size-14, 14px);
   margin: 0;
 }
 
@@ -159,7 +139,7 @@
 
 .ot-export__format-helper {
   color: var(--color-text-muted, #6b7280);
-  font-size: var(--font-size-sm, 0.875rem);
+  font-size: var(--font-size-14, 14px);
 }
 
 .ot-export__banner {

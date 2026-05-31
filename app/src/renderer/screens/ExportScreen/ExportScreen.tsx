@@ -123,11 +123,12 @@ export function ExportScreen({ configRevision = 0 }: ExportScreenProps): JSX.Ele
   // parent category is deselected its subcategories disappear and any selected
   // ones are pruned. With no category selected, all subcategories are offered.
   const subcategoryOptions = useMemo(() => {
-    const out: { id: string; name: string }[] = [];
+    const out: { id: string; name: string; color?: string }[] = [];
     const selectedCats = new Set(categoryIds);
     for (const cat of categories) {
       if (selectedCats.size > 0 && !selectedCats.has(cat.id)) continue;
-      for (const sub of cat.subcategories ?? []) out.push({ id: sub.id, name: sub.name });
+      for (const sub of cat.subcategories ?? [])
+        out.push({ id: sub.id, name: sub.name, ...(cat.color ? { color: cat.color } : {}) });
     }
     return out;
   }, [categories, categoryIds]);
@@ -328,9 +329,11 @@ export function ExportScreen({ configRevision = 0 }: ExportScreenProps): JSX.Ele
   // ── Render ───────────────────────────────────────────────────────
   return (
     <div className="ot-export">
-      <header className="ot-export__header">
-        <h1 className="ot-export__title">{t('export.title')}</h1>
-        <p className="ot-export__subtitle">{t('export.subtitle')}</p>
+      <header className="ot-page-header">
+        <div>
+          <h1>{t('export.title')}</h1>
+          <p className="ot-page-header__subtitle">{t('export.subtitle')}</p>
+        </div>
       </header>
 
       <Card className="ot-export__filters">
@@ -392,18 +395,28 @@ export function ExportScreen({ configRevision = 0 }: ExportScreenProps): JSX.Ele
         <fieldset className="ot-export__group" disabled={dataLoading}>
           <legend className="ot-export__legend">{t('export.filters.accounts')}</legend>
           <TagChipPicker
-            availableTags={accounts.map((a) => ({ id: a.id, name: a.accountLabel }))}
+            availableTags={accounts.map((a) => ({
+              id: a.id,
+              name: a.accountLabel,
+              ...(a.color ? { color: a.color } : {}),
+            }))}
             selectedIds={accountIds}
             onToggle={toggle(setAccountIds)}
+            colored
           />
         </fieldset>
 
         <fieldset className="ot-export__group" disabled={dataLoading}>
           <legend className="ot-export__legend">{t('export.filters.categories')}</legend>
           <TagChipPicker
-            availableTags={categories.map((c) => ({ id: c.id, name: c.name }))}
+            availableTags={categories.map((c) => ({
+              id: c.id,
+              name: c.name,
+              ...(c.color ? { color: c.color } : {}),
+            }))}
             selectedIds={categoryIds}
             onToggle={toggle(setCategoryIds)}
+            colored
           />
         </fieldset>
 
@@ -413,15 +426,21 @@ export function ExportScreen({ configRevision = 0 }: ExportScreenProps): JSX.Ele
             availableTags={subcategoryOptions}
             selectedIds={subcategoryIds}
             onToggle={toggle(setSubcategoryIds)}
+            colored
           />
         </fieldset>
 
         <fieldset className="ot-export__group" disabled={dataLoading}>
           <legend className="ot-export__legend">{t('export.filters.labels')}</legend>
           <TagChipPicker
-            availableTags={tags.map((tag) => ({ id: tag.id, name: tag.name }))}
+            availableTags={tags.map((tag) => ({
+              id: tag.id,
+              name: tag.name,
+              ...(tag.color ? { color: tag.color } : {}),
+            }))}
             selectedIds={tagIds}
             onToggle={toggle(setTagIds)}
+            colored
           />
         </fieldset>
 

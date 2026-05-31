@@ -78,4 +78,42 @@ describe('TagChipPicker', () => {
 
     expect(screen.getByText('No tags available')).toBeDefined();
   });
+
+  it('renders a swatch on every chip in colored mode and applies per-entity color', () => {
+    const { container } = render(
+      <TagChipPicker
+        availableTags={[
+          { id: '1', name: 'Casa', color: '#e06b6b' },
+          { id: '2', name: 'Sueldo' },
+        ]}
+        selectedIds={[]}
+        onToggle={vi.fn()}
+        colored
+      />,
+    );
+
+    const chips = container.querySelectorAll('.ot-tag-chip--colored');
+    expect(chips.length).toBe(2);
+
+    const swatches = container.querySelectorAll('.ot-tag-chip__swatch');
+    expect(swatches.length).toBe(2);
+
+    // The chip with an explicit color sets the --ot-chip-color custom property;
+    // the one without falls back to the CSS default (brand primary).
+    const casaChip = screen.getByRole('button', { name: /Casa/i });
+    expect(casaChip.style.getPropertyValue('--ot-chip-color')).toBe('#e06b6b');
+    const sueldoChip = screen.getByRole('button', { name: /Sueldo/i });
+    expect(sueldoChip.style.getPropertyValue('--ot-chip-color')).toBe('');
+  });
+
+  it('renders no swatches when colored mode is off (default)', () => {
+    const { container } = render(
+      <TagChipPicker
+        availableTags={[{ id: '1', name: 'Casa', color: '#e06b6b' }]}
+        selectedIds={[]}
+        onToggle={vi.fn()}
+      />,
+    );
+    expect(container.querySelectorAll('.ot-tag-chip__swatch').length).toBe(0);
+  });
 });
