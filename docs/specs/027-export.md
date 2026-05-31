@@ -198,6 +198,20 @@ naming and format choice.
   explanatory hint is displayed when the date range is set but no additional
   filter is selected: *"Selecciona al menos un filtro adicional (cuenta,
   categoría, subcategoría o etiqueta) para continuar."* (See AC18.)
+- **FR24 — Export rate limit (normative).** The main process MUST enforce a
+  rate limit of **at most 3 successful export operations per rolling 15-minute
+  window** per workspace/device. A 4th attempt within the window is rejected
+  with `EXPORT_RATE_LIMITED` (CE-EXP-RATE) and the renderer surfaces the
+  localized retry-after copy. Limits are persisted (MK-encrypted) so an app
+  restart does not bypass throttling. (Promoted from OQ1; see §8. Supersedes the
+  informational 5-second cooldown note in FR21 as the authoritative anti-bulk
+  control.)
+- **FR25 — Confirmation lockout (normative).** **5 consecutive mistypes** of the
+  typed confirmation word (`EXPORTAR` / `EXPORT`) MUST lock the Export gate for
+  **5 minutes**. While locked, `export:run` is rejected with `EXPORT_LOCKED_OUT`
+  (CE-EXP-LOCK) and the confirmation control is disabled with an accessible
+  countdown hint. The mistype counter resets on a correct confirmation. The
+  typed input MUST NEVER be logged (see AC19). (Promoted from OQ1; see §8.)
 
 ### 4.2 Non-functional
 
@@ -547,10 +561,16 @@ this section restates the decisions Niobe is committing the spec to.
   active, the Export button is disabled with `aria-disabled="true"`, and an
   accessible info banner explains the requirement. The banner uses an
   `aria-live="polite"` region so screen readers announce it (FR23).
+- [ ] **AC19** — The typed confirmation input (`EXPORTAR` / `EXPORT`) is NEVER
+  written to any log, diagnostic, audit entry, or telemetry sink — neither the
+  raw value nor a partial/hashed form. Only the outcome (correct / mistype count
+  / lockout) is recorded. After **5 consecutive mistypes** the gate is locked for
+  **5 minutes** (`EXPORT_LOCKED_OUT`); after **3 successful exports per 15-minute
+  window** further attempts are rejected (`EXPORT_RATE_LIMITED`). (FR24, FR25.)
 
 ## 11. Traceability
 
-- **PRD:** PRD-027 (pending — needs reservation in
+- **PRD:** PRD-027 (reserved in
   [`docs/product/prd-plan.md`](../product/prd-plan.md)).
 - **ADRs:** [ADR-001](../architecture/adr-001-tech-stack.md),
   [ADR-002](../architecture/adr-002-repo-structure.md).

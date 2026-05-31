@@ -3,6 +3,7 @@ import { AppShell } from './screens/AppShell/index.js';
 import type { Route } from './screens/AppShell/index.js';
 import { ConfiguracionScreen } from './screens/ConfiguracionScreen/index.js';
 import { DatosScreen } from './screens/DatosScreen/index.js';
+import { ExportScreen } from './screens/ExportScreen/index.js';
 import { InsightsScreen } from './screens/InsightsScreen/index.js';
 import { InsightsDetailScreen } from './screens/InsightsDetailScreen/index.js';
 import { MovementsScreen } from './screens/MovementsScreen/index.js';
@@ -332,6 +333,8 @@ export function App(): JSX.Element {
           onImportComplete={bumpConfigRevision}
           onNavigateToMovements={() => setRoute('movements')}
         />
+      ) : route === 'export' ? (
+        <ExportScreen configRevision={configRevision} />
       ) : route === 'preferences' ? (
         <PreferencesScreen />
       ) : (

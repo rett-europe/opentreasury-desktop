@@ -5,6 +5,7 @@ import type { Profile } from '../../../shared/ipc-contracts/profile.js';
 import {
   ArrowLeftRight,
   ChartLine,
+  Download,
   FolderOpen,
   Landmark,
   LayoutDashboard,
@@ -44,6 +45,7 @@ export type Route =
   | 'insights'
   | 'insights-detail'
   | 'datos'
+  | 'export'
   | 'cuentas'
   | 'categorias'
   | 'etiquetas'
@@ -138,7 +140,10 @@ const NAV_SECTIONS: readonly NavSection[] = [
   },
   {
     labelKey: 'shell.sections.datos',
-    items: [{ id: 'datos', labelKey: 'shell.nav.datos', icon: <Upload size={18} /> }],
+    items: [
+      { id: 'datos', labelKey: 'shell.nav.datos', icon: <Upload size={18} /> },
+      { id: 'export', labelKey: 'shell.nav.export', icon: <Download size={18} /> },
+    ],
   },
 ];
 

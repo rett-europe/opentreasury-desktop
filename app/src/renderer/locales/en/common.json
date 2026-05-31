@@ -16,6 +16,89 @@
     "save": "Save",
     "saving": "Saving…"
   },
+  "export": {
+    "title": "Export Movements",
+    "subtitle": "Export transactions to CSV or Excel (.xlsx). Data will be decrypted before export.",
+    "filters": {
+      "dateRange": "Date range",
+      "from": "From",
+      "to": "To",
+      "invalidRange": "The end date must be after the start date.",
+      "accounts": "Accounts",
+      "categories": "Categories",
+      "subcategories": "Subcategories",
+      "labels": "Labels"
+    },
+    "presets": {
+      "this-month": "This month",
+      "last-month": "Last month",
+      "last-3-months": "Last 3 months",
+      "this-year": "This year",
+      "last-year": "Last year",
+      "last-12-months": "Last 12 months"
+    },
+    "clearFilters": "Clear filters",
+    "empty": {
+      "pickRange": "Select a date range to begin."
+    },
+    "counting": "Counting movements…",
+    "ready": "{{n}} movements match these filters.",
+    "emptyResults": "No movements match these filters.",
+    "aboveCap": "Too many movements ({{n}}). Narrow the filters to export at most 100,000.",
+    "largeWarning": "This range includes {{n}} movements. The export may take a few seconds.",
+    "exporting": "Exporting…",
+    "progress": "Exporting {{done}} of {{total}} movements…",
+    "success": "{{n}} movements exported to {{basename}}.",
+    "showInFolder": "Show in folder",
+    "format": {
+      "legend": "Format",
+      "csv": "CSV (semicolon-separated values)",
+      "excel": "Excel (.xlsx)",
+      "csvHelper": "Compatible with Spanish Excel. Plain-text UTF-8.",
+      "excelHelper": "Native Excel file with automatic column formatting."
+    },
+    "needsFilter": {
+      "banner": "Select at least one additional filter (account, category, subcategory, or label) to continue.",
+      "tooltip": "Select an additional filter."
+    },
+    "btn": {
+      "cancel": "Cancel",
+      "export": "Export"
+    },
+    "confirm": {
+      "title": "You are about to export a decrypted copy",
+      "b1": "The file will NOT be encrypted.",
+      "b2": "Anyone with access to the file can read every transaction you export.",
+      "b3": "If you save it to a synced folder (OneDrive, Dropbox, iCloud), it will also be copied to the cloud.",
+      "b4": "Treat it like cash: you are responsible for where it goes.",
+      "typed": "Type {{word}} to continue",
+      "continue": "Continue",
+      "lockout": "Too many attempts. Try again in {{minutes}} min."
+    },
+    "block": {
+      "workspace": {
+        "title": "You cannot save here",
+        "body": "You cannot save a decrypted copy inside the shared treasury folder. Choose another location.",
+        "choose": "Choose another location"
+      }
+    },
+    "error": {
+      "retry": "Try again"
+    },
+    "errors": {
+      "EXPORT_DEST_INSIDE_WORKSPACE": "You cannot save a decrypted copy inside the treasury folder. Choose another location.",
+      "EXPORT_ROW_CAP_EXCEEDED": "Too many movements to export. Narrow the filters (at most 100,000).",
+      "EXPORT_MIN_FILTERS": "Select a date range and at least one additional filter.",
+      "EXPORT_RATE_LIMITED": "You have reached the export limit. Try again in a few minutes.",
+      "EXPORT_LOCKED_OUT": "Too many confirmation attempts. Wait a few minutes before trying again.",
+      "EXPORT_TOKEN_INVALID": "The export session expired. Please try again.",
+      "EXPORT_DEST_TEMP_DIR": "You cannot save to a system temporary folder. Choose another location.",
+      "EXPORT_WRITE_FAILED": "Could not save the file. Check the location and try again.",
+      "EXPORT_NO_WORKSPACE": "No treasury is unlocked. Please sign in again.",
+      "EXPORT_AUDIT_FAILED": "Could not record the export audit entry. Try again or contact your administrator.",
+      "EXPORT_INTERNAL": "An unexpected error occurred during export. Please try again."
+    }
+  },
   "shell": {
     "nav": {
       "panel": "Dashboard",
@@ -27,7 +110,8 @@
       "cuentas": "Accounts",
       "categorias": "Categories",
       "etiquetas": "Tags",
-      "preferences": "Preferences"
+      "preferences": "Preferences",
+      "export": "Export"
     },
     "theme": {
       "label": "Theme",
