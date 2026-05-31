@@ -9938,3 +9938,18 @@ Release cuts must incorporate packaging workflow (build + package + verify times
   - Spanish wording preserved verbatim — fix-up was EN-only.
   - Shipped on `fix/accounts-i18n-en-strings` commit `57f4d05` (~25 keys, 7 files, vitest 1198/1198 ✅).
 
+
+---
+
+### 2026-05-31: SPEC-027 (Export CSV/XLSX) ACCEPTED — reviewer-acceptance gate passed
+
+**By:** Morpheus (coordinator-run review gate, on behalf of Pedro) · **Status:** In Review -> Accepted
+
+**What:** SPEC-027 — Export and its paired UX spec (docs/ux/specs/spec-027-export.md) cleared the three-reviewer acceptance gate after merge to main (PR #349). Status flipped to **Accepted**. Branch: `perocha/spec-027-accepted` (off origin/main @ 1f06d31). Not pushed.
+
+**Reviewer verdicts (all APPROVE-WITH-NITS, zero blocking):**
+- **Neo (architecture):** Read-model query reuses the existing Movements patterns (MovementRecord, SPEC-023 splits projection, date-range-query-extension + read-model-aggregation skills) — no parallel pipeline. Consistent with ADR-001/002/003, the `audit.export` event-model, and IPC-contract conventions. Nits: `export:progress` `"encrypting"`->`"decrypting"` label; clarify FR21 vs OQ1 rate-limit precedence.
+- **Switch (security):** All 7 Option-A conditions (typed confirm, audit-first, rate-limit 3/15min, lockout 5->5min, no-logging-of-input, mnemonic zeroized, biometric->v1.1), FR14 hard-block, dual failure-audit (on-chain + local), `export.xlsx` enum addition, renderer isolation / no-plaintext / no-path-IPC, and PII-in-logs redaction all faithfully reflected. Nits (pre-code-freeze): promote 3/15min rate-limit + 5->5min lockout to normative FRs; land the crypto-spec §8.2 `export.xlsx` enum edit in the implementation PR; add explicit AC for never-log-typed-input.
+- **Link (product):** Scope matches Pedro's brief and v1 boundaries — CSV/XLSX only, the five filters, mandatory date + >=1 additional filter (FR23/AC18), 100k cap, biometric deferred to v1.1, #305 superseded/closable. Nits: update vision.md §9 feature map, reserve PRD-027, close UX-A/B/C.
+
+**Readiness:** No blocking items from any reviewer. SPEC-027 is cleared for implementation. Open follow-ups are non-blocking nits tracked in each spec's §13 Status History.

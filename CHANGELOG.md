@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs
+
+- **SPEC-027 — Export (CSV/XLSX) accepted (In Review → Accepted).** Reviewer-acceptance gate passed after merge to `main` (PR #349). All three gating reviewers approved: Neo (architecture), Switch (security), and Link (product) — each APPROVE-WITH-NITS, no blocking items. The export read-model query reuses the existing Movements query patterns (no parallel pipeline); the Option-A security gate and its 7 conditions, the FR14 encrypted-workspace hard-block, dual failure-audit, and the `export.xlsx` audit-enum addition are all reflected; product scope matches the owner brief and v1 boundaries. SPEC-027 and its paired UX spec (`docs/ux/specs/spec-027-export.md`) are cleared for implementation. Non-blocking nits captured in each spec's §13 Status History.
+
 ## [0.1.0-trial.3.8] — SPEC-026 encryption-at-rest wiring
 
 Complete wiring of encrypted event log into production unlock paths and workspace
