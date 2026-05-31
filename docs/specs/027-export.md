@@ -1,6 +1,7 @@
 # SPEC-027 — Export (CSV / XLSX)
 
-> **Status:** Draft · **Owner:** Niobe · **Last updated:** 2026-05-15
+> **Status:** In Review · **Owner:** Niobe · **Last updated:** 2026-05-31
+> **Reviewers:** Neo (architecture), Switch (security), Link (product)
 > **Paired PRD:** Pending — PRD-027 reservation needed in `docs/product/prd-plan.md`
 > **Paired UX:** [`docs/ux/specs/spec-027-export.md`](../ux/specs/spec-027-export.md)
 > **Paired Design:** Pending (Mouse — visual polish; design notes already provided in `.squad/decisions/inbox/mouse-export-ui.md`)
@@ -43,8 +44,8 @@ copy-paste rows by hand, which is slow, error-prone, and quickly defeats the
 The product also already promises a "decrypted-export escape hatch" in M2
 (see `.squad/decisions.md`, *Item 6 — Export-Decrypted Escape Hatch*). This
 spec converges those two needs into a single, audited path. The earlier
-escape-hatch idea (a Settings-screen JSON dump) is superseded by this spec
-unless Pedro confirms otherwise (Open Question 2).
+escape-hatch idea (a Settings-screen JSON dump) is **superseded by this spec**
+(confirmed by Pedro — OQ2 resolved 2026-05-31; Issue #305 is closable).
 
 ## 3. Users & Scenarios
 
@@ -73,8 +74,8 @@ naming and format choice.
   file is written, no audit entry produced.
 - **Scenario E — Wrong place to save.** She accidentally points the save
   dialog at the OneDrive folder that contains the encrypted workspace. The
-  app hard-warns her in plain Spanish that she would be writing a decrypted
-  copy into the shared folder; she cancels and saves to Documents instead.
+  app refuses the path and re-opens the save dialog; she picks Documents
+  instead and the export proceeds.
 - **Scenario F — Mid-export crash / cancel.** The export aborts (disk full,
   user pulled the USB). A partial file is removed; the audit log still
   contains the *attempt* entry written before file I/O began.
@@ -111,12 +112,13 @@ naming and format choice.
   read model — no decryption needed for the count.
 - **FR9 — Row cap (v1).** Maximum **100 000 rows** per export. Above the cap,
   the Export button is disabled with the message *"Demasiados movimientos
-  ({n}). Acota los filtros para exportar como máximo 100 000."* See §8 and
-  Open Question 5.
+  ({n}). Acota los filtros para exportar como máximo 100 000."*
 - **FR10 — Format choice.** Card-style radio: **CSV** (default) or **Excel
-  (.xlsx)**. CSV is UTF-8 with BOM, comma-delimited, RFC 4180-quoted,
-  CRLF line endings. XLSX is single-sheet, named `Movimientos`, written via
-  a **streaming** writer (Switch §2.3) so memory stays bounded.
+  (.xlsx)**. CSV is UTF-8 with BOM, **semicolon-delimited** (`;`), RFC 4180-
+  style quoting with `;` as the delimiter (fields containing `;`, quotes, or
+  newlines are quoted), CRLF line endings. XLSX is single-sheet, named
+  `Movimientos`, written via a **streaming** writer (Switch §2.3) so memory
+  stays bounded.
 - **FR11 — Exported columns (v1).** One row per movement (parent transaction
   OR child split, mirroring `decisions.md` line 913 *"ONE ROW PER CHILD —
   parent envelope not exported separately"*). Columns, in order:
@@ -140,20 +142,21 @@ naming and format choice.
   Open Question 8 covers any additional fields (e.g., `Notes`,
   `ImportBatchId`).
 
-- **FR12 — Filename convention.** Default proposed in the save dialog:
-  `OpenTreasury-Movimientos-{YYYY-MM-DD}_{YYYY-MM-DD}{-cuenta-X}{-cat-Y}.{csv|xlsx}`,
-  truncated to a safe filename length and stripped of OS-illegal characters.
-  User can rename freely in the dialog.
+- **FR12 — Filename convention.** Default proposed in the save dialog uses the
+  app's active locale: `OpenTreasury-Movimientos-{YYYY-MM-DD}_{YYYY-MM-DD}{-cuenta-X}{-cat-Y}.{csv|xlsx}`
+  (ES locale) or `OpenTreasury-Movements-{YYYY-MM-DD}_{YYYY-MM-DD}{-account-X}{-cat-Y}.{csv|xlsx}`
+  (EN locale), truncated to a safe filename length and stripped of OS-illegal
+  characters. User can rename freely in the dialog.
 - **FR13 — Save dialog (main process).** On Export click, main opens
   `dialog.showSaveDialog` with default destination = OS **Documents** folder
   (NOT the encrypted workspace folder, NOT `os.tmpdir()`). Default extension
   matches the selected format. Cancelling the dialog returns the user to the
   Export screen with no audit entry.
-- **FR14 — Encrypted-workspace guard.** If the chosen save path resolves
-  inside the active workspace's dataset root (see SPEC-026), the app shows a
-  hard warning: *"Vas a escribir una copia descifrada dentro de la carpeta
-  compartida del tesoro. Cualquier persona con acceso a la carpeta podrá
-  leerla."* Confirmation required to proceed (per Switch §2.1).
+- **FR14 — Encrypted-workspace guard (hard block).** If the chosen save path
+  resolves inside the active workspace's dataset root (see SPEC-026), the app
+  refuses the path and re-opens the OS save dialog; the user may not proceed
+  until they select a destination outside the dataset root. There is no
+  "Save anyway" path.
 - **FR15 — Pre-export confirmation.** Before any decryption begins, the user
   passes a confirmation modal that states the file will be unencrypted, may
   be indexed by Windows Search, may be uploaded by sync clients, may appear
@@ -184,8 +187,17 @@ naming and format choice.
   for v1** (the operation is short for ≤100k rows); the safety net is the
   30-second wall-clock timeout (UX side).
 - **FR22 — Locale-aware copy & filename language.** All user-visible strings
-  honour the active locale (ES / EN). Numeric formatting in CSV is
-  locale-independent (`.` decimal) for downstream tool compatibility.
+  honour the active locale (ES / EN). The default filename prefix uses the
+  active locale (`OpenTreasury-Movimientos-…` for ES, `OpenTreasury-Movements-…`
+  for EN). Numeric formatting in CSV is locale-independent (`.` decimal) for
+  downstream tool compatibility.
+- **FR23 — Minimum filter set.** A full/unfiltered export is **not allowed**.
+  The user MUST select a **date range (mandatory)** PLUS **at least one
+  additional filter** (account, category, subcategory, OR label). The Export
+  button remains disabled until both conditions are satisfied. An accessible
+  explanatory hint is displayed when the date range is set but no additional
+  filter is selected: *"Selecciona al menos un filtro adicional (cuenta,
+  categoría, subcategoría o etiqueta) para continuar."* (See AC18.)
 
 ### 4.2 Non-functional
 
@@ -237,8 +249,8 @@ domain events for transactions, splits, accounts, or labels. It does emit a
 | `audit.export` | `{ action: "export.csv" \| "export.xlsx", actor_device_id, actor_user_identity, target_ref: { type: "export", id: <ULID> }, after_hash: BLAKE2b-256, ts, signature_ed25519 }` | Main-process `exportService` (before file I/O) | Audit-log writer; future audit-log viewer |
 
 The `action` enum in `crypto-spec.md` §8.2 already lists `"export.csv"`. The
-addition of `"export.xlsx"` requires a one-line amendment to crypto-spec
-§8.2; Switch has pre-approved it (see Switch §2.5 and Open Question 4).
+addition of `"export.xlsx"` is resolved — add it in the same PR (OQ4 resolved,
+Switch pre-approved).
 
 `after_hash` is computed over a canonical-JSON serialization of the **filter
 set**, not the file contents:
@@ -305,10 +317,11 @@ Schemas live under `app/src/shared/ipc-contracts/export.ts`.
   | { ok: true,
       confirmationToken: string,   // one-shot, TTL ≤ 60 s, max 1 pending per window
       basename: string,            // basename of the user-chosen path; main keeps the full path
-      warnings: Array<"path-inside-workspace" | "unc-path" | "row-count-above-threshold">,
+      warnings: Array<"unc-path" | "row-count-above-threshold">,
       estimatedRowCount: number }
   | { ok: false, code: "CE-XXX" }
   | { ok: false, code: "USER_CANCELLED_DIALOG" }
+  | { ok: false, code: "EXPORT_DEST_INSIDE_WORKSPACE" }  // CE-EXP-001: dataset-root path rejected
   ```
 - `ExportRunRequest`:
   ```ts
@@ -380,7 +393,8 @@ this section restates the decisions Niobe is committing the spec to.
   supplies a path. The destination is validated to reject:
   - paths that escape the user-chosen directory after `path.resolve` (R18),
   - UNC / network paths unless explicitly confirmed by the user,
-  - paths inside the active dataset root (warning, not block — FR14).
+  - paths inside the active dataset root (hard block — FR14): the destination
+    is rejected and the save dialog re-opens; no "Save anyway" path exists.
 - **No temp files in `%TEMP%` / `os.tmpdir()` (R6).** The partial file is
   written in the **destination directory** and renamed atomically. AV /
   Windows Search / indexers cannot snapshot a plaintext copy from a system
@@ -390,13 +404,16 @@ this section restates the decisions Niobe is committing the spec to.
   row write and on the failure path.
 - **Audit logging (R8, crypto-spec §8.2, §8.3).** A signed audit entry is
   appended **before** the first byte is written:
-  - `action: "export.csv"` or `"export.xlsx"` (the latter to be added to the
-    enum in the same PR — Open Question 4),
+  - `action: "export.csv"` or `"export.xlsx"` (the latter added to the
+    enum in the same PR — OQ4 resolved),
   - `actor_device_id`, `actor_user_identity` from the envelope,
   - `target_ref: { type: "export", id: <ULID> }`,
   - `after_hash`: BLAKE2b-256 of the canonical-JSON filter description
     defined in §6.1 — **never** a hash of plaintext output.
-  - Failure audit entries: see Open Question 3.
+  - **Failure audit entries:** Export *failures* are logged **both** in the
+    on-chain signed audit log (with `result: "failed"` field) **and** to the
+    local diagnostic bundle. Both audit and diagnostics record the attempt
+    for post-incident analysis (OQ3 resolved).
 - **PII redaction in logs (R15).** The `exportService` module logs only
   counts and byte sizes. **Filter values are PII-equivalent** (a label
   reading `Donor John Smith` is PII) and are redacted via the R15 allowlist
@@ -423,15 +440,21 @@ this section restates the decisions Niobe is committing the spec to.
 
 - `buildCanonicalFilterJson(filters)` — deterministic ordering, label hashing.
 - `formatCsvRow(movement, locale)` / `formatXlsxRow(movement, locale)` —
-  CRLF, RFC 4180 quoting, decimal formatting, label semicolon-joining.
-- `buildDefaultFilename(filters, format)` — handles all six date presets,
-  truncates safely, strips OS-illegal characters.
+  CRLF, semicolon delimiter, RFC 4180-style quoting with `;` as delimiter,
+  decimal formatting, label semicolon-joining.
+- `buildDefaultFilename(filters, format, locale)` — handles all six date
+  presets, truncates safely, strips OS-illegal characters, uses locale for
+  filename prefix (`Movimientos` vs `Movements`).
 - `validateExportRequest(input)` — Zod schemas reject path strings, oversize
-  labels, invalid ULIDs, missing date range.
+  labels, invalid ULIDs, missing date range, **missing additional filter**
+  (FR23).
 - `assertNotInsideWorkspace(path, datasetRoot)` — true negatives and false
   positives across symlinks.
 - `assertNotTempDir(path)` — rejects `os.tmpdir()` and Windows `%TEMP%`.
 - `redactExportLog(line)` — never emits filter values, never emits full paths.
+- `isMinimumFilterSetSatisfied(filters)` — returns true only when date range
+  is set AND at least one of accountIds/categoryIds/subcategoryIds/labelIds
+  is non-empty.
 
 ### 9.2 Integration (Vitest, in-memory storage adapter)
 
@@ -441,31 +464,40 @@ this section restates the decisions Niobe is committing the spec to.
   - confirmationToken expired / wrong → run rejected.
   - confirmationToken cannot be replayed.
 - Audit entry written **before** the first byte; if file I/O fails the audit
-  entry still exists (failure entry behaviour per Open Question 3).
+  entry still exists with `result: "failed"` (OQ3). Failure also logged to
+  local diagnostics.
 - Atomic rename: a synthetic `fs.rename` failure leaves no partial file.
 - Tampered ciphertext on one event → decrypt fails, no partial file, CE-XXX
   surfaced, partial removed.
 - Memory ceiling: streaming a 100 000-row synthetic fixture does not exceed
   the NFR4 budget.
+- Minimum filter set: prepare with date range only (no additional filter) →
+  rejected with filter-required error (FR23).
 
 ### 9.3 E2E (Playwright against built Electron binary)
 
-- Happy path CSV: pick range, set filters, click Export → save dialog →
-  confirm modal → success toast → file exists on disk, byte-equal to golden.
+- Happy path CSV: pick range, set **at least one additional filter**, click
+  Export → save dialog → confirm modal → success toast → file exists on disk,
+  byte-equal to golden.
 - Happy path XLSX: same as above with XLSX option.
 - Empty start: route to /export → date range empty → Export disabled →
   prompt visible.
-- Zero results: pick a range with no transactions → warning banner →
+- Needs additional filter: pick date range only → Export disabled with info
+  banner *"Selecciona al menos un filtro adicional…"* → select an account →
+  Export enabled.
+- Zero results: pick a range + filter with no transactions → warning banner →
   Export disabled.
 - Row cap: synthesize > 100 000 rows → Export disabled with the cap message.
 - Encrypted-workspace guard: user picks the workspace folder in the save
-  dialog → hard warning modal → cancel returns to screen; accept proceeds.
+  dialog → path rejected and save dialog re-opens → user picks Documents →
+  export proceeds.
 - Cancel in save dialog: no audit entry, screen state intact.
 - Failure path: simulate fs failure → CE-XXX shown, partial file absent,
-  Export re-enables for retry.
-- Accessibility: axe-core passes on /export with all states; full keyboard
-  flow from sidebar entry to success toast; screen-reader announces the
-  count preview, the busy state, and errors.
+  audit entry has `result: "failed"`, Export re-enables for retry.
+- Accessibility: axe-core passes on /export with all states (including
+  `needs-additional-filter`); full keyboard flow from sidebar entry to
+  success toast; screen-reader announces the count preview, the filter hint,
+  the busy state, and errors.
 
 ## 10. Acceptance Criteria
 
@@ -475,8 +507,9 @@ this section restates the decisions Niobe is committing the spec to.
 - [ ] **AC2** — Routing to `/export` shows the Export screen with no date
   range selected, all filters empty, and the Export button disabled (FR2).
 - [ ] **AC3** — The Export button stays disabled until a date range is
-  selected. Setting only the date range enables Export with all-accounts /
-  all-categories / all-labels semantics (FR3).
+  selected **and** at least one additional filter (account, category,
+  subcategory, or label) is active. With only the date range set, the Export
+  button remains disabled and an info hint is displayed (FR3, FR23).
 - [ ] **AC4** — Account, category, subcategory and label multi-selects narrow
   the result count, and the count preview updates within 200 ms of the last
   filter change (FR4–FR8).
@@ -484,15 +517,16 @@ this section restates the decisions Niobe is committing the spec to.
   selected; selecting categories scopes its options (FR6).
 - [ ] **AC6** — When the matching row count exceeds 100 000 the Export
   button is disabled with the cap message (FR9).
-- [ ] **AC7** — A successful CSV export produces a UTF-8 BOM, RFC 4180-quoted,
-  CRLF-line-ended file with exactly the column order in FR11.
+- [ ] **AC7** — A successful CSV export produces a UTF-8 BOM, semicolon-
+  delimited (`;`), RFC 4180-style quoting with `;` as delimiter, CRLF-line-
+  ended file with exactly the column order in FR11.
 - [ ] **AC8** — A successful XLSX export produces a single-sheet workbook
   named `Movimientos` with the same columns, written via the streaming writer.
 - [ ] **AC9** — The save dialog defaults to the OS Documents folder, never
   to the workspace root or `os.tmpdir()` (FR13).
-- [ ] **AC10** — Choosing a destination inside the active dataset root
-  triggers the encrypted-workspace warning modal; cancelling returns to the
-  screen, accepting proceeds (FR14).
+- [ ] **AC10** — Choosing a destination inside the active dataset root causes
+  the app to refuse the path and re-open the save dialog; no export proceeds
+  until the user selects a valid destination or cancels (FR14).
 - [ ] **AC11** — The pre-export confirmation modal requires the user to type
   `EXPORTAR` (ES) / `EXPORT` (EN) before the primary button enables (FR15).
 - [ ] **AC12** — A signed audit entry is written **before** any byte of the
@@ -509,6 +543,10 @@ this section restates the decisions Niobe is committing the spec to.
   and a 10 000-row XLSX in < 10 s on the perf-baseline machine (NFR1).
 - [ ] **AC17** — Accessibility: axe-core passes on the Export screen in
   every state listed in the paired UX spec §4.
+- [ ] **AC18** — When a date range is selected but no additional filter is
+  active, the Export button is disabled with `aria-disabled="true"`, and an
+  accessible info banner explains the requirement. The banner uses an
+  `aria-live="polite"` region so screen readers announce it (FR23).
 
 ## 11. Traceability
 
@@ -523,15 +561,15 @@ this section restates the decisions Niobe is committing the spec to.
 - **Security requirements satisfied:** R3, R6, R8, R11, R12, R15, R17, R18.
 - **Crypto-spec sections:** §1.1 (AEAD primitive), §2 (key hierarchy — MK
   reuse), §2.1 (per-file mechanics — AAD identical to encrypt path), §8.2
-  (audit `action` enum: `export.csv`; pending one-line amendment for
-  `export.xlsx`), §8.3 (audit-export precedent), §11 (implementation gates
+  (audit `action` enum: `export.csv`, `export.xlsx` — add in same PR, OQ4
+  resolved), §8.3 (audit-export precedent), §11 (implementation gates
   `[NO-DIY]`, `[AUDIT-CHAIN]`).
 - **Related specs:**
   - [SPEC-023 split transactions](023-split-transactions.md) — child rows are
     surfaced one-per-row (FR11).
   - [SPEC-024 free-text search](spec-024-free-text-search.md) — `?q=`-derived
-    filter set could feed the export filter in a future iteration (Out of
-    scope for v1; Open Question 7).
+    filter set could feed the export filter. **Explicitly out of scope — not
+    planned** (OQ13 resolved: Pedro declined).
   - [SPEC-026 encryption at rest](026-encryption-at-rest.md) — defines the MK
     and the `wrap_recovery` Pedro's "2-of-12" idea was attempting to engage.
 - **Related UX:**
@@ -551,14 +589,14 @@ this section restates the decisions Niobe is committing the spec to.
   - `.squad/decisions/inbox/switch-export-security.md` (security verdict)
   - `.squad/decisions/inbox/mouse-export-ui.md` (UI design notes)
 - **Supersedes:** `.squad/decisions.md` *Item 6 — Export-Decrypted Escape
-  Hatch* (subject to Pedro's confirmation in Open Question 2).
+  Hatch* (confirmed by Pedro — OQ2 resolved 2026-05-31; Issue #305 closable).
 - **Paired UX:** [`docs/ux/specs/spec-027-export.md`](../ux/specs/spec-027-export.md).
 - **Paired Design:** Pending Mouse polish.
 
 ## 12. Open Questions
 
-> These block moving this spec from In Review → Accepted. Carry over Switch's
-> seven questions verbatim, plus product/UX additions from Niobe.
+> All 13 open questions resolved by Pedro (2026-05-31). Spec moved from
+> Draft → In Review.
 
 1. **(from Switch §5 Q1) Gate model for export.** Do you accept:
    - **Option A** (Switch-recommended for v1) — UX confirmation + typed
@@ -650,6 +688,11 @@ this section restates the decisions Niobe is committing the spec to.
    > orthogonal to this feature. The gate's value is making export a conscious,
    > logged, non-accidental act.
 
+   > **✅ Product-owner confirmation (2026-05-31, Pedro):** MVP = Option A
+   > (typed EXPORTAR/EXPORT + 7 mandatory conditions). No secret/code entry in
+   > v1. Biometric (Windows Hello / Touch ID) deferred to v1.1/v2. OQ1 fully
+   > resolved.
+
 2. **(from Switch §5 Q2) Relationship to the M2 "export-decrypted" escape
    hatch (`.squad/decisions.md` Item 6).** Is SPEC-027 the M2 item,
    delivered earlier? Or does the Settings-screen JSON dump remain a
@@ -657,18 +700,37 @@ this section restates the decisions Niobe is committing the spec to.
    (the JSON dump becomes unnecessary once filtered CSV/XLSX exists).
    Confirm.
 
+   > **✅ Resolved (2026-05-31, Pedro):** SPEC-027 **supersedes** the M2
+   > "export-decrypted escape hatch". Issue #305 is unnecessary and closable —
+   > filtered CSV/XLSX export replaces the JSON escape hatch.
+
 3. **(from Switch §5 Q3) Failure audit entries.** Do export *failures* go
    into the on-chain audit log (extra `result: "failed"` field on the entry)
    or only successes — with failures recorded in the local diagnostic
    bundle? Switch recommends **log both**; Niobe agrees.
 
+   > **✅ Resolved (2026-05-31, Pedro):** Export failures logged **BOTH** in
+   > the on-chain signed audit log (with `result: "failed"`) **AND** to local
+   > diagnostics. Reflected in FR18 and §9 test plan.
+
 4. **(from Switch §5 Q4) Add `"export.xlsx"` to the crypto-spec §8.2
    `action` enum** in the same PR as this feature? Switch will sign off.
    Niobe's recommendation: **yes**.
 
+   > **✅ Resolved (2026-05-31, Pedro):** Yes — add `"export.xlsx"` alongside
+   > `"export.csv"` in the audit `action` enum. Switch pre-approved. To be
+   > added in the same PR.
+
 5. **(from Switch §5 Q5) Row cap.** Confirm the **100 000-row v1 cap**.
    Above the cap, the user must narrow filters. Niobe's recommendation:
    **yes**, with the cap surfaced in the UI before the user tries (FR9).
+
+   > **✅ Resolved (2026-05-31, Pedro):** 100 000-row v1 hard cap confirmed.
+   > **NEW RULE (REQUIREMENT CHANGE):** Full/unfiltered export is NOT allowed.
+   > User MUST select a **date range (mandatory)** PLUS **at least one
+   > additional filter** (account, category, subcategory, OR label). Minimum
+   > 2 filters, one being the date range. Export disabled until satisfied, with
+   > accessible explanatory hint. See FR23, AC18.
 
 6. **(from Switch §5 Q6) Default save destination.** Confirm:
    - default = OS **Documents** folder,
@@ -677,19 +739,38 @@ this section restates the decisions Niobe is committing the spec to.
    - **warn (not block)** if the user picks a path inside the encrypted
      workspace folder.
 
+   > **✅ Resolved (2026-05-31, Pedro + Switch):** Default = **Documents**;
+   > never `os.tmpdir()`. **REQUIREMENT CHANGE:** FR14 changed from warn-and-
+   > allow to **HARD BLOCK**. Saving inside the active encrypted workspace/
+   > dataset root is **not allowed at all** — the app refuses the path and
+   > re-opens the OS save dialog. No "Save anyway" path. Switch approved this
+   > hardening. See updated FR14, AC10, Scenario E, §8 security bullet, §9 E2E
+   > test. IPC uses `EXPORT_DEST_INSIDE_WORKSPACE` (CE-EXP-001) for telemetry.
+
 7. **(from Switch §5 Q7) Confirmation modal copy (ES + EN).** Niobe will
    draft for the `crypto-error-copy-catalog` review process; Switch signs
    off.
+
+   > **✅ Resolved (2026-05-31, Pedro):** Proceed via the
+   > `crypto-error-copy-catalog` process as proposed. Final copy ratification
+   > owned by that process.
 
 8. **(Niobe) Column set parity.** Are FR11's 13 columns the right v1 set,
    or do we need `Notes`, `ImportBatchId`, `CreatedAt`, `UpdatedAt`,
    `CreatedBy`? Audit-metadata fields were explicitly de-scoped from
    SPEC-024; same default here unless Pedro overrides.
 
+   > **✅ Resolved (2026-05-31, Pedro):** Ship FR11's **13 columns** as the v1
+   > set, no additions.
+
 9. **(Niobe) Filename language.** Should the default filename use Spanish
    (`OpenTreasury-Movimientos-…`) regardless of locale, or follow the
    active locale? Recommendation: **follow active locale** (`Movements` in
    EN).
+
+   > **✅ Resolved (2026-05-31, Pedro):** Use the app's **active locale** for
+   > the default filename (EN → `OpenTreasury-Movements-…`, ES →
+   > `OpenTreasury-Movimientos-…`). Updated in FR12, FR22.
 
 10. **(Niobe) Locale-dependent CSV separator.** CSV currently spec'd as
     comma + dot decimal for downstream tool compatibility. Some Spanish
@@ -697,18 +778,33 @@ this section restates the decisions Niobe is committing the spec to.
     delimiters in v1, or stay strictly RFC 4180? Recommendation: **stay
     RFC 4180** in v1; revisit if users complain.
 
+    > **✅ Resolved (2026-05-31, Pedro):** Default separator is **`;`
+    > (semicolon)** — Spanish-Excel friendly, avoids comma/decimal conflicts.
+    > FR10 updated: semicolon-delimited, RFC 4180-style quoting with `;` as
+    > delimiter (fields containing `;`, quotes, or newlines are quoted).
+
 11. **(Niobe) Filter persistence across navigation.** If the user navigates
     away from `/export` and returns, do filters reset or persist for the
     session? Recommendation: **reset** (parity with Movements §11 Q4).
+
+    > **✅ Resolved (2026-05-31, Pedro):** **Reset** filters on re-entry
+    > (Movements parity). UX spec §2 entry-point #4 already says reset.
 
 12. **(Niobe) Success feedback mechanism.** In-app toast vs OS native
     notification. Recommendation: **in-app toast** (consistent with rest of
     app, no OS-notification permission prompt).
 
+    > **✅ Resolved (2026-05-31, Pedro):** **In-app toast** (already spec'd).
+    > No change needed.
+
 13. **(Niobe) Export of search results.** SPEC-024 §11 lists "CSV export of
     search results" as out of scope. Should SPEC-027 accept a `?q=` URL
     param to pre-seed filters from a Movements search? Recommendation:
     **defer to v1.1**.
+
+    > **✅ Resolved (2026-05-31, Pedro):** **No**. Do NOT accept `?q=`
+    > pre-seeding. **Dropped from scope entirely** — not even deferred.
+    > Pedro explicitly declined. Updated §11 Traceability SPEC-024 reference.
 
 ## 13. Status History
 
@@ -716,3 +812,4 @@ this section restates the decisions Niobe is committing the spec to.
 |---|---|---|---|
 | 2026-05-15 | Draft | Niobe | Initial draft from Pedro's brief + Switch §1–§5 security verdict + Mouse UI notes. 17 ACs, 13 open questions, "2-of-12" gate explicitly rejected per Switch. |
 | 2026-05-16 | Draft | Niobe | Open Question 1 resolved: reframed authorization-gate proposal ruled ACCEPTABLE-WITH-CONDITIONS by Switch; Option A is the approved gate; per-word verification rejected on retention/entropy grounds. Rate-limit (3/15min), lockout (5 mistypes → 5min), audit/diagnostic logging, mnemonic zeroization, and biometric deferral (v1.1) conditions added. |
+| 2026-05-31 | In Review | Niobe | All 13 Open Questions resolved by Pedro. OQ5 (mandatory date-range + ≥1 additional filter) and OQ6 (FR14 warn→hard block) are requirement changes — Switch blessed the OQ6 hardening; Mouse/Trinity provided OQ5 UX+a11y. OQ13 (?q= pre-seed) dropped from scope. Moved Draft→In Review; reviewers Neo/Switch/Link. |

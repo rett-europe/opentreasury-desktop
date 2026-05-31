@@ -1,6 +1,7 @@
 # SPEC-027 (UX) — Export (CSV / XLSX)
 
-> **Status:** Draft · **Owner:** Niobe · **Last updated:** 2026-05-15
+> **Status:** In Review · **Owner:** Niobe · **Last updated:** 2026-05-31
+> **Reviewers:** Neo (architecture), Switch (security), Link (product)
 > **Paired feature spec:** [`docs/specs/027-export.md`](../../specs/027-export.md)
 > **Paired Design:** Pending — Mouse (visual polish; design notes in `.squad/decisions/inbox/mouse-export-ui.md`)
 > **Security input:** [`.squad/decisions/inbox/switch-export-security.md`](../../../.squad/decisions/inbox/switch-export-security.md)
@@ -42,11 +43,11 @@ Screen ID: **`EXP-1` (Export screen)**.
 | # | Step | Screen state | Visible copy |
 |---|---|---|---|
 | 1 | María clicks `Exportar` in the sidebar | `EXP-1.filters-empty` | Page title *"Exportar Movimientos"*; subtitle *"Exporta transacciones a CSV o Excel (.xlsx). Los datos se descifrarán antes de exportar."*; date-range picker prompts *"Selecciona un rango de fechas para comenzar."* |
-| 2 | She picks *Este trimestre* preset | `EXP-1.counting` (briefly) → `EXP-1.ready` | Count preview: *"Contando movimientos…"* → *"248 movimientos coinciden con estos filtros."* |
-| 3 | (Optional) She narrows by account `Unicaja` and label `Proyecto EU-2025` | `EXP-1.ready` re-counts | *"32 movimientos coinciden con estos filtros."* |
+| 2 | She picks *Este trimestre* preset | `EXP-1.counting` (briefly) → `EXP-1.needs-additional-filter` | Count preview: *"Contando movimientos…"* → *"248 movimientos coinciden con estos filtros."* + info banner: *"Selecciona al menos un filtro adicional (cuenta, categoría, subcategoría o etiqueta) para continuar."* Export button disabled. |
+| 3 | She narrows by account `Unicaja` and label `Proyecto EU-2025` | `EXP-1.counting` → `EXP-1.ready` | *"32 movimientos coinciden con estos filtros."* Info banner disappears. Export button enabled. |
 | 4 | She picks **Excel (.xlsx)** in the format card group (CSV is default) | `EXP-1.ready` (no state change) | — |
 | 5 | She clicks **Exportar** | `EXP-1.confirming` (modal **EXP-2**) | Modal **EXP-2** appears — see §3.1 below. |
-| 6 | She types `EXPORTAR` in the modal's input and clicks **Continuar** | `EXP-1.choosing-path` (native OS dialog) | OS `Guardar como` dialog opens with default folder = Documents and default filename = `OpenTreasury-Movimientos-2026-01-01_2026-03-31.xlsx`. |
+| 6 | She types `EXPORTAR` in the modal's input and clicks **Continuar** | `EXP-1.choosing-path` (native OS dialog) | OS `Guardar como` dialog opens with default folder = Documents and default filename = `OpenTreasury-Movimientos-2026-01-01_2026-03-31.xlsx` (ES locale) or `OpenTreasury-Movements-2026-01-01_2026-03-31.xlsx` (EN locale). |
 | 7 | She accepts the default location, clicks **Guardar** | `EXP-1.exporting` | Primary button shows spinner + *"Exportando…"*; filter and format sections dim; an `aria-live="polite"` progress region announces *"Exportando 124 de 248 movimientos…"* (updated ≤ 1×/200 ms). |
 | 8 | Export completes | `EXP-1.success` | Toast: *"32 movimientos exportados a OpenTreasury-Movimientos-2026-01-01_2026-03-31.xlsx."* + **Mostrar en carpeta** affordance. Auto-dismiss in 5 s. Form remains, filters intact, Export button re-enabled for another export. |
 
@@ -82,11 +83,12 @@ state diagram in §5.
 |---|---|---|---|---|
 | `filters-empty` | Route enters `/export` | Date-range picker empty; all chips empty; preview area shows the *"Selecciona un rango…"* prompt; Export disabled with reason tooltip *"Selecciona un rango de fechas."* | Yes (filters + format) | `ux.export.empty` |
 | `counting` | Filter set changes | Preview area shows a small inline spinner + *"Contando movimientos…"* | Yes (further filter changes cancel and re-run) | `ux.export.counting` |
-| `ready` | Count returns N > 0 (≤ cap) | Preview: *"{n} movimientos coinciden…"*; Export enabled. If `n > 5 000` an info banner reads *"Este rango incluye {n} movimientos. La exportación puede tardar unos segundos."* | Yes | `ux.export.ready` |
+| `needs-additional-filter` | Date range selected but no account/category/subcategory/label active | Info banner `.ot-banner--info`: *"Selecciona al menos un filtro adicional (cuenta, categoría, subcategoría o etiqueta) para continuar."* Export disabled with reason tooltip *"Selecciona un filtro adicional."* | Yes (select additional filter) | `ux.export.needs-filter` |
+| `ready` | Count returns N > 0 (≤ cap) AND at least one additional filter active | Preview: *"{n} movimientos coinciden…"*; Export enabled. If `n > 5 000` an info banner reads *"Este rango incluye {n} movimientos. La exportación puede tardar unos segundos."* | Yes | `ux.export.ready` |
 | `zero-results` | Count returns 0 | Warning-subtle banner: *"No hay movimientos que coincidan con estos filtros."* Export disabled. | Yes (clear filters) | `ux.export.empty-results` |
 | `above-cap` | Count > 100 000 | Warning-subtle banner: *"Demasiados movimientos ({n}). Acota los filtros para exportar como máximo 100 000."* Export disabled. | Yes (narrow filters) | `ux.export.above-cap` |
 | `confirming` | User clicks **Exportar** | Modal **EXP-2** overlays the screen; background dimmed; focus trapped in modal. | Modal only | `ux.export.confirm.*` |
-| `path-warn-workspace` | Chosen path resolves inside the encrypted dataset root (FR14) | Hard warning modal **EXP-3**: *"Vas a escribir una copia descifrada dentro de la carpeta compartida del tesoro. Cualquiera con acceso a la carpeta podrá leerla."* with **Cancelar** / **Continuar de todos modos** buttons. | Modal only | `ux.export.warn.workspace` |
+| `path-blocked-workspace` | Chosen path resolves inside the encrypted dataset root (FR14) | Refusal modal **EXP-3**: *"No puedes guardar aquí"* / *"You cannot save here"* with single primary button **Elegir otra ubicación** / **Choose another location** that re-triggers the save dialog. | Modal only | `ux.export.block.workspace` |
 | `exporting` | User passes EXP-2 and OS dialog returns a valid path | Primary button → spinner + *"Exportando…"*; filter & format sections at `opacity: 0.5` and `pointer-events: none`; progress region announces row count every ≤ 200 ms; **safety net:** 30 s wall-clock timeout. | No (cancel-in-progress out of scope for v1) | `ux.export.exporting` |
 | `success` | Main reports `{ ok: true, basename }` | `.ot-toast--success` (in-app): *"{n} movimientos exportados a {basename}."* with **Mostrar en carpeta** action (calls `shell.showItemInFolder` from main). Auto-dismiss in 5 s. Screen returns to `ready`. | Yes | `ux.export.success` |
 | `error-recoverable` | Main reports a CE-XXX from a recoverable category (e.g., disk full, permission denied, user cancelled save dialog after confirming) | Banner above action buttons (`.ot-banner--danger`), CE-XXX-specific copy from the crypto-error catalog, dismissible `×`, **Reintentar** ghost button. Filter state intact. | Yes (retry) | `ux.export.error.recoverable` |
@@ -114,18 +116,19 @@ entry** is written for save-dialog cancellation (the export never started).
 stateDiagram-v2
     [*] --> FiltersEmpty: route to /export
     FiltersEmpty --> Counting: user selects date range
-    Counting --> Ready: count > 0 and count ≤ cap
+    Counting --> NeedsAdditionalFilter: count > 0 ≤ cap, date range set, no additional filter
+    Counting --> Ready: count > 0 ≤ cap AND ≥1 additional filter
     Counting --> ZeroResults: count = 0
     Counting --> AboveCap: count > 100k
+    NeedsAdditionalFilter --> Counting: filter changes
     Ready --> Counting: filter changes
     ZeroResults --> Counting: filter changes
     AboveCap --> Counting: filter changes
     Ready --> Confirming: user clicks Exportar
     Confirming --> Ready: user cancels modal / Esc
     Confirming --> ChoosingPath: user types EXPORTAR + Continuar
-    ChoosingPath --> PathWarnWorkspace: path inside dataset root
-    PathWarnWorkspace --> ChoosingPath: user cancels warning
-    PathWarnWorkspace --> Exporting: user confirms anyway
+    ChoosingPath --> PathBlockedWorkspace: main refuses in-workspace path
+    PathBlockedWorkspace --> ChoosingPath: user chooses another location
     ChoosingPath --> Exporting: path OK
     ChoosingPath --> Ready: user cancels OS save dialog
     Exporting --> Success: main reports ok
@@ -175,6 +178,13 @@ stateDiagram-v2
 - Format section: `role="radiogroup"` + `aria-labelledby="format-heading"`.
 - Result-count preview: `aria-live="polite"` so the count is re-announced
   when filters change without stealing focus.
+- **Needs-additional-filter hint:** The info banner (*"Selecciona al menos
+  un filtro adicional…"*) uses an `aria-live="polite"` region so it is
+  announced when rendered. The disabled Export button uses
+  `aria-disabled="true"` (not native `disabled`) to remain focusable, with
+  `aria-describedby` linking to the hint banner. A visible inline hint
+  (not tooltip-only) ensures sighted keyboard users understand why Export
+  is unavailable.
 - Busy state: the primary button uses `aria-busy="true"` during
   `exporting`; the `aria-live="polite"` progress region announces row
   counts at most every 1 s to avoid screen-reader spam.
@@ -224,9 +234,9 @@ stateDiagram-v2
 | `ux.export.progress` | "Exportando {done} de {total} movimientos…" | "Exporting {done} of {total} movements…" |
 | `ux.export.success` | "{n} movimientos exportados a {basename}." | "{n} movements exported to {basename}." |
 | `ux.export.success.show-in-folder` | "Mostrar en carpeta" | "Show in folder" |
-| `ux.export.format.csv` | "CSV (texto separado por comas)" | "CSV (comma-separated text)" |
+| `ux.export.format.csv` | "CSV (valores separados por punto y coma)" | "CSV (semicolon-separated values)" |
 | `ux.export.format.excel` | "Excel (.xlsx)" | "Excel (.xlsx)" |
-| `ux.export.format.csv-helper` | "Compatible con cualquier hoja de cálculo. Texto plano UTF-8." | "Compatible with any spreadsheet. Plain-text UTF-8." |
+| `ux.export.format.csv-helper` | "Compatible con Excel en español. Texto plano UTF-8." | "Compatible with Spanish Excel. Plain-text UTF-8." |
 | `ux.export.format.excel-helper` | "Archivo nativo de Excel con formato automático de columnas." | "Native Excel file with automatic column formatting." |
 | `ux.export.clear-filters` | "Limpiar filtros" | "Clear filters" |
 | `ux.export.btn.cancel` | "Cancelar" | "Cancel" |
@@ -240,9 +250,11 @@ stateDiagram-v2
 | `ux.export.confirm.typed-word.es` | "EXPORTAR" | — |
 | `ux.export.confirm.typed-word.en` | — | "EXPORT" |
 | `ux.export.confirm.continue` | "Continuar" | "Continue" |
-| `ux.export.warn.workspace.title` | "Vas a escribir dentro de la carpeta del tesoro" | "You are about to write inside the treasury folder" |
-| `ux.export.warn.workspace.body` | "Estás a punto de guardar una copia descifrada dentro de la carpeta compartida del tesoro. Cualquier persona con acceso a esa carpeta podrá leerla, incluso si más adelante le retiras el acceso al tesoro." | "You are about to save a decrypted copy inside the shared treasury folder. Anyone with access to that folder will be able to read it, even if you later remove their access to the treasury." |
-| `ux.export.warn.workspace.continue` | "Guardar de todos modos" | "Save anyway" |
+| `ux.export.needs-filter.banner` | "Selecciona al menos un filtro adicional (cuenta, categoría, subcategoría o etiqueta) para continuar." | "Select at least one additional filter (account, category, subcategory, or label) to continue." |
+| `ux.export.needs-filter.tooltip` | "Selecciona un filtro adicional." | "Select an additional filter." |
+| `ux.export.block.workspace.title` | "No puedes guardar aquí" | "You cannot save here" |
+| `ux.export.block.workspace.body` | "No puedes guardar una copia descifrada dentro de la carpeta compartida del tesoro. Elige otra ubicación." | "You cannot save a decrypted copy inside the shared treasury folder. Choose another location." |
+| `ux.export.block.workspace.choose` | "Elegir otra ubicación" | "Choose another location" |
 | `ux.export.error.recoverable.title` | "No se pudo guardar el archivo" | "Could not save the file" |
 | `ux.export.error.retry` | "Reintentar" | "Try again" |
 | `ux.export.error.blocking` | "No se pudo descifrar los movimientos. Inténtalo de nuevo o consulta a tu administrador." | "Could not decrypt movements. Try again or contact your administrator." |
@@ -273,7 +285,7 @@ are ratified by Switch through the `crypto-error-copy-catalog` process
 | 9 | User switches the app locale while on the Export screen | Form, copy, ICU plurals, date-range preset labels, default filename, and the typed-confirmation word (`EXPORTAR`↔`EXPORT`) all swap instantly. Any in-flight `exporting` operation keeps the locale it started with. |
 | 10 | Workspace gets locked (timeout / explicit lock) while on the screen | The screen routes away to the lock screen (per UX-006 §82 E1 locked state). No partial file remains because no export was in progress. |
 | 11 | Workspace gets locked **during** an in-flight export | The export completes (main holds the MK reference for the duration of the streaming pipeline) and the success toast appears briefly on the locked screen before the lock chrome takes focus. (Switch to confirm via OQ in §10.) |
-| 12 | User accepts the encrypted-workspace warning and the export succeeds | The success toast adds a one-liner: *"⚠ Recuerda: ese archivo está en la carpeta del tesoro y se sincronizará."* |
+| 12 | User attempts to save inside the encrypted workspace folder | Attempt is hard-blocked; app refuses the path and re-opens the save dialog. User must choose another location; no export occurs inside the treasury folder. (OQ6 hardening.) |
 
 ## 9. Component Reuse
 
@@ -284,7 +296,7 @@ are ratified by Switch through the `crypto-error-copy-catalog` process
 | Chip-multi-select (accounts, categories, subcategories, labels) | `TagChipPicker` / generic `ChipMultiSelect` from `chip-multi-select` skill | Same component, same i18n keys |
 | Card-style radio group (format) | UX-001 device-name pattern, adapted | Per Mouse §5.2 |
 | Confirmation modal (EXP-2) | Compact-confirm modal pattern (existing) | Typed-confirmation extension is new but uses standard input |
-| Warning modal (EXP-3) | Same compact-confirm modal pattern | Severity = danger |
+| Refusal modal (EXP-3) | Same compact-confirm modal pattern | Severity = danger; single primary CTA "Choose another location" |
 | Toast (success) | `.ot-toast--success` | Per Mouse §3.3 |
 | Error banners | `.ot-banner--{danger,warning,info}` | Per UX-006 |
 | Busy state (spinner on primary button + dimmed sections) | Transient-busy-state pattern + 30 s safety timeout | Per Mouse §3.3 |
@@ -332,8 +344,8 @@ composes existing patterns.
 - **PDF export** — separate spec, M3/M4 per `decisions.md` line 2178.
 - **Bulk Export from row selection on Movements** — covered by the future
   bulk-actions spec (`decisions.md` line 2563); SPEC-027 does not replace it.
-- **CSV export of search results (`?q=`-seeded export)** — deferred (OQ13
-  in the feature spec).
+- **CSV export of search results (`?q=`-seeded export)** — out of scope;
+  not planned (OQ13 in the feature spec: Pedro explicitly declined).
 
 ## 12. Open Questions
 
@@ -357,3 +369,4 @@ additions:
 | Date | Status | By | Notes |
 |---|---|---|---|
 | 2026-05-15 | Draft | Niobe | Initial UX spec; 11 states, EXP-1/2/3 screen ids, 12 edge cases, ES+EN copy table, accessibility coverage, traceability to paired feature spec. |
+| 2026-05-31 | In Review | Niobe | All 13 feature-spec OQs resolved by Pedro. OQ5: added `needs-additional-filter` state, updated happy path, state diagram, copy (ES+EN), a11y (aria-disabled + aria-live hint). OQ6: `path-warn-workspace`→`path-blocked-workspace` (hard refusal, single CTA "Choose another location"), updated edge-case #12, EXP-3 modal copy. OQ9: locale-aware filename prefix. OQ10: semicolon CSV copy. OQ12: in-app toast (no change). OQ13: ?q= out of scope (not planned). Moved Draft→In Review. |
