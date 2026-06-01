@@ -25,6 +25,7 @@
 // anchors + validity-at-genTime. This is documented in the verification report.
 
 import { createHash, timingSafeEqual, verify as cryptoVerify, X509Certificate } from 'node:crypto';
+import type { KeyObject } from 'node:crypto';
 
 import {
   children,
@@ -433,7 +434,7 @@ function parseCertificates(certSet: DerNode): X509Certificate[] {
 
 function verifySignature(
   algo: { family: 'rsa' | 'ec'; hash: 'sha256' | 'sha384' | 'sha512' },
-  publicKey: import('node:crypto').KeyObject,
+  publicKey: KeyObject,
   data: Uint8Array,
   signature: Uint8Array,
 ): boolean {
