@@ -1,8 +1,8 @@
-# SPEC-028 — Invoice Attachments for Transactions
+# SPEC-029 — Invoice Attachments for Transactions
 
 > **Status:** Draft · **Owner:** Niobe · **Last updated:** 2026-06-01
-> **Paired PRD:** Pending — PRD-028 reservation needed in `docs/product/prd-plan.md`
-> **Paired UX:** [`docs/ux/specs/spec-028-invoice-attachments.md`](../ux/specs/spec-028-invoice-attachments.md)
+> **Paired PRD:** Pending — PRD-029 reservation needed in `docs/product/prd-plan.md`
+> **Paired UX:** [`docs/ux/specs/spec-029-invoice-attachments.md`](../ux/specs/spec-029-invoice-attachments.md)
 > **Paired Design:** Pending (Mouse — visual polish)
 > **Security input (required reading):** Pending — Switch sign-off required before Draft → Accepted
 > **Reference pattern:** [`docs/specs/027-export.md`](027-export.md) (main-process file handling, renderer isolation, audit-before-side-effect)
@@ -362,7 +362,7 @@ discriminated unions `{ ok: true, … } | { ok: false, code: "CE-XXX" }`.
 
 This feature crosses encrypted storage, crypto, the renderer/main boundary, the
 filesystem, and the audit log. Switch sign-off is required before this spec
-leaves Draft. SPEC-027 §8 is the precedent; this section commits SPEC-028 to the
+leaves Draft. SPEC-027 §8 is the precedent; this section commits SPEC-029 to the
 analogous controls.
 
 - **AEAD envelope (R3 / crypto-spec §1.1, §2.1).** Blobs use `sodium-native`
@@ -530,7 +530,7 @@ analogous controls.
 
 ## 11. Traceability
 
-- **PRD:** PRD-028 (to reserve in
+- **PRD:** PRD-029 (to reserve in
   [`docs/product/prd-plan.md`](../product/prd-plan.md)).
 - **ADRs:** [ADR-001](../architecture/adr-001-tech-stack.md),
   [ADR-002](../architecture/adr-002-repo-structure.md).
@@ -550,13 +550,21 @@ analogous controls.
     the blob sealing builds on.
   - [SPEC-023 split transactions](023-split-transactions.md) — `splitParentIds`
     O(1) pattern mirrored by `attachmentParentIds`.
+  - [SPEC-028 Audit & Evidence](028-audit-and-evidence.md) — owns the audit
+    subsystem and reframes #351. **SPEC-029 ↔ SPEC-028:** SPEC-028 §11 expects
+    attach/remove to emit attributed domain events; SPEC-029's
+    `tx.attachment.added` / `tx.attachment.removed` events and the
+    `attachment.added` / `attachment.removed` / `attachment.viewed` audit actions
+    (§6.1) satisfy that expectation. The `AuditAction` enum / crypto-spec §8.2
+    additions land in coordination with SPEC-028.
 - **Related issues:** [#293](https://github.com/rett-europe/opentreasury-desktop/issues/293)
-  (this feature); #351 (audit subsystem — consumes the new audit actions).
-- **Paired UX:** [`docs/ux/specs/spec-028-invoice-attachments.md`](../ux/specs/spec-028-invoice-attachments.md).
+  (this feature); #351 (audit subsystem — now reframed under SPEC-028 Audit &
+  Evidence, which consumes the new audit actions).
+- **Paired UX:** [`docs/ux/specs/spec-029-invoice-attachments.md`](../ux/specs/spec-029-invoice-attachments.md).
 - **Paired Design:** Pending (Mouse).
 - **Supersedes / Superseded by:** — (Note: UX backlog row "UX-027 Attachments
   (receipts)" in [`docs/ux/ux-spec-plan.md`](../ux/ux-spec-plan.md) is realized
-  by this feature; that row should be re-pointed to SPEC-028 / renamed UX-028.)
+  by this feature; that row has been re-pointed to SPEC-029.)
 
 ## 12. Open Questions
 
@@ -572,7 +580,7 @@ Numbered for easy reply. These block Draft → Accepted.
    out of scope v1; revisit post-v1.*
 3. **(Switch) DEK vs MK reconciliation.** The crypto-spec describes data
    encrypted under a DEK, but the current event-log code passes the MK directly.
-   SPEC-028 mandates **DEK-by-`dekVersion`** for blobs. Confirm the DEK is
+   SPEC-029 mandates **DEK-by-`dekVersion`** for blobs. Confirm the DEK is
    available to the seal path at v1, and the no-bulk-re-encryption rotation
    posture. — *Proposed: DEK for blobs; old blobs stay under their `dekVersion`.*
 4. **(Switch) Metadata leakage.** Accept coarse leakage via blob size/count/ULID
@@ -591,3 +599,4 @@ Numbered for easy reply. These block Draft → Accepted.
 | Date | Status | By | Notes |
 |---|---|---|---|
 | 2026-06-01 | Draft | Niobe | Initial draft from Pedro's brief (issue #293) and codebase investigation. Decisions locked with product owner: view = decrypt-to-managed-cache + OS default app; remove = tombstone + retain (GC deferred); export of attachment bytes out of scope v1. Architecture grounded in SPEC-027 precedent + existing event-log/crypto/audit/read-model conventions. Incorporates rubber-duck critique: blob-before-event crash ordering, tombstone-set anti-resurrection reducer, self-describing blob header, explicit availability states, DEK-by-version sealing, reframed "no plaintext to renderer" guarantee. 13 ACs, 6 open questions. Awaiting Switch security sign-off and Neo/Link review. |
+| 2026-06-01 | Draft | Niobe | Renumbered SPEC-028 → **SPEC-029** (SPEC-028 was reserved by the Audit & Evidence spec, PR #364). Files renamed (`029-invoice-attachments.md`, `spec-029-invoice-attachments.md`); all in-doc references updated; UX-027 backlog row re-pointed to SPEC-029; added bidirectional cross-reference to SPEC-028 Audit & Evidence (its §11 attributed-DomainEvent expectation is satisfied by `tx.attachment.added/removed` + the new audit actions). |

@@ -1,7 +1,7 @@
-# SPEC-028 (UX) — Invoice Attachments for Transactions
+# SPEC-029 (UX) — Invoice Attachments for Transactions
 
 > **Status:** Draft · **Owner:** Niobe · **Last updated:** 2026-06-01
-> **Paired feature spec:** [`docs/specs/028-invoice-attachments.md`](../../specs/028-invoice-attachments.md)
+> **Paired feature spec:** [`docs/specs/029-invoice-attachments.md`](../../specs/029-invoice-attachments.md)
 > **Paired Design:** Pending — Mouse (visual polish, icons, tokens)
 > **Security input:** Pending — Switch sign-off (decrypt-to-cache view model, audited operations)
 > **GitHub issue:** [#293](https://github.com/rett-europe/opentreasury-desktop/issues/293)
@@ -203,7 +203,7 @@ Screen state: **`ATT-1`**.
 
 ## 10. Traceability
 
-- **Paired feature spec:** [`docs/specs/028-invoice-attachments.md`](../../specs/028-invoice-attachments.md).
+- **Paired feature spec:** [`docs/specs/029-invoice-attachments.md`](../../specs/029-invoice-attachments.md).
 - **UX dependencies:**
   - [UX-006 app shell & navigation](ux-006-app-shell-and-navigation.md) — global
     states, toast host.
@@ -216,8 +216,8 @@ Screen state: **`ATT-1`**.
 - **Crypto-spec sections:** §1.1, §2 / §2.1, §8.2, §8.3 (mirrored from the paired
   feature spec).
 - **Backlog note:** [`docs/ux/ux-spec-plan.md`](../ux-spec-plan.md) row
-  "UX-027 Attachments (receipts)" is realized here; re-point/rename to
-  **UX-028 Invoice Attachments** to keep references aligned.
+  "UX-027 Attachments (receipts)" is realized here and has been re-pointed to
+  **SPEC-029**.
 
 ## 11. Out of Scope (v1)
 
@@ -249,4 +249,4 @@ Mirrors §12 of the paired feature spec. UX-level additions:
 
 | Date | Status | By | Notes |
 |---|---|---|---|
-| 2026-06-01 | Draft | Niobe | Initial UX spec paired with `docs/specs/028-invoice-attachments.md`. Covers ATT-1 section + ATT-2 confirm, add (picker + drag-drop), view (OS default app), replace, remove, availability badges (available/pending_sync/missing/corrupt), movements badge, ES+EN copy, accessibility, 8 edge cases, component reuse. 3 UX open questions. Awaiting Switch/Neo/Link review in lockstep with the feature spec. |
+| 2026-06-01 | Draft | Niobe | Initial UX spec paired with `docs/specs/029-invoice-attachments.md`. Covers ATT-1 section + ATT-2 confirm, add (picker + drag-drop), view (OS default app), replace, remove, availability badges (available/pending_sync/missing/corrupt), movements badge, ES+EN copy, accessibility, 8 edge cases, component reuse. 3 UX open questions. Awaiting Switch/Neo/Link review in lockstep with the feature spec. (Renumbered from SPEC-028 → SPEC-029; SPEC-028 was reserved by the Audit & Evidence spec.) |
