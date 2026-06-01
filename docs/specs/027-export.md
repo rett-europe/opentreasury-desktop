@@ -911,10 +911,19 @@ safe to produce under the streaming writer at the 100 000-row cap.
   - `title = "OpenTreasury export"` (generic, locale-neutral)
   - `created = <generation timestamp>`
 
-  The writer MUST **not** set `lastModifiedBy`, `company`, `manager`, `keywords`,
-  or any other property, and MUST **never** embed dataset-root paths, device IDs,
+  The writer MUST **not** set `company`, `manager`, `keywords`, or any other
+  optional property, and MUST **never** embed dataset-root paths, device IDs,
   workspace IDs, user identity, filter values, or raw label text in any workbook
-  property. There is **no in-sheet "export info" header block** in v1 — export
+  property.
+
+  **exceljs constraint:** the library always serializes `lastModifiedBy` and
+  `modified` into `core.xml` (they cannot be omitted). To honor the no-PII intent,
+  the writer MUST pin them to non-sensitive constants — `lastModifiedBy =
+  "OpenTreasury"` and `modified = created` (the generation timestamp) — so neither
+  carries OS user identity or a real edit time. This is the one allowed deviation
+  from "no other property": the values are fixed constants, not environment-derived.
+
+  There is **no in-sheet "export info" header block** in v1 — export
   provenance already lives in the signed audit log (§6.1), and an in-file block
   risks leaking workspace internals into an unencrypted artifact (Switch). The
   sheet name remains `Movimientos` (single sheet, both locales — preserves the
@@ -976,10 +985,11 @@ loop. Until then, numeric formatting in the **CSV** path stays locale-independen
   correct calendar day with **no ±1 drift** across host timezones, formatted
   `dd/mm/yyyy` (ES) or `yyyy-mm-dd` (EN) (FR29). A golden/timezone test covers
   at least UTC, UTC+13 and UTC−11.
-- [ ] **AC24** — Workbook metadata contains **only** `creator`, `title`,
-  `created`; a test asserts the file embeds **no** path, device/workspace id,
-  user identity, filter value, or raw label, and sets no `lastModifiedBy` /
-  `company` (FR30).
+- [ ] **AC24** — Workbook metadata carries only `creator`, `title`, `created`
+  plus the library-forced `lastModifiedBy` / `modified` pinned to the fixed
+  constants `"OpenTreasury"` / `created`; a test asserts the file embeds **no**
+  path, device/workspace id, OS user identity, filter value, or raw label, and
+  sets no `company` / `manager` / `keywords` (FR30).
 - [ ] **AC25** — With `useStyles: true`, a 100 000-row XLSX export stays within
   the **NFR4** memory budget and the **NFR1** time budget; an integration test
   asserts the peak-heap ceiling with styling enabled (NFR6).
