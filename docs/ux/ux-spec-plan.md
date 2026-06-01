@@ -67,7 +67,7 @@ Columns: **ID** · **Spec** · **Tier** · **Depends on (PRD / ADR / R## / G##)*
 | UX-024 | **Members view (folder-ACL ↔ escrow drift detection)** — side-by-side list, banners on drift, remediation CTAs | T2 | UX-R2, R7, CS §3 | Switch, Mouse, Link | — | Not started |
 | UX-025 | **Notifications** — OS-level (enrollment request, device revoked, update installed), in-app banners, quiet/verbose preference | T3 | Divergence-table "Notifications" | Mouse, Link | — | Not started |
 | UX-026 | **Reports (cloud parity)** | T4 | vision feature map "Reports (v1.x)" | Link, Mouse | — | Deferred to v1.x |
-| UX-027 | **Attachments (receipts)** | T4 | vision "Attachments (v1.x)" | Switch (storage shape), Mouse | — | Deferred to v1.x |
+| UX-027 | **Attachments (receipts)** — invoice files attached to transactions | T4 | vision "Attachments (v1.x)", issue #293 | Switch (storage shape), Mouse | [`spec-028-invoice-attachments.md`](specs/spec-028-invoice-attachments.md) | Specified as SPEC-028 (Draft) — paired UX spec authored; awaiting Switch/Neo/Link review |
 | UX-028 | **Recurring transactions** | T4 | vision "Recurring (v1.x)" | Link, Mouse | — | Deferred to v1.x |
 
 ---
