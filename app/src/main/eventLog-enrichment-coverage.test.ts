@@ -29,7 +29,11 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import * as eventSchemas from '../core/events/schemas.js';
 import type { DomainEvent, EventLog } from '../core/eventLog/EventLog.js';
-import { eventHasAttribution, PROFILE_PENDING_USER_ID, type EventAttribution } from '../core/eventLog/enrichEvent.js';
+import {
+  eventHasAttribution,
+  PROFILE_PENDING_USER_ID,
+  type EventAttribution,
+} from '../core/eventLog/enrichEvent.js';
 import { createEnrichingEventLog } from './eventLog-enrichment-wrapper.js';
 
 // --- Fixtures ---------------------------------------------------------------
