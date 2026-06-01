@@ -28,6 +28,15 @@ import { loadAppConfig, saveAppConfig, type AppConfig } from './config.js';
 import { createReadOnlyEventLog } from './eventLog-readonly-wrapper.js';
 import { loadDeviceId } from './device.js';
 import { loadDatasetId } from './dataset.js';
+import { newUlid } from './ids.js';
+import { FileAuditLog, createFsAuditStore } from '../core/audit/AuditLog.js';
+import {
+  runAnchorOnce,
+  AnchorScheduler,
+  type AnchorOutcome,
+  type AnchorLogger,
+} from './services/anchorService.js';
+import { getActiveWorkspace } from './workspace-session.js';
 
 // Helper for dev-seed fallback when no profile exists yet
 function fakeUlid(seedKey: string): string {
@@ -45,6 +54,12 @@ let bootstrapped = false;
 let onboardingPending = false;
 let encryptedWorkspacePending = false;
 let bootstrapError: BootstrapError | null = null;
+
+// SPEC-028 WI-2 — the anchor scheduler. Created lazily once the encrypted event
+// log is installed; persists across lock/unlock (the event log instance is
+// reused on re-unlock with the same device, and the scheduler resolves its
+// audit/event-log/workspace dependencies lazily at run time).
+let anchorScheduler: AnchorScheduler | null = null;
 
 /**
  * Boot error details surfaced when bootstrap/hydration fails fatally.
@@ -706,8 +721,11 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
   const dir = effectiveEventLogDir;
   const existing = eventLogInstance;
   if (existing instanceof EncryptedMultiDeviceEventLog && existing.owningDeviceId === deviceId) {
-    // Already installed (e.g., re-unlock without lock). Skip rehydration to
-    // avoid double-replaying events into the read model.
+    // Already installed (e.g., re-unlock without an intervening lock). Skip
+    // rehydration to avoid double-replaying events into the read model. The
+    // active workspace was just (re)set by the caller, so still fire a
+    // best-effort unlock anchor (SPEC-028 OQ2 "on unlock" trigger).
+    fireUnlockAnchor();
     return 0;
   }
 
@@ -718,6 +736,13 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
     dir,
     deviceId,
     masterKey: mkCopy,
+    // SPEC-028 WI-2 — feed local-append deltas to the anchor scheduler. The
+    // scheduler is created just below (after load); until then the optional
+    // chain is a no-op. Counting only LOCAL appends is correct — peer events
+    // arrive via sync, not through this log's append path.
+    onLocalAppend: (delta: number) => {
+      anchorScheduler?.onLocalAppend(delta);
+    },
   });
 
   const events = await log.load();
@@ -725,6 +750,15 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
 
   eventLogInstance = log;
   encryptedWorkspacePending = false;
+
+  // SPEC-028 WI-2 — create the anchor scheduler once. It resolves its audit
+  // log, frontier source, and workspace lazily at run time, so it transparently
+  // adapts across lock/unlock without needing to be torn down and rebuilt.
+  if (anchorScheduler === null) {
+    anchorScheduler = new AnchorScheduler({
+      run: () => runAnchorForActiveWorkspace(),
+    });
+  }
 
   // eslint-disable-next-line no-console
   console.log(
@@ -745,5 +779,109 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
     );
   }
 
+  // SPEC-028 WI-2 — fire a best-effort "on unlock" anchor now that the read
+  // model is hydrated. Fire-and-forget: never block install on anchoring.
+  fireUnlockAnchor();
+
   return events.length;
+}
+
+/**
+ * SPEC-028 WI-2 — structured logger for the anchor pipeline. Anchor metadata is
+ * ULIDs/hashes/counts only (no raw values), so it is safe to log.
+ */
+const anchorLog: AnchorLogger = (level, message, meta) => {
+  const suffix = meta === undefined ? '' : ` ${JSON.stringify(meta)}`;
+  // eslint-disable-next-line no-console
+  console[level === 'warn' ? 'warn' : 'log'](`[anchor] ${message}${suffix}`);
+};
+
+/**
+ * SPEC-028 WI-2 — resolve the current audit log + frontier source from the
+ * active workspace and run a single best-effort anchor. Returns a typed
+ * `skipped` outcome (never throws) when the workspace is locked or the event
+ * log is unavailable. The audit log is built fresh per run against the SAME
+ * `<folderPath>/.treasury/audit` path that exports use, so anchors and exports
+ * share one signed, hash-chained file.
+ */
+async function runAnchorForActiveWorkspace(): Promise<AnchorOutcome> {
+  const ws = getActiveWorkspace();
+  if (ws === null) {
+    return { status: 'skipped', reason: 'no-active-workspace' };
+  }
+  const log = eventLogInstance;
+  if (!(log instanceof EncryptedMultiDeviceEventLog)) {
+    return { status: 'skipped', reason: 'no-frontier-source' };
+  }
+  if (datasetIdInstance === null) {
+    return { status: 'skipped', reason: 'no-dataset-id' };
+  }
+  const actor = profileInstance?.userId ?? ws.deviceId;
+  // Defensive MK copy (rubber-duck): a concurrent `workspace:lock` wipes
+  // `ws.mk` in place. If an in-flight anchor still referenced that buffer when
+  // it was zeroed, it could seal/persist the audit chunk under a zeroed key and
+  // corrupt the log. The lock-time anchor (anchorNowBeforeLock) races a timeout,
+  // so this overlap is real. Give the audit log its OWN key copy and wipe it
+  // once the run resolves; the session buffer can be wiped independently.
+  const auditMk = new Uint8Array(ws.mk);
+  const auditDir = path.resolve(ws.folderPath, '.treasury', 'audit');
+  const auditLog = new FileAuditLog({
+    store: createFsAuditStore(auditDir),
+    mk: auditMk,
+    datasetId: datasetIdInstance,
+    deviceId: ws.deviceId,
+    actorUserIdentity: actor,
+    now: () => new Date(),
+    lockKey: auditDir,
+  });
+  try {
+    return await runAnchorOnce({
+      auditLog,
+      eventLog: log,
+      newUlid,
+      now: () => new Date(),
+      log: anchorLog,
+    });
+  } finally {
+    auditMk.fill(0);
+  }
+}
+
+/**
+ * SPEC-028 WI-2 — fire a best-effort unlock anchor without awaiting it. Never
+ * throws (the scheduler/run path swallows all errors).
+ */
+function fireUnlockAnchor(): void {
+  const sched = anchorScheduler;
+  if (sched === null) return;
+  void sched.anchorNow();
+}
+
+/**
+ * SPEC-028 WI-2 — accessor for the anchor scheduler (null until the encrypted
+ * event log is installed). Exposed for diagnostics/tests.
+ */
+export function getAnchorScheduler(): AnchorScheduler | null {
+  return anchorScheduler;
+}
+
+/**
+ * SPEC-028 WI-2 — run a BOUNDED, best-effort anchor before the workspace locks
+ * and the master key is wiped. Awaited by `workspace:lock`. Resolves on timeout
+ * or error so locking is never blocked by anchoring.
+ */
+export async function anchorNowBeforeLock(timeoutMs = 5000): Promise<void> {
+  const sched = anchorScheduler;
+  if (sched === null) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, timeoutMs);
+  });
+  try {
+    await Promise.race([sched.anchorNow().then(() => undefined), timeout]);
+  } catch {
+    // anchorNow never rejects, but be defensive — never block the lock.
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
 }

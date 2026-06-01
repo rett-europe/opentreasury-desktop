@@ -101,6 +101,15 @@ export interface WorkspaceDeps {
    * `bootstrap.installEncryptedEventLog`.
    */
   installEncryptedEventLog?: (deviceId: string, mk: Uint8Array) => Promise<void>;
+
+  /**
+   * SPEC-028 WI-2 — best-effort, BOUNDED anchor invoked on `workspace:lock`
+   * BEFORE the master key is wiped. Folds a final signed frontier snapshot into
+   * the audit chain so the just-locked session is tamper-evident. Optional so
+   * tests can omit it; production wires it to `bootstrap.anchorNowBeforeLock`.
+   * Must never throw and must resolve promptly (it is internally time-bounded).
+   */
+  anchorBeforeLock?: () => Promise<void>;
 }
 
 // ── Pending setup state (MEDIUM-1 hardening: TTL + cap) ─────────────────────
@@ -848,12 +857,21 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
   }
 
   // ── workspace:lock (MEDIUM-2) ────────────────────────────────────────────
-  function handleLock(_raw: unknown): WorkspaceLockResponse {
+  async function handleLock(_raw: unknown): Promise<WorkspaceLockResponse> {
     if (!checkRateLimit('lock')) {
       return {
         ok: false,
         error: { code: 'rate_limited', message: 'Too many requests. Please wait before retrying.' },
       };
+    }
+    // SPEC-028 WI-2 — fold a final signed frontier snapshot into the audit chain
+    // BEFORE clearActiveWorkspace() wipes the MK. Bounded + best-effort: on
+    // timeout or error we still proceed to lock (anchoring must never block).
+    try {
+      await deps.anchorBeforeLock?.();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`[workspace] lock: anchorBeforeLock failed: ${(err as Error).message}`);
     }
     clearActiveWorkspace();
     return { ok: true };
@@ -878,8 +896,12 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
  */
 export async function buildProductionWorkspaceDeps(): Promise<WorkspaceDeps> {
   const { safeStorage } = await import('electron');
-  const { getDeviceId, getEffectiveEventLogDirOrNull, installEncryptedEventLog } =
-    await import('../../bootstrap.js');
+  const {
+    getDeviceId,
+    getEffectiveEventLogDirOrNull,
+    installEncryptedEventLog,
+    anchorNowBeforeLock,
+  } = await import('../../bootstrap.js');
 
   return {
     deviceId: () => getDeviceId(),
@@ -897,6 +919,8 @@ export async function buildProductionWorkspaceDeps(): Promise<WorkspaceDeps> {
     installEncryptedEventLog: async (deviceId: string, mk: Uint8Array) => {
       await installEncryptedEventLog(deviceId, mk);
     },
+    // SPEC-028 WI-2 — bounded, best-effort anchor before lock wipes the MK.
+    anchorBeforeLock: () => anchorNowBeforeLock(),
   };
 }
 

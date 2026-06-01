@@ -22,6 +22,7 @@ import {
   verifyEd25519,
 } from '../crypto/signing.js';
 import type {
+  AuditAnchorAppendInput,
   AuditAppendInput,
   AuditEntry,
   AuditLog,
@@ -48,7 +49,24 @@ export interface FileAuditLogDeps {
   readonly deviceId: string;
   readonly actorUserIdentity: string;
   readonly now: () => Date;
+  /**
+   * Optional process-global serialization key (rubber-duck). Multiple
+   * `FileAuditLog` instances target the SAME on-disk chain — the export handler
+   * and the SPEC-028 anchor service each build their own instance per call.
+   * A per-instance mutex does not serialize them against each other, so two
+   * appends could load the same tip and clobber one another. When `lockKey` is
+   * set (production wires it to the resolved audit directory path), all appends
+   * sharing that key run through one shared promise chain. Omitted in unit tests
+   * (each test uses an isolated in-memory store), preserving per-instance mutex.
+   */
+  readonly lockKey?: string;
 }
+
+/**
+ * Process-global append chains keyed by `lockKey` (audit directory path). One
+ * entry per distinct audit file, so all producers (export + anchor) serialize.
+ */
+const sharedWriteChains = new Map<string, Promise<unknown>>();
 
 function aad(context: string, datasetId: string): Uint8Array {
   return Buffer.from(`${context}:${datasetId}`, 'utf8');
@@ -84,14 +102,85 @@ function signingPayload(entry: Omit<AuditEntry, 'signature'>): string {
   return canonicalJson(entry);
 }
 
+/**
+ * Strict anchor/export invariants (rubber-duck #7). Enforced inside the append
+ * critical section before signing so a malformed entry can never be persisted.
+ */
+function assertEntryInvariants(entry: Omit<AuditEntry, 'signature'>): void {
+  const isAnchor = entry.action === 'audit.anchor' || entry.action === 'audit.anchor.timestamped';
+  if (isAnchor) {
+    if (entry.target_ref.type !== 'anchor') {
+      throw new Error('anchor entry must have target_ref.type "anchor"');
+    }
+    if (entry.result !== 'succeeded') {
+      throw new Error('anchor entry must have result "succeeded"');
+    }
+    const p = entry.payload;
+    if (p === undefined) {
+      throw new Error('anchor entry must carry a payload');
+    }
+    if (p.anchor_version !== 1 || p.hash_alg !== 'blake2b-256') {
+      throw new Error('anchor payload has unexpected version/hash_alg');
+    }
+    if (p.dataset_id !== entry.dataset_id) {
+      throw new Error('anchor payload dataset_id must match the entry');
+    }
+    if (entry.after_hash !== p.event_log_root) {
+      throw new Error('anchor after_hash must equal payload.event_log_root');
+    }
+    if (p.audit_chain_prev_hash !== entry.prev_entry_hash) {
+      throw new Error('anchor payload audit_chain_prev_hash must equal prev_entry_hash');
+    }
+    if (entry.before_hash !== null) {
+      throw new Error('anchor entry before_hash must be null');
+    }
+  } else {
+    if (entry.target_ref.type !== 'export') {
+      throw new Error('non-anchor entry must have target_ref.type "export"');
+    }
+    if (entry.payload !== undefined) {
+      throw new Error('non-anchor entry must not carry an anchor payload');
+    }
+  }
+}
+
 export class FileAuditLog implements AuditLog {
   private readonly deps: FileAuditLogDeps;
   private signingSecret: Uint8Array | null = null;
   private signingPublic: Uint8Array | null = null;
   private keyFingerprint: string | null = null;
+  /**
+   * Single-writer mutex (rubber-duck #1). The anchor service is a SECOND
+   * producer on this chain alongside the export handler; without serialization
+   * two appends can load the same tip, both compute the same `prev_entry_hash`,
+   * and the second persist clobbers the first. Every append runs the whole
+   * load→verify→compute-prev→sign→persist sequence under this promise chain.
+   */
+  private writeChain: Promise<unknown> = Promise.resolve();
 
   constructor(deps: FileAuditLogDeps) {
     this.deps = deps;
+  }
+
+  private runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+    // When a process-global lockKey is set, serialize across ALL FileAuditLog
+    // instances targeting the same chain (export + anchor); otherwise fall back
+    // to this instance's own chain (isolated tests).
+    const key = this.deps.lockKey;
+    const prev =
+      key !== undefined ? (sharedWriteChains.get(key) ?? Promise.resolve()) : this.writeChain;
+    const run = prev.then(fn, fn);
+    // Keep the chain alive regardless of this run's outcome.
+    const tail = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    if (key !== undefined) {
+      sharedWriteChains.set(key, tail);
+    } else {
+      this.writeChain = tail;
+    }
+    return run;
   }
 
   private async ensureSigningKey(): Promise<void> {
@@ -179,44 +268,96 @@ export class FileAuditLog implements AuditLog {
   }
 
   async append(input: AuditAppendInput): Promise<AuditEntry> {
-    await this.ensureSigningKey();
-    const entries = await this.loadEntries();
-
-    // Fail closed: never append onto a corrupt chain.
-    const verdict = this.verifyEntries(entries);
-    if (!verdict.ok) {
-      throw new Error(`audit chain verification failed: ${verdict.reason ?? 'unknown'}`);
+    if (input.action === 'audit.anchor' || input.action === 'audit.anchor.timestamped') {
+      throw new Error('audit anchors must be appended via appendAnchor()');
     }
-
-    const prev = entries.length > 0 ? entries[entries.length - 1]! : null;
-    const unsigned: Omit<AuditEntry, 'signature'> = {
-      seq: entries.length + 1,
+    const targetType = input.targetType ?? 'export';
+    return this.appendCore((ctx) => ({
+      seq: ctx.seq,
       timestamp: this.deps.now().toISOString(),
       dataset_id: this.deps.datasetId,
       actor_device_id: this.deps.deviceId,
       actor_user_identity: this.deps.actorUserIdentity,
       action: input.action,
       result: input.result,
-      target_ref: { type: 'export', id: input.targetId },
+      target_ref: { type: targetType, id: input.targetId },
       before_hash: input.beforeHash ?? null,
       after_hash: input.afterHash,
-      prev_entry_hash: prev === null ? null : canonicalHashHex(prev),
-    };
+      prev_entry_hash: ctx.prevHash,
+    }));
+  }
 
-    const sigBytes = signEd25519(
-      Buffer.from(signingPayload(unsigned), 'utf8'),
-      this.signingSecret!,
-    );
-    const signature: AuditSignature = {
-      alg: 'ed25519',
-      signing_device_id: this.deps.deviceId,
-      key_fingerprint: this.keyFingerprint!,
-      value: Buffer.from(sigBytes).toString('base64'),
-    };
-    const entry: AuditEntry = { ...unsigned, signature };
+  async appendAnchor(input: AuditAnchorAppendInput): Promise<AuditEntry> {
+    return this.appendCore((ctx) => {
+      const entry: Omit<AuditEntry, 'signature'> = {
+        seq: ctx.seq,
+        timestamp: this.deps.now().toISOString(),
+        dataset_id: this.deps.datasetId,
+        actor_device_id: this.deps.deviceId,
+        actor_user_identity: this.deps.actorUserIdentity,
+        action: input.action,
+        result: 'succeeded',
+        target_ref: { type: 'anchor', id: input.targetId },
+        before_hash: null,
+        after_hash: input.eventLogRoot,
+        prev_entry_hash: ctx.prevHash,
+        payload: {
+          anchor_version: 1,
+          hash_alg: 'blake2b-256',
+          dataset_id: this.deps.datasetId,
+          observed_at: input.observedAt,
+          event_log_root: input.eventLogRoot,
+          device_frontiers: input.deviceFrontiers,
+          // Captured atomically inside the critical section (rubber-duck #2).
+          audit_chain_prev_hash: ctx.prevHash,
+        },
+      };
+      return entry;
+    });
+  }
 
-    await this.persistEntries([...entries, entry]);
-    return entry;
+  /**
+   * Locked append core (rubber-duck #1/#2): loads + verifies the chain, builds
+   * the unsigned entry via `make` (which receives the seq + prev-hash computed
+   * inside the lock), validates anchor/export invariants (rubber-duck #7),
+   * signs, and persists — all under the single-writer mutex.
+   */
+  private appendCore(
+    make: (ctx: { seq: number; prevHash: string | null }) => Omit<AuditEntry, 'signature'>,
+  ): Promise<AuditEntry> {
+    return this.runExclusive(async () => {
+      await this.ensureSigningKey();
+      const entries = await this.loadEntries();
+
+      // Fail closed: never append onto a corrupt chain.
+      const verdict = this.verifyEntries(entries);
+      if (!verdict.ok) {
+        throw new Error(`audit chain verification failed: ${verdict.reason ?? 'unknown'}`);
+      }
+
+      const prev = entries.length > 0 ? entries[entries.length - 1]! : null;
+      const unsigned = make({
+        seq: entries.length + 1,
+        prevHash: prev === null ? null : canonicalHashHex(prev),
+      });
+
+      assertEntryInvariants(unsigned);
+
+      const sigBytes = signEd25519(
+        Buffer.from(signingPayload(unsigned), 'utf8'),
+        this.signingSecret!,
+      );
+      const signature: AuditSignature = {
+        alg: 'ed25519',
+        signing_device_id: this.deps.deviceId,
+        key_fingerprint: this.keyFingerprint!,
+        value: Buffer.from(sigBytes).toString('base64'),
+      };
+      const entry: AuditEntry = { ...unsigned, signature };
+
+      await this.persistEntries([...entries, entry]);
+      return entry;
+    });
   }
 
   async readAll(): Promise<readonly AuditEntry[]> {

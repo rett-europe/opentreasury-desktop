@@ -486,7 +486,7 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
 
   ipcMain.handle(IPC_WORKSPACE_LOCK, async (_event, raw: unknown) => {
     const h = await getWorkspaceHandlers();
-    const response = h.handleLock(raw);
+    const response = await h.handleLock(raw);
     return workspaceLockResponseSchema.parse(response);
   });
 
