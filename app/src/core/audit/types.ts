@@ -89,6 +89,36 @@ export interface AuditSignature {
   readonly value: string;
 }
 
+/**
+ * SPEC-028 WI-5 (#362) — the SIGNED timestamp-receipt payload. Carried on a
+ * separate `audit.anchor.timestamped` entry that references the `audit.anchor`
+ * it timestamps; the original anchor is NEVER mutated (FR13). The receipt binds
+ * an external RFC 3161 trusted-timestamp token to the exact anchor entry.
+ *
+ * `message_imprint` is the digest the TSA actually signed: a STANDARD-OID
+ * SHA-256 over the canonical-JSON of the FULL signed anchor entry. A verifier
+ * recomputes `SHA-256(canonicalJson(anchorEntry))` and compares — binding the
+ * timestamp to the anchor's `event_log_root` AND its position in the chain.
+ * `anchor_entry_hash` (BLAKE2b-256 `canonicalHashHex` of the anchor entry) is a
+ * convenient chain-join key. The trusted time is re-derived from the token at
+ * verify time; `tsa_gen_time` is advisory only.
+ */
+export interface AuditTimestampPayload {
+  readonly timestamp_version: 1;
+  readonly provider_kind: 'rfc3161';
+  readonly provider_id: string; // e.g. 'freetsa'
+  readonly anchor_seq: number; // seq of the anchor entry this receipt covers
+  readonly anchor_entry_hash: string; // hex BLAKE2b-256 canonicalHashHex(anchorEntry)
+  readonly event_log_root: string; // hex; == the anchor entry's after_hash
+  readonly imprint_alg: 'sha256'; // standard OID the TSA + verifier agree on
+  readonly message_imprint: string; // hex SHA-256 over canonicalJson(anchorEntry)
+  readonly tsa_nonce: string; // hex random nonce sent in the TimeStampReq
+  readonly tsa_token: string; // base64 DER RFC 3161 TimeStampToken (CMS)
+  readonly tsa_gen_time: string; // ISO 8601 UTC; advisory (re-derived on verify)
+  readonly tsa_serial_number: string; // hex
+  readonly tsa_policy_oid?: string;
+}
+
 export interface AuditEntry {
   readonly seq: number; // monotonic, starts at 1
   readonly timestamp: string; // ISO 8601 UTC
@@ -102,12 +132,14 @@ export interface AuditEntry {
   readonly after_hash: string | null;
   readonly prev_entry_hash: string | null; // null only for the genesis entry
   /**
-   * SPEC-028 — present only on `audit.anchor` / `audit.anchor.timestamped`
-   * entries. Omitted (NOT null) for export entries so their canonical bytes —
-   * and therefore their existing signatures and `prev_entry_hash` links — are
-   * unchanged (`canonicalJson` drops `undefined` properties).
+   * SPEC-028 — present only on anchor / timestamp entries; omitted (NOT null)
+   * for export entries so their canonical bytes — and therefore their existing
+   * signatures and `prev_entry_hash` links — are unchanged (`canonicalJson`
+   * drops `undefined` properties). Discriminated by `action`:
+   *   - `audit.anchor`             → `AuditAnchorPayload` (frontier snapshot)
+   *   - `audit.anchor.timestamped` → `AuditTimestampPayload` (TSA receipt)
    */
-  readonly payload?: AuditAnchorPayload;
+  readonly payload?: AuditAnchorPayload | AuditTimestampPayload;
   readonly signature: AuditSignature;
 }
 
@@ -151,6 +183,15 @@ export interface AuditLog {
    */
   appendAnchor(input: AuditAnchorAppendInput): Promise<AuditEntry>;
   /**
+   * SPEC-028 WI-5 — append a signed `audit.anchor.timestamped` receipt entry
+   * referencing the `audit.anchor` it covers. The original anchor is never
+   * mutated. Idempotent: if a receipt for the same `{ anchorSeq,
+   * anchorEntryHash }` already exists, the existing entry is returned without
+   * signing a duplicate (checked inside the append critical section). Verifies
+   * the existing chain first and THROWS if corrupt.
+   */
+  appendTimestamp(input: AuditTimestampAppendInput): Promise<AuditEntry>;
+  /**
    * Verify the full chain (seq monotonicity, prev-hash links, signatures). When
    * `allowKeyCreation` is false (SPEC-028 WI-3 read-only verify-on-unlock), a
    * missing signing key is NOT created — verification of a populated chunk
@@ -166,9 +207,29 @@ export interface AuditLog {
  * `audit_chain_prev_hash` (which is captured inside the critical section).
  */
 export interface AuditAnchorAppendInput {
-  readonly action: 'audit.anchor' | 'audit.anchor.timestamped';
+  readonly action: 'audit.anchor';
   readonly targetId: string; // ULID for the anchor operation
   readonly observedAt: string; // ISO 8601 UTC
   readonly eventLogRoot: string; // hex; mirrored into entry.after_hash
   readonly deviceFrontiers: readonly DeviceFrontier[];
+}
+
+/**
+ * SPEC-028 WI-5 — input to `AuditLog.appendTimestamp`. The resulting entry's
+ * `after_hash` mirrors `messageImprint` (the digest the TSA signed), distinct
+ * from an anchor entry whose `after_hash` mirrors `eventLogRoot`.
+ */
+export interface AuditTimestampAppendInput {
+  readonly targetId: string; // ULID for the timestamp operation
+  readonly providerId: string;
+  readonly anchorSeq: number;
+  readonly anchorEntryHash: string; // hex
+  readonly eventLogRoot: string; // hex; == covered anchor entry's after_hash
+  readonly imprintAlg: 'sha256';
+  readonly messageImprint: string; // hex; mirrored into entry.after_hash
+  readonly tsaNonce: string; // hex
+  readonly tsaToken: string; // base64 DER
+  readonly tsaGenTime: string; // ISO 8601 UTC (advisory)
+  readonly tsaSerialNumber: string; // hex
+  readonly tsaPolicyOid?: string;
 }

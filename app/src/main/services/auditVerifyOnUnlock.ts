@@ -25,7 +25,7 @@ import type { Stats } from 'node:fs';
 
 import { verifyAnchorAgainstFiles } from '../../core/audit/frontier.js';
 import type { AnchorVerifyResult, RawDeviceFile } from '../../core/audit/frontier.js';
-import type { AuditEntry, AuditLog } from '../../core/audit/types.js';
+import type { AuditAnchorPayload, AuditEntry, AuditLog } from '../../core/audit/types.js';
 import type {
   IntegrityDevice,
   IntegrityVerdict,
@@ -105,11 +105,13 @@ function unavailableVerdict(
   };
 }
 
-function isAnchorEntry(entry: AuditEntry): boolean {
-  return (
-    (entry.action === 'audit.anchor' || entry.action === 'audit.anchor.timestamped') &&
-    entry.payload !== undefined
-  );
+function isAnchorEntry(entry: AuditEntry): entry is AuditEntry & { payload: AuditAnchorPayload } {
+  // WI-3 / WI-5 coexistence — `find(isAnchorEntry)` selects the latest signed
+  // FRONTIER anchor (whose payload carries `device_frontiers`). Timestamp
+  // receipt entries (`audit.anchor.timestamped`) reference an anchor by seq
+  // and do NOT carry frontier data, so they must be excluded here — otherwise
+  // `verifyAnchorAgainstFiles` would receive a payload missing `device_frontiers`.
+  return entry.action === 'audit.anchor' && entry.payload !== undefined;
 }
 
 /** Project WI-2's device results into the redacted renderer view-model. */

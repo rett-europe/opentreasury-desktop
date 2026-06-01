@@ -27,6 +27,8 @@ import type {
   AuditEntry,
   AuditLog,
   AuditSignature,
+  AuditTimestampAppendInput,
+  AuditTimestampPayload,
   AuditVerifyResult,
 } from './types.js';
 
@@ -103,12 +105,14 @@ function signingPayload(entry: Omit<AuditEntry, 'signature'>): string {
 }
 
 /**
- * Strict anchor/export invariants (rubber-duck #7). Enforced inside the append
- * critical section before signing so a malformed entry can never be persisted.
+ * Strict anchor/timestamp/export invariants (rubber-duck #7 / WI-5 #3,#9).
+ * Enforced inside the append critical section before signing so a malformed
+ * entry can never be persisted. The `payload` shape is discriminated by
+ * `action`: `audit.anchor` carries a frontier `AuditAnchorPayload`;
+ * `audit.anchor.timestamped` carries an `AuditTimestampPayload`.
  */
 function assertEntryInvariants(entry: Omit<AuditEntry, 'signature'>): void {
-  const isAnchor = entry.action === 'audit.anchor' || entry.action === 'audit.anchor.timestamped';
-  if (isAnchor) {
+  if (entry.action === 'audit.anchor') {
     if (entry.target_ref.type !== 'anchor') {
       throw new Error('anchor entry must have target_ref.type "anchor"');
     }
@@ -119,12 +123,16 @@ function assertEntryInvariants(entry: Omit<AuditEntry, 'signature'>): void {
     if (p === undefined) {
       throw new Error('anchor entry must carry a payload');
     }
+    if (!('anchor_version' in p)) {
+      throw new Error('anchor entry payload must be a frontier payload');
+    }
     if (p.anchor_version !== 1 || p.hash_alg !== 'blake2b-256') {
       throw new Error('anchor payload has unexpected version/hash_alg');
     }
     if (p.dataset_id !== entry.dataset_id) {
       throw new Error('anchor payload dataset_id must match the entry');
     }
+    // NORMATIVE: an anchor entry's after_hash IS the event_log_root.
     if (entry.after_hash !== p.event_log_root) {
       throw new Error('anchor after_hash must equal payload.event_log_root');
     }
@@ -134,14 +142,66 @@ function assertEntryInvariants(entry: Omit<AuditEntry, 'signature'>): void {
     if (entry.before_hash !== null) {
       throw new Error('anchor entry before_hash must be null');
     }
+  } else if (entry.action === 'audit.anchor.timestamped') {
+    if (entry.target_ref.type !== 'anchor') {
+      throw new Error('timestamp entry must have target_ref.type "anchor"');
+    }
+    if (entry.result !== 'succeeded') {
+      throw new Error('timestamp entry must have result "succeeded"');
+    }
+    if (entry.before_hash !== null) {
+      throw new Error('timestamp entry before_hash must be null');
+    }
+    const p = entry.payload;
+    if (p === undefined) {
+      throw new Error('timestamp entry must carry a payload');
+    }
+    if (!('timestamp_version' in p)) {
+      throw new Error('timestamp entry payload must be a timestamp payload');
+    }
+    if (p.timestamp_version !== 1 || p.provider_kind !== 'rfc3161') {
+      throw new Error('timestamp payload has unexpected version/provider_kind');
+    }
+    if (p.imprint_alg !== 'sha256') {
+      throw new Error('timestamp payload imprint_alg must be "sha256"');
+    }
+    // NORMATIVE: a timestamp entry's after_hash IS the message_imprint (the
+    // digest the TSA signed), NOT the event_log_root.
+    if (entry.after_hash !== p.message_imprint) {
+      throw new Error('timestamp after_hash must equal payload.message_imprint');
+    }
+    // The receipt must reference an EARLIER anchor entry in the same chain.
+    if (!Number.isInteger(p.anchor_seq) || p.anchor_seq < 1 || p.anchor_seq >= entry.seq) {
+      throw new Error('timestamp payload anchor_seq must reference an earlier entry');
+    }
   } else {
     if (entry.target_ref.type !== 'export') {
       throw new Error('non-anchor entry must have target_ref.type "export"');
     }
     if (entry.payload !== undefined) {
-      throw new Error('non-anchor entry must not carry an anchor payload');
+      throw new Error('non-anchor entry must not carry a payload');
     }
   }
+}
+
+/**
+ * WI-5 #3 — locate an existing `audit.anchor.timestamped` receipt for the given
+ * anchor, so `appendTimestamp` is idempotent and never double-appends.
+ */
+function findExistingReceipt(
+  entries: readonly AuditEntry[],
+  anchorSeq: number,
+  anchorEntryHash: string,
+): AuditEntry | null {
+  for (const e of entries) {
+    if (e.action !== 'audit.anchor.timestamped') continue;
+    const p = e.payload;
+    if (p === undefined || !('timestamp_version' in p)) continue;
+    if (p.anchor_seq === anchorSeq && p.anchor_entry_hash === anchorEntryHash) {
+      return e;
+    }
+  }
+  return null;
 }
 
 export class FileAuditLog implements AuditLog {
@@ -352,14 +412,58 @@ export class FileAuditLog implements AuditLog {
     });
   }
 
+  async appendTimestamp(input: AuditTimestampAppendInput): Promise<AuditEntry> {
+    return this.appendCore(
+      (ctx) => {
+        const payload: AuditTimestampPayload = {
+          timestamp_version: 1,
+          provider_kind: 'rfc3161',
+          provider_id: input.providerId,
+          anchor_seq: input.anchorSeq,
+          anchor_entry_hash: input.anchorEntryHash,
+          event_log_root: input.eventLogRoot,
+          imprint_alg: input.imprintAlg,
+          message_imprint: input.messageImprint,
+          tsa_nonce: input.tsaNonce,
+          tsa_token: input.tsaToken,
+          tsa_gen_time: input.tsaGenTime,
+          tsa_serial_number: input.tsaSerialNumber,
+          // Only set when present: `exactOptionalPropertyTypes` forbids an
+          // explicit `undefined`, and canonicalJson would omit it anyway.
+          ...(input.tsaPolicyOid === undefined ? {} : { tsa_policy_oid: input.tsaPolicyOid }),
+        };
+        const entry: Omit<AuditEntry, 'signature'> = {
+          seq: ctx.seq,
+          timestamp: this.deps.now().toISOString(),
+          dataset_id: this.deps.datasetId,
+          actor_device_id: this.deps.deviceId,
+          actor_user_identity: this.deps.actorUserIdentity,
+          action: 'audit.anchor.timestamped',
+          result: 'succeeded',
+          target_ref: { type: 'anchor', id: input.targetId },
+          before_hash: null,
+          // The chained entry's after_hash mirrors the digest the TSA signed.
+          after_hash: input.messageImprint,
+          prev_entry_hash: ctx.prevHash,
+          payload,
+        };
+        return entry;
+      },
+      // WI-5 #3 — idempotent: never sign a second receipt for the same anchor.
+      (entries) => findExistingReceipt(entries, input.anchorSeq, input.anchorEntryHash),
+    );
+  }
+
   /**
-   * Locked append core (rubber-duck #1/#2): loads + verifies the chain, builds
-   * the unsigned entry via `make` (which receives the seq + prev-hash computed
-   * inside the lock), validates anchor/export invariants (rubber-duck #7),
-   * signs, and persists — all under the single-writer mutex.
+   * Locked append core (rubber-duck #1/#2): loads + verifies the chain,
+   * optionally short-circuits to an already-persisted entry (WI-5 #3 duplicate
+   * receipt guard), builds the unsigned entry via `make` (which receives the seq
+   * + prev-hash computed inside the lock), validates invariants (rubber-duck
+   * #7), signs, and persists — all under the single-writer mutex.
    */
   private appendCore(
     make: (ctx: { seq: number; prevHash: string | null }) => Omit<AuditEntry, 'signature'>,
+    shortCircuit?: (entries: readonly AuditEntry[]) => AuditEntry | null,
   ): Promise<AuditEntry> {
     return this.runExclusive(async () => {
       await this.ensureSigningKey();
@@ -369,6 +473,11 @@ export class FileAuditLog implements AuditLog {
       const verdict = this.verifyEntries(entries);
       if (!verdict.ok) {
         throw new Error(`audit chain verification failed: ${verdict.reason ?? 'unknown'}`);
+      }
+
+      if (shortCircuit !== undefined) {
+        const existing = shortCircuit(entries);
+        if (existing !== null) return existing;
       }
 
       const prev = entries.length > 0 ? entries[entries.length - 1]! : null;
