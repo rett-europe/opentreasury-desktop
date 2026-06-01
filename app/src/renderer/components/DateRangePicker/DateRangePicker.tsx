@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import type { DateRange } from '../../types/movement.js';
@@ -60,6 +60,18 @@ export function DateRangePicker({
   const [customFrom, setCustomFrom] = useState<string>(() => toInputValue(value?.from));
   const [customTo, setCustomTo] = useState<string>(() => toInputValue(value?.to));
 
+  // Keep the visible inputs in sync with `value`. Without this, the inputs are
+  // seeded only on mount, so a preset click (or any external range change) would
+  // leave the From/To fields showing a stale custom range. Keyed on the ISO
+  // strings so typing a draft (which doesn't change `value` until Apply) is not
+  // clobbered on every render.
+  const valueFrom = toInputValue(value?.from);
+  const valueTo = toInputValue(value?.to);
+  useEffect(() => {
+    setCustomFrom(valueFrom);
+    setCustomTo(valueTo);
+  }, [valueFrom, valueTo]);
+
   const invalid = useMemo(() => {
     if (!customFrom || !customTo) return false;
     const f = fromInputValue(customFrom);
@@ -116,6 +128,7 @@ export function DateRangePicker({
             type="date"
             className="ot-daterange__native"
             value={customFrom}
+            max={customTo || undefined}
             onChange={(e) => setCustomFrom(e.target.value)}
           />
         </label>
@@ -125,6 +138,7 @@ export function DateRangePicker({
             type="date"
             className="ot-daterange__native"
             value={customTo}
+            min={customFrom || undefined}
             onChange={(e) => setCustomTo(e.target.value)}
             aria-invalid={invalid ? true : undefined}
           />

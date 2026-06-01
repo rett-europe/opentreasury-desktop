@@ -241,58 +241,16 @@
   font-weight: var(--font-weight-semibold);
   user-select: none;
 }
-.ot-filter-bar__date-chips {
+.ot-filter-bar__date-picker {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-end;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-3, 8px);
 }
-.ot-filter-bar__date-custom-anchor {
-  position: relative;
-  display: inline-flex;
-}
-.ot-filter-bar__date-popover {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 30;
-  min-width: 240px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  background: var(--color-surface-primary);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.12));
-}
-.ot-filter-bar__date-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: var(--font-size-12);
-  color: var(--color-text-secondary);
-}
-.ot-filter-bar__date-field input {
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--radius-sm, 4px);
-  padding: 4px 6px;
-  font-family: inherit;
-  font-size: var(--font-size-13);
-  color: var(--color-text-primary);
-  background: var(--color-surface-primary);
-}
-.ot-filter-bar__date-field input[aria-invalid='true'] {
-  border-color: var(--color-status-danger, #c0392b);
-}
-.ot-filter-bar__date-error {
-  color: var(--color-status-danger, #c0392b);
-  font-size: var(--font-size-12);
-  margin: 0;
-}
-.ot-filter-bar__date-actions {
-  display: flex;
-  justify-content: flex-end;
+/* The "All time" toggle lives next to the shared DateRangePicker (outside its
+ * preset radiogroup). Nudge it up so it baselines with the preset chips. */
+.ot-filter-bar__date-picker > .ot-filter-bar__chip {
+  align-self: center;
 }
 
 /* Active date-range pill — now lives INSIDE the scope bar (right-aligned).

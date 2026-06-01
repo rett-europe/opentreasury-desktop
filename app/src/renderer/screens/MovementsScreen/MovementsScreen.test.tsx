@@ -287,7 +287,7 @@ describe('MovementsScreen', () => {
     await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
     fireEvent.click(screen.getByRole('radio', { name: /^Año pasado$|^Last year$/i }));
     await waitFor(() => expect(screen.queryByRole('table')).toBeNull());
-    fireEvent.click(screen.getByRole('radio', { name: /^Todo$|^All time$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Todo$|^All time$/i }));
     await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
   });
 
@@ -313,16 +313,14 @@ describe('MovementsScreen', () => {
   it('date filter: custom range applies and is NOT persisted', async () => {
     renderWithI18n();
     await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
-    // Open the popover.
-    fireEvent.click(screen.getByRole('radio', { name: /^Personalizado$|^Custom$/i }));
-    const dialog = await screen.findByRole('dialog', {
-      name: /Personalizado|Custom/i,
-    });
-    const fromInput = dialog.querySelectorAll('input[type="date"]')[0] as HTMLInputElement;
-    const toInput = dialog.querySelectorAll('input[type="date"]')[1] as HTMLInputElement;
+    // Inline From/To inputs are always visible (shared DateRangePicker).
+    const picker = document.querySelector('.ot-daterange') as HTMLElement;
+    expect(picker).not.toBeNull();
+    const fromInput = picker.querySelectorAll('input[type="date"]')[0] as HTMLInputElement;
+    const toInput = picker.querySelectorAll('input[type="date"]')[1] as HTMLInputElement;
     fireEvent.change(fromInput, { target: { value: '2026-04-14' } });
     fireEvent.change(toInput, { target: { value: '2026-04-14' } });
-    const applyBtn = Array.from(dialog.querySelectorAll('button')).find((b) =>
+    const applyBtn = Array.from(picker.querySelectorAll('button')).find((b) =>
       /Aplicar|Apply/i.test(b.textContent ?? ''),
     )!;
     fireEvent.click(applyBtn);
@@ -335,10 +333,25 @@ describe('MovementsScreen', () => {
     });
   });
 
+  it('date filter: invalid custom range (to < from) disables Apply and shows an error', async () => {
+    renderWithI18n();
+    await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
+    const picker = document.querySelector('.ot-daterange') as HTMLElement;
+    const fromInput = picker.querySelectorAll('input[type="date"]')[0] as HTMLInputElement;
+    const toInput = picker.querySelectorAll('input[type="date"]')[1] as HTMLInputElement;
+    fireEvent.change(fromInput, { target: { value: '2026-04-20' } });
+    fireEvent.change(toInput, { target: { value: '2026-04-10' } });
+    const applyBtn = Array.from(picker.querySelectorAll('button')).find((b) =>
+      /Aplicar|Apply/i.test(b.textContent ?? ''),
+    ) as HTMLButtonElement;
+    expect(applyBtn.disabled).toBe(true);
+    expect(picker.querySelector('[role="alert"]')).not.toBeNull();
+  });
+
   it('date filter: Clear filters resets to "Este mes" (not "Todo")', async () => {
     renderWithI18n();
     await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
-    fireEvent.click(screen.getByRole('radio', { name: /^Todo$|^All time$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Todo$|^All time$/i }));
     // Find the "Limpiar filtros" button (filter-bar level) and click it.
     const clearBtn = screen.getByRole('button', { name: /Limpiar filtros|Clear filters/i });
     fireEvent.click(clearBtn);
