@@ -1,6 +1,6 @@
 # SPEC-027 — Export (CSV / XLSX)
 
-> **Status:** Accepted · **Owner:** Niobe · **Last updated:** 2026-05-31
+> **Status:** Accepted · **Owner:** Niobe · **Last updated:** 2026-06-01
 > **Reviewers:** Neo (architecture) ✅ · Switch (security) ✅ · Link (product) ✅ — all approved 2026-05-31
 > **Paired PRD:** Pending — PRD-027 reservation needed in `docs/product/prd-plan.md`
 > **Paired UX:** [`docs/ux/specs/spec-027-export.md`](../ux/specs/spec-027-export.md)
@@ -834,3 +834,176 @@ this section restates the decisions Niobe is committing the spec to.
 | 2026-05-16 | Draft | Niobe | Open Question 1 resolved: reframed authorization-gate proposal ruled ACCEPTABLE-WITH-CONDITIONS by Switch; Option A is the approved gate; per-word verification rejected on retention/entropy grounds. Rate-limit (3/15min), lockout (5 mistypes → 5min), audit/diagnostic logging, mnemonic zeroization, and biometric deferral (v1.1) conditions added. |
 | 2026-05-31 | In Review | Niobe | All 13 Open Questions resolved by Pedro. OQ5 (mandatory date-range + ≥1 additional filter) and OQ6 (FR14 warn→hard block) are requirement changes — Switch blessed the OQ6 hardening; Mouse/Trinity provided OQ5 UX+a11y. OQ13 (?q= pre-seed) dropped from scope. Moved Draft→In Review; reviewers Neo/Switch/Link. |
 | 2026-05-31 | Accepted | Neo · Switch · Link | **Reviewer-acceptance gate passed (In Review → Accepted), after merge to `main` (PR #349).** **Neo (architecture) — APPROVE-WITH-NITS:** read-model query reuses the existing Movements patterns (MovementRecord, SPEC-023 splits projection, date-range-query-extension + read-model-aggregation skills) with no parallel pipeline; consistent with ADR-001/002/003, the audit event-model (`audit.export`), and IPC-contract conventions (`export:prepare`/`export:run` Zod-at-boundary, token reconstruction in main). Nits: `export:progress` phase label `"encrypting"`→`"decrypting"`; clarify FR21 5s-cooldown vs OQ1 3/15min rate-limit precedence. **Switch (security) — APPROVE-WITH-NITS:** all 7 Option-A conditions (typed confirm, audit-first, rate-limit 3/15min, lockout 5→5min, no-logging-of-input, mnemonic zeroized, biometric→v1.1), FR14 encrypted-workspace hard-block, dual failure-audit (on-chain + local), `export.xlsx` enum addition, renderer isolation / no-plaintext / no-path-IPC, and PII-in-logs redaction are all faithfully reflected. Nits (pre-code-freeze): promote the 3/15min rate-limit and 5→5min lockout from the OQ1 resolution into normative FRs; ensure the crypto-spec §8.2 `export.xlsx` enum edit lands in the implementation PR; add an explicit AC for "never log the typed confirmation input". **Link (product) — APPROVE-WITH-NITS:** scope matches Pedro's verbatim brief and v1 boundaries — CSV/XLSX only, the five filters, mandatory date + ≥1 additional filter (FR23/AC18), 100k cap, biometric deferred to v1.1, #305 superseded/closable, out-of-scope boundaries honest. Nits: update vision.md §9 feature map (Export still listed v1.x), reserve PRD-027 in prd-plan.md, close UX-A/B/C before Mouse handoff. **No blocking items from any reviewer. SPEC-027 is cleared for implementation.** |
+| 2026-06-01 | Accepted (addendum) | Niobe · Mouse | **§14 "XLSX presentation (formatting)" added** as a small, post-ship formatting-polish addendum (the feature shipped with a raw, unstyled sheet via `useStyles:false`). Niobe + Mouse led design; Neo (streaming-style perf), Switch (metadata-leak constraint), Oracle (doc placement) consulted. Pedro confirmed two forks: append as §14 (not a new spec), and ship a **real Excel date cell now** (not deferred ISO text). Adds FR26–FR30, NFR6, AC20–AC25; flags issue #353 (configurable date/decimal preference) as a non-blocking dependency. No change to CSV output, IPC surface, columns (FR11), or security gate. |
+
+## 14. XLSX Presentation (Formatting) — Addendum (2026-06-01)
+
+> **Scope:** presentation polish for the `.xlsx` output **only**. CSV output is
+> unchanged. No change to the FR11 column set/order, the IPC surface, the audit
+> model, the security gate, or the streaming architecture. This addendum makes
+> good on the UX promise *"Native Excel file with automatic column formatting"*
+> / *"Archivo nativo de Excel con formato automático de columnas"*
+> (paired UX spec `ux.export.format.excel-helper`).
+
+### 14.1 Motivation
+
+The feature shipped with the XLSX writer
+(`app/src/main/services/exportService.ts`) using
+`ExcelJS.stream.xlsx.WorkbookWriter({ useStyles: false })`: an unstyled sheet
+with a plain header row, no column widths, no number/date formats, and no frozen
+panes. The board treasurer / auditor persona (§3 secondary persona) opens the
+file directly in Excel; a raw dump reads as unfinished and forces manual
+reformatting. This addendum specifies a tasteful, deterministic format that is
+safe to produce under the streaming writer at the 100 000-row cap.
+
+### 14.2 Functional requirements
+
+- **FR26 — Styled header row.** The single header row is **bold**, white text
+  (`FFFFFFFF`) on a solid brand-purple fill (`FF6D4D8C`; contrast ≈ 5.8:1,
+  WCAG AA). The header row is **frozen** so it stays visible while scrolling
+  (`views: [{ state: 'frozen', ySplit: 1 }]`). Only the header row is frozen —
+  no frozen columns in v1. The header labels and their order are unchanged from
+  FR11 (locale-driven ES/EN labels).
+- **FR27 — Fixed column widths, alignment & wrapping.** Because the streaming
+  writer cannot measure content, each column gets a **fixed, pre-set width**
+  (set once, before the first data row is committed). Widths and per-column
+  presentation:
+
+  | # | Column (key) | Width (chars) | Horizontal align | Wrap |
+  |---|---|---|---|---|
+  | 1 | `date` | 12 | left | no |
+  | 2 | `account` | 22 | left | no |
+  | 3 | `category` | 18 | left | no |
+  | 4 | `subcategory` | 18 | left | no |
+  | 5 | `description` | 40 | left | **yes** |
+  | 6 | `amount` | 14 | **right** | no |
+  | 7 | `currency` | 8 | center | no |
+  | 8 | `labels` | 24 | left | **yes** |
+  | 9 | `reference` | 16 | left | no |
+  | 10 | `comment` | 32 | left | **yes** |
+  | 11 | `id` | 28 | left | no |
+  | 12 | `isSplit` | 9 | center | no |
+  | 13 | `parentId` | 28 | left | no |
+
+  Widths are advisory display hints; the underlying values are unchanged.
+- **FR28 — Amount number format.** The `Importe` / `Amount` cell stays a **real
+  signed number** (unchanged value) and is displayed with the number format
+  `#,##0.00` — two decimal places, thousands grouping at display time, and a
+  **plain leading minus** for negatives (no red, no parentheses — neutral for
+  audit). **No currency symbol** is embedded (currency is its own column).
+  The format is applied at the **column level** (`getColumn(6).numFmt`), not per
+  cell.
+- **FR29 — Date as a real Excel date cell.** The `Fecha` / `Date` column is
+  written as a **real Excel date value** (not an ISO text string), parsed from
+  the `ExportRow.date` `YYYY-MM-DD` field in a **timezone-safe** way (constructed
+  at UTC, date-only) so the displayed day can never drift by ±1 regardless of the
+  host timezone. A **column-level date number format** controls display:
+  - default **ES**: `dd/mm/yyyy`
+  - default **EN**: `yyyy-mm-dd`
+
+  This makes Excel native sort/filter on the Date column work correctly. Note
+  the **deliberate CSV ↔ XLSX divergence**: CSV keeps the ISO `YYYY-MM-DD`
+  **text** (FR11) for downstream-tool stability; XLSX uses a typed date. Both
+  represent the same calendar day.
+- **FR30 — Workbook metadata (allowlist; security-bound).** The writer sets
+  **only** a fixed, non-sensitive metadata allowlist on the workbook:
+  - `creator = "OpenTreasury"`
+  - `title = "OpenTreasury export"` (generic, locale-neutral)
+  - `created = <generation timestamp>`
+
+  The writer MUST **not** set `lastModifiedBy`, `company`, `manager`, `keywords`,
+  or any other property, and MUST **never** embed dataset-root paths, device IDs,
+  workspace IDs, user identity, filter values, or raw label text in any workbook
+  property. There is **no in-sheet "export info" header block** in v1 — export
+  provenance already lives in the signed audit log (§6.1), and an in-file block
+  risks leaking workspace internals into an unencrypted artifact (Switch). The
+  sheet name remains `Movimientos` (single sheet, both locales — preserves the
+  AC8 golden contract).
+
+### 14.3 Non-functional
+
+- **NFR6 — Styling must not break streaming or the memory budget.** The writer
+  switches to `useStyles: true` but keeps all styling **column-level / shared**:
+  column widths, the amount `numFmt`, the date `numFmt`, alignment, and the
+  worksheet `views` are configured **once, before the first row is committed**;
+  the header row is styled once. The per-row write loop sets **no per-cell
+  styles** (which would inflate the shared-style table and heap). Styling MUST
+  stay within the existing **NFR1** (10 000-row XLSX < 10 s) and **NFR4** (peak
+  heap during a 100 000-row export ≤ +150 MB over baseline) budgets.
+
+### 14.4 CSV is unchanged
+
+This addendum touches **only** the XLSX path. CSV remains UTF-8 with BOM,
+semicolon-delimited, RFC 4180-style quoting, CRLF, ISO `YYYY-MM-DD` date text,
+and dot-decimal amount (FR10, FR11). Column order and semantics stay **identical**
+between CSV and XLSX; only presentation differs.
+
+### 14.5 Dependency — issue #353 (configurable date + decimal preference)
+
+A forthcoming user preference (issue **#353**) will make the date format and the
+decimal/thousands separators **user-configurable**. To avoid rework, the writer
+introduces a single `DEFAULT_XLSX_FORMAT` seam (locale → `{ dateNumFmt,
+amountNumFmt }`) that supplies the FR28/FR29 defaults today and becomes the point
+where the #353 preference is injected later. **#353 is a non-blocking
+dependency**: this addendum ships locale-driven defaults now; when #353 lands it
+overrides those defaults through the same seam without touching the row-writing
+loop. Until then, numeric formatting in the **CSV** path stays locale-independent
+(dot decimal) per FR22.
+
+### 14.6 Out of scope (parked enhancements)
+
+- **Totals row** (e.g. a `SUM(Importe)` footer). Excluded: a totals row inside
+  the data sheet breaks Excel "Format as Table" filtering and clean round-trip,
+  and conflicts with the one-row-per-movement contract (FR11).
+- **Summary sheet** (row count, sum per currency, date-range banner). Cleaner
+  than a totals row but is additional surface; deferred as a future enhancement.
+- **Auto-fit (content-measured) column widths** — impossible under the streaming
+  writer without buffering the whole sheet; fixed widths (FR27) are the v1
+  answer.
+- **In-sheet export-info block** — deliberately excluded (FR30 rationale).
+
+### 14.7 Acceptance criteria
+
+- [ ] **AC20** — A successful XLSX export has a **frozen, bold header row** with
+  white text on the `FF6D4D8C` fill; scrolling keeps the header visible (FR26).
+- [ ] **AC21** — Each of the 13 columns has the fixed width from the FR27 table;
+  Amount is right-aligned, Currency and IsSplit are centered, and Description,
+  Labels and Comment wrap (FR27).
+- [ ] **AC22** — The Amount cell is a real number displayed as `#,##0.00` with a
+  plain minus for negatives and **no** currency symbol; the stored numeric value
+  is unchanged from the unstyled output (FR28).
+- [ ] **AC23** — The Date cell is a **real Excel date** (not text) showing the
+  correct calendar day with **no ±1 drift** across host timezones, formatted
+  `dd/mm/yyyy` (ES) or `yyyy-mm-dd` (EN) (FR29). A golden/timezone test covers
+  at least UTC, UTC+13 and UTC−11.
+- [ ] **AC24** — Workbook metadata contains **only** `creator`, `title`,
+  `created`; a test asserts the file embeds **no** path, device/workspace id,
+  user identity, filter value, or raw label, and sets no `lastModifiedBy` /
+  `company` (FR30).
+- [ ] **AC25** — With `useStyles: true`, a 100 000-row XLSX export stays within
+  the **NFR4** memory budget and the **NFR1** time budget; an integration test
+  asserts the peak-heap ceiling with styling enabled (NFR6).
+
+### 14.8 Test-plan additions
+
+- **Unit:** the `DEFAULT_XLSX_FORMAT` map returns the expected `dateNumFmt` /
+  `amountNumFmt` per locale; the timezone-safe `YYYY-MM-DD` → Excel-date
+  conversion yields the same calendar day under faked `TZ` values.
+- **Integration (golden XLSX):** open the produced workbook and assert header
+  font/fill/freeze, per-column widths + alignment + wrap, the amount `numFmt`,
+  the date cell **type** (date, not string) + `numFmt`, the sheet name
+  `Movimientos`, and the metadata allowlist (presence of `creator`/`title`/
+  `created`, absence of everything else). Re-uses the existing fixture dataset
+  from §9.2.
+- **Memory (NFR6/AC25):** the existing 100 000-row streaming memory test runs
+  with `useStyles: true` and asserts the NFR4 ceiling still holds.
+
+### 14.9 Residual open questions (non-blocking)
+
+1. **Brand fill hex.** `FF6D4D8C` is Mouse's proposed header fill — confirm
+   against the current design-token palette before the implementation PR.
+2. **EN default date format.** `yyyy-mm-dd` (unambiguous, ISO) vs `dd/mm/yyyy`
+   (matches the Spain-based audience). Defaulting to ISO for EN; revisit with
+   #353.
+3. **Summary sheet appetite.** Whether a future summary sheet (§14.6) is wanted
+   at all — parked pending pilot feedback.
