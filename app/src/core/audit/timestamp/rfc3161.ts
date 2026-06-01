@@ -412,7 +412,12 @@ function parseAttributes(signedAttrsNode: DerNode): Map<string, Uint8Array> {
 
 /** Re-encode an implicit [0] signedAttrs node as an explicit SET OF (0x31). */
 function retagToSet(signedAttrsNode: DerNode): Uint8Array {
-  const full = tlv(signedAttrsNode).slice();
+  // `Uint8Array.from` forces a genuine copy: `tlv()` returns a Node Buffer and
+  // `Buffer.prototype.slice()` aliases the underlying memory (unlike
+  // `Uint8Array.prototype.slice`), so rewriting `full[0]` would otherwise mutate
+  // the caller's token bytes in place — corrupting any later re-verification of
+  // the same (e.g. persisted) token.
+  const full = Uint8Array.from(tlv(signedAttrsNode));
   full[0] = TAG.SET; // 0xA0 -> 0x31 (content + length unchanged)
   return full;
 }

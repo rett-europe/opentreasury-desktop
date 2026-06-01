@@ -44,6 +44,11 @@ export interface RunTimestampDeps {
   readonly retry: TimestampRetryState;
   /** Cap anchors processed per drain (bounds a long catch-up). Default: all. */
   readonly maxPerRun?: number;
+  /**
+   * Resolve a provider's `trustRootIds` to trust-anchor PEMs. Defaults to the
+   * bundled `resolveTrustRoots`; injected by tests to supply a hermetic CA.
+   */
+  readonly resolveRoots?: (ids: readonly string[]) => readonly string[];
   readonly log?: TimestampLogger;
 }
 
@@ -75,7 +80,8 @@ export async function runTimestampOnce(deps: RunTimestampDeps): Promise<Timestam
     const pending = findPendingAnchors(await deps.auditLog.readAll());
     if (pending.length === 0) return { status: 'idle', reason: 'no-pending' };
 
-    const trustRootsPem = resolveTrustRoots(deps.provider.trustRootIds);
+    const resolveRoots = deps.resolveRoots ?? resolveTrustRoots;
+    const trustRootsPem = resolveRoots(deps.provider.trustRootIds);
     const limit = deps.maxPerRun ?? pending.length;
     let appended = 0;
     let failed = 0;
