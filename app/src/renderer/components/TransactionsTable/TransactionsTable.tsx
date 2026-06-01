@@ -2,8 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Table } from '../Table/index.js';
 import type { TableColumn } from '../Table/Table.js';
 import type { SortDirection } from '../Table/index.js';
-import { formatDate } from '../../utils/dateFormat.js';
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import { getTagColor } from '../../utils/tagColor.js';
 import { getStatusBadgeClass } from '../../utils/statusBadge.js';
 import './TransactionsTable.css';
@@ -81,8 +80,8 @@ export function TransactionsTable({
   virtualise,
   containerStyle,
 }: TransactionsTableProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
+  const { t } = useTranslation('common');
+  const { formatDate, formatCurrency } = useFormatters();
 
   const tagColor = (tagId: string): string => getTagColor(tagLookup.get(tagId), tagId);
 
@@ -144,7 +143,7 @@ export function TransactionsTable({
       header: t('movements.columns.date'),
       sortable: true,
       tabular: true,
-      render: (row: TransactionRow) => formatDate(row.date, locale),
+      render: (row: TransactionRow) => formatDate(row.date),
     },
     {
       id: 'account',
@@ -308,7 +307,7 @@ export function TransactionsTable({
       render: (row: TransactionRow) => {
         const cls = row.type === 'income' ? 'ot-amount--income' : 'ot-amount--expense';
         const signed = row.type === 'expense' ? -row.amount : row.amount;
-        return <span className={cls}>{formatCurrency(signed, locale)}</span>;
+        return <span className={cls}>{formatCurrency(signed)}</span>;
       },
     },
   ];

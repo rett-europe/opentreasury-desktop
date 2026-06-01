@@ -28,7 +28,6 @@ describe('GroupedBarChart', () => {
       <GroupedBarChart
         series={buildSeries()}
         legend={['2026', '2025']}
-        locale="es-ES"
         ariaLabel="Chart"
         dataTableCaption="Datos mensuales"
       />,
@@ -42,7 +41,6 @@ describe('GroupedBarChart', () => {
       <GroupedBarChart
         series={buildSeries()}
         legend={['2026', '2025']}
-        locale="es-ES"
         ariaLabel="Chart"
         dataTableCaption="Datos mensuales"
       />,
@@ -57,7 +55,7 @@ describe('GroupedBarChart', () => {
     expect(headerCells).toHaveLength(3);
   });
 
-  it('data table cells contain locale-formatted currency for both series', () => {
+  it('data table cells contain preference-formatted currency for both series', () => {
     render(
       <GroupedBarChart
         series={[
@@ -65,7 +63,6 @@ describe('GroupedBarChart', () => {
           { label: 'Feb', values: [2000, 1500] },
         ]}
         legend={['2026', '2025']}
-        locale="en-US"
         currency="EUR"
         ariaLabel="Chart"
         dataTableCaption="Monthly data"
@@ -84,7 +81,6 @@ describe('GroupedBarChart', () => {
       <GroupedBarChart
         series={buildSeries(() => [1000, 800])}
         legend={['2026', '2025']}
-        locale="en-US"
         ariaLabel="Chart"
         dataTableCaption="Data"
       />,
@@ -103,7 +99,6 @@ describe('GroupedBarChart', () => {
       <GroupedBarChart
         series={buildSeries(() => [0, 0])}
         legend={['2026', '2025']}
-        locale="es-ES"
         ariaLabel="Chart"
         dataTableCaption="Datos mensuales"
         emptyLabel="Sin datos"
@@ -119,7 +114,6 @@ describe('GroupedBarChart', () => {
       <GroupedBarChart
         series={buildSeries()}
         legend={['2026', '2025']}
-        locale="es-ES"
         ariaLabel="Chart"
         dataTableCaption="Datos"
       />,
@@ -142,7 +136,6 @@ describe('GroupedBarChart', () => {
       <GroupedBarChart
         series={buildSeries()}
         legend={['2026', '2025']}
-        locale="es-ES"
         ariaLabel="Chart"
         dataTableCaption="Datos"
       />,
@@ -160,7 +153,6 @@ describe('GroupedBarChart', () => {
       <GroupedBarChart
         series={[{ label: 'Ene', values: [1000, 800] }]}
         legend={['2026', '2025']}
-        locale="en-US"
         ariaLabel="Chart"
         dataTableCaption="Data"
       />,

@@ -15,6 +15,7 @@ import {
 
 import { Button } from '../../components/Button/index.js';
 import { EmptyState } from '../../components/EmptyState/index.js';
+import { useFormatters } from '../../format/index.js';
 import {
   AddAccountModal,
   ArchiveConfirmModal,
@@ -66,7 +67,8 @@ function maskIban(iban: string | undefined): string {
 }
 
 export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
+  const { t } = useTranslation('common');
+  const { formatCurrency } = useFormatters();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ConfigAccount | null>(null);
@@ -216,12 +218,6 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
     }
   }, [deleteTarget, deleteUsage, load, onListChanged, t]);
 
-  const fmtCurrency = new Intl.NumberFormat(i18n.language.startsWith('es') ? 'es-ES' : 'en-US', {
-    style: 'currency',
-    currency: 'EUR',
-    useGrouping: 'always',
-  } as unknown as Intl.NumberFormatOptions);
-
   const visibleAccounts =
     state.kind === 'loaded' ? state.accounts.filter((a) => showArchived || !isArchived(a)) : [];
 
@@ -269,7 +265,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                         : 'var(--color-status-error)',
                   }}
                 >
-                  {fmtCurrency.format(totalBalance)}
+                  {formatCurrency(totalBalance)}
                 </strong>
               </span>
             </div>
@@ -463,7 +459,7 @@ export function CuentasTab({ onListChanged }: CuentasTabProps): JSX.Element {
                             fontWeight: 'var(--font-weight-medium)',
                           }}
                         >
-                          {fmtCurrency.format(currentBalanceFor(a))}
+                          {formatCurrency(currentBalanceFor(a))}
                         </td>
                         <td>
                           <div className="ot-config__row-actions">

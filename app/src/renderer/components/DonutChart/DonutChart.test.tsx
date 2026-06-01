@@ -3,7 +3,6 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { DonutChart, type DonutChartSlice } from './DonutChart.js';
 
-const LOCALE = 'es-ES';
 const CURRENCY = 'EUR';
 
 describe('DonutChart', () => {
@@ -14,15 +13,7 @@ describe('DonutChart', () => {
   });
 
   it('renders empty state when no slices', () => {
-    render(
-      <DonutChart
-        slices={[]}
-        total={0}
-        ariaLabel="Empty chart"
-        locale={LOCALE}
-        currency={CURRENCY}
-      />,
-    );
+    render(<DonutChart slices={[]} total={0} ariaLabel="Empty chart" currency={CURRENCY} />);
 
     expect(screen.getByRole('img', { name: 'Empty chart' })).toBeDefined();
     expect(screen.getByText('Sin datos')).toBeDefined();
@@ -35,7 +26,6 @@ describe('DonutChart', () => {
         total={0}
         emptyLabel="No hay datos"
         ariaLabel="Empty chart"
-        locale={LOCALE}
         currency={CURRENCY}
       />,
     );
@@ -51,14 +41,13 @@ describe('DonutChart', () => {
         slices={slices}
         total={1000}
         ariaLabel="Single segment chart"
-        locale={LOCALE}
         currency={CURRENCY}
       />,
     );
 
     expect(screen.getByRole('img', { name: 'Single segment chart' })).toBeDefined();
     // Center should show total
-    const centerValues = screen.getAllByText('1.000,00 €');
+    const centerValues = screen.getAllByText('€1,000.00');
     expect(centerValues.length).toBeGreaterThan(0);
   });
 
@@ -70,13 +59,7 @@ describe('DonutChart', () => {
     const slices = [createSlice('Only', 500, 'cat-only')];
 
     const { container } = render(
-      <DonutChart
-        slices={slices}
-        total={500}
-        ariaLabel="Full ring chart"
-        locale={LOCALE}
-        currency={CURRENCY}
-      />,
+      <DonutChart slices={slices} total={500} ariaLabel="Full ring chart" currency={CURRENCY} />,
     );
 
     const segments = container.querySelectorAll('circle.ot-donut-chart__segment');
@@ -99,7 +82,6 @@ describe('DonutChart', () => {
         slices={slices}
         total={1800}
         ariaLabel="Multi segment chart"
-        locale={LOCALE}
         currency={CURRENCY}
       />,
     );
@@ -123,13 +105,7 @@ describe('DonutChart', () => {
     ];
 
     render(
-      <DonutChart
-        slices={slices}
-        total={4270}
-        ariaLabel="Chart with otras"
-        locale={LOCALE}
-        currency={CURRENCY}
-      />,
+      <DonutChart slices={slices} total={4270} ariaLabel="Chart with otras" currency={CURRENCY} />,
     );
 
     // Should render exactly 6 segments (top 5 + Otras)
@@ -151,7 +127,6 @@ describe('DonutChart', () => {
         total={500}
         centerLabel="INGRESOS"
         ariaLabel="Custom label chart"
-        locale={LOCALE}
         currency={CURRENCY}
       />,
     );
@@ -167,7 +142,6 @@ describe('DonutChart', () => {
         slices={slices}
         total={1500}
         ariaLabel="Chart with data table"
-        locale={LOCALE}
         currency={CURRENCY}
       />,
     );
@@ -177,8 +151,8 @@ describe('DonutChart', () => {
     expect(table.textContent).toContain('Donations');
     expect(table.textContent).toContain('Events');
     // Formatted values are in the table
-    expect(table.textContent).toMatch(/1\.000,00/);
-    expect(table.textContent).toMatch(/500,00/);
+    expect(table.textContent).toMatch(/1,000\.00/);
+    expect(table.textContent).toMatch(/500\.00/);
   });
 
   it('respects custom size', () => {
@@ -190,7 +164,6 @@ describe('DonutChart', () => {
         total={100}
         size={200}
         ariaLabel="Custom size"
-        locale={LOCALE}
         currency={CURRENCY}
       />,
     );
@@ -213,13 +186,7 @@ describe('DonutChart', () => {
     ];
 
     const { container } = render(
-      <DonutChart
-        slices={slices}
-        total={10000}
-        ariaLabel="Skewed chart"
-        locale={LOCALE}
-        currency={CURRENCY}
-      />,
+      <DonutChart slices={slices} total={10000} ariaLabel="Skewed chart" currency={CURRENCY} />,
     );
 
     const segments = container.querySelectorAll('circle.ot-donut-chart__segment');
@@ -243,13 +210,7 @@ describe('DonutChart', () => {
     const slices = [createSlice('Mega', 9950, 'cat-mega'), createSlice('Tiny', 50, 'cat-tiny')];
 
     const { container } = render(
-      <DonutChart
-        slices={slices}
-        total={10000}
-        ariaLabel="Near-full chart"
-        locale={LOCALE}
-        currency={CURRENCY}
-      />,
+      <DonutChart slices={slices} total={10000} ariaLabel="Near-full chart" currency={CURRENCY} />,
     );
 
     const segments = container.querySelectorAll('circle.ot-donut-chart__segment');
@@ -265,13 +226,7 @@ describe('DonutChart', () => {
     const slices = [createSlice('Cat A', 100, 'cat-a'), createSlice('Cat B', 200, 'cat-b')];
 
     const { container } = render(
-      <DonutChart
-        slices={slices}
-        total={300}
-        ariaLabel="Color test"
-        locale={LOCALE}
-        currency={CURRENCY}
-      />,
+      <DonutChart slices={slices} total={300} ariaLabel="Color test" currency={CURRENCY} />,
     );
 
     const segments = container.querySelectorAll('circle.ot-donut-chart__segment');

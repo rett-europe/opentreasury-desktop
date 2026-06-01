@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import './DonutChart.css';
 
 export type DonutChartSlice = {
@@ -15,7 +15,6 @@ export type DonutChartProps = {
   readonly centerLabel?: string;
   readonly emptyLabel?: string;
   readonly ariaLabel: string;
-  readonly locale: string;
   readonly currency?: string;
 };
 
@@ -50,9 +49,9 @@ export function DonutChart({
   centerLabel = 'TOTAL',
   emptyLabel = 'Sin datos',
   ariaLabel,
-  locale,
   currency = 'EUR',
 }: DonutChartProps) {
+  const { formatCurrency, formatPercent } = useFormatters();
   const radius = (size - thickness) / 2;
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
@@ -143,7 +142,7 @@ export function DonutChart({
                 strokeWidth={thickness}
                 className="ot-donut-chart__segment"
               >
-                <title>{`${seg.slice.label}: ${formatCurrency(seg.slice.value, locale, currency)} (${seg.percentage.toFixed(1)}%)`}</title>
+                <title>{`${seg.slice.label}: ${formatCurrency(seg.slice.value, currency)} (${formatPercent(seg.percentage / 100, { minimumFractionDigits: 1, maximumFractionDigits: 1 })})`}</title>
               </circle>
             );
           }
@@ -161,7 +160,7 @@ export function DonutChart({
               transform={`rotate(${seg.startAngle} ${center} ${center})`}
               className="ot-donut-chart__segment"
             >
-              <title>{`${seg.slice.label}: ${formatCurrency(seg.slice.value, locale, currency)} (${seg.percentage.toFixed(1)}%)`}</title>
+              <title>{`${seg.slice.label}: ${formatCurrency(seg.slice.value, currency)} (${formatPercent(seg.percentage / 100, { minimumFractionDigits: 1, maximumFractionDigits: 1 })})`}</title>
             </circle>
           );
         })}
@@ -183,7 +182,7 @@ export function DonutChart({
           textAnchor="middle"
           dominantBaseline="middle"
         >
-          {formatCurrency(total, locale, currency)}
+          {formatCurrency(total, currency)}
         </text>
       </svg>
 
@@ -201,8 +200,13 @@ export function DonutChart({
           {segments.map((seg) => (
             <tr key={seg.slice.categoryId}>
               <td>{seg.slice.label}</td>
-              <td>{formatCurrency(seg.slice.value, locale, currency)}</td>
-              <td>{seg.percentage.toFixed(1)}%</td>
+              <td>{formatCurrency(seg.slice.value, currency)}</td>
+              <td>
+                {formatPercent(seg.percentage / 100, {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 1,
+                })}
+              </td>
             </tr>
           ))}
         </tbody>

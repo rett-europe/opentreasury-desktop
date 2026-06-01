@@ -45,8 +45,8 @@ describe('DateRangePicker', () => {
     );
     const fromEl = screen.getByLabelText('From') as HTMLInputElement;
     const toEl = screen.getByLabelText('To') as HTMLInputElement;
-    fireEvent.change(fromEl, { target: { value: '2026-04-10' } });
-    fireEvent.change(toEl, { target: { value: '2026-04-01' } });
+    fireEvent.change(fromEl, { target: { value: '04/10/2026' } });
+    fireEvent.change(toEl, { target: { value: '04/01/2026' } });
     const applyBtn = screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement;
     expect(applyBtn.disabled).toBe(true);
     expect(screen.getByRole('alert').textContent).toBe('Invalid range');
@@ -61,7 +61,7 @@ describe('DateRangePicker', () => {
         customLabels={LABELS}
       />,
     );
-    expect((screen.getByLabelText('From') as HTMLInputElement).value).toBe('2026-04-01');
+    expect((screen.getByLabelText('From') as HTMLInputElement).value).toBe('04/01/2026');
     rerender(
       <DateRangePicker
         value={{ from: new Date('2026-01-01T00:00:00Z'), to: new Date('2026-03-31T00:00:00Z') }}
@@ -70,20 +70,32 @@ describe('DateRangePicker', () => {
         customLabels={LABELS}
       />,
     );
-    expect((screen.getByLabelText('From') as HTMLInputElement).value).toBe('2026-01-01');
-    expect((screen.getByLabelText('To') as HTMLInputElement).value).toBe('2026-03-31');
+    expect((screen.getByLabelText('From') as HTMLInputElement).value).toBe('01/01/2026');
+    expect((screen.getByLabelText('To') as HTMLInputElement).value).toBe('03/31/2026');
   });
 
-  it('applies native min/max constraints derived from the entered range', () => {
+  it('emits the entered custom range (via the preference-formatted DateInput) on Apply', () => {
+    // Issue #353 — the custom inputs are the custom DateInput, so they accept and
+    // display the configured numeric format (en default → MM/DD/YYYY) rather than
+    // the native control's OS-locale text. A valid range enables Apply and emits
+    // real Date bounds.
+    const onChange = vi.fn();
     render(
-      <DateRangePicker value={null} onChange={vi.fn()} presets={PRESETS} customLabels={LABELS} />,
+      <DateRangePicker value={null} onChange={onChange} presets={PRESETS} customLabels={LABELS} />,
     );
     const fromEl = screen.getByLabelText('From') as HTMLInputElement;
     const toEl = screen.getByLabelText('To') as HTMLInputElement;
-    fireEvent.change(fromEl, { target: { value: '2026-04-10' } });
-    fireEvent.change(toEl, { target: { value: '2026-04-20' } });
-    expect(toEl.getAttribute('min')).toBe('2026-04-10');
-    expect(fromEl.getAttribute('max')).toBe('2026-04-20');
+    fireEvent.change(fromEl, { target: { value: '04/10/2026' } });
+    fireEvent.change(toEl, { target: { value: '04/20/2026' } });
+    expect(fromEl.value).toBe('04/10/2026');
+    expect(toEl.value).toBe('04/20/2026');
+    const applyBtn = screen.getByRole('button', { name: 'Apply' }) as HTMLButtonElement;
+    expect(applyBtn.disabled).toBe(false);
+    fireEvent.click(applyBtn);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const arg = onChange.mock.calls[0]?.[0] as { from: Date; to: Date };
+    expect(arg.from.toISOString().slice(0, 10)).toBe('2026-04-10');
+    expect(arg.to.toISOString().slice(0, 10)).toBe('2026-04-20');
   });
 });
 

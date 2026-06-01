@@ -7,7 +7,6 @@ const defaults = {
   accountId: 'acc-1',
   accountName: 'Caja Principal',
   accountColor: '#9b72cf',
-  locale: 'es-ES',
   labels: { income: 'Ingresos', expense: 'Gastos' },
 };
 

@@ -4,6 +4,7 @@
 // save dialog. OS-illegal characters are stripped and the stem is truncated to
 // a safe length.
 
+import { formatExportDate, type DateFormat } from '../../shared/format/index.js';
 import type { ExportFilters, ExportFormat } from '../../shared/ipc-contracts/export.js';
 import type { ExportLocale } from './types.js';
 
@@ -22,10 +23,13 @@ export function buildExportFilename(
   locale: ExportLocale,
   format: ExportFormat,
   filters: ExportFilters,
+  dateFormat: DateFormat,
 ): string {
   const isEs = locale === 'es';
   const prefix = isEs ? 'OpenTreasury-Movimientos' : 'OpenTreasury-Movements';
-  const range = `${filters.dateFrom}_${filters.dateTo}`;
+  const from = formatExportDate(filters.dateFrom, dateFormat).replaceAll('/', '-');
+  const to = formatExportDate(filters.dateTo, dateFormat).replaceAll('/', '-');
+  const range = `${from}_${to}`;
 
   const segments: string[] = [];
   if ((filters.accountIds?.length ?? 0) > 0) {

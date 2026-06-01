@@ -13,6 +13,7 @@ import { promises as fs } from 'node:fs';
 import * as nodePath from 'node:path';
 import { decrypt, encrypt, randomBytes } from '../../core/crypto/primitives.js';
 import { emptyGateState, type GateState } from '../../core/export/gate.js';
+import type { DateFormat, NumberFormat } from '../../shared/format/index.js';
 import type {
   ExportFilters,
   ExportFormat,
@@ -35,6 +36,8 @@ export interface PendingExport {
   readonly format: ExportFormat;
   readonly filters: ExportFilters;
   readonly locale: ExportLocaleCode;
+  readonly dateFormat: DateFormat;
+  readonly numberFormat: NumberFormat;
   /** Absolute destination chosen in the save dialog. Never crosses IPC. */
   readonly destPath: string;
   readonly basename: string;
@@ -61,6 +64,8 @@ export interface MintPendingInput {
   readonly format: ExportFormat;
   readonly filters: ExportFilters;
   readonly locale: ExportLocaleCode;
+  readonly dateFormat: DateFormat;
+  readonly numberFormat: NumberFormat;
   readonly destPath: string;
   readonly basename: string;
   readonly estimatedRowCount: number;
@@ -81,6 +86,8 @@ export function mintPendingExport(input: MintPendingInput): PendingExport {
     format: input.format,
     filters: input.filters,
     locale: input.locale,
+    dateFormat: input.dateFormat,
+    numberFormat: input.numberFormat,
     destPath: input.destPath,
     basename: input.basename,
     estimatedRowCount: input.estimatedRowCount,

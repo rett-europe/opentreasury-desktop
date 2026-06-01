@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
+import { DateInput } from '../DateInput/index.js';
 import type { DateRange } from '../../types/movement.js';
 import './DateRangePicker.css';
 
 /**
  * DateRangePicker v0.1 — simplified from components-v1.md §4.
  *
- * DECISION (Trinity, 2026-04-19): v0.1 uses native `<input type="date">` for the
- * custom-range inputs. Rich cross-browser calendar grid deferred to v0.2. This
- * keeps the critical UX-003 flow unblocked today without a calendar dep, and
- * native inputs are fully keyboard-accessible + locale-aware on all OSes.
+ * DECISION (Trinity, 2026-04-19): v0.1 used native `<input type="date">` for the
+ * custom-range inputs. Issue #353 replaced these with the custom `DateInput` so
+ * the visible date format honors the user's preference (locale-independent of UI
+ * language) instead of following the Chromium/OS locale; `DateInput` keeps the
+ * keyboard accessibility and inclusive min/max bounding of the native control.
  *
  * Accessibility:
  *  - Presets render as role="radiogroup" / role="radio" per components-v1.md §4.
@@ -124,22 +126,14 @@ export function DateRangePicker({
       <div className="ot-daterange__custom">
         <label className="ot-daterange__field-label">
           <span>{customLabels.from}</span>
-          <input
-            type="date"
-            className="ot-daterange__native"
-            value={customFrom}
-            max={customTo || undefined}
-            onChange={(e) => setCustomFrom(e.target.value)}
-          />
+          <DateInput className="ot-daterange__native" value={customFrom} onChange={setCustomFrom} />
         </label>
         <label className="ot-daterange__field-label">
           <span>{customLabels.to}</span>
-          <input
-            type="date"
+          <DateInput
             className="ot-daterange__native"
             value={customTo}
-            min={customFrom || undefined}
-            onChange={(e) => setCustomTo(e.target.value)}
+            onChange={setCustomTo}
             aria-invalid={invalid ? true : undefined}
           />
         </label>

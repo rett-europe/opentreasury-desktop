@@ -1,4 +1,4 @@
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import './AccountBarRow.css';
 
 export type AccountBarRowProps = {
@@ -9,7 +9,6 @@ export type AccountBarRowProps = {
   readonly expenseCents: number;
   /** Largest |income+expense| value across the sibling rows; drives bar width. */
   readonly maxTotalCents: number;
-  readonly locale: string;
   readonly currency?: string;
   readonly labels: {
     readonly income: string;
@@ -29,10 +28,10 @@ export function AccountBarRow({
   incomeCents,
   expenseCents,
   maxTotalCents,
-  locale,
   currency = 'EUR',
   labels,
 }: AccountBarRowProps): JSX.Element {
+  const { formatCurrency } = useFormatters();
   const total = incomeCents + expenseCents;
   const safeMax = maxTotalCents > 0 ? maxTotalCents : 1;
   const totalPct = (total / safeMax) * 100;
@@ -48,11 +47,7 @@ export function AccountBarRow({
       <div
         className="ot-account-bar-row__bar"
         role="img"
-        aria-label={`${accountName}: ${labels.income} ${formatCurrency(
-          incomeCents / 100,
-          locale,
-          currency,
-        )}, ${labels.expense} ${formatCurrency(expenseCents / 100, locale, currency)}`}
+        aria-label={`${accountName}: ${labels.income} ${formatCurrency(incomeCents / 100, currency)}, ${labels.expense} ${formatCurrency(expenseCents / 100, currency)}`}
       >
         <div
           className="ot-account-bar-row__bar-track"
@@ -75,10 +70,10 @@ export function AccountBarRow({
 
       <div className="ot-account-bar-row__values">
         <span className="ot-account-bar-row__value ot-account-bar-row__value--income ot-tnum">
-          {formatCurrency(incomeCents / 100, locale, currency)}
+          {formatCurrency(incomeCents / 100, currency)}
         </span>
         <span className="ot-account-bar-row__value ot-account-bar-row__value--expense ot-tnum">
-          {formatCurrency(expenseCents / 100, locale, currency)}
+          {formatCurrency(expenseCents / 100, currency)}
         </span>
       </div>
     </div>

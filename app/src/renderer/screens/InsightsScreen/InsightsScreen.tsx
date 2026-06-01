@@ -16,7 +16,7 @@ import {
   thisMonth,
   thisYear,
 } from '../../utils/datePresets.js';
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import type { DateRange } from '../../types/movement.js';
 import type { InsightsLandingSummaryResponse } from '../../../shared/ipc-contracts/insights.js';
 import './InsightsScreen.css';
@@ -47,7 +47,8 @@ export interface InsightsScreenProps {
  * Layout: KPI strip + segmented toggle + tag card grid + footnote
  */
 export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.Element {
-  const { t, i18n } = useTranslation('common');
+  const { t } = useTranslation('common');
+  const { formatCurrency } = useFormatters();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
   const [displayMode, setDisplayMode] = useState<DisplayMode>('volumen');
 
@@ -231,7 +232,7 @@ export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.E
           <div className="ot-kpi__content">
             <div className="ot-kpi__label">{t('insights.kpi.totalIncome')}</div>
             <div className="ot-kpi__value ot-tnum">
-              {formatCurrency(kpis.ingresosEtiquetadosCents / 100, i18n.language)}
+              {formatCurrency(kpis.ingresosEtiquetadosCents / 100)}
             </div>
             <div className="ot-kpi__sublabel">{t('insights.kpi.totalIncomeSublabel')}</div>
           </div>
@@ -244,7 +245,7 @@ export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.E
           <div className="ot-kpi__content">
             <div className="ot-kpi__label">{t('insights.kpi.totalExpense')}</div>
             <div className="ot-kpi__value ot-tnum">
-              {formatCurrency(kpis.gastosEtiquetadosCents / 100, i18n.language)}
+              {formatCurrency(kpis.gastosEtiquetadosCents / 100)}
             </div>
             <div className="ot-kpi__sublabel">{t('insights.kpi.totalExpenseSublabel')}</div>
           </div>

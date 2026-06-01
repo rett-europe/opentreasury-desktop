@@ -11,7 +11,7 @@ import type {
   SaldoCategoryNet,
   SaldoComparisonResponse,
 } from '../../../shared/ipc-contracts/saldo.js';
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import './SaldoScreen.css';
 
 /**
@@ -49,9 +49,7 @@ type ScreenState =
   | { kind: 'loaded'; current: YearData; prior?: YearData | undefined }
   | { kind: 'error'; message: string };
 
-function resolveLocale(lng: string): string {
-  return lng.startsWith('es') ? 'es-ES' : 'en-US';
-}
+type FormatPercentFn = ReturnType<typeof useFormatters>['formatPercent'];
 
 function isoStartOfYear(year: number): string {
   return `${year}-01-01`;
@@ -124,8 +122,7 @@ function yearDataFromResponsePrior(r: SaldoComparisonResponse): YearData {
 const ZERO_12: ReadonlyArray<number> = Object.freeze(Array.from({ length: 12 }, () => 0));
 
 export function SaldoScreen(): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const locale = resolveLocale(i18n.language);
+  const { t } = useTranslation('common');
 
   // Available year range: until a dedicated IPC exists, expose the last 6
   // calendar years. Storage values are clamped to this range on load.
@@ -272,7 +269,6 @@ export function SaldoScreen(): JSX.Element {
           view={view}
           current={state.current}
           prior={state.prior}
-          locale={locale}
           showSubcategories={showSubcategories}
           onShowSubcategoriesChange={setShowSubcategories}
         />
@@ -457,7 +453,6 @@ type LoadedProps = {
   readonly view: ViewState;
   readonly current: YearData;
   readonly prior?: YearData | undefined;
-  readonly locale: string;
   readonly showSubcategories: boolean;
   readonly onShowSubcategoriesChange: (next: boolean) => void;
 };
@@ -466,7 +461,6 @@ function SaldoLoadedView({
   view,
   current,
   prior,
-  locale,
   showSubcategories,
   onShowSubcategoriesChange,
 }: LoadedProps): JSX.Element {
@@ -500,14 +494,13 @@ function SaldoLoadedView({
       >
         {announce}
       </div>
-      <KpiStrip view={view} current={current} prior={prior} locale={locale} />
-      <MonthlyChart view={view} current={current} locale={locale} />
+      <KpiStrip view={view} current={current} prior={prior} />
+      <MonthlyChart view={view} current={current} />
       {isEmpty ? null : (
         <CategoryPanels
           view={view}
           current={current}
           prior={prior}
-          locale={locale}
           showSubcategories={showSubcategories}
           onShowSubcategoriesChange={onShowSubcategoriesChange}
         />
@@ -530,7 +523,6 @@ type KpiStripProps = {
   readonly view: ViewState;
   readonly current: YearData;
   readonly prior?: YearData | undefined;
-  readonly locale: string;
 };
 
 function pctDelta(cur: number, prev: number): number | null {
@@ -544,12 +536,11 @@ function classifyDelta(delta: number | null): 'up' | 'down' | 'flat' | 'noPrior'
   return delta > 0 ? 'up' : 'down';
 }
 
-function formatPct(delta: number, locale: string): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'percent',
+function formatPct(delta: number, formatPercent: FormatPercentFn): string {
+  return formatPercent(delta, {
     signDisplay: 'exceptZero',
     maximumFractionDigits: 0,
-  }).format(delta);
+  });
 }
 
 // Issue #78 — explicit sign prefix for category/subcategory rows whose signed
@@ -561,9 +552,10 @@ function reversedSignPrefix(reversed: boolean, kind: 'income' | 'expense'): stri
   return kind === 'expense' ? '+' : '\u2212';
 }
 
-function KpiStrip({ view, current, prior, locale }: KpiStripProps): JSX.Element {
+function KpiStrip({ view, current, prior }: KpiStripProps): JSX.Element {
   const { t } = useTranslation('common');
-  const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
+  const { formatCurrency, formatPercent } = useFormatters();
+  const fmt = (v: number): string => formatCurrency(v, 'EUR');
 
   const curIncome = current.income;
   const curExpense = current.expense;
@@ -602,7 +594,7 @@ function KpiStrip({ view, current, prior, locale }: KpiStripProps): JSX.Element 
         value={fmt(curIncome)}
         sublabel={incomeSublabel}
         delta={incomeDelta}
-        locale={locale}
+        formatPercent={formatPercent}
       />
       <KpiCard
         testId="saldo-kpi-expense"
@@ -612,7 +604,7 @@ function KpiStrip({ view, current, prior, locale }: KpiStripProps): JSX.Element 
         value={fmt(curExpense)}
         sublabel={expenseSublabel}
         delta={expenseDelta}
-        locale={locale}
+        formatPercent={formatPercent}
       />
       <KpiCard
         testId="saldo-kpi-net"
@@ -622,7 +614,7 @@ function KpiStrip({ view, current, prior, locale }: KpiStripProps): JSX.Element 
         value={fmt(curNet)}
         sublabel={netSublabel}
         delta={netDelta}
-        locale={locale}
+        formatPercent={formatPercent}
       />
     </div>
   );
@@ -636,7 +628,7 @@ type KpiCardProps = {
   readonly value: string;
   readonly sublabel: string;
   readonly delta: number | null;
-  readonly locale: string;
+  readonly formatPercent: FormatPercentFn;
 };
 
 function KpiCard({
@@ -647,7 +639,7 @@ function KpiCard({
   value,
   sublabel,
   delta,
-  locale,
+  formatPercent,
 }: KpiCardProps): JSX.Element {
   const kind = classifyDelta(delta);
   const showDelta = delta !== null && kind !== 'noPrior';
@@ -664,7 +656,7 @@ function KpiCard({
               data-testid={`${testId}-delta`}
             >
               {kind === 'up' ? '↑ ' : kind === 'down' ? '↓ ' : ''}
-              {formatPct(delta as number, locale)}
+              {formatPct(delta as number, formatPercent)}
             </div>
           ) : null}
         </div>
@@ -705,10 +697,9 @@ const MONTH_KEYS = [
 type MonthlyChartProps = {
   readonly view: ViewState;
   readonly current: YearData;
-  readonly locale: string;
 };
 
-function MonthlyChart({ view, current, locale }: MonthlyChartProps): JSX.Element {
+function MonthlyChart({ view, current }: MonthlyChartProps): JSX.Element {
   const { t } = useTranslation('common');
   const year = view.currentYear;
 
@@ -747,7 +738,6 @@ function MonthlyChart({ view, current, locale }: MonthlyChartProps): JSX.Element
       <GroupedBarChart
         series={series}
         legend={legend}
-        locale={locale}
         ariaLabel={t('saldo.chart.monthlyAriaLabel', { year })}
         dataTableCaption={t('saldo.chart.dataTableCaption')}
         emptyLabel={isEmpty ? t('saldo.chart.emptyYear') : undefined}
@@ -764,7 +754,6 @@ type CategoryPanelsProps = {
   readonly view: ViewState;
   readonly current: YearData;
   readonly prior?: YearData | undefined;
-  readonly locale: string;
   readonly showSubcategories: boolean;
   readonly onShowSubcategoriesChange: (next: boolean) => void;
 };
@@ -773,7 +762,6 @@ function CategoryPanels({
   view,
   current,
   prior,
-  locale,
   showSubcategories,
   onShowSubcategoriesChange,
 }: CategoryPanelsProps): JSX.Element {
@@ -808,7 +796,6 @@ function CategoryPanels({
         totalValue={current.income}
         rows={incomeRows}
         view={view}
-        locale={locale}
         showSubcategories={showSubcategories}
         onShowSubcategoriesChange={onShowSubcategoriesChange}
       />
@@ -820,7 +807,6 @@ function CategoryPanels({
         totalValue={current.expense}
         rows={expenseRows}
         view={view}
-        locale={locale}
         showSubcategories={showSubcategories}
         onShowSubcategoriesChange={onShowSubcategoriesChange}
       />
@@ -1084,7 +1070,6 @@ type CategoryPanelProps = {
   readonly totalValue: number;
   readonly rows: ReadonlyArray<PanelRow>;
   readonly view: ViewState;
-  readonly locale: string;
   readonly showSubcategories: boolean;
   readonly onShowSubcategoriesChange: (next: boolean) => void;
 };
@@ -1097,13 +1082,13 @@ function CategoryPanel({
   totalValue,
   rows,
   view,
-  locale,
   showSubcategories,
   onShowSubcategoriesChange,
 }: CategoryPanelProps): JSX.Element {
   const { t } = useTranslation('common');
+  const { formatCurrency, formatPercent } = useFormatters();
   const compareMode = view.mode === 'compare' && view.priorYear !== undefined;
-  const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
+  const fmt = (v: number): string => formatCurrency(v, 'EUR');
   const totalForShare = rows.reduce((acc, r) => acc + r.current, 0);
 
   // E1/E2 (UX-004a §4.3): only render subrows when category has ≥2 subcategories
@@ -1145,15 +1130,15 @@ function CategoryPanel({
   // column. No grid topology change; no touch on `.ot-saldo-subrow` chrome
   // (border-left / padding) which Mouse owns.
   const panelColWidths = useMemo(() => {
-    const fmtLocal = (v: number): string => formatCurrency(v, locale, 'EUR');
+    const fmtLocal = (v: number): string => formatCurrency(v, 'EUR');
     const formatDeltaText = (deltaVal: number | null): string => {
       const k = classifyDelta(deltaVal);
       const text =
         k === 'noPrior'
           ? '—'
           : k === 'flat'
-            ? formatPct(0, locale)
-            : formatPct(deltaVal as number, locale);
+            ? formatPct(0, formatPercent)
+            : formatPct(deltaVal as number, formatPercent);
       const arrow = k === 'up' ? '↑ ' : k === 'down' ? '↓ ' : '';
       return `${arrow}${text}`;
     };
@@ -1209,7 +1194,7 @@ function CategoryPanel({
       delta: `${maxDelta + 1}ch`,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, showSubcategories, kind, locale]);
+  }, [rows, showSubcategories, kind, formatCurrency, formatPercent]);
 
   const panelRowsStyle = {
     '--saldo-col-name': panelColWidths.name,
@@ -1268,7 +1253,6 @@ function CategoryPanel({
                   row={row}
                   kind={kind}
                   priorYear={view.priorYear ?? view.currentYear - 1}
-                  locale={locale}
                   panelMaxAbs={panelMaxAbs}
                   ariaExpanded={row.meaningfulSubcount >= 2 ? showSubcategories : undefined}
                 />
@@ -1280,7 +1264,6 @@ function CategoryPanel({
                         parent={row}
                         kind={kind}
                         priorYear={view.priorYear ?? view.currentYear - 1}
-                        locale={locale}
                         panelMaxAbs={panelMaxAbs}
                       />
                     ))
@@ -1311,7 +1294,6 @@ function CategoryPanel({
                   row={row}
                   kind={kind}
                   totalForShare={totalForShare}
-                  locale={locale}
                   ariaExpanded={row.meaningfulSubcount >= 2 ? showSubcategories : undefined}
                 />
                 {shouldRenderSubrows(row)
@@ -1322,7 +1304,6 @@ function CategoryPanel({
                         parent={row}
                         kind={kind}
                         totalForShare={totalForShare}
-                        locale={locale}
                       />
                     ))
                   : null}
@@ -1339,7 +1320,6 @@ type CompareRowProps = {
   readonly row: PanelRow;
   readonly kind: 'income' | 'expense';
   readonly priorYear: number;
-  readonly locale: string;
   readonly panelMaxAbs: number;
   readonly ariaExpanded?: boolean | undefined;
 };
@@ -1348,12 +1328,12 @@ function CompareRow({
   row,
   kind,
   priorYear,
-  locale,
   panelMaxAbs,
   ariaExpanded,
 }: CompareRowProps): JSX.Element {
   const { t } = useTranslation('common');
-  const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
+  const { formatCurrency, formatPercent } = useFormatters();
+  const fmt = (v: number): string => formatCurrency(v, 'EUR');
   // Amendment §3.1: scale against the panel-shared denominator instead of the
   // per-row max. `panelMaxAbs` is clamped to ≥1 by the caller.
   const priorPct = (Math.abs(row.prior) / panelMaxAbs) * 100;
@@ -1363,8 +1343,8 @@ function CompareRow({
     deltaKind === 'noPrior'
       ? '—'
       : deltaKind === 'flat'
-        ? formatPct(0, locale)
-        : formatPct(row.delta as number, locale);
+        ? formatPct(0, formatPercent)
+        : formatPct(row.delta as number, formatPercent);
   return (
     <div
       className="ot-saldo-row ot-saldo-row--compare"
@@ -1428,18 +1408,12 @@ type SingleRowProps = {
   readonly row: PanelRow;
   readonly kind: 'income' | 'expense';
   readonly totalForShare: number;
-  readonly locale: string;
   readonly ariaExpanded?: boolean | undefined;
 };
 
-function SingleRow({
-  row,
-  kind,
-  totalForShare,
-  locale,
-  ariaExpanded,
-}: SingleRowProps): JSX.Element {
-  const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
+function SingleRow({ row, kind, totalForShare, ariaExpanded }: SingleRowProps): JSX.Element {
+  const { formatCurrency, formatPercent } = useFormatters();
+  const fmt = (v: number): string => formatCurrency(v, 'EUR');
   const share = totalForShare > 0 ? row.current / totalForShare : 0;
   return (
     <div
@@ -1456,10 +1430,7 @@ function SingleRow({
         {fmt(row.current)}
       </span>
       <span className="ot-saldo-row__delta">
-        {new Intl.NumberFormat(locale, {
-          style: 'percent',
-          maximumFractionDigits: 0,
-        }).format(share)}
+        {formatPercent(share, { maximumFractionDigits: 0 })}
       </span>
     </div>
   );
@@ -1477,7 +1448,6 @@ type CompareSubRowProps = {
   readonly parent: PanelRow;
   readonly kind: 'income' | 'expense';
   readonly priorYear: number;
-  readonly locale: string;
   readonly panelMaxAbs: number;
 };
 
@@ -1486,11 +1456,11 @@ function CompareSubRow({
   parent,
   kind,
   priorYear,
-  locale,
   panelMaxAbs,
 }: CompareSubRowProps): JSX.Element {
   const { t } = useTranslation('common');
-  const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
+  const { formatCurrency, formatPercent } = useFormatters();
+  const fmt = (v: number): string => formatCurrency(v, 'EUR');
   // Amendment §3.1: shared per-panel scale. `panelMaxAbs` is clamped to ≥1.
   const priorPct = (Math.abs(sub.prior) / panelMaxAbs) * 100;
   const currentPct = (Math.abs(sub.current) / panelMaxAbs) * 100;
@@ -1499,8 +1469,8 @@ function CompareSubRow({
     deltaKind === 'noPrior'
       ? '—'
       : deltaKind === 'flat'
-        ? formatPct(0, locale)
-        : formatPct(sub.delta as number, locale);
+        ? formatPct(0, formatPercent)
+        : formatPct(sub.delta as number, formatPercent);
   const subName = sub.isOtras
     ? t('saldo.subcategories.otras.label')
     : (sub.name ?? t('saldo.subcategories.uncategorized'));
@@ -1598,18 +1568,12 @@ type SingleSubRowProps = {
   readonly parent: PanelRow;
   readonly kind: 'income' | 'expense';
   readonly totalForShare: number;
-  readonly locale: string;
 };
 
-function SingleSubRow({
-  sub,
-  parent,
-  kind,
-  totalForShare,
-  locale,
-}: SingleSubRowProps): JSX.Element {
+function SingleSubRow({ sub, parent, kind, totalForShare }: SingleSubRowProps): JSX.Element {
   const { t } = useTranslation('common');
-  const fmt = (v: number): string => formatCurrency(v, locale, 'EUR');
+  const { formatCurrency, formatPercent } = useFormatters();
+  const fmt = (v: number): string => formatCurrency(v, 'EUR');
   const share = totalForShare > 0 ? sub.current / totalForShare : 0;
   const subName = sub.isOtras
     ? t('saldo.subcategories.otras.label')
@@ -1627,10 +1591,7 @@ function SingleSubRow({
     categoryName: parentName,
     current: fmt(sub.current),
     prior: fmt(sub.prior),
-    delta: new Intl.NumberFormat(locale, {
-      style: 'percent',
-      maximumFractionDigits: 0,
-    }).format(share),
+    delta: formatPercent(share, { maximumFractionDigits: 0 }),
   });
 
   const nameClass = sub.isOtras
@@ -1655,10 +1616,7 @@ function SingleSubRow({
         {fmt(sub.current)}
       </span>
       <span className="ot-saldo-subrow__delta">
-        {new Intl.NumberFormat(locale, {
-          style: 'percent',
-          maximumFractionDigits: 0,
-        }).format(share)}
+        {formatPercent(share, { maximumFractionDigits: 0 })}
       </span>
     </div>
   );

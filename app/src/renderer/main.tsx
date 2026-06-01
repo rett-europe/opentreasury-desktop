@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from './i18n/index.js';
 import { App } from './App.js';
+import { FormatPreferencesProvider } from './format/index.js';
 // Self-hosted Inter font (regular/medium/semibold/bold). Bundled via
 // @fontsource/inter so Electron renders consistent weights offline — the
 // previous Google Fonts CDN @import intermittently failed to load, causing
@@ -26,7 +27,9 @@ if (!container) throw new Error('Root element not found');
 createRoot(container).render(
   <StrictMode>
     <I18nextProvider i18n={i18n}>
-      <App />
+      <FormatPreferencesProvider>
+        <App />
+      </FormatPreferencesProvider>
     </I18nextProvider>
   </StrictMode>,
 );

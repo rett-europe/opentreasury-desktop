@@ -6,17 +6,24 @@
 // the dest-guard). CSV uses the shared `core/export/csv` encoder; XLSX uses the
 // exceljs streaming workbook writer so we never materialise the whole sheet.
 //
-// The amount column is written as a real number in XLSX and as a dot-decimal
-// string in CSV. The date column is a real (timezone-safe) Excel date in XLSX
-// and ISO text in CSV. All other columns are strings; text cells are protected
-// from spreadsheet formula injection (CSV via the encoder, XLSX via explicit
-// string cells + the same neutralization for leading formula triggers).
+// The amount column is written as a real number in XLSX and as a preference-
+// formatted (eu/us) string in CSV. The date column is a real (timezone-safe)
+// Excel date in XLSX and preference-formatted (DMY/MDY/ISO) text in CSV. All
+// other columns are strings; text cells are protected from spreadsheet formula
+// injection (CSV via the encoder, XLSX via explicit string cells + the same
+// neutralization for leading formula triggers).
 //
 // SPEC-027 §14 — the XLSX path applies deterministic, streaming-safe
 // presentation polish (frozen styled header, fixed column widths/alignment/wrap,
 // amount + date number formats, a metadata allowlist). All styling is
 // column-level and configured once before the first row commit, so the per-row
-// loop stays allocation-light at the 100k-row cap (NFR6). CSV is unchanged.
+// loop stays allocation-light at the 100k-row cap (NFR6).
+//
+// Issue #353 — the user's configurable date format (DMY/MDY/ISO) and number
+// format (eu/us) drive BOTH paths via the IPC contract. CSV honors them exactly
+// in the emitted text. XLSX keeps machine-readable numeric/date cells and selects
+// the column-level date numFmt from the preference; the amount stays a plain
+// numeric `#,##0.00` (see the cross-locale separator note below).
 
 import { createWriteStream, promises as fs } from 'node:fs';
 import * as nodePath from 'node:path';
@@ -32,6 +39,12 @@ import {
   type ExportLocale,
   type ExportRow,
 } from '../../core/export/types.js';
+import {
+  formatExportAmount,
+  formatExportDate,
+  type DateFormat,
+  type NumberFormat,
+} from '../../shared/format/index.js';
 import type { ExportFormat } from '../../shared/ipc-contracts/export.js';
 
 const SHEET_NAME = 'Movimientos';
@@ -45,13 +58,11 @@ const HEADER_FILL_ARGB = 'FF6D4D8C';
 const HEADER_FONT_ARGB = 'FFFFFFFF';
 
 /**
- * Per-locale display formats for the XLSX number/date columns (FR28/FR29).
- *
- * This is the single seam through which issue #353 (user-configurable date and
- * decimal/thousands preference) will later inject the user's choice WITHOUT
- * touching the row-writing loop. Until then it supplies the locale-driven
- * defaults. The CSV path stays locale-independent (dot decimal) per FR22 and is
- * unaffected by this map.
+ * XLSX display formats for the number/date columns (FR28/FR29), driven by the
+ * user's issue #353 preferences (NOT the UI language). The preference WINS: the
+ * Date column's `numFmt` follows the chosen date layout; the Amount column uses
+ * a locale-neutral `#,##0.00` (see the cross-locale note below). Applied
+ * column-level so the row-writing loop never adds per-cell styles (NFR6).
  */
 export interface XlsxFormat {
   /** Excel number format for the Date column (column-level numFmt). */
@@ -60,22 +71,46 @@ export interface XlsxFormat {
   readonly amountNumFmt: string;
 }
 
-export const DEFAULT_XLSX_FORMAT: Record<ExportLocale, XlsxFormat> = {
-  es: { dateNumFmt: 'dd/mm/yyyy', amountNumFmt: '#,##0.00' },
-  en: { dateNumFmt: 'yyyy-mm-dd', amountNumFmt: '#,##0.00' },
+/** Excel Date-column `numFmt` for each configurable date layout (#353/FR29). */
+const XLSX_DATE_NUM_FMT: Record<DateFormat, string> = {
+  DMY: 'dd/mm/yyyy',
+  MDY: 'mm/dd/yyyy',
+  ISO: 'yyyy-mm-dd',
 };
+
+/** Locale-neutral two-decimal, thousands-grouped amount format (no LCID). */
+const XLSX_AMOUNT_NUM_FMT = '#,##0.00';
+
+/**
+ * Resolve the XLSX column formats from the user's date/number preferences.
+ *
+ * The date layout maps directly to a literal Excel format code. The amount
+ * format is intentionally the plain `#,##0.00` for ALL number preferences — the
+ * eu/us choice cannot reliably drive xlsx display separators (see note below),
+ * so it deliberately does not branch here; the preference still controls the CSV
+ * text separator exactly, where it genuinely works.
+ */
+export function xlsxFormatFor(dateFormat: DateFormat): XlsxFormat {
+  return {
+    dateNumFmt: XLSX_DATE_NUM_FMT[dateFormat],
+    amountNumFmt: XLSX_AMOUNT_NUM_FMT,
+  };
+}
 
 // NOTE (cross-locale separators): `amountNumFmt` is a locale-NEUTRAL numeric
 // format (`#,##0.00`) with no `[$-xx-XX]` LCID modifier. The `,` and `.` in the
 // format code are placeholder tokens, not literal glyphs: desktop Excel renders
 // the actual decimal/thousands separators from the VIEWER's OS regional
-// settings, not from this format code or the export locale. So a EU-locale
-// export opened on a US-locale machine may display `1,234.50` rather than
-// `1.234,50` — the stored numeric value is identical and exact either way; only
-// the visual grouping/decimal glyphs follow the viewer. (An LCID modifier would
-// pin the currency symbol and date month/day names, but NOT the numeric
-// separators, which always defer to the viewer's locale.) This is expected
-// behaviour, not a bug; verify with a manual cross-locale open in Excel.
+// settings, not from this format code or the export preference. So an export
+// made under the EU number preference, opened on a US-locale machine, may
+// display `1,234.50` rather than `1.234,50` — the stored numeric value is
+// identical and exact either way; only the visual grouping/decimal glyphs follow
+// the viewer. (An LCID modifier would pin the currency symbol and date
+// month/day names, but NOT the numeric separators, which always defer to the
+// viewer's locale.) This is a known constraint, not a bug: the CSV path honors
+// the eu/us decimal separator EXACTLY in its text; the XLSX amount preserves an
+// exact numeric value with viewer-driven display. Verify with a manual
+// cross-locale open in Excel.
 
 /** Per-column display geometry (FR27). Order mirrors EXPORT_COLUMN_KEYS. */
 interface ColumnPresentation {
@@ -123,6 +158,8 @@ export interface WriteExportParams {
   readonly format: ExportFormat;
   readonly destPath: string;
   readonly locale: ExportLocale;
+  readonly dateFormat: DateFormat;
+  readonly numberFormat: NumberFormat;
   /** Called as rows are written. The caller throttles emission to the renderer. */
   readonly onProgress?: (rowsDone: number, rowsTotal: number) => void;
 }
@@ -136,6 +173,8 @@ function tempPathFor(destPath: string): string {
 async function writeCsv(params: WriteExportParams, tmpPath: string): Promise<void> {
   const stream = createWriteStream(tmpPath, { mode: 0o600 });
   const total = params.rows.length;
+  const dateIdx = EXPORT_COLUMN_KEYS.indexOf('date');
+  const amountIdx = EXPORT_COLUMN_KEYS.indexOf('amount');
   try {
     const write = (chunk: string): Promise<void> | void => {
       if (!stream.write(chunk)) return once(stream, 'drain').then(() => undefined);
@@ -143,7 +182,10 @@ async function writeCsv(params: WriteExportParams, tmpPath: string): Promise<voi
     await write(CSV_BOM + encodeCsvHeader(exportHeaders(params.locale)));
     let done = 0;
     for (const row of params.rows) {
-      await write(encodeCsvCells(exportRowCells(row)));
+      const cells = exportRowCells(row);
+      cells[dateIdx] = formatExportDate(row.date, params.dateFormat);
+      cells[amountIdx] = formatExportAmount(row.amount, params.numberFormat);
+      await write(encodeCsvCells(cells));
       done += 1;
       params.onProgress?.(done, total);
     }
@@ -175,7 +217,9 @@ async function writeXlsx(params: WriteExportParams, tmpPath: string): Promise<vo
     views: [{ state: 'frozen', ySplit: 1 }],
   });
 
-  const fmt = DEFAULT_XLSX_FORMAT[params.locale];
+  // Issue #353 — column formats follow the user's date preference (the amount
+  // format is preference-independent for xlsx display; see XlsxFormat note).
+  const fmt = xlsxFormatFor(params.dateFormat);
   const amountIdx = EXPORT_COLUMN_KEYS.indexOf('amount');
   const dateIdx = EXPORT_COLUMN_KEYS.indexOf('date');
 
@@ -208,7 +252,8 @@ async function writeXlsx(params: WriteExportParams, tmpPath: string): Promise<vo
   for (const row of params.rows) {
     const cells = exportRowCells(row).map((c, i) => (i === amountIdx ? c : neutralizeText(c)));
     // Amount as a real number, Date as a real (TZ-safe) date cell, the rest as
-    // neutralized string cells. No per-cell styling here (NFR6).
+    // neutralized string cells. No per-cell styling here (NFR6) — the column-level
+    // numFmt set above governs the amount/date display.
     const values = cells.map((c, i) => {
       if (i === amountIdx) return Number(formatAmount(row.amount));
       if (i === dateIdx) return excelDateFromIso(row.date);

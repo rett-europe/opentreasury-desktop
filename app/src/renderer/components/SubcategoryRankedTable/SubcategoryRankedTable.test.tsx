@@ -85,7 +85,6 @@ describe('SubcategoryRankedTable', () => {
         incomeCategoryColorMap={incomeColors}
         selectedCategoryId={null}
         onClearSelection={() => {}}
-        locale="en-US"
         {...labels}
       />,
     );
@@ -104,7 +103,6 @@ describe('SubcategoryRankedTable', () => {
         incomeCategoryColorMap={incomeColors}
         selectedCategoryId={null}
         onClearSelection={() => {}}
-        locale="en-US"
         {...labels}
       />,
     );
@@ -152,7 +150,6 @@ describe('SubcategoryRankedTable', () => {
         incomeCategoryColorMap={new Map()}
         selectedCategoryId={null}
         onClearSelection={() => {}}
-        locale="en-US"
         {...labels}
       />,
     );
@@ -192,7 +189,6 @@ describe('SubcategoryRankedTable', () => {
         incomeCategoryColorMap={incomeColors}
         selectedCategoryId={null}
         onClearSelection={() => {}}
-        locale="en-US"
         {...labels}
       />,
     );
@@ -214,7 +210,6 @@ describe('SubcategoryRankedTable', () => {
         incomeCategoryColorMap={new Map()}
         selectedCategoryId={null}
         onClearSelection={() => {}}
-        locale="en-US"
         {...labels}
       />,
     );
@@ -239,7 +234,6 @@ describe('SubcategoryRankedTable', () => {
         incomeCategoryColorMap={new Map()}
         selectedCategoryId={null}
         onClearSelection={() => {}}
-        locale="en-US"
         {...labels}
       />,
     );
@@ -261,7 +255,6 @@ describe('SubcategoryRankedTable', () => {
         incomeCategoryColorMap={incomeColors}
         selectedCategoryId={null}
         onClearSelection={() => {}}
-        locale="en-US"
         {...labels}
       />,
     );
@@ -278,7 +271,6 @@ describe('SubcategoryRankedTable', () => {
         selectedCategoryId="cat-food"
         selectedCategoryName="Food"
         onClearSelection={onClearSelection}
-        locale="en-US"
         {...labels}
       />,
     );
@@ -310,7 +302,6 @@ describe('SubcategoryRankedTable', () => {
         incomeCategoryColorMap={new Map()}
         selectedCategoryId={null}
         onClearSelection={() => {}}
-        locale="en-US"
         topN={10}
         {...labels}
       />,
@@ -334,7 +325,6 @@ describe('SubcategoryRankedTable', () => {
         incomeCategoryColorMap={incomeColors}
         selectedCategoryId={null}
         onClearSelection={() => {}}
-        locale="en-US"
         {...labels}
       />,
     );
@@ -361,7 +351,6 @@ describe('SubcategoryRankedTable', () => {
         incomeCategoryColorMap={incomeColors}
         selectedCategoryId={null}
         onClearSelection={() => {}}
-        locale="en-US"
         {...labels}
       />,
     );
@@ -376,7 +365,6 @@ describe('SubcategoryRankedTable', () => {
         incomeCategoryColorMap={incomeColors}
         selectedCategoryId={null}
         onClearSelection={() => {}}
-        locale="en-US"
         {...labels}
       />,
     );

@@ -1398,6 +1398,23 @@
       "en": "English",
       "es": "Español"
     },
+    "dateFormat": {
+      "title": "Formato de fecha",
+      "label": "Formato de fecha",
+      "options": {
+        "DMY": "DD/MM/AAAA (europeo)",
+        "MDY": "MM/DD/AAAA (EE. UU.)",
+        "ISO": "AAAA-MM-DD (ISO)"
+      }
+    },
+    "numberFormat": {
+      "title": "Formato numérico",
+      "label": "Separador decimal",
+      "options": {
+        "eu": "1.234,56 — decimal con coma",
+        "us": "1,234.56 — decimal con punto"
+      }
+    },
     "dataset": {
       "title": "Conjunto de datos",
       "idLabel": "ID del conjunto de datos",

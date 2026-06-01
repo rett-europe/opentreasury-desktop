@@ -1,5 +1,5 @@
 import { categoryColor } from '../../utils/colorHash.js';
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import './TagCard.css';
 
 export type TagCardDisplayMode = 'volumen' | 'neto' | 'mov';
@@ -37,6 +37,8 @@ export function TagCard({
   topCategorias = [],
   onClick,
 }: TagCardProps) {
+  const { formatCurrency, formatNumber } = useFormatters();
+  const formattedCount = formatNumber(kpis.count, { maximumFractionDigits: 0 });
   const resolvedColor = color ?? categoryColor(tagId);
   const isClickable = !!onClick;
 
@@ -52,8 +54,8 @@ export function TagCard({
   };
 
   const ariaLabel = archived
-    ? `${name} (archivada): ${kpis.count} movimientos, neto ${formatCurrency(kpis.neto, 'es', 'EUR')}`
-    : `${name}: ${kpis.count} movimientos, neto ${formatCurrency(kpis.neto, 'es', 'EUR')}`;
+    ? `${name} (archivada): ${formattedCount} movimientos, neto ${formatCurrency(kpis.neto, 'EUR')}`
+    : `${name}: ${formattedCount} movimientos, neto ${formatCurrency(kpis.neto, 'EUR')}`;
 
   return (
     <div
@@ -71,7 +73,7 @@ export function TagCard({
           {name}
           {archived && <span className="ot-tag-card__archived-label"> (archivada)</span>}
         </span>
-        <span className="ot-tag-card__badge">{kpis.count} mov.</span>
+        <span className="ot-tag-card__badge">{formattedCount} mov.</span>
       </div>
 
       {/* Metrics row: varies by display mode */}
@@ -81,13 +83,13 @@ export function TagCard({
             <div className="ot-tag-card__metric">
               <span className="ot-tag-card__metric-label">INGRESOS</span>
               <span className="ot-tag-card__metric-value ot-tag-card__metric-value--income">
-                {formatCurrency(kpis.ingresos, 'es', 'EUR')}
+                {formatCurrency(kpis.ingresos, 'EUR')}
               </span>
             </div>
             <div className="ot-tag-card__metric">
               <span className="ot-tag-card__metric-label">GASTOS</span>
               <span className="ot-tag-card__metric-value ot-tag-card__metric-value--expense">
-                {formatCurrency(kpis.gastos, 'es', 'EUR')}
+                {formatCurrency(kpis.gastos, 'EUR')}
               </span>
             </div>
             <div className="ot-tag-card__metric">
@@ -95,7 +97,7 @@ export function TagCard({
               <span
                 className={`ot-tag-card__metric-value ${kpis.neto >= 0 ? 'ot-tag-card__metric-value--income' : 'ot-tag-card__metric-value--expense'}`}
               >
-                {formatCurrency(kpis.neto, 'es', 'EUR')}
+                {formatCurrency(kpis.neto, 'EUR')}
               </span>
             </div>
           </>
@@ -107,7 +109,7 @@ export function TagCard({
             <span
               className={`ot-tag-card__metric-value ot-tag-card__metric-value--hero ${kpis.neto >= 0 ? 'ot-tag-card__metric-value--income' : 'ot-tag-card__metric-value--expense'}`}
             >
-              {formatCurrency(kpis.neto, 'es', 'EUR')}
+              {formatCurrency(kpis.neto, 'EUR')}
             </span>
           </div>
         )}
@@ -116,7 +118,7 @@ export function TagCard({
           <div className="ot-tag-card__metric ot-tag-card__metric--hero">
             <span className="ot-tag-card__metric-label"># MOVIMIENTOS</span>
             <span className="ot-tag-card__metric-value ot-tag-card__metric-value--hero">
-              {kpis.count}
+              {formattedCount}
             </span>
           </div>
         )}

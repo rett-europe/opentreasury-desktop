@@ -71,13 +71,33 @@ describe('exportPrepareRequestSchema', () => {
       format: 'csv',
       filters: { ...RANGE, accountIds: [ULID] },
       locale: 'es',
+      dateFormat: 'DMY',
+      numberFormat: 'eu',
     });
     expect(parsed.success).toBe(true);
   });
 
   it('rejects an unknown format', () => {
     expect(
-      exportPrepareRequestSchema.safeParse({ format: 'pdf', filters: RANGE, locale: 'en' }).success,
+      exportPrepareRequestSchema.safeParse({
+        format: 'pdf',
+        filters: RANGE,
+        locale: 'en',
+        dateFormat: 'ISO',
+        numberFormat: 'us',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects invalid format preferences', () => {
+    expect(
+      exportPrepareRequestSchema.safeParse({
+        format: 'csv',
+        filters: { ...RANGE, accountIds: [ULID] },
+        locale: 'en',
+        dateFormat: 'YMD',
+        numberFormat: 'uk',
+      }).success,
     ).toBe(false);
   });
 });

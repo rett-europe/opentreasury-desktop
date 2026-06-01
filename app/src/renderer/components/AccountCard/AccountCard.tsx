@@ -1,7 +1,7 @@
 import type * as React from 'react';
 import { Landmark } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import './AccountCard.css';
 
 export interface AccountCardProps {
@@ -25,8 +25,8 @@ export function AccountCard({
   hasSparkline = false,
   onClick,
 }: AccountCardProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
+  const { t } = useTranslation('common');
+  const { formatCurrency } = useFormatters();
   const isNegative = balance < 0;
 
   const handleClick = (): void => {
@@ -75,7 +75,7 @@ export function AccountCard({
       <div
         className={`ot-account-card__balance ${isNegative ? 'ot-account-card__balance--negative' : 'ot-account-card__balance--positive'}`}
       >
-        {formatCurrency(balance, locale)}
+        {formatCurrency(balance)}
       </div>
       {hasSparkline && <div className="ot-account-card__sparkline-placeholder" />}
     </div>

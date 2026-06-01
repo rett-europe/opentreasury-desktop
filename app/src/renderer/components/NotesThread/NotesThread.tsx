@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Edit, Trash2 } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { ConfirmDialog } from '../ConfirmDialog/index.js';
-import { formatDateTime } from '../../utils/dateFormat.js';
+import { useFormatters } from '../../format/index.js';
 import * as notesApi from '../../services/notesApi.js';
 import { NOTE_TEXT_MAX_LENGTH, type TransactionNote } from '../../../shared/ipc-contracts/notes.js';
 import './NotesThread.css';
@@ -23,8 +23,8 @@ type ThreadState =
  * `transaction:note:list` channel contract.
  */
 export function NotesThread({ txId }: NotesThreadProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
+  const { t } = useTranslation('common');
+  const { formatDateTime } = useFormatters();
   const [state, setState] = useState<ThreadState>({ kind: 'loading' });
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -240,7 +240,7 @@ export function NotesThread({ txId }: NotesThreadProps): JSX.Element {
               <article key={note.id} className="ot-notes-thread__card">
                 <header className="ot-notes-thread__card-header">
                   <time className="ot-notes-thread__timestamp" dateTime={note.createdAt}>
-                    {formatDateTime(note.createdAt, locale)}
+                    {formatDateTime(note.createdAt)}
                   </time>
                   {!isEditing && (
                     <div className="ot-notes-thread__card-actions">
