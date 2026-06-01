@@ -65,6 +65,18 @@ export const DEFAULT_XLSX_FORMAT: Record<ExportLocale, XlsxFormat> = {
   en: { dateNumFmt: 'yyyy-mm-dd', amountNumFmt: '#,##0.00' },
 };
 
+// NOTE (cross-locale separators): `amountNumFmt` is a locale-NEUTRAL numeric
+// format (`#,##0.00`) with no `[$-xx-XX]` LCID modifier. The `,` and `.` in the
+// format code are placeholder tokens, not literal glyphs: desktop Excel renders
+// the actual decimal/thousands separators from the VIEWER's OS regional
+// settings, not from this format code or the export locale. So a EU-locale
+// export opened on a US-locale machine may display `1,234.50` rather than
+// `1.234,50` — the stored numeric value is identical and exact either way; only
+// the visual grouping/decimal glyphs follow the viewer. (An LCID modifier would
+// pin the currency symbol and date month/day names, but NOT the numeric
+// separators, which always defer to the viewer's locale.) This is expected
+// behaviour, not a bug; verify with a manual cross-locale open in Excel.
+
 /** Per-column display geometry (FR27). Order mirrors EXPORT_COLUMN_KEYS. */
 interface ColumnPresentation {
   readonly width: number;
