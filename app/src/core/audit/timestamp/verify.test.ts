@@ -141,6 +141,20 @@ describe('verifyTimestampReceipt — negative matrix', () => {
     if (!res.ok) expect(res.reason).toBe('untrusted-chain');
   });
 
+  it('fails (malformed-receipt) when tsa_nonce is not even-length hex', async () => {
+    const { anchor, receipt, rootPem } = await makeFixture();
+    for (const badNonce of ['', 'a1b', 'zz', 'a1b2c3d']) {
+      const res = verifyTimestampReceipt({
+        receipt: { ...receipt, tsa_nonce: badNonce },
+        anchorEntry: anchor,
+        now: NOW,
+        trustRootsPem: [rootPem],
+      });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.reason).toBe('malformed-receipt');
+    }
+  });
+
   it('fails when a byte of the signature in the stored token is flipped', async () => {
     const { anchor, receipt, rootPem } = await makeFixture();
     const tokenBytes = Buffer.from(receipt.tsa_token, 'base64');

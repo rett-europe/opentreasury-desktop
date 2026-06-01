@@ -55,6 +55,28 @@ constants, not contract; revisit with telemetry.
 
 > OQ4 (TSA provider) is **not** resolved here — it only gates Tier 2 / WI-5 and will be decided in
 > that session.
+>
+> **OQ4 update (2026-06-01, WI-5 / #362 — resolved autonomously for implementation, FLAG for Switch
+> confirmation):**
+> - **OQ4a (RFC-3161 codec):** chose a **minimal in-tree DER/CMS codec** (zero new runtime deps),
+>   confined to `core/audit/timestamp/rfc3161.ts`, over adding `pkijs`/`asn1js`. Rationale: the
+>   codebase deliberately avoids heavy crypto libs, OQ4 was reserved for Switch (so unilaterally
+>   adding a large runtime dep is the wrong default), and all *cryptographic* operations still use
+>   Node's built-in `crypto` (X.509 chain/validity + `crypto.verify` over `signedAttrs`) — only the
+>   mechanical DER parse + the signedAttrs SET-OF re-tag are hand-written, both covered by an
+>   exhaustive negative-fixture matrix. The module boundary lets Switch swap in a vetted parser later
+>   with no ripple.
+> - **OQ4b (provider):** default **freeTSA.org** RFC-3161 (permits general-purpose timestamping,
+>   free, publishes a bundleable CA root) behind a `TimestampProvider` abstraction so a commercial TSA
+>   or transparency-log provider can drop in later. Transparency-log alternative **deferred for v1**.
+>   **Confirm:** freeTSA vs commercial TSA (availability/ToS) and permission to bundle the TSA root.
+> - **Deviation flagged:** the pending-timestamp retry queue is implemented as **in-memory advisory
+>   state recomputed from the chain**, not an MK-encrypted on-disk blob (spec §6.2 allowed either; a
+>   lost queue is harmless because pending is derived from the chain). Revisit if persistence across
+>   restarts before the next unlock-drain is desired.
+> - **Notable bug caught in WI-5:** the RFC-3161 verifier originally mutated its input token in place
+>   (`Buffer.slice` aliases memory during the signedAttrs SET-OF re-tag), which would have corrupted
+>   every persisted receipt's stored token. Fixed to copy via `Uint8Array.from`; regression test added.
 
 ## Consequences
 

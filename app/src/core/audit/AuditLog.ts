@@ -15,6 +15,7 @@ import { promises as fs } from 'node:fs';
 import * as nodePath from 'node:path';
 import { decrypt, encrypt, randomBytes, wipe } from '../crypto/primitives.js';
 import { blake2b256Hex, canonicalHashHex, canonicalJson } from '../crypto/hash.js';
+import { anchorMessageImprintHex } from './timestamp/imprint.js';
 import {
   generateEd25519Keypair,
   publicKeyFromSecret,
@@ -415,6 +416,28 @@ export class FileAuditLog implements AuditLog {
   async appendTimestamp(input: AuditTimestampAppendInput): Promise<AuditEntry> {
     return this.appendCore(
       (ctx) => {
+        // Defence in depth (rubber-duck #2): re-validate the receipt→anchor
+        // binding INSIDE the write lock before signing, so a buggy/internal
+        // caller can never persist a signed-but-invalid receipt that would make
+        // `findPendingAnchors` treat the anchor as covered (and never retried)
+        // while `verifyTimestampReceipt` would later reject it.
+        const anchor = ctx.entries[input.anchorSeq - 1];
+        if (anchor === undefined || anchor.seq !== input.anchorSeq) {
+          throw new Error(`timestamp references unknown anchor_seq ${input.anchorSeq}`);
+        }
+        if (anchor.action !== 'audit.anchor') {
+          throw new Error('timestamp anchor_seq does not reference an audit.anchor entry');
+        }
+        if (canonicalHashHex(anchor) !== input.anchorEntryHash) {
+          throw new Error('timestamp anchor_entry_hash does not match the referenced anchor');
+        }
+        if (anchor.after_hash !== input.eventLogRoot) {
+          throw new Error('timestamp event_log_root does not match the anchor after_hash');
+        }
+        if (anchorMessageImprintHex(anchor) !== input.messageImprint) {
+          throw new Error('timestamp message_imprint does not match the recomputed anchor imprint');
+        }
+
         const payload: AuditTimestampPayload = {
           timestamp_version: 1,
           provider_kind: 'rfc3161',
@@ -462,7 +485,11 @@ export class FileAuditLog implements AuditLog {
    * #7), signs, and persists — all under the single-writer mutex.
    */
   private appendCore(
-    make: (ctx: { seq: number; prevHash: string | null }) => Omit<AuditEntry, 'signature'>,
+    make: (ctx: {
+      seq: number;
+      prevHash: string | null;
+      entries: readonly AuditEntry[];
+    }) => Omit<AuditEntry, 'signature'>,
     shortCircuit?: (entries: readonly AuditEntry[]) => AuditEntry | null,
   ): Promise<AuditEntry> {
     return this.runExclusive(async () => {
@@ -484,6 +511,7 @@ export class FileAuditLog implements AuditLog {
       const unsigned = make({
         seq: entries.length + 1,
         prevHash: prev === null ? null : canonicalHashHex(prev),
+        entries,
       });
 
       assertEntryInvariants(unsigned);

@@ -122,6 +122,20 @@ export function parseTlv(buf: Uint8Array, offset: number, limit = buf.length): D
   };
 }
 
+/**
+ * Parse exactly one TLV that MUST consume the ENTIRE buffer. Rejects trailing
+ * bytes after the top-level value — a strict-DER requirement that closes the
+ * "valid structure + appended garbage" class of attacks where extra bytes ride
+ * along after an otherwise-well-formed (and signed) structure.
+ */
+export function parseSingleTlv(buf: Uint8Array, what = 'value'): DerNode {
+  const node = parseTlv(buf, 0);
+  if (node.end !== buf.length) {
+    throw new DerError(`trailing bytes after ${what} (${buf.length - node.end} extra)`);
+  }
+  return node;
+}
+
 /** Parse all sibling TLVs in [start, end). */
 export function parseSiblings(buf: Uint8Array, start: number, end: number): DerNode[] {
   const out: DerNode[] = [];
@@ -220,7 +234,21 @@ export function readGeneralizedTime(node: DerNode): Date {
   const ms = frac === undefined ? 0 : Number((frac + '000').slice(0, 3));
   const t = Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(se), ms);
   if (Number.isNaN(t)) throw new DerError(`invalid GeneralizedTime: ${s}`);
-  return new Date(t);
+  const dt = new Date(t);
+  // Reject calendar-invalid dates that `Date.UTC` silently NORMALISES (e.g.
+  // 20260231… → Mar 3): require every parsed field to round-trip exactly, so a
+  // malformed TSA time can never be accepted as a different (valid) instant.
+  if (
+    dt.getUTCFullYear() !== Number(y) ||
+    dt.getUTCMonth() !== Number(mo) - 1 ||
+    dt.getUTCDate() !== Number(d) ||
+    dt.getUTCHours() !== Number(h) ||
+    dt.getUTCMinutes() !== Number(mi) ||
+    dt.getUTCSeconds() !== Number(se)
+  ) {
+    throw new DerError(`invalid GeneralizedTime: ${s}`);
+  }
+  return dt;
 }
 
 // ---- Encoding --------------------------------------------------------------

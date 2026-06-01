@@ -33,6 +33,32 @@ export type TimestampLogger = (
   meta?: Record<string, unknown>,
 ) => void;
 
+/** Default per-provider-call hard timeout (a never-throwing safety net). */
+export const DEFAULT_PROVIDER_TIMEOUT_MS = 60 * 1000;
+
+/**
+ * Race a provider request against a hard timeout. The losing provider promise is
+ * abandoned (a hung socket stays pending but orphaned); the timer is `unref`'d so
+ * it never keeps the process alive. Resolves to a typed `timeout` error rather
+ * than throwing, preserving the never-throws contract.
+ */
+async function requestWithTimeout(
+  provider: TimestampProvider,
+  imprint: { alg: 'sha256'; hash: Uint8Array; nonce: Uint8Array },
+  timeoutMs: number,
+): Promise<Awaited<ReturnType<TimestampProvider['requestTimestamp']>>> {
+  let handle: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<{ ok: false; error: 'timeout' }>((resolve) => {
+    handle = setTimeout(() => resolve({ ok: false, error: 'timeout' }), timeoutMs);
+    handle.unref?.();
+  });
+  try {
+    return await Promise.race([provider.requestTimestamp(imprint), timeout]);
+  } finally {
+    if (handle !== undefined) clearTimeout(handle);
+  }
+}
+
 export interface RunTimestampDeps {
   readonly auditLog: AuditLog;
   readonly provider: TimestampProvider;
@@ -44,6 +70,13 @@ export interface RunTimestampDeps {
   readonly retry: TimestampRetryState;
   /** Cap anchors processed per drain (bounds a long catch-up). Default: all. */
   readonly maxPerRun?: number;
+  /**
+   * Hard cap on EACH provider call, independent of the provider's own timeout.
+   * Guarantees a drain always settles (and the scheduler's single-flight latch
+   * clears) even if a provider implementation hangs or ignores its abort.
+   * Default {@link DEFAULT_PROVIDER_TIMEOUT_MS}.
+   */
+  readonly providerTimeoutMs?: number;
   /**
    * Resolve a provider's `trustRootIds` to trust-anchor PEMs. Defaults to the
    * bundled `resolveTrustRoots`; injected by tests to supply a hermetic CA.
@@ -115,7 +148,11 @@ async function timestampOne(
     const imprint = anchorMessageImprint(p.anchorEntry);
     const nonce = deps.randomNonce();
 
-    const res = await deps.provider.requestTimestamp({ alg: 'sha256', hash: imprint, nonce });
+    const res = await requestWithTimeout(
+      deps.provider,
+      { alg: 'sha256', hash: imprint, nonce },
+      deps.providerTimeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS,
+    );
     if (!res.ok) {
       deps.retry.recordFailure(p.anchorSeq, res.error, deps.now().getTime());
       return false;

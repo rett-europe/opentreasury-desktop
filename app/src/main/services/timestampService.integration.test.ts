@@ -163,6 +163,25 @@ describe('runTimestampOnce — non-blocking guarantees (CORE)', () => {
     expect(receipts(await log.readAll())).toHaveLength(0);
   });
 
+  it('a hung provider drain still SETTLES under the service-level timeout (unwedges the scheduler)', async () => {
+    const ca = makeTestCa();
+    const log = makeAuditLog(memStore(), makeMk());
+    await appendTestAnchor(log, '1'.repeat(64));
+
+    // A tiny providerTimeoutMs bounds the per-call wait independent of the
+    // provider, so the drain resolves even though the provider never does.
+    const outcome = await runTimestampOnce({
+      ...deps(log, hungProvider(), ca),
+      providerTimeoutMs: 5,
+    });
+    expect(outcome).toMatchObject({ status: 'drained', appended: 0, failed: 1, pending: 1 });
+    expect(receipts(await log.readAll())).toHaveLength(0);
+
+    // The anchor is still pending and a later online drain completes it.
+    const online = await runTimestampOnce(deps(log, happyProvider(ca), ca));
+    expect(online).toMatchObject({ status: 'drained', appended: 1, pending: 0 });
+  });
+
   it('TimestampScheduler.onNewAnchor() is fire-and-forget and never blocks the caller', async () => {
     const ca = makeTestCa();
     const log = makeAuditLog(memStore(), makeMk());

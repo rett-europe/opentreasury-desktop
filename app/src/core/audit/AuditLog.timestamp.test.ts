@@ -93,3 +93,50 @@ describe('AuditLog.appendTimestamp', () => {
     expect(canonicalHashHex(reloaded)).toBe(before);
   });
 });
+
+describe('AuditLog.appendTimestamp — binding invariants (defence in depth)', () => {
+  it('refuses a receipt whose anchor_entry_hash does not match the anchor', async () => {
+    const log = makeAuditLog(memStore(), makeMk());
+    const anchor = await appendTestAnchor(log, 'f'.repeat(64));
+    const imprint = anchorMessageImprintHex(anchor);
+    await expect(
+      log.appendTimestamp(receiptInput(anchor, 'b'.repeat(64), imprint)),
+    ).rejects.toThrow(/anchor_entry_hash/);
+    expect((await log.readAll()).some((e) => e.action === 'audit.anchor.timestamped')).toBe(false);
+  });
+
+  it('refuses a receipt whose event_log_root does not match the anchor after_hash', async () => {
+    const log = makeAuditLog(memStore(), makeMk());
+    const anchor = await appendTestAnchor(log, 'f'.repeat(64));
+    const input = {
+      ...receiptInput(anchor, canonicalHashHex(anchor), anchorMessageImprintHex(anchor)),
+      eventLogRoot: 'e'.repeat(64),
+    };
+    await expect(log.appendTimestamp(input)).rejects.toThrow(/event_log_root/);
+  });
+
+  it('refuses a receipt whose message_imprint does not match the recomputed imprint', async () => {
+    const log = makeAuditLog(memStore(), makeMk());
+    const anchor = await appendTestAnchor(log, 'f'.repeat(64));
+    await expect(
+      log.appendTimestamp(receiptInput(anchor, canonicalHashHex(anchor), 'a'.repeat(64))),
+    ).rejects.toThrow(/message_imprint/);
+  });
+
+  it('refuses a receipt whose anchor_seq points at a non-anchor entry', async () => {
+    const log = makeAuditLog(memStore(), makeMk());
+    // seq 1 = a plain (export) entry; seq 2 = the anchor.
+    await log.append({
+      action: 'export.csv',
+      result: 'succeeded',
+      targetId: newTestUlid(),
+      afterHash: null,
+    });
+    const anchor = await appendTestAnchor(log, 'f'.repeat(64));
+    const input = {
+      ...receiptInput(anchor, canonicalHashHex(anchor), anchorMessageImprintHex(anchor)),
+      anchorSeq: 1, // points at the non-anchor export entry
+    };
+    await expect(log.appendTimestamp(input)).rejects.toThrow(/audit\.anchor/);
+  });
+});

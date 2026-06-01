@@ -82,12 +82,20 @@ export function extBasicConstraintsCa(): Uint8Array {
   return encodeExtension(OID.EXT_BASIC_CONSTRAINTS, true, encodeSequence(encodeBoolean(true)));
 }
 
-/** extKeyUsage = id-kp-timeStamping. `critical` controls the criticality flag. */
-export function extTimeStampingEku(critical: boolean): Uint8Array {
+/**
+ * extKeyUsage = id-kp-timeStamping (plus any `extraOids`). `critical` controls
+ * the criticality flag. RFC 3161 mandates a TSA leaf carry ONLY the
+ * timestamping EKU; `extraOids` exists so tests can prove the verifier rejects
+ * broader-purpose certs.
+ */
+export function extTimeStampingEku(
+  critical: boolean,
+  extraOids: readonly string[] = [],
+): Uint8Array {
   return encodeExtension(
     OID.EXT_EXTENDED_KEY_USAGE,
     critical,
-    encodeSequence(encodeOid(OID.KP_TIME_STAMPING)),
+    encodeSequence(encodeOid(OID.KP_TIME_STAMPING), ...extraOids.map((o) => encodeOid(o))),
   );
 }
 
@@ -185,6 +193,8 @@ export interface TsaLeafOptions {
   readonly withEku: boolean;
   /** Mark the EKU critical (required by the verifier). */
   readonly ekuCritical: boolean;
+  /** Extra EKU OIDs alongside timeStamping (RFC 3161 forbids these on a TSA). */
+  readonly extraEkuOids: readonly string[];
 }
 
 const DEFAULT_NOT_BEFORE = new Date('2020-01-01T00:00:00Z');
@@ -210,7 +220,7 @@ export function makeTestCa(rootCN = 'OpenTreasury Test Root CA'): TestCa {
       const key = makeEcKeyPair();
       const withEku = o.withEku ?? true;
       const ekuCritical = o.ekuCritical ?? true;
-      const exts = withEku ? [extTimeStampingEku(ekuCritical)] : [];
+      const exts = withEku ? [extTimeStampingEku(ekuCritical, o.extraEkuOids ?? [])] : [];
       const cert = issueCert({
         subjectCN: o.subjectCN ?? 'OpenTreasury Test TSA',
         subjectKey: key.publicKey,

@@ -97,6 +97,12 @@ export function verifyTimestampReceipt(input: VerifyReceiptInput): VerifyReceipt
   }
   let tokenDer: Uint8Array;
   let nonce: Uint8Array;
+  // `Buffer.from(_, 'hex' | 'base64')` is lenient (it silently drops invalid
+  // tail bytes and never throws), so validate shapes explicitly. An empty/odd
+  // nonce would otherwise decode to a degenerate value the token could match.
+  if (!/^(?:[0-9a-fA-F]{2})+$/.test(receipt.tsa_nonce)) {
+    return { ok: false, reason: 'malformed-receipt', detail: 'tsa_nonce not even-length hex' };
+  }
   try {
     tokenDer = Buffer.from(receipt.tsa_token, 'base64');
     nonce = Buffer.from(receipt.tsa_nonce, 'hex');

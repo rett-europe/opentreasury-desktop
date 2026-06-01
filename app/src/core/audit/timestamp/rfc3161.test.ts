@@ -266,6 +266,31 @@ describe('verifyTimeStampToken — negative fixtures', () => {
       'malformed-token',
     );
   });
+
+  it('rejects trailing bytes appended after a well-formed token (strict DER)', () => {
+    const { tokenDer, rootPem } = makeTrustedToken({ imprintHash: hash, nonce: 5n });
+    const withGarbage = Uint8Array.of(...tokenDer, 0x00, 0x01, 0x02);
+    expect(failReason(verify(withGarbage, rootPem))).toBe('malformed-token');
+  });
+
+  it('rejects a leaf carrying an extra EKU beyond timeStamping (RFC 3161 §2.3)', () => {
+    const { tokenDer, rootPem } = makeTrustedToken({
+      imprintHash: hash,
+      nonce: 5n,
+      // id-kp-clientAuth alongside timeStamping → broader-purpose cert.
+      leafOptions: { extraEkuOids: ['1.3.6.1.5.5.7.3.2'] },
+    });
+    expect(failReason(verify(tokenDer, rootPem))).toBe('missing-timestamping-eku');
+  });
+});
+
+describe('parseTimeStampResp — strict DER', () => {
+  it('rejects trailing bytes after the response SEQUENCE', () => {
+    const { tokenDer } = makeTrustedToken({ imprintHash: imprintOf('x'), nonce: 7n });
+    const resp = buildTimeStampResp(tokenDer, 0);
+    const withGarbage = Uint8Array.of(...resp, 0xff);
+    expect(() => parseTimeStampResp(withGarbage)).toThrow();
+  });
 });
 
 // --- helpers ---------------------------------------------------------------

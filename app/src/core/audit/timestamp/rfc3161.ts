@@ -39,6 +39,7 @@ import {
   encodeUintBig,
   expectSequence,
   expectSet,
+  parseSingleTlv,
   parseTlv,
   readBoolean,
   readGeneralizedTime,
@@ -123,7 +124,7 @@ export interface ParsedResp {
  *   PKIStatusInfo ::= SEQUENCE { status PKIStatus, statusString PKIFreeText OPTIONAL, failInfo BIT STRING OPTIONAL }
  */
 export function parseTimeStampResp(der: Uint8Array): ParsedResp {
-  const root = parseTlv(der, 0);
+  const root = parseSingleTlv(der, 'TimeStampResp');
   const top = expectSequence(root);
   if (top.length < 1) throw new DerError('TimeStampResp: empty');
   const statusInfo = expectSequence(top[0]!);
@@ -223,12 +224,12 @@ function verifyInner(opts: VerifyOptions): VerifyResult {
   });
 
   // ContentInfo ::= SEQUENCE { contentType OID, content [0] EXPLICIT SignedData }
-  const ci = expectSequence(parseTlv(opts.tokenDer, 0));
+  const ci = expectSequence(parseSingleTlv(opts.tokenDer, 'TimeStampToken'));
   if (readOid(ci[0]!) !== OID.ID_SIGNED_DATA) return fail('wrong-content-type');
   const ciContent = ci[1]!; // [0] EXPLICIT
   if (!(ciContent.cls === 2 && ciContent.tagNumber === 0))
     return fail('malformed-token', 'no content');
-  const signedData = expectSequence(children(ciContent)[0]!);
+  const signedData = expectSequence(singleChild(ciContent, 'ContentInfo.content'));
 
   // SignedData ::= SEQUENCE { version, digestAlgorithms SET, encapContentInfo,
   //   certificates [0] IMPLICIT OPTIONAL, crls [1] IMPLICIT OPTIONAL, signerInfos SET }
@@ -240,7 +241,7 @@ function verifyInner(opts: VerifyOptions): VerifyResult {
   if (eContentCtx === undefined || !(eContentCtx.cls === 2 && eContentCtx.tagNumber === 0)) {
     return fail('malformed-token', 'no eContent');
   }
-  const eContentOctet = children(eContentCtx)[0]!;
+  const eContentOctet = singleChild(eContentCtx, 'eContent');
   if (eContentOctet.tag !== TAG.OCTET_STRING)
     return fail('malformed-token', 'eContent not OCTET STRING');
   const tstInfoDer = content(eContentOctet).slice();
@@ -287,12 +288,12 @@ function verifyInner(opts: VerifyOptions): VerifyResult {
   const attrs = parseAttributes(signedAttrsNode);
   const contentTypeAttr = attrs.get(OID.ID_CONTENT_TYPE);
   if (contentTypeAttr === undefined) return fail('bad-content-type-attr', 'missing');
-  if (readOid(parseTlv(contentTypeAttr, 0)) !== OID.ID_CT_TST_INFO) {
+  if (readOid(parseSingleTlv(contentTypeAttr, 'content-type attr')) !== OID.ID_CT_TST_INFO) {
     return fail('bad-content-type-attr', 'mismatch');
   }
   const messageDigestAttr = attrs.get(OID.ID_MESSAGE_DIGEST);
   if (messageDigestAttr === undefined) return fail('bad-message-digest-attr', 'missing');
-  const mdNode = parseTlv(messageDigestAttr, 0);
+  const mdNode = parseSingleTlv(messageDigestAttr, 'message-digest attr');
   if (mdNode.tag !== TAG.OCTET_STRING) return fail('bad-message-digest-attr', 'not OCTET STRING');
   const expectedEContentDigest = createHash(digestHash).update(tstInfoDer).digest();
   if (!safeEqual(content(mdNode), expectedEContentDigest)) {
@@ -337,9 +338,18 @@ function verifyInner(opts: VerifyOptions): VerifyResult {
     if (tst.nonce !== bytesToBigUint(opts.expectedNonce)) return fail('nonce-mismatch');
   }
 
-  // --- signer cert: critical timeStamping EKU ---------------------------
+  // --- signer cert: critical timeStamping EKU (RFC 3161 §2.3) ------------
+  // RFC 3161 mandates the TSA cert carry the EKU extension with EXACTLY ONE
+  // value, id-kp-timeStamping, marked critical. Requiring exactly one (not just
+  // "includes") refuses general-purpose certs that merely also permit
+  // timestamping, keeping the trusted-time authority tightly scoped.
   const eku = getExtendedKeyUsage(signerCert.raw);
-  if (eku === null || !eku.critical || !eku.oids.includes(OID.KP_TIME_STAMPING)) {
+  if (
+    eku === null ||
+    !eku.critical ||
+    eku.oids.length !== 1 ||
+    eku.oids[0] !== OID.KP_TIME_STAMPING
+  ) {
     return fail('missing-timestamping-eku');
   }
 
@@ -366,7 +376,7 @@ function parseTstInfo(der: Uint8Array): TstInfo {
   //   serialNumber INTEGER, genTime GeneralizedTime, accuracy OPTIONAL,
   //   ordering BOOLEAN DEFAULT FALSE, nonce INTEGER OPTIONAL, tsa [0] OPTIONAL,
   //   extensions [1] IMPLICIT OPTIONAL }
-  const seq = expectSequence(parseTlv(der, 0));
+  const seq = expectSequence(parseSingleTlv(der, 'TSTInfo'));
   const version = Number(readUintBig(seq[0]!));
   const policyOid = readOid(seq[1]!);
   const imprint = expectSequence(seq[2]!);
@@ -396,18 +406,32 @@ function parseTstInfo(der: Uint8Array): TstInfo {
 // CMS helpers
 // --------------------------------------------------------------------------
 
-/** Parse a SignedAttributes node into a map: attrType OID → first value TLV. */
+/** Parse a SignedAttributes node into a map: attrType OID → single value TLV. */
 function parseAttributes(signedAttrsNode: DerNode): Map<string, Uint8Array> {
   const map = new Map<string, Uint8Array>();
   for (const attr of children(signedAttrsNode)) {
     const parts = expectSequence(attr);
     const oid = readOid(parts[0]!);
+    // Reject duplicate attribute OIDs and multi-value attribute SETs: a TSA's
+    // content-type / message-digest are single-valued, and accepting duplicates
+    // would let a forged token slip an extra value past the first-wins read.
+    if (map.has(oid)) throw new DerError(`duplicate signed attribute ${oid}`);
     const valueSet = expectSet(parts[1]!);
-    if (valueSet.length >= 1 && !map.has(oid)) {
-      map.set(oid, tlv(valueSet[0]!).slice());
+    if (valueSet.length !== 1) {
+      throw new DerError(`signed attribute ${oid} must have exactly one value`);
     }
+    map.set(oid, Uint8Array.from(tlv(valueSet[0]!)));
   }
   return map;
+}
+
+/** A constructed node's single child, or a DerError if it has 0 or >1 children. */
+function singleChild(node: DerNode, what: string): DerNode {
+  const kids = children(node);
+  if (kids.length !== 1) {
+    throw new DerError(`${what}: expected exactly one child, got ${kids.length}`);
+  }
+  return kids[0]!;
 }
 
 /** Re-encode an implicit [0] signedAttrs node as an explicit SET OF (0x31). */
