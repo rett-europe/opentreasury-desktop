@@ -26,6 +26,7 @@ import { BulkAddLabelModal } from '../../components/BulkAddLabelModal/index.js';
 import { SplitTransactionModal } from '../../components/SplitTransactionModal/index.js';
 import { TransactionsTable } from '../../components/TransactionsTable/index.js';
 import type { TransactionRow } from '../../components/TransactionsTable/index.js';
+import { DateRangePicker, type Preset } from '../../components/DateRangePicker/index.js';
 import { listMovements } from '../../services/movementsApi.js';
 import { rehydrate } from '../../services/queryApi.js';
 import { listAllNotes } from '../../services/notesApi.js';
@@ -47,7 +48,7 @@ import type {
 } from '../../../shared/ipc-contracts/transaction.js';
 import type { Account, RecentTransaction } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
-import type { Movement, MovementTotals } from '../../types/movement.js';
+import type { DateRange, Movement, MovementTotals } from '../../types/movement.js';
 import { DATE_PRESET_IDS, getPresetRange } from '../../utils/datePresets.js';
 import {
   DEFAULT_MOVEMENTS_DATE_FILTER,
@@ -106,6 +107,16 @@ type SortColumn =
   | 'amount';
 
 type TypeFilter = 'all' | 'income' | 'expense';
+
+/** Convert a `YYYY-MM-DD` string to a UTC-midnight Date (mirrors DateRangePicker). */
+function isoToDate(v: string): Date {
+  return new Date(`${v}T00:00:00Z`);
+}
+
+/** Convert a Date back to a `YYYY-MM-DD` string (mirrors DateRangePicker). */
+function dateToIso(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
 
 /**
  * Map MovementRecord (ID-based wire shape from IPC) to Movement (label-based
@@ -326,12 +337,6 @@ export function MovementsScreen({
     }
     return loadPersistedDateFilter();
   });
-  // Open state for the custom-range popover. Independent of dateFilter so the
-  // user can preview the popover without losing the active filter until Apply.
-  const [isCustomOpen, setIsCustomOpen] = useState(false);
-  // Local draft state for the two custom date inputs. Reset on popover open.
-  const [customDraftFrom, setCustomDraftFrom] = useState<string>('');
-  const [customDraftTo, setCustomDraftTo] = useState<string>('');
   const [minAmount, setMinAmount] = useState<string>('');
   const [maxAmount, setMaxAmount] = useState<string>('');
   const [uncategorizedOnly, setUncategorizedOnly] = useState(false);
@@ -755,6 +760,58 @@ export function MovementsScreen({
     persistDateFilter(next);
   }, []);
 
+  // ── Shared DateRangePicker wiring ──────────────────────────────────────
+  // Consolidates onto the same component used by Export/Insights: an
+  // always-visible preset radiogroup + inline From/To inputs. Movements keeps
+  // ownership of the "All time" toggle, the active-range pill, and persistence.
+  const dateRangePresets = useMemo<readonly Preset[]>(() => {
+    // One `today` snapshot keeps preset equality deterministic (matters under
+    // vitest fake timers and across midnight boundaries).
+    const today = new Date();
+    return DATE_PRESET_IDS.map((id) => ({
+      id,
+      label: t(`movements.filters.dateRange.presets.${id}`),
+      range: () => {
+        const r = getPresetRange(id, today);
+        return { from: isoToDate(r.from), to: isoToDate(r.to) };
+      },
+    }));
+  }, [t]);
+
+  const dateRangeValue = useMemo<DateRange | null>(() => {
+    const r = resolveDateFilter(dateFilter);
+    if (r == null) return null;
+    return { from: isoToDate(r.from), to: isoToDate(r.to) };
+  }, [dateFilter]);
+
+  const activeDatePresetId = dateFilter.kind === 'preset' ? dateFilter.id : null;
+
+  const handleDateRangeChange = useCallback(
+    (next: DateRange) => {
+      const from = dateToIso(next.from);
+      const to = dateToIso(next.to);
+      // If the chosen range exactly matches a preset, store it as a preset so
+      // it persists + highlights; otherwise it's a custom range (not persisted).
+      const today = new Date();
+      const matched = DATE_PRESET_IDS.find((id) => {
+        const r = getPresetRange(id, today);
+        return r.from === from && r.to === to;
+      });
+      setDateFilter(matched ? { kind: 'preset', id: matched } : { kind: 'custom', from, to });
+    },
+    [setDateFilter],
+  );
+
+  const dateRangeCustomLabels = useMemo(
+    () => ({
+      from: t('movements.filters.dateRange.customFrom'),
+      to: t('movements.filters.dateRange.customTo'),
+      apply: t('movements.filters.dateRange.apply'),
+      invalidRange: t('movements.filters.dateRange.invalidRange'),
+    }),
+    [t],
+  );
+
   const filteredRows = useMemo(() => {
     // ES locale sweep: parse with `parseLocaleAmount` so users can type
     // `100,50` (Spanish decimal) in the min/max amount filters and get the
@@ -860,7 +917,6 @@ export function MovementsScreen({
     setTagFilter('all');
     setDateFilter(DEFAULT_MOVEMENTS_DATE_FILTER);
     setTagIdsFilter([]);
-    setIsCustomOpen(false);
     setMinAmount('');
     setMaxAmount('');
     setUncategorizedOnly(false);
@@ -1169,129 +1225,23 @@ export function MovementsScreen({
             <Calendar size={14} aria-hidden="true" />
             {t('movements.filters.dateRange.label')}
           </span>
-          <div
-            className="ot-filter-bar__date-chips"
-            role="radiogroup"
-            aria-labelledby="ot-date-filter-label"
-          >
-            {DATE_PRESET_IDS.map((id) => {
-              const checked = dateFilter.kind === 'preset' && dateFilter.id === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  role="radio"
-                  aria-checked={checked}
-                  className={
-                    checked
-                      ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                      : 'ot-filter-bar__chip'
-                  }
-                  onClick={() => {
-                    setDateFilter({ kind: 'preset', id });
-                    setIsCustomOpen(false);
-                  }}
-                >
-                  {t(`movements.filters.dateRange.presets.${id}`)}
-                </button>
-              );
-            })}
-            <div className="ot-filter-bar__date-custom-anchor">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={dateFilter.kind === 'custom'}
-                aria-haspopup="dialog"
-                aria-expanded={isCustomOpen}
-                className={
-                  dateFilter.kind === 'custom' || isCustomOpen
-                    ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
-                    : 'ot-filter-bar__chip'
-                }
-                onClick={() => {
-                  setIsCustomOpen((open) => {
-                    if (!open) {
-                      // Seed inputs from current resolved range so the popover
-                      // opens with sensible defaults.
-                      const seed = resolveDateFilter(dateFilter) ?? getPresetRange('this-month');
-                      setCustomDraftFrom(seed.from);
-                      setCustomDraftTo(seed.to);
-                    }
-                    return !open;
-                  });
-                }}
-              >
-                {t('movements.filters.dateRange.presets.custom')}
-              </button>
-              {isCustomOpen ? (
-                <div
-                  role="dialog"
-                  aria-label={t('movements.filters.dateRange.presets.custom')}
-                  className="ot-filter-bar__date-popover"
-                >
-                  <label className="ot-filter-bar__date-field">
-                    <span>{t('movements.filters.dateRange.customFrom')}</span>
-                    <input
-                      type="date"
-                      value={customDraftFrom}
-                      onChange={(e) => setCustomDraftFrom(e.target.value)}
-                    />
-                  </label>
-                  <label className="ot-filter-bar__date-field">
-                    <span>{t('movements.filters.dateRange.customTo')}</span>
-                    <input
-                      type="date"
-                      value={customDraftTo}
-                      onChange={(e) => setCustomDraftTo(e.target.value)}
-                      aria-invalid={
-                        customDraftFrom && customDraftTo && customDraftTo < customDraftFrom
-                          ? true
-                          : undefined
-                      }
-                    />
-                  </label>
-                  {customDraftFrom && customDraftTo && customDraftTo < customDraftFrom ? (
-                    <p className="ot-filter-bar__date-error" role="alert">
-                      {t('movements.filters.dateRange.invalidRange')}
-                    </p>
-                  ) : null}
-                  <div className="ot-filter-bar__date-actions">
-                    <Button
-                      variant="primary"
-                      onClick={() => {
-                        if (!customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom) {
-                          return;
-                        }
-                        setDateFilter({
-                          kind: 'custom',
-                          from: customDraftFrom,
-                          to: customDraftTo,
-                        });
-                        setIsCustomOpen(false);
-                      }}
-                      disabled={
-                        !customDraftFrom || !customDraftTo || customDraftTo < customDraftFrom
-                      }
-                    >
-                      {t('movements.filters.dateRange.apply')}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+          <div className="ot-filter-bar__date-picker">
+            <DateRangePicker
+              value={dateRangeValue}
+              onChange={handleDateRangeChange}
+              presets={dateRangePresets}
+              activePresetId={activeDatePresetId}
+              customLabels={dateRangeCustomLabels}
+            />
             <button
               type="button"
-              role="radio"
-              aria-checked={dateFilter.kind === 'all'}
               className={
                 dateFilter.kind === 'all'
                   ? 'ot-filter-bar__chip ot-filter-bar__chip--active'
                   : 'ot-filter-bar__chip'
               }
-              onClick={() => {
-                setDateFilter({ kind: 'all' });
-                setIsCustomOpen(false);
-              }}
+              aria-pressed={dateFilter.kind === 'all'}
+              onClick={() => setDateFilter({ kind: 'all' })}
             >
               {t('movements.filters.dateRange.presets.all')}
             </button>
@@ -1309,7 +1259,6 @@ export function MovementsScreen({
                   className="ot-movements__date-pill-clear"
                   onClick={() => {
                     setDateFilter(DEFAULT_MOVEMENTS_DATE_FILTER);
-                    setIsCustomOpen(false);
                   }}
                   aria-label={t('movements.filters.dateRange.clear')}
                 >

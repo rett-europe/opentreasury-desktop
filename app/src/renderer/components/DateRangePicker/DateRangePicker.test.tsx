@@ -51,6 +51,40 @@ describe('DateRangePicker', () => {
     expect(applyBtn.disabled).toBe(true);
     expect(screen.getByRole('alert').textContent).toBe('Invalid range');
   });
+
+  it('syncs the visible inputs when the value prop changes externally', () => {
+    const { rerender } = render(
+      <DateRangePicker
+        value={{ from: new Date('2026-04-01T00:00:00Z'), to: new Date('2026-04-30T00:00:00Z') }}
+        onChange={vi.fn()}
+        presets={PRESETS}
+        customLabels={LABELS}
+      />,
+    );
+    expect((screen.getByLabelText('From') as HTMLInputElement).value).toBe('2026-04-01');
+    rerender(
+      <DateRangePicker
+        value={{ from: new Date('2026-01-01T00:00:00Z'), to: new Date('2026-03-31T00:00:00Z') }}
+        onChange={vi.fn()}
+        presets={PRESETS}
+        customLabels={LABELS}
+      />,
+    );
+    expect((screen.getByLabelText('From') as HTMLInputElement).value).toBe('2026-01-01');
+    expect((screen.getByLabelText('To') as HTMLInputElement).value).toBe('2026-03-31');
+  });
+
+  it('applies native min/max constraints derived from the entered range', () => {
+    render(
+      <DateRangePicker value={null} onChange={vi.fn()} presets={PRESETS} customLabels={LABELS} />,
+    );
+    const fromEl = screen.getByLabelText('From') as HTMLInputElement;
+    const toEl = screen.getByLabelText('To') as HTMLInputElement;
+    fireEvent.change(fromEl, { target: { value: '2026-04-10' } });
+    fireEvent.change(toEl, { target: { value: '2026-04-20' } });
+    expect(toEl.getAttribute('min')).toBe('2026-04-10');
+    expect(fromEl.getAttribute('max')).toBe('2026-04-20');
+  });
 });
 
 describe('DateRangePill', () => {
