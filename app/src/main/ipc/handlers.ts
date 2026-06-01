@@ -323,6 +323,7 @@ import {
 } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { newUlid } from '../ids.js';
+import { PROFILE_PENDING_USER_ID } from '../../core/eventLog/enrichEvent.js';
 import {
   IPC_EXPORT_PREPARE,
   IPC_EXPORT_RUN,
@@ -655,8 +656,9 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
     newId: newUlid,
     datasetId: getDatasetId(),
     actorDeviceId: getDeviceId(),
-    // P1-1: Use profile.userId if available, otherwise block writes at IPC level
-    actorUserId: profile?.userId ?? 'PROFILE_PENDING000000000',
+    // P1-1: Use profile.userId if available, otherwise stamp the shared
+    // 26-char ULID-shaped pending-profile sentinel (never block the write).
+    actorUserId: profile?.userId ?? PROFILE_PENDING_USER_ID,
     actorIdentitySource: (profile?.identitySource ?? 'local') as 'local' | 'aad',
     dekVersion: 0,
   };
