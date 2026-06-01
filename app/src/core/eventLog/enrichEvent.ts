@@ -34,12 +34,24 @@ export interface EventAttribution {
 
 /**
  * Sentinel actor used when a data mutation is appended before a user profile
- * exists (profile pending, e.g. early in onboarding). Matches the placeholder
- * the transaction IPC handlers already use so attribution stays consistent
- * across the whole log. The choke-point stamps this rather than blocking the
- * write (SPEC-028 WI-1 decision: never block mutations).
+ * exists (profile pending, e.g. early in onboarding). The choke-point stamps
+ * this rather than blocking the write (SPEC-028 WI-1 decision: never block
+ * mutations). Shared by the transaction IPC handlers so pending-profile
+ * attribution stays uniform across the whole log.
+ *
+ * MUST be a 26-char, ULID-shaped, Crockford-base32 value so that pending-profile
+ * events stay uniformly ULID-shaped and satisfy BOTH:
+ *   - the event-envelope invariant `actorUserId: z.string().length(26)`
+ *     (schemas.ts) — so Tier-1 anchoring/validation that enforces `length(26)`
+ *     accepts these events; and
+ *   - the strict `eventHasAttribution` predicate below (which requires length
+ *     26) — so a pending-profile "enriched" event reads as attributed, not as a
+ *     gap, by our own ledger-completeness checks.
+ * Crockford base32 only (0-9, A-Z minus I/L/O/U) and a leading `0` keep it
+ * forward-safe should anchor verification later add a ULID charset/timestamp
+ * check. The embedded `PEND1NG` marker keeps it recognizable in diagnostics.
  */
-export const PROFILE_PENDING_USER_ID = 'PROFILE_PENDING000000000';
+export const PROFILE_PENDING_USER_ID = '0PEND1NG000000000000000000';
 
 /** The five attribution fields that make an event a complete who/what/when entry. */
 export const ATTRIBUTION_FIELDS = [

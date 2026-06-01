@@ -29,7 +29,7 @@ import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import * as eventSchemas from '../core/events/schemas.js';
 import type { DomainEvent, EventLog } from '../core/eventLog/EventLog.js';
-import { eventHasAttribution, type EventAttribution } from '../core/eventLog/enrichEvent.js';
+import { eventHasAttribution, PROFILE_PENDING_USER_ID, type EventAttribution } from '../core/eventLog/enrichEvent.js';
 import { createEnrichingEventLog } from './eventLog-enrichment-wrapper.js';
 
 // --- Fixtures ---------------------------------------------------------------
@@ -551,5 +551,41 @@ describe('SPEC-028 WI-1 — append-time attribution coverage', () => {
 
     expect(swapped.appended).toHaveLength(1);
     expect(eventHasAttribution(swapped.appended[0]!)).toBe(true);
+  });
+
+  // The pending-profile sentinel is stamped onto EVERY event appended before a
+  // user profile exists (config CRUD via the choke-point, tx.* via the IPC
+  // handlers). It must therefore be a 26-char, ULID-shaped, Crockford-base32
+  // value so those events satisfy both the envelope `length(26)` invariant that
+  // Tier-1 anchoring enforces and our own strict `eventHasAttribution` check —
+  // otherwise a pending-profile "enriched" event would read as unattributed.
+  describe('PROFILE_PENDING sentinel (pending-profile attribution)', () => {
+    it('is a 26-char Crockford-base32 ULID-shaped constant', () => {
+      expect(PROFILE_PENDING_USER_ID).toHaveLength(26);
+      // Crockford base32: 0-9 A-Z minus I, L, O, U.
+      expect(PROFILE_PENDING_USER_ID).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+    });
+
+    it('lets a pending-profile enriched event satisfy eventHasAttribution', async () => {
+      const { eventLog, appended } = makeCaptureLog();
+      // Identity as bootstrap builds it when the profile is pending: the
+      // sentinel for actorUserId, real ids for the rest.
+      const pending: EventAttribution = {
+        actorUserId: PROFILE_PENDING_USER_ID,
+        actorDeviceId: u('provider-device'),
+        actorIdentitySource: 'local',
+        datasetId: u('provider-dataset'),
+      };
+      const enriching = createEnrichingEventLog(eventLog, () => pending, fixedClock);
+
+      // A flat event that carries no attribution of its own.
+      await enriching.append(SAMPLES.TagDeleted);
+
+      const persisted = appended[0]!;
+      expect(eventHasAttribution(persisted)).toBe(true);
+      expect((persisted as unknown as Record<string, unknown>)['actorUserId']).toBe(
+        PROFILE_PENDING_USER_ID,
+      );
+    });
   });
 });
