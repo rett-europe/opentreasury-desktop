@@ -183,34 +183,57 @@ export class FileAuditLog implements AuditLog {
     return run;
   }
 
-  private async ensureSigningKey(): Promise<void> {
-    if (this.signingSecret !== null) return;
+  /**
+   * Load the MK-sealed signing key from the store WITHOUT creating one. Returns
+   * true if a key was loaded (or was already in memory), false if the blob is
+   * absent. SPEC-028 WI-3: the standalone chain-verify-on-unlock path uses this
+   * so a read-only verification never writes trust material — generating a key
+   * during verify would poison the synced folder and yield a false-positive
+   * `key-fingerprint-mismatch` when the chunk has synced but the key has not.
+   */
+  private async loadSigningKeyIfPresent(): Promise<boolean> {
+    if (this.signingSecret !== null) return true;
     const existing = await this.deps.store.read(SIGNING_KEY_NAME);
-    if (existing !== null) {
-      const secret = openBlob(existing, this.deps.mk, 'audit-signing-key:v1', this.deps.datasetId);
-      this.signingSecret = secret;
-    } else {
-      const kp = generateEd25519Keypair();
-      const sealed = sealBlob(
-        kp.secretKey,
-        this.deps.mk,
-        'audit-signing-key:v1',
-        this.deps.datasetId,
-      );
-      await this.deps.store.write(SIGNING_KEY_NAME, sealed);
-      wipe(kp.secretKey);
-      // Re-read so the persisted copy is authoritative.
-      const stored = await this.deps.store.read(SIGNING_KEY_NAME);
-      if (stored === null) throw new Error('audit signing key persist failed');
-      this.signingSecret = openBlob(
-        stored,
-        this.deps.mk,
-        'audit-signing-key:v1',
-        this.deps.datasetId,
-      );
-    }
+    if (existing === null) return false;
+    this.signingSecret = openBlob(
+      existing,
+      this.deps.mk,
+      'audit-signing-key:v1',
+      this.deps.datasetId,
+    );
     this.signingPublic = publicKeyFromSecret(this.signingSecret);
     this.keyFingerprint = blake2b256Hex(this.signingPublic);
+    return true;
+  }
+
+  /** Generate a fresh device signing key and persist it MK-sealed. */
+  private async generateAndPersistSigningKey(): Promise<void> {
+    const kp = generateEd25519Keypair();
+    const sealed = sealBlob(
+      kp.secretKey,
+      this.deps.mk,
+      'audit-signing-key:v1',
+      this.deps.datasetId,
+    );
+    await this.deps.store.write(SIGNING_KEY_NAME, sealed);
+    wipe(kp.secretKey);
+    // Re-read so the persisted copy is authoritative.
+    const stored = await this.deps.store.read(SIGNING_KEY_NAME);
+    if (stored === null) throw new Error('audit signing key persist failed');
+    this.signingSecret = openBlob(
+      stored,
+      this.deps.mk,
+      'audit-signing-key:v1',
+      this.deps.datasetId,
+    );
+    this.signingPublic = publicKeyFromSecret(this.signingSecret);
+    this.keyFingerprint = blake2b256Hex(this.signingPublic);
+  }
+
+  private async ensureSigningKey(): Promise<void> {
+    if (this.signingSecret !== null) return;
+    const loaded = await this.loadSigningKeyIfPresent();
+    if (!loaded) await this.generateAndPersistSigningKey();
   }
 
   private async loadEntries(): Promise<AuditEntry[]> {
@@ -256,13 +279,26 @@ export class FileAuditLog implements AuditLog {
     return { ok: true };
   }
 
-  async verifyChain(): Promise<AuditVerifyResult> {
-    await this.ensureSigningKey();
+  async verifyChain(opts?: { readonly allowKeyCreation?: boolean }): Promise<AuditVerifyResult> {
+    const allowKeyCreation = opts?.allowKeyCreation ?? true;
+    if (allowKeyCreation) {
+      await this.ensureSigningKey();
+    } else {
+      await this.loadSigningKeyIfPresent();
+    }
     let entries: AuditEntry[];
     try {
       entries = await this.loadEntries();
     } catch {
       return { ok: false, reason: 'decrypt-failed' };
+    }
+    // Read-only path (allowKeyCreation:false) with no signing key on disk: a
+    // fresh log with no entries is fine (nothing to verify); a populated chunk
+    // without its signing key means we cannot verify the signatures — surface a
+    // distinct reason so callers can treat it as "sync-incomplete," not tamper.
+    if (this.signingPublic === null) {
+      if (entries.length === 0) return { ok: true };
+      return { ok: false, reason: 'signing-key-missing' };
     }
     return this.verifyEntries(entries);
   }

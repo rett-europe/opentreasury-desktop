@@ -61,6 +61,7 @@ import {
   setLastDetectedFolderPath,
   getLastDetectedFolderPath,
 } from '../../workspace-session.js';
+import type { IntegrityVerdict } from '../../../shared/ipc-contracts/audit-integrity.js';
 
 // ── Deps injection ──────────────────────────────────────────────────────────
 
@@ -110,6 +111,38 @@ export interface WorkspaceDeps {
    * Must never throw and must resolve promptly (it is internally time-bounded).
    */
   anchorBeforeLock?: () => Promise<void>;
+
+  /**
+   * SPEC-028 WI-3 — tear the workspace back down after a fail-closed
+   * verify-on-unlock verdict so it is NOT left readable in memory. Invoked by
+   * the unlock handlers when `installEncryptedEventLog` throws a
+   * `WorkspaceIntegrityError`. Production wires it to
+   * `bootstrap.lockWorkspaceAfterIntegrityFailure`.
+   */
+  lockWorkspaceAfterIntegrityFailure?: () => void;
+
+  /**
+   * SPEC-028 WI-3 — returns the verdict from the most recent verify-on-unlock so
+   * the OK-path responses can carry it to the Audit viewer (WI-4) without the
+   * renderer re-verifying. Production wires it to
+   * `bootstrap.getLastUnlockIntegrityVerdict`.
+   */
+  getLastUnlockIntegrityVerdict?: () => IntegrityVerdict | null;
+}
+
+/**
+ * SPEC-028 WI-3 — structural guard for the fail-closed integrity error thrown by
+ * `installEncryptedEventLog`. Matched by shape (name + `verdict`) rather than by
+ * `instanceof` to avoid a static import of the main bootstrap module (which
+ * loads Electron) into this otherwise Electron-free handler module.
+ */
+function isWorkspaceIntegrityError(err: unknown): err is { verdict: IntegrityVerdict } {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    (err as { name?: unknown }).name === 'WorkspaceIntegrityError' &&
+    'verdict' in err
+  );
 }
 
 // ── Pending setup state (MEDIUM-1 hardening: TTL + cap) ─────────────────────
@@ -288,6 +321,11 @@ function makeErrorResponse(code: string, message: string, field?: string) {
 
 function rateLimitedError() {
   return makeErrorResponse('rate_limited', 'Too many requests. Please wait before retrying.');
+}
+
+/** Test-only: clear the module-global rate-limit counters between tests. */
+export function _resetWorkspaceRateLimits(): void {
+  rateCounters.clear();
 }
 
 // ── Handler factory ──────────────────────────────────────────────────────────
@@ -495,6 +533,19 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     try {
       await deps.installEncryptedEventLog?.(deviceId, mk);
     } catch (err) {
+      if (isWorkspaceIntegrityError(err)) {
+        deps.lockWorkspaceAfterIntegrityFailure?.();
+        evictPendingSetup(setupToken);
+        return {
+          ok: false,
+          error: {
+            code: 'integrity-failure',
+            message: 'Workspace integrity verification failed. Recovery is required.',
+            needsRecovery: true,
+            integrity: err.verdict,
+          },
+        };
+      }
       // eslint-disable-next-line no-console
       console.error(
         `[workspace] confirmSetup: installEncryptedEventLog failed: ${(err as Error).message}`,
@@ -513,6 +564,7 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
         timestamp: now.toISOString(),
         workspaceId,
       },
+      integrity: deps.getLastUnlockIntegrityVerdict?.() ?? undefined,
     };
   }
 
@@ -625,6 +677,18 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     try {
       await deps.installEncryptedEventLog?.(deviceId, mk);
     } catch (err) {
+      if (isWorkspaceIntegrityError(err)) {
+        deps.lockWorkspaceAfterIntegrityFailure?.();
+        return {
+          ok: false,
+          error: {
+            code: 'integrity-failure',
+            message: 'Workspace integrity verification failed. Recovery is required.',
+            needsRecovery: true,
+            integrity: err.verdict,
+          },
+        };
+      }
       // eslint-disable-next-line no-console
       console.error(
         `[workspace] enroll: installEncryptedEventLog failed: ${(err as Error).message}`,
@@ -640,6 +704,7 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
         deviceId,
         deviceLabel: label,
       },
+      integrity: deps.getLastUnlockIntegrityVerdict?.() ?? undefined,
     };
   }
 
@@ -720,13 +785,25 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     try {
       await deps.installEncryptedEventLog?.(deviceId, mk);
     } catch (err) {
+      if (isWorkspaceIntegrityError(err)) {
+        deps.lockWorkspaceAfterIntegrityFailure?.();
+        return {
+          ok: false,
+          error: {
+            code: 'integrity-failure',
+            message: 'Workspace integrity verification failed. Recovery is required.',
+            needsRecovery: true,
+            integrity: err.verdict,
+          },
+        };
+      }
       // eslint-disable-next-line no-console
       console.error(
         `[workspace] unlock: installEncryptedEventLog failed: ${(err as Error).message}`,
       );
     }
 
-    return { ok: true };
+    return { ok: true, integrity: deps.getLastUnlockIntegrityVerdict?.() ?? undefined };
   }
 
   // ── workspace:recover ─────────────────────────────────────────────────────
@@ -839,6 +916,18 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     try {
       await deps.installEncryptedEventLog?.(deviceId, mk);
     } catch (err) {
+      if (isWorkspaceIntegrityError(err)) {
+        deps.lockWorkspaceAfterIntegrityFailure?.();
+        return {
+          ok: false,
+          error: {
+            code: 'integrity-failure',
+            message: 'Workspace integrity verification failed. Restore from a trusted backup.',
+            needsRecovery: true,
+            integrity: err.verdict,
+          },
+        };
+      }
       // eslint-disable-next-line no-console
       console.error(
         `[workspace] recover: installEncryptedEventLog failed: ${(err as Error).message}`,
@@ -853,6 +942,7 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
         timestamp: now.toISOString(),
         deviceId,
       },
+      integrity: deps.getLastUnlockIntegrityVerdict?.() ?? undefined,
     };
   }
 
@@ -901,6 +991,8 @@ export async function buildProductionWorkspaceDeps(): Promise<WorkspaceDeps> {
     getEffectiveEventLogDirOrNull,
     installEncryptedEventLog,
     anchorNowBeforeLock,
+    lockWorkspaceAfterIntegrityFailure,
+    getLastUnlockIntegrityVerdict,
   } = await import('../../bootstrap.js');
 
   return {
@@ -921,6 +1013,9 @@ export async function buildProductionWorkspaceDeps(): Promise<WorkspaceDeps> {
     },
     // SPEC-028 WI-2 — bounded, best-effort anchor before lock wipes the MK.
     anchorBeforeLock: () => anchorNowBeforeLock(),
+    // SPEC-028 WI-3 — fail-closed teardown + OK-path verdict accessor.
+    lockWorkspaceAfterIntegrityFailure: () => lockWorkspaceAfterIntegrityFailure(),
+    getLastUnlockIntegrityVerdict: () => getLastUnlockIntegrityVerdict(),
   };
 }
 

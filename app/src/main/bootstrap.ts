@@ -36,7 +36,13 @@ import {
   type AnchorOutcome,
   type AnchorLogger,
 } from './services/anchorService.js';
-import { getActiveWorkspace } from './workspace-session.js';
+import {
+  verifyOnUnlock,
+  readStableDeviceFiles,
+  type IntegrityLogger,
+} from './services/auditVerifyOnUnlock.js';
+import type { IntegrityVerdict } from '../shared/ipc-contracts/audit-integrity.js';
+import { getActiveWorkspace, clearActiveWorkspace } from './workspace-session.js';
 
 // Helper for dev-seed fallback when no profile exists yet
 function fakeUlid(seedKey: string): string {
@@ -719,6 +725,18 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
   }
 
   const dir = effectiveEventLogDir;
+
+  // SPEC-028 WI-3 — STANDALONE chain-verify-on-unlock (fail-closed). Runs BEFORE
+  // hydrating the read model, installing the log, or anchoring (and before the
+  // already-installed early-return below), so a tampered/broken workspace never
+  // "opens." A fail-closed verdict throws `WorkspaceIntegrityError`; the unlock
+  // handlers catch it, tear the workspace back down, and route to recovery.
+  const verdict = await verifyWorkspaceIntegrityOnUnlock(deviceId, mk);
+  lastUnlockIntegrityVerdict = verdict;
+  if (verdict.failClosed) {
+    throw new WorkspaceIntegrityError(verdict);
+  }
+
   const existing = eventLogInstance;
   if (existing instanceof EncryptedMultiDeviceEventLog && existing.owningDeviceId === deviceId) {
     // Already installed (e.g., re-unlock without an intervening lock). Skip
@@ -795,6 +813,118 @@ const anchorLog: AnchorLogger = (level, message, meta) => {
   // eslint-disable-next-line no-console
   console[level === 'warn' ? 'warn' : 'log'](`[anchor] ${message}${suffix}`);
 };
+
+// ── SPEC-028 WI-3 — chain-verify-on-unlock (fail-closed) ────────────────────
+
+/** ULIDs/hashes/counts only — safe to log (R15). */
+const integrityLog: IntegrityLogger = (level, message, meta) => {
+  const suffix = meta === undefined ? '' : ` ${JSON.stringify(meta)}`;
+  // eslint-disable-next-line no-console
+  console[level === 'warn' ? 'warn' : 'log'](`[integrity] ${message}${suffix}`);
+};
+
+/**
+ * Thrown by `installEncryptedEventLog` when verify-on-unlock fails closed. The
+ * unlock IPC handlers catch it, call `lockWorkspaceAfterIntegrityFailure()`, and
+ * surface the carried verdict to the renderer (UX `AUD-0.integrity-error`).
+ */
+export class WorkspaceIntegrityError extends Error {
+  readonly verdict: IntegrityVerdict;
+  constructor(verdict: IntegrityVerdict) {
+    super(`workspace integrity verification failed: ${verdict.status}`);
+    this.name = 'WorkspaceIntegrityError';
+    this.verdict = verdict;
+  }
+}
+
+/** The verdict from the most recent unlock verify (for the Audit viewer OK path). */
+let lastUnlockIntegrityVerdict: IntegrityVerdict | null = null;
+
+export function getLastUnlockIntegrityVerdict(): IntegrityVerdict | null {
+  return lastUnlockIntegrityVerdict;
+}
+
+/**
+ * Run the standalone verify-on-unlock check for the active workspace. Builds a
+ * READ-ONLY `FileAuditLog` against the same `<folderPath>/.treasury/audit` path
+ * exports/anchors use, and recomputes the latest anchor against the on-disk
+ * event files in `effectiveEventLogDir`. The audit log gets its OWN master-key
+ * copy (wiped when done) so a concurrent lock wiping the session MK cannot race
+ * the verify. Returns a redacted verdict; never throws (the service maps any
+ * error to a fail-closed verdict).
+ */
+async function verifyWorkspaceIntegrityOnUnlock(
+  deviceId: string,
+  mk: Uint8Array,
+): Promise<IntegrityVerdict> {
+  const ws = getActiveWorkspace();
+  // Without an active workspace or dataset id we cannot locate the audit chain.
+  // This should not happen on the unlock paths (they set the workspace first);
+  // treat it as "nothing to verify yet" rather than fail-closing a setup race.
+  if (ws === null || datasetIdInstance === null || effectiveEventLogDir === null) {
+    return {
+      status: 'no-audit-chain',
+      failClosed: false,
+      category: 'ok',
+      recovery: 'none',
+      devices: [],
+      summary: { anchoredDeviceCount: 0, notYetAnchoredTotal: 0, newDeviceCount: 0 },
+    };
+  }
+
+  const eventDir = effectiveEventLogDir;
+  const actor = profileInstance?.userId ?? deviceId;
+  const auditDir = path.resolve(ws.folderPath, '.treasury', 'audit');
+  const auditMk = new Uint8Array(mk);
+  const auditLog = new FileAuditLog({
+    store: createFsAuditStore(auditDir),
+    mk: auditMk,
+    datasetId: datasetIdInstance,
+    deviceId,
+    actorUserIdentity: actor,
+    now: () => new Date(),
+    lockKey: auditDir,
+  });
+  try {
+    return await verifyOnUnlock({
+      auditLog,
+      readDeviceFiles: () => readStableDeviceFiles(eventDir),
+      log: integrityLog,
+    });
+  } finally {
+    auditMk.fill(0);
+  }
+}
+
+/**
+ * SPEC-028 WI-3 — genuinely tear the workspace back down after a fail-closed
+ * integrity verdict so it is NOT left readable in memory (important on the
+ * re-unlock path where `eventLogInstance` + the hydrated read model already
+ * exist). Resets the event-log instance, clears the read model, disposes the
+ * anchor scheduler, re-marks the encrypted workspace pending, and wipes the
+ * session master key. After this, `getEventLog()` throws and data IPC is blocked
+ * until a clean unlock re-installs the log.
+ */
+export function lockWorkspaceAfterIntegrityFailure(): void {
+  // Dispose the captured log instance FIRST: it owns its own MK copy (see the
+  // `mkCopy` at install), so wiping the session key via clearActiveWorkspace()
+  // below does NOT neutralise it. Any already-registered data IPC handler still
+  // holds this reference; dispose() zeroes its MK and makes every op throw, so a
+  // tampered workspace cannot keep being read/written through the stale instance.
+  if (eventLogInstance instanceof EncryptedMultiDeviceEventLog) {
+    eventLogInstance.dispose();
+  }
+  eventLogInstance = null;
+  rehydrateForLog = null;
+  rehydrateImpl = null;
+  replayEvents([]);
+  encryptedWorkspacePending = true;
+  if (anchorScheduler !== null) {
+    anchorScheduler.dispose();
+    anchorScheduler = null;
+  }
+  clearActiveWorkspace();
+}
 
 /**
  * SPEC-028 WI-2 — resolve the current audit log + frontier source from the

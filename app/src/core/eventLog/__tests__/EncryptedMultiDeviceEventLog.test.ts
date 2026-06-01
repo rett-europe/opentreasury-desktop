@@ -490,4 +490,39 @@ describe('EncryptedMultiDeviceEventLog', () => {
       await fs.unlink(stale).catch(() => undefined);
     }
   });
+
+  // ---- dispose() (SPEC-028 WI-3 fail-closed teardown) ---------------------
+
+  describe('dispose()', () => {
+    it('zeroes the in-memory master key and blocks all later operations', async () => {
+      const log = new EncryptedMultiDeviceEventLog({
+        dir: tmpDir,
+        deviceId: DEVICE_A,
+        masterKey: mk,
+      });
+      await log.append(makeEvent(ulid('EVENT001'), DEVICE_A));
+
+      log.dispose();
+
+      // The caller's MK buffer is the one we own internally — it must be wiped.
+      expect(mk.every((b) => b === 0)).toBe(true);
+
+      await expect(log.append(makeEvent(ulid('EVENT002'), DEVICE_A))).rejects.toThrow(/disposed/);
+      await expect(log.appendBatch([makeEvent(ulid('EVENT003'), DEVICE_A)])).rejects.toThrow(
+        /disposed/,
+      );
+      await expect(log.load()).rejects.toThrow(/disposed/);
+      await expect(log.snapshotFrontier()).rejects.toThrow(/disposed/);
+    });
+
+    it('is idempotent', () => {
+      const log = new EncryptedMultiDeviceEventLog({
+        dir: tmpDir,
+        deviceId: DEVICE_A,
+        masterKey: mk,
+      });
+      log.dispose();
+      expect(() => log.dispose()).not.toThrow();
+    });
+  });
 });

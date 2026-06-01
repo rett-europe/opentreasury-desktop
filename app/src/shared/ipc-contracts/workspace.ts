@@ -9,6 +9,8 @@
 
 import { z } from 'zod';
 
+import { integrityVerdictSchema } from './audit-integrity.js';
+
 // ============================================================================
 // Workspace State Detection
 // ============================================================================
@@ -120,6 +122,8 @@ export const workspaceConfirmSetupResponseSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
     event: workspaceCreatedEventMirrorSchema,
+    /** SPEC-028 WI-3 — verify-on-unlock verdict (OK path; for the Audit viewer). */
+    integrity: integrityVerdictSchema.optional(),
   }),
   z.object({
     ok: z.literal(false),
@@ -127,6 +131,10 @@ export const workspaceConfirmSetupResponseSchema = z.discriminatedUnion('ok', [
       code: z.string(),
       message: z.string(),
       field: z.string().optional(),
+      /** If code is 'needs-recovery'/'integrity-failure', trigger recovery flow. */
+      needsRecovery: z.boolean().optional(),
+      /** SPEC-028 WI-3 — fail-closed verdict when code is 'integrity-failure'. */
+      integrity: integrityVerdictSchema.optional(),
     }),
   }),
 ]);
@@ -164,6 +172,7 @@ export const workspaceEnrollResponseSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
     event: deviceEnrolledEventMirrorSchema,
+    integrity: integrityVerdictSchema.optional(),
   }),
   z.object({
     ok: z.literal(false),
@@ -171,6 +180,8 @@ export const workspaceEnrollResponseSchema = z.discriminatedUnion('ok', [
       code: z.string(),
       message: z.string(),
       field: z.string().optional(),
+      needsRecovery: z.boolean().optional(),
+      integrity: integrityVerdictSchema.optional(),
     }),
   }),
 ]);
@@ -190,14 +201,17 @@ export type WorkspaceUnlockRequest = z.infer<typeof workspaceUnlockRequestSchema
 export const workspaceUnlockResponseSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
+    integrity: integrityVerdictSchema.optional(),
   }),
   z.object({
     ok: z.literal(false),
     error: z.object({
       code: z.string(),
       message: z.string(),
-      /** If code is 'needs-recovery', trigger recovery flow */
+      /** If code is 'needs-recovery'/'integrity-failure', trigger recovery flow */
       needsRecovery: z.boolean().optional(),
+      /** SPEC-028 WI-3 — fail-closed verdict when code is 'integrity-failure'. */
+      integrity: integrityVerdictSchema.optional(),
     }),
   }),
 ]);
@@ -230,6 +244,7 @@ export const workspaceRecoverResponseSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
     event: deviceRecoveredEventMirrorSchema,
+    integrity: integrityVerdictSchema.optional(),
   }),
   z.object({
     ok: z.literal(false),
@@ -237,6 +252,8 @@ export const workspaceRecoverResponseSchema = z.discriminatedUnion('ok', [
       code: z.string(),
       message: z.string(),
       field: z.string().optional(),
+      needsRecovery: z.boolean().optional(),
+      integrity: integrityVerdictSchema.optional(),
     }),
   }),
 ]);
