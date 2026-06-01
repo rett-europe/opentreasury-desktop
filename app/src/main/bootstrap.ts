@@ -26,6 +26,8 @@ import { buildDevSeedEvents } from './devSeed.js';
 import { loadProfile, type Profile } from './profile.js';
 import { loadAppConfig, saveAppConfig, type AppConfig } from './config.js';
 import { createReadOnlyEventLog } from './eventLog-readonly-wrapper.js';
+import { createEnrichingEventLog } from './eventLog-enrichment-wrapper.js';
+import { PROFILE_PENDING_USER_ID, type EventAttribution } from '../core/eventLog/enrichEvent.js';
 import { loadDeviceId } from './device.js';
 import { loadDatasetId } from './dataset.js';
 
@@ -36,6 +38,10 @@ function fakeUlid(seedKey: string): string {
 }
 
 let eventLogInstance: EventLog | null = null;
+// SPEC-028 WI-1 — memoized enriching wrapper returned by getEventLog(). Built
+// once over a delegator that reads the live `eventLogInstance` at call time, so
+// it survives the post-unlock instance swap in installEncryptedEventLog().
+let enrichingEventLog: EventLog | null = null;
 let profileInstance: Profile | null = null;
 let appConfigInstance: AppConfig | null = null;
 let deviceIdInstance: string | null = null;
@@ -89,6 +95,23 @@ export function shouldDeferEventLog(appConfig: AppConfig): boolean {
   return appConfig.dataDir === null;
 }
 
+/**
+ * SPEC-028 WI-1 — resolve the current who/what/when attribution at append time.
+ * Read lazily (per append) so profile updates after IPC handler registration
+ * are reflected. When no profile exists yet (profile pending, e.g. early in
+ * onboarding) the actor falls back to a sentinel rather than blocking the write
+ * — matching the transaction IPC handlers' existing behavior.
+ */
+export function getCurrentEventAttribution(): EventAttribution {
+  const profile = profileInstance;
+  return {
+    actorUserId: profile?.userId ?? PROFILE_PENDING_USER_ID,
+    actorDeviceId: getDeviceId(),
+    actorIdentitySource: profile?.identitySource ?? 'local',
+    datasetId: getDatasetId(),
+  };
+}
+
 export function getEventLog(): EventLog {
   if (eventLogInstance === null) {
     let detail: string;
@@ -102,6 +125,34 @@ export function getEventLog(): EventLog {
       detail = '[bootstrap] getEventLog() called before initializeApp() resolved';
     }
     throw new Error(detail);
+  }
+
+  // SPEC-028 WI-1 — the single append-time enrichment choke-point. Every
+  // production mutation sources its event log here, so wrapping once makes the
+  // log a complete who/what/when ledger without per-handler/per-schema edits.
+  // The delegating inner resolves the live `eventLogInstance` on each call so
+  // the wrapper stays valid across the installEncryptedEventLog() swap, while
+  // the raw `eventLogInstance` is left untouched for that swap's instanceof
+  // idempotency check.
+  if (enrichingEventLog === null) {
+    const delegatingInner: EventLog = {
+      append: (event) => getRawEventLogOrThrow().append(event),
+      appendBatch: (events) => getRawEventLogOrThrow().appendBatch(events),
+      load: () => getRawEventLogOrThrow().load(),
+    };
+    enrichingEventLog = createEnrichingEventLog(delegatingInner, getCurrentEventAttribution);
+  }
+  return enrichingEventLog;
+}
+
+/**
+ * Internal: return the raw (un-enriched) event log or throw if it is not yet
+ * installed. Used by the enriching delegator so writes always target the
+ * currently installed log instance.
+ */
+function getRawEventLogOrThrow(): EventLog {
+  if (eventLogInstance === null) {
+    throw new Error('[bootstrap] event log accessed before it was installed');
   }
   return eventLogInstance;
 }
