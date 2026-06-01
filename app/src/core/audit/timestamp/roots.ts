@@ -12,7 +12,30 @@
 //
 // freeTSA.org Root CA — self-signed, valid to 2041-03-07. Permits general data
 // timestamping (SaaS). Redistribution of the public CA cert for verification is
-// expected/permitted; confirm with the provider before shipping (OQ4b).
+// expected/permitted (it is a public key, not a secret).
+//
+// NORMATIVE CAVEAT (OQ4b): freeTSA is the functional, out-of-box DEFAULT only.
+// Production / audit-grade / regulatory deployments SHOULD configure a QUALIFIED
+// (e.g. eIDAS) or commercial TSA via a provider whose `trustRootIds` resolve to
+// its own bundled anchor. See spec §11 (OQ4) and crypto-spec §8.6.
+//
+// PIN / PROVENANCE — this anchor is pinned by SHA-256 fingerprint and guarded by
+// roots.test.ts so an accidental/ malicious cert swap fails the build:
+//   Subject/Issuer : O=Free TSA, OU=Root CA, CN=www.freetsa.org (self-signed)
+//   Serial         : C1E986160DA8E980
+//   Not After      : 2041-03-07T01:52:13Z
+//   SHA-256        : A6:37:9E:7C:EC:C0:5F:AA:3C:BF:07:60:13:D7:45:E3:
+//                    27:BB:BA:A3:8C:0B:9A:F2:24:69:D4:70:1D:18:AA:BC
+//   Source         : https://www.freetsa.org/files/cacert.pem
+//   Verify locally : openssl x509 -in cacert.pem -noout -fingerprint -sha256
+
+/**
+ * Expected SHA-256 fingerprint of {@link FREETSA_ROOT_CA_PEM} (colon-separated
+ * uppercase hex, matching Node's `X509Certificate.fingerprint256`). Pinned so a
+ * cert swap is caught by `roots.test.ts`. Provenance documented in the header.
+ */
+export const FREETSA_ROOT_CA_SHA256 =
+  'A6:37:9E:7C:EC:C0:5F:AA:3C:BF:07:60:13:D7:45:E3:27:BB:BA:A3:8C:0B:9A:F2:24:69:D4:70:1D:18:AA:BC';
 
 /** freeTSA.org Root CA (O=Free TSA, OU=Root CA, CN=www.freetsa.org). */
 export const FREETSA_ROOT_CA_PEM = `-----BEGIN CERTIFICATE-----

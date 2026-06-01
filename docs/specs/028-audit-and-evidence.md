@@ -604,6 +604,11 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
      free, publishes a bundleable CA root) behind a `TimestampProvider` abstraction; a commercial TSA
      or transparency-log/public-anchor provider can drop in later. **Confirm:** freeTSA vs a
      commercial TSA on availability/ToS grounds, and permission to bundle the chosen TSA root cert.
+     - **Normative caveat (review-accepted 2026-06-01):** freeTSA is the functional, out-of-box
+       **default only**. Production / audit-grade / regulatory deployments **SHOULD** configure a
+       **qualified (e.g. eIDAS) or commercial TSA** — this ties to the §8 honest-limitation and
+       legal-review language. The bundled freeTSA root is **pinned by SHA-256 fingerprint**
+       (`A6:37:…:AA:BC`, provenance + guard test in `core/audit/timestamp/roots.ts`).
    - A transparency-log/public-anchor alternative is **deferred for v1**, kept open via the interface.
 5. **Evidence bundle format.** JSON-lines + manifest (crypto-spec §8.3) only, or also a human-
    readable PDF/print artifact in the bundle? (Niobe/Link.)

@@ -610,6 +610,13 @@ metadata and is fully recomputable from the chain, so a lost queue file is harml
 (OQ4, §12 of the spec). A transparency-log / public-anchor provider can implement the same interface
 later. The provider **never throws** — it returns a typed error.
 
+> **Normative caveat (OQ4b).** freeTSA.org is the functional, out-of-box **default only**.
+> Production / audit-grade / regulatory deployments **SHOULD** configure a **qualified (e.g. eIDAS) or
+> commercial TSA** behind the same `TimestampProvider` abstraction — consistent with the §8
+> honest-limitation / legal-review posture. The bundled freeTSA root is **pinned by SHA-256
+> fingerprint** (`A6:37:9E:7C:…:1D:18:AA:BC`) with provenance and a guard test in
+> `core/audit/timestamp/roots.ts`, so a cert swap fails the build rather than silently widening trust.
+
 **Never blocks writes.** All TSA I/O is best-effort, single-flight, and off the write path
 (`runTimestampOnce` drains the queue and never throws). Triggers mirror the anchor scheduler: on
 unlock (after hydrate), after each new anchor, and on a periodic timer while items remain. A TSA that
