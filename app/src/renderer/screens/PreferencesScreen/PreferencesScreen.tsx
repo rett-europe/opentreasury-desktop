@@ -2,7 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Profile } from '../../../shared/ipc-contracts/profile.js';
 import type { ConfigSetDataDirErrorCode } from '../../../shared/ipc-contracts/config.js';
+import {
+  DATE_FORMATS,
+  NUMBER_FORMATS,
+  type DateFormat,
+  type NumberFormat,
+} from '../../../shared/format/index.js';
 import { DatasetErrorDialog } from '../../components/DatasetErrorDialog/DatasetErrorDialog.js';
+import { useFormatPrefs } from '../../format/index.js';
 import './PreferencesScreen.css';
 
 type LoadState = 'loading' | 'loaded' | 'error';
@@ -55,18 +62,14 @@ const ROLE_OPTIONS = [
 /**
  * Preferences screen — unified settings and user profile management.
  *
- * Replaces the old SettingsScreen with 6 cards:
- * 1. Profile (name, role dropdown, ngo)
- * 2. Appearance (Light/Dark/System)
- * 3. Language (English/Español)
- * 4. Current Dataset (read-only display)
- * 5. Data folder (change button — accepts any writable folder)
- * 6. About (version)
+ * Replaces the old SettingsScreen with cards for profile, appearance,
+ * language, formatting, dataset location, and about details.
  *
  * Plus a footer with Switch Dataset button.
  */
 export function PreferencesScreen(): JSX.Element {
   const { t, i18n } = useTranslation('common');
+  const { dateFormat, numberFormat, setDateFormat, setNumberFormat } = useFormatPrefs();
   const [state, setState] = useState<LoadState>('loading');
   const [configData, setConfigData] = useState<ConfigData | null>(null);
   const [changeState, setChangeState] = useState<ChangeState>('idle');
@@ -635,7 +638,55 @@ export function PreferencesScreen(): JSX.Element {
           </div>
         </section>
 
-        {/* Card 4: Dataset (merged: dataset info + folder location & change) */}
+        {/* Card 4: Date format */}
+        <section className="ot-preferences__card">
+          <h2 className="ot-preferences__card-title">{t('preferences.dateFormat.title')}</h2>
+          <div className="ot-preferences__card-content">
+            <div className="ot-preferences__field">
+              <label className="ot-preferences__label" htmlFor="pref-date-format">
+                {t('preferences.dateFormat.label')}
+              </label>
+              <select
+                id="pref-date-format"
+                className="ot-preferences__select ot-preferences__select--narrow"
+                value={dateFormat}
+                onChange={(e) => setDateFormat(e.target.value as DateFormat)}
+              >
+                {DATE_FORMATS.map((format) => (
+                  <option key={format} value={format}>
+                    {t(`preferences.dateFormat.options.${format}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </section>
+
+        {/* Card 5: Number format */}
+        <section className="ot-preferences__card">
+          <h2 className="ot-preferences__card-title">{t('preferences.numberFormat.title')}</h2>
+          <div className="ot-preferences__card-content">
+            <div className="ot-preferences__field">
+              <label className="ot-preferences__label" htmlFor="pref-number-format">
+                {t('preferences.numberFormat.label')}
+              </label>
+              <select
+                id="pref-number-format"
+                className="ot-preferences__select ot-preferences__select--narrow"
+                value={numberFormat}
+                onChange={(e) => setNumberFormat(e.target.value as NumberFormat)}
+              >
+                {NUMBER_FORMATS.map((format) => (
+                  <option key={format} value={format}>
+                    {t(`preferences.numberFormat.options.${format}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </section>
+
+        {/* Card 6: Dataset (merged: dataset info + folder location & change) */}
         <section className="ot-preferences__card">
           <h2 className="ot-preferences__card-title">{t('preferences.dataset.title')}</h2>
           <div className="ot-preferences__card-content">
@@ -689,7 +740,7 @@ export function PreferencesScreen(): JSX.Element {
           </div>
         </section>
 
-        {/* Card 5: About */}
+        {/* Card 7: About */}
         <section className="ot-preferences__card">
           <h2 className="ot-preferences__card-title">{t('preferences.about.title')}</h2>
           <div className="ot-preferences__card-content">

@@ -6,6 +6,7 @@ import { AccountCard } from '../../components/AccountCard/index.js';
 import { KPIStrip } from '../../components/KPIStrip/index.js';
 import { GroupedBarChart } from '../../components/GroupedBarChart/index.js';
 import { TransactionsTable } from '../../components/TransactionsTable/index.js';
+import { useFormatters } from '../../format/index.js';
 import type { TransactionRow } from '../../components/TransactionsTable/index.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
 import { last90Days } from '../../utils/datePresets.js';
@@ -51,8 +52,8 @@ export function PanelScreen({
   readonly onNavigateToMovementsWithAccount?: (filters: { accountId: string }) => void;
   readonly onSeeAllMovements?: () => void;
 } = {}): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
+  const { t } = useTranslation('common');
+  const { formatMonth } = useFormatters();
   const [state, setState] = useState<PanelState>('skeleton');
   const [data, setData] = useState<PanelData | null>(null);
   const [selectedTx, setSelectedTx] = useState<RecentTransaction | null>(null);
@@ -328,9 +329,7 @@ export function PanelScreen({
       <div className="ot-section-label">{t('panel.sections.monthly-trend')}</div>
       <GroupedBarChart
         series={data.monthlyData.map((m) => {
-          const monthLabel = new Date(`${m.yearMonth}-01T00:00:00Z`).toLocaleDateString(locale, {
-            month: 'short',
-          });
+          const monthLabel = formatMonth(m.yearMonth);
           return {
             label: monthLabel,
             values: [m.income, m.expense],
@@ -351,7 +350,6 @@ export function PanelScreen({
           },
         ]}
         currency="EUR"
-        locale={locale}
         ariaLabel={t('panel.sections.monthly-trend')}
         dataTableCaption={t('panel.sections.monthly-trend')}
         emptyLabel={t('panel.skeleton')}

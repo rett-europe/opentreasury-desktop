@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
+import { FormatPreferencesProvider } from '../../format/index.js';
 import { i18n } from '../../i18n/index.js';
 import { PreferencesScreen } from './PreferencesScreen.js';
 import type { ConfigGetResponse } from '../../../shared/ipc-contracts/config.js';
@@ -24,6 +25,7 @@ beforeEach(() => {
   mockProfileGet.mockReset();
   mockProfileSave.mockReset();
   mockPickFolder.mockReset();
+  localStorage.clear();
   // @ts-expect-error - partial window.opentreasury mock
   window.opentreasury = {
     config: {
@@ -72,7 +74,9 @@ function makeProfileGetResponse(): ProfileGetResponse {
 function renderWithI18n(): ReturnType<typeof render> {
   return render(
     <I18nextProvider i18n={i18n}>
-      <PreferencesScreen />
+      <FormatPreferencesProvider>
+        <PreferencesScreen />
+      </FormatPreferencesProvider>
     </I18nextProvider>,
   );
 }
@@ -363,6 +367,43 @@ describe('PreferencesScreen', () => {
     // Save button should be enabled even though value matches original
     // (because a save attempt failed, user is trying to retry)
     expect((saveButton as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('persists date format preference changes', async () => {
+    mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
+    mockProfileGet.mockResolvedValue({ ok: true, profile: null });
+
+    renderWithI18n();
+
+    const select = (await screen.findByLabelText(
+      /date format|formato de fecha/i,
+    )) as HTMLSelectElement;
+
+    fireEvent.change(select, { target: { value: 'DMY' } });
+    expect(localStorage.getItem('ot-date-format')).toBe('DMY');
+
+    fireEvent.change(select, { target: { value: 'MDY' } });
+    expect(localStorage.getItem('ot-date-format')).toBe('MDY');
+
+    fireEvent.change(select, { target: { value: 'ISO' } });
+    expect(localStorage.getItem('ot-date-format')).toBe('ISO');
+  });
+
+  it('persists number format preference changes', async () => {
+    mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
+    mockProfileGet.mockResolvedValue({ ok: true, profile: null });
+
+    renderWithI18n();
+
+    const select = (await screen.findByLabelText(
+      /decimal separator|separador decimal/i,
+    )) as HTMLSelectElement;
+
+    fireEvent.change(select, { target: { value: 'eu' } });
+    expect(localStorage.getItem('ot-number-format')).toBe('eu');
+
+    fireEvent.change(select, { target: { value: 'us' } });
+    expect(localStorage.getItem('ot-number-format')).toBe('us');
   });
 
   it('forwards picked folder to setDataDir without renderer-side allowlist gating', async () => {

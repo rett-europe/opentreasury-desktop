@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Download, FolderOpen } from 'lucide-react';
 import { Button } from '../../components/Button/index.js';
 import { Card } from '../../components/Card/index.js';
+import { DateInput } from '../../components/DateInput/index.js';
 import { TagChipPicker } from '../../components/TagChipPicker/index.js';
 import { getAccounts } from '../../services/panelApi.js';
 import { listCategories } from '../../services/categoriesApi.js';
@@ -26,6 +27,7 @@ import type { CategoryRecord } from '../../../shared/ipc-contracts/categories.js
 import type { TagRecord } from '../../../shared/ipc-contracts/tags.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import { DATE_PRESET_IDS, getPresetRange, type DatePresetId } from '../../utils/datePresets.js';
+import { useFormatPrefs } from '../../format/index.js';
 import { MAX_EXPORT_ROWS } from './constants.js';
 import { ExportConfirmModal } from './ExportConfirmModal.js';
 import './ExportScreen.css';
@@ -64,6 +66,7 @@ function toExportLocale(language: string): ExportLocaleCode {
  */
 export function ExportScreen({ configRevision = 0 }: ExportScreenProps): JSX.Element {
   const { t, i18n } = useTranslation('common');
+  const { dateFormat, numberFormat } = useFormatPrefs();
 
   const [accounts, setAccounts] = useState<readonly Account[]>([]);
   const [categories, setCategories] = useState<readonly CategoryRecord[]>([]);
@@ -264,7 +267,7 @@ export function ExportScreen({ configRevision = 0 }: ExportScreenProps): JSX.Ele
     const locale = toExportLocale(i18n.language);
     let prep;
     try {
-      prep = await prepareExport({ format, filters, locale });
+      prep = await prepareExport({ format, filters, locale, dateFormat, numberFormat });
     } catch {
       setPhase({ kind: 'error', code: 'EXPORT_INTERNAL', recoverable: false });
       return;
@@ -311,7 +314,7 @@ export function ExportScreen({ configRevision = 0 }: ExportScreenProps): JSX.Ele
         result.code === 'EXPORT_LOCKED_OUT';
       setPhase({ kind: 'error', code: result.code, recoverable });
     }
-  }, [filters, format, i18n.language]);
+  }, [dateFormat, filters, format, i18n.language, numberFormat]);
 
   const handleReveal = useCallback(() => {
     void revealLastExport();
@@ -359,21 +362,11 @@ export function ExportScreen({ configRevision = 0 }: ExportScreenProps): JSX.Ele
           <div className="ot-export__custom">
             <label className="ot-export__date-label">
               <span>{t('export.filters.from')}</span>
-              <input
-                type="date"
-                value={customFrom}
-                max={customTo || undefined}
-                onChange={(e) => setCustomFrom(e.target.value)}
-              />
+              <DateInput value={customFrom} max={customTo || undefined} onChange={setCustomFrom} />
             </label>
             <label className="ot-export__date-label">
               <span>{t('export.filters.to')}</span>
-              <input
-                type="date"
-                value={customTo}
-                min={customFrom || undefined}
-                onChange={(e) => setCustomTo(e.target.value)}
-              />
+              <DateInput value={customTo} min={customFrom || undefined} onChange={setCustomTo} />
             </label>
             <Button
               type="button"

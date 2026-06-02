@@ -2,13 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
-import { formatDate } from '../../utils/dateFormat.js';
-import {
-  decimalSeparatorForLocale,
-  formatAmountForInput,
-  isValidAmountInput,
-  parseLocaleAmount,
-} from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import { newUlid } from '../../utils/ulid.js';
 import { createSplit, removeSplit, getSplits } from '../../services/splitsApi.js';
 import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
@@ -43,10 +37,15 @@ export function SplitTransactionModal({
   categories = [],
   onSplitSaved,
 }: SplitTransactionModalProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
-  // Decimal separator for the active locale — drives the per-row input sanitizer.
-  const decimalSep = decimalSeparatorForLocale(i18n.language);
+  const { t } = useTranslation('common');
+  const {
+    decimalSep,
+    formatAmountForInput,
+    formatCurrency,
+    formatDate,
+    isValidAmountInput,
+    parseAmount,
+  } = useFormatters();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   const [splits, setSplits] = useState<SplitRow[]>([]);
@@ -60,14 +59,6 @@ export function SplitTransactionModal({
 
   const isEditMode = transaction?.hasSplits ?? false;
 
-  const formatter = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-    useGrouping: 'always',
-  } as unknown as Intl.NumberFormatOptions);
-
   useEffect(() => {
     if (!isOpen || !transaction) return;
 
@@ -77,10 +68,7 @@ export function SplitTransactionModal({
         if (result.ok) {
           const rows: SplitRow[] = result.splits.map((s) => ({
             id: s.splitId,
-            // Locale-aware pre-fill — emits `423,89` in ES, `423.89` in EN.
-            // The strict per-locale input validator would otherwise reject
-            // the wrong separator on the user's next keystroke.
-            amountEur: formatAmountForInput(s.amountCents / 100, decimalSep),
+            amountEur: formatAmountForInput(s.amountCents / 100),
             categoryId: s.categoryId ?? '',
             subcategoryId: s.subcategoryId ?? '',
             comment: s.comment ?? '',
@@ -108,7 +96,7 @@ export function SplitTransactionModal({
       console.error('Failed to load splits:', err);
       setGeneralError(t('splits.modal.saveError', { reason: 'INTERNAL' }));
     });
-  }, [isOpen, transaction, t, decimalSep]);
+  }, [isOpen, transaction, t, formatAmountForInput]);
 
   useEffect(() => {
     if (splits.length === 0) return;
@@ -181,9 +169,9 @@ export function SplitTransactionModal({
 
   const handleAmountChange = (id: string, value: string): void => {
     // Reject garbage keystrokes at the input boundary so the field can't fill
-    // up with invalid characters. parseLocaleAmount would still return NaN
+    // up with invalid characters. parseAmount would still return NaN
     // for them, but the UX of allowing typed garbage is unacceptable.
-    if (!isValidAmountInput(value, decimalSep)) return;
+    if (!isValidAmountInput(value)) return;
     setSplits(splits.map((s) => (s.id === id ? { ...s, amountEur: value } : s)));
   };
 
@@ -203,7 +191,7 @@ export function SplitTransactionModal({
     if (!transaction) return { distributedCents: 0, remainingCents: 0 };
     const parentCents = Math.round(transaction.amount * 100);
     const distributedCents = splits.reduce((sum, s) => {
-      const parsed = parseLocaleAmount(s.amountEur);
+      const parsed = parseAmount(s.amountEur);
       return sum + (isNaN(parsed) ? 0 : Math.round(parsed * 100));
     }, 0);
     return { distributedCents, remainingCents: parentCents - distributedCents };
@@ -212,14 +200,14 @@ export function SplitTransactionModal({
   const { distributedCents, remainingCents } = calculateTotals();
   const isBalanced = remainingCents === 0;
   const allAmountsValid = splits.every((s) => {
-    const parsed = parseLocaleAmount(s.amountEur);
+    const parsed = parseAmount(s.amountEur);
     return !isNaN(parsed) && parsed > 0;
   });
   const canSubmit = isBalanced && allAmountsValid && splits.length >= 2;
 
   // SPEC-023 AC11 — Helper to check if a specific split row has an invalid amount.
   const isRowAmountInvalid = (split: SplitRow): boolean => {
-    const parsed = parseLocaleAmount(split.amountEur);
+    const parsed = parseAmount(split.amountEur);
     return isNaN(parsed) || parsed <= 0;
   };
 
@@ -230,7 +218,7 @@ export function SplitTransactionModal({
 
     try {
       const splitsPayload = splits.map((s) => ({
-        amountCents: Math.round(parseLocaleAmount(s.amountEur) * 100),
+        amountCents: Math.round(parseAmount(s.amountEur) * 100),
         categoryId: s.categoryId || null,
         subcategoryId: s.subcategoryId || null,
         comment: s.comment.trim() || null,
@@ -319,9 +307,7 @@ export function SplitTransactionModal({
               {isEditMode ? t('splits.modal.editTitle') : t('splits.modal.title')}
             </h2>
             <p className="ot-split-modal__subtitle">
-              <span className="ot-split-modal__subtitle-date">
-                {formatDate(transaction.date, locale)}
-              </span>
+              <span className="ot-split-modal__subtitle-date">{formatDate(transaction.date)}</span>
               <span className="ot-split-modal__subtitle-sep" aria-hidden="true">
                 ·
               </span>
@@ -345,18 +331,18 @@ export function SplitTransactionModal({
         >
           <div className="ot-split-summary__cell">
             <span className="ot-split-summary__label">{t('splits.modal.summaryOriginal')}</span>
-            <span className="ot-split-summary__value">{formatter.format(totalEur)}</span>
+            <span className="ot-split-summary__value">{formatCurrency(totalEur, 'EUR')}</span>
           </div>
           <div className="ot-split-summary__cell">
             <span className="ot-split-summary__label">{t('splits.modal.summaryDistributed')}</span>
-            <span className="ot-split-summary__value">{formatter.format(distributedEur)}</span>
+            <span className="ot-split-summary__value">{formatCurrency(distributedEur, 'EUR')}</span>
           </div>
           <div className="ot-split-summary__cell ot-split-summary__cell--delta">
             <span className="ot-split-summary__label">{t(deltaLabelKey)}</span>
             <span className="ot-split-summary__value ot-split-summary__value--delta">
               {deltaState === 'balanced'
-                ? formatter.format(0)
-                : formatter.format(Math.abs(remainingEur))}
+                ? formatCurrency(0, 'EUR')
+                : formatCurrency(Math.abs(remainingEur), 'EUR')}
             </span>
           </div>
         </section>
@@ -405,7 +391,7 @@ export function SplitTransactionModal({
                       inputMode="decimal"
                       value={split.amountEur}
                       onChange={(e) => handleAmountChange(split.id, e.target.value)}
-                      placeholder="0,00"
+                      placeholder={`0${decimalSep}00`}
                       className="ot-split-row__amount-input"
                       aria-invalid={rowHasError}
                     />
@@ -493,7 +479,7 @@ export function SplitTransactionModal({
           <div className="ot-split-modal__warnings" aria-live="polite">
             {!isBalanced && (
               <p className="ot-split-modal__warning" id="split-sum-warning">
-                {t('splits.modal.sumWarning', { amount: formatter.format(totalEur) })}
+                {t('splits.modal.sumWarning', { amount: formatCurrency(totalEur, 'EUR') })}
               </p>
             )}
             {splits.length < 2 && (
@@ -567,7 +553,7 @@ export function SplitTransactionModal({
         <div className="ot-split-modal__confirm-overlay">
           <div className="ot-split-modal__confirm" role="dialog" aria-labelledby="remove-title">
             <h3 id="remove-title">{t('splits.modal.removeTitle')}</h3>
-            <p>{t('splits.modal.removeBody', { amount: formatter.format(totalEur) })}</p>
+            <p>{t('splits.modal.removeBody', { amount: formatCurrency(totalEur, 'EUR') })}</p>
             <div className="ot-split-modal__confirm-actions">
               <Button variant="secondary" onClick={() => setShowRemoveConfirm(false)}>
                 {t('splits.modal.removeCancel')}

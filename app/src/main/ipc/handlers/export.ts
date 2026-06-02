@@ -148,7 +148,12 @@ export function createExportHandlers(deps: ExportHandlerDeps): ExportHandlers {
       return { ok: false, code: built.code };
     }
 
-    const basename = buildExportFilename(parsed.locale, parsed.format, parsed.filters);
+    const basename = buildExportFilename(
+      parsed.locale,
+      parsed.format,
+      parsed.filters,
+      parsed.dateFormat,
+    );
     const window = BrowserWindow.fromWebContents(event.sender);
     const defaultPath = nodePath.join(documentsDir(), basename);
 
@@ -178,6 +183,8 @@ export function createExportHandlers(deps: ExportHandlerDeps): ExportHandlers {
       format: parsed.format,
       filters: parsed.filters,
       locale: parsed.locale,
+      dateFormat: parsed.dateFormat,
+      numberFormat: parsed.numberFormat,
       destPath,
       basename,
       estimatedRowCount: built.rows.length,
@@ -267,6 +274,8 @@ export function createExportHandlers(deps: ExportHandlerDeps): ExportHandlers {
         format: pending.format,
         destPath: pending.destPath,
         locale: pending.locale,
+        dateFormat: pending.dateFormat,
+        numberFormat: pending.numberFormat,
         onProgress: emit,
       });
     } catch {
@@ -304,8 +313,7 @@ export function createExportHandlers(deps: ExportHandlerDeps): ExportHandlers {
   return { prepare, run, reveal };
 }
 
-// The pending export records the format but not the locale; the filename was
-// already computed with the renderer's locale at prepare time.
+// Completion-entry append failures are swallowed by safeAppend; diagnostics are local-only.
 async function safeAppend(
   audit: AuditLog,
   input: Parameters<AuditLog['append']>[0],

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import type { SubcategoryRow } from '../../../shared/ipc-contracts/insights.js';
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import './SubcategoryRankedTable.css';
 
 /**
@@ -46,7 +46,6 @@ export type SubcategoryRankedTableProps = SubcategoryRankedTableLabels & {
   readonly selectedCategoryId: string | null;
   readonly selectedCategoryName?: string | null;
   readonly onClearSelection: () => void;
-  readonly locale: string;
   readonly topN?: number;
 };
 
@@ -95,20 +94,6 @@ function rankSide(
   return out;
 }
 
-/**
- * % rounded to 1 decimal. Cheap accuracy that stops the column from looking
- * lossy at small magnitudes.
- */
-function formatPercent(cents: number, sideTotal: number, locale: string): string {
-  if (sideTotal <= 0) return new Intl.NumberFormat(locale, { style: 'percent' }).format(0);
-  const ratio = cents / sideTotal;
-  return new Intl.NumberFormat(locale, {
-    style: 'percent',
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  }).format(ratio);
-}
-
 export function SubcategoryRankedTable({
   rows,
   expenseCategoryColorMap,
@@ -116,7 +101,6 @@ export function SubcategoryRankedTable({
   selectedCategoryId,
   selectedCategoryName,
   onClearSelection,
-  locale,
   title,
   expenseSideLabel,
   incomeSideLabel,
@@ -179,7 +163,6 @@ export function SubcategoryRankedTable({
             topN={topN}
             showAll={showAllIncome}
             onToggleShowAll={() => setShowAllIncome((v) => !v)}
-            locale={locale}
             sideEmptyLabel={sideEmptyLabel}
             showAllLabel={showAllLabel}
             showLessLabel={showLessLabel}
@@ -193,7 +176,6 @@ export function SubcategoryRankedTable({
             topN={topN}
             showAll={showAllExpense}
             onToggleShowAll={() => setShowAllExpense((v) => !v)}
-            locale={locale}
             sideEmptyLabel={sideEmptyLabel}
             showAllLabel={showAllLabel}
             showLessLabel={showLessLabel}
@@ -213,7 +195,6 @@ function RankedSide({
   topN,
   showAll,
   onToggleShowAll,
-  locale,
   sideEmptyLabel,
   showAllLabel,
   showLessLabel,
@@ -226,7 +207,6 @@ function RankedSide({
   readonly topN: number;
   readonly showAll: boolean;
   readonly onToggleShowAll: () => void;
-  readonly locale: string;
   readonly sideEmptyLabel: string;
   readonly showAllLabel: string;
   readonly showLessLabel: string;
@@ -270,7 +250,6 @@ function RankedSide({
                 maxCents={maxCents}
                 sideTotal={sideTotal}
                 side={side}
-                locale={locale}
               />
             ))}
           </ol>
@@ -297,18 +276,20 @@ function RankedRowItem({
   maxCents,
   sideTotal,
   side,
-  locale,
 }: {
   readonly rank: number;
   readonly entry: RankedRow;
   readonly maxCents: number;
   readonly sideTotal: number;
   readonly side: 'expense' | 'income';
-  readonly locale: string;
 }): JSX.Element {
+  const { formatCurrency, formatPercent } = useFormatters();
   const widthPct = maxCents > 0 ? (entry.cents / maxCents) * 100 : 0;
-  const amountStr = formatCurrency(entry.cents / 100, locale);
-  const percentStr = formatPercent(entry.cents, sideTotal, locale);
+  const amountStr = formatCurrency(entry.cents / 100);
+  const percentStr = formatPercent(sideTotal > 0 ? entry.cents / sideTotal : 0, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
   const tooltip = `${entry.label} — ${amountStr} (${percentStr})`;
   const amountClass =
     side === 'income'

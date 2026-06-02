@@ -4,12 +4,17 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
 import { TransactionFormModal } from './TransactionFormModal.js';
+import { FormatPreferencesProvider } from '../../format/index.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
-import type { CreateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
+import type {
+  CreateTransactionRequest,
+  UpdateTransactionRequest,
+} from '../../../shared/ipc-contracts/transaction.js';
 
 // jsdom doesn't implement HTMLDialogElement.showModal; stub to no-op so the
 // component doesn't throw when it tries to open the modal.
 beforeEach(() => {
+  localStorage.clear();
   if (typeof HTMLDialogElement !== 'undefined') {
     if (!HTMLDialogElement.prototype.showModal) {
       HTMLDialogElement.prototype.showModal = function showModal() {
@@ -101,6 +106,49 @@ describe('TransactionFormModal — comma-decimal amount input (ES locale)', () =
   it('parses `1331,85` (Spanish decimal) into 1331.85 for the IPC call', async () => {
     const input = await submitWithAmount('1331,85');
     expect(input.amount).toBe(1331.85);
+  });
+
+  it('round-trips a prefilled amount under the European number preference', async () => {
+    localStorage.setItem('ot-number-format', 'eu');
+    localStorage.setItem('ot-date-format', 'DMY');
+    await i18n.changeLanguage('en');
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <FormatPreferencesProvider>
+          <TransactionFormModal
+            mode="edit"
+            isOpen={true}
+            onClose={vi.fn()}
+            onSubmit={onSubmit}
+            accounts={mockAccounts}
+            initialData={{
+              id: 'tx-1',
+              accountId: 'acc-1',
+              date: '2026-01-15',
+              type: 'expense',
+              amount: 1331.85,
+              description: 'Round trip amount',
+              status: 'pending',
+            }}
+          />
+        </FormatPreferencesProvider>
+      </I18nextProvider>,
+    );
+
+    const amountInput = document.getElementById('tx-amount') as HTMLInputElement;
+    expect(amountInput.value).toBe('1331,85');
+
+    fireEvent.change(amountInput, { target: { value: amountInput.value } });
+    expect(amountInput.value).toBe('1331,85');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Save$|^Guardar$/i }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+
+    const submitted = onSubmit.mock.calls[0]![0] as UpdateTransactionRequest;
+    expect(submitted.amount).toBe(1331.85);
+    await i18n.changeLanguage('es');
   });
 
   it('rejects thousands grouping (`1.331,85`) at input — the dot never enters state', () => {

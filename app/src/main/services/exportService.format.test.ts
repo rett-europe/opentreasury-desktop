@@ -1,33 +1,27 @@
 // SPEC-027 §14 — XLSX formatting seam unit tests (§14.8).
 //
-// Covers the `DEFAULT_XLSX_FORMAT` locale map (FR28/FR29 defaults; the issue
-// #353 injection seam) and the timezone-safe `YYYY-MM-DD` → Excel-date helper
-// (FR29). The date conversion must yield the same calendar day regardless of the
-// host timezone — proven here by constructing at UTC and reading back in UTC,
-// re-checked under several faked `TZ` values.
+// Covers the issue #353 preference-driven `xlsxFormatFor` helper (FR28/FR29: the
+// Date column numFmt follows the chosen DMY/MDY/ISO layout; the Amount column is
+// a locale-neutral `#,##0.00`) and the timezone-safe `YYYY-MM-DD` → Excel-date
+// helper (FR29). The date conversion must yield the same calendar day regardless
+// of the host timezone — proven here by constructing at UTC and reading back in
+// UTC, re-checked under several faked `TZ` values.
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { DEFAULT_XLSX_FORMAT, excelDateFromIso } from './exportService.js';
+import { xlsxFormatFor, excelDateFromIso } from './exportService.js';
 
-describe('DEFAULT_XLSX_FORMAT', () => {
-  it('returns the ES locale defaults (dd/mm/yyyy, #,##0.00)', () => {
-    expect(DEFAULT_XLSX_FORMAT.es).toEqual({
-      dateNumFmt: 'dd/mm/yyyy',
-      amountNumFmt: '#,##0.00',
-    });
+describe('xlsxFormatFor (preference-driven)', () => {
+  it('maps each date layout to its Excel date numFmt', () => {
+    expect(xlsxFormatFor('DMY').dateNumFmt).toBe('dd/mm/yyyy');
+    expect(xlsxFormatFor('MDY').dateNumFmt).toBe('mm/dd/yyyy');
+    expect(xlsxFormatFor('ISO').dateNumFmt).toBe('yyyy-mm-dd');
   });
 
-  it('returns the EN locale defaults (yyyy-mm-dd, #,##0.00)', () => {
-    expect(DEFAULT_XLSX_FORMAT.en).toEqual({
-      dateNumFmt: 'yyyy-mm-dd',
-      amountNumFmt: '#,##0.00',
-    });
-  });
-
-  it('uses a thousands-grouped, two-decimal amount format with a plain minus (no symbol)', () => {
-    // No currency symbol and no red/parentheses markup is embedded (FR28).
-    for (const locale of ['es', 'en'] as const) {
-      expect(DEFAULT_XLSX_FORMAT[locale].amountNumFmt).toBe('#,##0.00');
+  it('always uses a locale-neutral, thousands-grouped, two-decimal amount format', () => {
+    // No currency symbol, no `[$-xx-XX]` LCID modifier, no red/parentheses markup
+    // (FR28): xlsx display separators are viewer-OS-driven (see exportService note).
+    for (const df of ['DMY', 'MDY', 'ISO'] as const) {
+      expect(xlsxFormatFor(df).amountNumFmt).toBe('#,##0.00');
     }
   });
 });

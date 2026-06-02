@@ -267,7 +267,8 @@ describe('BalanceAdjustmentModal', () => {
     fireEvent.change(target, { target: { value: '1250.5' } });
 
     const date = document.getElementById('bal-adj-date') as HTMLInputElement;
-    fireEvent.change(date, { target: { value: '2026-04-19' } });
+    // DateInput shows the configured numeric format (en default → MM/DD/YYYY).
+    fireEvent.change(date, { target: { value: '04/19/2026' } });
 
     fireEvent.click(getSaveButton());
 

@@ -15,6 +15,7 @@
 // This module is import-safe from renderer, preload, and main (shared zone).
 
 import { z } from 'zod';
+import { dateFormatSchema, numberFormatSchema } from '../format/index.js';
 
 // ============================================================================
 // Channel name constants
@@ -136,8 +137,10 @@ export const exportPrepareRequestSchema = z
   .object({
     format: exportFormatSchema,
     filters: exportFiltersSchema,
-    /** Renderer's active i18n locale — drives the default filename (FR12). */
+    /** Renderer's active i18n locale — drives filename copy only (FR12). */
     locale: exportLocaleSchema,
+    dateFormat: dateFormatSchema,
+    numberFormat: numberFormatSchema,
   })
   .strict();
 export type ExportPrepareRequest = z.infer<typeof exportPrepareRequestSchema>;

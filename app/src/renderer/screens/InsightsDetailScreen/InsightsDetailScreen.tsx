@@ -31,7 +31,7 @@ import {
   getInsightsLabelSummary,
 } from '../../services/insightsDrilldownApi.js';
 import { categoryColor } from '../../utils/colorHash.js';
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import {
   last12Months,
   last3Months,
@@ -102,8 +102,8 @@ export function InsightsDetailScreen({
   onTagsChange,
   onSeeAllMovements,
 }: InsightsDetailScreenProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
+  const { t } = useTranslation('common');
+  const { formatCurrency, formatMonth } = useFormatters();
 
   const [windowState, setWindowState] = useState<DrilldownWindow>(initialWindow);
   const [allTags, setAllTags] = useState<ReadonlyArray<TagRecord>>([]);
@@ -341,7 +341,7 @@ export function InsightsDetailScreen({
   const expenseTotal = data.summary.expenseCents / 100;
 
   // Monthly evolution as grouped bars (income + expense per month).
-  const monthLabels = data.months.map((m) => formatMonthLabel(m.monthIso, locale));
+  const monthLabels = data.months.map((m) => formatMonth(m.monthIso));
   const groupedSeries = data.months.map((m, idx) => ({
     label: monthLabels[idx] ?? m.monthIso,
     values: [m.incomeCents / 100, m.expenseCents / 100],
@@ -444,7 +444,7 @@ export function InsightsDetailScreen({
           </div>
           <div>
             <div className="ot-kpi__label">{t('insights.detail.kpi.income')}</div>
-            <div className="ot-kpi__value ot-tnum">{formatCurrency(incomeTotal, locale)}</div>
+            <div className="ot-kpi__value ot-tnum">{formatCurrency(incomeTotal)}</div>
             <div className="ot-kpi__delta">
               {t('insights.detail.kpi.categoryCount', { count: data.summary.categoryCount })}
             </div>
@@ -456,7 +456,7 @@ export function InsightsDetailScreen({
           </div>
           <div>
             <div className="ot-kpi__label">{t('insights.detail.kpi.expense')}</div>
-            <div className="ot-kpi__value ot-tnum">{formatCurrency(expenseTotal, locale)}</div>
+            <div className="ot-kpi__value ot-tnum">{formatCurrency(expenseTotal)}</div>
             <div className="ot-kpi__delta">
               {t('insights.detail.kpi.categoryCount', { count: data.summary.categoryCount })}
             </div>
@@ -469,7 +469,7 @@ export function InsightsDetailScreen({
           <div>
             <div className="ot-kpi__label">{t('insights.detail.kpi.net')}</div>
             <div className="ot-kpi__value ot-tnum">
-              {formatCurrency(data.summary.netCents / 100, locale)}
+              {formatCurrency(data.summary.netCents / 100)}
             </div>
             <div className="ot-kpi__delta">
               {t('insights.detail.kpi.txCount', { count: data.summary.txCount })}
@@ -485,7 +485,6 @@ export function InsightsDetailScreen({
           title={t('insights.detail.donut.incomeTitle')}
           slices={incomeSlices}
           total={incomeTotal}
-          locale={locale}
           emptyLabel={t('insights.detail.donut.incomeEmpty')}
           ariaLabel={t('insights.detail.donut.incomeAria')}
           selectedCategoryId={selectedCategoryId}
@@ -495,7 +494,6 @@ export function InsightsDetailScreen({
           title={t('insights.detail.donut.expenseTitle')}
           slices={expenseSlices}
           total={expenseTotal}
-          locale={locale}
           emptyLabel={t('insights.detail.donut.expenseEmpty')}
           ariaLabel={t('insights.detail.donut.expenseAria')}
           selectedCategoryId={selectedCategoryId}
@@ -521,7 +519,6 @@ export function InsightsDetailScreen({
         selectedCategoryId={selectedCategoryId}
         selectedCategoryName={selectedCategoryName}
         onClearSelection={() => setSelectedCategoryId(null)}
-        locale={locale}
         title={t('insights.distribution.subcategory.panelHeading')}
         emptyLabel={t('insights.distribution.subcategory.empty')}
         sideEmptyLabel={t('insights.distribution.subcategory.sideEmpty')}
@@ -540,7 +537,7 @@ export function InsightsDetailScreen({
       {data.subcategories.length === 0 ? (
         <p className="ot-insights-detail__empty">{t('insights.detail.subcategoryTable.empty')}</p>
       ) : (
-        <SubcategoryTable rows={data.subcategories} locale={locale} t={t} />
+        <SubcategoryTable rows={data.subcategories} t={t} />
       )}
 
       {/* Monthly evolution */}
@@ -555,7 +552,6 @@ export function InsightsDetailScreen({
               { label: t('insights.detail.legend.income'), className: 'ot-bar--income' },
               { label: t('insights.detail.legend.expense'), className: 'ot-bar--expense' },
             ]}
-            locale={locale}
             ariaLabel={t('insights.detail.monthly.ariaLabel')}
             dataTableCaption={t('insights.detail.monthly.tableCaption')}
             emptyLabel={t('insights.detail.monthly.empty')}
@@ -578,7 +574,6 @@ export function InsightsDetailScreen({
               incomeCents={acc.incomeCents}
               expenseCents={acc.expenseCents}
               maxTotalCents={accountMaxTotalCents}
-              locale={locale}
               labels={{
                 income: t('insights.detail.legend.income'),
                 expense: t('insights.detail.legend.expense'),
@@ -635,7 +630,6 @@ function DonutPanel({
   title,
   slices,
   total,
-  locale,
   emptyLabel,
   ariaLabel,
   selectedCategoryId,
@@ -648,23 +642,18 @@ function DonutPanel({
     readonly categoryId: string;
   }>;
   readonly total: number;
-  readonly locale: string;
   readonly emptyLabel: string;
   readonly ariaLabel: string;
   readonly selectedCategoryId?: string | null;
   readonly onCategoryClick?: (categoryId: string) => void;
 }): JSX.Element {
+  const { formatCurrency } = useFormatters();
+
   return (
     <div className="ot-donut-panel ot-p-card ot-p-card--padded">
       <h3 className="ot-donut-panel__title">{title}</h3>
       <div className="ot-donut-panel__body">
-        <DonutChart
-          slices={slices}
-          total={total}
-          ariaLabel={ariaLabel}
-          locale={locale}
-          emptyLabel={emptyLabel}
-        />
+        <DonutChart slices={slices} total={total} ariaLabel={ariaLabel} emptyLabel={emptyLabel} />
         {slices.length > 0 ? (
           <ul className="ot-donut-panel__legend">
             {slices.map((s, idx) => {
@@ -687,7 +676,7 @@ function DonutPanel({
                   {swatch}
                   <span className="ot-donut-panel__legend-name">{s.label}</span>
                   <span className="ot-donut-panel__legend-value ot-tnum">
-                    {formatCurrency(s.value, locale)}
+                    {formatCurrency(s.value)}
                   </span>
                   <span className="ot-donut-panel__legend-pct ot-tnum">{pct.toFixed(0)}%</span>
                 </>
@@ -740,13 +729,13 @@ function buildColorMap(categoryIds: ReadonlyArray<string>): Map<string, string> 
 
 function SubcategoryTable({
   rows,
-  locale,
   t,
 }: {
   readonly rows: ReadonlyArray<SubcategoryRow>;
-  readonly locale: string;
   readonly t: (key: string) => string;
 }): JSX.Element {
+  const { formatCurrency } = useFormatters();
+
   return (
     <div className="ot-insights-detail__subcat-table ot-p-card ot-p-card--padded">
       <table>
@@ -774,10 +763,10 @@ function SubcategoryTable({
                 <td>{row.categoryName}</td>
                 <td>{row.subcategoryName}</td>
                 <td className="ot-insights-detail__num ot-tnum">
-                  {formatCurrency(row.incomeCents / 100, locale)}
+                  {formatCurrency(row.incomeCents / 100)}
                 </td>
                 <td className="ot-insights-detail__num ot-tnum">
-                  {formatCurrency(row.expenseCents / 100, locale)}
+                  {formatCurrency(row.expenseCents / 100)}
                 </td>
                 <td
                   className={
@@ -786,7 +775,7 @@ function SubcategoryTable({
                       : 'ot-insights-detail__num ot-insights-detail__num--expense ot-tnum'
                   }
                 >
-                  {formatCurrency(net / 100, locale)}
+                  {formatCurrency(net / 100)}
                 </td>
               </tr>
             );
@@ -795,14 +784,4 @@ function SubcategoryTable({
       </table>
     </div>
   );
-}
-
-function formatMonthLabel(monthIso: string, locale: string): string {
-  // monthIso is `YYYY-MM`. Build a Date at the 1st of that month UTC.
-  const [year, month] = monthIso.split('-').map((s) => Number(s));
-  if (!year || !month) return monthIso;
-  const d = new Date(Date.UTC(year, month - 1, 1));
-  const fmt = new Intl.DateTimeFormat(locale, { month: 'short', year: '2-digit', timeZone: 'UTC' });
-  const out = fmt.format(d);
-  return out.charAt(0).toUpperCase() + out.slice(1);
 }

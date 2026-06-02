@@ -15,6 +15,7 @@ import * as path from 'node:path';
 import * as ExcelJS from 'exceljs';
 import { writeExport } from './exportService.js';
 import { EXPORT_COLUMN_KEYS, type ExportLocale, type ExportRow } from '../../core/export/types.js';
+import type { DateFormat, NumberFormat } from '../../shared/format/index.js';
 
 const DATASET_PATH = 'C:\\Users\\someone\\OneDrive\\Treasury\\dataset-01HZZZ';
 const SECRET_LABEL = 'ProyectoConfidencial';
@@ -96,8 +97,19 @@ afterEach(async () => {
   await fs.rm(dir, { recursive: true, force: true });
 });
 
-async function writeAndRead(locale: ExportLocale): Promise<ExcelJS.Workbook> {
-  await writeExport({ rows: fixtureRows(), format: 'xlsx', destPath, locale });
+async function writeAndRead(
+  locale: ExportLocale,
+  dateFormat: DateFormat = 'DMY',
+  numberFormat: NumberFormat = 'eu',
+): Promise<ExcelJS.Workbook> {
+  await writeExport({
+    rows: fixtureRows(),
+    format: 'xlsx',
+    destPath,
+    locale,
+    dateFormat,
+    numberFormat,
+  });
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(destPath);
   return wb;
@@ -165,24 +177,33 @@ describe('writeExport (XLSX) — SPEC-027 §14 presentation', () => {
     expect(negative.value).toBe(-42.99);
   });
 
-  it('AC23: date is a real Excel date with the right day and locale format', async () => {
+  it('AC23: date is a real Excel date with the right day and the preference format', async () => {
     const dateCol = EXPORT_COLUMN_KEYS.indexOf('date') + 1;
 
-    const esWb = await writeAndRead('es');
-    const esWs = esWb.getWorksheet('Movimientos')!;
-    const esCell = esWs.getRow(2).getCell(dateCol);
-    expect(esCell.type).toBe(ExcelJS.ValueType.Date);
-    expect((esCell.value as Date).toISOString().slice(0, 10)).toBe('2025-01-01');
-    expect(esCell.numFmt).toBe('dd/mm/yyyy');
+    // Issue #353 — the date numFmt follows the chosen layout, not the UI language.
+    const dmyWb = await writeAndRead('es', 'DMY');
+    const dmyWs = dmyWb.getWorksheet('Movimientos')!;
+    const dmyCell = dmyWs.getRow(2).getCell(dateCol);
+    expect(dmyCell.type).toBe(ExcelJS.ValueType.Date);
+    expect((dmyCell.value as Date).toISOString().slice(0, 10)).toBe('2025-01-01');
+    expect(dmyCell.numFmt).toBe('dd/mm/yyyy');
     // Leap day round-trips with no ±1 drift.
-    expect((esWs.getRow(3).getCell(dateCol).value as Date).toISOString().slice(0, 10)).toBe(
+    expect((dmyWs.getRow(3).getCell(dateCol).value as Date).toISOString().slice(0, 10)).toBe(
       '2024-02-29',
     );
 
-    const enWb = await writeAndRead('en');
-    const enCell = enWb.getWorksheet('Movimientos')!.getRow(2).getCell(dateCol);
-    expect(enCell.type).toBe(ExcelJS.ValueType.Date);
-    expect(enCell.numFmt).toBe('yyyy-mm-dd');
+    const isoCell = (await writeAndRead('en', 'ISO'))
+      .getWorksheet('Movimientos')!
+      .getRow(2)
+      .getCell(dateCol);
+    expect(isoCell.type).toBe(ExcelJS.ValueType.Date);
+    expect(isoCell.numFmt).toBe('yyyy-mm-dd');
+
+    const mdyCell = (await writeAndRead('en', 'MDY'))
+      .getWorksheet('Movimientos')!
+      .getRow(2)
+      .getCell(dateCol);
+    expect(mdyCell.numFmt).toBe('mm/dd/yyyy');
   });
 
   it('keeps the styled-header cells on General (no numFmt bleed)', async () => {
@@ -195,7 +216,14 @@ describe('writeExport (XLSX) — SPEC-027 §14 presentation', () => {
   });
 
   it('AC24: metadata contains only the allowlist and leaks no PII', async () => {
-    await writeExport({ rows: fixtureRows(), format: 'xlsx', destPath, locale: 'es' });
+    await writeExport({
+      rows: fixtureRows(),
+      format: 'xlsx',
+      destPath,
+      locale: 'es',
+      dateFormat: 'DMY',
+      numberFormat: 'eu',
+    });
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.readFile(destPath);
 

@@ -4,12 +4,9 @@ import { createTransaction } from '../../services/transactionApi.js';
 import { getAccountBalances } from '../../services/panelApi.js';
 import type { ConfigAccount } from '../../services/configMutationsApi.js';
 import { ADJUSTMENT_DETAILS_MARKER } from '../../../shared/constants/transactionMarkers.js';
-import {
-  decimalSeparatorForLocale,
-  isValidAmountInput,
-  parseLocaleAmount,
-} from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import { ConfigModalShell } from './ConfigModalShell.js';
+import { DateInput } from '../DateInput/index.js';
 
 export interface BalanceAdjustmentModalProps {
   readonly isOpen: boolean;
@@ -48,8 +45,9 @@ export function BalanceAdjustmentModal({
   onClose,
   onSaved,
 }: BalanceAdjustmentModalProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const decimalSep = decimalSeparatorForLocale(i18n.language);
+  const { t } = useTranslation('common');
+  const { decimalSep, formatCurrency, formatDate, isValidAmountInput, parseAmount } =
+    useFormatters();
 
   const [currentBalance, setCurrentBalance] = useState<number | null>(null);
   const [target, setTarget] = useState('');
@@ -96,31 +94,11 @@ export function BalanceAdjustmentModal({
     };
   }, [isOpen, account]);
 
-  const fmtCurrency = useMemo(
-    () =>
-      new Intl.NumberFormat(i18n.language.startsWith('es') ? 'es-ES' : 'en-US', {
-        style: 'currency',
-        currency: 'EUR',
-        useGrouping: 'always',
-      } as unknown as Intl.NumberFormatOptions),
-    [i18n.language],
-  );
-
   // Locale-aware date string for the default description ("Balance adjustment — {{date}}").
   const formattedDateForDescription = useMemo(() => {
     if (!date) return '';
-    // Render YYYY-MM-DD as a locale-friendly date without timezone games — we
-    // parse the components directly to avoid Date() interpreting the string
-    // as UTC midnight (which can roll back a day in negative-offset zones).
-    const [y, m, d] = date.split('-').map(Number);
-    if (!y || !m || !d) return date;
-    const local = new Date(y, m - 1, d);
-    return new Intl.DateTimeFormat(i18n.language.startsWith('es') ? 'es-ES' : 'en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }).format(local);
-  }, [date, i18n.language]);
+    return formatDate(date);
+  }, [date, formatDate]);
 
   // Locale-tolerant parsing: accept both "1331.85" (en) and "1331,85" / "1.331,85"
   // (es). The "last separator wins" rule in parseLocaleAmount means ambiguous
@@ -130,9 +108,9 @@ export function BalanceAdjustmentModal({
   // the live "Adjustment" preview makes mistakes immediately visible.
   const targetNumber = useMemo(() => {
     if (target.trim() === '') return null;
-    const n = parseLocaleAmount(target);
+    const n = parseAmount(target);
     return Number.isFinite(n) ? n : null;
-  }, [target]);
+  }, [target, parseAmount]);
 
   const delta = useMemo(() => {
     if (currentBalance === null || targetNumber === null) return null;
@@ -233,7 +211,7 @@ export function BalanceAdjustmentModal({
                   : 'var(--color-status-error)',
           }}
         >
-          {currentBalance === null ? '…' : fmtCurrency.format(currentBalance)}
+          {currentBalance === null ? '…' : formatCurrency(currentBalance, 'EUR')}
         </div>
       </div>
 
@@ -251,9 +229,9 @@ export function BalanceAdjustmentModal({
           type="text"
           inputMode="decimal"
           value={target}
-          placeholder="0.00"
+          placeholder={`0${decimalSep}00`}
           onChange={(e) => {
-            if (isValidAmountInput(e.target.value, decimalSep)) {
+            if (isValidAmountInput(e.target.value)) {
               setTarget(e.target.value);
             }
           }}
@@ -274,7 +252,7 @@ export function BalanceAdjustmentModal({
             ? '—'
             : isNoChange
               ? t('configuracion.cuentas.adjustBalance.modal.noChange')
-              : `${delta > 0 ? '+' : '−'}${fmtCurrency.format(Math.abs(delta))}`}
+              : `${delta > 0 ? '+' : '−'}${formatCurrency(Math.abs(delta), 'EUR')}`}
         </div>
       </div>
 
@@ -283,12 +261,11 @@ export function BalanceAdjustmentModal({
           <label htmlFor="bal-adj-date" className="ot-config-modal__label">
             {t('configuracion.cuentas.adjustBalance.modal.date')}
           </label>
-          <input
+          <DateInput
             id="bal-adj-date"
             className="ot-config-modal__input"
-            type="date"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={setDate}
           />
         </div>
         <div className="ot-config-modal__field">

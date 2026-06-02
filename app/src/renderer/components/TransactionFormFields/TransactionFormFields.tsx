@@ -1,9 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { TagChipPicker } from '../TagChipPicker/index.js';
+import { DateInput } from '../DateInput/index.js';
 import { CategoryPickerRows } from '../CategoryPickerRows/index.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
-import { isValidAmountInput, decimalSeparatorForLocale } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import './TransactionFormFields.css';
 
 export interface TransactionFormFieldsProps {
@@ -94,10 +95,8 @@ export function TransactionFormFields({
   originalStatus,
   hasSplits = false,
 }: TransactionFormFieldsProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  // Derive the locale's decimal separator once per render so the input
-  // sanitizer rejects the wrong separator (e.g. `.` in ES, `,` in EN).
-  const decimalSep = decimalSeparatorForLocale(i18n.language);
+  const { t } = useTranslation('common');
+  const { decimalSep, isValidAmountInput } = useFormatters();
 
   // SPEC-025 — status-based field lock derivation.
   // Lock applies only if the transaction was `approved` when the modal opened
@@ -121,11 +120,10 @@ export function TransactionFormFields({
             <label htmlFor="tx-date" className="ot-tx-fields__label">
               {t('movements.form.fields.date')}
             </label>
-            <input
+            <DateInput
               id="tx-date"
-              type="date"
               value={date}
-              onChange={(e) => onDateChange(e.target.value)}
+              onChange={onDateChange}
               className="ot-tx-fields__input"
               aria-invalid={!!errors.date}
               aria-describedby={
@@ -227,7 +225,7 @@ export function TransactionFormFields({
               // ES locale sweep: `type="text"` + `inputMode="decimal"` so users
               // can type comma-decimal amounts (e.g. `1331,85`). The raw string
               // is round-tripped through state; parsing happens in callers via
-              // `parseLocaleAmount` from utils/numberFormat.
+              // `parseAmount` from the `useFormatters()` hook.
               type="text"
               inputMode="decimal"
               value={amount}
@@ -235,11 +233,11 @@ export function TransactionFormFields({
                 // Reject garbage keystrokes (wrong separator, multiple
                 // separators, > 2 decimals, > 12 integer digits) at the input
                 // boundary so the field can't fill up with invalid characters.
-                if (isValidAmountInput(e.target.value, decimalSep)) {
+                if (isValidAmountInput(e.target.value)) {
                   onAmountChange(e.target.value);
                 }
               }}
-              placeholder="0,00"
+              placeholder={`0${decimalSep}00`}
               className="ot-tx-fields__input"
               aria-invalid={!!errors.amount}
               aria-describedby={
@@ -425,11 +423,10 @@ export function TransactionFormFields({
           <label htmlFor="tx-date" className="ot-tx-fields__label">
             {t('movements.form.fields.date')}
           </label>
-          <input
+          <DateInput
             id="tx-date"
-            type="date"
             value={date}
-            onChange={(e) => onDateChange(e.target.value)}
+            onChange={onDateChange}
             className="ot-tx-fields__input"
             aria-invalid={!!errors.date}
             aria-describedby={errors.date ? 'error-date' : undefined}
@@ -481,11 +478,11 @@ export function TransactionFormFields({
             inputMode="decimal"
             value={amount}
             onChange={(e) => {
-              if (isValidAmountInput(e.target.value, decimalSep)) {
+              if (isValidAmountInput(e.target.value)) {
                 onAmountChange(e.target.value);
               }
             }}
-            placeholder="0,00"
+            placeholder={`0${decimalSep}00`}
             className="ot-tx-fields__input"
             aria-invalid={!!errors.amount}
             aria-describedby={errors.amount ? 'error-amount' : undefined}

@@ -1,11 +1,17 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { i18n } from '../../i18n/index.js';
+import { FormatPreferencesProvider } from '../../format/index.js';
 import { AccountCard } from './AccountCard.js';
 
 describe('AccountCard', () => {
+  afterEach(async () => {
+    localStorage.clear();
+    await i18n.changeLanguage('en');
+  });
+
   it('renders account name and transaction count', () => {
     render(
       <I18nextProvider i18n={i18n}>
@@ -65,5 +71,21 @@ describe('AccountCard', () => {
       </I18nextProvider>,
     );
     expect(container.querySelector('.ot-account-card__sparkline-placeholder')).toBeNull();
+  });
+
+  it('uses number preference independently of UI language', async () => {
+    await i18n.changeLanguage('es');
+    localStorage.setItem('ot-number-format', 'us');
+
+    render(
+      <I18nextProvider i18n={i18n}>
+        <FormatPreferencesProvider>
+          <AccountCard shortName="BBVA" color="#0075BE" transactionCount={12} balance={1500.5} />
+        </FormatPreferencesProvider>
+      </I18nextProvider>,
+    );
+
+    expect(screen.getByText('1,500.50 €')).toBeDefined();
+    expect(screen.queryByText('1.500,50 €')).toBeNull();
   });
 });

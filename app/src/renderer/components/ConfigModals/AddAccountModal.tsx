@@ -10,13 +10,7 @@ import type {
 import { ConfigModalShell } from './ConfigModalShell.js';
 import { ConfirmDialog } from '../ConfirmDialog/index.js';
 import { mapConfigErrorToFieldKey } from './errorMap.js';
-import {
-  decimalSeparatorForLocale,
-  formatAmountForInput,
-  formatCurrency,
-  isValidAmountInput,
-  parseLocaleAmount,
-} from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import { CATEGORY_PALETTE } from './AddCategoryModal.js';
 
 export interface AddAccountModalProps {
@@ -59,8 +53,9 @@ export function AddAccountModal({
   record = null,
   usageCount,
 }: AddAccountModalProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const decimalSep = decimalSeparatorForLocale(i18n.language);
+  const { t } = useTranslation('common');
+  const { decimalSep, formatAmountForInput, formatCurrency, isValidAmountInput, parseAmount } =
+    useFormatters();
 
   const [name, setName] = useState('');
   const [bankName, setBankName] = useState('');
@@ -89,9 +84,7 @@ export function AddAccountModal({
         setColor(record.color ?? CATEGORY_PALETTE[0] ?? '#6d4d8c');
         setIsPaypal(Boolean(record.isPaypal));
         setOpeningBalance(
-          record.openingBalance == null
-            ? ''
-            : formatAmountForInput(record.openingBalance, decimalSep),
+          record.openingBalance == null ? '' : formatAmountForInput(record.openingBalance),
         );
       } else {
         setName('');
@@ -108,7 +101,7 @@ export function AddAccountModal({
       setSubmitting(false);
       setPendingOpeningBalance(null);
     }
-  }, [isOpen, mode, record, decimalSep]);
+  }, [isOpen, mode, record, formatAmountForInput]);
 
   const validate = useCallback((): boolean => {
     const next: Errors = {};
@@ -121,13 +114,13 @@ export function AddAccountModal({
       // dot — survives the round-trip. `parseLocaleAmount` returns NaN
       // for empty / non-numeric input; the `isFinite` check below catches
       // both that and ±Infinity.
-      const n = parseLocaleAmount(openingBalance);
+      const n = parseAmount(openingBalance);
       if (!Number.isFinite(n))
         next.openingBalance = t('configuracion.errors.openingBalanceInvalid');
     }
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [name, openingBalance, t]);
+  }, [name, openingBalance, t, parseAmount]);
 
   const applyServerError = useCallback(
     (resp: Extract<CreateAccountResponse, { ok: false }>) => {
@@ -245,7 +238,7 @@ export function AddAccountModal({
     // parseLocaleAmount accepts both `,` (ES) and `.` (EN) decimal
     // separators using the last-separator-wins rule, so the user can type
     // `1331,85` or `1.331,85` or `1331.85` and they all become 1331.85.
-    const parsed = openingBalance.trim() === '' ? undefined : parseLocaleAmount(openingBalance);
+    const parsed = openingBalance.trim() === '' ? undefined : parseAmount(openingBalance);
     // Edit mode: if the user is shifting the opening balance on an account
     // that already has transactions, intercept the save with a confirmation
     // dialog so they understand the downstream impact. The handler permits
@@ -261,7 +254,7 @@ export function AddAccountModal({
       return;
     }
     await performSave(parsed);
-  }, [validate, openingBalance, mode, record, usageCount, performSave]);
+  }, [validate, openingBalance, mode, record, usageCount, performSave, parseAmount]);
 
   const handleConfirmOpeningBalanceChange = useCallback(() => {
     const parsed = pendingOpeningBalance;
@@ -277,18 +270,17 @@ export function AddAccountModal({
     setPendingOpeningBalance(null);
   }, []);
 
-  const locale = i18n.language || 'en';
   const openingBalanceChangeBody = useMemo(() => {
     if (pendingOpeningBalance === null || !record) return '';
     const oldBalance = record.openingBalance;
     const newBalance = pendingOpeningBalance;
     return t('configuracion.cuentas.openingBalanceChange.body', {
       count: usageCount ?? 0,
-      oldBalance: formatCurrency(oldBalance, locale),
-      newBalance: formatCurrency(newBalance, locale),
-      delta: formatCurrency(newBalance - oldBalance, locale),
+      oldBalance: formatCurrency(oldBalance, 'EUR'),
+      newBalance: formatCurrency(newBalance, 'EUR'),
+      delta: formatCurrency(newBalance - oldBalance, 'EUR'),
     });
-  }, [pendingOpeningBalance, record, usageCount, locale, t]);
+  }, [pendingOpeningBalance, record, usageCount, formatCurrency, t]);
 
   return (
     <ConfigModalShell
@@ -456,13 +448,13 @@ export function AddAccountModal({
           type="text"
           inputMode="decimal"
           value={openingBalance}
-          placeholder="0,00"
+          placeholder={`0${decimalSep}00`}
           onChange={(e) => {
             // Sanitize keystrokes so the field can't fill up with invalid
             // characters (e.g. "1..2", "1,,2"). parseLocaleAmount in validate()
             // would still flag the garbage, but the UX of allowing typed
             // garbage is unacceptable.
-            if (isValidAmountInput(e.target.value, decimalSep)) {
+            if (isValidAmountInput(e.target.value)) {
               setOpeningBalance(e.target.value);
             }
           }}

@@ -1,6 +1,6 @@
 import { TrendingUp, TrendingDown, Calculator } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import './KPIStrip.css';
 
 export interface KPIStripProps {
@@ -15,9 +15,9 @@ export interface KPIStripProps {
  * Each metric has icon, label, value (colored), and month caption.
  */
 export function KPIStrip({ income, expense, net, month }: KPIStripProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
-  const format = (value: number) => formatCurrency(value, locale);
+  const { t } = useTranslation('common');
+  const { formatCurrency } = useFormatters();
+  const format = (value: number) => formatCurrency(value);
 
   return (
     <div className="ot-kpi-strip" role="status" aria-live="polite">

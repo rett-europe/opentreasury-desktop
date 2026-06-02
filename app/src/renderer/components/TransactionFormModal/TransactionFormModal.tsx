@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { Button } from '../Button/index.js';
+import { DateInput } from '../DateInput/index.js';
 import type {
   CreateTransactionRequest,
   UpdateTransactionRequest,
@@ -10,12 +11,7 @@ import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import './TransactionFormModal.css';
 import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
-import {
-  decimalSeparatorForLocale,
-  formatAmountForInput,
-  isValidAmountInput,
-  parseLocaleAmount,
-} from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 
 export interface TransactionFormData {
   id?: string;
@@ -76,9 +72,8 @@ export function TransactionFormModal({
   tags = [],
   initialData = null,
 }: TransactionFormModalProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  // Locale decimal separator drives the input sanitizer below.
-  const decimalSep = decimalSeparatorForLocale(i18n.language);
+  const { t } = useTranslation('common');
+  const { decimalSep, formatAmountForInput, isValidAmountInput, parseAmount } = useFormatters();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // Form state — defaults match the prototype (today, approved status, EUR)
@@ -127,9 +122,7 @@ export function TransactionFormModal({
         // Edit mode: pre-fill from initialData
         setDate(initialData.date);
         setType(initialData.type);
-        // Locale-aware pre-fill so the displayed character matches the
-        // strict per-locale validator (no `.` clash in ES, no `,` in EN).
-        setAmount(formatAmountForInput(initialData.amount, decimalSep));
+        setAmount(formatAmountForInput(initialData.amount));
         setDescription(initialData.description);
         setAccountId(initialData.accountId);
         setCategoryId(initialData.categoryId ?? '');
@@ -155,7 +148,7 @@ export function TransactionFormModal({
       setErrors({});
       setGeneralError(null);
     }
-  }, [isOpen, mode, initialData, accounts, decimalSep]);
+  }, [isOpen, mode, initialData, accounts, formatAmountForInput]);
 
   // Close on Escape (native dialog behavior) + backdrop click
   useEffect(() => {
@@ -193,9 +186,7 @@ export function TransactionFormModal({
       newErrors.type = t('movements.form.errors.typeInvalid');
     }
 
-    // ES locale sweep: parse with `parseLocaleAmount` so `1331,85` and
-    // `1.331,85` are accepted alongside `1331.85` / `1,331.85`.
-    const amountNum = parseLocaleAmount(amount);
+    const amountNum = parseAmount(amount);
     if (!amount || !Number.isFinite(amountNum) || amountNum <= 0) {
       newErrors.amount = t('movements.form.errors.amountNonPositive');
     }
@@ -221,7 +212,7 @@ export function TransactionFormModal({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [date, type, amount, description, accountId, reference, details, t]);
+  }, [date, type, amount, description, accountId, reference, details, t, parseAmount]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -239,7 +230,7 @@ export function TransactionFormModal({
           const input: CreateTransactionRequest = {
             date,
             type,
-            amount: parseLocaleAmount(amount),
+            amount: parseAmount(amount),
             currency: 'EUR',
             description: description.trim(),
             accountId,
@@ -260,7 +251,7 @@ export function TransactionFormModal({
             id: initialData.id,
             date,
             type,
-            amount: parseLocaleAmount(amount),
+            amount: parseAmount(amount),
             description: description.trim(),
             categoryId: categoryId || undefined,
             subcategoryId: subcategoryId || undefined,
@@ -298,6 +289,7 @@ export function TransactionFormModal({
       onSubmit,
       onClose,
       t,
+      parseAmount,
     ],
   );
 
@@ -332,11 +324,10 @@ export function TransactionFormModal({
               <label htmlFor="tx-date" className="ot-transaction-form-modal__label">
                 {t('movements.form.fields.date')}
               </label>
-              <input
+              <DateInput
                 id="tx-date"
-                type="date"
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={setDate}
                 className="ot-transaction-form-modal__input"
                 aria-invalid={!!errors.date}
                 aria-describedby={errors.date ? 'error-date' : undefined}
@@ -385,11 +376,11 @@ export function TransactionFormModal({
                 inputMode="decimal"
                 value={amount}
                 onChange={(e) => {
-                  if (isValidAmountInput(e.target.value, decimalSep)) {
+                  if (isValidAmountInput(e.target.value)) {
                     setAmount(e.target.value);
                   }
                 }}
-                placeholder="0,00"
+                placeholder={`0${decimalSep}00`}
                 className="ot-transaction-form-modal__input"
                 aria-invalid={!!errors.amount}
                 aria-describedby={errors.amount ? 'error-amount' : undefined}

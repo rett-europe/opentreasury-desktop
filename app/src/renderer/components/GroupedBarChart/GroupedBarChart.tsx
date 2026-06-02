@@ -1,5 +1,5 @@
 import { type KeyboardEvent, useRef, useState } from 'react';
-import { formatCurrency } from '../../utils/numberFormat.js';
+import { useFormatters } from '../../format/index.js';
 import './GroupedBarChart.css';
 
 export type GroupedBarChartLegendItem = {
@@ -33,7 +33,6 @@ export type GroupedBarChartProps = {
    */
   readonly legend: ReadonlyArray<string | GroupedBarChartLegendItem>;
   readonly currency?: string;
-  readonly locale: string;
   readonly ariaLabel: string;
   readonly dataTableCaption: string;
   /** Optional localized "no data" message. Parent should pass `t('...')`. */
@@ -80,15 +79,15 @@ export function GroupedBarChart({
   series,
   legend,
   currency = 'EUR',
-  locale,
   ariaLabel,
   dataTableCaption,
   emptyLabel,
 }: GroupedBarChartProps): JSX.Element {
+  const { formatCurrency } = useFormatters();
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const groupRefs = useRef<Array<SVGGElement | null>>([]);
 
-  const format = (n: number): string => formatCurrency(n, locale, currency);
+  const format = (n: number): string => formatCurrency(n, currency);
 
   const isEmpty = series.every((s) => s.values.every((v) => v === 0));
 

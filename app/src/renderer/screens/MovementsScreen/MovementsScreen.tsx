@@ -58,13 +58,8 @@ import {
   persistDateFilter,
   resolveDateFilter,
 } from '../../utils/movementsDateFilter.js';
-import { formatDateRange } from '../../utils/dateFormat.js';
+import { useFormatters } from '../../format/index.js';
 import { newUlid } from '../../utils/ulid.js';
-import {
-  decimalSeparatorForLocale,
-  isValidAmountInput,
-  parseLocaleAmount,
-} from '../../utils/numberFormat.js';
 import {
   buildHaystack,
   searchMovements,
@@ -283,11 +278,9 @@ export function MovementsScreen({
   initialFilters,
   searchQuery = '',
 }: MovementsScreenProps = {}): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
-  // Decimal separator for the active locale — drives the input sanitizer on
-  // the min/max amount filters.
-  const decimalSep = decimalSeparatorForLocale(i18n.language);
+  const { t } = useTranslation('common');
+  const { formatCurrency, formatDateRange, isValidAmountInput, parseAmount, uiLocale } =
+    useFormatters();
 
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
   const [sortBy, setSortBy] = useState<SortColumn>('date');
@@ -741,19 +734,6 @@ export function MovementsScreen({
     [tags],
   );
 
-  const monthFmt = useMemo(() => new Intl.DateTimeFormat(locale, { month: 'long' }), [locale]);
-  const monthNames = useMemo(() => {
-    const out: string[] = [];
-    for (let i = 0; i < 12; i += 1) {
-      const d = new Date(Date.UTC(2024, i, 1));
-      const label = monthFmt.format(d);
-      out.push(label.charAt(0).toUpperCase() + label.slice(1));
-    }
-    return out;
-  }, [monthFmt]);
-  // Suppress unused-warning while monthNames stays around for future ref.
-  void monthNames;
-
   // Persist preset/all selections (custom is intentionally dropped).
   const setDateFilter = useCallback((next: MovementsDateFilter) => {
     setDateFilterState(next);
@@ -813,12 +793,8 @@ export function MovementsScreen({
   );
 
   const filteredRows = useMemo(() => {
-    // ES locale sweep: parse with `parseLocaleAmount` so users can type
-    // `100,50` (Spanish decimal) in the min/max amount filters and get the
-    // same result as `100.50`. Returns NaN for non-numeric input, which the
-    // `Number.isNaN` guards below preserve.
-    const minN = minAmount.trim() === '' ? null : parseLocaleAmount(minAmount);
-    const maxN = maxAmount.trim() === '' ? null : parseLocaleAmount(maxAmount);
+    const minN = minAmount.trim() === '' ? null : parseAmount(minAmount);
+    const maxN = maxAmount.trim() === '' ? null : parseAmount(maxAmount);
     // Build a lookup of tagIds per movement id so we can apply the
     // drilldown-driven AND filter without re-mapping the wire shape.
     const tagIdsByMovementId = new Map<string, ReadonlySet<string>>();
@@ -866,7 +842,7 @@ export function MovementsScreen({
 
     // SPEC-024 FR8 — Apply search filter AFTER structured filters (AND composition)
     if (searchQuery.trim()) {
-      const searchResult = searchMovements(searchQuery, searchIndex, locale);
+      const searchResult = searchMovements(searchQuery, searchIndex, uiLocale);
       return structuredFiltered.filter((m) => searchResult.matchedIds.has(m.id));
     }
 
@@ -886,7 +862,8 @@ export function MovementsScreen({
     uncategorizedOnly,
     searchQuery,
     searchIndex,
-    locale,
+    uiLocale,
+    parseAmount,
   ]);
 
   // Filter TransactionRows for the table
@@ -928,16 +905,6 @@ export function MovementsScreen({
   );
 
   const totals = useMemo(() => computeTotals(filteredRows), [filteredRows]);
-
-  const currencyFmt = useMemo(
-    () =>
-      new Intl.NumberFormat(locale, {
-        style: 'currency',
-        currency: 'EUR',
-        useGrouping: 'always',
-      } as unknown as Intl.NumberFormatOptions),
-    [locale],
-  );
 
   // ── Selection helpers ──────────────────────────────────────────────────
   // Derived set of IDs currently visible through the filter pipeline.
@@ -1253,7 +1220,7 @@ export function MovementsScreen({
             return (
               <span className="ot-movements__date-pill">
                 <Calendar size={14} aria-hidden="true" />
-                <span>{formatDateRange(range.from, range.to, locale)}</span>
+                <span>{formatDateRange(range.from, range.to)}</span>
                 <button
                   type="button"
                   className="ot-movements__date-pill-clear"
@@ -1382,7 +1349,7 @@ export function MovementsScreen({
               placeholder="0"
               value={minAmount}
               onChange={(e) => {
-                if (isValidAmountInput(e.target.value, decimalSep)) {
+                if (isValidAmountInput(e.target.value)) {
                   setMinAmount(e.target.value);
                 }
               }}
@@ -1398,7 +1365,7 @@ export function MovementsScreen({
               placeholder="∞"
               value={maxAmount}
               onChange={(e) => {
-                if (isValidAmountInput(e.target.value, decimalSep)) {
+                if (isValidAmountInput(e.target.value)) {
                   setMaxAmount(e.target.value);
                 }
               }}
@@ -1446,7 +1413,7 @@ export function MovementsScreen({
               </div>
               <div className="ot-kpi__content">
                 <div className="ot-kpi__label">{t('movements.totals.income')}</div>
-                <div className="ot-kpi__value">{currencyFmt.format(totals.income)}</div>
+                <div className="ot-kpi__value">{formatCurrency(totals.income, 'EUR')}</div>
               </div>
             </div>
             <div className="ot-kpi ot-kpi--expense">
@@ -1455,7 +1422,7 @@ export function MovementsScreen({
               </div>
               <div className="ot-kpi__content">
                 <div className="ot-kpi__label">{t('movements.totals.expense')}</div>
-                <div className="ot-kpi__value">{currencyFmt.format(totals.expense)}</div>
+                <div className="ot-kpi__value">{formatCurrency(totals.expense, 'EUR')}</div>
               </div>
             </div>
             <div className="ot-kpi ot-kpi--net">
@@ -1464,7 +1431,7 @@ export function MovementsScreen({
               </div>
               <div className="ot-kpi__content">
                 <div className="ot-kpi__label">{t('movements.totals.net')}</div>
-                <div className="ot-kpi__value">{currencyFmt.format(totals.net)}</div>
+                <div className="ot-kpi__value">{formatCurrency(totals.net, 'EUR')}</div>
               </div>
             </div>
             <div className="ot-kpi">

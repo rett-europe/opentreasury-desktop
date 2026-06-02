@@ -175,6 +175,8 @@ describe('export:prepare', () => {
       format: 'csv',
       filters: FILTERS,
       locale: 'es',
+      dateFormat: 'DMY',
+      numberFormat: 'eu',
     });
     expect(res.ok).toBe(true);
     if (res.ok) {
@@ -190,6 +192,8 @@ describe('export:prepare', () => {
       format: 'csv',
       filters: { dateFrom: '2025-01-01', dateTo: '2025-12-31' },
       locale: 'es',
+      dateFormat: 'DMY',
+      numberFormat: 'eu',
     });
     expect(res).toEqual({ ok: false, code: 'EXPORT_MIN_FILTERS' });
   });
@@ -207,6 +211,8 @@ describe('export:prepare', () => {
       format: 'csv',
       filters: FILTERS,
       locale: 'es',
+      dateFormat: 'DMY',
+      numberFormat: 'eu',
     });
     expect(res).toEqual({ ok: false, code: 'EXPORT_DEST_INSIDE_WORKSPACE' });
   });
@@ -219,6 +225,8 @@ describe('export:prepare', () => {
       format: 'csv',
       filters: FILTERS,
       locale: 'es',
+      dateFormat: 'DMY',
+      numberFormat: 'eu',
     });
     expect(res).toEqual({ ok: false, code: 'USER_CANCELLED_DIALOG' });
   });
@@ -229,6 +237,8 @@ describe('export:prepare', () => {
       format: 'csv',
       filters: FILTERS,
       locale: 'es',
+      dateFormat: 'DMY',
+      numberFormat: 'eu',
     });
     expect(res).toEqual({ ok: false, code: 'EXPORT_NO_WORKSPACE' });
   });
@@ -242,6 +252,8 @@ describe('export:run', () => {
       format: 'csv',
       filters: FILTERS,
       locale: 'es',
+      dateFormat: 'DMY',
+      numberFormat: 'eu',
     });
     if (!prep.ok) throw new Error('prepare failed: ' + JSON.stringify(prep));
 
@@ -256,7 +268,7 @@ describe('export:run', () => {
     expect(written.startsWith('\ufeff')).toBe(true); // UTF-8 BOM
     expect(written).toContain(';'); // delimiter
     expect(written).toContain('Caja');
-    expect(written).toContain('-123.45'); // signed expense amount
+    expect(written).toContain('-123,45'); // signed expense amount with EU decimal preference
 
     const audit = auditStores.get(workspaceDir)!;
     const log = new FileAuditLog({
@@ -278,6 +290,8 @@ describe('export:run', () => {
       format: 'xlsx',
       filters: FILTERS,
       locale: 'en',
+      dateFormat: 'ISO',
+      numberFormat: 'us',
     });
     if (!prep.ok) throw new Error('prepare failed');
     const run = await handlers.run(fakeEvent(1) as never, {
@@ -296,6 +310,8 @@ describe('export:run', () => {
       format: 'csv',
       filters: FILTERS,
       locale: 'es',
+      dateFormat: 'DMY',
+      numberFormat: 'eu',
     });
     if (!prep.ok) throw new Error('prepare failed');
 
@@ -315,6 +331,8 @@ describe('export:run', () => {
       format: 'csv',
       filters: FILTERS,
       locale: 'es',
+      dateFormat: 'DMY',
+      numberFormat: 'eu',
     });
     if (!prep.ok) throw new Error('prepare failed');
     const res = await handlers.run(fakeEvent(2) as never, {
@@ -330,6 +348,8 @@ describe('export:run', () => {
         format: 'csv',
         filters: FILTERS,
         locale: 'es',
+        dateFormat: 'DMY',
+        numberFormat: 'eu',
       });
       if (!prep.ok) throw new Error(`prepare ${i} failed`);
       const run = await handlers.run(fakeEvent(1) as never, {
@@ -342,6 +362,8 @@ describe('export:run', () => {
       format: 'csv',
       filters: FILTERS,
       locale: 'es',
+      dateFormat: 'DMY',
+      numberFormat: 'eu',
     });
     expect(blocked).toEqual({ ok: false, code: 'EXPORT_RATE_LIMITED' });
   });

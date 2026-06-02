@@ -313,13 +313,15 @@ describe('MovementsScreen', () => {
   it('date filter: custom range applies and is NOT persisted', async () => {
     renderWithI18n();
     await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
-    // Inline From/To inputs are always visible (shared DateRangePicker).
+    // Inline From/To inputs are always visible (shared DateRangePicker), now
+    // rendered via the custom DateInput so the visible date format honors the
+    // user's preference (en default → MM/DD/YYYY) instead of the OS locale.
     const picker = document.querySelector('.ot-daterange') as HTMLElement;
     expect(picker).not.toBeNull();
-    const fromInput = picker.querySelectorAll('input[type="date"]')[0] as HTMLInputElement;
-    const toInput = picker.querySelectorAll('input[type="date"]')[1] as HTMLInputElement;
-    fireEvent.change(fromInput, { target: { value: '2026-04-14' } });
-    fireEvent.change(toInput, { target: { value: '2026-04-14' } });
+    const fromInput = picker.querySelectorAll('input[data-ot-dateinput]')[0] as HTMLInputElement;
+    const toInput = picker.querySelectorAll('input[data-ot-dateinput]')[1] as HTMLInputElement;
+    fireEvent.change(fromInput, { target: { value: '04/14/2026' } });
+    fireEvent.change(toInput, { target: { value: '04/14/2026' } });
     const applyBtn = Array.from(picker.querySelectorAll('button')).find((b) =>
       /Aplicar|Apply/i.test(b.textContent ?? ''),
     )!;
@@ -337,10 +339,11 @@ describe('MovementsScreen', () => {
     renderWithI18n();
     await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
     const picker = document.querySelector('.ot-daterange') as HTMLElement;
-    const fromInput = picker.querySelectorAll('input[type="date"]')[0] as HTMLInputElement;
-    const toInput = picker.querySelectorAll('input[type="date"]')[1] as HTMLInputElement;
-    fireEvent.change(fromInput, { target: { value: '2026-04-20' } });
-    fireEvent.change(toInput, { target: { value: '2026-04-10' } });
+    const fromInput = picker.querySelectorAll('input[data-ot-dateinput]')[0] as HTMLInputElement;
+    const toInput = picker.querySelectorAll('input[data-ot-dateinput]')[1] as HTMLInputElement;
+    // en default → MM/DD/YYYY; to < from makes the range invalid.
+    fireEvent.change(fromInput, { target: { value: '04/20/2026' } });
+    fireEvent.change(toInput, { target: { value: '04/10/2026' } });
     const applyBtn = Array.from(picker.querySelectorAll('button')).find((b) =>
       /Aplicar|Apply/i.test(b.textContent ?? ''),
     ) as HTMLButtonElement;

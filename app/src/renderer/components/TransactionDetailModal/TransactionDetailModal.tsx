@@ -4,18 +4,13 @@ import { X, Edit, Trash2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } fr
 import { Button } from '../Button/index.js';
 import { NotesThread } from '../NotesThread/index.js';
 import { TransactionFormFields } from '../TransactionFormFields/index.js';
-import { formatDate } from '../../utils/dateFormat.js';
+import { useFormatters } from '../../format/index.js';
 import type { Account, RecentTransaction } from '../../../shared/ipc-contracts/panel.js';
 import type { MovementRecord } from '../../../shared/ipc-contracts/movements.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import { useCloseDialogOnUnmount } from '../../hooks/useCloseDialogOnUnmount.js';
 import { ConfirmDialog } from '../ConfirmDialog/index.js';
-import {
-  decimalSeparatorForLocale,
-  formatAmountForInput,
-  parseLocaleAmount,
-} from '../../utils/numberFormat.js';
 import { getSplits } from '../../services/splitsApi.js';
 import { getTagColor } from '../../utils/tagColor.js';
 import { getStatusBadgeClass } from '../../utils/statusBadge.js';
@@ -90,11 +85,8 @@ export function TransactionDetailModal({
   currentIndex,
   onNavigate,
 }: TransactionDetailModalProps): JSX.Element {
-  const { t, i18n } = useTranslation('common');
-  const locale = i18n.language.startsWith('es') ? 'es-ES' : 'en-US';
-  // Decimal separator for the active locale — drives both the input
-  // sanitizer (in TransactionFormFields) and the pre-fill formatter below.
-  const decimalSep = decimalSeparatorForLocale(i18n.language);
+  const { t } = useTranslation('common');
+  const { formatDate, formatCurrency, formatAmountForInput, parseAmount } = useFormatters();
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // Edit mode state — true when user clicked "Editar", false when viewing/after cancel
@@ -135,12 +127,7 @@ export function TransactionDetailModal({
     if (isEditMode && transaction) {
       setDate(transaction.date);
       setType(transaction.type);
-      // Use the locale-aware formatter so the pre-filled value uses the
-      // correct decimal separator (`423,89` in ES, `423.89` in EN). Without
-      // this, `Number.toString()` always emits `.` and clashes with the
-      // strict per-locale validator, which would silently reject the
-      // displayed character on the user's next keystroke.
-      setAmount(formatAmountForInput(transaction.amount, decimalSep));
+      setAmount(formatAmountForInput(transaction.amount));
       setDescription(transaction.description);
       setAccountId(transaction.accountId);
       setCategoryId(transaction.categoryId ?? '');
@@ -152,7 +139,7 @@ export function TransactionDetailModal({
       setErrors({});
       setGeneralError(null);
     }
-  }, [isEditMode, transaction, decimalSep]);
+  }, [isEditMode, transaction, formatAmountForInput]);
 
   // SPEC-023 — Load split children when opening a split parent (read-only mode).
   useEffect(() => {
@@ -243,9 +230,7 @@ export function TransactionDetailModal({
       newErrors.type = t('movements.form.errors.typeInvalid');
     }
 
-    // ES locale sweep: parse with `parseLocaleAmount` so `1331,85` and
-    // `1.331,85` are accepted alongside `1331.85` / `1,331.85`.
-    const amountNum = parseLocaleAmount(amount);
+    const amountNum = parseAmount(amount);
     if (!amount || !Number.isFinite(amountNum) || amountNum <= 0) {
       newErrors.amount = t('movements.form.errors.amountNonPositive');
     }
@@ -271,7 +256,7 @@ export function TransactionDetailModal({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [date, type, amount, description, accountId, reference, details, t]);
+  }, [date, type, amount, description, accountId, reference, details, t, parseAmount]);
 
   const handleSaveEdit = async (): Promise<void> => {
     if (!transaction) return;
@@ -288,7 +273,7 @@ export function TransactionDetailModal({
         id: transaction.id,
         date,
         type,
-        amount: parseLocaleAmount(amount),
+        amount: parseAmount(amount),
         description: description.trim(),
         categoryId: categoryId || undefined,
         subcategoryId: subcategoryId || undefined,
@@ -341,7 +326,7 @@ export function TransactionDetailModal({
     return (
       date !== transaction.date ||
       type !== transaction.type ||
-      amount !== transaction.amount.toString() ||
+      amount !== formatAmountForInput(transaction.amount) ||
       description !== transaction.description ||
       categoryId !== (transaction.categoryId ?? '') ||
       subcategoryId !== (transaction.subcategoryId ?? '') ||
@@ -363,6 +348,7 @@ export function TransactionDetailModal({
     status,
     reference,
     details,
+    formatAmountForInput,
   ]);
 
   const handleNavigate = useCallback(
@@ -468,12 +454,7 @@ export function TransactionDetailModal({
 
   const amountClass = transaction.type === 'income' ? 'ot-amount--income' : 'ot-amount--expense';
   const signed = transaction.type === 'expense' ? -transaction.amount : transaction.amount;
-  const formattedAmount = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: transaction.currency,
-    signDisplay: 'auto',
-    useGrouping: 'always',
-  } as unknown as Intl.NumberFormatOptions).format(signed);
+  const formattedAmount = formatCurrency(signed, transaction.currency);
 
   // Modal title changes in edit mode
   const modalTitle = isEditMode ? t('movements.form.editTitle') : t('transactionDetail.title');
@@ -552,7 +533,7 @@ export function TransactionDetailModal({
               {transaction.status === 'approved' && (
                 <div className="ot-transaction-detail-modal__summary">
                   <span className="ot-transaction-detail-modal__date">
-                    {formatDate(transaction.date, locale)}
+                    {formatDate(transaction.date)}
                   </span>
                   <p className="ot-transaction-detail-modal__description">
                     {transaction.description}
@@ -615,7 +596,7 @@ export function TransactionDetailModal({
               <div className="ot-transaction-detail-modal__read-body">
                 <div className="ot-transaction-detail-modal__summary">
                   <span className="ot-transaction-detail-modal__date">
-                    {formatDate(transaction.date, locale)}
+                    {formatDate(transaction.date)}
                   </span>
                   <p className="ot-transaction-detail-modal__description">
                     {transaction.description}
@@ -764,11 +745,7 @@ export function TransactionDetailModal({
                             .flatMap((c) => c.subcategories)
                             .find((s) => s?.id === split.subcategoryId);
                           const amountEur = split.amountCents / 100;
-                          const formattedAmt = new Intl.NumberFormat(locale, {
-                            style: 'currency',
-                            currency: 'EUR',
-                            useGrouping: 'always',
-                          } as unknown as Intl.NumberFormatOptions).format(amountEur);
+                          const formattedAmt = formatCurrency(amountEur, 'EUR');
                           return (
                             <div
                               key={split.splitId}
