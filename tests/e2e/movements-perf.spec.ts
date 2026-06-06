@@ -95,7 +95,9 @@ test.describe('MovementsScreen mount perf budget', () => {
         await page.waitForLoadState('domcontentloaded');
 
         // Wait for the app shell nav to be present before measuring.
-        await page.waitForSelector('.ot-shell__sidebar', { state: 'visible' });
+        // Cold Electron boot on shared CI runners is bimodal; 30s too tight (~50% flake).
+        // SPEC-028 unlock adds only ~70ms (measured); this is a setup wait, not the perf budget.
+        await page.waitForSelector('.ot-shell__sidebar', { state: 'visible', timeout: 60_000 });
 
         // ── Measure: nav click → first data row visible ───────────────────
         const t0 = Date.now();
