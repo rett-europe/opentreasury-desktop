@@ -16,6 +16,7 @@ import { app } from 'electron';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import * as fs from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 import { JsonFileEventLog } from '../core/eventLog/index.js';
 import type { EventLog, DomainEvent } from '../core/eventLog/index.js';
 import { EncryptedMultiDeviceEventLog } from '../core/eventLog/EncryptedMultiDeviceEventLog.js';
@@ -42,6 +43,14 @@ import {
   type IntegrityLogger,
 } from './services/auditVerifyOnUnlock.js';
 import type { IntegrityVerdict } from '../shared/ipc-contracts/audit-integrity.js';
+import {
+  runTimestampOnce,
+  TimestampScheduler,
+  type TimestampOutcome,
+  type TimestampLogger,
+} from './services/timestampService.js';
+import { Rfc3161HttpProvider, type TimestampProvider } from '../core/audit/timestamp/provider.js';
+import { TimestampRetryState } from '../core/audit/timestamp/queue.js';
 import { getActiveWorkspace, clearActiveWorkspace } from './workspace-session.js';
 
 // Helper for dev-seed fallback when no profile exists yet
@@ -66,6 +75,19 @@ let bootstrapError: BootstrapError | null = null;
 // reused on re-unlock with the same device, and the scheduler resolves its
 // audit/event-log/workspace dependencies lazily at run time).
 let anchorScheduler: AnchorScheduler | null = null;
+
+// SPEC-028 WI-5 — trusted-timestamping pipeline. The provider + retry state are
+// process-global (no MK needed); the scheduler resolves its audit log lazily at
+// run time (like the anchor scheduler), so it adapts across lock/unlock. The
+// default provider is freeTSA.org RFC-3161 (OQ4 — see plan); it is swappable
+// behind the `TimestampProvider` interface.
+const DEFAULT_TSA_ID = 'freetsa';
+const DEFAULT_TSA_URL = 'https://freetsa.org/tsr';
+const DEFAULT_TSA_ROOT_IDS = ['freetsa-root-ca'] as const;
+
+let timestampScheduler: TimestampScheduler | null = null;
+let timestampProvider: TimestampProvider | null = null;
+const timestampRetry = new TimestampRetryState();
 
 /**
  * Boot error details surfaced when bootstrap/hydration fails fatally.
@@ -778,6 +800,22 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
     });
   }
 
+  // SPEC-028 WI-5 — create the timestamp provider + scheduler once. Like the
+  // anchor scheduler they persist across lock/unlock and resolve the audit log
+  // lazily at run time.
+  if (timestampProvider === null) {
+    timestampProvider = new Rfc3161HttpProvider({
+      id: DEFAULT_TSA_ID,
+      url: DEFAULT_TSA_URL,
+      trustRootIds: DEFAULT_TSA_ROOT_IDS,
+    });
+  }
+  if (timestampScheduler === null) {
+    timestampScheduler = new TimestampScheduler({
+      run: () => runTimestampForActiveWorkspace(),
+    });
+  }
+
   // eslint-disable-next-line no-console
   console.log(
     `[bootstrap] installed encrypted event log for device ${deviceId} — hydrated ${events.length} events from ${dir}`,
@@ -965,12 +1003,69 @@ async function runAnchorForActiveWorkspace(): Promise<AnchorOutcome> {
     lockKey: auditDir,
   });
   try {
-    return await runAnchorOnce({
+    const outcome = await runAnchorOnce({
       auditLog,
       eventLog: log,
       newUlid,
       now: () => new Date(),
       log: anchorLog,
+    });
+    // SPEC-028 WI-5 — a fresh anchor needs an external timestamp. Schedule a
+    // best-effort drain (off the write path; never awaited here).
+    if (outcome.status === 'anchored') timestampScheduler?.onNewAnchor();
+    return outcome;
+  } finally {
+    auditMk.fill(0);
+  }
+}
+
+/**
+ * SPEC-028 WI-5 — structured logger for the timestamp pipeline. Carries only
+ * ULIDs/hashes/serials/counts (no raw values), so it is safe to log.
+ */
+const timestampLog: TimestampLogger = (level, message, meta) => {
+  const suffix = meta === undefined ? '' : ` ${JSON.stringify(meta)}`;
+  // eslint-disable-next-line no-console
+  console[level === 'warn' ? 'warn' : 'log'](`[timestamp] ${message}${suffix}`);
+};
+
+/**
+ * SPEC-028 WI-5 — resolve the current audit log from the active workspace and
+ * run a single best-effort timestamp drain. Returns a typed `idle` outcome
+ * (never throws) when the workspace is locked, the provider is unavailable, or
+ * nothing is pending. Builds the audit log fresh per run against the SAME
+ * `<folderPath>/.treasury/audit` path that anchors + exports use.
+ */
+async function runTimestampForActiveWorkspace(): Promise<TimestampOutcome> {
+  const provider = timestampProvider;
+  if (provider === null) return { status: 'idle', reason: 'no-provider' };
+  const ws = getActiveWorkspace();
+  if (ws === null) return { status: 'idle', reason: 'no-active-workspace' };
+  if (datasetIdInstance === null) return { status: 'idle', reason: 'no-dataset-id' };
+
+  const actor = profileInstance?.userId ?? ws.deviceId;
+  // Defensive MK copy (same rationale as the anchor path): a concurrent lock
+  // wipes `ws.mk` in place; give the audit log its own key and wipe it after.
+  const auditMk = new Uint8Array(ws.mk);
+  const auditDir = path.resolve(ws.folderPath, '.treasury', 'audit');
+  const auditLog = new FileAuditLog({
+    store: createFsAuditStore(auditDir),
+    mk: auditMk,
+    datasetId: datasetIdInstance,
+    deviceId: ws.deviceId,
+    actorUserIdentity: actor,
+    now: () => new Date(),
+    lockKey: auditDir,
+  });
+  try {
+    return await runTimestampOnce({
+      auditLog,
+      provider,
+      newUlid,
+      now: () => new Date(),
+      randomNonce: () => randomBytes(16),
+      retry: timestampRetry,
+      log: timestampLog,
     });
   } finally {
     auditMk.fill(0);
@@ -979,12 +1074,21 @@ async function runAnchorForActiveWorkspace(): Promise<AnchorOutcome> {
 
 /**
  * SPEC-028 WI-2 — fire a best-effort unlock anchor without awaiting it. Never
- * throws (the scheduler/run path swallows all errors).
+ * throws (the scheduler/run path swallows all errors). Also kicks a timestamp
+ * drain so anchors left un-timestamped in a previous session (e.g. offline TSA)
+ * are picked up on unlock.
  */
 function fireUnlockAnchor(): void {
-  const sched = anchorScheduler;
-  if (sched === null) return;
-  void sched.anchorNow();
+  anchorScheduler?.anchorNow().catch(() => undefined);
+  timestampScheduler?.drainNow().catch(() => undefined);
+}
+
+/**
+ * SPEC-028 WI-5 — accessor for the timestamp scheduler (null until the encrypted
+ * event log is installed). Exposed for diagnostics/tests.
+ */
+export function getTimestampScheduler(): TimestampScheduler | null {
+  return timestampScheduler;
 }
 
 /**

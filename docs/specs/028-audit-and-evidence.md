@@ -594,8 +594,22 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
 3. **Coverage strategy.** **Resolved** ([neo-028](../../.squad/decisions/neo-028-anchor-dont-resign.md)):
    a single **append-time enrichment choke-point** at the event-log boundary (additive, back-compat),
    not per-schema edits. (Neo.)
-4. **TSA provider choice for v1.** Which RFC-3161 TSA (cost, availability, cert trust), and whether
-   a transparency-log/public-anchor alternative is offered in v1 or deferred. (Switch/Link.)
+4. **TSA provider choice for v1.** **Resolved autonomously for implementation (2026-06-01, FLAG for
+   Switch/Link confirmation)** — see [neo-028](../../.squad/decisions/neo-028-anchor-dont-resign.md):
+   - **OQ4a (codec):** RFC-3161/CMS handled by a **minimal in-tree DER codec** (zero new runtime
+     deps) confined to `core/audit/timestamp/rfc3161.ts`; all *cryptographic* operations use Node's
+     built-in `crypto` (X.509 chain/validity + `crypto.verify` over `signedAttrs`). Swappable for
+     `pkijs`/`asn1js` later behind the same module boundary if review prefers a vetted parser.
+   - **OQ4b (provider):** default **freeTSA.org** RFC-3161 (permits general-purpose timestamping,
+     free, publishes a bundleable CA root) behind a `TimestampProvider` abstraction; a commercial TSA
+     or transparency-log/public-anchor provider can drop in later. **Confirm:** freeTSA vs a
+     commercial TSA on availability/ToS grounds, and permission to bundle the chosen TSA root cert.
+     - **Normative caveat (review-accepted 2026-06-01):** freeTSA is the functional, out-of-box
+       **default only**. Production / audit-grade / regulatory deployments **SHOULD** configure a
+       **qualified (e.g. eIDAS) or commercial TSA** — this ties to the §8 honest-limitation and
+       legal-review language. The bundled freeTSA root is **pinned by SHA-256 fingerprint**
+       (`A6:37:…:AA:BC`, provenance + guard test in `core/audit/timestamp/roots.ts`).
+   - A transparency-log/public-anchor alternative is **deferred for v1**, kept open via the interface.
 5. **Evidence bundle format.** JSON-lines + manifest (crypto-spec §8.3) only, or also a human-
    readable PDF/print artifact in the bundle? (Niobe/Link.)
 6. **SPEC number coordination.** This reserves **SPEC-028**; the parallel invoice-attachments work

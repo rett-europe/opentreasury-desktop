@@ -478,7 +478,7 @@ Each chunk contains a JSON-lines sequence (after decryption), where each line is
   "before_hash": "<BLAKE2b-256 hex of pre-state, or null>",
   "after_hash":  "<BLAKE2b-256 hex of post-state, or null>",
   "prev_entry_hash": "<BLAKE2b-256 hex of the previous entry's canonical-JSON>",
-  "payload": { /* present ONLY on audit.anchor entries — see §8.5 */ },
+  "payload": { /* present on audit.anchor (§8.5) and audit.anchor.timestamped (§8.6) entries */ },
   "signature": {
     "alg": "ed25519",
     "signing_device_id": "…",
@@ -492,7 +492,7 @@ Each chunk contains a JSON-lines sequence (after decryption), where each line is
 2. `prev_entry_hash` links every entry to the prior one. Entry 1 (genesis) uses `prev_entry_hash = BLAKE2b("OTRV-AUDIT-GENESIS:" + dataset_id)` as an anchor.
 3. Each entry is signed Ed25519 by the writing device. Signature verifies against the `device_pubkey_ed25519` in `escrow.json` for the device entry matching `signing_device_id` — **including revoked device entries**, so historical entries from a now-revoked device remain verifiable.
 4. On dataset open, the app MUST verify the full chain. Any failure = refuse to open + present recovery UX (snapshot restore).
-5. `payload` is OPTIONAL and present ONLY on `audit.anchor` entries (§8.5). When absent it is OMITTED from the canonical JSON (not serialised as `null`), so non-anchor entries — including every pre-existing export entry — produce byte-identical canonical JSON, signatures, and `prev_entry_hash` links as before this field existed.
+5. `payload` is OPTIONAL and present ONLY on `audit.anchor` (§8.5) and `audit.anchor.timestamped` (§8.6) entries. When absent it is OMITTED from the canonical JSON (not serialised as `null`), so non-anchor entries — including every pre-existing export entry — produce byte-identical canonical JSON, signatures, and `prev_entry_hash` links as before this field existed.
 
 ### 8.5 Event-log anchoring (SPEC-028 WI-2)
 
@@ -557,6 +557,96 @@ file bytes append-only / as a new file, then fold a fresh frontier snapshot into
 mutate-then-keep-the-old-anchor. The snapshot pass that builds an anchor is taken over a STABLE read
 (size/mtime re-checked; retried if a file changes mid-hash) and refuses to sign if a non-canonical
 conflict copy (e.g. `events-… (1).ndjson`) or a malformed interior line is present.
+
+### 8.6 Trusted timestamping of the anchor root (SPEC-028 WI-5, Tier 2)
+
+An `audit.anchor` (§8.5) makes the observed history tamper-*evident*, but a key-holder can still
+rebuild a consistent history and **backdate** it — nothing ties an anchor to a time the user cannot
+fake. WI-5 binds an anchor's `event_log_root` to an **external RFC-3161 trusted timestamp** and
+records it as a **separate, signed, hash-chained `audit.anchor.timestamped` entry**. The original
+anchor entry is **never mutated** (it is already signed and chained; mutating it would break
+verification). "Re-anchor, don't rewrite" — the same migration rule as the anchor itself.
+
+**What is timestamped.** The TSA signs a `messageImprint = SHA-256(canonicalJSON(anchorEntry))` — a
+*standard*-OID digest over the exact stored anchor entry (including its Ed25519 signature). Because
+the anchor entry embeds `event_log_root` and its chain position, the timestamp binds all three. A
+random nonce is sent in the `TimeStampReq` and required to echo back in the `TSTInfo`.
+
+**Receipt payload (`payload` on an `audit.anchor.timestamped` entry):**
+```json
+{
+  "timestamp_version": 1,
+  "provider_kind": "rfc3161",
+  "provider_id": "freetsa",
+  "anchor_seq": 14287,
+  "anchor_entry_hash": "<BLAKE2b-256 hex canonicalHash of the anchor entry>",
+  "event_log_root": "<hex; == the anchor entry's after_hash>",
+  "imprint_alg": "sha256",
+  "message_imprint": "<hex SHA-256 over canonicalJSON(anchorEntry)>",
+  "tsa_nonce": "<hex random nonce sent in the TimeStampReq>",
+  "tsa_token": "<base64 DER RFC-3161 TimeStampToken (CMS SignedData)>",
+  "tsa_gen_time": "2026-04-19T16:05:10.000Z",
+  "tsa_serial_number": "<hex>",
+  "tsa_policy_oid": "1.2.3.4"
+}
+```
+The receipt entry carries `action: 'audit.anchor.timestamped'`, `result: 'succeeded'`,
+`target_ref: { type: 'anchor', id: <new ULID> }`, `before_hash: null`, and
+**`after_hash = message_imprint`** (binding the signed-over digest into the chained entry). The
+payload lives on the entry, so it is covered by the entry's Ed25519 signature.
+
+**`after_hash` is action-specific:** for `audit.anchor` it equals `event_log_root`; for
+`audit.anchor.timestamped` it equals `message_imprint`. The anchored *state* is always described by
+`payload.event_log_root`, never by a receipt's `after_hash`.
+
+**Pending is derived, never a flag.** An anchor is "pending external timestamp" iff no
+`audit.anchor.timestamped` entry references it. The advisory retry queue holds only error/backoff
+metadata and is fully recomputable from the chain, so a lost queue file is harmless.
+
+**Provider abstraction.** A `TimestampProvider` interface (`{ id, kind, requestTimestamp(imprint)
+→ Promise<{ok,tokenDer} | {ok:false,error}> }`) hides the transport. v1 ships an
+`Rfc3161HttpProvider` (POST `application/timestamp-query` → `application/timestamp-reply`, bounded
+`AbortController` timeout) defaulting to **freeTSA.org** with its CA bundled as the trust root
+(OQ4, §12 of the spec). A transparency-log / public-anchor provider can implement the same interface
+later. The provider **never throws** — it returns a typed error.
+
+> **Normative caveat (OQ4b).** freeTSA.org is the functional, out-of-box **default only**.
+> Production / audit-grade / regulatory deployments **SHOULD** configure a **qualified (e.g. eIDAS) or
+> commercial TSA** behind the same `TimestampProvider` abstraction — consistent with the §8
+> honest-limitation / legal-review posture. The bundled freeTSA root is **pinned by SHA-256
+> fingerprint** (`A6:37:9E:7C:…:1D:18:AA:BC`) with provenance and a guard test in
+> `core/audit/timestamp/roots.ts`, so a cert swap fails the build rather than silently widening trust.
+
+**Never blocks writes.** All TSA I/O is best-effort, single-flight, and off the write path
+(`runTimestampOnce` drains the queue and never throws). Triggers mirror the anchor scheduler: on
+unlock (after hydrate), after each new anchor, and on a periodic timer while items remain. A TSA that
+is unreachable, slow/hung, or returns a malformed/untrusted token leaves the anchor "pending" and is
+retried later — it NEVER blocks, delays, or fails a data write, unlock, or lock.
+
+**Verification (`verifyTimestampReceipt`).** Given the receipt payload, the referenced anchor entry
+(located by `anchor_seq` in the chain), the bundled trust roots, and `now`:
+1. The audit chain's own Ed25519 + `prev_entry_hash` checks (existing `verifyChain`) already detect a
+   mutated receipt entry.
+2. **Join:** `anchor_seq` resolves to an `audit.anchor` whose `canonicalHash` equals
+   `anchor_entry_hash` and whose `after_hash` equals `event_log_root`.
+3. **Imprint bind:** recompute `SHA-256(canonicalJSON(anchorEntry)) === message_imprint`.
+4. **Token (RFC-3161/CMS):** status `granted`/`grantedWithMods`; exactly one `SignerInfo`;
+   `eContentType === id-ct-TSTInfo`; signed-attrs `content-type` + `message-digest === hash(eContent)`;
+   TSA signature verifies over `DER(signedAttrs)` (re-tagged to SET-OF); signer leaf chains to a
+   **bundled trust anchor** by real issuer-signature checks; the leaf carries the **critical
+   `id-kp-timeStamping` EKU**; every cert is valid **at `genTime` (not `now`)**; `genTime` is not
+   implausibly in the future; `messageImprint` and `nonce` match what we submitted.
+5. **Output:** `{ status:'verified', trustedTime: genTime, … }` or a typed failure. `trustedTime` is
+   the re-derived `genTime`, NOT the advisory `tsa_gen_time` stored in the payload.
+
+   *Revocation (v1 policy):* the offline verifier does **no** live CRL/OCSP; trust is limited to the
+   bundled anchors plus validity-at-`genTime`. Bundled-CRL support is future work.
+
+**Honest limitation (must stay in copy + verification report).** A trusted timestamp proves the
+anchored `event_log_root` existed *no later than* `genTime` — it **constrains backdating** of state
+captured *before* a timestamped anchor. It does **not** stop a key-holder fabricating a fresh,
+internally consistent history *going forward*, and it does not make the log tamper-proof. The honest
+claim remains **"tamper-evident + externally timestamped, NOT tamper-proof."**
 
 ### 8.3 Visibility
 
