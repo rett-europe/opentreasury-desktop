@@ -472,11 +472,13 @@ Each chunk contains a JSON-lines sequence (after decryption), where each line is
             "import.csv" | "export.csv" | "export.xlsx" |
             "device.enrolled" | "device.revoked" |
             "dek.rotated" | "admin.transferred" |
-            "dataset.created" | "snapshot.taken",
-  "target_ref": { "type": "event" | "device" | …, "id": "…" },
+            "dataset.created" | "snapshot.taken" |
+            "audit.anchor" | "audit.anchor.timestamped" | "audit.export",
+  "target_ref": { "type": "event" | "device" | "export" | "anchor" | …, "id": "…" },
   "before_hash": "<BLAKE2b-256 hex of pre-state, or null>",
   "after_hash":  "<BLAKE2b-256 hex of post-state, or null>",
   "prev_entry_hash": "<BLAKE2b-256 hex of the previous entry's canonical-JSON>",
+  "payload": { /* present ONLY on audit.anchor entries — see §8.5 */ },
   "signature": {
     "alg": "ed25519",
     "signing_device_id": "…",
@@ -490,6 +492,71 @@ Each chunk contains a JSON-lines sequence (after decryption), where each line is
 2. `prev_entry_hash` links every entry to the prior one. Entry 1 (genesis) uses `prev_entry_hash = BLAKE2b("OTRV-AUDIT-GENESIS:" + dataset_id)` as an anchor.
 3. Each entry is signed Ed25519 by the writing device. Signature verifies against the `device_pubkey_ed25519` in `escrow.json` for the device entry matching `signing_device_id` — **including revoked device entries**, so historical entries from a now-revoked device remain verifiable.
 4. On dataset open, the app MUST verify the full chain. Any failure = refuse to open + present recovery UX (snapshot restore).
+5. `payload` is OPTIONAL and present ONLY on `audit.anchor` entries (§8.5). When absent it is OMITTED from the canonical JSON (not serialised as `null`), so non-anchor entries — including every pre-existing export entry — produce byte-identical canonical JSON, signatures, and `prev_entry_hash` links as before this field existed.
+
+### 8.5 Event-log anchoring (SPEC-028 WI-2)
+
+The encrypted multi-device event log (SPEC-026) is tamper-*resistant* but not tamper-*evident*
+against a key-holder who can rewrite ciphertext. To close that gap WITHOUT signing every event, the
+app periodically folds a **signed per-device frontier snapshot** of the event log into the audit
+chain as an `audit.anchor` entry. One signed, hash-chained anchor makes the entire observed event
+history up to that point tamper-evident.
+
+**Why a per-device frontier vector (not a single global head):** the merged, ULID-ordered timeline is
+NOT append-only — a late peer event inserts mid-stream when its file syncs in. But each device's OWN
+`events-<deviceId>.ndjson` file IS strictly append-only. So the anchor records, per device, a frontier
+`{ device_id, file_name, line_count, last_event_id, device_head_hash }` plus a global
+`event_log_root`. Per-device heads are therefore incrementally maintainable (no full re-read on every
+anchor — scales to 100k+ events).
+
+**`device_head_hash`** is a domain-separated chained BLAKE2b-256 fold over the first `line_count`
+**raw on-disk NDJSON lines** (each line's bytes including its terminating `\n`):
+`h₀ = BLAKE2b("OTRV-EVTLOG-DEVHEAD:v1:" + device_id)`, `hᵢ = BLAKE2b(hᵢ₋₁ ‖ rawLineᵢ)`. Because it is
+chained, the incremental head and a from-scratch recompute over any prefix are byte-identical.
+
+**`event_log_root`** = `BLAKE2b("OTRV-EVTLOG-ROOT:v1:" ‖ canonicalJSON(frontiers sorted by device_id))`
+— order-independent across devices — and is mirrored into the anchor entry's `after_hash`.
+
+**Signed payload (`payload` on an `audit.anchor` entry):**
+```json
+{
+  "anchor_version": 1,
+  "hash_alg": "blake2b-256",
+  "dataset_id": "…",
+  "observed_at": "2026-04-19T16:03:22.145Z",
+  "event_log_root": "<hex>",
+  "device_frontiers": [
+    { "device_id": "…", "file_name": "events-…​.ndjson",
+      "line_count": 1234, "last_event_id": "<ULID>", "device_head_hash": "<hex>" }
+  ],
+  "audit_chain_prev_hash": "<this entry's prev_entry_hash, captured atomically>"
+}
+```
+The payload lives on the entry, so it is covered by the entry's Ed25519 signature.
+`audit_chain_prev_hash` MUST equal the entry's `prev_entry_hash` and `event_log_root` MUST equal the
+entry's `after_hash`; both are bound inside the audit append critical section.
+
+**Triggers (SPEC-028 OQ2, RESOLVED):** on workspace unlock, on workspace lock (awaited, bounded,
+before the master key is wiped), and after every **N = 1000 LOCAL appends** OR **T = 15 min** of local
+write activity. Anchoring is strictly best-effort and runs OFF the write path — it MUST NEVER block,
+delay, or fail a data write.
+
+**Verification (recompute):** for each anchored frontier, re-read the device file and recompute the
+head over its first `line_count` raw lines; the device verifies iff the file exists, has ≥ `line_count`
+complete lines, the line at `line_count - 1` has `id === last_event_id`, and the recomputed head equals
+`device_head_hash`. Extra lines AFTER the anchored prefix are NOT a failure — they are reported as a
+"not yet anchored" delta (expected for late peer events). The recomputed `event_log_root` must equal
+both `payload.event_log_root` and the entry's `after_hash`.
+
+**NORMATIVE — anchored event files MUST NOT be rewritten in place.** `device_head_hash` is computed
+over the raw on-disk bytes, so ANY in-place mutation of an `events-<deviceId>.ndjson` file that has
+been covered by a signed anchor (re-encryption, key rotation re-encoding, compaction, normalisation,
+or whitespace changes) will break verification and is FORBIDDEN. A process that must change those bytes
+(e.g. DEK rotation that re-encrypts event files) MUST instead **re-anchor** afterwards: write the new
+file bytes append-only / as a new file, then fold a fresh frontier snapshot into the audit chain. Never
+mutate-then-keep-the-old-anchor. The snapshot pass that builds an anchor is taken over a STABLE read
+(size/mtime re-checked; retried if a file changes mid-hash) and refuses to sign if a non-canonical
+conflict copy (e.g. `events-… (1).ndjson`) or a malformed interior line is present.
 
 ### 8.3 Visibility
 

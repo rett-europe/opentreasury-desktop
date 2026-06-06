@@ -59,9 +59,17 @@
 //   to delete is logged but never fatal.
 
 import { promises as fs } from 'node:fs';
+import type { Stats } from 'node:fs';
 import * as path from 'node:path';
 import { encryptEvent, decryptEvent } from '../crypto/event.js';
 import type { DomainEvent, EventLog } from './EventLog.js';
+import {
+  computeDeviceFrontier,
+  foldHead,
+  headSeed,
+  splitCompleteLines,
+} from '../audit/frontier.js';
+import type { DeviceFrontier } from '../audit/types.js';
 
 // ---- File-name conventions -------------------------------------------------
 
@@ -73,6 +81,13 @@ export function eventsFileName(deviceId: string): string {
 // `events-<26-char ULID>.ndjson`. Crockford base32 alphabet (no I, L, O, U).
 const EVENTS_FILE_RE = /^events-[0-9A-HJKMNP-TV-Z]{26}\.ndjson$/;
 const EVENTS_TMP_RE = /^events-[0-9A-HJKMNP-TV-Z]{26}\.ndjson\.tmp$/;
+// A file that LOOKS like a per-device events file (starts `events-`, ends
+// `.ndjson`) but is not a canonical one — e.g. a cloud-sync conflict copy
+// `events-<id> (1).ndjson` or `events-<id> (Pedro's Surface).ndjson`. The
+// frontier rests on "one canonical append-only file per device id", so the
+// presence of such a file makes a signed snapshot untrustworthy (rubber-duck
+// #8). `.ndjson.tmp` leftovers are excluded (handled by EVENTS_TMP_RE).
+const EVENTS_CONFLICT_RE = /^events-.*\.ndjson$/;
 
 // ---- Stable error codes ----------------------------------------------------
 
@@ -140,7 +155,42 @@ export interface EncryptedMultiDeviceEventLogOptions {
    * the buffer on shutdown.
    */
   readonly masterKey: Uint8Array;
+  /**
+   * SPEC-028 WI-2 — invoked (best-effort, under the write mutex) after a
+   * successful LOCAL append/appendBatch, with the number of new events written.
+   * Feeds the anchor scheduler's N=1000-local-appends trigger. Never blocks the
+   * write; thrown errors are swallowed. Absent in tests ⇒ zero behaviour change.
+   */
+  readonly onLocalAppend?: (delta: number) => void;
 }
+
+/**
+ * SPEC-028 WI-2 — result of `snapshotFrontier()`. A STABLE per-device frontier
+ * vector ready to sign, or a typed refusal so the anchor service can skip
+ * (best-effort) without ever blocking a write.
+ */
+export type FrontierSnapshotResult =
+  | { readonly ok: true; readonly frontiers: readonly DeviceFrontier[] }
+  | { readonly ok: false; readonly reason: FrontierSnapshotRefusal };
+
+export type FrontierSnapshotRefusal =
+  | 'own-head-untrusted' // own file malformed or has a crash-tail partial
+  | 'own-size-mismatch' // own file size on disk ≠ tracked size (external edit)
+  | 'peer-unstable' // a peer file kept changing mid-read
+  | 'peer-malformed' // a peer file has an interior malformed line
+  | 'conflict-copy' // a cloud-sync conflict copy is present
+  | 'no-events'; // nothing to anchor yet
+
+interface OwnHeadState {
+  lineCount: number;
+  /** Running raw 32-byte head (= headSeed when lineCount === 0). */
+  head: Uint8Array;
+  lastEventId: string | null;
+  /** Bytes covered by complete lines (excludes any crash-tail partial). */
+  byteLength: number;
+}
+
+const PEER_READ_RETRIES = 3;
 
 export class EncryptedMultiDeviceEventLog implements EventLog {
   private readonly dir: string;
@@ -148,7 +198,20 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
   private readonly mk: Uint8Array;
   private readonly seenIds = new Set<string>();
   private readonly writeFilePath: string;
+  private readonly onLocalAppend?: (delta: number) => void;
   private initialized = false;
+  /**
+   * SPEC-028 — single-writer mutex over the whole local write (seenIds check →
+   * encrypt → append/fsync → fold head → seenIds.add → onLocalAppend). Without
+   * it, two interleaved appends could fold the in-memory head in a different
+   * order than bytes hit disk, producing a signed frontier that won't verify
+   * against disk (rubber-duck #3).
+   */
+  private writeChain: Promise<unknown> = Promise.resolve();
+  /** Incrementally-maintained head of THIS device's own append-only file. */
+  private ownHead: OwnHeadState | null = null;
+  /** True when the own file is malformed or ends in a crash-tail partial. */
+  private ownHeadUntrusted = false;
 
   constructor(opts: EncryptedMultiDeviceEventLogOptions) {
     if (opts.masterKey.length !== 32) {
@@ -167,7 +230,19 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
     this.dir = opts.dir;
     this.deviceId = opts.deviceId;
     this.mk = opts.masterKey;
+    if (opts.onLocalAppend !== undefined) {
+      this.onLocalAppend = opts.onLocalAppend;
+    }
     this.writeFilePath = path.join(opts.dir, eventsFileName(opts.deviceId));
+  }
+
+  private runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.writeChain.then(fn, fn);
+    this.writeChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   /** Exposed for diagnostics; not part of the public interface. */
@@ -183,54 +258,68 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
   async append(event: DomainEvent): Promise<void> {
     await this.ensureInit();
 
-    if (this.seenIds.has(event.id)) {
-      return; // idempotent — already written this process lifetime
-    }
+    return this.runExclusive(async () => {
+      await this.ensureOwnHead();
+      if (this.seenIds.has(event.id)) {
+        return; // idempotent — already written this process lifetime
+      }
 
-    const line = this.encryptOne(event);
+      const line = this.encryptOne(event);
+      const lineBytes = Buffer.from(line, 'utf8');
 
-    const handle = await fs.open(this.writeFilePath, 'a');
-    try {
-      await handle.writeFile(line, { encoding: 'utf8' });
-      await handle.sync();
-    } finally {
-      await handle.close();
-    }
+      const handle = await fs.open(this.writeFilePath, 'a');
+      try {
+        await handle.writeFile(line, { encoding: 'utf8' });
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
 
-    this.seenIds.add(event.id);
+      this.foldOwnHead([{ id: event.id, bytes: lineBytes }]);
+      this.seenIds.add(event.id);
+      this.notifyLocalAppend(1);
+    });
   }
 
   async appendBatch(events: readonly DomainEvent[]): Promise<void> {
     await this.ensureInit();
 
-    const newEvents = events.filter((e) => !this.seenIds.has(e.id));
-    if (newEvents.length === 0) return;
+    return this.runExclusive(async () => {
+      await this.ensureOwnHead();
+      const newEvents = events.filter((e) => !this.seenIds.has(e.id));
+      if (newEvents.length === 0) return;
 
-    // Encrypt every event first so a crypto failure aborts the batch BEFORE
-    // any byte hits disk (matches `JsonFileEventLog`'s all-or-nothing
-    // semantic).
-    //
-    // Crash safety (LOW-2): if the process dies mid-write, the last line in
-    // the file may be a partial (truncated) JSON object. On the next load()
-    // that line is skipped by malformed-line tolerance (parseEncryptedLine
-    // returns null). Any fully-written events within the same batch that did
-    // make it to disk are re-submitted on the next appendBatch call and are
-    // de-duplicated by seenIds (idempotent by event.id). The combination of
-    // malformed-line tolerance + idempotency makes partial-crash recovery
-    // automatic and transparent to the caller.
-    const blob = newEvents.map((e) => this.encryptOne(e)).join('');
+      // Encrypt every event first so a crypto failure aborts the batch BEFORE
+      // any byte hits disk (matches `JsonFileEventLog`'s all-or-nothing
+      // semantic).
+      //
+      // Crash safety (LOW-2): if the process dies mid-write, the last line in
+      // the file may be a partial (truncated) JSON object. On the next load()
+      // that line is skipped by malformed-line tolerance (parseEncryptedLine
+      // returns null). Any fully-written events within the same batch that did
+      // make it to disk are re-submitted on the next appendBatch call and are
+      // de-duplicated by seenIds (idempotent by event.id). The combination of
+      // malformed-line tolerance + idempotency makes partial-crash recovery
+      // automatic and transparent to the caller.
+      const lines = newEvents.map((e) => this.encryptOne(e));
+      const blob = lines.join('');
 
-    const handle = await fs.open(this.writeFilePath, 'a');
-    try {
-      await handle.writeFile(blob, { encoding: 'utf8' });
-      await handle.sync();
-    } finally {
-      await handle.close();
-    }
+      const handle = await fs.open(this.writeFilePath, 'a');
+      try {
+        await handle.writeFile(blob, { encoding: 'utf8' });
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
 
-    for (const e of newEvents) {
-      this.seenIds.add(e.id);
-    }
+      this.foldOwnHead(
+        newEvents.map((e, i) => ({ id: e.id, bytes: Buffer.from(lines[i]!, 'utf8') })),
+      );
+      for (const e of newEvents) {
+        this.seenIds.add(e.id);
+      }
+      this.notifyLocalAppend(newEvents.length);
+    });
   }
 
   async load(): Promise<DomainEvent[]> {
@@ -367,5 +456,219 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
         );
       }
     }
+  }
+
+  // ---- SPEC-028 WI-2: per-device frontier head -----------------------------
+
+  /**
+   * Lazily initialise the in-memory running head of THIS device's own
+   * append-only file by reading its raw bytes once. Must be called inside the
+   * write mutex so no append interleaves between the read and a subsequent
+   * fold. A malformed interior line or a crash-tail partial marks the head
+   * untrusted: `splitCompleteLines` would diverge from `load()`'s tolerant
+   * skip, so we refuse to anchor rather than sign a head that won't verify.
+   */
+  private async ensureOwnHead(): Promise<void> {
+    if (this.ownHead !== null) return;
+    let buf: Buffer;
+    try {
+      buf = await fs.readFile(this.writeFilePath);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        this.ownHead = {
+          lineCount: 0,
+          head: headSeed(this.deviceId),
+          lastEventId: null,
+          byteLength: 0,
+        };
+        this.ownHeadUntrusted = false;
+        return;
+      }
+      throw err;
+    }
+
+    const split = splitCompleteLines(buf);
+    this.ownHeadUntrusted = split.malformed || split.hasTrailingPartial;
+
+    let h = headSeed(this.deviceId);
+    for (const l of split.lines) {
+      h = foldHead(h, l.bytes);
+    }
+    this.ownHead = {
+      lineCount: split.lines.length,
+      head: h,
+      lastEventId: split.lines.length > 0 ? split.lines[split.lines.length - 1]!.id : null,
+      byteLength: split.completeByteLength,
+    };
+  }
+
+  /**
+   * Extend the in-memory own head by the exact line bytes just fsync'd. Called
+   * only inside the write mutex, after a successful append, so the head stays
+   * byte-identical to disk (incremental ≡ batch — AC8). No-op if the head was
+   * never initialised or is untrusted.
+   */
+  private foldOwnHead(lines: readonly { id: string; bytes: Uint8Array }[]): void {
+    if (this.ownHead === null || this.ownHeadUntrusted || lines.length === 0) return;
+    let h = this.ownHead.head;
+    let bytes = this.ownHead.byteLength;
+    for (const l of lines) {
+      h = foldHead(h, l.bytes);
+      bytes += l.bytes.length;
+    }
+    this.ownHead = {
+      lineCount: this.ownHead.lineCount + lines.length,
+      head: h,
+      lastEventId: lines[lines.length - 1]!.id,
+      byteLength: bytes,
+    };
+  }
+
+  /** Feed the anchor scheduler's local-append counter; never breaks a write. */
+  private notifyLocalAppend(delta: number): void {
+    if (this.onLocalAppend === undefined || delta <= 0) return;
+    try {
+      this.onLocalAppend(delta);
+    } catch {
+      // Best-effort: anchoring must NEVER block or fail a data write.
+    }
+  }
+
+  /**
+   * SPEC-028 WI-2 / FR7 — compute a STABLE per-device frontier vector ready to
+   * be folded into a signed `audit.anchor` entry, or a typed refusal so the
+   * anchor service can skip (best-effort) without blocking writes.
+   *
+   * Own device: served from the incrementally-maintained in-memory head (avoids
+   * re-reading a 100k-line file every anchor — AC8 perf) but only after a
+   * `stat()` confirms the on-disk size still matches the tracked size, guarding
+   * against external edits/divergence (rubber-duck #6). Peer devices: read from
+   * disk under a stat→read→re-stat stability check so a file changing mid-read
+   * never yields a signed-but-unverifiable anchor (rubber-duck #3 analogue).
+   *
+   * NORMATIVE (AC18): an anchored event file MUST NOT be rewritten in place.
+   * `device_head_hash` is taken over the raw on-disk bytes; mutating a file
+   * already covered by a signed anchor would make that anchor fail to verify.
+   * Migrations MUST write a new per-device file and re-anchor — never mutate.
+   */
+  async snapshotFrontier(): Promise<FrontierSnapshotResult> {
+    await this.ensureInit();
+
+    // Own frontier is captured inside the write mutex so the size check and the
+    // in-memory head reflect the same point in time (no append interleaves).
+    const own = await this.runExclusive(
+      async (): Promise<
+        | { kind: 'untrusted' }
+        | { kind: 'size-mismatch' }
+        | { kind: 'ok'; frontier: DeviceFrontier | null }
+      > => {
+        await this.ensureOwnHead();
+        if (this.ownHeadUntrusted) return { kind: 'untrusted' };
+        const head = this.ownHead!;
+        let size = 0;
+        try {
+          size = (await fs.stat(this.writeFilePath)).size;
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+        }
+        if (size !== head.byteLength) return { kind: 'size-mismatch' };
+        const frontier: DeviceFrontier | null =
+          head.lineCount > 0
+            ? {
+                device_id: this.deviceId,
+                file_name: eventsFileName(this.deviceId),
+                line_count: head.lineCount,
+                last_event_id: head.lastEventId!,
+                device_head_hash: Buffer.from(head.head).toString('hex'),
+              }
+            : null;
+        return { kind: 'ok', frontier };
+      },
+    );
+
+    if (own.kind === 'untrusted') return { ok: false, reason: 'own-head-untrusted' };
+    if (own.kind === 'size-mismatch') return { ok: false, reason: 'own-size-mismatch' };
+
+    let entries: string[];
+    try {
+      entries = await fs.readdir(this.dir);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') entries = [];
+      else throw err;
+    }
+
+    // Conflict-copy guard (rubber-duck #8): a cloud-sync conflict copy
+    // (`events-<id> (1).ndjson`) maps a second file to a device id and breaks
+    // the "one canonical append-only file per device" invariant. Refuse to
+    // sign rather than anchor an ambiguous frontier. `.ndjson.tmp` leftovers
+    // are excluded.
+    for (const f of entries) {
+      if (EVENTS_TMP_RE.test(f)) continue;
+      if (EVENTS_CONFLICT_RE.test(f) && !EVENTS_FILE_RE.test(f)) {
+        return { ok: false, reason: 'conflict-copy' };
+      }
+    }
+
+    const frontiers: DeviceFrontier[] = [];
+    if (own.frontier !== null) frontiers.push(own.frontier);
+
+    const ownFileName = eventsFileName(this.deviceId);
+    const peerFiles = entries.filter((f) => EVENTS_FILE_RE.test(f) && f !== ownFileName).sort();
+    for (const fileName of peerFiles) {
+      const peerDeviceId = fileName.slice('events-'.length, -'.ndjson'.length);
+      const stable = await this.readPeerStable(fileName);
+      if (stable === 'unstable') return { ok: false, reason: 'peer-unstable' };
+      if (stable === null) continue; // disappeared mid-read; treat as not present
+      const result = computeDeviceFrontier({ deviceId: peerDeviceId, fileName, bytes: stable });
+      if (!result.ok) {
+        if (result.error === 'empty') continue; // empty peer file → nothing to anchor
+        return { ok: false, reason: 'peer-malformed' };
+      }
+      frontiers.push(result.frontier!);
+    }
+
+    if (frontiers.length === 0) return { ok: false, reason: 'no-events' };
+    return { ok: true, frontiers };
+  }
+
+  /**
+   * Read a peer file under a stat→read→re-stat stability check. Returns the
+   * bytes once two consecutive stats agree (size + mtime) and the read length
+   * matches, `null` if the file disappeared, or `'unstable'` if it kept
+   * changing across all retries (so the caller refuses to sign).
+   */
+  private async readPeerStable(fileName: string): Promise<Uint8Array | null | 'unstable'> {
+    const filePath = path.join(this.dir, fileName);
+    for (let attempt = 0; attempt < PEER_READ_RETRIES; attempt++) {
+      let before: Stats;
+      try {
+        before = await fs.stat(filePath);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+        throw err;
+      }
+      let buf: Buffer;
+      try {
+        buf = await fs.readFile(filePath);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+        throw err;
+      }
+      let after: Stats;
+      try {
+        after = await fs.stat(filePath);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+        throw err;
+      }
+      if (
+        before.size === after.size &&
+        before.mtimeMs === after.mtimeMs &&
+        buf.length === after.size
+      ) {
+        return buf;
+      }
+    }
+    return 'unstable';
   }
 }

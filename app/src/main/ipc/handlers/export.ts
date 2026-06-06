@@ -100,13 +100,15 @@ function defaultShowSaveDialog(
 }
 
 function defaultCreateAuditLog(ws: ActiveWorkspace, datasetId: string, actor: string): AuditLog {
+  const auditDir = nodePath.resolve(ws.folderPath, '.treasury', 'audit');
   return new FileAuditLog({
-    store: createFsAuditStore(nodePath.join(ws.folderPath, '.treasury', 'audit')),
+    store: createFsAuditStore(auditDir),
     mk: ws.mk,
     datasetId,
     deviceId: ws.deviceId,
     actorUserIdentity: actor,
     now: () => new Date(),
+    lockKey: auditDir,
   });
 }
 

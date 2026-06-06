@@ -6,8 +6,8 @@
 // chain. Uses the real sodium-native crypto (no mocks).
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { FileAuditLog, type AuditBlobStore } from './AuditLog.js';
-import type { AuditEntry, FileAuditLogDeps } from './types.js';
+import { FileAuditLog, type AuditBlobStore, type FileAuditLogDeps } from './AuditLog.js';
+import type { AuditEntry } from './types.js';
 import { randomBytes } from '../crypto/primitives.js';
 
 function memStore(): AuditBlobStore & { dump: Map<string, Uint8Array> } {

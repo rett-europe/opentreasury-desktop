@@ -181,17 +181,17 @@ describe('workspace security (PR #315 regression)', () => {
       expect(getActiveWorkspace()).not.toBeNull();
 
       // Lock it
-      const lockRes = h.handleLock({});
+      const lockRes = await h.handleLock({});
       expect(lockRes.ok).toBe(true);
 
       // Session should be cleared
       expect(getActiveWorkspace()).toBeNull();
     });
 
-    it('returns ok even when no workspace is active', () => {
+    it('returns ok even when no workspace is active', async () => {
       const deps = makeDeps({ homeDir: () => path.dirname(tmpDir) });
       const h = createWorkspaceHandlers(deps);
-      const res = h.handleLock({});
+      const res = await h.handleLock({});
       expect(res.ok).toBe(true);
     });
   });
