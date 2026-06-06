@@ -129,6 +129,7 @@ export interface AuditVerifyResult {
     | 'prev-hash-mismatch'
     | 'signature-invalid'
     | 'key-fingerprint-mismatch'
+    | 'signing-key-missing'
     | 'decrypt-failed';
   /** seq of the first failing entry, when applicable. */
   readonly atSeq?: number;
@@ -149,8 +150,13 @@ export interface AuditLog {
    * `eventLogRoot`. Verifies the existing chain first and THROWS if corrupt.
    */
   appendAnchor(input: AuditAnchorAppendInput): Promise<AuditEntry>;
-  /** Verify the full chain (seq monotonicity, prev-hash links, signatures). */
-  verifyChain(): Promise<AuditVerifyResult>;
+  /**
+   * Verify the full chain (seq monotonicity, prev-hash links, signatures). When
+   * `allowKeyCreation` is false (SPEC-028 WI-3 read-only verify-on-unlock), a
+   * missing signing key is NOT created — verification of a populated chunk
+   * without its key returns `reason: 'signing-key-missing'` instead.
+   */
+  verifyChain(opts?: { readonly allowKeyCreation?: boolean }): Promise<AuditVerifyResult>;
   /** Decrypt and return all entries in order (diagnostics/tests). */
   readAll(): Promise<readonly AuditEntry[]>;
 }

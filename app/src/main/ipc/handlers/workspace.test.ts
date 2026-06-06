@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { createWorkspaceHandlers } from './workspace.js';
+import { createWorkspaceHandlers, _resetWorkspaceRateLimits } from './workspace.js';
 import type { WorkspaceDeps } from './workspace.js';
 import { _resetWorkspaceSession } from '../../workspace-session.js';
 import { saveKeyFile } from '../../../core/eventLog/keyFile.js';
@@ -52,6 +52,7 @@ describe('workspace handlers', () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ot-ws-'));
     deps = makeDeps({ homeDir: () => path.dirname(tmpDir) });
     _resetWorkspaceSession();
+    _resetWorkspaceRateLimits();
   });
 
   afterEach(async () => {
@@ -308,6 +309,90 @@ describe('workspace handlers', () => {
         'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
       const res = await h.handleRecover({ mnemonic });
       expect(res.ok).toBe(false);
+    });
+  });
+
+  // ── SPEC-028 WI-3 — verify-on-unlock fail-closed surfacing ─────────────────
+
+  describe('verify-on-unlock integrity surfacing', () => {
+    const tamperVerdict = {
+      status: 'anchor-content-mismatch' as const,
+      failClosed: true,
+      category: 'tamper' as const,
+      recovery: 'restore' as const,
+      devices: [{ deviceId: DEVICE_A, status: 'head-mismatch' as const, notYetAnchored: 0 }],
+      summary: { anchoredDeviceCount: 1, notYetAnchoredTotal: 0, newDeviceCount: 0 },
+    };
+    const okVerdict = {
+      status: 'ok' as const,
+      failClosed: false,
+      category: 'ok' as const,
+      recovery: 'none' as const,
+      devices: [{ deviceId: DEVICE_A, status: 'ok' as const, notYetAnchored: 2 }],
+      summary: { anchoredDeviceCount: 1, notYetAnchoredTotal: 2, newDeviceCount: 0 },
+    };
+
+    /** Drive a fresh confirmSetup (the simplest deterministic install path). */
+    async function confirmSetupWith(overrides: Partial<WorkspaceDeps>) {
+      const h = createWorkspaceHandlers(
+        makeDeps({ homeDir: () => path.dirname(tmpDir), ...overrides }),
+      );
+      const createRes = await h.handleCreate({ folderPath: tmpDir });
+      if (!createRes.ok) throw new Error('create failed');
+      const words = createRes.mnemonic.split(' ');
+      return h.handleConfirmSetup({
+        setupToken: createRes.setupToken,
+        confirmWords: { '1': words[0]!, '2': words[1]!, '3': words[2]! },
+      });
+    }
+
+    it('a fail-closed verdict → integrity-failure error + teardown invoked', async () => {
+      let tornDown = 0;
+      const err = new Error('integrity') as Error & { verdict?: unknown };
+      err.name = 'WorkspaceIntegrityError';
+      err.verdict = tamperVerdict;
+
+      const res = await confirmSetupWith({
+        installEncryptedEventLog: async () => {
+          throw err;
+        },
+        lockWorkspaceAfterIntegrityFailure: () => {
+          tornDown += 1;
+        },
+      });
+
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.error.code).toBe('integrity-failure');
+        expect(res.error.needsRecovery).toBe(true);
+        expect(res.error.integrity).toEqual(tamperVerdict);
+      }
+      expect(tornDown).toBe(1);
+    });
+
+    it('a non-integrity install error is swallowed (logged-and-continue)', async () => {
+      let tornDown = 0;
+      const res = await confirmSetupWith({
+        installEncryptedEventLog: async () => {
+          throw new Error('transient disk hiccup');
+        },
+        lockWorkspaceAfterIntegrityFailure: () => {
+          tornDown += 1;
+        },
+      });
+
+      expect(res.ok).toBe(true);
+      expect(tornDown).toBe(0);
+    });
+
+    it('the OK path attaches the verify-on-unlock verdict from the accessor', async () => {
+      const res = await confirmSetupWith({
+        installEncryptedEventLog: async () => {},
+        getLastUnlockIntegrityVerdict: () => okVerdict,
+      });
+
+      expect(res.ok).toBe(true);
+      if (res.ok) expect(res.integrity).toEqual(okVerdict);
     });
   });
 });

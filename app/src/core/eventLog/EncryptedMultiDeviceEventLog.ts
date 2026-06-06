@@ -212,6 +212,15 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
   private ownHead: OwnHeadState | null = null;
   /** True when the own file is malformed or ends in a crash-tail partial. */
   private ownHeadUntrusted = false;
+  /**
+   * SPEC-028 WI-3 — set by {@link dispose}. Once disposed the instance's MK is
+   * zeroed and every operation throws. This neutralises a captured reference
+   * (e.g. one stashed in an already-registered data IPC handler) after a
+   * fail-closed integrity teardown, so a tampered workspace cannot keep being
+   * read/written through the stale instance even though it holds its own MK
+   * copy independent of the wiped session key.
+   */
+  private disposed = false;
 
   constructor(opts: EncryptedMultiDeviceEventLogOptions) {
     if (opts.masterKey.length !== 32) {
@@ -429,9 +438,25 @@ export class EncryptedMultiDeviceEventLog implements EventLog {
   // ---- Internals -----------------------------------------------------------
 
   private async ensureInit(): Promise<void> {
+    if (this.disposed) {
+      throw new Error('[EncryptedMultiDeviceEventLog] instance disposed (workspace locked)');
+    }
     if (this.initialized) return;
     await fs.mkdir(this.dir, { recursive: true });
     this.initialized = true;
+  }
+
+  /**
+   * SPEC-028 WI-3 — irreversibly zero the in-memory MK copy and mark the
+   * instance disposed so all subsequent operations throw. Used by the
+   * fail-closed integrity teardown to neutralise this instance (and any stale
+   * reference to it, e.g. inside an already-registered data IPC handler) the
+   * moment a tampered workspace is detected at unlock. Idempotent.
+   */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.mk.fill(0);
   }
 
   private encryptOne(event: DomainEvent): string {
