@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.15] — SPEC-028 Audit & Evidence (Tier 1+2 foundation)
+
+Lays the cryptographic foundation for tamper-evident audit & evidence
+(SPEC-028), shipped as **infrastructure** — there is no new user-facing screen
+in this release. The benefit is silent integrity protection: if event-log files
+are altered outside the app, your next unlock detects it and routes to recovery
+instead of loading corrupted data. Existing trial datasets (from
+`0.1.0-trial.3.14` or earlier) open normally and bootstrap their first anchor on
+first unlock — no migration step, no lock-out.
+
+This is **tamper-evident + externally timestamped, NOT tamper-proof** (see
+crypto-spec §8 / SPEC-028 §8.1). The Audit & Evidence viewer and offline
+evidence-bundle export (WI-4) are a later increment.
+
+### Added
+
+- **Event-log frontier anchoring (SPEC-028 WI-2, PR #369).** The app computes a
+  per-device frontier snapshot of the event log and appends it to the signed,
+  hash-chained `FileAuditLog` as an `audit.anchor` entry (Ed25519-signed,
+  MK-encrypted, verify-before-append). `device_head_hash` is taken over the raw
+  on-disk NDJSON bytes; anchored event files are never rewritten in place.
+- **Fail-closed chain-verify-on-unlock (SPEC-028 WI-3, PR #371).** Every unlock
+  verifies the full audit chain plus the latest anchor against freshly recomputed
+  per-device prefixes. Genuine tampering (chain break, byte-level edit,
+  truncation) fails closed — the workspace does not open and routes to snapshot
+  recovery. Legacy datasets with no anchor yet open normally (`no-anchor`); late
+  peer events are reported as "not yet anchored", not tamper; sync-lag states
+  (key/file not yet downloaded, files mid-write) are classified as
+  retry/unavailable, not corruption. Verify is read-only (never creates a signing
+  key) and measured at ~70 ms for a 5,000-event dataset.
+- **Trusted timestamping of the anchor root (SPEC-028 WI-5, Tier 2, PR #372).**
+  An anchor's `event_log_root` can be bound to an external RFC-3161 timestamp,
+  written as a separate signed `audit.anchor.timestamped` receipt that never
+  mutates the anchor. TSA responses are strict-parsed and verified before any
+  receipt is written; malformed/rejected tokens leave the anchor "pending".
+  Timestamping runs off the write path, is queued when offline, and never blocks
+  unlock or data writes.
+
+### Docs
+
+- **SPEC-029 — Invoice Attachments (Draft, spec only, PR #368).** Feature + UX
+  spec for attaching invoices to transactions, stored encrypted at rest. Awaiting
+  security/architecture/product review. No implementation in this release.
+
+### Changed
+
+- **Dependencies:** bump `vitest` 3.2.4 → 4.1.0 (dev, PR #373); bump `tmp`
+  0.2.5 → 0.2.7 (PR #337).
+
+### Internal
+
+- **CI:** repair the doc-shots e2e date-range selector after the filter-bar
+  restructure (PR #374) and raise the `movements-perf` cold-boot setup wait to
+  60 s (PR #375), restoring a reliably green `e2e · perf gate` on `main`. Neither
+  change touches product code or the 1,500 ms perf budget.
+
 ## [0.1.0-trial.3.14] — SPEC-027 Export (CSV/XLSX)
 
 Adds the Export feature: a dedicated, date-range-first Export screen that lets
