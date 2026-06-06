@@ -231,11 +231,9 @@ test.describe('doc-shots — illustrated end-user guide screenshots', () => {
       // Wait for the movements screen container
       await page.waitForSelector('.ot-movements', { state: 'visible', timeout: 10_000 });
       // Default filter is "This month" which may have no data. Click the "All" preset
-      // (locale-agnostic: button[role="radio"] is structurally stable).
+      // (locale-agnostic: filter-bar chip with aria-pressed state, not role="radio").
       // EN: "All time"  ES: "Todo"  — must match the actual i18n value.
-      const allPresetBtn = page
-        .locator('button[role="radio"]')
-        .filter({ has: page.locator('text=/^(All time|Todo)$/i') });
+      const allPresetBtn = page.getByRole('button', { name: /^(All time|Todo)$/i });
       await allPresetBtn.click();
       await page.waitForTimeout(1000);
       // Now wait for data rows to appear
