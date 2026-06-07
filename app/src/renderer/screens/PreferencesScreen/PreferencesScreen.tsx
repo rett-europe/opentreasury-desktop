@@ -613,9 +613,9 @@ export function PreferencesScreen(): JSX.Element {
           </div>
         </section>
 
-        {/* Card 3: Language */}
+        {/* Card 3: Language & format (merged: language + date format + number format) */}
         <section className="ot-preferences__card">
-          <h2 className="ot-preferences__card-title">{t('preferences.language.title')}</h2>
+          <h2 className="ot-preferences__card-title">{t('preferences.languageAndFormat.title')}</h2>
           <div className="ot-preferences__card-content">
             <div className="ot-preferences__field">
               <label className="ot-preferences__label" htmlFor="pref-language">
@@ -635,13 +635,7 @@ export function PreferencesScreen(): JSX.Element {
                 <option value="es">{t('preferences.language.es')}</option>
               </select>
             </div>
-          </div>
-        </section>
 
-        {/* Card 4: Date format */}
-        <section className="ot-preferences__card">
-          <h2 className="ot-preferences__card-title">{t('preferences.dateFormat.title')}</h2>
-          <div className="ot-preferences__card-content">
             <div className="ot-preferences__field">
               <label className="ot-preferences__label" htmlFor="pref-date-format">
                 {t('preferences.dateFormat.label')}
@@ -659,13 +653,7 @@ export function PreferencesScreen(): JSX.Element {
                 ))}
               </select>
             </div>
-          </div>
-        </section>
 
-        {/* Card 5: Number format */}
-        <section className="ot-preferences__card">
-          <h2 className="ot-preferences__card-title">{t('preferences.numberFormat.title')}</h2>
-          <div className="ot-preferences__card-content">
             <div className="ot-preferences__field">
               <label className="ot-preferences__label" htmlFor="pref-number-format">
                 {t('preferences.numberFormat.label')}
@@ -686,7 +674,7 @@ export function PreferencesScreen(): JSX.Element {
           </div>
         </section>
 
-        {/* Card 6: Dataset (merged: dataset info + folder location & change) */}
+        {/* Card 4: Dataset (merged: dataset info + folder location & change) */}
         <section className="ot-preferences__card">
           <h2 className="ot-preferences__card-title">{t('preferences.dataset.title')}</h2>
           <div className="ot-preferences__card-content">
@@ -740,7 +728,7 @@ export function PreferencesScreen(): JSX.Element {
           </div>
         </section>
 
-        {/* Card 7: About */}
+        {/* Card 5: About */}
         <section className="ot-preferences__card">
           <h2 className="ot-preferences__card-title">{t('preferences.about.title')}</h2>
           <div className="ot-preferences__card-content">

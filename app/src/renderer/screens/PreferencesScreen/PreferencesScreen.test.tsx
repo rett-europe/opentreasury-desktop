@@ -97,6 +97,33 @@ describe('PreferencesScreen', () => {
     resolve(makeConfigResponse());
   });
 
+  it('groups language, date format, and number format under a single card', async () => {
+    mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
+    mockProfileGet.mockResolvedValue({ ok: true, profile: null });
+    const { container } = renderWithI18n();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: /language & format|idioma y formato/i }),
+      ).toBeDefined();
+    });
+
+    // The three controls live together inside one card, not three separate cards.
+    const heading = screen.getByRole('heading', { name: /language & format|idioma y formato/i });
+    const card = heading.closest('.ot-preferences__card');
+    expect(card).not.toBeNull();
+    expect(card?.querySelector('#pref-language')).not.toBeNull();
+    expect(card?.querySelector('#pref-date-format')).not.toBeNull();
+    expect(card?.querySelector('#pref-number-format')).not.toBeNull();
+
+    // No standalone "Date format" / "Number format" card headings remain.
+    expect(screen.queryByRole('heading', { name: /^date format$|^formato de fecha$/i })).toBeNull();
+    expect(
+      screen.queryByRole('heading', { name: /^number format$|^formato de número$/i }),
+    ).toBeNull();
+    expect(container).toBeDefined();
+  });
+
   it('renders the dataset card', async () => {
     mockConfigGet.mockResolvedValue(makeConfigResponse(null, false));
     mockProfileGet.mockResolvedValue({ ok: true, profile: null });

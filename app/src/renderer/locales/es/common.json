@@ -1393,6 +1393,9 @@
       "dark": "Oscuro",
       "system": "Sistema"
     },
+    "languageAndFormat": {
+      "title": "Idioma y formato"
+    },
     "language": {
       "title": "Idioma",
       "label": "Idioma de visualización",

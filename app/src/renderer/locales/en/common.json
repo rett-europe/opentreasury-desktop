@@ -1393,6 +1393,9 @@
       "dark": "Dark",
       "system": "System"
     },
+    "languageAndFormat": {
+      "title": "Language & format"
+    },
     "language": {
       "title": "Language",
       "label": "Display language",
