@@ -88,11 +88,30 @@ jobs:
       # built-in "basic" fallback cipher (via OT_PASSWORD_STORE → command-line
       # switch in app/src/main/index.ts) so the seeder doesn't need a working
       # gnome-keyring + libsecret + DBus session on the runner.
-      - name: Seed perf data + run e2e tests
+      #
+      # The perf spec (tests/e2e/movements-perf.spec.ts) now self-seeds a 5 000-tx
+      # encrypted workspace into an ISOLATED --user-data-dir under $HOME, so there
+      # is no shared-default pre-seed step here anymore — that shared state was
+      # the root cause of the gate's ~50% boot hang. OT_BOOT_TRACE=1 emits a
+      # main-process boot timeline that the spec pipes to test-results/ for
+      # debugging any residual hang.
+      - name: Run e2e tests (perf gate self-seeds hermetically)
         env:
           OT_PASSWORD_STORE: basic
+          OT_BOOT_TRACE: '1'
         run: |
-          xvfb-run --auto-servernum -- bash -c '
-            npm run perf:seed -- --count=5000 --dir=perf-events && \
-            npm run e2e
-          '
+          xvfb-run --auto-servernum -- npm run e2e
+
+      # Upload screenshots, Playwright traces, and the piped main-process boot
+      # log so a perf-gate hang is diagnosable from the true stuck state instead
+      # of a blind timeout.
+      - name: Upload e2e artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-gate-artifacts
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
