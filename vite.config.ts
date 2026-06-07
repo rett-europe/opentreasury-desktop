@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron';
 import { resolve } from 'node:path';
 import { build as esbuild } from 'esbuild';
+import { buildMainCjs } from './scripts/build-main-cjs.mjs';
 
 // Vite config for Electron + React renderer (ADR-002 §4, §11).
 // `vite-plugin-electron` wires main + renderer. The preload is built directly
@@ -48,8 +49,14 @@ export default defineConfig({
         // tripping the dev-seed assertDevEnvironment() guard at module load.
         // Reset to 'development' immediately before launching so dev-seed can
         // seed/unlock the throwaway dev workspace.
-        onstart(args) {
+        //
+        // Electron loads dist/main/index.cjs (package.json "main"), but this
+        // plugin only emits dist/main/index.js. Rebuild the CJS from the just-
+        // built main here so dev never launches a STALE index.cjs from the last
+        // full build. Keep index.js (the plugin's incremental watch owns it).
+        async onstart(args) {
           process.env.NODE_ENV = 'development';
+          await buildMainCjs({ deleteJs: false });
           args.startup();
         },
         vite: {
