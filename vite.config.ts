@@ -43,6 +43,15 @@ export default defineConfig({
       {
         // Main process entry (relative to project root)
         entry: resolve(__dirname, 'app/src/main/index.ts'),
+        // The nested main build sets process.env.NODE_ENV='production', which
+        // lingers on the shared process and would reach the spawned Electron —
+        // tripping the dev-seed assertDevEnvironment() guard at module load.
+        // Reset to 'development' immediately before launching so dev-seed can
+        // seed/unlock the throwaway dev workspace.
+        onstart(args) {
+          process.env.NODE_ENV = 'development';
+          args.startup();
+        },
         vite: {
           build: {
             outDir: resolve(__dirname, 'dist/main'),
