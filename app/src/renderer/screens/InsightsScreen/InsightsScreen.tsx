@@ -113,27 +113,37 @@ export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.E
     return null;
   }, [dateRange]);
 
+  const pageHeader = (
+    <header className="ot-page-header">
+      <div>
+        <h1>{t('insights.title')}</h1>
+        <p className="ot-page-header__subtitle">{t('insights.subtitle')}</p>
+      </div>
+    </header>
+  );
+
+  const dateRangePicker = (
+    <DateRangePicker
+      value={dateRange}
+      onChange={setDateRange}
+      presets={presets}
+      activePresetId={activePresetId}
+      customRangeLayout="popover"
+      customTriggerLabel={t('datePresets.custom')}
+      customLabels={{
+        from: t('saldo.dateRange.from', { defaultValue: 'Desde' }),
+        to: t('saldo.dateRange.to', { defaultValue: 'Hasta' }),
+        apply: t('saldo.dateRange.apply', { defaultValue: 'Aplicar' }),
+        invalidRange: t('saldo.dateRange.invalidRange', { defaultValue: 'Rango inválido' }),
+      }}
+    />
+  );
+
   if (state.kind === 'loading') {
     return (
       <div className="ot-insights">
-        <header className="ot-page-header">
-          <div>
-            <h1>{t('insights.title')}</h1>
-            <p className="ot-page-header__subtitle">{t('insights.subtitle')}</p>
-          </div>
-          <DateRangePicker
-            value={dateRange}
-            onChange={setDateRange}
-            presets={presets}
-            activePresetId={activePresetId}
-            customLabels={{
-              from: t('saldo.dateRange.from', { defaultValue: 'Desde' }),
-              to: t('saldo.dateRange.to', { defaultValue: 'Hasta' }),
-              apply: t('saldo.dateRange.apply', { defaultValue: 'Aplicar' }),
-              invalidRange: t('saldo.dateRange.invalidRange', { defaultValue: 'Rango inválido' }),
-            }}
-          />
-        </header>
+        {pageHeader}
+        <div className="ot-insights__toolbar">{dateRangePicker}</div>
         <div className="ot-insights__loading">{t('insights.states.loading')}</div>
       </div>
     );
@@ -142,24 +152,8 @@ export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.E
   if (state.kind === 'error') {
     return (
       <div className="ot-insights">
-        <header className="ot-page-header">
-          <div>
-            <h1>{t('insights.title')}</h1>
-            <p className="ot-page-header__subtitle">{t('insights.subtitle')}</p>
-          </div>
-          <DateRangePicker
-            value={dateRange}
-            onChange={setDateRange}
-            presets={presets}
-            activePresetId={activePresetId}
-            customLabels={{
-              from: t('saldo.dateRange.from', { defaultValue: 'Desde' }),
-              to: t('saldo.dateRange.to', { defaultValue: 'Hasta' }),
-              apply: t('saldo.dateRange.apply', { defaultValue: 'Aplicar' }),
-              invalidRange: t('saldo.dateRange.invalidRange', { defaultValue: 'Rango inválido' }),
-            }}
-          />
-        </header>
+        {pageHeader}
+        <div className="ot-insights__toolbar">{dateRangePicker}</div>
         <div className="ot-insights__error ot-p-card ot-p-card--padded">
           <p>{t('insights.states.error')}</p>
           <button type="button" onClick={loadData} className="ot-insights__retry">
@@ -176,23 +170,9 @@ export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.E
 
   return (
     <div className="ot-insights">
-      <header className="ot-page-header">
-        <div>
-          <h1>{t('insights.title')}</h1>
-          <p className="ot-page-header__subtitle">{t('insights.subtitle')}</p>
-        </div>
-        <DateRangePicker
-          value={dateRange}
-          onChange={setDateRange}
-          presets={presets}
-          activePresetId={activePresetId}
-          customLabels={{
-            from: t('saldo.dateRange.from', { defaultValue: 'Desde' }),
-            to: t('saldo.dateRange.to', { defaultValue: 'Hasta' }),
-            apply: t('saldo.dateRange.apply', { defaultValue: 'Aplicar' }),
-            invalidRange: t('saldo.dateRange.invalidRange', { defaultValue: 'Rango inválido' }),
-          }}
-        />
+      {pageHeader}
+      <div className="ot-insights__toolbar">
+        {dateRangePicker}
         <SegmentedToggle
           options={[
             { value: 'volumen', label: t('insights.displayMode.volume') },
@@ -203,7 +183,7 @@ export function InsightsScreen({ onTagSelect }: InsightsScreenProps = {}): JSX.E
           onChange={(val) => setDisplayMode(val as DisplayMode)}
           ariaLabel={t('insights.displayMode.ariaLabel')}
         />
-      </header>
+      </div>
 
       <div className="ot-kpi-strip">
         <div className="ot-kpi">

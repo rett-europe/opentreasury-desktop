@@ -87,6 +87,59 @@
   line-height: var(--type-caption-line);
 }
 
+/* ── Popover variant (customRangeLayout="popover") ─────────────────────
+ * Presets render inline; the custom From/To/Apply controls move into an
+ * anchored dialog opened by the "Custom" trigger so the host bar height never
+ * inflates. Additive only — the inline variant above is untouched. */
+.ot-daterange--popover {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+.ot-daterange__custom-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.ot-daterange__custom-trigger--open {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-secondary);
+}
+.ot-daterange__popover-anchor {
+  position: relative;
+  display: inline-flex;
+}
+.ot-daterange__popover {
+  position: absolute;
+  top: calc(100% + var(--space-3));
+  left: 0;
+  z-index: 30;
+  min-width: 260px;
+  /* Never let the popover spill past the viewport on narrow widths / long
+     translated labels — it caps width and (combined with left:0) keeps the
+     anchored dialog inside the filter bar's scrollport. */
+  max-width: min(320px, calc(100vw - 2 * var(--space-6)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.12));
+}
+/* Inside the popover the From/To stack and Apply sits full-width below. */
+.ot-daterange__popover .ot-daterange__custom {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: var(--space-4);
+}
+.ot-daterange__popover .ot-daterange__custom > * {
+  flex: 0 0 auto;
+}
+
 .ot-daterange__pill {
   display: inline-flex;
   align-items: center;

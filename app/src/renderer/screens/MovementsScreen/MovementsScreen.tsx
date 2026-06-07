@@ -1199,6 +1199,8 @@ export function MovementsScreen({
               presets={dateRangePresets}
               activePresetId={activeDatePresetId}
               customLabels={dateRangeCustomLabels}
+              customRangeLayout="popover"
+              customTriggerLabel={t('movements.filters.dateRange.presets.custom')}
             />
             <button
               type="button"

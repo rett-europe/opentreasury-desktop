@@ -671,28 +671,71 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
     const response = await handleTransactionCreate(raw);
     // Response validation is belt-and-suspenders (ADR-001 C13); any error-
     // producing path inside the handler already returned a structured union,
-    // so this parse should never throw in practice.
-    return createTransactionResponseSchema.parse(response);
+    // so this parse should never throw in practice. If it does (e.g. a corrupt
+    // dev-seed row with a malformed createdAt that the read model preserved),
+    // degrade to a structured INTERNAL error instead of letting the IPC call
+    // reject unhandled — the renderer then shows a graceful error toast.
+    try {
+      return createTransactionResponseSchema.parse(response);
+    } catch (err) {
+      console.error('[ipc] transaction:create response failed validation', err);
+      return {
+        ok: false as const,
+        error: { code: 'INTERNAL' as const, message: 'Internal error' },
+      };
+    }
   });
 
   ipcMain.handle(IPC_TRANSACTION_UPDATE, async (_event, raw: unknown) => {
     const response = await handleTransactionUpdate(raw);
-    return updateTransactionResponseSchema.parse(response);
+    try {
+      return updateTransactionResponseSchema.parse(response);
+    } catch (err) {
+      console.error('[ipc] transaction:update response failed validation', err);
+      return {
+        ok: false as const,
+        error: { code: 'INTERNAL' as const, message: 'Internal error' },
+      };
+    }
   });
 
   ipcMain.handle(IPC_TRANSACTION_DELETE, async (_event, raw: unknown) => {
     const response = await handleTransactionDelete(raw);
-    return deleteTransactionResponseSchema.parse(response);
+    try {
+      return deleteTransactionResponseSchema.parse(response);
+    } catch (err) {
+      console.error('[ipc] transaction:delete response failed validation', err);
+      return {
+        ok: false as const,
+        error: { code: 'INTERNAL' as const, message: 'Internal error' },
+      };
+    }
   });
 
   ipcMain.handle(IPC_TRANSACTION_BULK_UPDATE, async (_event, raw: unknown) => {
     const response = await handleTransactionBulkUpdate(raw);
-    return bulkUpdateTransactionResponseSchema.parse(response);
+    try {
+      return bulkUpdateTransactionResponseSchema.parse(response);
+    } catch (err) {
+      console.error('[ipc] transaction:bulkUpdate response failed validation', err);
+      return {
+        ok: false as const,
+        failures: [{ id: '', code: 'INTERNAL' as const, message: 'Internal error' }],
+      };
+    }
   });
 
   ipcMain.handle(IPC_TRANSACTION_BULK_ADD_LABEL, async (_event, raw: unknown) => {
     const response = await handleTransactionBulkAddLabel(raw);
-    return bulkAddLabelTransactionResponseSchema.parse(response);
+    try {
+      return bulkAddLabelTransactionResponseSchema.parse(response);
+    } catch (err) {
+      console.error('[ipc] transaction:bulkAddLabel response failed validation', err);
+      return {
+        ok: false as const,
+        failures: [{ id: '', code: 'INTERNAL' as const, message: 'Internal error' }],
+      };
+    }
   });
 
   const handleMovementsList = createMovementsListHandler({ getReadModel });

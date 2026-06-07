@@ -129,6 +129,25 @@ describe('InsightsScreen', () => {
     expect(volumeMetrics).toBeDefined();
   });
 
+  it('renders the date-range filter in the toolbar, not the page header (regression #356)', async () => {
+    vi.spyOn(insightsApi, 'getInsightsLandingSummary').mockResolvedValue(mockResponse);
+
+    const { container } = render(<InsightsScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Tag')).toBeDefined();
+    });
+
+    const header = container.querySelector('.ot-page-header');
+    const toolbar = container.querySelector('.ot-insights__toolbar');
+    expect(header).not.toBeNull();
+    expect(toolbar).not.toBeNull();
+    // The page header must hold only the title block so the title keeps the
+    // standard top-left position. The date-range picker lives in the toolbar.
+    expect(header?.querySelector('button')).toBeNull();
+    expect(toolbar?.textContent).toContain('Change period');
+  });
+
   it('refetches with new dateWindow when period changes', async () => {
     const spy = vi.spyOn(insightsApi, 'getInsightsLandingSummary').mockResolvedValue(mockResponse);
 

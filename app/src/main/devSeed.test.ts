@@ -6,7 +6,8 @@
 // byte-identical events.
 
 import { describe, it, expect } from 'vitest';
-import { buildPerfSeedEvents, type PerfSeedDeps } from './devSeed';
+import { z } from 'zod';
+import { buildPerfSeedEvents, txCreatedAt, type PerfSeedDeps } from './devSeed';
 
 const DEPS: PerfSeedDeps = {
   datasetId: '01TESTDATASETIDXXXXXXXXXXX',
@@ -81,5 +82,33 @@ describe('buildPerfSeedEvents', () => {
     expect(() => buildPerfSeedEvents({ ...DEPS, txCount: -1 })).toThrow();
     expect(() => buildPerfSeedEvents({ ...DEPS, txCount: 1.5 })).toThrow();
     expect(() => buildPerfSeedEvents({ ...DEPS, txCount: Number.NaN })).toThrow();
+  });
+});
+
+describe('txCreatedAt', () => {
+  // Regression for the seconds-overflow bug: encoding a global row ordinal into
+  // the seconds field produced invalid ISO strings (e.g. `...T12:00:159.000Z`)
+  // once the merged seed grew past 60 rows, which then crashed transaction:update
+  // when the read model preserved the corrupt createdAt. Every ordinal must yield
+  // a string that passes z.string().datetime().
+  const iso = z.string().datetime();
+
+  it('produces a valid ISO datetime for ordinals beyond the seconds range', () => {
+    for (const ordinal of [0, 1, 59, 60, 61, 159, 200, 3599, 3600, 86399]) {
+      const value = txCreatedAt('2026-04-29', ordinal);
+      expect(iso.safeParse(value).success).toBe(true);
+    }
+  });
+
+  it('stays monotonic with ordinal within a day so DESC sort mirrors seed order', () => {
+    const a = txCreatedAt('2026-04-29', 60);
+    const b = txCreatedAt('2026-04-29', 159);
+    const c = txCreatedAt('2026-04-29', 200);
+    expect(a < b).toBe(true);
+    expect(b < c).toBe(true);
+  });
+
+  it('keeps the given calendar date', () => {
+    expect(txCreatedAt('2026-04-29', 159).startsWith('2026-04-29T')).toBe(true);
   });
 });

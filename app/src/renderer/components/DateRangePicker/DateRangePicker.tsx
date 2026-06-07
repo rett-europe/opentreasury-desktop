@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Calendar, X } from 'lucide-react';
 import { Button } from '../Button/index.js';
 import { DateInput } from '../DateInput/index.js';
 import type { DateRange } from '../../types/movement.js';
@@ -14,11 +14,24 @@ import './DateRangePicker.css';
  * language) instead of following the Chromium/OS locale; `DateInput` keeps the
  * keyboard accessibility and inclusive min/max bounding of the native control.
  *
+ * DECISION (Trinity, regression fix for #356): the custom From/To inputs support
+ * two layouts via `customRangeLayout`:
+ *  - `'inline'` (default) — the From/To/Apply controls render inline below the
+ *    presets. Used by Insights, where the picker sits in a roomy page header.
+ *  - `'popover'` — the presets render with a "Custom" trigger that toggles an
+ *    anchored `role="dialog"` popover holding From/To/Apply. Used by the
+ *    Movements filter bar so the bar height never inflates (the always-inline
+ *    row from #356 added a third row that broke the calm two-row layout and the
+ *    table's scroll-containment budget — two vertical scrollbars).
+ *
  * Accessibility:
  *  - Presets render as role="radiogroup" / role="radio" per components-v1.md §4.
  *  - Arrow keys traverse presets; Enter / Space selects.
  *  - Custom inputs have real <label>s.
  *  - Invalid range (to < from) disables Apply + surfaces an inline error.
+ *  - In `'popover'` mode the trigger exposes aria-haspopup="dialog" /
+ *    aria-expanded / aria-controls; Escape and outside-click close it and return
+ *    focus to the trigger; opening focuses the From field.
  */
 
 export interface Preset {
@@ -38,6 +51,14 @@ export interface DateRangePickerProps {
     readonly apply: string;
     readonly invalidRange: string;
   };
+  /**
+   * How the custom From/To/Apply controls are presented. Defaults to `'inline'`
+   * to preserve the existing Insights layout byte-for-byte. `'popover'` anchors
+   * them in a toggled dialog so the host bar height stays fixed.
+   */
+  readonly customRangeLayout?: 'inline' | 'popover';
+  /** Label for the popover trigger chip (e.g. "Personalizado"). Popover only. */
+  readonly customTriggerLabel?: string;
 }
 
 function toInputValue(d: Date | null | undefined): string {
@@ -58,9 +79,60 @@ export function DateRangePicker({
   presets,
   activePresetId,
   customLabels,
+  customRangeLayout = 'inline',
+  customTriggerLabel,
 }: DateRangePickerProps): JSX.Element {
   const [customFrom, setCustomFrom] = useState<string>(() => toInputValue(value?.from));
   const [customTo, setCustomTo] = useState<string>(() => toInputValue(value?.to));
+
+  // Popover state (only meaningful when customRangeLayout === 'popover').
+  const [open, setOpen] = useState(false);
+  const popoverId = useId();
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  const closePopover = useCallback((returnFocus = true) => {
+    setOpen(false);
+    if (returnFocus) triggerRef.current?.focus();
+  }, []);
+
+  // Close the popover on outside click / Escape / focus leaving it, and focus
+  // the From field on open. Mirrors the TagCombinerDropdown interaction
+  // contract. `focusin` makes a keyboard Tab out of the dialog dismiss it (the
+  // popover is non-modal, so we don't trap focus — we just close behind it).
+  useEffect(() => {
+    if (customRangeLayout !== 'popover' || !open) return;
+    const isOutside = (target: Node | null): boolean =>
+      target != null &&
+      popoverRef.current != null &&
+      !popoverRef.current.contains(target) &&
+      triggerRef.current != null &&
+      !triggerRef.current.contains(target);
+    const onPointerDown = (e: MouseEvent): void => {
+      if (isOutside(e.target as Node)) setOpen(false);
+    };
+    const onFocusIn = (e: FocusEvent): void => {
+      // Focus moved outside the trigger + popover (e.g. Tab past Apply): close
+      // without yanking focus back, since the user intentionally moved on.
+      if (isOutside(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closePopover();
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('keydown', onKeyDown);
+    const firstInput = popoverRef.current?.querySelector<HTMLInputElement>('input');
+    firstInput?.focus();
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [customRangeLayout, open, closePopover]);
 
   // Keep the visible inputs in sync with `value`. Without this, the inputs are
   // seeded only on mount, so a preset click (or any external range change) would
@@ -87,7 +159,8 @@ export function DateRangePicker({
     const t = fromInputValue(customTo);
     if (!f || !t || t.getTime() < f.getTime()) return;
     onChange({ from: f, to: t });
-  }, [customFrom, customTo, onChange]);
+    if (customRangeLayout === 'popover') closePopover();
+  }, [customFrom, customTo, onChange, customRangeLayout, closePopover]);
 
   const onPresetKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, idx: number): void => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -101,57 +174,104 @@ export function DateRangePicker({
     nextBtn?.focus();
   };
 
-  return (
-    <div className="ot-daterange">
-      <div className="ot-daterange__presets" role="radiogroup" aria-label="Date range presets">
-        {presets.map((p, idx) => {
-          const checked = activePresetId === p.id;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              role="radio"
-              aria-checked={checked}
-              tabIndex={checked || (activePresetId == null && idx === 0) ? 0 : -1}
-              className="ot-daterange__preset"
-              onClick={() => onChange(p.range())}
-              onKeyDown={(e) => onPresetKeyDown(e, idx)}
-            >
-              {p.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="ot-daterange__custom">
-        <label className="ot-daterange__field-label">
-          <span>{customLabels.from}</span>
-          <DateInput className="ot-daterange__native" value={customFrom} onChange={setCustomFrom} />
-        </label>
-        <label className="ot-daterange__field-label">
-          <span>{customLabels.to}</span>
-          <DateInput
-            className="ot-daterange__native"
-            value={customTo}
-            onChange={setCustomTo}
-            aria-invalid={invalid ? true : undefined}
-          />
-        </label>
-        <div className="ot-daterange__apply">
-          <Button
-            variant="primary"
-            onClick={applyCustom}
-            disabled={!customFrom || !customTo || invalid}
+  const presetsGroup = (
+    <div className="ot-daterange__presets" role="radiogroup" aria-label="Date range presets">
+      {presets.map((p, idx) => {
+        const checked = activePresetId === p.id;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            tabIndex={checked || (activePresetId == null && idx === 0) ? 0 : -1}
+            className="ot-daterange__preset"
+            onClick={() => onChange(p.range())}
+            onKeyDown={(e) => onPresetKeyDown(e, idx)}
           >
-            {customLabels.apply}
-          </Button>
+            {p.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const customFields = (
+    <div className="ot-daterange__custom">
+      <label className="ot-daterange__field-label">
+        <span>{customLabels.from}</span>
+        <DateInput className="ot-daterange__native" value={customFrom} onChange={setCustomFrom} />
+      </label>
+      <label className="ot-daterange__field-label">
+        <span>{customLabels.to}</span>
+        <DateInput
+          className="ot-daterange__native"
+          value={customTo}
+          onChange={setCustomTo}
+          aria-invalid={invalid ? true : undefined}
+        />
+      </label>
+      <div className="ot-daterange__apply">
+        <Button
+          variant="primary"
+          onClick={applyCustom}
+          disabled={!customFrom || !customTo || invalid}
+        >
+          {customLabels.apply}
+        </Button>
+      </div>
+    </div>
+  );
+
+  const errorNode = invalid ? (
+    <p className="ot-daterange__error" role="alert">
+      {customLabels.invalidRange}
+    </p>
+  ) : null;
+
+  if (customRangeLayout === 'popover') {
+    return (
+      <div className="ot-daterange ot-daterange--popover">
+        {presetsGroup}
+        <div className="ot-daterange__popover-anchor">
+          <button
+            ref={triggerRef}
+            type="button"
+            className={
+              open
+                ? 'ot-daterange__preset ot-daterange__custom-trigger ot-daterange__custom-trigger--open'
+                : 'ot-daterange__preset ot-daterange__custom-trigger'
+            }
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-controls={open ? popoverId : undefined}
+            onClick={() => setOpen((v) => !v)}
+          >
+            <Calendar size={14} aria-hidden="true" />
+            {customTriggerLabel ?? 'Custom'}
+          </button>
+          {open ? (
+            <div
+              ref={popoverRef}
+              id={popoverId}
+              role="dialog"
+              aria-label={customTriggerLabel ?? 'Custom'}
+              className="ot-daterange__popover"
+            >
+              {customFields}
+              {errorNode}
+            </div>
+          ) : null}
         </div>
       </div>
-      {invalid ? (
-        <p className="ot-daterange__error" role="alert">
-          {customLabels.invalidRange}
-        </p>
-      ) : null}
+    );
+  }
+
+  return (
+    <div className="ot-daterange">
+      {presetsGroup}
+      {customFields}
+      {errorNode}
     </div>
   );
 }

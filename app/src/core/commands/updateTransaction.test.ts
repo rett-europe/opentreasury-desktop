@@ -1,6 +1,7 @@
 // WI-20: updateTransaction command tests
 
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import { updateTransaction, type UpdateTransactionInput } from './updateTransaction';
 import type { ReadModel } from '../query/types';
 import { createTestDeps, emptyReadModel, testUlid } from '../test-helpers';
@@ -374,5 +375,91 @@ describe('updateTransaction — empty-string ID regression (label-removal bug)',
     if (!result.ok) return;
     expect(result.value.payload.categoryId).toBeNull();
     expect(result.value.payload.subcategoryId).toBeNull();
+  });
+});
+
+describe('updateTransaction — self-heals a corrupt stored createdAt (edit must not be blocked)', () => {
+  const iso = z.string().datetime();
+
+  it('falls back to noon UTC on the tx date when existing.createdAt is an invalid ISO datetime', () => {
+    const existingTx = {
+      id: TX_ID,
+      date: '2026-04-29',
+      type: 'income' as const,
+      amount: 500,
+      currency: 'EUR' as const,
+      description: 'Donación corporativa — Empresa #E159',
+      accountId: ACCOUNT_ID,
+      categoryId: null,
+      subcategoryId: null,
+      tagIds: [] as readonly string[],
+      status: 'approved' as const,
+      // The real dev-seed seconds-overflow value Pedro hit live.
+      createdAt: '2026-04-29T12:00:159.000Z',
+      reference: null,
+      details: null,
+    };
+
+    const input: UpdateTransactionInput = {
+      id: TX_ID,
+      date: '2026-04-29',
+      type: 'income',
+      amount: 500,
+      description: 'Donación corporativa — Empresa #E159 (edited)',
+    };
+
+    const deps = createTestDeps({
+      now: () => new Date('2026-06-07T10:00:00Z'),
+      newId: () => EVT_ID,
+      readModel: mockReadModel([existingTx]),
+    });
+
+    const result = updateTransaction(input, deps);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // The corrupt value is replaced by a valid, faithful fallback...
+    expect(result.value.payload.createdAt).toBe('2026-04-29T12:00:00.000Z');
+    // ...which passes the SAME gate that rejected the original.
+    expect(iso.safeParse(result.value.payload.createdAt).success).toBe(true);
+  });
+
+  it('preserves a valid existing createdAt unchanged', () => {
+    const existingTx = {
+      id: TX_ID,
+      date: '2026-04-01',
+      type: 'expense' as const,
+      amount: 100,
+      currency: 'EUR' as const,
+      description: 'Old',
+      accountId: ACCOUNT_ID,
+      categoryId: null,
+      subcategoryId: null,
+      tagIds: [] as readonly string[],
+      status: 'approved' as const,
+      createdAt: '2026-04-01T08:30:00.000Z',
+      reference: null,
+      details: null,
+    };
+
+    const input: UpdateTransactionInput = {
+      id: TX_ID,
+      date: '2026-04-15',
+      type: 'expense',
+      amount: 100,
+      description: 'Updated',
+    };
+
+    const deps = createTestDeps({
+      now: () => new Date('2026-06-07T10:00:00Z'),
+      newId: () => EVT_ID,
+      readModel: mockReadModel([existingTx]),
+    });
+
+    const result = updateTransaction(input, deps);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.payload.createdAt).toBe('2026-04-01T08:30:00.000Z');
   });
 });

@@ -4,6 +4,18 @@
   gap: var(--space-6);
 }
 
+/* Date-range toolbar sits below the page title (popover variant) so the header
+ * stays a single row, consistent with the Insights landing screen. */
+.ot-insights-detail .ot-page-header {
+  margin-bottom: 0;
+}
+.ot-insights-detail__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-7);
+}
+
 .ot-insights-detail__back {
   align-self: flex-start;
   display: inline-flex;

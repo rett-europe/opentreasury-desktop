@@ -688,10 +688,17 @@ function envelopeIso(offsetMinutes: number): string {
   return new Date(base + offsetMinutes * 60_000).toISOString();
 }
 
-function txCreatedAt(date: string, ordinal: number): string {
+export function txCreatedAt(date: string, ordinal: number): string {
   // Spread within the day so sort-by-createdAt DESC mirrors the seed order.
-  // Seconds encode the ordinal (0..59 safe for 30 rows).
-  return `${date}T12:00:${String(ordinal).padStart(2, '0')}.000Z`;
+  // Encode the ordinal as a within-day time offset (hh:mm:ss) so the result is
+  // always a valid ISO datetime, even when there are more than 60 rows. (Encoding
+  // the ordinal directly into the seconds field overflowed past 59 once the merged
+  // seed grew past 60 rows, producing invalid strings like `...T12:00:159.000Z`.)
+  const s = ordinal % 86400; // safety wrap at 24h; current seed (~194 rows) never wraps
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  return `${date}T${hh}:${mm}:${ss}.000Z`;
 }
 
 export interface DevSeedDeps {
@@ -1056,7 +1063,7 @@ export function buildPerfSeedEvents(deps: PerfSeedDeps): DomainEvent[] {
     if (rng() < 0.12) {
       tagIds.push(fakeUlid(pickP(PERF_TAGS).key));
     }
-    const createdAt = `${date}T12:00:${String(i % 60).padStart(2, '0')}.000Z`;
+    const createdAt = txCreatedAt(date, i);
     events.push({
       id: fakeUlid(`EVTTX${String(i).padStart(7, '0')}`),
       type: 'tx.created',

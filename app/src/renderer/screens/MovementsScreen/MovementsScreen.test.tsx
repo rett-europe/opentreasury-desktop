@@ -313,10 +313,12 @@ describe('MovementsScreen', () => {
   it('date filter: custom range applies and is NOT persisted', async () => {
     renderWithI18n();
     await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
-    // Inline From/To inputs are always visible (shared DateRangePicker), now
-    // rendered via the custom DateInput so the visible date format honors the
-    // user's preference (en default → MM/DD/YYYY) instead of the OS locale.
-    const picker = document.querySelector('.ot-daterange') as HTMLElement;
+    // Custom From/To live in an anchored popover (customRangeLayout="popover")
+    // opened via the "Personalizado" trigger, rendered through the custom
+    // DateInput so the visible date format honors the user's preference (en
+    // default → MM/DD/YYYY) instead of the OS locale.
+    fireEvent.click(screen.getByRole('button', { name: /^Personalizado$|^Custom$/i }));
+    const picker = document.querySelector('.ot-daterange__popover') as HTMLElement;
     expect(picker).not.toBeNull();
     const fromInput = picker.querySelectorAll('input[data-ot-dateinput]')[0] as HTMLInputElement;
     const toInput = picker.querySelectorAll('input[data-ot-dateinput]')[1] as HTMLInputElement;
@@ -338,7 +340,8 @@ describe('MovementsScreen', () => {
   it('date filter: invalid custom range (to < from) disables Apply and shows an error', async () => {
     renderWithI18n();
     await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
-    const picker = document.querySelector('.ot-daterange') as HTMLElement;
+    fireEvent.click(screen.getByRole('button', { name: /^Personalizado$|^Custom$/i }));
+    const picker = document.querySelector('.ot-daterange__popover') as HTMLElement;
     const fromInput = picker.querySelectorAll('input[data-ot-dateinput]')[0] as HTMLInputElement;
     const toInput = picker.querySelectorAll('input[data-ot-dateinput]')[1] as HTMLInputElement;
     // en default → MM/DD/YYYY; to < from makes the range invalid.
@@ -349,6 +352,25 @@ describe('MovementsScreen', () => {
     ) as HTMLButtonElement;
     expect(applyBtn.disabled).toBe(true);
     expect(picker.querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  it('date filter: custom From/To stay in a popover, collapsed until opened (regression #356)', async () => {
+    renderWithI18n();
+    await waitFor(() => expect(screen.queryByRole('table')).not.toBeNull());
+    // The Movements filter bar uses customRangeLayout="popover": the From/To
+    // inputs must NOT be inline in the bar (that always-inline row is what #356
+    // regressed — it inflated the bar and broke scroll containment). They only
+    // mount once the "Personalizado" trigger opens the dialog.
+    expect(document.querySelector('.ot-daterange__popover')).toBeNull();
+    // Scope to the filter bar: the #356 regression put the custom From/To inputs
+    // inline in this bar. They must not be here until the popover opens. (The
+    // always-mounted AddTransactionModal has its own date input elsewhere, so we
+    // intentionally do not assert on the global document count.)
+    const filterBar = document.querySelector('.ot-filter-bar') as HTMLElement;
+    expect(filterBar.querySelectorAll('input[data-ot-dateinput]').length).toBe(0);
+    fireEvent.click(screen.getByRole('button', { name: /^Personalizado$|^Custom$/i }));
+    expect(document.querySelector('.ot-daterange__popover')).not.toBeNull();
+    expect(filterBar.querySelectorAll('input[data-ot-dateinput]').length).toBe(2);
   });
 
   it('date filter: Clear filters resets to "Este mes" (not "Todo")', async () => {

@@ -1332,7 +1332,8 @@
     "last3Months": "Últimos 3 meses",
     "thisYear": "Este año",
     "lastYear": "Año pasado",
-    "last12Months": "Últimos 12 meses"
+    "last12Months": "Últimos 12 meses",
+    "custom": "Personalizado"
   },
   "profileSetup": {
     "title": "Bienvenida a OpenTreasury",
@@ -1391,6 +1392,9 @@
       "light": "Claro",
       "dark": "Oscuro",
       "system": "Sistema"
+    },
+    "languageAndFormat": {
+      "title": "Idioma y formato"
     },
     "language": {
       "title": "Idioma",

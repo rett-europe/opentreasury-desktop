@@ -2,6 +2,22 @@
   /* Main layout follows existing screen patterns (Panel, Saldo) */
 }
 
+/* Filter toolbar: sits directly below the page header so the page title keeps
+ * the standard top-left position shared by the other screens. The date-range
+ * picker uses the anchored popover variant, so this stays a single row and
+ * never inflates header height. */
+.ot-insights .ot-page-header {
+  margin-bottom: var(--space-6);
+}
+.ot-insights__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-7);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-9);
+}
+
 /* Loading and error states */
 .ot-insights__loading {
   padding: var(--space-9);
