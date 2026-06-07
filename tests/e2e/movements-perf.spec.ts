@@ -108,16 +108,26 @@ function launchArgs(userDataDir: string): string[] {
 }
 
 /**
- * First Electron launch: generate a real *encrypted* 5 000-tx workspace under
+ * One Electron launch: generate a real *encrypted* 5 000-tx workspace under
  * `<userDataDir>/<DATA_DIR>` and exit. Mirrors the headless-seed path that
- * scripts/perf-seed.mjs uses, but pinned to the isolated userData dir so the
+ * scripts/perf-seed.mjs uses, but pinned to an isolated userData dir so the
  * shared default `~/.config/opentreasury-desktop` is never read or written.
  *
- * Sharing that default was the root cause of the perf gate's ~50% hang: the
- * workflow pre-seed, this spec's seed, and the measurement launches all raced
- * on the same app-config.json + workspace under CI IO load, so a launch
- * occasionally read a half-written/locked config mid-seed and the silent unlock
- * hung before the shell ever painted.
+ * NOTE on the perf gate's historic ~50% CI hang — the real, boot-trace-proven
+ * root cause is NOT shared-userData contention (isolation alone did not fix it).
+ * The app appends a device *anchor* to the workspace audit chain on every
+ * unlock (bootstrap.ts `fireUnlockAnchor`, fired unconditionally — read-only
+ * mode does not gate it). On CI's flaky safeStorage backend that anchor is
+ * sometimes signed with a key whose fingerprint does not match the persisted
+ * audit signing key. The FIRST unlock of a freshly-seeded workspace always
+ * paints the shell (verify-on-unlock runs before the anchor is written); a
+ * SECOND unlock of the SAME workspace then re-runs verify-on-unlock against the
+ * now-mutated chain, hits the key-fingerprint mismatch, fails closed, and routes
+ * to the manual recovery-code prompt — so the shell never paints and the
+ * sidebar wait times out. Reusing one seeded workspace across the median's
+ * launches made the samples causally dependent; seeding a PRISTINE workspace
+ * per run (see createSeededWorkspace) restores independence so every launch is
+ * a reliable "first unlock." See docs/perf/playwright-gate.md.
  */
 function seedEncryptedWorkspace(userDataDir: string): void {
   const electronBin = require('electron') as unknown as string;
@@ -162,6 +172,34 @@ function seedEncryptedWorkspace(userDataDir: string): void {
   if (!readdirSync(userDataDir).includes('device.json')) {
     throw new Error(`device.json missing from isolated userData ${userDataDir}`);
   }
+}
+
+/**
+ * Create a brand-new isolated userData dir, seed a PRISTINE 5 000-tx encrypted
+ * workspace into it, and write the profile + app-config so a measurement launch
+ * silent-unlocks straight into AppShell. Returns the new userData dir.
+ *
+ * Called once PER measurement run (not once for the suite) so each launch
+ * unlocks a workspace with NO pre-existing audit anchor — the only state that
+ * the boot-trace proved causes the second-unlock verify-on-unlock fail-closed
+ * hang. The samples therefore stay causally independent.
+ *
+ * The isolated root lives under `os.homedir()` (NOT os.tmpdir()): the
+ * production workspace path guard (validateFolderBoundary in
+ * ipc/handlers/workspace.ts) rejects any dataDir outside the home directory, so
+ * a /tmp userData would fail workspace:detect and hang the silent unlock. On CI
+ * home is /home/runner; locally it's the user profile.
+ */
+function createSeededWorkspace(): string {
+  const userDataDir = mkdtempSync(join(homedir(), '.ot-perf-'));
+  writeFileSync(join(userDataDir, 'profile.json'), JSON.stringify(PROFILE, null, 2), 'utf8');
+  seedEncryptedWorkspace(userDataDir);
+  // app-config.json points the measurement launch at the freshly seeded
+  // encrypted workspace so workspace:detect silent-unlocks it instead of routing
+  // to the FreshSetupFlow folder picker. dataDir is absolute and under home.
+  const appConfig = { version: 1, dataDir: join(userDataDir, DATA_DIR), readOnly: false };
+  writeFileSync(join(userDataDir, 'app-config.json'), JSON.stringify(appConfig, null, 2), 'utf8');
+  return userDataDir;
 }
 
 /**
@@ -215,47 +253,32 @@ async function captureBootFailure(page: Page, run: number): Promise<void> {
 test.describe('MovementsScreen mount perf budget', () => {
   test.describe.configure({ mode: 'serial' });
 
-  let userDataDir: string | undefined;
+  /** Per-run isolated userData dirs, tracked so afterAll cleans up any that a
+   *  mid-loop failure left behind (the loop's `finally` removes them on the
+   *  happy path). */
+  const createdDirs = new Set<string>();
 
-  /**
-   * Seed a 5 000-tx encrypted workspace into an ISOLATED userData dir before the
-   * suite runs. The seed is deterministic, so re-running produces byte-identical
-   * output — stable across retries.
-   *
-   * The isolated root lives under `os.homedir()` (NOT os.tmpdir()): the
-   * production workspace path guard (validateFolderBoundary in
-   * ipc/handlers/workspace.ts) rejects any dataDir outside the home directory,
-   * so a /tmp userData would fail workspace:detect and hang the silent unlock —
-   * the exact symptom this fix removes. On CI home is /home/runner; locally it's
-   * the user profile.
-   */
   test.beforeAll(() => {
     mkdirSync(TEST_RESULTS_DIR, { recursive: true });
-    userDataDir = mkdtempSync(join(homedir(), '.ot-perf-'));
-    writeFileSync(join(userDataDir, 'profile.json'), JSON.stringify(PROFILE, null, 2), 'utf8');
-    seedEncryptedWorkspace(userDataDir);
-    // app-config.json points the measurement launch at the freshly seeded
-    // encrypted workspace so workspace:detect silent-unlocks it instead of
-    // routing to the FreshSetupFlow folder picker. dataDir is absolute and under
-    // home (see beforeAll doc-comment).
-    const appConfig = { version: 1, dataDir: join(userDataDir, DATA_DIR), readOnly: false };
-    writeFileSync(join(userDataDir, 'app-config.json'), JSON.stringify(appConfig, null, 2), 'utf8');
   });
 
   test.afterAll(() => {
-    if (userDataDir) {
-      rmSync(userDataDir, { recursive: true, force: true });
-      userDataDir = undefined;
+    for (const dir of createdDirs) {
+      rmSync(dir, { recursive: true, force: true });
     }
+    createdDirs.clear();
   });
 
   test(`MovementsScreen mounts in ≤ ${BUDGET_MS} ms (median of ${RUNS} runs)`, async () => {
-    const dir = userDataDir;
-    if (!dir) throw new Error('beforeAll did not initialise the isolated userData dir');
-
     const times: number[] = [];
 
     for (let run = 0; run < RUNS; run++) {
+      // Seed a PRISTINE workspace for THIS run. Each launch must unlock a
+      // workspace with no pre-existing audit anchor; reusing one workspace makes
+      // the second+ unlock fail closed on CI (see seedEncryptedWorkspace doc).
+      const dir = createSeededWorkspace();
+      createdDirs.add(dir);
+
       // Each run launches a fresh Electron process against the isolated, seeded
       // workspace. args: ['.', --user-data-dir=<iso>] makes Electron load our
       // package.json (app name → opentreasury-desktop) while sandboxing all
@@ -316,6 +339,12 @@ test.describe('MovementsScreen mount perf budget', () => {
         console.log(`[perf] run ${run + 1}/${RUNS}: ${elapsed} ms`);
       } finally {
         await app.close();
+        // Drop this run's pristine workspace now that the launch is done; on the
+        // happy path afterAll then has nothing to do. Keep it on failure? No —
+        // the boot diagnostics (screenshot + main-process log) are already in
+        // test-results/; the encrypted workspace itself is reproducible from seed.
+        rmSync(dir, { recursive: true, force: true });
+        createdDirs.delete(dir);
       }
     }
 
