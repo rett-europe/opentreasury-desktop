@@ -99,6 +99,69 @@ describe('DateRangePicker', () => {
   });
 });
 
+describe('DateRangePicker — popover variant', () => {
+  // Regression guard for #356: the Movements filter bar uses
+  // customRangeLayout="popover" so the From/To/Apply controls live in an
+  // anchored dialog and never inflate the bar height. The inline variant above
+  // stays the default and is unaffected.
+  function renderPopover(onChange = vi.fn()) {
+    return render(
+      <DateRangePicker
+        value={null}
+        onChange={onChange}
+        presets={PRESETS}
+        customLabels={LABELS}
+        customRangeLayout="popover"
+        customTriggerLabel="Custom"
+      />,
+    );
+  }
+
+  it('keeps the custom From/To collapsed until the trigger is opened', () => {
+    renderPopover();
+    // Presets still render inline.
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    // The custom fields are not in the DOM until the popover opens.
+    expect(screen.queryByLabelText('From')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    const trigger = screen.getByRole('button', { name: 'Custom' });
+    expect(trigger.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('opens the dialog, focuses the From field, and wires aria-controls', () => {
+    renderPopover();
+    const trigger = screen.getByRole('button', { name: 'Custom' });
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeDefined();
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(trigger.getAttribute('aria-controls')).toBe(dialog.getAttribute('id'));
+    expect(document.activeElement).toBe(screen.getByLabelText('From'));
+  });
+
+  it('Escape closes the dialog and returns focus to the trigger', () => {
+    renderPopover();
+    const trigger = screen.getByRole('button', { name: 'Custom' });
+    fireEvent.click(trigger);
+    expect(screen.getByRole('dialog')).toBeDefined();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('Apply emits the range and closes the dialog', () => {
+    const onChange = vi.fn();
+    renderPopover(onChange);
+    fireEvent.click(screen.getByRole('button', { name: 'Custom' }));
+    fireEvent.change(screen.getByLabelText('From'), { target: { value: '04/10/2026' } });
+    fireEvent.change(screen.getByLabelText('To'), { target: { value: '04/20/2026' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
 describe('DateRangePill', () => {
   it('renders label and fires onClear', () => {
     const onClear = vi.fn();
