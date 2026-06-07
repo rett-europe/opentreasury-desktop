@@ -30,6 +30,7 @@ import { createReadOnlyEventLog } from './eventLog-readonly-wrapper.js';
 import { loadDeviceId } from './device.js';
 import { loadDatasetId } from './dataset.js';
 import { newUlid } from './ids.js';
+import { bootTrace } from './bootTrace.js';
 import { FileAuditLog, createFsAuditStore } from '../core/audit/AuditLog.js';
 import {
   runAnchorOnce,
@@ -748,12 +749,16 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
 
   const dir = effectiveEventLogDir;
 
+  bootTrace('install:start', { deviceId });
+
   // SPEC-028 WI-3 — STANDALONE chain-verify-on-unlock (fail-closed). Runs BEFORE
   // hydrating the read model, installing the log, or anchoring (and before the
   // already-installed early-return below), so a tampered/broken workspace never
   // "opens." A fail-closed verdict throws `WorkspaceIntegrityError`; the unlock
   // handlers catch it, tear the workspace back down, and route to recovery.
+  bootTrace('verify:start');
   const verdict = await verifyWorkspaceIntegrityOnUnlock(deviceId, mk);
+  bootTrace('verify:end', { failClosed: verdict.failClosed });
   lastUnlockIntegrityVerdict = verdict;
   if (verdict.failClosed) {
     throw new WorkspaceIntegrityError(verdict);
@@ -766,6 +771,7 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
     // active workspace was just (re)set by the caller, so still fire a
     // best-effort unlock anchor (SPEC-028 OQ2 "on unlock" trigger).
     fireUnlockAnchor();
+    bootTrace('install:end', { alreadyInstalled: true });
     return 0;
   }
 
@@ -785,8 +791,12 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
     },
   });
 
+  bootTrace('load:start');
   const events = await log.load();
+  bootTrace('load:end', { count: events.length });
+  bootTrace('replay:start', { count: events.length });
   replayEvents(events as DomainEvent[]);
+  bootTrace('replay:end');
 
   eventLogInstance = log;
   encryptedWorkspacePending = false;
@@ -827,7 +837,9 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
   // dependency between bootstrap.ts and ipc/handlers.ts.
   try {
     const { registerDataIpcHandlersIfDeferred } = await import('./ipc/handlers.js');
+    bootTrace('register:start');
     registerDataIpcHandlersIfDeferred();
+    bootTrace('register:end');
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(
@@ -839,6 +851,7 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
   // model is hydrated. Fire-and-forget: never block install on anchoring.
   fireUnlockAnchor();
 
+  bootTrace('install:end', { count: events.length });
   return events.length;
 }
 

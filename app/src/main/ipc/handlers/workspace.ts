@@ -44,6 +44,7 @@ import {
   type WorkspaceLockResponse,
 } from '../../../shared/ipc-contracts/workspace.js';
 import { detectWorkspaceState } from '../../../core/workspace/detect.js';
+import { bootTrace } from '../../bootTrace.js';
 import { loadKeyFile, saveKeyFile } from '../../../core/eventLog/keyFile.js';
 import type { KeyFileV2 } from '../../../core/eventLog/keyFile.js';
 import { generateMasterKey, wrapKey, unwrapKey } from '../../../core/crypto/masterKey.js';
@@ -361,11 +362,13 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     const folderPath = boundary.normalized;
 
     try {
+      bootTrace('detect:start');
       const result = await detectWorkspaceState(
         folderPath,
         deps.deviceId(),
         deps.isEncryptionAvailable(),
       );
+      bootTrace('detect:end', { state: result.state });
       // Track the folder path so unlock/recover can use it without re-passing.
       setLastDetectedFolderPath(folderPath);
       return { ok: true, state: result.state, folderPath, hadLegacyFile: result.hadLegacyFile };
@@ -717,6 +720,7 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
         error: { code: 'rate_limited', message: 'Too many requests. Please wait before retrying.' },
       };
     }
+    bootTrace('unlock:start');
     workspaceUnlockRequestSchema?.parse(raw ?? {});
 
     if (!deps.isEncryptionAvailable()) {
@@ -766,8 +770,11 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     // Attempt safeStorage decrypt.
     let mk: Uint8Array;
     try {
+      bootTrace('decrypt:start');
       mk = unwrapMkFromSafeStorage(deviceEntry.wrap_safestorage, deps);
+      bootTrace('decrypt:end');
     } catch {
+      bootTrace('decrypt:fail');
       return {
         ok: false,
         error: {
@@ -784,6 +791,7 @@ export function createWorkspaceHandlers(deps: WorkspaceDeps) {
     // queries after silent unlock hit a hydrated read model.
     try {
       await deps.installEncryptedEventLog?.(deviceId, mk);
+      bootTrace('unlock:end', { ok: true });
     } catch (err) {
       if (isWorkspaceIntegrityError(err)) {
         deps.lockWorkspaceAfterIntegrityFailure?.();

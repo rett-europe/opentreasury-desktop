@@ -36,5 +36,12 @@ export default defineConfig({
   // One retry on CI absorbs cold-start flakiness without hiding real regressions.
   retries: process.env['CI'] ? 1 : 0,
 
+  // Retain a Playwright trace for any spec that fails (after the retry) so the
+  // perf-gate boot hang is debuggable from CI artifacts. 'retain-on-failure'
+  // keeps the trace only when a test ultimately fails — no cost on green runs.
+  use: {
+    trace: 'retain-on-failure',
+  },
+
   reporter: [['list'], ['html', { open: 'never' }]],
 });
