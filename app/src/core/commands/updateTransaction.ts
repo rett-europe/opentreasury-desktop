@@ -5,6 +5,7 @@
 // accountId is immutable — command ignores any incoming accountId and uses
 // the stored value from the existing transaction.
 
+import { z } from 'zod';
 import type { TransactionUpdatedEvent, TransactionUpdatedPayload } from '../events/schemas';
 import type { ReadModel } from '../query/types';
 import type { TransactionType, TransactionStatus } from './createTransaction';
@@ -61,6 +62,14 @@ function isValidIsoDate(s: string): boolean {
   if (Number.isNaN(d.getTime())) return false;
   const iso = d.toISOString().slice(0, 10);
   return iso === s;
+}
+
+// Validate full ISO 8601 datetimes with the SAME predicate the event/IPC
+// response schemas use (`z.string().datetime()`), so any value we accept here
+// is guaranteed to pass the downstream gate.
+const isoDateTimeSchema = z.string().datetime();
+function isValidIsoDateTime(s: unknown): s is string {
+  return typeof s === 'string' && isoDateTimeSchema.safeParse(s).success;
 }
 
 function normalizeFreeText(value: string | null | undefined, maxLen: number): string | null {
@@ -166,6 +175,19 @@ export function updateTransaction(
   const updatedAt = deps.now().toISOString();
   const eventId = deps.newId();
 
+  // Self-heal: never propagate a corrupt stored createdAt. A single bad
+  // timestamp from ANY source (e.g. a legacy/dev-seeded row) must not make a
+  // transaction permanently uneditable — the event/IPC schemas validate
+  // createdAt with z.string().datetime(), so a garbage value would otherwise
+  // be rejected at the response gate and the edit would always fail. Fall back
+  // to noon UTC on the tx's own (validated) date; if that is somehow also
+  // invalid, use the edit timestamp, which is always a valid ISO datetime.
+  const safeCreatedAt = isValidIsoDateTime(existing.createdAt)
+    ? existing.createdAt
+    : isValidIsoDate(existing.date)
+      ? `${existing.date}T12:00:00.000Z`
+      : updatedAt;
+
   const payload: TransactionUpdatedPayload = {
     id: input.id,
     date: input.date,
@@ -180,7 +202,7 @@ export function updateTransaction(
     subcategoryId: input.subcategoryId || null,
     tagIds: input.tagIds ? [...input.tagIds] : [],
     status: input.status ?? existing.status, // Preserve existing status if not provided
-    createdAt: existing.createdAt, // Preserve original creation timestamp
+    createdAt: safeCreatedAt, // Preserve original creation timestamp (self-healed if corrupt)
     updatedAt,
     reference,
     details,
