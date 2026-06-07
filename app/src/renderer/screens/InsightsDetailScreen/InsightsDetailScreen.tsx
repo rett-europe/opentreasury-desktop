@@ -420,11 +420,15 @@ export function InsightsDetailScreen({
           <h1>{headerTitle}</h1>
           <p className="ot-page-header__subtitle">{t('insights.detail.subtitle')}</p>
         </div>
+      </header>
+      <div className="ot-insights-detail__toolbar">
         <DateRangePicker
           value={dateValue}
           onChange={onDateRangeChange}
           presets={presets}
           activePresetId={activePresetId}
+          customRangeLayout="popover"
+          customTriggerLabel={t('datePresets.custom')}
           customLabels={{
             from: t('saldo.dateRange.from', { defaultValue: 'Desde' }),
             to: t('saldo.dateRange.to', { defaultValue: 'Hasta' }),
@@ -434,7 +438,7 @@ export function InsightsDetailScreen({
             }),
           }}
         />
-      </header>
+      </div>
 
       {/* KPI strip */}
       <div className="ot-kpi-strip" role="status" aria-live="polite">
