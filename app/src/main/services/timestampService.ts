@@ -102,7 +102,14 @@ export async function runTimestampOnce(deps: RunTimestampDeps): Promise<Timestam
   try {
     // Skip (do not block) a chain that would not verify — appending a receipt
     // would throw anyway. WI-3 owns fail-closed gating at unlock.
-    const verdict = await deps.auditLog.verifyChain();
+    //
+    // #379: the preflight must NOT create the signing key. Key creation lives
+    // only on the append/write path under the global append lock; a
+    // key-creating preflight here would race the concurrent anchor preflight
+    // and persist a divergent key, locking out the next unlock. On a fresh
+    // chain with no anchors to timestamp this returns ok and the drain finds
+    // nothing pending.
+    const verdict = await deps.auditLog.verifyChain({ allowKeyCreation: false });
     if (!verdict.ok) {
       deps.log?.('warn', 'timestamp skipped: audit chain did not verify', {
         reason: verdict.reason ?? 'unknown',

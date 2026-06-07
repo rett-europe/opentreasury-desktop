@@ -247,8 +247,12 @@ export function createExportHandlers(deps: ExportHandlerDeps): ExportHandlers {
     const audit = createAuditLog(ws, datasetId, deps.getActorUserIdentity());
 
     // Verify the chain and write the `started` entry BEFORE the first byte.
+    // #379: never create the signing key in the preflight — the `append` below
+    // creates it under the global append lock on a fresh chain. A key-creating
+    // preflight could race the unlock anchor/timestamp preflights and persist a
+    // divergent key.
     try {
-      const verdict = await audit.verifyChain();
+      const verdict = await audit.verifyChain({ allowKeyCreation: false });
       if (!verdict.ok) return { ok: false, code: 'EXPORT_AUDIT_FAILED' };
       await audit.append({
         action,

@@ -53,7 +53,17 @@ export async function runAnchorOnce(deps: RunAnchorDeps): Promise<AnchorOutcome>
     // Fail-closed gating (refuse to open the workspace on a corrupt chain) is
     // WI-3's job. Here we merely SKIP anchoring onto a chain that wouldn't
     // verify — appending would throw anyway, and we must not block writes.
-    const verdict = await deps.auditLog.verifyChain();
+    //
+    // #379: the preflight must NOT create the signing key. The signing key is
+    // created in exactly one place — the append/write path (appendAnchor →
+    // appendCore → ensureSigningKey) under the process-global append lock. If a
+    // preflight created a key it would race the concurrent timestamp-drain
+    // preflight (each on its own FileAuditLog instance), persisting two
+    // different keys and leaving the anchor signed with a fingerprint that no
+    // longer matches the on-disk key → next unlock fails closed. On a fresh
+    // chain (no key, no entries) verifyChain returns ok and the append below
+    // creates the key once under the lock.
+    const verdict = await deps.auditLog.verifyChain({ allowKeyCreation: false });
     if (!verdict.ok) {
       deps.log?.('warn', 'anchor skipped: audit chain did not verify', {
         reason: verdict.reason ?? 'unknown',
