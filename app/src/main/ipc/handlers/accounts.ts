@@ -18,6 +18,7 @@ import type {
 } from '../../../core/events/schemas.js';
 import { applyEvent as coreApplyEvent } from '../../../core/query/reducers.js';
 import type { ReadModel } from '../../../core/query/types.js';
+import { stampActorAttribution } from './configActorAttribution.js';
 import {
   archiveAccountRequestSchema,
   createAccountRequestSchema,
@@ -45,6 +46,12 @@ export interface AccountsHandlerDeps {
   readonly newId: () => string;
   /** Override for tests — defaults to core reducer's applyEvent singleton. */
   readonly applyEvent?: typeof coreApplyEvent;
+  // #388 — actor/device attribution, sourced from the active profile/device by
+  // the IPC wiring (mirrors the `tx.*` handler deps). Optional so tests and the
+  // pre-profile bootstrap path can omit them; when present they are stamped on
+  // every appended config event.
+  readonly actorUserId?: string;
+  readonly actorDeviceId?: string;
 }
 
 async function appendAndApply(
@@ -52,13 +59,16 @@ async function appendAndApply(
   event: Parameters<typeof coreApplyEvent>[0],
 ): Promise<void> {
   const apply = deps.applyEvent ?? coreApplyEvent;
+  // #388 — stamp actor/device at append time so the audit change-history
+  // projection can attribute the row. Absent on legacy on-disk events.
+  const stamped = stampActorAttribution(deps, event);
   // Idempotent append — JsonFileEventLog dedupes by event.id; only apply
   // to the reducer when the log truly grew (mirrors transaction handler).
   const before = (await deps.eventLog.load()).length;
-  await deps.eventLog.append(event);
+  await deps.eventLog.append(stamped);
   const after = (await deps.eventLog.load()).length;
   if (after > before) {
-    apply(event);
+    apply(stamped);
   }
 }
 

@@ -766,11 +766,16 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
   });
 
   // WI-15-lite — Configuración (accounts / categories / tags) create + list.
+  // #388 — stamp actor/device on config/taxonomy events, sourced exactly like
+  // the transaction handler deps above so the audit change-history viewer can
+  // attribute account/category/subcategory/tag mutations.
   const configDeps = {
     eventLog: getEventLog(),
     getReadModel,
     now: () => new Date(),
     newId: newUlid,
+    actorDeviceId: getDeviceId(),
+    actorUserId: profile?.userId ?? 'PROFILE_PENDING000000000',
   };
 
   const handleAccountsCreate = createAccountsCreateHandler(configDeps);

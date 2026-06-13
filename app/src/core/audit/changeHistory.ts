@@ -6,15 +6,19 @@
 // MUST NEVER infer one from the session/device currently unlocked.
 //
 // Classification is by event TYPE, per the spec's normative list:
-//   - Attributed: `tx.created`, `tx.updated`, `tx.deleted`, and the enveloped
-//     `*.created` events (`account.created`, `category.created`, `tag.created`).
-//     These carry a real actor/device in their envelope → render it.
-//   - Flat: config `*Created/*Updated/*Archived/*Unarchived/*Deleted` (the
-//     PascalCase WI-15-lite / WI-21 stream), `tx.note.*`, `tx.split[.removed]`,
-//     `movement.imported`, `import.mapping.updated`. They record *what* + *when*
-//     but not *who* until the M2 attribution work lands → actor/device `unknown`.
-//   - Pre-coverage: an attributed-type event whose envelope actor/device is
-//     absent or a known placeholder → `unknown (pre-coverage)`. Never back-filled.
+//   - Attributed: `tx.created`, `tx.updated`, `tx.deleted`, the enveloped
+//     `*.created` events (`account.created`, `category.created`, `tag.created`),
+//     and (since #388) the PascalCase config/taxonomy stream
+//     (`*Created/*Updated/*Archived/*Unarchived/*Deleted` for
+//     Account/Category/Subcategory/Tag). These carry a real actor/device →
+//     render it.
+//   - Flat: `tx.note.*`, `tx.split[.removed]`, `movement.imported`,
+//     `import.mapping.updated`. They record *what* + *when* but not *who* →
+//     actor/device `unknown` with reason `flat`.
+//   - Pre-coverage: an attributed-type event whose actor/device is absent or a
+//     known placeholder → `unknown (pre-coverage)`. Never back-filled. Config
+//     events written before #388 fall here (the type is attribution-capable but
+//     those specific events predate the actor fields).
 //
 // Pure + deterministic: no I/O, no clock, no master key. Unit-tested directly.
 
@@ -28,8 +32,7 @@ import type {
 /**
  * Event types whose envelope carries a genuine actor/device (spec §3.4). Note
  * `tx.deleted` is flat-shaped on the wire but DOES carry actor fields and is
- * attributed; the enveloped `*.created` events are attributed; the PascalCase
- * config `*Created` events are flat (no actor) and are deliberately excluded.
+ * attributed; the enveloped `*.created` events are attributed.
  */
 const ATTRIBUTED_TYPES: ReadonlySet<string> = new Set([
   'tx.created',
@@ -39,6 +42,42 @@ const ATTRIBUTED_TYPES: ReadonlySet<string> = new Set([
   'category.created',
   'tag.created',
 ]);
+
+/**
+ * #388 — PascalCase config/taxonomy events (WI-15-lite + WI-21 stream). These
+ * are attribution-CAPABLE: events written after #388 carry optional
+ * `actorUserId` / `actorDeviceId` and are rendered with the real actor/device,
+ * while legacy events written before #388 lack those fields and are rendered
+ * `unknown (pre-coverage)` — never `flat` — so old rows read honestly rather
+ * than implying the actor data is permanently absent for this event class.
+ */
+const CONFIG_ATTRIBUTED_TYPES: ReadonlySet<string> = new Set([
+  'AccountCreated',
+  'AccountUpdated',
+  'AccountArchived',
+  'AccountUnarchived',
+  'AccountDeleted',
+  'CategoryCreated',
+  'CategoryUpdated',
+  'CategoryArchived',
+  'CategoryUnarchived',
+  'CategoryDeleted',
+  'SubcategoryCreated',
+  'SubcategoryUpdated',
+  'SubcategoryArchived',
+  'SubcategoryUnarchived',
+  'SubcategoryDeleted',
+  'TagCreated',
+  'TagUpdated',
+  'TagArchived',
+  'TagUnarchived',
+  'TagDeleted',
+]);
+
+/** True when the event TYPE is capable of carrying an actor/device. */
+function isAttributedType(type: string): boolean {
+  return ATTRIBUTED_TYPES.has(type) || CONFIG_ATTRIBUTED_TYPES.has(type);
+}
 
 /**
  * Placeholder actor id written before a real profile exists (see bootstrap's
@@ -103,7 +142,7 @@ function extractAccountId(e: AnyEvent): string | null {
 }
 
 function deriveActor(e: AnyEvent): ChangeHistoryActor {
-  if (!ATTRIBUTED_TYPES.has(e.type)) {
+  if (!isAttributedType(e.type)) {
     return { kind: 'unknown', reason: 'flat' };
   }
   const userId = str(e.actorUserId);
@@ -114,7 +153,7 @@ function deriveActor(e: AnyEvent): ChangeHistoryActor {
 }
 
 function deriveDevice(e: AnyEvent): ChangeHistoryDevice {
-  if (!ATTRIBUTED_TYPES.has(e.type)) {
+  if (!isAttributedType(e.type)) {
     return { kind: 'unknown' };
   }
   const deviceId = str(e.actorDeviceId);
