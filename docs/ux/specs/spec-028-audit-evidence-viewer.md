@@ -1,6 +1,6 @@
 # SPEC-028 (UX) — Audit & Evidence Viewer
 
-> **Status:** In Review (ready for acceptance) · **Owner:** Niobe · **Last updated:** 2026-06-13
+> **Status:** Accepted · **Owner:** Niobe · **Last updated:** 2026-06-13
 > **Reviewers:** Neo (architecture) — pending · Switch (security) — pending · Link (product) — pending ·
 > Mouse (design) — pending · **Acceptance:** Pedro (product owner)
 > **Paired feature spec:** [`docs/specs/028-audit-and-evidence.md`](../../specs/028-audit-and-evidence.md)
@@ -339,3 +339,4 @@ renderer surface with privileged data.
 |---|---|---|---|
 | 2026-06-01 | Draft | Niobe | Initial UX draft paired with SPEC-028. Establishes the two-lane provenance viewer, per-device "anchored through" indicators, evidence-export reuse of the SPEC-027 choreography, the blocking tamper/integrity view, and the normative honest-limitation copy. |
 | 2026-06-13 | In Review (ready for acceptance) | Niobe | Finalized for the viewer build. Resolved all four §12 open questions into normative decisions: (1) bundle = JSON-lines + manifest + verification report + **print-friendly HTML**, PDF deferred; (2) sidebar order `Exportar · Auditoría · Configuración`; (3) per-device chips inline up to **N = 3**, popover beyond; (4) amber unsealed-tail chip **informational only** (no manual "Sellar ahora"). Added the provenance-lane sourcing model (§3.3), the **attribution honesty gap** (§3.4, pre-coverage/flat events rendered honestly), the integrity-banner + per-device indicator spec (§4.1), and the **WI-4 / WI-6 build breakdown** with the main-process/IPC boundary (§13). Honest-limitation copy preserved verbatim. **Acceptance remains Pedro's call.** |
+| 2026-06-13 | Accepted | Pedro (product owner) | Accepted by Pedro (product owner); all 4 UX open questions + 2 security ratifications (OQ4b freeTSA default / OQ1 bulk-anchoring) approved as recommended. Viewer build (WI-4/WI-6) cleared to start. |
