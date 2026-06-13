@@ -16,6 +16,114 @@
     "save": "Save",
     "saving": "Saving…"
   },
+  "audit": {
+    "title": "Audit & evidence",
+    "subtitle": "Read-only audit view for an external auditor. Nothing here can change your records.",
+    "banner": {
+      "verified": "Verified. No unsealed changes.",
+      "noAnchors": "No history has been sealed yet. It will be sealed automatically on lock or after several changes.",
+      "unavailable": "History integrity could not be confirmed in this session.",
+      "verifiedLabel": "Verified",
+      "unsealedLabel": "Verified, unsealed tail",
+      "noAnchorsLabel": "No anchors yet",
+      "unavailableLabel": "Unavailable",
+      "errorLabel": "Integrity error"
+    },
+    "tamper": {
+      "title": "Could not verify history integrity",
+      "body": "Restore the workspace from a trusted copy or snapshot."
+    },
+    "device": {
+      "thisDevice": "This device",
+      "anchoredThrough": "Anchored through {{date}} · externally timestamped ✓",
+      "anchoredThroughPending": "Anchored through {{date}} · external timestamp pending (offline)",
+      "anchoredThroughFailed": "Anchored through {{date}} · external timestamp failed — will retry",
+      "notAnchored": "Not yet anchored",
+      "timestampPending": "External timestamp pending (offline)",
+      "timestampFailed": "External timestamp failed — will retry",
+      "statusOk": "verified",
+      "statusProblem": "needs attention"
+    },
+    "unsealedTail_one": "{{count}} recent change not yet anchored",
+    "unsealedTail_other": "{{count}} recent changes not yet anchored",
+    "viewDevices": "View devices ({{count}})",
+    "tabs": {
+      "signed": "Signed record",
+      "history": "Change history"
+    },
+    "lane": {
+      "signed": "audit-grade",
+      "history": "recorded history"
+    },
+    "count_one": "{{count}} entry in this period.",
+    "count_other": "{{count}} entries in this period.",
+    "filters": {
+      "dateRange": "Date range",
+      "account": "Account",
+      "device": "Device",
+      "allAccounts": "All accounts",
+      "allDevices": "All devices",
+      "preset": "Quick range"
+    },
+    "loading": "Loading audit view…",
+    "empty": "No entries in this period.",
+    "noWorkspace": "Unlock a workspace to view its audit history.",
+    "error": "The audit view could not be loaded.",
+    "signedTable": {
+      "seq": "#",
+      "timestamp": "Date",
+      "action": "Action",
+      "device": "Device",
+      "anchoredThrough": "Anchored through",
+      "timestamp_state": "External timestamp"
+    },
+    "historyTable": {
+      "occurredAt": "Date",
+      "actor": "Author",
+      "device": "Device",
+      "action": "Action",
+      "account": "Account / category"
+    },
+    "actor": {
+      "preCoverage": "author: unknown — pre-coverage",
+      "flat": "author: unknown",
+      "unknownDevice": "—"
+    },
+    "timestampState": {
+      "timestamped": "Externally timestamped ✓",
+      "pending": "Pending (offline)",
+      "none": "—"
+    },
+    "rowLane": {
+      "signed": "Signed audit entry",
+      "history": "Recorded change"
+    },
+    "actions": {
+      "export.csv": "CSV export",
+      "export.xlsx": "Excel export",
+      "audit.anchor": "History anchored",
+      "audit.anchor.timestamped": "External timestamp",
+      "audit.export": "Evidence export",
+      "tx.created": "Transaction created",
+      "tx.updated": "Transaction updated",
+      "tx.deleted": "Transaction deleted",
+      "account.created": "Account created",
+      "category.created": "Category created",
+      "tag.created": "Tag created",
+      "movement.imported": "Movement imported",
+      "import.mapping.updated": "Import mapping updated"
+    },
+    "result": {
+      "started": "started",
+      "succeeded": "succeeded",
+      "failed": "failed"
+    },
+    "exportEvidence": "Export evidence",
+    "exportComingSoon": "Coming soon",
+    "bundleDisclosure": "Includes: signed record · change history · key manifest · external timestamps · a verification report you can print.",
+    "limitation": "Tamper-evident and externally timestamped — not \"tamper-proof\". Someone holding all device keys could still rebuild a history; the external timestamp limits backdating. Seek legal review before presenting this as \"audit-grade\".",
+    "limitationLabel": "About these guarantees"
+  },
   "export": {
     "title": "Export Movements",
     "subtitle": "Export transactions to CSV or Excel (.xlsx). Data will be decrypted before export.",
@@ -111,7 +219,8 @@
       "categorias": "Categories",
       "etiquetas": "Tags",
       "preferences": "Preferences",
-      "export": "Export"
+      "export": "Export",
+      "audit": "Audit"
     },
     "theme": {
       "label": "Theme",
