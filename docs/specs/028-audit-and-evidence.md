@@ -525,7 +525,7 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
   key crosses IPC (verified by contract tests + isolation lint).
 - [ ] **AC11** — The evidence bundle (audit entries + change history + key manifest + verification
   report) verifies **offline**; producing it emits an `audit.export` entry and obeys the SPEC-027
-  export safety choreography.
+  export safety choreography. (Bundle format/artifact set now locked — OQ5 resolved; see UX spec §3.2.)
 - [ ] **AC12** — Tier 2: an anchor's `event_log_root` is bound to an RFC-3161 timestamp via the
   provider abstraction, recorded as a **separate signed `audit.anchor.timestamped` entry** (the
   original anchor is never mutated); offline → queued/pending (derived from absence of a receipt);
@@ -585,9 +585,18 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
 
 ## 12. Open Questions
 
+> **Viewer-blocking status (added 2026-06-13).** The user-facing **Audit & Evidence viewer (FR10)**
+> and **evidence-export bundle (FR11)** are the next increment (WI-4/WI-6). Only **OQ5** (bundle
+> format) gated the viewer UX, and it is now **resolved** (below, consistent with UX spec §3.2).
+> **OQ1** (no per-mutation audit entries) and **OQ4b** (freeTSA default + bundling the pinned root)
+> were **ratified by Pedro on 2026-06-13** (qualified/eIDAS TSA recommended for audit-grade). **OQ7**
+> (anchor hash basis) and **OQ8** (escrow-based verification, Tier-1-vs-Tier-3) remain
+> security/architecture confirmations on already-shipped backend, tracked separately for Switch and
+> **not viewer blockers**; left as-is, no shipped behavior changes.
+
 1. **Per-mutation audit entries?** The spec recommends NO (coverage tier + anchoring cover it).
-   Confirm with Switch that bulk anchoring is an acceptable substitute for per-action audit entries
-   on tx/config/note/split mutations.
+   **Ratified** (Pedro, 2026-06-13): bulk anchoring is accepted as a substitute for per-action audit
+   entries on tx/config/note/split mutations; no per-mutation audit entries are introduced.
 2. **Anchor trigger constants.** **Resolved** ([neo-028](../../.squad/decisions/neo-028-anchor-dont-resign.md)):
    anchor on unlock + on lock + every N=1000 local appends or T=15min of write activity (best-effort,
    never blocks writes); values tunable. Lock-time anchoring is best-effort, not mandatory.
@@ -602,16 +611,23 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
      `pkijs`/`asn1js` later behind the same module boundary if review prefers a vetted parser.
    - **OQ4b (provider):** default **freeTSA.org** RFC-3161 (permits general-purpose timestamping,
      free, publishes a bundleable CA root) behind a `TimestampProvider` abstraction; a commercial TSA
-     or transparency-log/public-anchor provider can drop in later. **Confirm:** freeTSA vs a
-     commercial TSA on availability/ToS grounds, and permission to bundle the chosen TSA root cert.
+     or transparency-log/public-anchor provider can drop in later. **Ratified** (Pedro, 2026-06-13):
+     freeTSA approved as the out-of-box **default**, with a **qualified (e.g. eIDAS) or commercial
+     TSA recommended for audit-grade/regulatory deployments**, and **permission to bundle the pinned
+     freeTSA root cert granted**.
      - **Normative caveat (review-accepted 2026-06-01):** freeTSA is the functional, out-of-box
        **default only**. Production / audit-grade / regulatory deployments **SHOULD** configure a
        **qualified (e.g. eIDAS) or commercial TSA** — this ties to the §8 honest-limitation and
        legal-review language. The bundled freeTSA root is **pinned by SHA-256 fingerprint**
        (`A6:37:…:AA:BC`, provenance + guard test in `core/audit/timestamp/roots.ts`).
    - A transparency-log/public-anchor alternative is **deferred for v1**, kept open via the interface.
-5. **Evidence bundle format.** JSON-lines + manifest (crypto-spec §8.3) only, or also a human-
-   readable PDF/print artifact in the bundle? (Niobe/Link.)
+5. **Evidence bundle format.** **Resolved & accepted** (Pedro, 2026-06-13; UX spec §3.2,
+   [`spec-028-audit-evidence-viewer.md`](../ux/specs/spec-028-audit-evidence-viewer.md)): v1 bundle =
+   JSON-lines audit entries + event-derived change history + public-key manifest + external-timestamp
+   receipts + a verification report, **plus a print-friendly `verification-report.html` (print
+   stylesheet)** that satisfies the FR10 "print-friendly" requirement. **True app-generated PDF is
+   deferred** to a later increment (reachable meanwhile via browser print-to-PDF on the HTML view).
+   (Niobe/Link — applied recommendation; Pedro to confirm at acceptance.)
 6. **SPEC number coordination.** This reserves **SPEC-028**; the parallel invoice-attachments work
    (#293) has not yet reserved a number and should take **029**. Confirm with that session.
 7. **Anchor hash basis & migration.** Confirm `device_head_hash` over raw on-disk NDJSON lines
@@ -626,3 +642,5 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
 | Date | Status | By | Notes |
 |---|---|---|---|
 | 2026-06-01 | Draft | Niobe (with Neo + Switch) | Initial draft. Reframes issue #351 into tiered Audit & Evidence (Tiers 0–2; Tier 3 deferred). Built on the verified "anchor, don't re-sign" design; Tier 0 coverage downgraded to "normalization required" after confirming flat config/note/split/import events lack actor fields. |
+| 2026-06-13 | Draft (viewer increment finalized in paired UX) | Niobe | Resolved **OQ5** (evidence bundle format — JSON-lines + manifest + verification report + print-friendly HTML, PDF deferred) consistent with the paired UX spec §3.2. Annotated §12 to record that OQ1/OQ4b/OQ7/OQ8 are backend/security confirmations on already-shipped crypto (3.15/3.16), tracked separately for Switch/Link and **not** viewer blockers (no shipped behavior changed). Paired UX spec moved to **In Review** for the FR10/FR11 viewer build (WI-4/WI-6). |
+| 2026-06-13 | Draft (paired UX **Accepted**) | Pedro (product owner) | Pedro ratified the viewer-blocking decisions: **OQ5** accepted (bundle format incl. print-friendly HTML, PDF deferred); **OQ4b** accepted (freeTSA default; qualified/eIDAS recommended for audit-grade; bundling the pinned freeTSA root approved); **OQ1** accepted (bulk anchoring as substitute for per-mutation audit entries). OQ7/OQ8 remain separately tracked for Switch (not viewer blockers). Paired UX spec is now **Accepted**; viewer build (WI-4/WI-6) cleared to start. |
