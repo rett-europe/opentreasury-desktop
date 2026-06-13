@@ -320,6 +320,7 @@ import {
   isOnboardingPending,
   isEncryptedWorkspacePending,
   rehydrateFromDisk,
+  getLastUnlockIntegrityVerdict,
 } from '../bootstrap.js';
 import { getReadModel } from '../../core/query/reducers.js';
 import { newUlid } from '../ids.js';
@@ -332,6 +333,15 @@ import {
   exportRevealResponseSchema,
 } from '../../shared/ipc-contracts/export.js';
 import { createExportHandlers } from './handlers/export.js';
+import {
+  IPC_AUDIT_VERIFY_STATUS,
+  IPC_AUDIT_LIST_SIGNED,
+  IPC_AUDIT_LIST_CHANGE_HISTORY,
+  auditVerifyStatusResponseSchema,
+  auditListSignedResponseSchema,
+  auditListChangeHistoryResponseSchema,
+} from '../../shared/ipc-contracts/audit.js';
+import { createAuditHandlers } from './handlers/audit.js';
 import { getActiveWorkspace } from '../workspace-session.js';
 
 // SPEC-026 — When bootstrap deferred event-log construction because the
@@ -1025,5 +1035,30 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_EXPORT_REVEAL, async (event, raw: unknown) => {
     const response = await exportHandlers.reveal(event, raw);
     return exportRevealResponseSchema.parse(response);
+  });
+
+  // SPEC-028 WI-4 — Audit & Evidence viewer (read-only). All three handlers are
+  // pure `(raw) => response` reads; decryption/verify stays in main and only the
+  // Zod-validated view-models cross IPC (FR12 / AC10).
+  const auditHandlers = createAuditHandlers({
+    getActiveWorkspace,
+    getEventLog: () => getEventLog(),
+    getReadModel,
+    getDatasetId: () => getDatasetId(),
+    getDeviceId: () => getDeviceId(),
+    getLastUnlockVerdict: getLastUnlockIntegrityVerdict,
+    getActorUserIdentity: () => getProfile()?.userId ?? getDeviceId(),
+  });
+  ipcMain.handle(IPC_AUDIT_VERIFY_STATUS, async (_event, raw: unknown) => {
+    const response = await auditHandlers.verifyStatus(raw);
+    return auditVerifyStatusResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_AUDIT_LIST_SIGNED, async (_event, raw: unknown) => {
+    const response = await auditHandlers.listSigned(raw);
+    return auditListSignedResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_AUDIT_LIST_CHANGE_HISTORY, async (_event, raw: unknown) => {
+    const response = await auditHandlers.listChangeHistory(raw);
+    return auditListChangeHistoryResponseSchema.parse(response);
   });
 }

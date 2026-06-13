@@ -72,6 +72,16 @@ import {
   type ExportProgress,
 } from '../shared/ipc-contracts/export.js';
 import {
+  IPC_AUDIT_VERIFY_STATUS,
+  IPC_AUDIT_LIST_SIGNED,
+  IPC_AUDIT_LIST_CHANGE_HISTORY,
+  type AuditVerifyStatusResponse,
+  type AuditListSignedRequest,
+  type AuditListSignedResponse,
+  type AuditListChangeHistoryRequest,
+  type AuditListChangeHistoryResponse,
+} from '../shared/ipc-contracts/audit.js';
+import {
   IPC_ACCOUNTS_CREATE,
   IPC_ACCOUNTS_LIST,
   IPC_ACCOUNTS_UPDATE,
@@ -394,6 +404,19 @@ const api = {
   query: {
     rehydrate: (): Promise<QueryRehydrateResponse> => {
       return ipcRenderer.invoke(IPC_QUERY_REHYDRATE, {});
+    },
+  },
+  audit: {
+    verifyStatus: (): Promise<AuditVerifyStatusResponse> => {
+      return ipcRenderer.invoke(IPC_AUDIT_VERIFY_STATUS, {});
+    },
+    listSigned: (req?: AuditListSignedRequest): Promise<AuditListSignedResponse> => {
+      return ipcRenderer.invoke(IPC_AUDIT_LIST_SIGNED, req ?? {});
+    },
+    listChangeHistory: (
+      req?: AuditListChangeHistoryRequest,
+    ): Promise<AuditListChangeHistoryResponse> => {
+      return ipcRenderer.invoke(IPC_AUDIT_LIST_CHANGE_HISTORY, req ?? {});
     },
   },
   accounts: {

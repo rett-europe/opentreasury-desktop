@@ -16,6 +16,116 @@
     "save": "Guardar",
     "saving": "Guardando…"
   },
+  "audit": {
+    "title": "Auditoría y evidencia",
+    "subtitle": "Vista de auditoría de solo lectura para un auditor externo. Nada de lo que hay aquí puede cambiar tus registros.",
+    "banner": {
+      "verified": "Verificado. Sin cambios sin sellar.",
+      "verifiedUnsealedTail": "Verificado. Algunos cambios recientes aún no están sellados.",
+      "noAnchors": "Aún no se ha sellado ningún historial. Se sellará automáticamente al bloquear o tras varios cambios.",
+      "unavailable": "No se pudo confirmar la integridad del historial en esta sesión.",
+      "verifiedLabel": "Verificado",
+      "unsealedLabel": "Verificado, cola sin sellar",
+      "noAnchorsLabel": "Sin sellar todavía",
+      "unavailableLabel": "No disponible",
+      "errorLabel": "Error de integridad"
+    },
+    "tamper": {
+      "title": "No se pudo verificar la integridad del historial",
+      "body": "Restaura el área de trabajo desde una copia o instantánea de confianza."
+    },
+    "device": {
+      "thisDevice": "Este dispositivo",
+      "anchoredThrough": "Sellado hasta {{date}} · sello externo ✓",
+      "anchoredThroughPending": "Sellado hasta {{date}} · sello externo pendiente (sin conexión)",
+      "anchoredThroughFailed": "Sellado hasta {{date}} · sello externo falló — se reintentará",
+      "notAnchored": "Sin sellar todavía",
+      "timestampPending": "Sello externo pendiente (sin conexión)",
+      "timestampFailed": "Sello externo falló — se reintentará",
+      "statusOk": "verificado",
+      "statusProblem": "requiere atención"
+    },
+    "unsealedTail_one": "{{count}} cambio reciente aún sin sellar",
+    "unsealedTail_other": "{{count}} cambios recientes aún sin sellar",
+    "viewDevices": "Ver dispositivos ({{count}})",
+    "tabs": {
+      "signed": "Registro firmado",
+      "history": "Historial de cambios"
+    },
+    "lane": {
+      "signed": "grado auditoría",
+      "history": "historial registrado"
+    },
+    "count_one": "{{count}} entrada en este periodo.",
+    "count_other": "{{count}} entradas en este periodo.",
+    "countFiltered": "Mostrando {{shown}} de {{total}} entradas en este periodo.",
+    "filters": {
+      "dateRange": "Rango de fechas",
+      "account": "Cuenta",
+      "device": "Dispositivo",
+      "allAccounts": "Todas las cuentas",
+      "allDevices": "Todos los dispositivos",
+      "preset": "Rango rápido"
+    },
+    "loading": "Cargando la vista de auditoría…",
+    "empty": "No hay entradas en este periodo.",
+    "noWorkspace": "Desbloquea un área de trabajo para ver su historial de auditoría.",
+    "error": "No se pudo cargar la vista de auditoría.",
+    "signedTable": {
+      "seq": "#",
+      "timestamp": "Fecha",
+      "action": "Acción",
+      "device": "Dispositivo",
+      "anchoredThrough": "Sellado hasta",
+      "timestamp_state": "Sello externo"
+    },
+    "historyTable": {
+      "occurredAt": "Fecha",
+      "actor": "Autor",
+      "device": "Dispositivo",
+      "action": "Acción",
+      "account": "Cuenta / categoría"
+    },
+    "actor": {
+      "preCoverage": "autor: desconocido — anterior al registro",
+      "flat": "autor: desconocido",
+      "unknownDevice": "—"
+    },
+    "timestampState": {
+      "timestamped": "Sello externo ✓",
+      "pending": "Pendiente (sin conexión)",
+      "none": "—"
+    },
+    "rowLane": {
+      "signed": "Entrada de auditoría firmada",
+      "history": "Cambio registrado"
+    },
+    "actions": {
+      "export.csv": "Exportación CSV",
+      "export.xlsx": "Exportación Excel",
+      "audit.anchor": "Historial sellado",
+      "audit.anchor.timestamped": "Sello de tiempo externo",
+      "audit.export": "Exportación de evidencia",
+      "tx.created": "Transacción creada",
+      "tx.updated": "Transacción actualizada",
+      "tx.deleted": "Transacción eliminada",
+      "account.created": "Cuenta creada",
+      "category.created": "Categoría creada",
+      "tag.created": "Etiqueta creada",
+      "movement.imported": "Movimiento importado",
+      "import.mapping.updated": "Asignación de importación actualizada"
+    },
+    "result": {
+      "started": "iniciada",
+      "succeeded": "completada",
+      "failed": "fallida"
+    },
+    "exportEvidence": "Exportar evidencia",
+    "exportComingSoon": "Próximamente",
+    "bundleDisclosure": "Incluye: registro firmado · historial de cambios · manifiesto de claves · sellos de tiempo externos · un informe de verificación que puedes imprimir.",
+    "limitation": "A prueba de manipulación y con sello de tiempo externo — no \"a prueba de todo\". Una persona con todas las claves del dispositivo aún podría reconstruir un historial; el sello de tiempo externo limita la antedatación. Consulta con asesoría legal antes de presentarlo como \"grado auditoría\".",
+    "limitationLabel": "Sobre estas garantías"
+  },
   "export": {
     "title": "Exportar Movimientos",
     "subtitle": "Exporta transacciones a CSV o Excel (.xlsx). Los datos se descifrarán antes de exportar.",
@@ -111,7 +221,8 @@
       "categorias": "Categorías",
       "etiquetas": "Etiquetas",
       "preferences": "Preferencias",
-      "export": "Exportar"
+      "export": "Exportar",
+      "audit": "Auditoría"
     },
     "theme": {
       "label": "Tema",

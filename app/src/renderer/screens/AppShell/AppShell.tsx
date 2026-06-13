@@ -12,6 +12,7 @@ import {
   Scale,
   Search,
   Settings,
+  ShieldCheck,
   Tag,
   Upload,
 } from 'lucide-react';
@@ -46,6 +47,7 @@ export type Route =
   | 'insights-detail'
   | 'datos'
   | 'export'
+  | 'audit'
   | 'cuentas'
   | 'categorias'
   | 'etiquetas'
@@ -143,6 +145,10 @@ const NAV_SECTIONS: readonly NavSection[] = [
     items: [
       { id: 'datos', labelKey: 'shell.nav.datos', icon: <Upload size={18} /> },
       { id: 'export', labelKey: 'shell.nav.export', icon: <Download size={18} /> },
+      // SPEC-028 §2 — Auditoría sits immediately after Exportar (the real shell
+      // has no single "Configuración" nav item; Auditoría stays adjacent to
+      // Exportar per UX-006, giving the spec's `… · Exportar · Auditoría` order).
+      { id: 'audit', labelKey: 'shell.nav.audit', icon: <ShieldCheck size={18} /> },
     ],
   },
 ];
