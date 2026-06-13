@@ -392,9 +392,6 @@ _**Figura 6:** La pantalla Análisis muestra un gráfico de rosquilla de tus cat
 
 La pantalla **Exportar** te permite guardar una porción filtrada de tus movimientos como un archivo **CSV** (para hojas de cálculo, tu gestoría u otras herramientas) o un archivo **Excel** (`.xlsx`). Ábrela desde la entrada **Exportar** en la barra de navegación.
 
-![Pantalla Exportar con rango de fechas, filtros y elección de formato](./screenshots/08-export.es.png)  
-_**Figura 8:** La pantalla Exportar. Eliges un rango de fechas, añades al menos un filtro más, eliges CSV o Excel y confirmas._
-
 ### Qué puedes exportar
 
 Exportar reutiliza los mismos filtros que ya conoces de Movimientos:

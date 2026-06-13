@@ -392,9 +392,6 @@ _**Figure 6:** The Insights screen shows a donut chart of your expense categorie
 
 The **Export** screen lets you save a filtered slice of your movements as a **CSV** file (for spreadsheets, accountants, or other tools) or an **Excel** (`.xlsx`) file. Open it from the **Export** entry in the navigation bar.
 
-![Export screen with date range, filters, and format choice](./screenshots/08-export.png)  
-_**Figure 8:** The Export screen. You pick a date range, add at least one more filter, choose CSV or Excel, then confirm._
-
 ### What you can export
 
 Export reuses the same filters you already know from Movements:
