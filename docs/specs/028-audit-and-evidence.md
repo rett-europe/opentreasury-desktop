@@ -525,7 +525,7 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
   key crosses IPC (verified by contract tests + isolation lint).
 - [ ] **AC11** — The evidence bundle (audit entries + change history + key manifest + verification
   report) verifies **offline**; producing it emits an `audit.export` entry and obeys the SPEC-027
-  export safety choreography.
+  export safety choreography. (Bundle format/artifact set now locked — OQ5 resolved; see UX spec §3.2.)
 - [ ] **AC12** — Tier 2: an anchor's `event_log_root` is bound to an RFC-3161 timestamp via the
   provider abstraction, recorded as a **separate signed `audit.anchor.timestamped` entry** (the
   original anchor is never mutated); offline → queued/pending (derived from absence of a receipt);
@@ -585,6 +585,15 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
 
 ## 12. Open Questions
 
+> **Viewer-blocking status (added 2026-06-13).** The user-facing **Audit & Evidence viewer (FR10)**
+> and **evidence-export bundle (FR11)** are the next increment (WI-4/WI-6). Only **OQ5** (bundle
+> format) gated the viewer UX, and it is now **resolved** (below, consistent with UX spec §3.2).
+> **OQ1** (no per-mutation audit entries), **OQ4b** (freeTSA default vs commercial/qualified TSA +
+> permission to bundle the pinned root), **OQ7** (anchor hash basis), and **OQ8** (escrow-based
+> verification, Tier-1-vs-Tier-3) are **security/architecture confirmations on already-shipped
+> backend** (releases v0.1.0-trial.3.15 + 3.16) — they are **tracked separately for Switch/Link
+> sign-off and do NOT block the viewer UX**. They are left as-is here; no shipped behavior changes.
+
 1. **Per-mutation audit entries?** The spec recommends NO (coverage tier + anchoring cover it).
    Confirm with Switch that bulk anchoring is an acceptable substitute for per-action audit entries
    on tx/config/note/split mutations.
@@ -610,8 +619,13 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
        legal-review language. The bundled freeTSA root is **pinned by SHA-256 fingerprint**
        (`A6:37:…:AA:BC`, provenance + guard test in `core/audit/timestamp/roots.ts`).
    - A transparency-log/public-anchor alternative is **deferred for v1**, kept open via the interface.
-5. **Evidence bundle format.** JSON-lines + manifest (crypto-spec §8.3) only, or also a human-
-   readable PDF/print artifact in the bundle? (Niobe/Link.)
+5. **Evidence bundle format.** **Resolved** (UX spec §3.2,
+   [`spec-028-audit-evidence-viewer.md`](../ux/specs/spec-028-audit-evidence-viewer.md)): v1 bundle =
+   JSON-lines audit entries + event-derived change history + public-key manifest + external-timestamp
+   receipts + a verification report, **plus a print-friendly `verification-report.html` (print
+   stylesheet)** that satisfies the FR10 "print-friendly" requirement. **True app-generated PDF is
+   deferred** to a later increment (reachable meanwhile via browser print-to-PDF on the HTML view).
+   (Niobe/Link — applied recommendation; Pedro to confirm at acceptance.)
 6. **SPEC number coordination.** This reserves **SPEC-028**; the parallel invoice-attachments work
    (#293) has not yet reserved a number and should take **029**. Confirm with that session.
 7. **Anchor hash basis & migration.** Confirm `device_head_hash` over raw on-disk NDJSON lines
@@ -626,3 +640,4 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
 | Date | Status | By | Notes |
 |---|---|---|---|
 | 2026-06-01 | Draft | Niobe (with Neo + Switch) | Initial draft. Reframes issue #351 into tiered Audit & Evidence (Tiers 0–2; Tier 3 deferred). Built on the verified "anchor, don't re-sign" design; Tier 0 coverage downgraded to "normalization required" after confirming flat config/note/split/import events lack actor fields. |
+| 2026-06-13 | Draft (viewer increment finalized in paired UX) | Niobe | Resolved **OQ5** (evidence bundle format — JSON-lines + manifest + verification report + print-friendly HTML, PDF deferred) consistent with the paired UX spec §3.2. Annotated §12 to record that OQ1/OQ4b/OQ7/OQ8 are backend/security confirmations on already-shipped crypto (3.15/3.16), tracked separately for Switch/Link and **not** viewer blockers (no shipped behavior changed). Paired UX spec moved to **In Review** for the FR10/FR11 viewer build (WI-4/WI-6). |
