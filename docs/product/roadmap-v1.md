@@ -12,6 +12,8 @@ Five milestones. **M0 Foundations → M1 Single-user happy path → M2 Multi-dev
 
 The big bet is ordering: **M1 ships value on a single device before we attempt the hardest problem (multi-device merge + escrow) in M2.** That lets the team dogfood solo, shakes out the event-sourcing core, and de-risks the crypto integration before we invite a real NGO.
 
+> **Interim releases (post-M2 trial builds).** The milestone scopes below are the original plan of record; some items have shipped ahead of their milestone in the `0.1.0-trial.3.x` trial line. Notably: **Export (filtered CSV + Excel)** shipped in **v0.1.0-trial.3.14** (SPEC-027) — ahead of its M3 slot; the **audit/integrity foundation** (tamper-evident chain verified on unlock, external RFC-3161 timestamping; infrastructure only, no viewer yet) shipped in **v0.1.0-trial.3.15** (SPEC-028 Tiers 0–2); and **v0.1.0-trial.3.16** added unlock-lockout hardening plus Movements/Insights layout polish. See [`CHANGELOG.md`](../../CHANGELOG.md) for the authoritative shipped state. Milestone scopes below are intentionally left as-is.
+
 ---
 
 ## 1. Release Philosophy & Gates
@@ -162,7 +164,7 @@ Three user-facing gates, each with entry criteria. "Done" for a gate = **every**
 - **Entry criteria:** M2 exit criteria met. At least 2 NGOs (pilot + 1 more) have run on M2 builds for ≥30 days combined with zero data-loss incidents.
 
 **Scope — IN**
-- **CSV export** — transactions + current filter set + summary (R17 output safety: Excel-injection quarantine).
+- **CSV export** — transactions + current filter set + summary (R17 output safety: Excel-injection quarantine). _(Shipped early — see the "Interim releases" note below; delivered as filtered CSV **and** Excel in `v0.1.0-trial.3.14` via SPEC-027.)_
 - **Global search** across transactions, categories, tags (in-app, on decrypted read model).
 - **Dark mode** — token-driven, design parity with prototype.
 - **Status workflow polish** — (copy refinements only; the status model is confirmed-only per product decision — transactions come from bank/PayPal statements and are always confirmed).
@@ -326,7 +328,7 @@ Expanded from [vision §9](./vision.md#9-high-level-feature-map). Every row reso
 | **Snapshots** | M2 | PRD-015 (planned) | crypto-spec §2.1; R19 | Min daily on active days. |
 | **First-run security wizard** | M2 | PRD-007 (planned) | R20 | Acknowledgment required. |
 | **CSV import** | M2 | PRD-006 (planned) | R17 | Column mapping + dedup. |
-| **CSV export** | M3 | PRD-008 (planned) | R17 Excel-injection safety | Filter-aware. |
+| **CSV export** | M3 (**shipped early in v0.1.0-trial.3.14**) | PRD-027 (Shipped) / PRD-008 (superseded) | R17 Excel-injection safety | Filter-aware. Delivered as filtered CSV **and** Excel via SPEC-027 ahead of M3. |
 | PDF export | M4 | PRD-016 (planned) | — | Reports module overlap. |
 | Excel export | M4 | PRD-017 (planned) | R17 | Same injection discipline as CSV. |
 | Reports module (custom periods) | M4 | PRD-018 (planned) | Read-model projections | — |

@@ -5,6 +5,22 @@
 This folder holds **UX specifications** — user flows, interaction specs, wireframes, and
 first-run/onboarding copy for OpenTreasury Desktop.
 
+## UX spec index
+
+Newer per-feature UX specs live in [`specs/`](./specs/). **Status** is the document's own
+(point-in-time) marker; **Shipped** reflects the released state per
+[`CHANGELOG.md`](../../CHANGELOG.md).
+
+| UX spec | Title | Status | Shipped |
+|---|---|---|---|
+| [SPEC-024](./specs/spec-024-free-text-search.md) | Free-text Movement Search | Draft | ✅ Shipped |
+| [SPEC-027](./specs/spec-027-export.md) | Export (CSV / XLSX) | Accepted | ✅ Shipped (v0.1.0-trial.3.14) |
+| [SPEC-028](./specs/spec-028-audit-evidence-viewer.md) | Audit & Evidence Viewer | Accepted | ✗ Not yet shipped (viewer in development) |
+| [SPEC-029](./specs/spec-029-invoice-attachments.md) | Invoice Attachments | Draft | ✗ Not shipped (spec only) |
+
+Earlier onboarding/screen UX specs (`ux-001`…`ux-008`) and user flows (`flows/`) also live in this
+folder; paired feature specs are under [`docs/specs/`](../specs/).
+
 ## Scope
 
 - **In scope:** user flows, interaction rules, state diagrams for screens, form validation rules,

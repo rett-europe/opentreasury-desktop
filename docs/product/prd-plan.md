@@ -82,7 +82,7 @@ flowchart LR
 
 | PRD ID | Title | Status | Milestone | Author | Reviewers | Paired spec |
 |---|---|---|---|---|---|---|
-| PRD-008 | CSV export | Planned | M3 | Link | Pedro, Switch (R17 export), Niobe | TBD |
+| PRD-008 | CSV export | Superseded by PRD-027 | M3 | Link | Pedro, Switch (R17 export), Niobe | TBD |
 | PRD-013 | Global search | Planned | M3 | Link | Pedro, Niobe | TBD |
 | PRD-014 | Dark mode | Planned | M3 | Link | Pedro, Mouse, Niobe | TBD |
 
@@ -97,7 +97,9 @@ flowchart LR
 | PRD-020 | Recurring transactions | Planned | M4 | Link | Pedro, Niobe | TBD |
 | PRD-021 | Multi-account reconciliation | Planned | M4 | Link | Pedro, Niobe | TBD |
 | PRD-022 | Attachments (receipts) | Planned | M4 | Link | Pedro, Switch, Niobe | TBD |
-| PRD-027 | Export (CSV/XLSX) | In progress | M4 | Link | Pedro, Switch, Neo | [SPEC-027](../specs/027-export.md) |
+| PRD-027 | Export (CSV/XLSX) | **Shipped** (v0.1.0-trial.3.14) | M4 | Link | Pedro, Switch, Neo | [SPEC-027](../specs/027-export.md) |
+
+> **Note (Export — PRD-008 vs PRD-027):** PRD-008 ("CSV export", M3) and PRD-027 ("Export (CSV/XLSX)", M4) describe the **same** user-facing feature. The work shipped early under **PRD-027 / SPEC-027** in `v0.1.0-trial.3.14` (filtered CSV **and** Excel export). **PRD-027 is authoritative**; PRD-008 is retained only as a historical reservation and marked superseded.
 
 ### Out of v1 (never scheduled unless triggered — see [roadmap §5](./roadmap-v1.md#5-out-of-v1-deferred--explicit-triggers))
 

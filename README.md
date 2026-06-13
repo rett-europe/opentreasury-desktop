@@ -21,23 +21,24 @@ npm install --legacy-peer-deps   # required: ESLint v8 / @typescript-eslint v7 p
 npm run typecheck   # TS compiles across the main / preload / renderer / core / crypto / storage split
 npm run lint        # ESLint — module boundaries enforced (ADR-002 §4.1)
 npm run test        # Vitest — unit tests co-located with source
-npm run dev         # Vite renderer dev server (Electron wiring lands in a follow-up PR)
+npm run dev         # Vite renderer dev server (Electron app boots against it)
 ```
 
 ## Running the app (dev)
 
-Wave 1 ships a browser-only renderer preview. Electron main-process wiring (window creation,
-preload bridge, packaging) lands in a follow-up PR per ADR-002 §11.
+`npm run dev` starts the Vite renderer dev server; the Electron app (main process,
+preload bridge, encrypted storage) boots against it. Packaged builds are produced with
+`npm run package` (electron-builder).
 
 ```bash
 npm run dev
-# → open http://localhost:5173
+# Electron launches against the dev server (renderer also viewable at http://localhost:5173)
 ```
 
 ### Dev modes: demo vs dogfood
 
 `npm run dev` starts with a demo seed (prototype-shaped accounts + 2025/2026 transactions) so the
-three canonical screens render real-looking data. For **dogfooding** — starting empty and entering
+screens render real-looking data. For **dogfooding** — starting empty and entering
 your own data manually — use the dogfood scripts:
 
 | Command             | Data folder (`%APPDATA%\opentreasury\…`) | Seed? |
@@ -49,18 +50,29 @@ your own data manually — use the dogfood scripts:
 The two folders are isolated — you can switch between demo and dogfood modes without losing either
 dataset. Under the hood: `OT_SEED=none` suppresses the seed, `OT_DATA_DIR=<name>` picks the folder.
 
-What you can click in the current build:
+### What the current build ships (v0.1.0-trial.3.16)
 
-- **Movements screen** (primary) — select a date range (preset chips: _This month_, _Last 30 days_,
-  _YTD_ — or a custom from/to). Mock data loads with a 200ms delay and renders a sortable table
-  (Date · Description · Account · Category · Amount) plus a totals strip (Income · Expense · Net · count).
-- **Panel** and **Saldo** — placeholder "Coming soon" screens; nav shell is real.
-- **Top-bar language switcher** — Español ↔ English (ES is primary per ADR-003).
-- **Top-bar theme toggle** — System → Light → Dark, persisted to `localStorage` as a v0.1 stand-in
-  for the main-process user-prefs bridge.
+- **Encrypted workspace + 12-word recovery** — XChaCha20-Poly1305 at rest; first-run setup
+  (folder → recovery code → confirm) and silent daily unlock; device enrollment via the recovery
+  code (SPEC-026).
+- **Panel / Dashboard** — 90-day activity overview.
+- **Add Transaction** — manual entry with accounts, categories/subcategories, tags, and splits.
+- **Saldo** — category/subcategory balances with drilldown.
+- **Movements** — transaction list with date-range presets, filtering, splits, labels, and
+  free-text search (Ctrl/Cmd+K).
+- **Insights** — period selector with donut/bar breakdowns and category drilldowns.
+- **Export** — dedicated `/export` screen for filtered CSV/Excel output (account, category,
+  date range, label); date-range-plus-one-filter gate, `;` CSV delimiter, locale-aware
+  formatting, and a typed-confirmation authorization gate; the encrypted dataset never leaves
+  the main process in plaintext (SPEC-027).
+- **Settings** — data-folder location, read-only mode, theme, and a merged "Language & format"
+  card (language, date format, number format).
+- **Audit/integrity foundation** — tamper-evident, hash-chained audit log verified on unlock
+  (fail-closed → recovery) with external RFC-3161 timestamping; silent infrastructure, no
+  user-facing viewer yet (SPEC-028 Tiers 0–2).
 
-Data is 100% mock at this point — no OneDrive, no crypto, no storage. The crypto and storage layers
-(`app/src/crypto`, `app/src/storage`) are scaffolded but not yet wired into the renderer.
+Data is persisted as encrypted event-log files in the chosen data folder (OneDrive/SharePoint or
+local disk) — no backend server or database.
 
 ## Documentation
 
