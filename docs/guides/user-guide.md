@@ -31,8 +31,9 @@ Welcome to OpenTreasury Desktop! This guide will walk you through your first ses
 5. [Saldo: Your Category Balances](#saldo-your-category-balances)
 6. [Movements: Transaction List and Filtering](#movements-transaction-list-and-filtering)
 7. [Insights: Trends and Category Breakdowns](#insights-trends-and-category-breakdowns)
-8. [Settings: Data Folder and Read-Only Mode](#settings-data-folder-and-read-only-mode)
-9. [Backing Up Your Data](#backing-up-your-data)
+8. [Export: Filtered CSV and Excel](#export-filtered-csv-and-excel)
+9. [Settings: Data Folder and Read-Only Mode](#settings-data-folder-and-read-only-mode)
+10. [Backing Up Your Data](#backing-up-your-data)
 
 ---
 
@@ -137,6 +138,12 @@ This is why writing the words on paper, and keeping that paper somewhere safe, i
 - Someone using your computer while you are signed in to Windows. To them, the app looks unlocked. **Lock your screen when you step away.**
 - Malware running on your computer while you're using it.
 - Anyone you give the 12 words to. The recovery code is the keys to the workspace — share it like you'd share keys to a safe.
+
+**What about someone editing the files directly?**
+
+Your workspace files also carry **tamper-evidence**. If the encrypted event files are altered outside the app — edited, reordered, or truncated by something other than OpenTreasury — the next unlock detects the change, refuses to open the changed data, and routes you to recovery instead of silently loading altered records. This runs automatically; there's no setting to turn on.
+
+Be honest with yourself about what this does and doesn't mean: it is tamper-**evident**, not tamper-**proof**. It reliably _detects_ outside changes to data that the app has already sealed; it does not make the files physically unchangeable, and it cannot, on its own, prove a complete history to a regulator. (See [SPEC-028 §8](../specs/028-audit-and-evidence.md) for the precise threat model and its limits.)
 
 If you'd like a deeper write-up of the security model, see [SPEC-026 — Encryption at Rest](../specs/026-encryption-at-rest.md) (for the technically curious — the body of this guide is the friendly version).
 
@@ -381,6 +388,47 @@ _**Figure 6:** The Insights screen shows a donut chart of your expense categorie
 
 ---
 
+## Export: Filtered CSV and Excel
+
+The **Export** screen lets you save a filtered slice of your movements as a **CSV** file (for spreadsheets, accountants, or other tools) or an **Excel** (`.xlsx`) file. Open it from the **Export** entry in the navigation bar.
+
+### What you can export
+
+Export reuses the same filters you already know from Movements:
+
+- **Date range** (required) — e.g. January to June 2026.
+- **Account** — e.g. only the CaixaBank account.
+- **Category and subcategory** — e.g. only "Donations".
+- **Label / text search** — e.g. movements tagged or matching a word.
+
+> **You must narrow the export.** To avoid accidentally dumping the whole dataset, OpenTreasury requires a **date range plus at least one more filter** (account, category, subcategory, or label) before the **Export** button turns on. A full, unfiltered export is intentionally not allowed.
+
+### A worked example
+
+Say you want to send your board the donations received through CaixaBank in the first half of 2026:
+
+1. Open **Export** from the navigation bar.
+2. Set the **date range** to **1 Jan 2026 – 30 Jun 2026**.
+3. Add the **Account** filter and pick **CaixaBank**.
+4. Add the **Category** filter and pick **Donations**.
+5. Choose **CSV** or **Excel**.
+6. Click **Export**. A confirmation step appears (see below).
+7. Pick where to save the file. The filename and the way dates and numbers are written follow your current language and format settings.
+
+### The confirmation step
+
+Because an export takes data **out** of the encrypted workspace, the app asks you to confirm deliberately: type the word **`EXPORT`** (or **`EXPORTAR`** in Spanish) to authorize it. This is a safety gate, not a password — it just makes sure an export is intentional. Your data never leaves the app in readable form until you complete this step.
+
+A few things the app does for you automatically:
+
+- **CSV files use `;` (semicolon)** as the column separator, which is what Spanish/European Excel expects.
+- **Dates, numbers, and the filename are formatted for your locale** (see the "Language & format" settings below).
+- **You cannot save the export inside your workspace folder.** That folder is only for the encrypted event files, so the app blocks that destination and asks you to choose another (for example, your Documents folder or Desktop).
+
+> **Tip:** CSV is best when someone needs to import the data into another program; Excel is best when someone just wants to open and read it.
+
+---
+
 ## Settings: Data Folder and Read-Only Mode
 
 The **Settings** screen is where you control where your data is stored, switch between read-only and write modes, and change app preferences like language and theme.
@@ -426,12 +474,15 @@ If you see a **Read-only** badge in the top bar (next to your NGO name), it mean
 
 To become the writer, go to Settings and turn the read-only toggle OFF (and make sure the current writer has turned theirs ON first).
 
-### Language and theme
+### Language & format
 
-At the top of the Settings screen, you'll see:
+The Settings screen groups your language and display-format choices into a single **"Language & format"** card, with one row each:
 
-- **Language picker:** Switch between **Español** and **English**. The app immediately updates all menus, buttons, and labels. Your data (transaction descriptions, account names, etc.) stays in whatever language you entered it.
-- **Theme picker:** Choose **System** (matches your operating system's theme), **Light**, or **Dark**. Your choice is saved locally on your laptop.
+- **Language:** Switch between **Español** and **English**. The app immediately updates all menus, buttons, and labels. Your data (transaction descriptions, account names, etc.) stays in whatever language you entered it.
+- **Date format:** Choose how dates are shown and written — for example **DD/MM/YYYY** (European) or **MM/DD/YYYY**. This also controls how dates appear in exported files.
+- **Number format:** Choose the decimal separator (comma or point) used to display and export amounts.
+
+The **Theme** picker (**System**, **Light**, or **Dark**) lives just above, at the top of the Settings screen. Your choice is saved locally on your laptop.
 
 ---
 
@@ -522,6 +573,7 @@ Congratulations! You now know how to:
 - Review your category balances in Saldo
 - Filter and search your transaction list in Movements
 - Spot spending patterns in Insights
+- Export a filtered slice of your movements to CSV or Excel
 - Switch between writer and read-only modes in Settings
 - Back up your data to prevent loss
 

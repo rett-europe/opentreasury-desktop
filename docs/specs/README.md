@@ -13,6 +13,23 @@ The cloud repo (`rett-europe/opentreasury`) demonstrated that spec-first work pr
 code reviewable against an agreed artifact instead of a moving target. We keep that
 discipline here. Product Vision §7 Principle 3: *"Spec before code."*
 
+## Spec index
+
+One row per spec. **Status** is the spec document's own (point-in-time) lifecycle marker — these
+spec files are historical records and are not rewritten. **Shipped** reflects the actual released
+state per [`CHANGELOG.md`](../../CHANGELOG.md), which is authoritative for "what ships."
+
+| Spec | Title | Status (in doc) | Shipped |
+|---|---|---|---|
+| [SPEC-023](./023-split-transactions.md) | Split Transactions | Draft | ✅ Shipped (splits in Movements/Add Transaction) |
+| [SPEC-025](./025-edit-rules.md) | Status-Based Transaction Edit Rules | Draft | ✅ Shipped (v0.1.0-trial.3.7) |
+| [SPEC-026](./026-encryption-at-rest.md) | Encryption at Rest (v2) | Proposed | ✅ Shipped (v0.1.0-trial.3.8) |
+| [SPEC-027](./027-export.md) | Export (CSV / XLSX) | Accepted | ✅ Shipped (v0.1.0-trial.3.14) |
+| [SPEC-028](./028-audit-and-evidence.md) | Audit & Evidence | Draft | ◐ Foundation only — tamper-evident chain + external timestamping shipped (v0.1.0-trial.3.15, Tiers 0–2). **Audit & Evidence viewer not yet shipped.** |
+| [SPEC-029](./029-invoice-attachments.md) | Invoice Attachments for Transactions | Draft | ✗ Not shipped (spec only) |
+
+Supporting design specs (not numbered feature specs): [Dataset Compatibility & Validation](./dataset-compatibility-validation.md) and its [Error Code Catalogue](./error-codes.md).
+
 ## File naming
 
 - **Pattern:** `NNN-{kebab-case-feature}.md`

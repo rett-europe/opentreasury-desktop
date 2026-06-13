@@ -1,10 +1,24 @@
 # Novedades para la prueba de campo
 
 > **OpenTreasury — Trial 1 (Wave B)** · Junio 2026
+>
+> **Cómo leer esta página:** la sección **"Ya disponible (v0.1.0-trial.3.14–3.16)"** resume lo que se ha publicado más recientemente en la línea de prueba. Las secciones **"Lo nuevo"** / **"What's new"** recogen las novedades de la entrega anterior (Wave B), que también están disponibles. La sección **"Lo que sabemos que falta"** describe lo que **aún no** está y está planificado para una entrega futura. La fuente autorizada de lo publicado es [`CHANGELOG.md`](../../CHANGELOG.md).
+
+---
+
+## Ya disponible (v0.1.0-trial.3.14–3.16)
+
+**Exportar a CSV y Excel (v0.1.0-trial.3.14)** — Nueva pantalla **Exportar** en la barra de navegación. Exporta una porción **filtrada** de tus movimientos (por cuenta, categoría/subcategoría, rango de fechas y etiqueta/búsqueda) a **CSV** o **Excel**. Se exige un rango de fechas más al menos un filtro (no se permite la exportación completa), el CSV usa `;` como separador, las fechas/números y el nombre del archivo siguen tu configuración regional, y una confirmación escrita (**EXPORTAR**) autoriza cada exportación. Consulta la [guía de usuario → Exportar](../guides/user-guide.es.md#exportar-csv-y-excel-filtrados).
+
+**Protección de integridad silenciosa (v0.1.0-trial.3.15)** — Base criptográfica de auditoría a prueba de manipulación (SPEC-028, Niveles 0–2). Es **infraestructura, sin pantalla nueva**: si los archivos de eventos se alteran fuera de la aplicación, el siguiente desbloqueo lo detecta y te dirige a la recuperación en lugar de cargar datos alterados, con sellado de tiempo externo RFC-3161. Es **evidente a la manipulación + con sello de tiempo externo, no a prueba de manipulación**. (La pantalla de Auditoría/visor de evidencias aún **no** está disponible.)
+
+**Refuerzo y pulido (v0.1.0-trial.3.16)** — Se corrigió un riesgo de bloqueo erróneo al desbloquear, se restauró el diseño tranquilo del rango de fechas en Movimientos y Análisis (sin doble barra de desplazamiento), y se agrupó Idioma, Formato de fecha y Formato de número en una única tarjeta **"Idioma y formato"** en Preferencias.
 
 ---
 
 ## Lo nuevo
+
+_Las siguientes novedades se entregaron en la versión de prueba anterior (Wave B) y siguen disponibles._
 
 **Dividir movimientos (Splits)** — Ya puedes dividir un movimiento entre varias categorías o subcategorías. Selecciona un movimiento y pulsa "Dividir", asigna cada parte a su categoría, y listo. Perfecto para gastos mixtos (comida de reunión + material de oficina).
 
@@ -54,6 +68,14 @@ Contadnos si algo no funciona, si os parece confuso, o si hay algo que echéis e
 ---
 
 ## What's new (English)
+
+_The items below shipped in the previous trial build (Wave B) and remain available. For the most recent additions (Export, audit/integrity foundation, v3.16 polish), see "Ya disponible (v0.1.0-trial.3.14–3.16)" above and [`CHANGELOG.md`](../../CHANGELOG.md)._
+
+**Filtered CSV & Excel export (v0.1.0-trial.3.14)** — A new **Export** entry in the navigation bar exports a **filtered** slice of your movements (by account, category/subcategory, date range, and label/search) to **CSV** or **Excel**. A date range plus at least one more filter is required (no full export), CSV uses `;` as the separator, dates/numbers and the filename follow your locale, and a typed confirmation (**EXPORT**) authorizes each run. See the [user guide → Export](../guides/user-guide.md#export-filtered-csv-and-excel).
+
+**Silent integrity protection (v0.1.0-trial.3.15)** — A tamper-evident audit foundation (SPEC-028, Tiers 0–2). It's **infrastructure, with no new screen**: if event files are altered outside the app, the next unlock detects it and routes to recovery instead of loading altered data, with external RFC-3161 timestamping. It is **tamper-evident + externally timestamped, not tamper-proof**. (The Audit / evidence viewer screen is **not** shipped yet.)
+
+**Hardening & polish (v0.1.0-trial.3.16)** — Fixed a false unlock-lockout risk, restored the calm date-range layout in Movements and Insights (no double scrollbar), and merged Language, Date format, and Number format into a single **"Language & format"** card in Preferences.
 
 **Split transactions (Splits)** — You can now split a transaction across multiple categories or subcategories. Select a transaction and press "Split", assign each part to its category, and you're done. Perfect for mixed expenses (team lunch + office supplies).
 

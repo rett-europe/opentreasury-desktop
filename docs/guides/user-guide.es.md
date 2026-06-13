@@ -31,8 +31,9 @@
 5. [Saldo: Tus saldos por categoría](#saldo-tus-saldos-por-categoría)
 6. [Movimientos: Lista de transacciones y filtros](#movimientos-lista-de-transacciones-y-filtros)
 7. [Análisis: Tendencias y desgloses por categoría](#análisis-tendencias-y-desgloses-por-categoría)
-8. [Configuración: Carpeta de datos y modo de solo lectura](#configuración-carpeta-de-datos-y-modo-de-solo-lectura)
-9. [Copia de seguridad de tus datos](#copia-de-seguridad-de-tus-datos)
+8. [Exportar: CSV y Excel filtrados](#exportar-csv-y-excel-filtrados)
+9. [Configuración: Carpeta de datos y modo de solo lectura](#configuración-carpeta-de-datos-y-modo-de-solo-lectura)
+10. [Copia de seguridad de tus datos](#copia-de-seguridad-de-tus-datos)
 
 ---
 
@@ -137,6 +138,12 @@ Por eso anotar las palabras en papel y guardar ese papel en un lugar seguro es l
 - Alguien que use tu ordenador mientras tú estás con la sesión de Windows iniciada. Para ellos, la aplicación parece desbloqueada. **Bloquea la pantalla cuando te alejes.**
 - Malware ejecutándose en tu ordenador mientras lo estás usando.
 - Cualquier persona a la que le des las 12 palabras. El código de recuperación es la llave del espacio de trabajo — compártelo como compartirías las llaves de una caja fuerte.
+
+**¿Y si alguien edita los archivos directamente?**
+
+Tus archivos del espacio de trabajo también incorporan **evidencia de manipulación**. Si los archivos de eventos cifrados se alteran fuera de la aplicación — editados, reordenados o truncados por algo que no sea OpenTreasury — el siguiente desbloqueo detecta el cambio, se niega a abrir los datos alterados y te dirige a la recuperación en lugar de cargar silenciosamente registros modificados. Esto funciona automáticamente; no hay ningún ajuste que activar.
+
+Sé honesto contigo mismo sobre lo que esto significa y lo que no: es **evidente** a la manipulación, no a prueba de manipulación. Detecta de forma fiable los cambios externos a datos que la aplicación ya ha sellado; no hace que los archivos sean físicamente inmutables, y por sí solo no puede demostrar un historial completo ante un regulador. (Consulta [SPEC-028 §8](../specs/028-audit-and-evidence.md) para el modelo de amenaza preciso y sus límites.)
 
 Si quieres una explicación más profunda del modelo de seguridad, consulta [SPEC-026 — Cifrado en reposo](../specs/026-encryption-at-rest.md) (para los técnicamente curiosos — el cuerpo de esta guía es la versión amigable).
 
@@ -381,6 +388,47 @@ _**Figura 6:** La pantalla Análisis muestra un gráfico de rosquilla de tus cat
 
 ---
 
+## Exportar: CSV y Excel filtrados
+
+La pantalla **Exportar** te permite guardar una porción filtrada de tus movimientos como un archivo **CSV** (para hojas de cálculo, tu gestoría u otras herramientas) o un archivo **Excel** (`.xlsx`). Ábrela desde la entrada **Exportar** en la barra de navegación.
+
+### Qué puedes exportar
+
+Exportar reutiliza los mismos filtros que ya conoces de Movimientos:
+
+- **Rango de fechas** (obligatorio) — por ejemplo, de enero a junio de 2026.
+- **Cuenta** — por ejemplo, solo la cuenta de CaixaBank.
+- **Categoría y subcategoría** — por ejemplo, solo "Donaciones".
+- **Etiqueta / búsqueda de texto** — por ejemplo, movimientos etiquetados o que coinciden con una palabra.
+
+> **Debes acotar la exportación.** Para evitar volcar accidentalmente todo el conjunto de datos, OpenTreasury exige un **rango de fechas más al menos un filtro adicional** (cuenta, categoría, subcategoría o etiqueta) antes de que el botón **Exportar** se active. Una exportación completa y sin filtrar no está permitida a propósito.
+
+### Un ejemplo práctico
+
+Supón que quieres enviar a tu junta las donaciones recibidas a través de CaixaBank en el primer semestre de 2026:
+
+1. Abre **Exportar** desde la barra de navegación.
+2. Fija el **rango de fechas** en **1 ene 2026 – 30 jun 2026**.
+3. Añade el filtro **Cuenta** y elige **CaixaBank**.
+4. Añade el filtro **Categoría** y elige **Donaciones**.
+5. Elige **CSV** o **Excel**.
+6. Haz clic en **Exportar**. Aparece un paso de confirmación (ver más abajo).
+7. Elige dónde guardar el archivo. El nombre del archivo y la forma en que se escriben las fechas y los números siguen tu configuración actual de idioma y formato.
+
+### El paso de confirmación
+
+Como una exportación saca datos **fuera** del espacio de trabajo cifrado, la aplicación te pide confirmar de forma deliberada: escribe la palabra **`EXPORTAR`** (o **`EXPORT`** en inglés) para autorizarla. Es una salvaguarda, no una contraseña — solo se asegura de que la exportación sea intencionada. Tus datos nunca salen de la aplicación en forma legible hasta que completas este paso.
+
+Algunas cosas que la aplicación hace por ti automáticamente:
+
+- **Los archivos CSV usan `;` (punto y coma)** como separador de columnas, que es lo que espera el Excel en español/europeo.
+- **Las fechas, los números y el nombre del archivo se formatean según tu configuración regional** (consulta los ajustes de "Idioma y formato" más abajo).
+- **No puedes guardar la exportación dentro de la carpeta de tu espacio de trabajo.** Esa carpeta es solo para los archivos de eventos cifrados, así que la aplicación bloquea ese destino y te pide elegir otro (por ejemplo, tu carpeta Documentos o el Escritorio).
+
+> **Consejo:** El CSV es mejor cuando alguien necesita importar los datos a otro programa; el Excel es mejor cuando alguien solo quiere abrirlos y leerlos.
+
+---
+
 ## Configuración: Carpeta de datos y modo de solo lectura
 
 La pantalla **Configuración** es donde controlas dónde se almacenan tus datos, cambias entre modos de solo lectura y escritura, y cambias preferencias de la aplicación como idioma y tema.
@@ -426,12 +474,15 @@ Si ves un distintivo **Solo lectura** en la barra superior (junto a tu nombre de
 
 Para convertirte en el escritor, ve a Configuración y apaga el interruptor de solo lectura (y asegúrate de que el escritor actual lo haya encendido primero).
 
-### Idioma y tema
+### Idioma y formato
 
-En la parte superior de la pantalla Configuración, verás:
+La pantalla Configuración agrupa tus opciones de idioma y de formato de presentación en una única tarjeta **"Idioma y formato"**, con una fila para cada una:
 
-- **Selector de idioma:** Cambia entre **Español** e **English**. La aplicación actualiza inmediatamente todos los menús, botones y etiquetas. Tus datos (descripciones de transacciones, nombres de cuentas, etc.) permanecen en cualquier idioma en que los hayas ingresado.
-- **Selector de tema:** Elige **Sistema** (coincide con el tema del sistema operativo), **Claro** u **Oscuro**. Tu elección se guarda localmente en tu laptop.
+- **Idioma:** Cambia entre **Español** e **English**. La aplicación actualiza inmediatamente todos los menús, botones y etiquetas. Tus datos (descripciones de transacciones, nombres de cuentas, etc.) permanecen en cualquier idioma en que los hayas ingresado.
+- **Formato de fecha:** Elige cómo se muestran y escriben las fechas — por ejemplo **DD/MM/AAAA** (europeo) o **MM/DD/AAAA**. Esto también controla cómo aparecen las fechas en los archivos exportados.
+- **Formato de número:** Elige el separador decimal (coma o punto) usado para mostrar y exportar los importes.
+
+El selector de **Tema** (**Sistema**, **Claro** u **Oscuro**) está justo encima, en la parte superior de la pantalla Configuración. Tu elección se guarda localmente en tu laptop.
 
 ---
 
@@ -522,6 +573,7 @@ Para detalles técnicos completos sobre el diseño del cifrado, la jerarquía de
 - Revisar tus saldos por categoría en Saldo
 - Filtrar y buscar tu lista de transacciones en Movimientos
 - Detectar patrones de gasto en Análisis
+- Exportar una porción filtrada de tus movimientos a CSV o Excel
 - Cambiar entre modos de escritor y solo lectura en Configuración
 - Hacer copia de seguridad de tus datos para evitar pérdidas
 
