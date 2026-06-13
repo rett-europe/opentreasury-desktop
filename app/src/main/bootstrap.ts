@@ -1090,10 +1090,38 @@ async function runTimestampForActiveWorkspace(): Promise<TimestampOutcome> {
  * throws (the scheduler/run path swallows all errors). Also kicks a timestamp
  * drain so anchors left un-timestamped in a previous session (e.g. offline TSA)
  * are picked up on unlock.
+ *
+ * #379: the timestamp drain runs AFTER the anchor resolves (still non-blocking,
+ * never throwing). The anchor write path creates and persists the audit signing
+ * key on a fresh chain; running the drain concurrently let its preflight race
+ * the anchor and (historically, via key-creating preflights) persist a divergent
+ * key. Serializing guarantees the anchor's persisted key + entry are on disk
+ * before the timestamp path reads them.
  */
 function fireUnlockAnchor(): void {
-  anchorScheduler?.anchorNow().catch(() => undefined);
-  timestampScheduler?.drainNow().catch(() => undefined);
+  void sequenceUnlockSideEffects(
+    anchorScheduler === null ? undefined : () => anchorScheduler!.anchorNow(),
+    timestampScheduler === null ? undefined : () => timestampScheduler!.drainNow(),
+  );
+}
+
+/**
+ * #379 — order the two unlock side-effects so the timestamp drain runs strictly
+ * AFTER the anchor settles. Best-effort: never throws, and a rejected/failed
+ * anchor still triggers the drain. Extracted (and exported) so the ordering
+ * contract is unit-testable without bootstrapping the whole main process.
+ */
+export function sequenceUnlockSideEffects(
+  anchorNow: (() => Promise<unknown>) | undefined,
+  drainNow: (() => Promise<unknown>) | undefined,
+): Promise<void> {
+  const anchor = anchorNow === undefined ? Promise.resolve() : anchorNow();
+  return Promise.resolve(anchor)
+    .catch(() => undefined)
+    .then(() => {
+      if (drainNow === undefined) return;
+      void Promise.resolve(drainNow()).catch(() => undefined);
+    });
 }
 
 /**
