@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.17] — SPEC-028 Audit & Evidence viewer (WI-4)
+
+Adds the first user-facing audit surface on top of the 3.15/3.16 audit foundation: a read-only **Auditoría / Audit** screen for internal auditors. Existing trial datasets open normally — no migration.
+
+### Added
+
+- **Audit & Evidence viewer — a read-only `Auditoría` screen (SPEC-028 WI-4, PR #386).** A new sidebar entry (under Datos, after Exportar) opens an audit view that surfaces the last-unlock integrity verdict as a banner (verified / verified-with-unsealed-tail / no-anchors / blocking tamper), per-device "anchored through" chips with external-timestamp state, and two lanes: **Historial de cambios** (event-derived change history — date · actor · device · action · account) and **Registro firmado** (signed, hash-chained audit entries: exports, anchors, timestamp receipts). Supports date-range, account, and device filters. Attribution is honest — events written before the audit log existed, or flat config/import events, render as "unknown" instead of inferring an actor. All decryption, verification, and hashing stay in the main process; the renderer receives only Zod-validated view-models (no plaintext, file paths, or key material cross IPC), and the screen never re-verifies or anchors on navigation — it reflects the verdict captured at unlock.
+
+### Documentation
+
+- **Refreshed the living docs to match shipped features (PR #385).** Added an Export (filtered CSV / Excel) section to the EN + ES user guides, documented the v3.16 "Language & format" settings card and the tamper-evidence behavior, and corrected the product plan / roadmap / README status for the already-shipped Export and audit foundation.
+
 ## [0.1.0-trial.3.16] — Audit unlock-lockout hardening + Movements/Insights polish
 
 A bug-fix and hardening release on top of the 3.15 SPEC-028 audit foundation.
