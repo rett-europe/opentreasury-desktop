@@ -21,6 +21,7 @@
     "subtitle": "Read-only audit view for an external auditor. Nothing here can change your records.",
     "banner": {
       "verified": "Verified. No unsealed changes.",
+      "verifiedUnsealedTail": "Verified. Some recent changes are not yet sealed.",
       "noAnchors": "No history has been sealed yet. It will be sealed automatically on lock or after several changes.",
       "unavailable": "History integrity could not be confirmed in this session.",
       "verifiedLabel": "Verified",
@@ -57,6 +58,7 @@
     },
     "count_one": "{{count}} entry in this period.",
     "count_other": "{{count}} entries in this period.",
+    "countFiltered": "Showing {{shown}} of {{total}} entries in this period.",
     "filters": {
       "dateRange": "Date range",
       "account": "Account",

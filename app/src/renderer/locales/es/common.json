@@ -21,6 +21,7 @@
     "subtitle": "Vista de auditoría de solo lectura para un auditor externo. Nada de lo que hay aquí puede cambiar tus registros.",
     "banner": {
       "verified": "Verificado. Sin cambios sin sellar.",
+      "verifiedUnsealedTail": "Verificado. Algunos cambios recientes aún no están sellados.",
       "noAnchors": "Aún no se ha sellado ningún historial. Se sellará automáticamente al bloquear o tras varios cambios.",
       "unavailable": "No se pudo confirmar la integridad del historial en esta sesión.",
       "verifiedLabel": "Verificado",
@@ -57,6 +58,7 @@
     },
     "count_one": "{{count}} entrada en este periodo.",
     "count_other": "{{count}} entradas en este periodo.",
+    "countFiltered": "Mostrando {{shown}} de {{total}} entradas en este periodo.",
     "filters": {
       "dateRange": "Rango de fechas",
       "account": "Cuenta",

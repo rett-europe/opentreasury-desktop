@@ -101,6 +101,11 @@ describe('AuditScreen — integrity banner', () => {
     });
     renderScreen();
     expect(await screen.findByText(i18n.t('audit.unsealedTail', { count: 3 }))).toBeTruthy();
+    // The banner sentence must NOT claim "no unsealed changes" in this state —
+    // it gets its own dedicated message that agrees with the chip.
+    const banner = screen.getByRole('region', { name: i18n.t('audit.banner.unsealedLabel') });
+    expect(within(banner).getByText(i18n.t('audit.banner.verifiedUnsealedTail'))).toBeTruthy();
+    expect(within(banner).queryByText(i18n.t('audit.banner.verified'))).toBeNull();
   });
 
   it('always shows the normative limitation statement', async () => {
@@ -166,6 +171,39 @@ describe('AuditScreen — tabs and lanes', () => {
   it('renders the empty state when there are no rows', async () => {
     renderScreen();
     expect(await screen.findByText(i18n.t('audit.empty'))).toBeTruthy();
+  });
+
+  it('shows "showing N of M" when the filtered count is below the pre-filter total', async () => {
+    const rows: ChangeHistoryRow[] = [
+      {
+        lane: 'history',
+        eventId: 'EVT_1',
+        occurredAt: '2026-05-30T08:00:00.000Z',
+        action: 'tx.created',
+        actor: { kind: 'known', userId: 'USER_1' },
+        device: { kind: 'known', deviceId: 'DEVICE_AAA' },
+        accountId: 'ACC_1',
+        accountLabel: 'Checking',
+      },
+      {
+        lane: 'history',
+        eventId: 'EVT_2',
+        occurredAt: '2026-05-29T08:00:00.000Z',
+        action: 'tx.updated',
+        actor: { kind: 'known', userId: 'USER_1' },
+        device: { kind: 'known', deviceId: 'DEVICE_AAA' },
+        accountId: 'ACC_1',
+        accountLabel: 'Checking',
+      },
+    ];
+    // totalCount (pre-filter) is far larger than the 2 returned rows.
+    listChangeHistory.mockResolvedValue({ rows, totalCount: 50 });
+    renderScreen();
+    expect(
+      await screen.findByText(i18n.t('audit.countFiltered', { shown: 2, total: 50 })),
+    ).toBeTruthy();
+    // The misleading pre-filter "{{count}} entries in this period." must NOT show.
+    expect(screen.queryByText(i18n.t('audit.count', { count: 50 }))).toBeNull();
   });
 });
 

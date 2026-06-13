@@ -206,7 +206,11 @@ export function AuditScreen({ configRevision = 0 }: AuditScreenProps): JSX.Eleme
     );
   }
 
-  const countLabel = t('audit.count', { count: totalCount });
+  const shownCount = tab === 'history' ? history.length : signed.length;
+  const filtered = shownCount < totalCount;
+  const countLabel = filtered
+    ? t('audit.countFiltered', { shown: shownCount, total: totalCount })
+    : t('audit.count', { count: totalCount });
 
   return (
     <div className="ot-audit">

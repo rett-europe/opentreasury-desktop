@@ -93,11 +93,13 @@ export function IntegrityBanner({ status, locale }: IntegrityBannerProps): JSX.E
           : t('audit.banner.unavailableLabel');
 
   const message =
-    banner === 'verified' || banner === 'verified-unsealed-tail'
+    banner === 'verified'
       ? t('audit.banner.verified')
-      : banner === 'no-anchors'
-        ? t('audit.banner.noAnchors')
-        : t('audit.banner.unavailable');
+      : banner === 'verified-unsealed-tail'
+        ? t('audit.banner.verifiedUnsealedTail')
+        : banner === 'no-anchors'
+          ? t('audit.banner.noAnchors')
+          : t('audit.banner.unavailable');
 
   const devices = status.devices;
   const collapse = devices.length >= INLINE_DEVICE_LIMIT + 1;

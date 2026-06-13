@@ -165,6 +165,22 @@ describe('audit IPC round-trip over a seeded encrypted workspace', () => {
     expect(anchor.anchoredThrough).toBe('2026-02-11T23:00:00.000Z');
     expect(anchor.deviceCount).toBe(1);
     expect(anchor.timestamp_state).toBe('pending');
+    // AC10: a nested row carries EXACTLY the view-model keys — no payload /
+    // datasetId / dekVersion etc. (.strict() on the parent would silently strip
+    // an extra nested field, so assert the key allowlist directly).
+    expect(Object.keys(anchor).sort()).toEqual(
+      [
+        'action',
+        'actorDeviceId',
+        'anchoredThrough',
+        'deviceCount',
+        'lane',
+        'result',
+        'seq',
+        'timestamp',
+        'timestamp_state',
+      ].sort(),
+    );
   });
 
   it('verifyStatus enriches the verdict with the anchor frontier date', async () => {
@@ -188,5 +204,18 @@ describe('audit IPC round-trip over a seeded encrypted workspace', () => {
     expect(attributed.accountLabel).toBe('Caja · BBVA');
     expect(flat.actor).toEqual({ kind: 'unknown', reason: 'flat' });
     expect(flat.device).toEqual({ kind: 'unknown' });
+    // AC10: change-history rows expose exactly the view-model keys.
+    expect(Object.keys(attributed).sort()).toEqual(
+      [
+        'accountId',
+        'accountLabel',
+        'action',
+        'actor',
+        'device',
+        'eventId',
+        'lane',
+        'occurredAt',
+      ].sort(),
+    );
   });
 });
