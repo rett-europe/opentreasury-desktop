@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.16] — Audit unlock-lockout hardening + Movements/Insights polish
+
+A bug-fix and hardening release on top of the 3.15 SPEC-028 audit foundation.
+No new user-facing screen. Existing trial datasets open normally — no migration.
+
+### Fixed
+
+- **Unlock no longer risks a false lock-out from the first-unlock anchor race
+  (#379, PR #381).** On a freshly seeded or upgraded workspace, the on-unlock
+  device-anchor and trusted-timestamp side-effects could each concurrently
+  create and persist a _different_ audit signing key. The anchor chain ended up
+  signed with one key while a different key was on disk, so the _next_ unlock
+  failed closed with `key-fingerprint-mismatch` and routed to the 12-word
+  recovery prompt — a spurious lock-out with no real tampering. The audit
+  signing key is now created in exactly one place (the anchor append/write path,
+  under the audit append lock); every verify, preflight, and read path uses
+  `allowKeyCreation: false`, and the on-unlock side-effects are serialized so the
+  timestamp drain runs only after the anchor resolves. Tamper-detection
+  semantics are unchanged; the on-disk format, key derivation, and signatures
+  are untouched.
+- **Movements & Insights: restored the calm date-range layout and removed the
+  double scrollbar (#356 regression, PR #377).** The Movements filter bar and the
+  Insights header no longer reflow into a cramped two-row date range, and the
+  inner scroll container no longer produces a second vertical scrollbar.
+- **Preferences: grouped Language, Date format, and Number format into a single
+  “Language & format” card (PR #377).** The three former one-row cards are merged
+  into one card with stacked label+select rows; control behavior and ids are
+  unchanged.
+
+### Internal
+
+- **De-flaked the main-only e2e perf gate (PR #380, with #378).** The
+  `movements-perf` spec now seeds a pristine, isolated workspace per run (every
+  launch is a reliable first unlock) instead of reusing one seeded workspace
+  across the median's launches, which had made the samples causally dependent and
+  intermittently routed the second launch to the recovery prompt. Adds opt-in
+  boot-trace instrumentation (`OT_BOOT_TRACE`, inert unless set) and uploads
+  failure artifacts. The perf budget and assertions are unchanged.
+
 ## [0.1.0-trial.3.15] — SPEC-028 Audit & Evidence (Tier 1+2 foundation)
 
 Lays the cryptographic foundation for tamper-evident audit & evidence
