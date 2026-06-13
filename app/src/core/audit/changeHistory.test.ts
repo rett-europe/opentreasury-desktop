@@ -5,6 +5,10 @@ import { projectChangeHistory } from './changeHistory.js';
 import type { ChangeHistoryRow } from '../../shared/ipc-contracts/audit.js';
 import { changeHistoryRowSchema } from '../../shared/ipc-contracts/audit.js';
 import type { DomainEvent } from '../events/schemas.js';
+import {
+  configAccountCreatedEventSchema,
+  configCategoryDeletedEventSchema,
+} from '../events/schemas.js';
 
 const DEV_A = '01HZDEVAAAAAAAAAAAAAAAAAAA';
 const _DEV_B = '01HZDEVBBBBBBBBBBBBBBBBBBB';
@@ -28,7 +32,8 @@ function txCreated(over: Partial<Record<string, unknown>> = {}): DomainEvent {
   } as unknown as DomainEvent;
 }
 
-// A flat WI-21 config event (no actor/device on the wire).
+// A legacy WI-21 config event (no actor/device on the wire) — #388 classifies
+// these as pre-coverage (attribution-capable type, fields absent), never flat.
 function accountUpdated(over: Partial<Record<string, unknown>> = {}): DomainEvent {
   return {
     type: 'AccountUpdated',
@@ -51,11 +56,32 @@ describe('projectChangeHistory — attribution honesty (§3.4)', () => {
     expect(rows[0].lane).toBe('history');
   });
 
-  it('renders a flat config event with unknown(flat) actor AND device', () => {
+  it('renders a legacy config event (no actor) as unknown(pre-coverage), never flat', () => {
     const { rows } = projectChangeHistory([accountUpdated()]);
-    expect(rows[0].actor).toEqual({ kind: 'unknown', reason: 'flat' });
+    expect(rows[0].actor).toEqual({ kind: 'unknown', reason: 'pre-coverage' });
     expect(rows[0].device).toEqual({ kind: 'unknown' });
     expect(rows[0].accountId).toBe(ACCT_2);
+  });
+
+  it('attributes a config event that carries actorUserId + actorDeviceId (#388)', () => {
+    const { rows } = projectChangeHistory([
+      accountUpdated({ actorUserId: USER_A, actorDeviceId: DEV_A }),
+    ]);
+    expect(rows[0].actor).toEqual({ kind: 'known', userId: USER_A });
+    expect(rows[0].device).toEqual({ kind: 'known', deviceId: DEV_A });
+    expect(rows[0].action).toBe('AccountUpdated');
+  });
+
+  it('marks a config delete event with no actor fields as pre-coverage (#388)', () => {
+    const legacyDelete = {
+      type: 'CategoryDeleted',
+      id: '01HZEVT0000000000000000009',
+      categoryId: ACCT_2,
+      deletedAt: '2026-02-12T09:00:00.000Z',
+    } as unknown as DomainEvent;
+    const { rows } = projectChangeHistory([legacyDelete]);
+    expect(rows[0].actor).toEqual({ kind: 'unknown', reason: 'pre-coverage' });
+    expect(rows[0].device).toEqual({ kind: 'unknown' });
   });
 
   it('marks an attributed event with a missing actor as pre-coverage, never inferred', () => {
@@ -70,9 +96,21 @@ describe('projectChangeHistory — attribution honesty (§3.4)', () => {
 
   it('NEVER infers actor/device from another event in the same batch', () => {
     const { rows } = projectChangeHistory([txCreated(), accountUpdated()]);
-    const flat = rows.find((r) => r.action === 'AccountUpdated')!;
-    expect(flat.actor).toEqual({ kind: 'unknown', reason: 'flat' });
-    expect(flat.device).toEqual({ kind: 'unknown' });
+    const legacy = rows.find((r) => r.action === 'AccountUpdated')!;
+    expect(legacy.actor).toEqual({ kind: 'unknown', reason: 'pre-coverage' });
+    expect(legacy.device).toEqual({ kind: 'unknown' });
+  });
+
+  it('keeps a genuinely flat event (tx.note.added) as unknown(flat)', () => {
+    const note = {
+      type: 'tx.note.added',
+      id: '01HZEVT0000000000000000010',
+      txId: '01HZTX00000000000000000001',
+      createdAt: '2026-02-13T09:00:00.000Z',
+    } as unknown as DomainEvent;
+    const { rows } = projectChangeHistory([note]);
+    expect(rows[0].actor).toEqual({ kind: 'unknown', reason: 'flat' });
+    expect(rows[0].device).toEqual({ kind: 'unknown' });
   });
 });
 
@@ -155,5 +193,62 @@ describe('projectChangeHistory — AC10 no-leak guard', () => {
       expect(keys).not.toContain('datasetId');
       expect(keys).not.toContain('dekVersion');
     }
+  });
+});
+
+// #388 — backward-compat: the optional actor/device fields must not break
+// replay of NDJSON logs written before this slice, and must round-trip when
+// present so the audit projection can attribute them.
+describe('config event schema round-trip — #388 actor/device backward-compat', () => {
+  it('parses a legacy AccountCreated event with NO actor fields', () => {
+    const legacy = {
+      type: 'AccountCreated',
+      id: '01HZACCT1111111111111111AA',
+      name: 'Caja',
+      currency: 'EUR',
+      openingBalance: 0,
+      sortOrder: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    const parsed = configAccountCreatedEventSchema.parse(legacy);
+    expect(parsed.actorUserId).toBeUndefined();
+    expect(parsed.actorDeviceId).toBeUndefined();
+    // The change-history projection reads it as pre-coverage (capable type,
+    // no fields) — never flat.
+    const { rows } = projectChangeHistory([parsed as unknown as DomainEvent]);
+    expect(rows[0].actor).toEqual({ kind: 'unknown', reason: 'pre-coverage' });
+    expect(rows[0].device).toEqual({ kind: 'unknown' });
+  });
+
+  it('round-trips an AccountCreated event WITH actor + device fields', () => {
+    const stamped = {
+      type: 'AccountCreated',
+      id: '01HZACCT2222222222222222BB',
+      name: 'Nómina',
+      currency: 'EUR',
+      openingBalance: 100,
+      sortOrder: 1,
+      createdAt: '2026-06-01T00:00:00.000Z',
+      actorUserId: USER_A,
+      actorDeviceId: DEV_A,
+    };
+    const parsed = configAccountCreatedEventSchema.parse(stamped);
+    expect(parsed.actorUserId).toBe(USER_A);
+    expect(parsed.actorDeviceId).toBe(DEV_A);
+    const { rows } = projectChangeHistory([parsed as unknown as DomainEvent]);
+    expect(rows[0].actor).toEqual({ kind: 'known', userId: USER_A });
+    expect(rows[0].device).toEqual({ kind: 'known', deviceId: DEV_A });
+  });
+
+  it('parses a legacy CategoryDeleted event with NO actor fields', () => {
+    const legacy = {
+      type: 'CategoryDeleted',
+      id: '01HZEVT0000000000000000099',
+      categoryId: '01HZCAT00000000000000000AA',
+      deletedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const parsed = configCategoryDeletedEventSchema.parse(legacy);
+    expect(parsed.actorUserId).toBeUndefined();
+    expect(parsed.actorDeviceId).toBeUndefined();
   });
 });

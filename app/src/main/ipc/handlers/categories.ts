@@ -21,6 +21,7 @@ import type {
 } from '../../../core/events/schemas.js';
 import { applyEvent as coreApplyEvent } from '../../../core/query/reducers.js';
 import type { ReadModel } from '../../../core/query/types.js';
+import { stampActorAttribution } from './configActorAttribution.js';
 import {
   archiveCategoryRequestSchema,
   archiveSubcategoryRequestSchema,
@@ -60,6 +61,9 @@ export interface CategoriesHandlerDeps {
   readonly now: () => Date;
   readonly newId: () => string;
   readonly applyEvent?: typeof coreApplyEvent;
+  // #388 — actor/device attribution (see accounts.ts / configActorAttribution).
+  readonly actorUserId?: string;
+  readonly actorDeviceId?: string;
 }
 
 async function appendAndApply(
@@ -67,11 +71,13 @@ async function appendAndApply(
   event: Parameters<typeof coreApplyEvent>[0],
 ): Promise<void> {
   const apply = deps.applyEvent ?? coreApplyEvent;
+  // #388 — stamp actor/device at append time so config rows are attributable.
+  const stamped = stampActorAttribution(deps, event);
   const before = (await deps.eventLog.load()).length;
-  await deps.eventLog.append(event);
+  await deps.eventLog.append(stamped);
   const after = (await deps.eventLog.load()).length;
   if (after > before) {
-    apply(event);
+    apply(stamped);
   }
 }
 

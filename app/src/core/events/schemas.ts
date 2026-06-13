@@ -132,8 +132,22 @@ export type TagCreatedEvent = z.infer<typeof tagCreatedEventSchema>;
 // and the reducer switches on `type`, so both shapes coexist cleanly.
 // ---------------------------------------------------------------------------
 
+// #388 — Optional actor/device attribution for the config/taxonomy stream.
+// OPTIONAL on the wire so NDJSON logs written before this slice (which carry no
+// actor fields) still parse and replay — same migration discipline as WI-23
+// Strategy 3. The command handlers stamp these from the active profile/device
+// at append time; when absent (legacy events) the audit change-history
+// projection renders `unknown (pre-coverage)` rather than inferring an actor.
+// `min(1)` (not the 26-char ULID length) tolerates the `PROFILE_PENDING…`
+// placeholder the handlers fall back to before a real profile exists.
+const configActorAttributionFields = {
+  actorUserId: z.string().min(1).optional(),
+  actorDeviceId: z.string().min(1).optional(),
+} as const;
+
 export const configAccountCreatedEventSchema = z.object({
   type: z.literal('AccountCreated'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   name: z.string().min(1),
   bankName: z.string().optional(),
@@ -155,6 +169,7 @@ export type ConfigAccountCreatedEvent = z.infer<typeof configAccountCreatedEvent
 
 export const configCategoryCreatedEventSchema = z.object({
   type: z.literal('CategoryCreated'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   name: z.string().min(1),
   color: z.string().optional(),
@@ -172,6 +187,7 @@ export type ConfigCategoryCreatedEvent = z.infer<typeof configCategoryCreatedEve
 
 export const configTagCreatedEventSchema = z.object({
   type: z.literal('TagCreated'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   name: z.string().min(1),
   color: z.string().optional(),
@@ -198,6 +214,7 @@ export type ConfigTagCreatedEvent = z.infer<typeof configTagCreatedEventSchema>;
 
 export const configAccountUpdatedEventSchema = z.object({
   type: z.literal('AccountUpdated'),
+  ...configActorAttributionFields,
   // Unique event ULID. Decouples the event-log dedupe key from the entity
   // id so multiple mutations of the same account produce distinct log
   // entries (the JsonFileEventLog drops duplicate `id`s). Mirrors the
@@ -228,6 +245,7 @@ export type ConfigAccountUpdatedEvent = z.infer<typeof configAccountUpdatedEvent
 
 export const configAccountArchivedEventSchema = z.object({
   type: z.literal('AccountArchived'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   accountId: z.string().min(1),
   archivedAt: z.string().datetime(),
@@ -237,6 +255,7 @@ export type ConfigAccountArchivedEvent = z.infer<typeof configAccountArchivedEve
 
 export const configAccountUnarchivedEventSchema = z.object({
   type: z.literal('AccountUnarchived'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   accountId: z.string().min(1),
   unarchivedAt: z.string().datetime(),
@@ -246,6 +265,7 @@ export type ConfigAccountUnarchivedEvent = z.infer<typeof configAccountUnarchive
 
 export const configCategoryUpdatedEventSchema = z.object({
   type: z.literal('CategoryUpdated'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   categoryId: z.string().min(1),
   changes: z
@@ -262,6 +282,7 @@ export type ConfigCategoryUpdatedEvent = z.infer<typeof configCategoryUpdatedEve
 
 export const configCategoryArchivedEventSchema = z.object({
   type: z.literal('CategoryArchived'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   categoryId: z.string().min(1),
   archivedAt: z.string().datetime(),
@@ -271,6 +292,7 @@ export type ConfigCategoryArchivedEvent = z.infer<typeof configCategoryArchivedE
 
 export const configCategoryUnarchivedEventSchema = z.object({
   type: z.literal('CategoryUnarchived'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   categoryId: z.string().min(1),
   unarchivedAt: z.string().datetime(),
@@ -280,6 +302,7 @@ export type ConfigCategoryUnarchivedEvent = z.infer<typeof configCategoryUnarchi
 
 export const configSubcategoryCreatedEventSchema = z.object({
   type: z.literal('SubcategoryCreated'),
+  ...configActorAttributionFields,
   // Matches the WI-15-lite `*Created` convention: `id` IS the entity id
   // (a subcategory is only created once per id — entity-level uniqueness
   // doubles as the log's dedupe guarantee). Subsequent mutations carry a
@@ -295,6 +318,7 @@ export type ConfigSubcategoryCreatedEvent = z.infer<typeof configSubcategoryCrea
 
 export const configSubcategoryUpdatedEventSchema = z.object({
   type: z.literal('SubcategoryUpdated'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   subcategoryId: z.string().min(1),
   parentCategoryId: z.string().min(1),
@@ -311,6 +335,7 @@ export type ConfigSubcategoryUpdatedEvent = z.infer<typeof configSubcategoryUpda
 
 export const configSubcategoryArchivedEventSchema = z.object({
   type: z.literal('SubcategoryArchived'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   subcategoryId: z.string().min(1),
   parentCategoryId: z.string().min(1),
@@ -321,6 +346,7 @@ export type ConfigSubcategoryArchivedEvent = z.infer<typeof configSubcategoryArc
 
 export const configSubcategoryUnarchivedEventSchema = z.object({
   type: z.literal('SubcategoryUnarchived'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   subcategoryId: z.string().min(1),
   parentCategoryId: z.string().min(1),
@@ -333,6 +359,7 @@ export type ConfigSubcategoryUnarchivedEvent = z.infer<
 
 export const configTagUpdatedEventSchema = z.object({
   type: z.literal('TagUpdated'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   tagId: z.string().min(1),
   changes: z
@@ -348,6 +375,7 @@ export type ConfigTagUpdatedEvent = z.infer<typeof configTagUpdatedEventSchema>;
 
 export const configTagArchivedEventSchema = z.object({
   type: z.literal('TagArchived'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   tagId: z.string().min(1),
   archivedAt: z.string().datetime(),
@@ -357,6 +385,7 @@ export type ConfigTagArchivedEvent = z.infer<typeof configTagArchivedEventSchema
 
 export const configTagUnarchivedEventSchema = z.object({
   type: z.literal('TagUnarchived'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   tagId: z.string().min(1),
   unarchivedAt: z.string().datetime(),
@@ -380,6 +409,7 @@ export type ConfigTagUnarchivedEvent = z.infer<typeof configTagUnarchivedEventSc
 
 export const configAccountDeletedEventSchema = z.object({
   type: z.literal('AccountDeleted'),
+  ...configActorAttributionFields,
   id: z.string().min(1), // Event ULID (log dedupe key).
   accountId: z.string().min(1),
   deletedAt: z.string().datetime(),
@@ -389,6 +419,7 @@ export type ConfigAccountDeletedEvent = z.infer<typeof configAccountDeletedEvent
 
 export const configCategoryDeletedEventSchema = z.object({
   type: z.literal('CategoryDeleted'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   categoryId: z.string().min(1),
   deletedAt: z.string().datetime(),
@@ -398,6 +429,7 @@ export type ConfigCategoryDeletedEvent = z.infer<typeof configCategoryDeletedEve
 
 export const configSubcategoryDeletedEventSchema = z.object({
   type: z.literal('SubcategoryDeleted'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   subcategoryId: z.string().min(1),
   parentCategoryId: z.string().min(1),
@@ -408,6 +440,7 @@ export type ConfigSubcategoryDeletedEvent = z.infer<typeof configSubcategoryDele
 
 export const configTagDeletedEventSchema = z.object({
   type: z.literal('TagDeleted'),
+  ...configActorAttributionFields,
   id: z.string().min(1),
   tagId: z.string().min(1),
   deletedAt: z.string().datetime(),
