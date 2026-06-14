@@ -1497,6 +1497,42 @@
         "saveFailed": "Failed to save profile. Please try again."
       }
     },
+    "orgProfile": {
+      "title": "Organisation profile",
+      "description": "These details appear on the header and signature footer of the Financial Report. All fields are optional and can be overridden when generating a report.",
+      "orgNameLabel": "Organisation name",
+      "legalLineLabel": "Legal registration line",
+      "legalLinePlaceholder": "Association sans but lucratif — RCS Luxembourg F1819",
+      "addressLabel": "Address",
+      "emailLabel": "Contact email",
+      "logoLabel": "Logo",
+      "logoHint": "Recommended: a horizontal logo (≥2:1), transparent PNG or SVG. PNG, JPEG or SVG up to 1 MB.",
+      "logoPreviewAlt": "Organisation logo preview",
+      "uploadLogo": "Upload logo",
+      "replaceLogo": "Replace logo",
+      "removeLogo": "Remove logo",
+      "treasurerLegend": "Treasurer signatory",
+      "auditorLegend": "External auditor signatory",
+      "signatoryName": "Name",
+      "signatoryRole": "Role",
+      "signatoryPlace": "Place",
+      "saveButton": "Save organisation profile",
+      "saving": "Saving…",
+      "saved": "Saved!",
+      "errors": {
+        "invalidEmail": "Enter a valid email address",
+        "saveFailed": "Failed to save organisation profile. Please try again."
+      },
+      "logoErrors": {
+        "UNSUPPORTED_TYPE": "Unsupported file type. Use PNG, JPEG or SVG.",
+        "TOO_LARGE": "The logo is too large. Maximum size is 1 MB.",
+        "INVALID_IMAGE": "The file could not be read as an image.",
+        "DIMENSIONS_OUT_OF_RANGE": "The logo dimensions must be between 16 and 2000 pixels.",
+        "ASPECT_OUT_OF_RANGE": "The logo is too narrow or too tall. Use a more balanced aspect ratio.",
+        "WRITE_FAILED": "The logo could not be saved. Please try again.",
+        "SCHEMA_INVALID": "The logo request was invalid."
+      }
+    },
     "appearance": {
       "title": "Appearance",
       "themeLabel": "Theme",

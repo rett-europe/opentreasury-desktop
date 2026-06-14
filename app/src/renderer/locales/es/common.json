@@ -1497,6 +1497,42 @@
         "saveFailed": "Error al guardar el perfil. Por favor, inténtalo de nuevo."
       }
     },
+    "orgProfile": {
+      "title": "Perfil de la organización",
+      "description": "Estos datos aparecen en el encabezado y en el pie de firmas del Informe financiero. Todos los campos son opcionales y se pueden modificar al generar un informe.",
+      "orgNameLabel": "Nombre de la organización",
+      "legalLineLabel": "Línea de registro legal",
+      "legalLinePlaceholder": "Association sans but lucratif — RCS Luxembourg F1819",
+      "addressLabel": "Dirección",
+      "emailLabel": "Correo de contacto",
+      "logoLabel": "Logotipo",
+      "logoHint": "Recomendado: un logotipo horizontal (≥2:1), PNG transparente o SVG. PNG, JPEG o SVG hasta 1 MB.",
+      "logoPreviewAlt": "Vista previa del logotipo de la organización",
+      "uploadLogo": "Subir logotipo",
+      "replaceLogo": "Reemplazar logotipo",
+      "removeLogo": "Eliminar logotipo",
+      "treasurerLegend": "Firmante tesorero/a",
+      "auditorLegend": "Firmante auditor/a externo/a",
+      "signatoryName": "Nombre",
+      "signatoryRole": "Cargo",
+      "signatoryPlace": "Lugar",
+      "saveButton": "Guardar perfil de la organización",
+      "saving": "Guardando…",
+      "saved": "¡Guardado!",
+      "errors": {
+        "invalidEmail": "Introduce una dirección de correo válida",
+        "saveFailed": "Error al guardar el perfil de la organización. Por favor, inténtalo de nuevo."
+      },
+      "logoErrors": {
+        "UNSUPPORTED_TYPE": "Tipo de archivo no admitido. Usa PNG, JPEG o SVG.",
+        "TOO_LARGE": "El logotipo es demasiado grande. El tamaño máximo es 1 MB.",
+        "INVALID_IMAGE": "No se pudo leer el archivo como imagen.",
+        "DIMENSIONS_OUT_OF_RANGE": "Las dimensiones del logotipo deben estar entre 16 y 2000 píxeles.",
+        "ASPECT_OUT_OF_RANGE": "El logotipo es demasiado estrecho o demasiado alto. Usa una proporción más equilibrada.",
+        "WRITE_FAILED": "No se pudo guardar el logotipo. Por favor, inténtalo de nuevo.",
+        "SCHEMA_INVALID": "La solicitud del logotipo no era válida."
+      }
+    },
     "appearance": {
       "title": "Apariencia",
       "themeLabel": "Tema",

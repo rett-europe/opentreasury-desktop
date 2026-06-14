@@ -345,3 +345,12 @@
   gap: var(--space-4);
   justify-content: flex-end;
 }
+
+/* SPEC-030 WI-4 — Organisation profile signatory blocks (treasurer + auditor).
+   A simple responsive row of name / role / place inputs. */
+.ot-preferences__signatory {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}

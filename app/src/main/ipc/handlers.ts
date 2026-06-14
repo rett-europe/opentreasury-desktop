@@ -254,6 +254,25 @@ import {
 } from '../../shared/ipc-contracts/profile.js';
 import { handleProfileGet, handleProfileSave } from './handlers/profile.js';
 import {
+  IPC_ORG_PROFILE_GET,
+  IPC_ORG_PROFILE_SAVE,
+  IPC_ORG_PROFILE_SET_LOGO,
+  IPC_ORG_PROFILE_REMOVE_LOGO,
+  IPC_ORG_PROFILE_GET_LOGO,
+  orgProfileGetResponseSchema,
+  orgProfileSaveResponseSchema,
+  orgProfileSetLogoResponseSchema,
+  orgProfileRemoveLogoResponseSchema,
+  orgProfileGetLogoResponseSchema,
+} from '../../shared/ipc-contracts/org-profile.js';
+import {
+  handleOrgProfileGet,
+  handleOrgProfileSave,
+  handleOrgProfileSetLogo,
+  handleOrgProfileRemoveLogo,
+  handleOrgProfileGetLogo,
+} from './handlers/orgProfile.js';
+import {
   IPC_CONFIG_GET,
   IPC_CONFIG_SET_DATA_DIR,
   configGetResponseSchema,
@@ -374,6 +393,33 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_PROFILE_SAVE, async (_event, raw: unknown) => {
     const response = await handleProfileSave(raw);
     return profileSaveResponseSchema.parse(response);
+  });
+
+  // SPEC-030 WI-4 — Organisation profile (Financial Report header/footer).
+  // Non-sensitive; always registered (independent of the encrypted workspace).
+  ipcMain.handle(IPC_ORG_PROFILE_GET, async (_event, raw: unknown) => {
+    const response = await handleOrgProfileGet(raw);
+    return orgProfileGetResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_ORG_PROFILE_SAVE, async (_event, raw: unknown) => {
+    const response = await handleOrgProfileSave(raw);
+    return orgProfileSaveResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_ORG_PROFILE_SET_LOGO, async (_event, raw: unknown) => {
+    const response = await handleOrgProfileSetLogo(raw);
+    return orgProfileSetLogoResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_ORG_PROFILE_REMOVE_LOGO, async (_event, raw: unknown) => {
+    const response = await handleOrgProfileRemoveLogo(raw);
+    return orgProfileRemoveLogoResponseSchema.parse(response);
+  });
+
+  ipcMain.handle(IPC_ORG_PROFILE_GET_LOGO, async (_event, raw: unknown) => {
+    const response = await handleOrgProfileGetLogo(raw);
+    return orgProfileGetLogoResponseSchema.parse(response);
   });
 
   // P0-3 Config handlers — trial-readiness

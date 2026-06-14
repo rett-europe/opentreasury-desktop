@@ -9,6 +9,7 @@ import {
   type NumberFormat,
 } from '../../../shared/format/index.js';
 import { DatasetErrorDialog } from '../../components/DatasetErrorDialog/DatasetErrorDialog.js';
+import { OrgProfileCard } from './OrgProfileCard.js';
 import { useFormatPrefs } from '../../format/index.js';
 import './PreferencesScreen.css';
 
@@ -571,6 +572,9 @@ export function PreferencesScreen(): JSX.Element {
             )}
           </div>
         </section>
+
+        {/* Card 1b: Organisation profile (SPEC-030 WI-4) */}
+        <OrgProfileCard />
 
         {/* Card 2: Appearance */}
         <section className="ot-preferences__card">
