@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.19] — SPEC-030 Financial Report
+
+Adds a one-click **Financial Report** generator: a printable, signed-audit-logged PDF statement (credits, debits, and an opening/closing balance reconciliation for a fiscal year), modelled on the RSE annual financial report. It is the same income/expense aggregation as the Balance screen, rendered as a formal document. Existing trial datasets open normally — no migration.
+
+### Added
+
+- **Financial Report — a printable PDF statement (SPEC-030, #393; PRs #394, #395, #396, #397).** A new **Informes / Reports** entry in the sidebar (under Datos, after Export) opens a generator where the user picks a period (calendar year or custom range), an account scope (consolidated across accounts or a single account), and a grouping level (category, or category → subcategory), then previews and exports a PDF. The document replicates the annual-statement layout: a branded header with the organisation's logo and legal registration line, a **Credits** (income) table, a **Debits** (expense) table, a balance reconciliation block (opening balance + credits − debits = closing balance, which ties out exactly), and a two-column signature footer for the treasurer and an external auditor. Income vs expense classification uses the transaction's own type, and opening/closing balances come from each account's stored opening balance plus its running movements — so the report's totals always match the Balance screen.
+- **Organisation profile settings (PR #395).** A new "Organisation profile" card in Preferences captures the organisation name, legal registration line, address, contact email, a logo, and the treasurer/auditor signatory details that feed the report header and footer. The logo and profile are stored as non-sensitive application data and never enter the encrypted treasury store.
+
+### Security
+
+- **Reports decrypt in the main process only (PR #396).** As with Export, report generation decrypts and aggregates entirely in the main process; the renderer only ever receives aggregate figures and a one-time confirmation token — never plaintext transactions, file paths, or key material. Every generation writes a signed `report.generate` entry to the hash-chained audit log **before** any file is produced, and is refused on a locked or unencrypted-destination workspace. No change to encryption, signing, or the hash chain.
+
 ## [0.1.0-trial.3.18] — Config & taxonomy audit attribution
 
 Builds on the 3.17 Audit & Evidence viewer: account, category, subcategory, and tag changes now record who made them and on which device, so the audit **Historial de cambios** attributes them instead of showing "unknown". Existing trial datasets open normally — no migration.
