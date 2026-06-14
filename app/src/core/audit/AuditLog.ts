@@ -176,8 +176,8 @@ function assertEntryInvariants(entry: Omit<AuditEntry, 'signature'>): void {
       throw new Error('timestamp payload anchor_seq must reference an earlier entry');
     }
   } else {
-    if (entry.target_ref.type !== 'export') {
-      throw new Error('non-anchor entry must have target_ref.type "export"');
+    if (entry.target_ref.type !== 'export' && entry.target_ref.type !== 'report') {
+      throw new Error('non-anchor entry must have target_ref.type "export" or "report"');
     }
     if (entry.payload !== undefined) {
       throw new Error('non-anchor entry must not carry a payload');

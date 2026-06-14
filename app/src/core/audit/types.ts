@@ -17,10 +17,15 @@
  *   TSA round-trip is implemented by a sibling WI.
  * - `audit.export` — export of the audit log itself (evidence package, WI-4).
  *   Reserved now; surfaced by a sibling WI.
+ * - `report.generate` — SPEC-030 WI-2: a Financial Report PDF was generated. A
+ *   decrypted artifact (like an export), so it warrants an equal-weight signed
+ *   entry. `after_hash` covers the canonical-JSON of the report PARAMETERS
+ *   (period, account scope, grouping, format) — never the content.
  */
 export type AuditAction =
   | 'export.csv'
   | 'export.xlsx'
+  | 'report.generate'
   | 'audit.anchor'
   | 'audit.anchor.timestamped'
   | 'audit.export';
@@ -33,8 +38,8 @@ export type AuditAction =
 export type AuditResult = 'started' | 'succeeded' | 'failed';
 
 export interface AuditTargetRef {
-  readonly type: 'export' | 'anchor';
-  readonly id: string; // ULID for the export operation / anchor
+  readonly type: 'export' | 'anchor' | 'report';
+  readonly id: string; // ULID for the export / report operation / anchor
 }
 
 /**
@@ -150,7 +155,7 @@ export interface AuditAppendInput {
   readonly afterHash: string | null;
   readonly beforeHash?: string | null;
   /** Target type for the entry. Defaults to `'export'` for back-compat. */
-  readonly targetType?: 'export' | 'anchor';
+  readonly targetType?: 'export' | 'anchor' | 'report';
 }
 
 export interface AuditVerifyResult {

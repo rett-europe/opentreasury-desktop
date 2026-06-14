@@ -353,6 +353,13 @@ import {
 } from '../../shared/ipc-contracts/export.js';
 import { createExportHandlers } from './handlers/export.js';
 import {
+  IPC_REPORT_BUILD,
+  IPC_REPORT_GENERATE,
+  reportBuildResponseSchema,
+  reportGenerateResponseSchema,
+} from '../../shared/ipc-contracts/report.js';
+import { createReportHandlers } from './handlers/report.js';
+import {
   IPC_AUDIT_VERIFY_STATUS,
   IPC_AUDIT_LIST_SIGNED,
   IPC_AUDIT_LIST_CHANGE_HISTORY,
@@ -1086,6 +1093,27 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(IPC_EXPORT_REVEAL, async (event, raw: unknown) => {
     const response = await exportHandlers.reveal(event, raw);
     return exportRevealResponseSchema.parse(response);
+  });
+
+  // SPEC-030 WI-2 — Financial Report (PDF). `report:build` assembles the
+  // aggregate-only view-model from the WI-1 queries + WI-4 org profile and mints
+  // a one-shot token; `report:generate` re-derives from the token, writes a
+  // signed `report.generate` audit entry BEFORE any bytes, renders the PDF, and
+  // atomically writes it. The renderer never sees a path or plaintext rows.
+  const reportHandlers = createReportHandlers({
+    getActiveWorkspace,
+    getDatasetId: () => getDatasetId(),
+    getActorUserIdentity: () => getProfile()?.userId ?? getDeviceId(),
+    newUlid,
+    now: () => Date.now(),
+  });
+  ipcMain.handle(IPC_REPORT_BUILD, async (event, raw: unknown) => {
+    const response = await reportHandlers.build(event, raw);
+    return reportBuildResponseSchema.parse(response);
+  });
+  ipcMain.handle(IPC_REPORT_GENERATE, async (event, raw: unknown) => {
+    const response = await reportHandlers.generate(event, raw);
+    return reportGenerateResponseSchema.parse(response);
   });
 
   // SPEC-028 WI-4 — Audit & Evidence viewer (read-only). All three handlers are
