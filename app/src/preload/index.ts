@@ -246,6 +246,20 @@ import {
   type ProfileSaveResponse,
   type Profile,
 } from '../shared/ipc-contracts/profile.js';
+import {
+  IPC_ORG_PROFILE_GET,
+  IPC_ORG_PROFILE_SAVE,
+  IPC_ORG_PROFILE_SET_LOGO,
+  IPC_ORG_PROFILE_REMOVE_LOGO,
+  IPC_ORG_PROFILE_GET_LOGO,
+  type OrgProfileGetResponse,
+  type OrgProfileSaveResponse,
+  type OrgProfileSetLogoResponse,
+  type OrgProfileRemoveLogoResponse,
+  type OrgProfileGetLogoResponse,
+  type OrgProfileEditable,
+  type OrgProfileSetLogoRequest,
+} from '../shared/ipc-contracts/org-profile.js';
 import { IPC_SHELL_OPEN_PATH, type ShellOpenPathResponse } from '../shared/ipc-contracts/shell.js';
 import {
   IPC_APP_NEEDS_ONBOARDING,
@@ -581,6 +595,23 @@ const api = {
     },
     save: (profile: Profile): Promise<ProfileSaveResponse> => {
       return ipcRenderer.invoke(IPC_PROFILE_SAVE, profile);
+    },
+  },
+  orgProfile: {
+    get: (): Promise<OrgProfileGetResponse> => {
+      return ipcRenderer.invoke(IPC_ORG_PROFILE_GET);
+    },
+    save: (edits: OrgProfileEditable): Promise<OrgProfileSaveResponse> => {
+      return ipcRenderer.invoke(IPC_ORG_PROFILE_SAVE, edits);
+    },
+    setLogo: (req: OrgProfileSetLogoRequest): Promise<OrgProfileSetLogoResponse> => {
+      return ipcRenderer.invoke(IPC_ORG_PROFILE_SET_LOGO, req);
+    },
+    removeLogo: (): Promise<OrgProfileRemoveLogoResponse> => {
+      return ipcRenderer.invoke(IPC_ORG_PROFILE_REMOVE_LOGO);
+    },
+    getLogo: (): Promise<OrgProfileGetLogoResponse> => {
+      return ipcRenderer.invoke(IPC_ORG_PROFILE_GET_LOGO);
     },
   },
   shell: {

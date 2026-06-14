@@ -25,6 +25,8 @@ import type { ReadModel } from '../core/query/types.js';
 import { createRehydrateReadModelFromDisk, type RehydrateResult } from './query/rehydrate.js';
 import { buildDevSeedEvents } from './devSeed.js';
 import { loadProfile, type Profile } from './profile.js';
+import { loadOrgProfile, createDefaultOrgProfile } from './orgProfile.js';
+import type { OrgProfile } from '../shared/ipc-contracts/org-profile.js';
 import { loadAppConfig, saveAppConfig, type AppConfig } from './config.js';
 import { createReadOnlyEventLog } from './eventLog-readonly-wrapper.js';
 import { loadDeviceId } from './device.js';
@@ -62,6 +64,7 @@ function fakeUlid(seedKey: string): string {
 
 let eventLogInstance: EventLog | null = null;
 let profileInstance: Profile | null = null;
+let orgProfileInstance: OrgProfile = createDefaultOrgProfile();
 let appConfigInstance: AppConfig | null = null;
 let deviceIdInstance: string | null = null;
 let datasetIdInstance: string | null = null;
@@ -228,6 +231,23 @@ export function getProfile(): Profile | null {
  */
 export function setProfile(profile: Profile | null): void {
   profileInstance = profile;
+}
+
+/**
+ * Get the loaded organisation profile (SPEC-030 WI-4). Always returns a value
+ * (a default empty profile when org-profile.json is absent). Read by the
+ * settings form and, later, the report builder via getOrgProfileViewModel.
+ */
+export function getOrgProfile(): OrgProfile {
+  if (!bootstrapped) {
+    throw new Error('[bootstrap] getOrgProfile() called before initializeApp() resolved');
+  }
+  return orgProfileInstance;
+}
+
+/** Update the in-memory org-profile cache after a save. */
+export function setOrgProfile(profile: OrgProfile): void {
+  orgProfileInstance = profile;
 }
 
 /**
@@ -522,6 +542,10 @@ async function initializeAppUnsafe(): Promise<void> {
     // eslint-disable-next-line no-console
     console.log('[bootstrap] no profile.json found — first-launch setup required');
   }
+
+  // SPEC-030 WI-4: Load the (non-sensitive) org profile. Always resolves to a
+  // value — a default empty profile when org-profile.json is absent.
+  orgProfileInstance = await loadOrgProfile(userDataDir);
 
   // P0-3: Load app config (dataDir, readOnly). If missing, use defaults.
   appConfigInstance = await loadAppConfig(userDataDir);
