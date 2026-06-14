@@ -1,6 +1,7 @@
 # SPEC-030 — Financial Report
 
-> **Status:** Draft · **Owner:** Neo (architecture) — co-authored with Link (product), Switch (security), Niobe (UX), Mouse (design) · **Last updated:** 2026-06-14
+> **Status:** In Review · **Owner:** Neo (architecture) — co-authored with Link (product), Switch (security), Niobe (UX), Mouse (design) · **Last updated:** 2026-06-14
+> **Reviewers:** Neo (architecture) ✅ · Switch (security) ✅ · Link (product) ✅ · Niobe (UX) ✅ · Mouse (design) ✅ — all approved 2026-06-14
 > **Paired PRD:** Pending — PRD-030 reservation needed in `docs/product/prd-plan.md` (folds the existing PRD-016 "PDF report export" + PRD-018 "Reports module" reservations).
 > **Paired UX:** [`docs/ux/specs/spec-030-financial-report.md`](../ux/specs/spec-030-financial-report.md)
 > **Paired Design:** Pending (Mouse — report template visual fidelity to the RSE 2024 PDF).
@@ -78,14 +79,17 @@ the number format.
 - **Scenario B — Auditor hand-off.** The external auditor (Bahadir, Türkiye) asks for
   the 2024 statement. Pedro generates the PDF; the footer already carries both
   signature blocks (Treasurer — Spain; Auditor — Türkiye) with name, role, place and
-  date placeholders and signature-image slots.
+  date lines and a **blank signature area** — the auditor signs the finished PDF
+  externally; the app stores no signature image.
 - **Scenario C — Mid-year board update.** Pedro generates a report for an **arbitrary
   date range** (Jan–Jun) to show the board where the accounts stand half-way through
   the year. Opening balance is the account balance at the range start; closing is the
   balance at the range end.
-- **Scenario D — Multi-account NGO.** The NGO holds two bank accounts. Pedro generates
-  one consolidated report (all accounts, single opening/closing pair) — or, if he
-  picks a single account, a per-account statement. (See OQ3.)
+- **Scenario D — Multi-account NGO.** The NGO holds two bank accounts. By default Pedro
+  generates **one consolidated report** across all accounts (a single opening/closing
+  pair summed across the selected accounts) — or he **picks a single account** for a
+  per-account statement with that account's own opening/closing balances. *(Resolved
+  2026-06-14 — Pedro: "it's multi-account, but I guess we can pick one.")*
 - **Scenario E — Uncategorised data.** Some 2024 transactions have no category. They
   are still classified as credit or debit by their **`tx.type`** (the type is always
   present), and surfaced under an explicit **"Sin clasificar / Unclassified"** line
@@ -105,13 +109,17 @@ the number format.
   generator can live directly as `Informe financiero` — see UX spec.)
 - **FR2 — Period selection (required).** The user selects a reporting period before
   anything is generated (list-starts-empty rule, per SPEC-027 FR2). v1 offers a
-  **fiscal-year picker** (calendar year by default) **and** a **custom date range**.
-  The configurable fiscal-year start is OQ4.
-- **FR3 — Header block.** The report header renders: organisation name + logo, the
+  **calendar-year picker** **and** an **arbitrary custom date range**. A configurable
+  fiscal-year start (e.g. Apr–Mar) is **deferred** to a later version. *(Resolved
+  2026-06-14 — Pedro: calendar-year + custom range in v1.)*
+- **FR3 — Header block.** The report header renders: organisation **name + logo**, the
   legal registration line (e.g. *"Association sans but lucratif — RCS Luxembourg
   F1819"*), postal address, contact email, and the title **"Financial Report {year}"** /
-  **"Informe financiero {año}"**. These values are sourced from **organisation/profile
-  settings**, with at-generation-time overrides. (OQ5.)
+  **"Informe financiero {año}"**. All values, **including the logo**, are sourced from
+  **organisation/profile settings**, with at-generation-time overrides. The **logo** is
+  a non-sensitive branding asset stored as an ordinary **org setting** — it does **not**
+  need to live in the encrypted treasury store (Switch to confirm; default = org-settings
+  asset). *(Resolved 2026-06-14 — Pedro: "it would be great to have a logo!")*
 - **FR4 — Credits (income) table.** All transactions in the period with
   `type === 'income'` are grouped into line items (one row per group), each a
   **label + positive amount**, ending in a bold **TOTAL** row. Example fidelity target:
@@ -120,8 +128,8 @@ the number format.
 - **FR5 — Debits (expenses) table.** All transactions in the period with
   `type === 'expense'` are grouped into line items shown as **negative amounts**,
   ending in a bold **TOTAL** row (e.g. `−8.647,50`). The template breaks
-  *Event/Conference Expenses* out per event/location — this maps to **subcategories**
-  (see FR7, OQ2).
+  *Event/Conference Expenses* out per event/location — this maps to **subcategory-level
+  grouping** when the user selects it (see FR7).
 - **FR6 — Income vs expense classification (settled).** A transaction is a **credit**
   or a **debit** according to its first-class **`Transaction.type`** field
   (`'income' | 'expense'`), exactly as the Panel/Saldo screen already classifies it.
@@ -130,13 +138,19 @@ the number format.
   table sums `type === 'expense'` and renders the totals negated for display. Split
   children inherit the parent transaction's `type` (their category may differ, but the
   income/expense direction is the parent's). **Resolved — no Open Question.**
-- **FR7 — Grouping granularity.** Within each table, line items are grouped **by
-  category** (the category name is the line-item label). Where a category has
-  subcategories with movements in the period, the report **breaks that category out
-  into its subcategory line items** (mirroring the template's per-event expense
-  breakdown), with the category acting as a subtotal header. Pure category-level
-  grouping is selectable. Uncategorised movements group under "Unclassified" within
-  their `type`'s table. (OQ2.)
+- **FR7 — Grouping-level selector (user choice at generation time).** The user picks
+  the line-item grouping level on the generation screen via a **grouping-level selector**
+  control: **Category** (default) or **Category → Subcategory**. It is **not** automatic.
+  At **Category** level, each line item is a category total. At **Category → Subcategory**
+  level, each category breaks out into its subcategory line items (matching the
+  template's per-event expense breakdown) with the category as a subtotal header.
+  Uncategorised movements group under "Unclassified" within their `type`'s table.
+  **Both levels MUST still reconcile to the same period totals** for the selected account
+  scope (`getRangeKPIs(from, to)` for all-accounts/consolidated mode; the account-scoped
+  income/expense from `getAccountBalancesInRange(from, to)` for single-account mode) —
+  changing the grouping level changes only the row breakdown, never the TOTALs. *(Resolved
+  2026-06-14 — Pedro: "I would give the option to the user to choose the level… it might
+  significantly affect the format.")*
 - **FR8 — Balance reconciliation block.** Below the two tables, the report renders:
   - **"Balance of account 01.01.{year}"** — the **opening balance** = each account's
     event-sourced `ConfigAccount.openingBalance` (set on `AccountCreated.openingBalance`
@@ -144,24 +158,36 @@ the number format.
     modal) **plus** the net (`income − expense`) of all movements **dated before the
     period start** (a running balance). For a custom range, "01.01.{year}" is replaced
     by the range-start date.
-  - **Credits {period}** and **Debits {period}** — the two table totals
-    (= `getRangeKPIs(from, to).income` and `.expense`).
+  - **Credits {year}** and **Debits {year}** — the two table totals
+    (= the selected scope's period income and expense). **Label note:** the source RSE
+    2024 PDF labels these lines "Credits 2023 / Debits 2023" while reporting 2024 figures;
+    that is treated as a **typo** — OpenTreasury labels the reconciliation lines with the
+    **report year** (the period's year, or the range for custom periods). *(Resolved
+    2026-06-14 — Pedro: label with the report year.)*
   - **"Balance of account 31.12.{year}"** — the **closing balance**
     = `opening + credits − debits`. The arithmetic MUST tie out exactly
     (`32.162,93 + 9.506,21 − 8.647,50 = 33.021,64`). **Source settled — no Open
     Question.**
-- **FR9 — Signature footer.** Two signature blocks, each with **name, role, place,
-  date, and a signature-image slot**: a **Treasurer** block
-  (e.g. *"Spain, {date}, Pedro Rocha, Treasurer RSE"*) and an external **Auditor**
-  block (e.g. *"Türkiye, Bahadir Dinler"*). Values come from org/profile settings or
-  are entered at generation time (OQ5); signature-image handling is OQ5/§8.
+- **FR9 — Signature footer (printed blocks only — no in-app signing).** The PDF prints
+  two **signature blocks**: a **Treasurer** block (e.g. *"Spain, {date}, Pedro Rocha,
+  Treasurer RSE"*) and an external **Auditor** block (e.g. *"Türkiye, Bahadir Dinler"*),
+  each rendering **signatory name, role, place, date line + a blank signature area** for
+  a wet/external signature. The app does **NOT** embed, capture, upload, or store any
+  signature image — **the auditor signs the finished PDF externally** (on paper or in
+  their own PDF tooling). There is therefore **no signature-image asset and no
+  encrypted-store-for-signatures requirement**. Signatory names/roles/places come from
+  **org/profile settings** with at-generation overrides. *(Resolved 2026-06-14 — Pedro:
+  "the signature is done outside the app, in the PDF file by an external auditor.")*
 - **FR10 — European number format.** Amounts use the **active app locale's** European
   format — `.` thousands separator, `,` decimal — consistent with SPEC-027's
-  locale-aware decisions. Currency symbol handling follows the active locale (OQ8).
-- **FR11 — Output format (MVP = PDF).** v1 produces a **PDF** that visually
-  replicates the template. The generator mechanism is OQ1 (headless print of an HTML
-  template in main vs a PDF library in main vs renderer print-to-PDF). An **XLSX
-  summary sheet** is a defined fast-follow (FR18, deferred).
+  locale-aware decisions. Currency is rendered as **`9.506,21 €`** (the `€` symbol as a
+  **suffix**, preceded by a non-breaking space). *(Resolved 2026-06-14 — Pedro.)*
+- **FR11 — Output format (PDF only in v1).** v1 produces **only a PDF**, generated by a
+  **main-process HTML template rendered to PDF via Electron `webContents.printToPDF`**
+  (best template fidelity, reuses CSS, runs in an offscreen main-owned `BrowserWindow`
+  that never loads renderer/user routes). An **XLSX summary sheet** is **deferred** to a
+  later version (see FR18 / §11). *(Resolved 2026-06-14 — Pedro: PDF only, HTML→printToPDF;
+  XLSX deferred.)*
 - **FR12 — On-screen preview.** Before saving, the renderer shows a **preview built
   from already-projected, non-secret aggregates** (line-item labels + rounded
   amounts), not from raw decrypted rows — so no new plaintext surface is created
@@ -174,22 +200,25 @@ the number format.
 - **FR14 — Encrypted-workspace guard.** Reuse SPEC-027 FR14 verbatim: the chosen path
   may not resolve inside the active dataset root; an encrypted-but-locked workspace
   cannot generate a report at all (Scenario F). Hard block, no "Save anyway".
-- **FR15 — Pre-generation confirmation.** Because the PDF is a **decrypted artifact**,
-  the user passes the same class of confirmation modal as SPEC-027 FR15 (the file will
-  be unencrypted, may be indexed/synced, is the user's responsibility). Whether the
-  typed-word confirmation (`EXPORTAR`/`EXPORT`) is reused, softened, or dropped for
-  reports is OQ7.
+- **FR15 — Pre-generation confirmation (lightweight).** Because the PDF is a
+  **decrypted artifact**, the user passes a **simple confirmation modal** stating the
+  file will be unencrypted, may be indexed by Windows Search / uploaded by sync clients,
+  and is the user's responsibility (SPEC-027 §2.6 disclosure language). Unlike Export,
+  there is **no typed-word step** (`EXPORTAR`/`EXPORT`) — a single explicit confirm
+  button is sufficient, consistent with the low-friction MVP. *(Resolved 2026-06-14 —
+  coordinator default; Pedro favours low friction.)*
 - **FR16 — Atomic write + streaming.** Reuse SPEC-027 FR16–FR17: write to a sibling
   temp file in the destination directory and atomically rename; decrypt streaming,
   zeroise plaintext buffers. Report aggregation, however, requires a **full pass** over
   the period's movements before totals are known — memory bound is on aggregates, not
   raw rows (NFR4).
 - **FR17 — Audit entry first.** Before any byte is written, main appends a **signed
-  audit entry** for the report generation (proposed `action: "report.generate"`),
-  with an `after_hash` over the canonical-JSON of the report **parameters** (period,
-  account scope, grouping mode, format) — never over plaintext content. (OQ7; mirrors
-  SPEC-027 FR18 and SPEC-028 audit-chain.) New action enum value added to
-  `crypto-spec.md` §8.2 in the implementing PR.
+  audit entry** for the report generation (`action: "report.generate"`), with an
+  `after_hash` over the canonical-JSON of the report **parameters** (period, account
+  scope, grouping level, format) — never over plaintext content. (Mirrors SPEC-027 FR18
+  and the SPEC-028 audit-chain.) The new `report.generate` action enum value is added to
+  `crypto-spec.md` §8.2 in the implementing PR. *(Resolved 2026-06-14 — yes, generation
+  writes a signed audit entry.)*
 - **FR18 — XLSX summary (deferred fast-follow).** A single-sheet workbook mirroring the
   credits/debits/reconciliation structure, written via the SPEC-027 streaming XLSX
   writer. Defined here for scope clarity; **out of v1 MVP** (see §11).
@@ -200,6 +229,13 @@ the number format.
   (e.g. floating-point drift, missing movements) blocks generation with a diagnostic
   rather than emitting an unbalanced statement. Money math uses the existing
   integer-minor-unit / decimal discipline used by Saldo, not native floats.
+- **FR21 — Account scope (consolidated by default, single-account optional).** The
+  generation screen offers an **account scope** control: **All accounts (consolidated)**
+  by default — one report whose credits/debits and opening/closing pair are summed across
+  all selected accounts — or **a single account**, producing a per-account statement with
+  that account's own `openingBalance`-derived opening/closing balances. Backed by
+  `getAccountBalancesInRange` per account. *(Resolved 2026-06-14 — Pedro: multi-account
+  with single-account option.)*
 
 ### 4.2 Non-functional
 
@@ -209,8 +245,9 @@ the number format.
   the in-memory master key; writes to a local path. No network (Vision §7 Principle 5).
   External-timestamping of the report (SPEC-028 RFC-3161) is **not** in scope.
 - **NFR3 — Accessibility.** The generator UI is WCAG 2.1 AA: keyboard-reachable period
-  picker, format choice, preview, and confirmation modal; `aria-live` status updates.
-  The PDF itself targets tagged-PDF/readable-order on a best-effort basis (OQ1).
+  picker, grouping selector, preview, and confirmation modal; `aria-live` status updates.
+  The PDF itself (HTML → `printToPDF`) targets tagged-PDF/readable-order on a best-effort
+  basis.
 - **NFR4 — Memory bound.** Aggregation holds per-line-item subtotals, not the full
   decrypted dataset; peak heap stays within the SPEC-027 NFR4 envelope (+150 MB over
   baseline) even for the largest pilot dataset.
@@ -232,12 +269,22 @@ Architecture-constraining points:
   from a `ReportModel` of labels + amounts returned by main; it never receives
   transaction-level plaintext. This keeps the renderer-isolation guarantee intact while
   still giving Pedro a true WYSIWYG preview.
+- **Grouping-level selector.** The generation screen exposes a **grouping-level selector**
+  (Category — default — vs Category → Subcategory) that the user sets at generation time
+  (FR7). Switching it re-runs `report:build` and re-renders the preview; the TOTALs are
+  invariant across levels (they always equal `getRangeKPIs`).
+- **Account scope control.** An **All accounts (consolidated)** / **single account**
+  selector (FR21) drives whether the report shows one consolidated opening/closing pair
+  or a per-account statement.
 - **The template is the design contract.** Mouse owns pixel fidelity to the RSE 2024
-  PDF (header lockup, legal line, table rules, bold TOTAL rows, two-column signature
-  footer). The HTML/print template (if OQ1 picks that route) lives under a
-  main-process-owned template asset, not in renderer routes.
-- **Header/footer editing.** Org details and signatory blocks are pre-filled from
-  settings and editable in a side panel before generation (OQ5).
+  PDF (header lockup with **org logo**, legal line, table rules, bold TOTAL rows,
+  two-column signature footer). The HTML/print template (main-process HTML →
+  `webContents.printToPDF`, FR11) lives under a main-process-owned template asset, not in
+  renderer routes.
+- **Header/footer editing.** Org details, the **org logo**, and signatory blocks are
+  pre-filled from org/profile settings and editable in a side panel before generation;
+  at-generation overrides are allowed (FR3, FR9). Signatures are **printed blocks only**
+  — the app captures/stores no signature image (FR9).
 
 ## 6. Data Model
 
@@ -257,8 +304,8 @@ parameters** (never the content):
 
 ```jsonc
 {
-  "format": "pdf|xlsx",
-  "periodKind": "fiscal-year|custom-range",
+  "format": "pdf", // xlsx deferred to a future version
+  "periodKind": "calendar-year|custom-range",
   "periodStart": "YYYY-MM-DD",
   "periodEnd": "YYYY-MM-DD",
   "accountIds": ["<ULID>", ...],   // sorted; empty = all accounts (consolidated)
@@ -267,7 +314,7 @@ parameters** (never the content):
 ```
 
 The `action` enum in `crypto-spec.md` §8.2 must gain `"report.generate"` (added in the
-implementing PR; Switch pre-review — OQ7). This mirrors the SPEC-027 precedent for
+implementing PR; Switch-approved 2026-06-14). This mirrors the SPEC-027 precedent for
 adding `"export.xlsx"`.
 
 ### 6.2 Read-model projections — built on the existing `core/query` engine
@@ -279,8 +326,8 @@ over the hydrated read model; no materialized buckets). The reuse map:
 
 | Report element | Reused `core/query` function | Notes |
 |---|---|---|
-| Credits TOTAL / Debits TOTAL for the period | `getRangeKPIs(from, to)` (`queries.ts`) | Returns `{ income, expense, net, transactionCount }` over the fiscal-year range — these **are** the two table totals. |
-| Per-account scoping / consolidated totals | `getAccountBalancesInRange(from, to)` (`queries.ts`) | Income/expense/net per account in range; backs the multi-account modes (OQ3). |
+| Credits TOTAL / Debits TOTAL for the period | `getRangeKPIs(from, to)` (`queries.ts`) | Returns `{ income, expense, net, transactionCount }` over the range — these **are** the two table totals in consolidated/all-accounts mode. In single-account mode the totals come from the account-scoped `getAccountBalancesInRange` row (FR21). |
+| Per-account scoping / consolidated totals | `getAccountBalancesInRange(from, to)` (`queries.ts`) | Income/expense/net per account in range; backs the consolidated-by-default and single-account modes (FR21). |
 | Opening balance (running balance before period start) | `getAccountBalances()` + each `ConfigAccount.openingBalance` | Opening = `openingBalance + net(income−expense)` of all tx with `date < periodStart`. Computed with the same range filter, `to = periodStart − 1 day`. |
 | Period resolution (fiscal year / quarter / month) | `resolvePeriodRange` + `PeriodRange` (`saldo.ts`) | Reuse the UTC-inclusive period math; calendar-year is `period: 'ano'`. Custom ranges bypass it. |
 | Projection / comparison scaffolding (if needed later) | `getSaldoComparison`, `computeProjection` (`saldo.ts`) | Available for a future multi-year comparison column (deferred, §11). |
@@ -317,13 +364,16 @@ renderer, never a hard-coded string in `core/query`).
 
 ### 6.3 File layout on OneDrive
 
-**Nothing new under the dataset root.** The generated PDF/XLSX is written to a
-**user-chosen path outside the encrypted workspace** (Documents by default). It is not
-part of the dataset, is not encrypted, is not indexed by ULID, and is never re-read by
-OpenTreasury. The encrypted-workspace guard (FR14) actively prevents writing into the
-dataset root. **Open issue:** signature images — if sourced from org settings — may need
-to live *inside* the encrypted store (an `org-profile` record) rather than as loose
-files; see §8 and OQ5.
+**Nothing new under the dataset root.** The generated PDF is written to a **user-chosen
+path outside the encrypted workspace** (Documents by default). It is not part of the
+dataset, is not encrypted, is not indexed by ULID, and is never re-read by OpenTreasury.
+The encrypted-workspace guard (FR14) actively prevents writing into the dataset root.
+
+**Org logo (branding asset).** The header logo is a **non-sensitive branding asset**
+stored as an **org/profile setting**, NOT inside the encrypted treasury store (Switch
+confirmed 2026-06-14). It is read in main and embedded into the PDF template at
+generation time. **No signature images** are stored anywhere — signatures are printed
+blocks signed externally (FR9), so there is no signature-asset storage concern.
 
 ## 7. IPC Surface
 
@@ -340,21 +390,21 @@ Two new channels, each Zod-validated at the boundary (R12, C13). Schemas live un
   values) for the renderer preview. No transaction-level rows cross IPC.
   ```ts
   ReportBuildRequest = {
-    periodKind: "fiscal-year" | "custom-range",
+    periodKind: "calendar-year" | "custom-range",
     periodStart: ISODate,           // required
     periodEnd: ISODate,             // required
-    accountIds?: ULID[],            // empty/undefined = all (consolidated)
+    accountIds?: ULID[],            // empty/undefined = all (consolidated); single id = per-account
     grouping: "category" | "category-subcategory"
   }
   ReportBuildResponse =
     | { ok: true, model: ReportModel, confirmationToken: string /* one-shot, TTL ≤ 60s */ }
     | { ok: false, code: "CE-XXX" }
   ```
-- `report:generate` — the renderer sends **only** the `confirmationToken` (and the
-  chosen format); main reconstructs the parameters from the token, opens the save
+- `report:generate` — the renderer sends **only** the `confirmationToken` (format is
+  fixed to `pdf` in v1); main reconstructs the parameters from the token, opens the save
   dialog, writes the audit entry, then the file (SPEC-027 §3.2 token pattern).
   ```ts
-  ReportGenerateRequest = { confirmationToken: string, format: "pdf" /* | "xlsx" deferred */ }
+  ReportGenerateRequest = { confirmationToken: string, format: "pdf" /* xlsx deferred */ }
   ReportGenerateResponse =
     | { ok: true, basename: string }
     | { ok: false, code: "CE-XXX" }
@@ -398,20 +448,24 @@ SPEC-027 security envelope. It introduces **no new cryptographic primitive**.
 - **Audit logging (R8, crypto-spec §8.2/§8.3).** A signed `report.generate` audit entry
   is appended **before** the first byte (FR17); `after_hash` covers the canonical-JSON
   **parameters**, never plaintext content. Failures are logged with `result: "failed"`
-  to the audit chain and local diagnostics (SPEC-027 precedent). **Open:** confirm with
-  Switch that report generation warrants an audit entry equal in weight to export — it
-  produces a decrypted artifact, so the assumption is **yes** (OQ7).
+  to the audit chain and local diagnostics (SPEC-027 precedent). Switch confirmed
+  (2026-06-14) report generation warrants an audit entry equal in weight to export — it
+  produces a decrypted artifact.
 - **PII redaction in logs (R15).** `reportService` logs only counts and byte sizes;
   org/donor/category names and amounts are PII-equivalent and redacted; paths logged as
   basename only.
 - **Input validation (R17).** All renderer-supplied parameters (ULIDs, ISO dates,
   enums) are Zod-validated at the boundary; invalid input → CE-XXX.
-- **Signature images — open risk.** If signature images are stored in org/profile
-  settings, they may need to live **inside the encrypted store** (an `org-profile`
-  record under the dataset root, AEAD-enveloped per crypto-spec §2.1 with AAD binding
-  `record_type=org_profile`) rather than as loose plaintext files. This touches Switch's
-  domain and is flagged as OQ5 / a §11 dependency. Until resolved, the assumption is:
-  signature images are referenced from settings and embedded into the PDF in main only.
+- **Confirmation friction (lightweight).** Generation is gated by a **simple
+  confirmation modal without a typed-word step** (FR15) — lighter than Export's
+  `EXPORTAR`/`EXPORT` gate, per Pedro's low-friction MVP preference (2026-06-14). The
+  encrypted-workspace guard, audit-first ordering, and atomic write are retained
+  unchanged from SPEC-027/028.
+- **Org logo (non-sensitive).** The header logo is an org/profile branding asset stored
+  **outside** the encrypted store (Switch confirmed 2026-06-14); embedding it touches no
+  cryptographic boundary. **No signature images** are captured, embedded, or stored — the
+  PDF prints signature blocks signed externally (FR9), so there is no signature-asset or
+  encrypted-signature-store requirement.
 - **What the spec is NOT promising.** It does not encrypt the generated PDF, prevent the
   user from emailing it, or control OS indexing of the destination — the pre-generation
   modal discloses this (FR15), reusing SPEC-027 §2.6 language.
@@ -450,7 +504,7 @@ SPEC-027 security envelope. It introduces **no new cryptographic primitive**.
 - Encrypted-but-locked workspace → generation refused (Scenario F).
 - Uncategorised movements surface in an `Unclassified` line within the table matching
   their `tx.type`, and totals still reconcile (Scenario E).
-- Multi-account consolidated vs single-account scoping (Scenario D / OQ3).
+- Multi-account consolidated vs single-account scoping (Scenario D / FR21).
 
 ### 9.3 E2E (Playwright against built Electron binary)
 
@@ -475,13 +529,16 @@ SPEC-027 security envelope. It introduces **no new cryptographic primitive**.
 - [ ] **AC4** — Line items derive credit vs debit from the first-class
   `Transaction.type` (income → Credits, expense → Debits), independent of amount sign or
   `category.kind`; uncategorised movements appear under `Unclassified` in the matching
-  table and totals still reconcile. The per-table subtotals equal
-  `getRangeKPIs(from,to).income/.expense` (FR6).
+  table and totals still reconcile. The per-table subtotals equal the period income/expense
+  for the selected account scope — `getRangeKPIs(from,to)` in consolidated mode, or the
+  account-scoped totals from `getAccountBalancesInRange(from,to)` in single-account mode
+  (FR6, FR21).
 - [ ] **AC5** — `category-subcategory` grouping breaks a category into its subcategory
   line items with a category subtotal; `category` grouping does not (FR7).
 - [ ] **AC6** — The header renders org name/logo, legal registration line, address,
-  email, and the localized title; the footer renders both signatory blocks with
-  name/role/place/date/signature slots (FR3, FR9).
+  email, and the localized title; the footer renders both signatory blocks
+  (name/role/place/date line + a blank signature area) with **no embedded signature
+  image** (FR3, FR9).
 - [ ] **AC7** — Amounts render in European format (`.` thousands, `,` decimal) per the
   active locale (FR10).
 - [ ] **AC8** — A successful generation writes a PDF to a user-chosen path; the default
@@ -514,9 +571,8 @@ SPEC-027 security envelope. It introduces **no new cryptographic primitive**.
   outside the dataset), C13 (IPC Zod validation).
 - **Security requirements satisfied:** R3, R6, R8, R11, R12, R15, R17, R18.
 - **Crypto-spec sections:** §1.1 (AEAD primitive), §2 (key hierarchy — MK reuse), §2.1
-  (per-file AAD on decrypt; org-profile record if signature images are stored — OQ5),
-  §8.2 (audit `action` enum: add `report.generate`), §8.3 (audit-export precedent),
-  §11 gates `[NO-DIY]`, `[AUDIT-CHAIN]`, `[RENDERER-ISO]`.
+  (per-file AAD on decrypt), §8.2 (audit `action` enum: add `report.generate`), §8.3
+  (audit-export precedent), §11 gates `[NO-DIY]`, `[AUDIT-CHAIN]`, `[RENDERER-ISO]`.
 - **Related specs:**
   - [SPEC-027 Export](./027-export.md) — decrypt-in-main, confirmation-token, audit-first,
     atomic-write, encrypted-workspace-guard, locale/number patterns are reused wholesale.
@@ -542,65 +598,62 @@ SPEC-027 security envelope. It introduces **no new cryptographic primitive**.
 
 ## 12. Open Questions
 
-Numbered for easy reply (Pedro). Each carries the drafter's **best-guess assumption**,
-already reflected in the spec body; confirming or overriding them moves this spec
-Draft → In Review → Accepted.
+All nine Open Questions were **resolved by Pedro on 2026-06-14** (decisions relayed via
+the coordinator). They are retained here as a decision log; the spec body already
+reflects each resolution.
 
-> **Resolved by the codebase (no longer Open Questions):**
-> **(a) Income vs expense classification** — settled: a transaction's first-class
-> `Transaction.type` (`'income' | 'expense'`) decides Credit vs Debit, exactly as the
+> **Resolved by the codebase (never open):**
+> **(a) Income vs expense classification** — a transaction's first-class
+> `Transaction.type` (`income` / `expense`) decides Credit vs Debit, exactly as the
 > Panel/Saldo screen does. Amounts are stored positive; classification is **not** the
 > amount sign and **not** `category.kind`. (See FR6.)
-> **(b) Opening / closing balance source** — settled: opening = the event-sourced
+> **(b) Opening / closing balance source** — opening = the event-sourced
 > `ConfigAccount.openingBalance` + the running net of all transactions before the
 > period start; closing = `opening + credits − debits`. (See FR8, §6.2.)
 
-1. **Output format / generator.** MVP is a faithful **PDF**. Which mechanism do you
-   prefer: (a) a main-process **HTML template printed to PDF** via Electron's
-   `webContents.printToPDF` (best template fidelity, reuses CSS, our recommendation),
-   (b) a **PDF library** in main (e.g. pdfkit — more code, less CSS fidelity), or
-   (c) renderer **print-to-PDF**? And do you also want the **Excel summary sheet** in
-   v1, or as a fast-follow? *Assumption: (a) HTML→printToPDF for v1 PDF; XLSX deferred.*
-2. **Line-item grouping granularity.** Default is **by category**, automatically broken
-   out into **subcategories** where they exist (matching the template's per-event expense
-   breakdown). Is category→subcategory the right default, or do you want category-only
-   with an optional drill-down? *Assumption: category, auto-expanded to subcategories.*
-3. **Multi-account.** For an NGO with more than one bank account, do you want **one
-   consolidated report** (single opening/closing pair across all accounts) by default,
-   **per-account sections** in one document, or a **per-account report** when a single
-   account is selected? *Assumption: consolidated by default; per-account when one
-   account is picked.*
-4. **Period selection.** Is **calendar-year** sufficient for v1, or do you need a
-   **configurable fiscal-year start** (e.g. Apr–Mar) and/or arbitrary date ranges?
-   *Assumption: calendar-year picker + custom date range in v1; configurable fiscal-year
-   start deferred.*
-5. **Header / footer source & signature images.** Should org details (name, logo, legal
-   registration line, address, email) and the signatory blocks (treasurer + auditor:
-   name, role, place, date, **signature image**) come from **organisation/profile
-   settings** (entered once, reused yearly) or be **entered at generation time**? And
-   where should **signature images** live — inside the **encrypted store** (an
-   `org-profile` record, which is the safer default) or as referenced files? *Assumption:
-   sourced from org settings with at-generation overrides; signature images stored
-   inside the encrypted store pending Switch's ruling.*
-6. **Reconciliation label typo in the source PDF.** The RSE 2024 reconciliation block is
-   labelled **"Credits 2023 / Debits 2023"** while the report is for **2024** and the
-   figures are the 2024 totals. We read this as a **typo** and will label the
-   reconciliation lines with the **report year** (2024). Confirm the intended labelling.
-   *Assumption: label = the report year.*
-7. **Confirmation & audit policy.** A generated report is a **decrypted artifact** like
-   an export. Should generation (a) require the same **typed-word confirmation** as
-   Export (`EXPORTAR`/`EXPORT`), and (b) write a **signed audit-log entry**
-   (`report.generate`)? *Assumption: yes to a signed audit entry; confirmation modal yes
-   but the typed-word step can be softened for reports — your call.*
-8. **Locale / currency.** Confirm the **European number format** (`.` thousands, `,`
-   decimal) follows the **active app locale**, and how the **currency symbol** should be
-   shown (e.g. `9.506,21 €` vs `€ 9.506,21` vs none). *Assumption: active-locale European
-   format; `€` suffix with a non-breaking space.*
-9. **v1 scope / MVP boundary.** Proposed **in v1:** single-year (or custom-range) PDF
-   statement matching the template, consolidated or per-account, credits/debits/
-   reconciliation/signatures. Proposed **deferred:** XLSX summary, multi-year comparison
-   columns, per-project/per-label breakdowns, charts/graphs, and external RFC-3161
-   timestamping of the report. Confirm this boundary.
+1. **Output format / generator.** **Resolved (2026-06-14):** **PDF only** in v1, via a
+   main-process **HTML template printed to PDF** with Electron `webContents.printToPDF`.
+   The **XLSX summary sheet is deferred**. (FR11.)
+2. **Line-item grouping granularity.** **Resolved (2026-06-14):** grouping level is
+   **user-selectable at generation time** — a selector control with **Category** (default)
+   and **Category → Subcategory** options; it is **not** automatic. Both levels must still
+   reconcile to `getRangeKPIs` totals. Pedro: *"I would give the option to the user to
+   choose the level… it might significantly affect the format."* (FR7, §5.)
+3. **Multi-account.** **Resolved (2026-06-14):** **consolidated multi-account by default**
+   (single opening/closing pair summed across selected accounts), with the ability to
+   **pick a single account** (per-account opening/closing). Pedro: *"it's multi-account,
+   but I guess we can pick one."* (FR21, Scenario D.)
+4. **Period selection.** **Resolved (2026-06-14):** **calendar-year picker + arbitrary
+   custom date range** in v1; configurable fiscal-year start **deferred**. (FR2.)
+5. **Header / footer source & logo.** **Resolved (2026-06-14):** org details (name, legal
+   registration line, address, email) **and an org LOGO** come from **organisation/profile
+   settings** with **at-generation overrides**. The logo is a **non-sensitive branding
+   asset stored as an org setting — NOT in the encrypted store** (Switch confirmed). Pedro:
+   *"it would be great to have a logo!"* (FR3, §6.3.)
+6. **Reconciliation label typo in the source PDF.** **Resolved (2026-06-14):** treat the
+   source "2023" labels as a **typo** — label the reconciliation lines with the **report
+   year**. (FR8.)
+7. **Signatures.** **Resolved (2026-06-14):** the app does **NOT** embed or store
+   signature images. The PDF prints **signature blocks** (name, role, place, date line +
+   blank signature area) for the treasurer and external auditor; **the auditor signs the
+   finished PDF externally**. No signature-image asset, no signature storage, no
+   encrypted-store-for-signatures. Signatory names/roles/places from org settings with
+   overrides. Pedro: *"the signature is done outside the app, in the PDF file by an
+   external auditor."* (FR9, §6.3, §8.)
+8. **Confirmation & audit policy.** **Resolved (2026-06-14, coordinator default):**
+   generation **writes a signed audit entry** `report.generate` (yes), and shows a
+   **simple confirmation modal WITHOUT the typed-word step** (lighter than Export, per
+   Pedro's low-friction preference). The encrypted-workspace guard and audit-first /
+   atomic-write ordering from SPEC-027/028 are retained. (FR15, FR17, §8.)
+9. **Locale / currency.** **Resolved (2026-06-14):** active-locale **European format**
+   (`.` thousands, `,` decimal), currency rendered as **`9.506,21 €`** (`€` suffix with a
+   non-breaking space). (FR10.)
+
+**v1 scope / MVP boundary (confirmed 2026-06-14).** **In:** single-year or custom-range
+PDF statement matching the RSE template (header + logo, credits table, debits table,
+balance reconciliation, signature blocks), consolidated or single-account, user-selectable
+grouping level. **Deferred:** XLSX summary, multi-year comparison, per-project/per-label
+breakdowns, charts, RFC-3161 timestamping, in-app signing.
 
 ## 13. Status History
 
@@ -608,3 +661,4 @@ Draft → In Review → Accepted.
 |---|---|---|---|
 | 2026-06-14 | Draft | Neo (with Link/Switch/Niobe/Mouse) | Initial draft — replicates RSE Financial Report 2024 template as an aggregation/presentation layer over SPEC-027/028 decrypt-in-main access. |
 | 2026-06-14 | Draft | Neo | Anchored §6.2 on the existing `core/query` engine (reuse map + one new `getCategoryBreakdownInRange`). Settled classification (`tx.type`) and opening/closing-balance source (event-sourced `openingBalance`) from the codebase; removed both from Open Questions (now 9). |
+| 2026-06-14 | In Review | Neo (Squad) | Pedro resolved all 9 Open Questions (PDF-only via HTML→printToPDF; user-selectable grouping level; consolidated-by-default + single-account; calendar-year + custom range; org logo as non-encrypted org setting; reconciliation labelled with report year; **no in-app signature images** — printed blocks signed externally; signed `report.generate` audit entry + lightweight confirmation without typed-word; `9.506,21 €` formatting). Squad review: Neo (architecture) ✅ · Switch (security) ✅ · Link (product) ✅ · Niobe (UX) ✅ · Mouse (design) ✅ — all approved. |
