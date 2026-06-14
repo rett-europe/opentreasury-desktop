@@ -1,0 +1,200 @@
+.ot-report-preview {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e1d6ea);
+  border-radius: var(--radius-md, 6px);
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.08));
+  padding: var(--space-6, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5, 20px);
+  color: var(--color-text, #1a1420);
+}
+
+/* ── Header lockup ───────────────────────────────────────────── */
+.ot-report-preview__header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-4, 16px);
+}
+
+.ot-report-preview__brand {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3, 12px);
+}
+
+.ot-report-preview__logo {
+  max-height: 56px;
+  max-width: 120px;
+  object-fit: contain;
+}
+
+.ot-report-preview__org-name {
+  margin: 0 0 4px;
+  font-size: var(--font-size-18, 18px);
+  font-weight: 600;
+}
+
+.ot-report-preview__org-line {
+  margin: 0;
+  font-size: var(--font-size-13, 13px);
+  color: var(--color-text-secondary, #51455e);
+}
+
+.ot-report-preview__meta {
+  text-align: right;
+}
+
+.ot-report-preview__title {
+  margin: 0;
+  font-size: var(--font-size-20, 20px);
+  font-weight: 600;
+  color: var(--color-accent, #6d4d8c);
+}
+
+.ot-report-preview__period,
+.ot-report-preview__generated,
+.ot-report-preview__scope {
+  margin: 2px 0 0;
+  font-size: var(--font-size-13, 13px);
+  color: var(--color-text-muted, #6b7280);
+}
+
+.ot-report-preview__rule {
+  border: none;
+  border-top: 1.5px solid var(--color-accent, #6d4d8c);
+  margin: 0;
+}
+
+/* ── Section captions ────────────────────────────────────────── */
+.ot-report-preview__caption {
+  margin: 0 0 var(--space-2, 8px);
+  font-size: var(--font-size-12, 12px);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary, #51455e);
+}
+
+/* ── Tables ──────────────────────────────────────────────────── */
+.ot-report-preview__table-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.ot-report-preview__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ot-report-preview__row > td {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-border-subtle, #ede4f2);
+  font-size: var(--font-size-14, 14px);
+}
+
+.ot-report-preview__label {
+  text-align: left;
+}
+
+.ot-report-preview__label--sub {
+  padding-left: var(--space-5, 20px);
+  color: var(--color-text-secondary, #51455e);
+}
+
+.ot-report-preview__amount {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  padding-left: var(--space-6, 24px);
+}
+
+.ot-report-preview__amount--credit {
+  color: var(--color-success, #1e7a2c);
+}
+
+.ot-report-preview__amount--debit {
+  color: var(--color-danger, #b81f1f);
+}
+
+.ot-report-preview__row--total > td {
+  border-top: 1.5px solid var(--color-border, #e1d6ea);
+  border-bottom: none;
+  padding-top: 8px;
+  font-weight: 600;
+}
+
+/* ── Reconciliation box ──────────────────────────────────────── */
+.ot-report-preview__reconciliation {
+  border: 1px solid var(--color-border, #e1d6ea);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-surface-secondary, #f4eef8);
+  padding: var(--space-4, 16px);
+}
+
+.ot-report-preview__recon-list {
+  margin: 0;
+}
+
+.ot-report-preview__recon-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4, 16px);
+  padding: 4px 0;
+  font-size: var(--font-size-14, 14px);
+}
+
+.ot-report-preview__recon-row dt {
+  margin: 0;
+}
+
+.ot-report-preview__recon-row dd {
+  margin: 0;
+}
+
+.ot-report-preview__recon-row--closing {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1.5px solid var(--color-border-strong, #b8a6ca);
+  font-weight: 700;
+  background: var(--color-accent-subtle, #ede4f2);
+}
+
+/* ── Signature footer ────────────────────────────────────────── */
+.ot-report-preview__signatures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5, 20px);
+}
+
+.ot-report-preview__signature {
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3, 12px);
+}
+
+.ot-report-preview__sig-eyebrow {
+  font-size: var(--font-size-12, 12px);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.ot-report-preview__sig-rule {
+  height: 1px;
+  margin: var(--space-5, 20px) 0 6px;
+  border-bottom: 1px solid var(--color-border-strong, #b8a6ca);
+}
+
+.ot-report-preview__sig-name {
+  font-weight: 600;
+}
+
+.ot-report-preview__sig-role,
+.ot-report-preview__sig-place {
+  font-size: var(--font-size-13, 13px);
+  color: var(--color-text-secondary, #51455e);
+}

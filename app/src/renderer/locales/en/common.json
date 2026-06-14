@@ -209,6 +209,73 @@
       "EXPORT_INTERNAL": "An unexpected error occurred during export. Please try again."
     }
   },
+  "report": {
+    "title": "Financial Report",
+    "subtitle": "Generate the year-end financial statement PDF for the board and the auditor.",
+    "form": {
+      "period": "Period",
+      "calendarYear": "Calendar year",
+      "customRange": "Custom range",
+      "year": "Year",
+      "from": "From",
+      "to": "To",
+      "invalidRange": "The end date must be after the start date.",
+      "scope": "Accounts",
+      "account": "Account scope",
+      "consolidated": "All accounts (consolidated)",
+      "grouping": "Grouping level",
+      "groupingLevel": "Group by",
+      "groupingCategory": "Category",
+      "groupingSubcategory": "Category → Subcategory"
+    },
+    "btn": {
+      "build": "Build preview",
+      "generate": "Generate PDF",
+      "cancel": "Cancel"
+    },
+    "empty": {
+      "pickPeriod": "Select a year or a range to begin."
+    },
+    "building": "Building preview…",
+    "success": "Financial report generated: {{basename}}.",
+    "expired": "The preview expired. Build it again to continue.",
+    "error": {
+      "rebuild": "Build again",
+      "retry": "Try again"
+    },
+    "confirm": {
+      "title": "You are about to generate a decrypted PDF",
+      "b1": "The PDF will NOT be encrypted.",
+      "b2": "Anyone with access to the file can read its contents.",
+      "b3": "If you save it to a synced folder (OneDrive, Dropbox, iCloud), it will also be copied to the cloud.",
+      "continue": "Generate PDF"
+    },
+    "preview": {
+      "ariaLabel": "Financial report preview",
+      "credits": "Credits",
+      "debits": "Debits",
+      "total": "TOTAL",
+      "reconciliation": "Reconciliation",
+      "opening": "Opening balance",
+      "creditsLine": "Credits",
+      "debitsLine": "Debits",
+      "closing": "Closing balance",
+      "signatures": "Signatures",
+      "treasurer": "Treasurer",
+      "auditor": "Auditor"
+    },
+    "errors": {
+      "REPORT_NO_WORKSPACE": "No treasury is unlocked. Sign in again to generate the report.",
+      "REPORT_TOKEN_INVALID": "The report session expired. Build the preview again.",
+      "REPORT_DEST_INSIDE_WORKSPACE": "You cannot save the PDF inside the treasury folder. Choose another location.",
+      "REPORT_DEST_TEMP_DIR": "You cannot save to a system temporary folder. Choose another location.",
+      "REPORT_RECONCILE_MISMATCH": "The figures do not balance (opening + credits − debits ≠ closing). The report was not generated.",
+      "REPORT_AUDIT_FAILED": "Could not record the report audit entry. Try again or contact your administrator.",
+      "REPORT_RENDER_FAILED": "Could not render the PDF. Please try again.",
+      "REPORT_WRITE_FAILED": "Could not save the file. Check the location and try again.",
+      "REPORT_INTERNAL": "An unexpected error occurred while generating the report. Please try again."
+    }
+  },
   "shell": {
     "nav": {
       "panel": "Dashboard",
@@ -222,7 +289,8 @@
       "etiquetas": "Tags",
       "preferences": "Preferences",
       "export": "Export",
-      "audit": "Audit"
+      "audit": "Audit",
+      "reports": "Reports"
     },
     "theme": {
       "label": "Theme",

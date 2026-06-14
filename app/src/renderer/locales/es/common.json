@@ -209,6 +209,73 @@
       "EXPORT_INTERNAL": "Ocurrió un error inesperado durante la exportación. Inténtalo de nuevo."
     }
   },
+  "report": {
+    "title": "Informe financiero",
+    "subtitle": "Genera el estado financiero de fin de año en PDF para la junta y el auditor.",
+    "form": {
+      "period": "Periodo",
+      "calendarYear": "Año natural",
+      "customRange": "Rango personalizado",
+      "year": "Año",
+      "from": "Desde",
+      "to": "Hasta",
+      "invalidRange": "La fecha final debe ser posterior a la fecha inicial.",
+      "scope": "Cuentas",
+      "account": "Ámbito de cuentas",
+      "consolidated": "Todas las cuentas (consolidado)",
+      "grouping": "Nivel de agrupación",
+      "groupingLevel": "Agrupar por",
+      "groupingCategory": "Categoría",
+      "groupingSubcategory": "Categoría → Subcategoría"
+    },
+    "btn": {
+      "build": "Generar vista previa",
+      "generate": "Generar PDF",
+      "cancel": "Cancelar"
+    },
+    "empty": {
+      "pickPeriod": "Selecciona un año o un rango para comenzar."
+    },
+    "building": "Generando vista previa…",
+    "success": "Informe financiero generado: {{basename}}.",
+    "expired": "La vista previa caducó. Vuelve a generarla para continuar.",
+    "error": {
+      "rebuild": "Volver a generar",
+      "retry": "Reintentar"
+    },
+    "confirm": {
+      "title": "Vas a generar un PDF descifrado",
+      "b1": "El PDF NO estará cifrado.",
+      "b2": "Cualquier persona con acceso al archivo podrá leer su contenido.",
+      "b3": "Si lo guardas en una carpeta sincronizada (OneDrive, Dropbox, iCloud), también se copiará a la nube.",
+      "continue": "Generar PDF"
+    },
+    "preview": {
+      "ariaLabel": "Vista previa del informe financiero",
+      "credits": "Ingresos",
+      "debits": "Gastos",
+      "total": "TOTAL",
+      "reconciliation": "Conciliación",
+      "opening": "Saldo inicial",
+      "creditsLine": "Ingresos",
+      "debitsLine": "Gastos",
+      "closing": "Saldo final",
+      "signatures": "Firmas",
+      "treasurer": "Tesorero",
+      "auditor": "Auditor"
+    },
+    "errors": {
+      "REPORT_NO_WORKSPACE": "No hay un tesoro desbloqueado. Vuelve a iniciar sesión para generar el informe.",
+      "REPORT_TOKEN_INVALID": "La sesión del informe caducó. Vuelve a generar la vista previa.",
+      "REPORT_DEST_INSIDE_WORKSPACE": "No puedes guardar el PDF dentro de la carpeta del tesoro. Elige otra ubicación.",
+      "REPORT_DEST_TEMP_DIR": "No puedes guardar en una carpeta temporal del sistema. Elige otra ubicación.",
+      "REPORT_RECONCILE_MISMATCH": "Las cifras no cuadran (saldo inicial + ingresos − gastos ≠ saldo final). No se generó el informe.",
+      "REPORT_AUDIT_FAILED": "No se pudo registrar la auditoría del informe. Inténtalo de nuevo o consulta a tu administrador.",
+      "REPORT_RENDER_FAILED": "No se pudo generar el PDF. Inténtalo de nuevo.",
+      "REPORT_WRITE_FAILED": "No se pudo guardar el archivo. Comprueba la ubicación e inténtalo de nuevo.",
+      "REPORT_INTERNAL": "Ocurrió un error inesperado al generar el informe. Inténtalo de nuevo."
+    }
+  },
   "shell": {
     "nav": {
       "panel": "Panel",
@@ -222,7 +289,8 @@
       "etiquetas": "Etiquetas",
       "preferences": "Preferencias",
       "export": "Exportar",
-      "audit": "Auditoría"
+      "audit": "Auditoría",
+      "reports": "Informes"
     },
     "theme": {
       "label": "Tema",
