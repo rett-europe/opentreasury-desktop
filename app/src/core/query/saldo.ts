@@ -38,7 +38,7 @@ import { getReadModel } from './reducers';
 // renderer can render a locale-appropriate label via i18n (see
 // `saldo.panel.uncategorized` in common.json). User-facing strings must
 // not live in the core/query layer.
-function resolveCategoryName(categoryId: string | null, model: ReadModel): string | null {
+export function resolveCategoryName(categoryId: string | null, model: ReadModel): string | null {
   if (categoryId === null) return null;
   const c = model.configCategories.find((x) => x.id === categoryId);
   return c?.name ?? null;
@@ -47,7 +47,7 @@ function resolveCategoryName(categoryId: string | null, model: ReadModel): strin
 // WI-B prerequisite (#67): Subcategory name resolution. Same semantics as
 // category resolution — archived subcategories still resolve, deleted/null
 // subcategories resolve to `null`.
-function resolveSubcategoryName(
+export function resolveSubcategoryName(
   categoryId: string | null,
   subcategoryId: string | null,
   model: ReadModel,
