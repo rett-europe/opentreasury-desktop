@@ -127,6 +127,7 @@ export type AuditVerifyStatusResponse = z.infer<typeof auditVerifyStatusResponse
 export const auditSignedActionSchema = z.enum([
   'export.csv',
   'export.xlsx',
+  'report.generate',
   'audit.anchor',
   'audit.anchor.timestamped',
   'audit.export',

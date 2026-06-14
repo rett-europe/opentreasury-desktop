@@ -470,11 +470,12 @@ Each chunk contains a JSON-lines sequence (after decryption), where each line is
   "actor_user_identity": "maria@ngo.org",
   "action": "tx.created" | "tx.updated" | "tx.deleted" |
             "import.csv" | "export.csv" | "export.xlsx" |
+            "report.generate" |
             "device.enrolled" | "device.revoked" |
             "dek.rotated" | "admin.transferred" |
             "dataset.created" | "snapshot.taken" |
             "audit.anchor" | "audit.anchor.timestamped" | "audit.export",
-  "target_ref": { "type": "event" | "device" | "export" | "anchor" | …, "id": "…" },
+  "target_ref": { "type": "event" | "device" | "export" | "report" | "anchor" | …, "id": "…" },
   "before_hash": "<BLAKE2b-256 hex of pre-state, or null>",
   "after_hash":  "<BLAKE2b-256 hex of post-state, or null>",
   "prev_entry_hash": "<BLAKE2b-256 hex of the previous entry's canonical-JSON>",

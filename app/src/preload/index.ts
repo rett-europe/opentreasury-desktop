@@ -262,6 +262,14 @@ import {
 } from '../shared/ipc-contracts/org-profile.js';
 import { IPC_SHELL_OPEN_PATH, type ShellOpenPathResponse } from '../shared/ipc-contracts/shell.js';
 import {
+  IPC_REPORT_BUILD,
+  IPC_REPORT_GENERATE,
+  type ReportBuildRequest,
+  type ReportBuildResponse,
+  type ReportGenerateRequest,
+  type ReportGenerateResponse,
+} from '../shared/ipc-contracts/report.js';
+import {
   IPC_APP_NEEDS_ONBOARDING,
   type AppNeedsOnboardingResponse,
 } from '../shared/ipc-contracts/onboarding.js';
@@ -612,6 +620,23 @@ const api = {
     },
     getLogo: (): Promise<OrgProfileGetLogoResponse> => {
       return ipcRenderer.invoke(IPC_ORG_PROFILE_GET_LOGO);
+    },
+  },
+  report: {
+    /**
+     * Assemble the aggregate-only report view-model for preview and mint a
+     * one-shot confirmation token. No plaintext rows or path cross this bridge.
+     */
+    build: (req: ReportBuildRequest): Promise<ReportBuildResponse> => {
+      return ipcRenderer.invoke(IPC_REPORT_BUILD, req);
+    },
+    /**
+     * Generate the PDF for a previously built report. Carries ONLY the opaque
+     * confirmation token; the save destination is chosen by the OS dialog in
+     * main and the response is an outcome — never a path string.
+     */
+    generate: (req: ReportGenerateRequest): Promise<ReportGenerateResponse> => {
+      return ipcRenderer.invoke(IPC_REPORT_GENERATE, req);
     },
   },
   shell: {
