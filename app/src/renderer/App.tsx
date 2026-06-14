@@ -4,6 +4,7 @@ import type { Route } from './screens/AppShell/index.js';
 import { ConfiguracionScreen } from './screens/ConfiguracionScreen/index.js';
 import { DatosScreen } from './screens/DatosScreen/index.js';
 import { ExportScreen } from './screens/ExportScreen/index.js';
+import { ReportsScreen } from './screens/ReportsScreen/index.js';
 import { AuditScreen } from './screens/AuditScreen/index.js';
 import { InsightsScreen } from './screens/InsightsScreen/index.js';
 import { InsightsDetailScreen } from './screens/InsightsDetailScreen/index.js';
@@ -336,6 +337,8 @@ export function App(): JSX.Element {
         />
       ) : route === 'export' ? (
         <ExportScreen configRevision={configRevision} />
+      ) : route === 'reports' ? (
+        <ReportsScreen configRevision={configRevision} />
       ) : route === 'audit' ? (
         <AuditScreen configRevision={configRevision} />
       ) : route === 'preferences' ? (

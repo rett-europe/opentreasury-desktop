@@ -6,6 +6,7 @@ import {
   ArrowLeftRight,
   ChartLine,
   Download,
+  FileText,
   FolderOpen,
   Landmark,
   LayoutDashboard,
@@ -47,6 +48,7 @@ export type Route =
   | 'insights-detail'
   | 'datos'
   | 'export'
+  | 'reports'
   | 'audit'
   | 'cuentas'
   | 'categorias'
@@ -145,6 +147,10 @@ const NAV_SECTIONS: readonly NavSection[] = [
     items: [
       { id: 'datos', labelKey: 'shell.nav.datos', icon: <Upload size={18} /> },
       { id: 'export', labelKey: 'shell.nav.export', icon: <Download size={18} /> },
+      // SPEC-030 §2 (UX-006) — Informes/Reports sits immediately after Exportar
+      // in the Datos section; the Financial Report generator (REP-1) is its v1
+      // content.
+      { id: 'reports', labelKey: 'shell.nav.reports', icon: <FileText size={18} /> },
       // SPEC-028 §2 — Auditoría sits immediately after Exportar (the real shell
       // has no single "Configuración" nav item; Auditoría stays adjacent to
       // Exportar per UX-006, giving the spec's `… · Exportar · Auditoría` order).

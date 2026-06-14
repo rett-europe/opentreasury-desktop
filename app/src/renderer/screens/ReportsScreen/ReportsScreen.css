@@ -1,0 +1,116 @@
+.ot-report {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6, 24px);
+  width: 100%;
+}
+
+.ot-report__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5, 20px);
+}
+
+.ot-report__group {
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.ot-report__legend {
+  font-weight: 600;
+  font-size: var(--font-size-16, 16px);
+  padding: 0;
+}
+
+.ot-report__period-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4, 16px);
+}
+
+.ot-report__radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-14, 14px);
+  cursor: pointer;
+}
+
+.ot-report__custom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4, 16px);
+}
+
+.ot-report__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-14, 14px);
+}
+
+.ot-report__field-label {
+  color: var(--color-text-muted, #6b7280);
+}
+
+.ot-report__select,
+.ot-report__field input {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-surface, #fff);
+  color: var(--color-text, #111827);
+  min-width: 220px;
+}
+
+.ot-report__field-error {
+  color: var(--color-danger, #dc2626);
+  margin: 0;
+}
+
+.ot-report__form-footer,
+.ot-report__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ot-report__status {
+  min-height: 1.5em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.ot-report__hint {
+  color: var(--color-text-muted, #6b7280);
+  margin: 0;
+}
+
+.ot-report__banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface-muted, #f3f4f6);
+}
+
+.ot-report__banner--success {
+  background: var(--color-success-bg, #ecfdf5);
+  color: var(--color-success-text, #065f46);
+}
+
+.ot-report__banner--danger {
+  background: var(--color-danger-bg, #fef2f2);
+  color: var(--color-danger-text, #991b1b);
+}
+
+.ot-report__banner--warning {
+  background: var(--color-warning-bg, #fffbeb);
+  color: var(--color-warning-text, #92400e);
+}

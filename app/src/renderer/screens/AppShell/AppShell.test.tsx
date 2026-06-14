@@ -200,3 +200,28 @@ describe('AppShell — sidebar collapse/expand toggle (issue #95)', () => {
     ).toBe('false');
   });
 });
+
+describe('AppShell — Reports nav entry (SPEC-030 WI-3)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    installMatchMediaStub();
+    installOpentreasuryStub();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('shows the Reports entry in the Datos section immediately after Export', async () => {
+    renderShell();
+    await screen.findByRole('button', { name: /collapse navigation|contraer/i });
+
+    const reports = screen.getByRole('button', { name: /Informes|Reports/i });
+    const exportItem = screen.getByRole('button', { name: /Exportar|Export/i });
+    expect(reports).toBeTruthy();
+
+    // Reports must come AFTER Export in document order (datos: … Export · Reports).
+    const position = exportItem.compareDocumentPosition(reports);
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
