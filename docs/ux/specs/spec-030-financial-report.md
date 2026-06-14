@@ -2,7 +2,7 @@
 
 > **Status:** In Review (stub) · **Owner:** Niobe · **Last updated:** 2026-06-14
 > **Paired feature spec:** [`docs/specs/030-financial-report.md`](../../specs/030-financial-report.md)
-> **Paired Design:** Pending — Mouse (template fidelity to the RSE Financial Report 2024 PDF)
+> **Paired Design:** [`docs/design/030-financial-report.md`](../../design/030-financial-report.md) — Mouse (template fidelity to the RSE Financial Report 2024 PDF), complete 2026-06-14.
 
 ---
 

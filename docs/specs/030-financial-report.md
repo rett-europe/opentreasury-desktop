@@ -1,10 +1,10 @@
 # SPEC-030 — Financial Report
 
-> **Status:** In Review · **Owner:** Neo (architecture) — co-authored with Link (product), Switch (security), Niobe (UX), Mouse (design) · **Last updated:** 2026-06-14
-> **Reviewers:** Neo (architecture) ✅ · Switch (security) ✅ · Link (product) ✅ · Niobe (UX) ✅ · Mouse (design) ✅ — all approved 2026-06-14
+> **Status:** Accepted · **Owner:** Neo (architecture) — co-authored with Link (product), Switch (security), Niobe (UX), Mouse (design) · **Last updated:** 2026-06-14
+> **Reviewers:** Neo (architecture) ✅ · Switch (security) ✅ · Link (product) ✅ · Niobe (UX) ✅ · Mouse (design) ✅ — all approved 2026-06-14; Mouse design-fidelity pass complete 2026-06-14; Pedro signed off scope.
 > **Paired PRD:** Pending — PRD-030 reservation needed in `docs/product/prd-plan.md` (folds the existing PRD-016 "PDF report export" + PRD-018 "Reports module" reservations).
 > **Paired UX:** [`docs/ux/specs/spec-030-financial-report.md`](../ux/specs/spec-030-financial-report.md)
-> **Paired Design:** Pending (Mouse — report template visual fidelity to the RSE 2024 PDF).
+> **Paired Design:** [`docs/design/030-financial-report.md`](../design/030-financial-report.md) (Mouse — report template visual fidelity to the RSE 2024 PDF).
 > **Required reading (reused patterns):** [SPEC-027 Export](./027-export.md) · [SPEC-028 Audit & Evidence](./028-audit-and-evidence.md) · [`crypto-spec.md`](../security/crypto-spec.md) §8 · the existing aggregation layer in `app/src/core/query/` (`queries.ts`, `saldo.ts`, `types.ts`).
 
 > **Architectural anchor:** The Financial Report is structurally the **same** as the existing **Balance / Panel ("Saldo")** screen — income/expense/net aggregation over the transaction read model. It MUST be built on the existing `app/src/core/query/` layer, **not** on new summation logic. The Credits/Debits TOTALs ARE `getRangeKPIs(from, to)` over the fiscal-year range; classification is the first-class `Transaction.type` field; opening/closing balances come from the event-sourced `ConfigAccount.openingBalance`. See §6.2 for the exact reuse map.
@@ -593,7 +593,7 @@ SPEC-027 security envelope. It introduces **no new cryptographic primitive**.
   `.squad/skills/read-model-aggregation/SKILL.md`,
   `.squad/skills/spec-to-subissues/SKILL.md`.
 - **Paired UX:** [`docs/ux/specs/spec-030-financial-report.md`](../ux/specs/spec-030-financial-report.md).
-- **Paired Design:** Pending Mouse template-fidelity pass.
+- **Paired Design:** [`docs/design/030-financial-report.md`](../design/030-financial-report.md) — Mouse template-fidelity pass (complete 2026-06-14).
 - **Supersedes / Superseded by:** —
 
 ## 12. Open Questions
@@ -662,3 +662,4 @@ breakdowns, charts, RFC-3161 timestamping, in-app signing.
 | 2026-06-14 | Draft | Neo (with Link/Switch/Niobe/Mouse) | Initial draft — replicates RSE Financial Report 2024 template as an aggregation/presentation layer over SPEC-027/028 decrypt-in-main access. |
 | 2026-06-14 | Draft | Neo | Anchored §6.2 on the existing `core/query` engine (reuse map + one new `getCategoryBreakdownInRange`). Settled classification (`tx.type`) and opening/closing-balance source (event-sourced `openingBalance`) from the codebase; removed both from Open Questions (now 9). |
 | 2026-06-14 | In Review | Neo (Squad) | Pedro resolved all 9 Open Questions (PDF-only via HTML→printToPDF; user-selectable grouping level; consolidated-by-default + single-account; calendar-year + custom range; org logo as non-encrypted org setting; reconciliation labelled with report year; **no in-app signature images** — printed blocks signed externally; signed `report.generate` audit entry + lightweight confirmation without typed-word; `9.506,21 €` formatting). Squad review: Neo (architecture) ✅ · Switch (security) ✅ · Link (product) ✅ · Niobe (UX) ✅ · Mouse (design) ✅ — all approved. |
+| 2026-06-14 | Accepted | Mouse (Squad) | Design-fidelity pass complete; Pedro signed off scope; all reviewers approved. Paired Design artifact [`docs/design/030-financial-report.md`](../design/030-financial-report.md) pins pixel-fidelity to the RSE 2024 template (header lockup + logo, credits/debits tables, reconciliation box, two-column signature footer, A4 print spec) with token mapping + fidelity checklist. |
