@@ -98,6 +98,9 @@ flowchart LR
 | PRD-021 | Multi-account reconciliation | Planned | M4 | Link | Pedro, Niobe | TBD |
 | PRD-022 | Attachments (receipts) | Planned | M4 | Link | Pedro, Switch, Niobe | TBD |
 | PRD-027 | Export (CSV/XLSX) | **Shipped** (v0.1.0-trial.3.14) | M4 | Link | Pedro, Switch, Neo | [SPEC-027](../specs/027-export.md) |
+| PRD-030 | Financial Report | **Spec'd (Draft)** | M4 | Link | Pedro, Niobe, Switch, Neo | [SPEC-030](../specs/030-financial-report.md) |
+
+> **Note (Reports — PRD-016 / PRD-018 → PRD-030):** PRD-016 ("PDF report export") and PRD-018 ("Reports module") are folded into **PRD-030 "Financial Report"**, the first concrete report Pedro asked for (replicating the RSE Financial Report 2024 annual statement). **SPEC-030** is the paired spec (Draft). PRD-016/PRD-018 are retained as historical reservations; PRD-030 is authoritative for the Financial Report scope. The PRD-030 body is a reservation pending Link's write-up — SPEC-030 leads with 10 Open Questions for Pedro.
 
 > **Note (Export — PRD-008 vs PRD-027):** PRD-008 ("CSV export", M3) and PRD-027 ("Export (CSV/XLSX)", M4) describe the **same** user-facing feature. The work shipped early under **PRD-027 / SPEC-027** in `v0.1.0-trial.3.14` (filtered CSV **and** Excel export). **PRD-027 is authoritative**; PRD-008 is retained only as a historical reservation and marked superseded.
 
