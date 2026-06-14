@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.18] — Config & taxonomy audit attribution
+
+Builds on the 3.17 Audit & Evidence viewer: account, category, subcategory, and tag changes now record who made them and on which device, so the audit **Historial de cambios** attributes them instead of showing "unknown". Existing trial datasets open normally — no migration.
+
+### Added
+
+- **Actor + device attribution on config/taxonomy events (#388, PR #389).** Creating, editing, archiving, or deleting an account, category, subcategory, or tag now stamps the acting user and device onto the event, so the Audit viewer's **Historial de cambios** shows the real author and device for those rows. Attribution stays honest: events written before this release carry no actor on the wire and continue to render as "unknown (pre-coverage)" — never back-filled or inferred. No change to encryption, signing, or the hash chain.
+
 ## [0.1.0-trial.3.17] — SPEC-028 Audit & Evidence viewer (WI-4)
 
 Adds the first user-facing audit surface on top of the 3.15/3.16 audit foundation: a read-only **Auditoría / Audit** screen for internal auditors. Existing trial datasets open normally — no migration.
