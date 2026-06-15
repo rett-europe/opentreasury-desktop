@@ -3,7 +3,8 @@
 > **Status:** Accepted · **Owner:** Niobe · **Last updated:** 2026-06-15
 > **Amendment (2026-06-15):** §3.5 adds **enriched change-history detail** (per-row summary,
 > expandable transaction detail, bulk grouping, privacy gating) — pairs with feature-spec §4.3.
-> The accepted viewer scope (§1–§4) is unchanged; §3.5 is a new increment for review.
+> The accepted viewer scope (§1–§4) is unchanged. **§3.5 is now ACCEPTED** — Pedro ratified the
+> paired OQ9–OQ15 on 2026-06-15.
 > **Reviewers:** Neo (architecture) — pending · Switch (security) — pending · Link (product) — pending ·
 > Mouse (design) — pending · **Acceptance:** Pedro (product owner)
 > **Paired feature spec:** [`docs/specs/028-audit-and-evidence.md`](../../specs/028-audit-and-evidence.md)
@@ -132,7 +133,8 @@ viewer's job here is to be *truthful about uncertainty*, not to look complete.
 
 ### 3.5 Enriched change-history detail & bulk grouping (2026-06-15 amendment)
 
-> **Why.** Today every transaction change in **Historial de cambios** is a bare label
+> **Status: ACCEPTED** (Pedro ratified the paired feature-spec OQ9–OQ15 on 2026-06-15; this
+> increment is cleared for the WI-7…WI-10 build). **Why.** Today every transaction change in **Historial de cambios** is a bare label
 > (*"Transacción actualizada"*) over Date · Author · Device · Account — the treasurer can't tell
 > *what* changed or *which* transaction without leaving the screen, and a single bulk apply produced
 > ~700 identical rows. This amendment enriches the lane. Canonical behaviour + the Open Questions
@@ -412,3 +414,4 @@ renderer surface with privileged data.
 | 2026-06-13 | In Review (ready for acceptance) | Niobe | Finalized for the viewer build. Resolved all four §12 open questions into normative decisions: (1) bundle = JSON-lines + manifest + verification report + **print-friendly HTML**, PDF deferred; (2) sidebar order `Exportar · Auditoría · Configuración`; (3) per-device chips inline up to **N = 3**, popover beyond; (4) amber unsealed-tail chip **informational only** (no manual "Sellar ahora"). Added the provenance-lane sourcing model (§3.3), the **attribution honesty gap** (§3.4, pre-coverage/flat events rendered honestly), the integrity-banner + per-device indicator spec (§4.1), and the **WI-4 / WI-6 build breakdown** with the main-process/IPC boundary (§13). Honest-limitation copy preserved verbatim. **Acceptance remains Pedro's call.** |
 | 2026-06-13 | Accepted | Pedro (product owner) | Accepted by Pedro (product owner); all 4 UX open questions + 2 security ratifications (OQ4b freeTSA default / OQ1 bulk-anchoring) approved as recommended. Viewer build (WI-4/WI-6) cleared to start. |
 | 2026-06-15 | Accepted (+ §3.5 amendment for review) | Niobe | Added **§3.5 enriched change-history detail**: per-row localized summary replacing the bare action label, expandable transaction detail, bulk grouping by `correlationId` (the ~700-rows fix), Tier-1-first / Tier-2-diff, and the privacy gate — paired with feature-spec §4.3 / OQ9–OQ15. Added copy (§7) and edge cases (§8). The accepted viewer scope is unchanged; §3.5 is a new increment pending Neo/Switch/Link/Mouse review and Pedro sign-off on OQ9–OQ15. |
+| 2026-06-15 | §3.5 increment **Accepted** | Pedro (product owner) | Pedro ratified the paired feature-spec **OQ9–OQ15** as recommended (renderer summaries; collapsed summary = amount+description+category; Tier-1 first; full-log Tier-2 baseline + honest fallback + advisory cache; bulk group any-member match with "M of N"; privacy **Option B** with Option C later; richer label only for non-tx events). The §3.5 change-history detail increment is **Accepted**; WI-7…WI-10 cleared to build. No shipped behaviour changed. |

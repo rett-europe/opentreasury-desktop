@@ -258,6 +258,9 @@ bundle format and the honesty of the claims it makes.
 
 ### 4.3 Enriched change-history detail (2026-06-15 amendment)
 
+> **Increment status: ACCEPTED / ready-for-implementation** (Pedro ratified OQ9–OQ15 on
+> 2026-06-15; see §12). The WI-7…WI-10 breakdown (§11.1) is cleared for delegation.
+>
 > **Amendment context.** Today the **Historial de cambios** lane renders each transaction
 > mutation as a bare action label — *"Transacción actualizada"* / *"Transaction updated"* — over only
 > Date / Author / Device / Account columns (see `audit:listChangeHistory` →
@@ -605,7 +608,8 @@ Options considered (recommendation flagged; raised as **OQ14** for Pedro):
 | C | A workspace **setting** "show financial detail in the audit view / bundle" (default off) | Most conservative; adds a preference surface and a default that hides useful detail. Compatible with B as a later refinement. |
 | D | Redact amounts/descriptions in the lane; show only structural changes (category/status/tags) | Lowest exposure; defeats the treasurer's core need ("which transaction, what amount"). |
 
-**Recommendation: Option B now, with Option C reachable later.** Show the localized summary inline
+**Recommendation: Option B now, with Option C reachable later.** **RATIFIED** (Pedro, 2026-06-15 —
+OQ14). Show the localized summary inline
 (which already implies amount/description), put the full field breakdown behind the expand, and keep
 the evidence bundle's `change-history.jsonl` carrying detail under the existing typed-confirmation +
 "treat like cash" + encrypted-workspace guard. The bundle's **"¿Qué incluye?" / "What's included?"**
@@ -780,7 +784,7 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
 |---|---|---|---|---|
 | WI-7 | 1 | (new) | Tier-1 enriched change-history detail: structured `detail` view-model + renderer summary (FR18–FR21) + expandable row (FR20) | WI-4 |
 | WI-8 | 1 | (new) | Bulk grouping by `correlationId` into expandable group rows (FR23) | WI-7 |
-| WI-9 | 2 | (new) | Tier-2 before→after diff (replay + deleted last-known) with full-log baseline (FR22) | WI-7 |
+| WI-9 | 2 | (new) | Tier-2 before→after diff (replay + deleted last-known) with full-log baseline (FR22); advisory recomputable per-`txId` cache for NFR1 (OQ12) | WI-7 |
 | WI-10 | 1 | (new) | Privacy/scope gate per OQ14 ratification (expand-gating; optional setting) (FR25, §8.2) | WI-7 |
 
 
@@ -838,43 +842,40 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
    crypto-spec §8 model (genesis constant, escrow device-key verification) is pulled forward into
    Tier 1 or stays with Tier 3. (Switch.)
 
-> **Enriched change-history detail (2026-06-15 amendment) — OQ9–OQ15.** These gate the §4.3 / §6.4
-> detail work (WI-7…WI-10). Each lists options + a recommendation; the product owner (Pedro)
-> decides. None change already-shipped behaviour.
+> **Enriched change-history detail (2026-06-15 amendment) — OQ9–OQ15.** These gated the §4.3 / §6.4
+> detail work (WI-7…WI-10). **All RESOLVED — Pedro ratified every recommendation as-is on
+> 2026-06-15.** The resolutions are now normative; the §4.3 increment is **Accepted /
+> ready-for-implementation** and the WI-7…WI-10 breakdown stands for delegation. None change
+> already-shipped behaviour.
 
-9. **Summary composition location.** Compose the per-row summary (FR18) in the **renderer** from
-   structured detail fields, or pre-render a localized string in main?
-   **Recommendation: renderer** — keeps `es`/`en` + `eu`/`us` number-format reactive without
-   re-querying, reuses existing formatters, and keeps main shipping only structured view-models.
-   (Niobe/Neo.)
-10. **Which fields appear in the collapsed summary vs only on expand?** Options: (a) summary =
-    amount + description + category only, full set on expand; (b) summary = amount + description
-    only; (c) configurable. **Recommendation: (a)** — enough to identify the transaction and the
-    headline change while keeping the row scannable. (Niobe/Link.)
-11. **Ship Tier-1 first, Tier-2 later — or build Tier-2 up front?** **Recommendation: Tier-1 first
-    (WI-7), Tier-2 as WI-9.** Tier-1 delivers ~90% of the value ("which transaction, what state")
-    with no replay/ordering risk; Tier-2's before→after diff is a meaningful but riskier
-    enhancement. (Neo.)
-12. **Tier-2 baseline scope.** Confirm the normative rule that the diff baseline is computed over
-    the **full** decrypted event log (not the filtered display set), and the missing-predecessor
-    fallback is the honest *"prior state unavailable"* (no guessed baseline). **Recommendation:
-    adopt as normative** (FR22). Open sub-question: cost of always replaying the full log on large
-    datasets (NFR1) — may need an incremental per-`txId` cache (advisory, recomputable). (Neo/Switch.)
-13. **Bulk-group ↔ filter interaction.** When a date/account/device filter is active, should a
-    `correlationId` group appear if **any** member matches (expanding to only matching members, with
-    a *"M of N"* header), or only if its representative timestamp/account matches? **Recommendation:
-    show on any-member-match with the *"M of N"* header** so filtering never silently drops or
-    miscounts a bulk action. (Niobe.)
-14. **Privacy/scope of financial detail in the auditor-facing lane & bundle (FLAGGED — §8.2).**
-    Options A–D in §8.2. **Recommendation: Option B** (summary inline, full financial detail behind
-    expand; bundle keeps detail under the existing "treat like cash" guard and updated
-    "what's included" disclosure), with **Option C** (a default-off setting) reachable as a later
-    refinement. Decryption stays in main; only validated view-models reach the renderer. (Link/Switch
-    + Pedro to ratify.)
-15. **Diffing non-transaction events.** Should config/note/split/import events also get
-    before→after detail, or only a richer label? **Recommendation: richer label only for v1**
-    (they are flat / partially attributed; structural diffs add scope without the treasurer's core
-    need). Revisit with the M2 attribution work. (Niobe/Neo.)
+9. **Summary composition location.** **RESOLVED** (Pedro, 2026-06-15): the per-row summary (FR18)
+   is composed in the **renderer** from structured detail fields, reusing the existing formatters so
+   `es`/`en` + `eu`/`us` number/date formatting stays reactive; main ships only structured
+   view-models. (Niobe/Neo.)
+10. **Which fields appear in the collapsed summary vs only on expand?** **RESOLVED** (Pedro,
+    2026-06-15): the collapsed summary carries **amount + description + category**; the full field
+    set (subcategory, tags/labels, status, reference) appears on **expand** (FR19/FR20). (Niobe/Link.)
+11. **Ship Tier-1 first, Tier-2 later — or build Tier-2 up front?** **RESOLVED** (Pedro,
+    2026-06-15): **Tier-1 (snapshot-only) first (WI-7); Tier-2 diffs as a follow-up (WI-9).** Tier-1
+    delivers the core value with no replay/ordering risk. (Neo.)
+12. **Tier-2 baseline scope.** **RESOLVED** (Pedro, 2026-06-15): the diff baseline is computed over
+    the **full** decrypted event log (not the filtered display set), with the honest
+    *"prior state unavailable"* fallback and no guessed baseline (FR22 — normative). Replay cost at
+    scale (NFR1) is addressed by an **advisory, fully recomputable per-`txId` cache** (never the
+    source of truth). (Neo/Switch.)
+13. **Bulk-group ↔ filter interaction.** **RESOLVED** (Pedro, 2026-06-15): when a filter is active a
+    `correlationId` group is shown if **any** member matches, expanding to only the matching members
+    with an *"M of N"* header, so filtering never silently drops or miscounts a bulk action (FR23).
+    (Niobe.)
+14. **Privacy/scope of financial detail in the auditor-facing lane & bundle (§8.2).** **RESOLVED**
+    (Pedro, 2026-06-15): **Option B** — summary inline, full financial detail behind the **expand**;
+    the evidence bundle keeps the detail under the existing "treat like cash" guard with an updated
+    "what's included" disclosure. **Option C** (a default-off setting) is left reachable as a later
+    refinement. Decryption stays in main; only validated view-models reach the renderer (FR12/AC10).
+    (Link/Switch + Pedro.)
+15. **Diffing non-transaction events.** **RESOLVED** (Pedro, 2026-06-15): **richer label only for
+    v1** for config/note/split/import events (no before→after diffing); revisit with the M2
+    attribution work. (Niobe/Neo.)
 
 ## 13. Status History
 
@@ -884,3 +885,4 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
 | 2026-06-13 | Draft (viewer increment finalized in paired UX) | Niobe | Resolved **OQ5** (evidence bundle format — JSON-lines + manifest + verification report + print-friendly HTML, PDF deferred) consistent with the paired UX spec §3.2. Annotated §12 to record that OQ1/OQ4b/OQ7/OQ8 are backend/security confirmations on already-shipped crypto (3.15/3.16), tracked separately for Switch/Link and **not** viewer blockers (no shipped behavior changed). Paired UX spec moved to **In Review** for the FR10/FR11 viewer build (WI-4/WI-6). |
 | 2026-06-13 | Draft (paired UX **Accepted**) | Pedro (product owner) | Pedro ratified the viewer-blocking decisions: **OQ5** accepted (bundle format incl. print-friendly HTML, PDF deferred); **OQ4b** accepted (freeTSA default; qualified/eIDAS recommended for audit-grade; bundling the pinned freeTSA root approved); **OQ1** accepted (bulk anchoring as substitute for per-mutation audit entries). OQ7/OQ8 remain separately tracked for Switch (not viewer blockers). Paired UX spec is now **Accepted**; viewer build (WI-4/WI-6) cleared to start. |
 | 2026-06-15 | Draft (change-history detail amendment) | Niobe (with Neo + Link) | **Enriched change-history detail** amendment: added §4.3 (FR18–FR26 — per-row human-readable summary, detail fields, expandable row, Tier-1 snapshot vs Tier-2 before→after diff with a pure/deterministic full-log baseline and no-guess fallback, bulk grouping by `correlationId`, attribution-honesty preserved), §6.4 (ChangeHistoryRow view-model + `projectChangeHistory` impact — no new domain event), §8.2 (privacy/scope FLAG with Options A–D, recommend B), AC19–AC26, WI-7…WI-10, and OQ9–OQ15 for Pedro. Motivated by ~700 identical "Transaction updated" rows from a bulk apply. **Docs only; no shipped behaviour changed.** |
+| 2026-06-15 | §4.3 increment **Accepted** | Pedro (product owner) | Ratified **OQ9–OQ15** as recommended: OQ9 renderer-composed summaries; OQ10 collapsed summary = amount+description+category, full set on expand; OQ11 Tier-1 (snapshot) first, Tier-2 follow-up; OQ12 Tier-2 baseline over the **full** event log + honest "prior state unavailable" fallback + advisory recomputable per-`txId` cache; OQ13 bulk group shows on any-member match with an "M of N" header; OQ14 privacy **Option B** (summary inline, financial detail behind expand; bundle keeps detail under the "treat like cash" guard + updated disclosure; Option C later); OQ15 richer label only for non-transaction events in v1. The §4.3 increment is **Accepted / ready-for-implementation**; WI-7…WI-10 cleared for delegation. No shipped behaviour changed. |
