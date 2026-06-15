@@ -16,6 +16,11 @@
     "save": "Save",
     "saving": "Saving…"
   },
+  "dateInput": {
+    "openCalendar": "Open calendar",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month"
+  },
   "audit": {
     "title": "Audit & evidence",
     "subtitle": "Read-only audit view for an external auditor. Nothing here can change your records.",
