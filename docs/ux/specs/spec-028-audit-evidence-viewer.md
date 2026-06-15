@@ -1,6 +1,9 @@
 # SPEC-028 (UX) — Audit & Evidence Viewer
 
-> **Status:** Accepted · **Owner:** Niobe · **Last updated:** 2026-06-13
+> **Status:** Accepted · **Owner:** Niobe · **Last updated:** 2026-06-15
+> **Amendment (2026-06-15):** §3.5 adds **enriched change-history detail** (per-row summary,
+> expandable transaction detail, bulk grouping, privacy gating) — pairs with feature-spec §4.3.
+> The accepted viewer scope (§1–§4) is unchanged; §3.5 is a new increment for review.
 > **Reviewers:** Neo (architecture) — pending · Switch (security) — pending · Link (product) — pending ·
 > Mouse (design) — pending · **Acceptance:** Pedro (product owner)
 > **Paired feature spec:** [`docs/specs/028-audit-and-evidence.md`](../../specs/028-audit-and-evidence.md)
@@ -127,6 +130,58 @@ The device column likewise shows a device only when the event carries one; other
 with the same honest treatment. Overstating attribution would be a compliance liability — the
 viewer's job here is to be *truthful about uncertainty*, not to look complete.
 
+### 3.5 Enriched change-history detail & bulk grouping (2026-06-15 amendment)
+
+> **Why.** Today every transaction change in **Historial de cambios** is a bare label
+> (*"Transacción actualizada"*) over Date · Author · Device · Account — the treasurer can't tell
+> *what* changed or *which* transaction without leaving the screen, and a single bulk apply produced
+> ~700 identical rows. This amendment enriches the lane. Canonical behaviour + the Open Questions
+> (OQ9–OQ15) live in feature-spec §4.3 / §6.4; the honesty rule of §3.4 above is **unchanged**.
+
+**Row layout.** The lane keeps a lean default row and moves field detail into an expandable
+disclosure:
+
+| Column | Content |
+|---|---|
+| Fecha / Date | `occurredAt`, localized (existing date formatter). |
+| Autor / Author | Honest actor (`known` / `desconocido — anterior al registro` / blank for flat) — §3.4 unchanged. |
+| Dispositivo / Device | Honest device or blank. |
+| **Resumen / Summary** | **Replaces the bare action label.** A localized one-liner composed in the renderer from structured detail (feature-spec FR18), e.g. ES `Creado · 120,00 € · 'Material de oficina' · Viajes/Taxi`; EN `Created · €120.00 · 'Office supplies' · Travel/Taxi`. European amount/date formatting via the existing `eu`/`us` + language preference. |
+| Cuenta / Account | `accountLabel ?? accountId` (unchanged). |
+| ▸ (expander) | Discloses the full transaction detail (amount, description, category/subcategory, tags/labels, status, reference). Keyboard-operable. |
+
+**Summary copy by event type** (renderer-composed; ES shown, EN mirrors):
+
+| Event | ES summary |
+|---|---|
+| `tx.created` | `Creado · {importe} · '{descripción}' · {categoría}/{subcategoría}` |
+| `tx.updated` (Tier-1) | `Actualizado · {importe} · '{descripción}' · {categoría}/{subcategoría}` |
+| `tx.updated` (Tier-2) | `Actualizado · {campo}: {antes}→{después}` (p.ej. `categoría: Viajes→Oficina`) |
+| `tx.deleted` (Tier-1) | `Transacción eliminada` |
+| `tx.deleted` (Tier-2) | `Eliminada · {importe} · '{descripción}'` (último estado conocido) |
+| config / note / split / import | `Cuenta creada · 'Unicaja'` · `Nota añadida` · `Dividida en N` · `Importados N movimientos` |
+
+**Bulk grouping (feature-spec FR23).** `tx.updated` events sharing one `correlationId` collapse into
+**one expandable group row**: ES *"Actualización masiva · {N} transacciones · {hora}"* / EN *"Bulk
+update · {N} transactions · {time}"*. Expanding lists the per-transaction detail rows. A
+single-member `correlationId` renders as a normal row (no group chrome). With a date/account/device
+filter active, the group is shown if **any** member matches and the header reads *"{M} de {N}" /
+"{M} of {N}"* (OQ13). This is the fix for the ~700-identical-rows problem: one bulk apply becomes one
+honest, countable, expandable row.
+
+**Tier-1 vs Tier-2 (feature-spec FR21/FR22).** v1 ships **Tier-1** (snapshot/result detail from the
+event itself; `tx.deleted` has no snapshot → label only). **Tier-2** (before→after deltas; deleted
+last-known state) is a later increment whose diff baseline is computed over the **full** event log
+before display filtering, with an honest *"estado anterior no disponible" / "prior state
+unavailable"* fallback — never a guessed baseline.
+
+**Privacy gate (feature-spec §8.2, OQ14).** The summary inline already implies amount/description;
+the **full** financial breakdown sits behind the expander (not splashed across the default view).
+The evidence bundle's `change-history.jsonl` carries this detail under the existing "treat like cash"
+guard, and the **"¿Qué incluye?" / "What's included?"** disclosure (§3.2) is updated to say the
+change history now includes transaction-level financial detail. Decryption + label resolution stay
+in **main**; the renderer receives only Zod-validated view-models (FR12 / AC10) — unchanged boundary.
+
 ## 4. Empty / Loading / Error / Tamper States
 
 | State | Screen ID | Trigger | UI |
@@ -233,6 +288,13 @@ stateDiagram-v2
 | Tamper body | Restaura el área de trabajo desde una copia o instantánea de confianza. | Restore the workspace from a trusted copy or snapshot. |
 | Export CTA | Exportar evidencia | Export evidence |
 | Unknown actor (pre-coverage) | autor: desconocido — anterior al registro | author: unknown — pre-coverage |
+| Summary · created (amendment §3.5) | Creado · {importe} · '{descripción}' · {categoría}/{subcategoría} | Created · {amount} · '{description}' · {category}/{subcategory} |
+| Summary · updated (§3.5) | Actualizado · … | Updated · … |
+| Summary · deleted (§3.5) | Transacción eliminada | Transaction deleted |
+| Bulk group row (§3.5) | Actualización masiva · {N} transacciones · {hora} | Bulk update · {N} transactions · {time} |
+| Bulk group filtered count (§3.5) | {M} de {N} | {M} of {N} |
+| Tier-2 prior state missing (§3.5) | estado anterior no disponible | prior state unavailable |
+| Expand detail (§3.5) | Ver detalle | Show detail |
 | **Limitation (verification report + tooltip)** | **A prueba de manipulación y con sello de tiempo externo — no "a prueba de todo". Una persona con todas las claves del dispositivo aún podría reconstruir un historial; el sello de tiempo externo limita la antedatación. Consulta con asesoría legal antes de presentarlo como "grado auditoría".** | **Tamper-evident and externally timestamped — not "tamper-proof". Someone holding all device keys could still rebuild a history; the external timestamp limits backdating. Seek legal review before presenting this as "audit-grade".** |
 
 The limitation statement is **normative** (feature spec FR13/AC13) and appears both in-app
@@ -256,6 +318,15 @@ NOT be reworded to imply stronger guarantees.
   announced. No full-plaintext residency (feature spec NFR1).
 - **Clock skew.** The local `observed_at` is shown as informational; trust comes from the external
   timestamp, and the UI never claims local time as proof.
+- **Bulk apply over hundreds of transactions (amendment §3.5).** All `tx.updated` events sharing one
+  `correlationId` collapse into a single expandable group row with an honest count, instead of N
+  identical *"Transaction updated"* rows. Expanding virtualizes the member detail rows.
+- **Bulk group spanning multiple accounts under an account filter (§3.5).** The group is shown if any
+  member matches; on expand only matching members appear and the header reads *"{M} of {N}"* so the
+  count is never misleading (OQ13).
+- **Tier-2 diff with a missing predecessor (§3.5).** A pre-coverage edit, or an edit whose creating
+  event is outside the loaded window, falls back to snapshot/result detail labelled *"prior state
+  unavailable"* — never a fabricated baseline (feature-spec FR22, attribution-honesty).
 
 ## 9. Component Reuse
 
@@ -340,3 +411,4 @@ renderer surface with privileged data.
 | 2026-06-01 | Draft | Niobe | Initial UX draft paired with SPEC-028. Establishes the two-lane provenance viewer, per-device "anchored through" indicators, evidence-export reuse of the SPEC-027 choreography, the blocking tamper/integrity view, and the normative honest-limitation copy. |
 | 2026-06-13 | In Review (ready for acceptance) | Niobe | Finalized for the viewer build. Resolved all four §12 open questions into normative decisions: (1) bundle = JSON-lines + manifest + verification report + **print-friendly HTML**, PDF deferred; (2) sidebar order `Exportar · Auditoría · Configuración`; (3) per-device chips inline up to **N = 3**, popover beyond; (4) amber unsealed-tail chip **informational only** (no manual "Sellar ahora"). Added the provenance-lane sourcing model (§3.3), the **attribution honesty gap** (§3.4, pre-coverage/flat events rendered honestly), the integrity-banner + per-device indicator spec (§4.1), and the **WI-4 / WI-6 build breakdown** with the main-process/IPC boundary (§13). Honest-limitation copy preserved verbatim. **Acceptance remains Pedro's call.** |
 | 2026-06-13 | Accepted | Pedro (product owner) | Accepted by Pedro (product owner); all 4 UX open questions + 2 security ratifications (OQ4b freeTSA default / OQ1 bulk-anchoring) approved as recommended. Viewer build (WI-4/WI-6) cleared to start. |
+| 2026-06-15 | Accepted (+ §3.5 amendment for review) | Niobe | Added **§3.5 enriched change-history detail**: per-row localized summary replacing the bare action label, expandable transaction detail, bulk grouping by `correlationId` (the ~700-rows fix), Tier-1-first / Tier-2-diff, and the privacy gate — paired with feature-spec §4.3 / OQ9–OQ15. Added copy (§7) and edge cases (§8). The accepted viewer scope is unchanged; §3.5 is a new increment pending Neo/Switch/Link/Mouse review and Pedro sign-off on OQ9–OQ15. |
