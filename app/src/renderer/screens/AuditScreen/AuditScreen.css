@@ -385,6 +385,80 @@
   color: var(--color-danger, #dc2626);
 }
 
+/* ── Enriched change-history detail (SPEC-028 §4.3) ───────────────────── */
+.ot-audit__expander-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ot-audit__expander {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  padding: var(--space-1, 4px) var(--space-2, 8px);
+  font-size: var(--font-size-13, 13px);
+  color: var(--color-accent, #2563eb);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+}
+
+.ot-audit__expander:hover {
+  background: var(--color-surface-subtle, #f3f4f6);
+}
+
+.ot-audit__expander:focus-visible {
+  outline: 2px solid var(--color-accent, #2563eb);
+  outline-offset: 1px;
+}
+
+.ot-audit__group-row > td {
+  font-weight: 600;
+  background: var(--color-surface-subtle, #f8fafc);
+}
+
+.ot-audit__group-filtered {
+  font-weight: 400;
+  color: var(--color-text-secondary, #4b5563);
+}
+
+.ot-audit__row--nested > td:first-child {
+  padding-left: var(--space-6, 24px);
+}
+
+.ot-audit__row--nested > td {
+  background: var(--color-surface-subtle, #fbfcfe);
+}
+
+.ot-audit__detail-row > td {
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  background: var(--color-surface-subtle, #f8fafc);
+}
+
+.ot-audit__detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-2, 8px) var(--space-4, 16px);
+  margin: 0;
+}
+
+.ot-audit__detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ot-audit__detail-item dt {
+  font-size: var(--font-size-12, 12px);
+  color: var(--color-text-secondary, #4b5563);
+}
+
+.ot-audit__detail-item dd {
+  margin: 0;
+  font-size: var(--font-size-14, 14px);
+}
+
 /* ── Screen-reader-only helpers ───────────────────────────────────────── */
 .ot-audit__sr-only,
 .ot-audit__sr-lane {

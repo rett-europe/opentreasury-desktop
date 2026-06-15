@@ -252,3 +252,224 @@ describe('config event schema round-trip — #388 actor/device backward-compat',
     expect(parsed.actorDeviceId).toBeUndefined();
   });
 });
+
+// ── SPEC-028 §4.3 (WI-7) — Tier-1 structured detail ───────────────────────
+const TX_ID = '01HZTX00000000000000000001';
+const CAT_1 = '01HZCAT1111111111111111111';
+const SUB_1 = '01HZSUB1111111111111111111';
+const TAG_1 = '01HZTAG1111111111111111111';
+const TAG_2 = '01HZTAG2222222222222222222';
+
+const labelDeps = {
+  accountLabelById: (id: string) => (id === ACCT_1 ? 'Main · BBVA' : null),
+  categoryLabelById: (id: string) => (id === CAT_1 ? 'Travel' : null),
+  subcategoryLabelById: (id: string) => (id === SUB_1 ? 'Taxi' : null),
+  tagLabelById: (id: string) => (id === TAG_1 ? 'Recurring' : id === TAG_2 ? 'Reviewed' : null),
+};
+
+function txCreatedFull(over: Partial<Record<string, unknown>> = {}): DomainEvent {
+  return txCreated({
+    payload: {
+      id: TX_ID,
+      accountId: ACCT_1,
+      date: '2026-02-10',
+      type: 'expense',
+      amount: 120,
+      currency: 'EUR',
+      description: 'Office supplies',
+      categoryId: CAT_1,
+      subcategoryId: SUB_1,
+      tagIds: [TAG_1, TAG_2],
+      status: 'approved',
+      reference: 'INV-7',
+      ...((over.payload as object) ?? {}),
+    },
+    ...over,
+  });
+}
+
+function txUpdated(over: Partial<Record<string, unknown>> = {}): DomainEvent {
+  const { payload: payloadOver, ...rest } = over;
+  return {
+    id: '01HZEVTUPD000000000000001A',
+    type: 'tx.updated',
+    datasetId: '01HZDATASET00000000000000A',
+    actorDeviceId: DEV_A,
+    actorUserId: USER_A,
+    actorIdentitySource: 'local',
+    createdAt: '2026-02-12T10:00:00.000Z',
+    dekVersion: 1,
+    version: 1,
+    ...rest,
+    payload: {
+      id: TX_ID,
+      accountId: ACCT_1,
+      date: '2026-02-10',
+      type: 'expense',
+      amount: 150,
+      currency: 'EUR',
+      description: 'Office supplies',
+      categoryId: CAT_1,
+      subcategoryId: null,
+      tagIds: [],
+      status: 'pending',
+      reference: null,
+      ...((payloadOver as object) ?? {}),
+    },
+  } as unknown as DomainEvent;
+}
+
+describe('projectChangeHistory — Tier-1 detail extraction (FR19/FR21)', () => {
+  it('extracts full snapshot detail + resolved labels for tx.created', () => {
+    const { rows } = projectChangeHistory([txCreatedFull()], {}, labelDeps);
+    expect(rows[0].detail).toEqual({
+      summaryKind: 'tx.created',
+      amount: 120,
+      currency: 'EUR',
+      txType: 'expense',
+      description: 'Office supplies',
+      categoryId: CAT_1,
+      categoryLabel: 'Travel',
+      subcategoryId: SUB_1,
+      subcategoryLabel: 'Taxi',
+      tagIds: [TAG_1, TAG_2],
+      tagLabels: ['Recurring', 'Reviewed'],
+      status: 'approved',
+      reference: 'INV-7',
+    });
+  });
+
+  it('extracts resulting-state detail for tx.updated and falls back tag label→id', () => {
+    const { rows } = projectChangeHistory(
+      [txUpdated({ payload: { tagIds: [TAG_1, 'UNKNOWNTAGXXXXXXXXXXXXXXXXX'] } })],
+      {},
+      labelDeps,
+    );
+    const d = rows[0].detail;
+    expect(d?.summaryKind).toBe('tx.updated');
+    if (d?.summaryKind === 'tx.updated') {
+      expect(d.amount).toBe(150);
+      expect(d.tagLabels).toEqual(['Recurring', 'UNKNOWNTAGXXXXXXXXXXXXXXXXX']);
+    }
+  });
+
+  it('tx.deleted is label-only — no fabricated snapshot (AC21/FR24)', () => {
+    const del = {
+      type: 'tx.deleted',
+      id: '01HZEVTDEL000000000000001A',
+      txId: TX_ID,
+      deletedAt: '2026-02-13T10:00:00.000Z',
+      datasetId: '01HZDATASET00000000000000A',
+      actorDeviceId: DEV_A,
+      actorUserId: USER_A,
+      actorIdentitySource: 'local',
+      dekVersion: 1,
+      version: 1,
+    } as unknown as DomainEvent;
+    const { rows } = projectChangeHistory([del], {}, labelDeps);
+    expect(rows[0].detail).toEqual({ summaryKind: 'tx.deleted' });
+  });
+
+  it('non-transaction config event is label-only (OQ15)', () => {
+    const { rows } = projectChangeHistory([accountUpdated()], {}, labelDeps);
+    expect(rows[0].detail).toEqual({ summaryKind: 'config' });
+  });
+
+  it('genuinely flat event (note) is label-only (OQ15)', () => {
+    const note = {
+      type: 'tx.note.added',
+      id: '01HZEVTNOTE00000000000001A',
+      txId: TX_ID,
+      createdAt: '2026-02-13T09:00:00.000Z',
+    } as unknown as DomainEvent;
+    const { rows } = projectChangeHistory([note], {}, labelDeps);
+    expect(rows[0].detail).toEqual({ summaryKind: 'flat' });
+  });
+
+  it('degrades to no detail when a tx payload lacks the snapshot fields', () => {
+    const { rows } = projectChangeHistory([txCreated()], {}, labelDeps);
+    expect(rows[0].detail).toBeUndefined();
+  });
+
+  it('every detailed row is a strict, leak-free view-model (AC26)', () => {
+    const { rows } = projectChangeHistory(
+      [txCreatedFull(), txUpdated(), accountUpdated()],
+      {},
+      labelDeps,
+    );
+    for (const row of rows) {
+      expect(changeHistoryRowSchema.strict().parse(row)).toEqual(row);
+    }
+  });
+});
+
+describe('projectChangeHistory — bulk grouping by correlationId (FR23/AC23)', () => {
+  const CID = '01HZCORR0000000000000001AA';
+
+  function bulkMember(suffix: string, over: Partial<Record<string, unknown>> = {}): DomainEvent {
+    return txUpdated({
+      id: `01HZEVTBULK0000000000000${suffix}`,
+      payload: { correlationId: CID, ...((over.payload as object) ?? {}) },
+      ...over,
+    });
+  }
+
+  it('annotates members of a multi-event correlationId with groupId + total size', () => {
+    const { rows } = projectChangeHistory(
+      [bulkMember('A'), bulkMember('B'), bulkMember('C')],
+      {},
+      labelDeps,
+    );
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      expect(row.groupId).toBe(CID);
+      expect(row.groupSize).toBe(3);
+    }
+  });
+
+  it('a single-member correlationId renders as a normal row (no group chrome)', () => {
+    const { rows } = projectChangeHistory([bulkMember('A')], {}, labelDeps);
+    expect(rows[0].groupId).toBeNull();
+    expect(rows[0].groupSize).toBeNull();
+  });
+
+  it('groupSize counts the FULL set; a filter keeps N while the rows drop to M', () => {
+    // Three members across two accounts; an account filter keeps only ACCT_2's.
+    const { rows, totalCount } = projectChangeHistory(
+      [
+        bulkMember('A', { payload: { correlationId: CID, accountId: ACCT_1 } }),
+        bulkMember('B', { payload: { correlationId: CID, accountId: ACCT_2 } }),
+        bulkMember('C', { payload: { correlationId: CID, accountId: ACCT_1 } }),
+      ],
+      { accountIds: [ACCT_2] },
+      labelDeps,
+    );
+    expect(totalCount).toBe(3);
+    expect(rows).toHaveLength(1); // M = 1
+    expect(rows[0].groupSize).toBe(3); // N = 3 (computed before filtering)
+    expect(rows[0].groupId).toBe(CID);
+  });
+
+  it('a non-bulk single update is never grouped', () => {
+    const { rows } = projectChangeHistory([txUpdated()], {}, labelDeps);
+    expect(rows[0].groupId).toBeNull();
+  });
+});
+
+describe('projectChangeHistory — attribution honesty across enriched detail (AC24)', () => {
+  it('a bulk group never invents an actor/device for a member that lacks them', () => {
+    const member = txUpdated({
+      actorUserId: '',
+      payload: { correlationId: '01HZCORR0000000000000001AA' },
+    });
+    const member2 = txUpdated({
+      id: '01HZEVTBULK00000000000002BB',
+      actorUserId: '',
+      payload: { correlationId: '01HZCORR0000000000000001AA' },
+    });
+    const { rows } = projectChangeHistory([member, member2], {}, labelDeps);
+    for (const row of rows) {
+      expect(row.actor).toEqual({ kind: 'unknown', reason: 'pre-coverage' });
+    }
+  });
+});

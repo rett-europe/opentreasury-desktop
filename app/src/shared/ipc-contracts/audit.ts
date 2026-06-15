@@ -200,6 +200,48 @@ export const changeHistoryDeviceSchema = z.discriminatedUnion('kind', [
 export type ChangeHistoryDevice = z.infer<typeof changeHistoryDeviceSchema>;
 
 /**
+ * SPEC-028 §4.3 (FR18–FR21, §6.4, AC19–AC21) — Tier-1 structured transaction
+ * detail attached to a change-history row. Sourced PURELY from the event
+ * snapshot (no replay, no diff — Tier-2/WI-9 is out of scope); all labels are
+ * resolved in MAIN from the read model, so the renderer receives only this
+ * validated view-model and composes the localized summary itself (FR12/AC10).
+ *
+ * Discriminated by `summaryKind`:
+ *   - `tx.created` / `tx.updated` → full snapshot detail (the event carries it).
+ *   - `tx.deleted` → LABEL ONLY: the delete event carries no snapshot (FR21), so
+ *     no fabricated fields — preserves the §3.4 attribution/snapshot honesty
+ *     invariant (FR24 / AC21).
+ *   - `config` → richer label only for config / taxonomy CRUD events (OQ15).
+ *   - `flat`   → richer label only for note / split / import events (OQ15).
+ */
+const transactionDetailFields = {
+  /** Decrypted amount (always ≥ 0; the sign is carried by `txType`). */
+  amount: z.number(),
+  currency: z.literal('EUR'),
+  /** FR19 `type` (income / expense). Named `txType` to avoid the row `action`. */
+  txType: z.enum(['income', 'expense']),
+  description: z.string(),
+  categoryId: opaqueIdSchema.nullable(),
+  categoryLabel: z.string().nullable(),
+  subcategoryId: opaqueIdSchema.nullable(),
+  subcategoryLabel: z.string().nullable(),
+  tagIds: z.array(opaqueIdSchema),
+  /** Resolved tag labels, parallel to `tagIds` (label-or-id fallback). */
+  tagLabels: z.array(z.string()),
+  status: z.enum(['pending', 'approved']),
+  reference: z.string().nullable(),
+} as const;
+
+export const changeHistoryDetailSchema = z.discriminatedUnion('summaryKind', [
+  z.object({ summaryKind: z.literal('tx.created'), ...transactionDetailFields }).strict(),
+  z.object({ summaryKind: z.literal('tx.updated'), ...transactionDetailFields }).strict(),
+  z.object({ summaryKind: z.literal('tx.deleted') }).strict(),
+  z.object({ summaryKind: z.literal('config') }).strict(),
+  z.object({ summaryKind: z.literal('flat') }).strict(),
+]);
+export type ChangeHistoryDetail = z.infer<typeof changeHistoryDetailSchema>;
+
+/**
  * One event-derived change-history row. `lane: 'history'` and the honest
  * attribution unions are the renderer's only attribution source — there is no
  * raw envelope, ciphertext, or path here (AC10).
@@ -218,6 +260,26 @@ export const changeHistoryRowSchema = z.object({
   accountId: opaqueIdSchema.nullable(),
   /** Resolved account label (from the read model), when resolvable. */
   accountLabel: z.string().nullable(),
+  /**
+   * SPEC-028 §4.3 — structured Tier-1 detail backing the renderer-composed
+   * summary (FR18) and the expandable financial breakdown (FR19/FR20, Option B
+   * privacy gate). Optional: a row with a malformed/absent snapshot degrades to
+   * the bare action label rather than fabricating detail.
+   */
+  detail: changeHistoryDetailSchema.optional(),
+  /**
+   * SPEC-028 §4.3 (FR23) — bulk-group key: the shared `correlationId` when this
+   * row is one member of a multi-event bulk action (e.g. a bulk category apply).
+   * `null` for ordinary single events and for a `correlationId` with a single
+   * member (which renders as a normal row, no group chrome).
+   */
+  groupId: opaqueIdSchema.nullable().optional(),
+  /**
+   * Total members N in the bulk group, computed over the FULL event set BEFORE
+   * display filtering so the renderer's "M of N" count never misleads (FR23 /
+   * AC23). `null` when the row is not part of a (multi-member) group.
+   */
+  groupSize: z.number().int().positive().nullable().optional(),
 });
 export type ChangeHistoryRow = z.infer<typeof changeHistoryRowSchema>;
 

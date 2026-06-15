@@ -84,6 +84,31 @@ function buildAccountLabelResolver(readModel: ReadModel): (id: string) => string
   return (id) => byId.get(id) ?? null;
 }
 
+/**
+ * SPEC-028 FR19 — resolve category / subcategory / tag ULIDs to their display
+ * labels from the read model. Mirrors the `accountLabelById` pattern: resolution
+ * happens IN MAIN; the renderer only ever sees the resulting labels (AC10).
+ */
+function buildCategoryLabelResolver(readModel: ReadModel): (id: string) => string | null {
+  const byId = new Map<string, string>();
+  for (const cat of readModel.configCategories) byId.set(cat.id, cat.name);
+  return (id) => byId.get(id) ?? null;
+}
+
+function buildSubcategoryLabelResolver(readModel: ReadModel): (id: string) => string | null {
+  const byId = new Map<string, string>();
+  for (const cat of readModel.configCategories) {
+    for (const sub of cat.subcategories) byId.set(sub.id, sub.name);
+  }
+  return (id) => byId.get(id) ?? null;
+}
+
+function buildTagLabelResolver(readModel: ReadModel): (id: string) => string | null {
+  const byId = new Map<string, string>();
+  for (const tag of readModel.configTags) byId.set(tag.id, tag.name);
+  return (id) => byId.get(id) ?? null;
+}
+
 export function createAuditHandlers(deps: AuditHandlerDeps): AuditHandlers {
   const createAuditLog = deps.createAuditLog ?? defaultCreateAuditLog;
 
@@ -116,7 +141,11 @@ export function createAuditHandlers(deps: AuditHandlerDeps): AuditHandlers {
     async listChangeHistory(raw: unknown): Promise<AuditListChangeHistoryResponse> {
       const req = auditListChangeHistoryRequestSchema.parse(raw);
       const events = await deps.getEventLog().load();
-      const accountLabelById = buildAccountLabelResolver(deps.getReadModel());
+      const readModel = deps.getReadModel();
+      const accountLabelById = buildAccountLabelResolver(readModel);
+      const categoryLabelById = buildCategoryLabelResolver(readModel);
+      const subcategoryLabelById = buildSubcategoryLabelResolver(readModel);
+      const tagLabelById = buildTagLabelResolver(readModel);
       const { rows, totalCount } = projectChangeHistory(
         events,
         {
@@ -125,7 +154,7 @@ export function createAuditHandlers(deps: AuditHandlerDeps): AuditHandlers {
           ...(req.accountIds !== undefined ? { accountIds: req.accountIds } : {}),
           ...(req.deviceIds !== undefined ? { deviceIds: req.deviceIds } : {}),
         },
-        { accountLabelById },
+        { accountLabelById, categoryLabelById, subcategoryLabelById, tagLabelById },
       );
       return { rows: rows.slice(), totalCount };
     },

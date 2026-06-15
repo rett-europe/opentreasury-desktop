@@ -25,6 +25,7 @@
 import type { DomainEvent } from '../events/schemas.js';
 import type {
   ChangeHistoryActor,
+  ChangeHistoryDetail,
   ChangeHistoryDevice,
   ChangeHistoryRow,
 } from '../../shared/ipc-contracts/audit.js';
@@ -163,6 +164,112 @@ function deriveDevice(e: AnyEvent): ChangeHistoryDevice {
   return { kind: 'known', deviceId };
 }
 
+/**
+ * Enveloped/flat config & taxonomy CRUD events (`account.created` plus the #388
+ * PascalCase stream). These get a richer LABEL only (OQ15) — no transaction
+ * snapshot, no diff.
+ */
+const CONFIG_CREATED_TYPES: ReadonlySet<string> = new Set([
+  'account.created',
+  'category.created',
+  'tag.created',
+]);
+
+function isConfigType(type: string): boolean {
+  return CONFIG_CREATED_TYPES.has(type) || CONFIG_ATTRIBUTED_TYPES.has(type);
+}
+
+/** Map an event TYPE to its detail discriminator (SPEC-028 FR18/FR21, OQ15). */
+function summaryKindFor(type: string): ChangeHistoryDetail['summaryKind'] {
+  if (type === 'tx.created') return 'tx.created';
+  if (type === 'tx.updated') return 'tx.updated';
+  if (type === 'tx.deleted') return 'tx.deleted';
+  if (isConfigType(type)) return 'config';
+  return 'flat';
+}
+
+function asTxType(v: unknown): 'income' | 'expense' | null {
+  return v === 'income' || v === 'expense' ? v : null;
+}
+
+function asStatus(v: unknown): 'pending' | 'approved' | null {
+  return v === 'pending' || v === 'approved' ? v : null;
+}
+
+/**
+ * SPEC-028 FR23 — the bulk-action correlation ULID, carried in the `tx.updated`
+ * payload (emitted one-per-transaction by the bulk commands). Benign to surface
+ * (a ULID, not PII). `null` for single updates and non-tx events.
+ */
+function extractCorrelationId(e: AnyEvent): string | null {
+  const payload = e.payload;
+  if (payload !== null && typeof payload === 'object') {
+    return str((payload as { correlationId?: unknown }).correlationId);
+  }
+  return null;
+}
+
+/**
+ * SPEC-028 FR19 — extract Tier-1 transaction detail PURELY from the event
+ * snapshot, resolving category/subcategory/tag labels via the injected
+ * read-model resolvers (resolution stays in main). Returns `null` when the
+ * payload lacks the required snapshot fields so the row degrades to a bare
+ * action label rather than fabricating detail (FR24).
+ */
+function extractTxDetail(
+  payload: Record<string, unknown>,
+  summaryKind: 'tx.created' | 'tx.updated',
+  deps: ChangeHistoryProjectionDeps,
+): ChangeHistoryDetail | null {
+  const amount = payload.amount;
+  const txType = asTxType(payload.type);
+  const status = asStatus(payload.status);
+  if (typeof amount !== 'number' || txType === null || status === null) return null;
+
+  const categoryId = str(payload.categoryId);
+  const subcategoryId = str(payload.subcategoryId);
+  const tagIds = Array.isArray(payload.tagIds)
+    ? payload.tagIds.filter((t): t is string => typeof t === 'string' && t.length > 0)
+    : [];
+
+  return {
+    summaryKind,
+    amount,
+    currency: 'EUR',
+    txType,
+    description: typeof payload.description === 'string' ? payload.description : '',
+    categoryId,
+    categoryLabel:
+      categoryId !== null && deps.categoryLabelById ? deps.categoryLabelById(categoryId) : null,
+    subcategoryId,
+    subcategoryLabel:
+      subcategoryId !== null && deps.subcategoryLabelById
+        ? deps.subcategoryLabelById(subcategoryId)
+        : null,
+    tagIds,
+    tagLabels: tagIds.map((id) => deps.tagLabelById?.(id) ?? id),
+    status,
+    reference: str(payload.reference),
+  };
+}
+
+/** Build the Tier-1 detail object for a row, or `undefined` when none applies. */
+function deriveDetail(
+  e: AnyEvent,
+  deps: ChangeHistoryProjectionDeps,
+): ChangeHistoryDetail | undefined {
+  const summaryKind = summaryKindFor(e.type);
+  if (summaryKind === 'tx.created' || summaryKind === 'tx.updated') {
+    const payload =
+      e.payload !== null && typeof e.payload === 'object'
+        ? (e.payload as Record<string, unknown>)
+        : null;
+    return payload ? (extractTxDetail(payload, summaryKind, deps) ?? undefined) : undefined;
+  }
+  // `tx.deleted` (no snapshot), `config`, and `flat` → label-only detail.
+  return { summaryKind };
+}
+
 export interface ChangeHistoryFilter {
   /** Inclusive lower bound on the date portion of `occurredAt` (`YYYY-MM-DD`). */
   readonly dateFrom?: string;
@@ -176,6 +283,12 @@ export interface ChangeHistoryFilter {
 export interface ChangeHistoryProjectionDeps {
   /** Resolve an account ULID to its display label (from the read model). */
   readonly accountLabelById?: (accountId: string) => string | null;
+  /** Resolve a category ULID to its display label (FR19; main-only). */
+  readonly categoryLabelById?: (categoryId: string) => string | null;
+  /** Resolve a subcategory ULID to its display label (FR19; main-only). */
+  readonly subcategoryLabelById?: (subcategoryId: string) => string | null;
+  /** Resolve a tag ULID to its display label (FR19; main-only). */
+  readonly tagLabelById?: (tagId: string) => string | null;
 }
 
 export interface ChangeHistoryProjectionResult {
@@ -196,6 +309,9 @@ export function projectChangeHistory(
   deps: ChangeHistoryProjectionDeps = {},
 ): ChangeHistoryProjectionResult {
   const all: ChangeHistoryRow[] = [];
+  // Parallel to `all` — the bulk-action correlation id per row (FR23). Kept off
+  // the view-model; used only to compute group keys/sizes over the full set.
+  const correlationIds: (string | null)[] = [];
 
   for (const raw of events) {
     const e = raw as unknown as AnyEvent;
@@ -206,6 +322,7 @@ export function projectChangeHistory(
     const accountId = extractAccountId(e);
     const accountLabel =
       accountId !== null && deps.accountLabelById ? deps.accountLabelById(accountId) : null;
+    const detail = deriveDetail(e, deps);
 
     all.push({
       lane: 'history',
@@ -216,10 +333,29 @@ export function projectChangeHistory(
       device: deriveDevice(e),
       accountId,
       accountLabel,
+      groupId: null,
+      groupSize: null,
+      ...(detail !== undefined ? { detail } : {}),
     });
+    correlationIds.push(extractCorrelationId(e));
   }
 
   const totalCount = all.length;
+
+  // FR23 — count bulk-group members over the FULL set BEFORE display filtering,
+  // so the "M of N" header never miscounts when a filter hides some members. A
+  // correlationId with a single member renders as a normal row (no group chrome).
+  const groupCounts = new Map<string, number>();
+  for (const cid of correlationIds) {
+    if (cid !== null) groupCounts.set(cid, (groupCounts.get(cid) ?? 0) + 1);
+  }
+  for (let i = 0; i < all.length; i += 1) {
+    const cid = correlationIds[i]!;
+    const size = cid !== null ? (groupCounts.get(cid) ?? 0) : 0;
+    if (cid !== null && size > 1) {
+      all[i] = { ...all[i]!, groupId: cid, groupSize: size };
+    }
+  }
 
   const accountSet =
     filter.accountIds && filter.accountIds.length > 0 ? new Set(filter.accountIds) : null;

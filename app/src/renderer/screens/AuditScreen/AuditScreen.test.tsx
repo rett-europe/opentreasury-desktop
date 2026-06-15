@@ -255,6 +255,96 @@ describe('AuditScreen — honest attribution (§3.4)', () => {
   });
 });
 
+describe('AuditScreen — enriched detail, Option B gate & bulk grouping (§4.3)', () => {
+  const detail = {
+    summaryKind: 'tx.created' as const,
+    amount: 150,
+    currency: 'EUR' as const,
+    txType: 'expense' as const,
+    description: 'Office supplies',
+    categoryId: 'CAT_1',
+    categoryLabel: 'Operations',
+    subcategoryId: null,
+    subcategoryLabel: null,
+    tagIds: [],
+    tagLabels: [],
+    status: 'pending' as const,
+    reference: null,
+  };
+
+  const detailRow: ChangeHistoryRow = {
+    lane: 'history',
+    eventId: 'EVT_DETAIL',
+    occurredAt: '2026-05-30T08:00:00.000Z',
+    action: 'tx.created',
+    actor: { kind: 'known', userId: 'USER_1' },
+    device: { kind: 'known', deviceId: 'DEVICE_AAA' },
+    accountId: 'ACC_1',
+    accountLabel: 'Checking',
+    detail,
+    groupId: null,
+    groupSize: null,
+  };
+
+  it('shows the summary inline but gates the financial detail behind expand (Option B / AC25)', async () => {
+    listChangeHistory.mockResolvedValue({ rows: [detailRow], totalCount: 1 });
+    renderScreen();
+    // Summary (description) is inline in the collapsed row.
+    expect(await screen.findByText(/Office supplies/u)).toBeTruthy();
+    // The fuller financial breakdown labels are NOT in the DOM while collapsed.
+    expect(screen.queryByText(i18n.t('audit.detail.amount'))).toBeNull();
+    expect(screen.queryByText(i18n.t('audit.detail.status'))).toBeNull();
+    // Expanding the row reveals the financial detail (Option B disclosure).
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('audit.summary.showDetail') }));
+    expect(screen.getByText(i18n.t('audit.detail.amount'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('audit.detail.status'))).toBeTruthy();
+    // Collapsing hides it again.
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('audit.summary.hideDetail') }));
+    expect(screen.queryByText(i18n.t('audit.detail.amount'))).toBeNull();
+  });
+
+  it('does not render an expander for a label-only deleted row (no fabricated detail)', async () => {
+    const deletedRow: ChangeHistoryRow = {
+      ...detailRow,
+      eventId: 'EVT_DEL',
+      action: 'tx.deleted',
+      detail: { summaryKind: 'tx.deleted' },
+    };
+    listChangeHistory.mockResolvedValue({ rows: [deletedRow], totalCount: 1 });
+    renderScreen();
+    expect(await screen.findByText(i18n.t('audit.summary.deleted'))).toBeTruthy();
+    expect(screen.queryByRole('button', { name: i18n.t('audit.summary.showDetail') })).toBeNull();
+  });
+
+  it('collapses correlationId members into one group row with "M of N" and expands to members', async () => {
+    const member = (suffix: string, description: string): ChangeHistoryRow => ({
+      ...detailRow,
+      eventId: `EVT_${suffix}`,
+      action: 'tx.updated',
+      groupId: 'BULK_1',
+      groupSize: 3, // N = 3 over the full set; only M = 2 returned (filtered)
+      detail: { ...detail, summaryKind: 'tx.updated', description },
+    });
+    listChangeHistory.mockResolvedValue({
+      rows: [member('A', 'Bulk alpha'), member('B', 'Bulk beta')],
+      totalCount: 3,
+    });
+    renderScreen();
+    // The members collapse into ONE group row with the localized header…
+    const groupRow = await screen.findByText(/Bulk update/u);
+    // …and the "M of N" chip (2 of 3) lives on that group row, never misleading.
+    const chip = document.querySelector('.ot-audit__group-filtered');
+    expect(chip?.textContent).toMatch(/2 of 3/u);
+    expect(groupRow).toBeTruthy();
+    // Members are collapsed (their per-row summaries are absent) until expansion.
+    expect(screen.queryByText(/Bulk alpha/u)).toBeNull();
+    // Exactly one expander exists (the group's) while collapsed.
+    fireEvent.click(screen.getByRole('button', { name: i18n.t('audit.summary.showDetail') }));
+    expect(screen.getByText(/Bulk alpha/u)).toBeTruthy();
+    expect(screen.getByText(/Bulk beta/u)).toBeTruthy();
+  });
+});
+
 describe('AuditScreen — signed lane', () => {
   const entries: SignedEntryView[] = [
     {
