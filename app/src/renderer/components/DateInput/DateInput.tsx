@@ -12,9 +12,13 @@
 //   - While the user is mid-typing an incomplete/invalid date we hold the local
 //     text and do NOT emit, so the parent's value is never set to garbage.
 
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactElement } from 'react';
+import { Calendar } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { formatDateNumeric, parseDateNumeric } from '../../../shared/format/index.js';
 import { useFormatters } from '../../format/index.js';
+import { CalendarPopover } from './CalendarPopover.js';
+import './DateInput.css';
 
 export interface DateInputProps {
   /** ISO date string (`YYYY-MM-DD`) or `''`. */
@@ -60,7 +64,8 @@ export function DateInput({
   'aria-describedby': ariaDescribedBy,
   'aria-label': ariaLabel,
 }: DateInputProps): ReactElement {
-  const { dateFormat, datePlaceholder } = useFormatters();
+  const { dateFormat, datePlaceholder, uiLocale } = useFormatters();
+  const { t } = useTranslation();
 
   const [text, setText] = useState<string>(() =>
     value === '' ? '' : formatDateNumeric(value, dateFormat),
@@ -108,25 +113,99 @@ export function DateInput({
   const internalInvalid =
     trimmedText !== '' && (parsedIso === null || !withinBounds(parsedIso, min, max));
 
+  // ── Calendar popover ────────────────────────────────────────────────────
+  const [open, setOpen] = useState(false);
+  const popoverId = useId();
+  const wrapperRef = useRef<HTMLSpanElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const closePopover = useCallback((returnFocus = true): void => {
+    setOpen(false);
+    if (returnFocus) triggerRef.current?.focus();
+  }, []);
+
+  // Dismiss on outside pointer-down and Escape; mirrors the DateRangePicker
+  // popover contract. Focus is moved INTO the grid by CalendarPopover on open
+  // and returned to the trigger here on close.
+  useEffect(() => {
+    if (!open) return;
+    const isOutside = (target: Node | null): boolean =>
+      target != null && wrapperRef.current != null && !wrapperRef.current.contains(target);
+    const onPointerDown = (e: MouseEvent): void => {
+      if (isOutside(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closePopover();
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open, closePopover]);
+
+  const handleSelectDay = (iso: string): void => {
+    onChange(iso);
+    closePopover();
+  };
+
+  const selectedIso = parsedIso !== null && !internalInvalid ? parsedIso : value;
+  const inputClassName = className ? `${className} ot-dateinput__input` : 'ot-dateinput__input';
+
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      autoComplete="off"
-      id={id}
-      name={name}
-      className={className}
-      disabled={disabled}
-      title={title}
-      placeholder={placeholder ?? datePlaceholder}
-      value={text}
-      onChange={(e) => handleChange(e.target.value)}
-      onBlur={handleBlur}
-      autoFocus={autoFocus}
-      aria-invalid={ariaInvalid === true || internalInvalid ? true : undefined}
-      aria-describedby={ariaDescribedBy}
-      aria-label={ariaLabel}
-      data-ot-dateinput=""
-    />
+    <span className="ot-dateinput" ref={wrapperRef} data-ot-dateinput-wrap="">
+      <input
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        id={id}
+        name={name}
+        className={inputClassName}
+        disabled={disabled}
+        title={title}
+        placeholder={placeholder ?? datePlaceholder}
+        value={text}
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={handleBlur}
+        autoFocus={autoFocus}
+        aria-invalid={ariaInvalid === true || internalInvalid ? true : undefined}
+        aria-describedby={ariaDescribedBy}
+        aria-label={ariaLabel}
+        data-ot-dateinput=""
+      />
+      {disabled !== true && (
+        <button
+          ref={triggerRef}
+          type="button"
+          className="ot-dateinput__trigger"
+          aria-label={t('dateInput.openCalendar')}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={open ? popoverId : undefined}
+          onClick={() => setOpen((v) => !v)}
+        >
+          <Calendar size={16} aria-hidden="true" />
+        </button>
+      )}
+      {open && disabled !== true && (
+        <CalendarPopover
+          selected={selectedIso}
+          min={min}
+          max={max}
+          locale={uiLocale}
+          onSelect={handleSelectDay}
+          dialogId={popoverId}
+          labels={{
+            dialog: t('dateInput.openCalendar'),
+            previousMonth: t('dateInput.previousMonth'),
+            nextMonth: t('dateInput.nextMonth'),
+          }}
+        />
+      )}
+    </span>
   );
 }

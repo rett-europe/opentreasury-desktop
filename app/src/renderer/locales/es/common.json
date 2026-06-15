@@ -16,6 +16,11 @@
     "save": "Guardar",
     "saving": "Guardando…"
   },
+  "dateInput": {
+    "openCalendar": "Abrir calendario",
+    "previousMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente"
+  },
   "audit": {
     "title": "Auditoría y evidencia",
     "subtitle": "Vista de auditoría de solo lectura para un auditor externo. Nada de lo que hay aquí puede cambiar tus registros.",
