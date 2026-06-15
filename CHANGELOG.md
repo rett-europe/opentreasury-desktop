@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.20] — DateInput calendar popover
+
+Restores the click-to-pick calendar on every date field — lost since #353 — while keeping the user-configurable date format. Existing trial datasets open normally — no migration.
+
+### Fixed
+
+- **Calendar-picker popover on all date fields (#399, PR #400).** Clicking a date field again opens a calendar popover for picking a day, across transaction add/edit, Balance Adjustment, and every date-range filter, instead of leaving only manual text entry. The configured date format is preserved, so typed and picked values stay consistent. Renderer-only — no change to data, encryption, or the audit log.
+
 ## [0.1.0-trial.3.19] — SPEC-030 Financial Report
 
 Adds a one-click **Financial Report** generator: a printable, signed-audit-logged PDF statement (credits, debits, and an opening/closing balance reconciliation for a fiscal year), modelled on the RSE annual financial report. It is the same income/expense aggregation as the Balance screen, rendered as a formal document. Existing trial datasets open normally — no migration.
