@@ -1,6 +1,6 @@
 # SPEC-028 — Audit & Evidence
 
-> **Status:** Draft · **Owner:** Niobe (spec/UX structure) · **Last updated:** 2026-06-01
+> **Status:** Draft · **Owner:** Niobe (spec/UX structure) · **Last updated:** 2026-06-15
 > **Architecture lead:** Neo · **Security lead:** Switch · **Product:** Link / Pedro · **Docs:** Oracle
 > **Paired PRD:** Pending — PRD-028 reservation needed in `docs/product/prd-plan.md`
 > **Paired UX:** [`docs/ux/specs/spec-028-audit-evidence-viewer.md`](../ux/specs/spec-028-audit-evidence-viewer.md)
@@ -256,6 +256,113 @@ bundle format and the honesty of the claims it makes.
 - **NFR5 — Privacy of process logs.** No PII or raw label/transaction values in logs; sensitive
   refs are **hashed** as the SPEC-027 export audit already does. Counts/bytes/hashes only. (R15.)
 
+### 4.3 Enriched change-history detail (2026-06-15 amendment)
+
+> **Increment status: ACCEPTED / ready-for-implementation** (Pedro ratified OQ9–OQ15 on
+> 2026-06-15; see §12). The WI-7…WI-10 breakdown (§11.1) is cleared for delegation.
+>
+> **Amendment context.** Today the **Historial de cambios** lane renders each transaction
+> mutation as a bare action label — *"Transacción actualizada"* / *"Transaction updated"* — over only
+> Date / Author / Device / Account columns (see `audit:listChangeHistory` →
+> `changeHistoryRowSchema`, and `AuditScreen.tsx` rendering `t('audit.actions.{type}')`). This is
+> *honest* but not *useful*: a treasurer (or an external auditor) cannot tell **what** changed or
+> **which** transaction without leaving the screen. The trigger was a single bulk label/category
+> apply that produced ~700 identical *"Transaction updated"* rows, which alarmed the user. This
+> amendment specifies a **richer, more meaningful change-history detail** in tiers, and lists the
+> judgment calls as Open Questions (OQ9–OQ15, §12) for the product owner rather than resolving them
+> unilaterally. **It preserves the §3.4 / `core/audit/changeHistory.ts` attribution-honesty
+> invariant unchanged:** none of the new detail introduces a guessed actor/device, and the
+> projection stays pure and deterministic.
+
+- **FR18 — Per-row human-readable summary (replaces the bare type label).** Each change-history row
+  MUST carry a **structured detail object** sufficient for the renderer to compose a localized,
+  one-line summary in place of the raw `action` label. The mapping per event type:
+  | Event type | Summary shape (composed in renderer) | Example (ES, `eu` number format) |
+  |---|---|---|
+  | `tx.created` | *Creado · {amount} · '{description}' · {category}/{subcategory}* | `Creado · 120,00 € · 'Material de oficina' · Viajes/Taxi` |
+  | `tx.updated` | *Actualizado · {summary of resulting state, Tier-1}* or *{before→after deltas, Tier-2}* | `Actualizado · 120,00 € · 'Material de oficina' · Viajes/Taxi` |
+  | `tx.deleted` | *Transacción eliminada* (Tier-1, no snapshot on the event) / *Eliminada · {last-known amount · description}* (Tier-2) | `Transacción eliminada` |
+  | `account.created` / `AccountCreated` | *Cuenta creada · '{label}'* | `Cuenta creada · 'Unicaja'` |
+  | other config CRUD (`*Updated/Archived/…`) | *{entity} {verb} · '{label-if-resolvable}'* | `Categoría actualizada · 'Viajes'` |
+  | flat note/split/import | *Nota añadida* / *Dividida en N* / *Importados N movimientos* | `Importados 42 movimientos` |
+  **Composition rule (normative).** The summary string is **composed in the renderer** from the
+  structured detail fields, NOT pre-rendered in main, so it honours the user's UI language (es/en)
+  and `NumberFormat` (`eu`/`us`) preference and reuses the existing formatters
+  (`app/src/shared/format/numbers.ts` — `eu` → `.` thousands / `,` decimal; the date formatter in
+  `app/src/renderer/utils/dateFormat.ts`). Currency uses `Intl.NumberFormat` with `EUR` per the
+  existing convention. Main MUST NOT ship a localized summary string across IPC.
+- **FR19 — Detail fields surfaced in the lane.** For transaction events the row's detail object MUST
+  carry (already-decrypted, view-model only): `amount`, `currency`, `type` (income/expense),
+  `description`, `categoryId` + resolved `categoryLabel`, `subcategoryId` + resolved
+  `subcategoryLabel`, `tagIds` + resolved `tagLabels`, `status`, `reference`. These are sourced
+  directly from the event payload (`tx.created` / `tx.updated` carry the full snapshot;
+  `tx.deleted` carries none — see FR21). Label resolution reuses the read-model resolver already
+  used for `accountLabel` (FR12 boundary unchanged: resolution happens in main).
+- **FR20 — Expandable detail (density + privacy gate).** The lane MUST keep a lean row
+  (Date · Author · Device · **Summary** · Account) and expose the full field detail in an
+  **expandable disclosure row** rather than as many always-visible columns. This both controls table
+  density and provides the privacy gate of §8.2-amendment (financial plaintext is one interaction
+  away, not splashed across the default view). Expansion is keyboard-operable (NFR4).
+- **FR21 — Tier-1 (snapshot-only) vs Tier-2 (true before→after diff).**
+  - **Tier-1 — snapshot-only (data already present).** Uses ONLY fields on the event itself. For
+    `tx.created`/`tx.updated` it renders the **resulting state**; for `tx.deleted` it renders
+    *"Transaction deleted"* with **no** field detail (the event carries only `txId` + actor/
+    timestamps — schemas.ts `transactionDeletedEventSchema`). Trivially pure, deterministic, and
+    correct; no replay. **Recommended first increment (OQ11).**
+  - **Tier-2 — true before→after diff.** The projection replays prior per-transaction state to
+    compute per-field deltas (e.g. *category Viajes→Oficina, importe 100,00 €→120,00 €*), and
+    resolves a **deleted** transaction's last-known state from earlier `tx.created`/`tx.updated`
+    events for that `txId`. Tier-2 is an additive enhancement over Tier-1.
+- **FR22 — Tier-2 diff algorithm (design level; purity + honesty constraints, normative).** The
+  diff MUST be computed as follows and MUST stay pure/deterministic (no clock, no I/O, no master
+  key) and MUST NOT violate attribution-honesty:
+  1. Fold the event stream in the projection's canonical order (ascending `occurredAt`, tie-broken
+     by `eventId`) into a map `txId → ordered snapshots` from `tx.created`/`tx.updated`.
+  2. For a `tx.updated`, the "before" is the immediately-preceding snapshot for that `txId`; the
+     delta is the set of changed fields. For a `tx.deleted`, the "last-known" is the latest snapshot
+     at-or-before the delete's `occurredAt`.
+  3. **No-guess rule:** if no predecessor snapshot exists in the event set (e.g. a pre-coverage
+     update, or the creating event is outside the loaded window), the row falls back to Tier-1
+     snapshot/result detail and is labelled honestly (*"estado anterior no disponible"* /
+     *"prior state unavailable"*). The projection MUST NEVER fabricate a baseline.
+  4. **Filter-vs-baseline hazard (normative, AC-bound).** The diff baseline MUST be computed over the
+     **full** decrypted event log, then the *display* set is filtered (date range / account /
+     device). Computing the diff over an already-filtered set would corrupt the baseline (a date
+     filter could hide the predecessor snapshot and turn a real edit into a spurious "first state").
+     This is an explicit edge case (§8.2-amendment, OQ12).
+- **FR23 — Bulk grouping by `correlationId`.** `tx.updated` events sharing one `correlationId`
+  (emitted by `core/commands/bulkUpdateTransactions.ts` and `bulkAddLabelToTransactions.ts`, one
+  event per transaction, one shared ULID `correlationId`) MUST collapse into **one expandable group
+  row**: *"Actualización masiva · N transacciones · {hora}"* / *"Bulk update · N transactions ·
+  {time}"*, expandable to the per-transaction detail (FR19/FR21). Grouping rules:
+  - **Group key:** the non-null `correlationId`. A `correlationId` with a single member renders as a
+    normal single row (no group chrome).
+  - **Representative timestamp:** the group is placed in the newest-first list at the members'
+    shared `occurredAt` (they are emitted in one batch); members within the group order by
+    `occurredAt` then `eventId`.
+  - **Count:** *N* = number of member events.
+  - **Filter interaction (recommendation, OQ13):** when a date/account/device filter is active, a
+    group is shown if **any** member matches; on expand it lists only matching members and the
+    header shows *"M de N"* / *"M of N"* so the count never misleads. A group whose representative
+    timestamp is outside the date range but which has a matching member is still subject to OQ13's
+    resolution.
+  - Attribution-honesty is unchanged: the group inherits the (single) actor/device the member
+    events carry; it never invents one.
+- **FR24 — Attribution-honesty invariant preserved (normative).** None of FR18–FR23 may cause the
+  projection to render an actor/device it cannot source or to infer one from the unlocked session
+  (§3.4). The detail object carries *what/which* (transaction fields); it never carries a *who* the
+  event does not attribute. `core/audit/changeHistory.ts` remains the normative home of this rule
+  and stays pure/deterministic.
+- **FR25 — Privacy/scope gate (see §8.2-amendment).** Surfacing amounts/descriptions/references in
+  the auditor-facing lane and in the exported `change-history.jsonl` is a **scope choice**, not a
+  leak (the viewer is unlocked; decryption stays in main; only Zod-validated view-models reach the
+  renderer — FR12/AC10). The amendment recommends a position in §8.2-amendment and raises it as
+  OQ14 for the product owner.
+- **FR26 — Contract & projection impact (described, NOT implemented here; see §6.4).** The detail,
+  the Tier-2 diff representation, and the bulk-group row expand the `ChangeHistoryRow` IPC
+  view-model and its strict-schema (`.strict()`) tests, and extend `projectChangeHistory`. This
+  amendment **describes** that surface; implementation is a separate work item (§11.1, WI-7…WI-10).
+
 ## 5. UX Notes
 
 Full flows live in the paired UX spec. Architecture-constraining points:
@@ -352,6 +459,36 @@ Anchors are **audit entries** — they live inside the existing audit store
 anchor cache and the pending-timestamp queue live alongside the audit chunks, MK-encrypted, with
 opaque names (ADR-001 C11 / R3). Evidence bundles are written **outside** the dataset root to a
 user-chosen path (like SPEC-027 exports) and are never re-read by the app.
+
+### 6.4 Change-history detail — contract & projection impact (2026-06-15 amendment)
+
+This amendment expands the **renderer-visible change-history view-model** and the **pure
+projection**; it adds **no new domain event** (all detail is already on existing `tx.created` /
+`tx.updated` payloads, and `tx.deleted` deliberately carries none). Described here for the
+implementer; not implemented in this docs-only change.
+
+- **`ChangeHistoryRow` (in `app/src/shared/ipc-contracts/audit.ts`) gains a structured `detail`.**
+  A new optional, discriminated detail object carries the already-decrypted transaction fields of
+  FR19 (`amount`, `currency`, `type`, `description`, `categoryId`+`categoryLabel`,
+  `subcategoryId`+`subcategoryLabel`, `tagIds`+`tagLabels`, `status`, `reference`) plus a
+  `summaryKind` discriminator (`tx.created` | `tx.updated` | `tx.deleted` | `config` | `flat`) so
+  the renderer composes the localized summary (FR18). Tier-2 (FR21/FR22) adds an optional
+  `changedFields` / before→after delta representation and a `baseline: 'present' | 'unavailable'`
+  marker (the no-guess fallback). The schema stays **strict** (`.strict()`) and its strict-schema
+  tests expand accordingly (R12/C13, AC10).
+- **Bulk-group representation (FR23).** The `audit:listChangeHistory` response gains a group row
+  shape — either a discriminated `kind: 'group'` row carrying `correlationId`, `memberCount`,
+  representative `occurredAt`, shared actor/device, and an ordered `members: ChangeHistoryRow[]`,
+  or an equivalent `groupId`/`groupSize` annotation on member rows. The exact shape is an
+  implementation choice for the contract WI; both keep one-Zod-validated-view-model-per-payload.
+- **`projectChangeHistory` (in `app/src/core/audit/changeHistory.ts`) is extended** to (a) extract
+  the Tier-1 detail from the event payload, (b) optionally replay per-`txId` snapshots for the
+  Tier-2 diff (FR22 — over the **full** event set, before display filtering), and (c) collapse
+  `correlationId` groups (FR23). It MUST remain pure/deterministic and preserve the §3.4
+  attribution-honesty rule (FR24). Label resolution reuses the existing `accountLabelById`-style
+  read-model resolver, extended to category/subcategory/tag labels (resolution in main only).
+- **No change to `audit:verifyStatus` or `audit:listSigned`.** This amendment touches only the
+  change-history lane.
 
 ## 7. IPC Surface
 
@@ -451,7 +588,37 @@ acceptability depends on the specific regime, and that **legal review is require
 "audit-grade" or "compliance" claim** is made to end users or in marketing. The in-app copy and
 the evidence bundle's verification report MUST state the limitation plainly.
 
-### 8.2 Tier 3 migration path (kept open)
+### 8.2 Privacy/scope of change-history detail (2026-06-15 amendment — FLAGGED)
+
+> **This is a scope decision the product owner must make, not a vulnerability.** Enriching the
+> change-history lane (FR18–FR21) surfaces **sensitive financial plaintext** — amounts, payee/
+> description text, references — in the **auditor-facing** view and in the exported
+> `change-history.jsonl`. It is **not a leak**: the viewer is already unlocked, decryption stays in
+> **main**, and only Zod-validated view-models cross IPC (FR12 / AC10). But it changes *what an
+> auditor (or anyone handed the evidence bundle) routinely sees* from "a transaction changed" to
+> "this €120,00 payment to 'Office supplies' was recategorised." That is a deliberate
+> exposure-surface choice.
+
+Options considered (recommendation flagged; raised as **OQ14** for Pedro):
+
+| Option | Behaviour | Trade-off |
+|---|---|---|
+| A | Full detail inline, always visible | Most useful; maximum routine exposure of financial plaintext in the audit view + bundle. |
+| **B (recommended)** | Summary inline; full field detail behind the **expandable row** (FR20); bundle keeps detail with the existing "treat like cash" warning | Useful *and* the sensitive detail is one deliberate interaction away, not splashed across the default view; matches the bundle's existing decrypted-output posture. |
+| C | A workspace **setting** "show financial detail in the audit view / bundle" (default off) | Most conservative; adds a preference surface and a default that hides useful detail. Compatible with B as a later refinement. |
+| D | Redact amounts/descriptions in the lane; show only structural changes (category/status/tags) | Lowest exposure; defeats the treasurer's core need ("which transaction, what amount"). |
+
+**Recommendation: Option B now, with Option C reachable later.** **RATIFIED** (Pedro, 2026-06-15 —
+OQ14). Show the localized summary inline
+(which already implies amount/description), put the full field breakdown behind the expand, and keep
+the evidence bundle's `change-history.jsonl` carrying detail under the existing typed-confirmation +
+"treat like cash" + encrypted-workspace guard. The bundle's **"¿Qué incluye?" / "What's included?"**
+disclosure (UX spec §3.2) MUST be updated to state that the change history now includes
+transaction-level financial detail. Decryption and label resolution remain main-only; the renderer
+receives only validated view-models (R11/R12, AC10). **This recommendation does not change shipped
+behaviour** — it constrains the not-yet-built viewer increment.
+
+### 8.3 Tier 3 migration path (kept open)
 
 Per-event signing and `escrow.json` trust are deferred but not foreclosed. Note honestly: the
 **implemented** audit log does **not** yet verify against per-device escrow keys (see §8) — so
@@ -547,6 +714,35 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
 - [ ] **AC18** — Anchored event files are never rewritten in place; a documented migration rule
   preserves anchored raw bytes (or re-anchors), so historical anchors survive future migrations.
 
+### 10.1 Enriched change-history detail (2026-06-15 amendment)
+
+- [ ] **AC19** — Each transaction change-history row renders a localized one-line **summary**
+  (FR18) in place of the bare action label, composed in the renderer from structured detail fields
+  and honouring the `es`/`en` language and `eu`/`us` number-format preference (European
+  amount/date formatting reused).
+- [ ] **AC20** — Full transaction field detail (FR19) is reachable via the **expandable row**
+  (FR20), keyboard-operable; the default row stays lean (Date · Author · Device · Summary ·
+  Account).
+- [ ] **AC21** — Tier-1 detail is computed **purely** from the event payload; `tx.deleted` shows
+  *"Transaction deleted"* with no fabricated snapshot; the projection remains deterministic
+  (same input → same rows/detail).
+- [ ] **AC22** — (Tier-2, if shipped) before→after deltas are computed by replaying per-`txId`
+  snapshots over the **full** event log before display filtering; a date/account filter never
+  corrupts the diff baseline; a missing predecessor yields the honest *"prior state unavailable"*
+  fallback, never a guessed baseline.
+- [ ] **AC23** — Events sharing a `correlationId` collapse into **one** expandable group row
+  (*"Bulk update · N transactions · {time}"*); a single-member `correlationId` renders as a normal
+  row; expanding shows per-transaction detail; with a filter active the header shows *"M of N"*.
+- [ ] **AC24** — The attribution-honesty invariant (§3.4) is preserved across all enriched detail:
+  no row, group, or diff introduces a guessed actor/device or infers one from the unlocked session.
+- [ ] **AC25** — Privacy/scope (OQ14) is implemented per the ratified option: financial detail is
+  gated behind expand (Option B) and the evidence-bundle "what's included" disclosure states the
+  change history now carries transaction-level financial detail; decryption stays in main and only
+  Zod-validated view-models cross IPC.
+- [ ] **AC26** — The expanded `ChangeHistoryRow` view-model (detail + group representation) keeps a
+  **strict** Zod schema; its strict-schema/contract tests cover the new fields; no plaintext path/
+  ciphertext/key crosses IPC.
+
 ## 11. Traceability
 
 - **PRD:** `docs/product/prds/prd-028-audit-and-evidence.md` (to be reserved in
@@ -581,6 +777,15 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
 | WI-4 | 1 | #360 | Audit & Evidence viewer + evidence export | WI-3 |
 | WI-5 | 2 | #362 | Trusted timestamping of the anchor root | WI-2 |
 | WI-6 | 3 (deferred) | #359 | Per-event Ed25519 signing + escrow.json cross-device trust | — |
+
+**Enriched change-history detail (2026-06-15 amendment):**
+
+| WI | Tier | Issue | Title | Depends on |
+|---|---|---|---|---|
+| WI-7 | 1 | (new) | Tier-1 enriched change-history detail: structured `detail` view-model + renderer summary (FR18–FR21) + expandable row (FR20) | WI-4 |
+| WI-8 | 1 | (new) | Bulk grouping by `correlationId` into expandable group rows (FR23) | WI-7 |
+| WI-9 | 2 | (new) | Tier-2 before→after diff (replay + deleted last-known) with full-log baseline (FR22); advisory recomputable per-`txId` cache for NFR1 (OQ12) | WI-7 |
+| WI-10 | 1 | (new) | Privacy/scope gate per OQ14 ratification (expand-gating; optional setting) (FR25, §8.2) | WI-7 |
 
 
 ## 12. Open Questions
@@ -637,6 +842,41 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
    crypto-spec §8 model (genesis constant, escrow device-key verification) is pulled forward into
    Tier 1 or stays with Tier 3. (Switch.)
 
+> **Enriched change-history detail (2026-06-15 amendment) — OQ9–OQ15.** These gated the §4.3 / §6.4
+> detail work (WI-7…WI-10). **All RESOLVED — Pedro ratified every recommendation as-is on
+> 2026-06-15.** The resolutions are now normative; the §4.3 increment is **Accepted /
+> ready-for-implementation** and the WI-7…WI-10 breakdown stands for delegation. None change
+> already-shipped behaviour.
+
+9. **Summary composition location.** **RESOLVED** (Pedro, 2026-06-15): the per-row summary (FR18)
+   is composed in the **renderer** from structured detail fields, reusing the existing formatters so
+   `es`/`en` + `eu`/`us` number/date formatting stays reactive; main ships only structured
+   view-models. (Niobe/Neo.)
+10. **Which fields appear in the collapsed summary vs only on expand?** **RESOLVED** (Pedro,
+    2026-06-15): the collapsed summary carries **amount + description + category**; the full field
+    set (subcategory, tags/labels, status, reference) appears on **expand** (FR19/FR20). (Niobe/Link.)
+11. **Ship Tier-1 first, Tier-2 later — or build Tier-2 up front?** **RESOLVED** (Pedro,
+    2026-06-15): **Tier-1 (snapshot-only) first (WI-7); Tier-2 diffs as a follow-up (WI-9).** Tier-1
+    delivers the core value with no replay/ordering risk. (Neo.)
+12. **Tier-2 baseline scope.** **RESOLVED** (Pedro, 2026-06-15): the diff baseline is computed over
+    the **full** decrypted event log (not the filtered display set), with the honest
+    *"prior state unavailable"* fallback and no guessed baseline (FR22 — normative). Replay cost at
+    scale (NFR1) is addressed by an **advisory, fully recomputable per-`txId` cache** (never the
+    source of truth). (Neo/Switch.)
+13. **Bulk-group ↔ filter interaction.** **RESOLVED** (Pedro, 2026-06-15): when a filter is active a
+    `correlationId` group is shown if **any** member matches, expanding to only the matching members
+    with an *"M of N"* header, so filtering never silently drops or miscounts a bulk action (FR23).
+    (Niobe.)
+14. **Privacy/scope of financial detail in the auditor-facing lane & bundle (§8.2).** **RESOLVED**
+    (Pedro, 2026-06-15): **Option B** — summary inline, full financial detail behind the **expand**;
+    the evidence bundle keeps the detail under the existing "treat like cash" guard with an updated
+    "what's included" disclosure. **Option C** (a default-off setting) is left reachable as a later
+    refinement. Decryption stays in main; only validated view-models reach the renderer (FR12/AC10).
+    (Link/Switch + Pedro.)
+15. **Diffing non-transaction events.** **RESOLVED** (Pedro, 2026-06-15): **richer label only for
+    v1** for config/note/split/import events (no before→after diffing); revisit with the M2
+    attribution work. (Niobe/Neo.)
+
 ## 13. Status History
 
 | Date | Status | By | Notes |
@@ -644,3 +884,5 @@ later (anchor = cheap bulk evidence; per-event signatures = per-writer attributi
 | 2026-06-01 | Draft | Niobe (with Neo + Switch) | Initial draft. Reframes issue #351 into tiered Audit & Evidence (Tiers 0–2; Tier 3 deferred). Built on the verified "anchor, don't re-sign" design; Tier 0 coverage downgraded to "normalization required" after confirming flat config/note/split/import events lack actor fields. |
 | 2026-06-13 | Draft (viewer increment finalized in paired UX) | Niobe | Resolved **OQ5** (evidence bundle format — JSON-lines + manifest + verification report + print-friendly HTML, PDF deferred) consistent with the paired UX spec §3.2. Annotated §12 to record that OQ1/OQ4b/OQ7/OQ8 are backend/security confirmations on already-shipped crypto (3.15/3.16), tracked separately for Switch/Link and **not** viewer blockers (no shipped behavior changed). Paired UX spec moved to **In Review** for the FR10/FR11 viewer build (WI-4/WI-6). |
 | 2026-06-13 | Draft (paired UX **Accepted**) | Pedro (product owner) | Pedro ratified the viewer-blocking decisions: **OQ5** accepted (bundle format incl. print-friendly HTML, PDF deferred); **OQ4b** accepted (freeTSA default; qualified/eIDAS recommended for audit-grade; bundling the pinned freeTSA root approved); **OQ1** accepted (bulk anchoring as substitute for per-mutation audit entries). OQ7/OQ8 remain separately tracked for Switch (not viewer blockers). Paired UX spec is now **Accepted**; viewer build (WI-4/WI-6) cleared to start. |
+| 2026-06-15 | Draft (change-history detail amendment) | Niobe (with Neo + Link) | **Enriched change-history detail** amendment: added §4.3 (FR18–FR26 — per-row human-readable summary, detail fields, expandable row, Tier-1 snapshot vs Tier-2 before→after diff with a pure/deterministic full-log baseline and no-guess fallback, bulk grouping by `correlationId`, attribution-honesty preserved), §6.4 (ChangeHistoryRow view-model + `projectChangeHistory` impact — no new domain event), §8.2 (privacy/scope FLAG with Options A–D, recommend B), AC19–AC26, WI-7…WI-10, and OQ9–OQ15 for Pedro. Motivated by ~700 identical "Transaction updated" rows from a bulk apply. **Docs only; no shipped behaviour changed.** |
+| 2026-06-15 | §4.3 increment **Accepted** | Pedro (product owner) | Ratified **OQ9–OQ15** as recommended: OQ9 renderer-composed summaries; OQ10 collapsed summary = amount+description+category, full set on expand; OQ11 Tier-1 (snapshot) first, Tier-2 follow-up; OQ12 Tier-2 baseline over the **full** event log + honest "prior state unavailable" fallback + advisory recomputable per-`txId` cache; OQ13 bulk group shows on any-member match with an "M of N" header; OQ14 privacy **Option B** (summary inline, financial detail behind expand; bundle keeps detail under the "treat like cash" guard + updated disclosure; Option C later); OQ15 richer label only for non-transaction events in v1. The §4.3 increment is **Accepted / ready-for-implementation**; WI-7…WI-10 cleared for delegation. No shipped behaviour changed. |
