@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.21] — Enriched audit change-history detail
+
+Makes the Audit & Evidence "Change history" lane readable at a glance: each row now carries a meaningful one-line summary, related bulk actions collapse into a single row, and the underlying financial figures stay hidden until you ask for them. Existing trial datasets open normally — no migration.
+
+### Changed
+
+- **Enriched change-history summaries with expandable detail (SPEC-028 §4.3, PR #403).** Each change-history row now shows a meaningful per-row summary (e.g. "Updated · €120,00 · 'Office supplies' · Travel") instead of an opaque entry, with the full financial breakdown available on expand. Events sharing a `correlationId` collapse into one expandable "Bulk update · N transactions" row, showing an "M of N" count when active filters match only part of the group. Financial detail is rendered only once a row is expanded (Option-B privacy gate), so amounts are not exposed in the collapsed list. Renderer, main projection, and IPC contract only — no change to encryption, the audit hash chain, or stored schema.
+
 ## [0.1.0-trial.3.20] — DateInput calendar popover
 
 Restores the click-to-pick calendar on every date field — lost since #353 — while keeping the user-configurable date format. Existing trial datasets open normally — no migration.
