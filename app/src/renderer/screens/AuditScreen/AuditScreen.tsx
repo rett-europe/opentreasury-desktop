@@ -15,10 +15,19 @@ import type {
   AuditVerifyStatusResponse,
   SignedEntryView,
   ChangeHistoryRow,
+  ChangeHistoryDetail,
 } from '../../../shared/ipc-contracts/audit.js';
 import type { Account } from '../../../shared/ipc-contracts/panel.js';
 import { DATE_PRESET_IDS, getPresetRange, type DatePresetId } from '../../utils/datePresets.js';
 import { IntegrityBanner } from './IntegrityBanner.js';
+import {
+  composeSummary,
+  groupHistoryRows,
+  hasExpandableDetail,
+  type HistoryGroupItem,
+  type SummaryFormatters,
+} from './historyView.js';
+import { useFormatters } from '../../format/useFormatters.js';
 import './AuditScreen.css';
 
 /**
@@ -489,6 +498,8 @@ function renderDevice(row: ChangeHistoryRow, t: TFn): JSX.Element {
 }
 
 function HistoryTable({ rows, state, locale, t }: HistoryTableProps): JSX.Element {
+  const formatters = useFormatters();
+  const items = useMemo(() => groupHistoryRows(rows), [rows]);
   if (state === 'loading') return <LoadingRows label={t('audit.loading')} />;
   if (state === 'error') return <ErrorBlock label={t('audit.error')} />;
   if (rows.length === 0) return <EmptyBlock label={t('audit.empty')} />;
@@ -500,26 +511,222 @@ function HistoryTable({ rows, state, locale, t }: HistoryTableProps): JSX.Elemen
             <th scope="col">{t('audit.historyTable.occurredAt')}</th>
             <th scope="col">{t('audit.historyTable.actor')}</th>
             <th scope="col">{t('audit.historyTable.device')}</th>
-            <th scope="col">{t('audit.historyTable.action')}</th>
+            <th scope="col">{t('audit.historyTable.summary')}</th>
             <th scope="col">{t('audit.historyTable.account')}</th>
+            <th scope="col" className="ot-audit__sr-only">
+              {t('audit.historyTable.detail')}
+            </th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.eventId}>
-              <td>
-                <span className="ot-audit__sr-lane">{t('audit.rowLane.history')}</span>
-                {formatDateTime(r.occurredAt, locale)}
-              </td>
-              <td>{renderActor(r, t)}</td>
-              <td>{renderDevice(r, t)}</td>
-              <td>{t(`audit.actions.${r.action}`, { defaultValue: r.action })}</td>
-              <td>{r.accountLabel ?? r.accountId ?? '—'}</td>
-            </tr>
-          ))}
+          {items.map((item) =>
+            item.kind === 'group' ? (
+              <BulkGroupRow
+                key={`group-${item.groupId}`}
+                group={item}
+                locale={locale}
+                t={t}
+                formatters={formatters}
+              />
+            ) : (
+              <HistoryRow
+                key={item.row.eventId}
+                row={item.row}
+                locale={locale}
+                t={t}
+                formatters={formatters}
+              />
+            ),
+          )}
         </tbody>
       </table>
     </div>
+  );
+}
+
+interface HistoryRowProps {
+  readonly row: ChangeHistoryRow;
+  readonly locale: string;
+  readonly t: TFn;
+  readonly formatters: SummaryFormatters;
+  /** Visually nests the row inside an expanded bulk group. */
+  readonly nested?: boolean;
+}
+
+/**
+ * A single change-history row. The default row stays lean (Date · Author ·
+ * Device · Summary · Account); the full financial breakdown sits behind a
+ * keyboard-operable expander (FR20 / AC20, Option B privacy gate, AC25).
+ */
+function HistoryRow({ row, locale, t, formatters, nested = false }: HistoryRowProps): JSX.Element {
+  const [expanded, setExpanded] = useState(false);
+  const expandable = hasExpandableDetail(row);
+  const summary = composeSummary(row, formatters, t);
+  const detailId = `ot-audit-detail-${row.eventId}`;
+  return (
+    <>
+      <tr className={nested ? 'ot-audit__row--nested' : undefined}>
+        <td>
+          {!nested && <span className="ot-audit__sr-lane">{t('audit.rowLane.history')}</span>}
+          {formatDateTime(row.occurredAt, locale)}
+        </td>
+        <td>{renderActor(row, t)}</td>
+        <td>{renderDevice(row, t)}</td>
+        <td>{summary}</td>
+        <td>{row.accountLabel ?? row.accountId ?? '—'}</td>
+        <td className="ot-audit__expander-cell">
+          {expandable && (
+            <button
+              type="button"
+              className="ot-audit__expander"
+              aria-expanded={expanded}
+              aria-controls={detailId}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {t(expanded ? 'audit.summary.hideDetail' : 'audit.summary.showDetail')}
+            </button>
+          )}
+        </td>
+      </tr>
+      {expandable && expanded && row.detail !== undefined && (
+        <tr className="ot-audit__detail-row">
+          <td colSpan={6} id={detailId}>
+            <DetailPanel detail={row.detail} t={t} formatters={formatters} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+interface BulkGroupRowProps {
+  readonly group: HistoryGroupItem;
+  readonly locale: string;
+  readonly t: TFn;
+  readonly formatters: SummaryFormatters;
+}
+
+/** Localized short time (HH:MM) for the bulk-group header. */
+function formatTime(iso: string, locale: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * SPEC-028 FR23 / AC23 — one expandable group row collapsing every `tx.updated`
+ * sharing a `correlationId` (the ~700-identical-rows fix). The header shows the
+ * full member count N; with a filter active and only M members present, it also
+ * shows "M of N" so the count never misleads. Expanding lists the per-transaction
+ * detail rows.
+ */
+function BulkGroupRow({ group, locale, t, formatters }: BulkGroupRowProps): JSX.Element {
+  const [expanded, setExpanded] = useState(false);
+  const matched = group.members.length;
+  const filtered = matched < group.groupSize;
+  const detailId = `ot-audit-group-${group.groupId}`;
+  const header = t('audit.summary.bulkGroup', {
+    count: group.groupSize,
+    time: formatTime(group.representative.occurredAt, locale),
+  });
+  return (
+    <>
+      <tr className="ot-audit__group-row">
+        <td>
+          <span className="ot-audit__sr-lane">{t('audit.rowLane.history')}</span>
+          {formatDateTime(group.representative.occurredAt, locale)}
+        </td>
+        <td>{renderActor(group.representative, t)}</td>
+        <td>{renderDevice(group.representative, t)}</td>
+        <td>
+          {header}
+          {filtered && (
+            <span className="ot-audit__group-filtered">
+              {' · '}
+              {t('audit.summary.bulkGroupFiltered', { shown: matched, total: group.groupSize })}
+            </span>
+          )}
+        </td>
+        <td>—</td>
+        <td className="ot-audit__expander-cell">
+          <button
+            type="button"
+            className="ot-audit__expander"
+            aria-expanded={expanded}
+            aria-controls={detailId}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {t(expanded ? 'audit.summary.hideDetail' : 'audit.summary.showDetail')}
+          </button>
+        </td>
+      </tr>
+      {expanded &&
+        group.members.map((member) => (
+          <HistoryRow
+            key={member.eventId}
+            row={member}
+            locale={locale}
+            t={t}
+            formatters={formatters}
+            nested
+          />
+        ))}
+    </>
+  );
+}
+
+interface DetailPanelProps {
+  readonly detail: ChangeHistoryDetail;
+  readonly t: TFn;
+  readonly formatters: SummaryFormatters;
+}
+
+/**
+ * The expanded financial breakdown (FR19): amount, type, description, category,
+ * subcategory, tags/labels, status, reference. Only rendered for `tx.created` /
+ * `tx.updated` detail (the only kinds carrying a snapshot).
+ */
+function DetailPanel({ detail, t, formatters }: DetailPanelProps): JSX.Element | null {
+  if (detail.summaryKind !== 'tx.created' && detail.summaryKind !== 'tx.updated') return null;
+  const none = t('audit.detail.none');
+  const category = detail.categoryLabel ?? detail.categoryId ?? none;
+  const subcategory = detail.subcategoryLabel ?? detail.subcategoryId ?? none;
+  const tags = detail.tagLabels.length > 0 ? detail.tagLabels.join(', ') : none;
+  return (
+    <dl className="ot-audit__detail">
+      <div className="ot-audit__detail-item">
+        <dt>{t('audit.detail.amount')}</dt>
+        <dd>{formatters.formatCurrency(detail.amount)}</dd>
+      </div>
+      <div className="ot-audit__detail-item">
+        <dt>{t('audit.detail.type')}</dt>
+        <dd>{t(`audit.detail.type${detail.txType === 'income' ? 'Income' : 'Expense'}`)}</dd>
+      </div>
+      <div className="ot-audit__detail-item">
+        <dt>{t('audit.detail.description')}</dt>
+        <dd>{detail.description.length > 0 ? detail.description : none}</dd>
+      </div>
+      <div className="ot-audit__detail-item">
+        <dt>{t('audit.detail.category')}</dt>
+        <dd>{category}</dd>
+      </div>
+      <div className="ot-audit__detail-item">
+        <dt>{t('audit.detail.subcategory')}</dt>
+        <dd>{subcategory}</dd>
+      </div>
+      <div className="ot-audit__detail-item">
+        <dt>{t('audit.detail.tags')}</dt>
+        <dd>{tags}</dd>
+      </div>
+      <div className="ot-audit__detail-item">
+        <dt>{t('audit.detail.status')}</dt>
+        <dd>{t(`audit.detail.status${detail.status === 'approved' ? 'Approved' : 'Pending'}`)}</dd>
+      </div>
+      <div className="ot-audit__detail-item">
+        <dt>{t('audit.detail.reference')}</dt>
+        <dd>{detail.reference ?? none}</dd>
+      </div>
+    </dl>
   );
 }
 

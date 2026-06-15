@@ -89,7 +89,36 @@
       "actor": "Author",
       "device": "Device",
       "action": "Action",
-      "account": "Account / category"
+      "summary": "Summary",
+      "account": "Account / category",
+      "detail": "Detail"
+    },
+    "summary": {
+      "created": "Created · {{amount}} · '{{description}}' · {{category}}",
+      "updated": "Updated · {{amount}} · '{{description}}' · {{category}}",
+      "deleted": "Transaction deleted",
+      "noCategory": "Uncategorized",
+      "priorStateUnavailable": "prior state unavailable",
+      "bulkGroup_one": "Bulk update · {{count}} transaction · {{time}}",
+      "bulkGroup_other": "Bulk update · {{count}} transactions · {{time}}",
+      "bulkGroupFiltered": "{{shown}} of {{total}}",
+      "showDetail": "Show detail",
+      "hideDetail": "Hide detail"
+    },
+    "detail": {
+      "amount": "Amount",
+      "type": "Type",
+      "typeIncome": "Income",
+      "typeExpense": "Expense",
+      "description": "Description",
+      "category": "Category",
+      "subcategory": "Subcategory",
+      "tags": "Tags / labels",
+      "status": "Status",
+      "statusPending": "Pending",
+      "statusApproved": "Approved",
+      "reference": "Reference",
+      "none": "—"
     },
     "actor": {
       "preCoverage": "author: unknown — pre-coverage",
@@ -127,7 +156,7 @@
     },
     "exportEvidence": "Export evidence",
     "exportComingSoon": "Coming soon",
-    "bundleDisclosure": "Includes: signed record · change history · key manifest · external timestamps · a verification report you can print.",
+    "bundleDisclosure": "Includes: signed record · change history (with transaction-level financial detail) · key manifest · external timestamps · a verification report you can print.",
     "limitation": "Tamper-evident and externally timestamped — not \"tamper-proof\". Someone holding all device keys could still rebuild a history; the external timestamp limits backdating. Seek legal review before presenting this as \"audit-grade\".",
     "limitationLabel": "About these guarantees"
   },

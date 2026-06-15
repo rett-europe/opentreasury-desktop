@@ -89,7 +89,36 @@
       "actor": "Autor",
       "device": "Dispositivo",
       "action": "Acción",
-      "account": "Cuenta / categoría"
+      "summary": "Resumen",
+      "account": "Cuenta / categoría",
+      "detail": "Detalle"
+    },
+    "summary": {
+      "created": "Creado · {{amount}} · '{{description}}' · {{category}}",
+      "updated": "Actualizado · {{amount}} · '{{description}}' · {{category}}",
+      "deleted": "Transacción eliminada",
+      "noCategory": "Sin categoría",
+      "priorStateUnavailable": "estado anterior no disponible",
+      "bulkGroup_one": "Actualización masiva · {{count}} transacción · {{time}}",
+      "bulkGroup_other": "Actualización masiva · {{count}} transacciones · {{time}}",
+      "bulkGroupFiltered": "{{shown}} de {{total}}",
+      "showDetail": "Ver detalle",
+      "hideDetail": "Ocultar detalle"
+    },
+    "detail": {
+      "amount": "Importe",
+      "type": "Tipo",
+      "typeIncome": "Ingreso",
+      "typeExpense": "Gasto",
+      "description": "Descripción",
+      "category": "Categoría",
+      "subcategory": "Subcategoría",
+      "tags": "Etiquetas",
+      "status": "Estado",
+      "statusPending": "Pendiente",
+      "statusApproved": "Aprobada",
+      "reference": "Referencia",
+      "none": "—"
     },
     "actor": {
       "preCoverage": "autor: desconocido — anterior al registro",
@@ -127,7 +156,7 @@
     },
     "exportEvidence": "Exportar evidencia",
     "exportComingSoon": "Próximamente",
-    "bundleDisclosure": "Incluye: registro firmado · historial de cambios · manifiesto de claves · sellos de tiempo externos · un informe de verificación que puedes imprimir.",
+    "bundleDisclosure": "Incluye: registro firmado · historial de cambios (con detalle financiero por transacción) · manifiesto de claves · sellos de tiempo externos · un informe de verificación que puedes imprimir.",
     "limitation": "A prueba de manipulación y con sello de tiempo externo — no \"a prueba de todo\". Una persona con todas las claves del dispositivo aún podría reconstruir un historial; el sello de tiempo externo limita la antedatación. Consulta con asesoría legal antes de presentarlo como \"grado auditoría\".",
     "limitationLabel": "Sobre estas garantías"
   },
