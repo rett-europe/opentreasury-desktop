@@ -145,6 +145,10 @@ the number format.
   level, each category breaks out into its subcategory line items (matching the
   template's per-event expense breakdown) with the category as a subtotal header.
   Uncategorised movements group under "Unclassified" within their `type`'s table.
+  A category whose movements **all** lack a subcategory renders **no** child rows at
+  all — a lone "Unclassified" child would only restate its parent and adds nothing to a
+  board-facing document. A category that *mixes* classified and unclassified movements
+  still shows its "Unclassified" child, so the children always sum to the parent.
   **Both levels MUST still reconcile to the same period totals** for the selected account
   scope (`getRangeKPIs(from, to)` for all-accounts/consolidated mode; the account-scoped
   income/expense from `getAccountBalancesInRange(from, to)` for single-account mode) —
@@ -560,6 +564,10 @@ SPEC-027 security envelope. It introduces **no new cryptographic primitive**.
   (FR6, FR21).
 - [ ] **AC5** — `category-subcategory` grouping breaks a category into its subcategory
   line items with a category subtotal; `category` grouping does not (FR7).
+- [ ] **AC5b** — Under `category-subcategory` grouping, a category whose movements all
+  lack a subcategory renders no child rows (no redundant "Unclassified" echo), while a
+  category mixing classified and unclassified movements still renders its "Unclassified"
+  child and its children sum to the parent subtotal (FR7).
 - [ ] **AC6** — The header renders org name/logo, legal registration line, address,
   email, and the localized title; the footer renders both signatory blocks
   (name/role/place/date line + a blank signature area) with **no embedded signature

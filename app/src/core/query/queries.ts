@@ -449,22 +449,36 @@ function buildRows(
       label: resolveCategoryName(categoryId, model),
       total: round2(bucket.total),
       ...(grouping === 'category-subcategory'
-        ? {
-            subRows: [...bucket.bySub]
-              .map(
-                ([subcategoryId, sub]): CategoryBreakdownSubRow => ({
-                  subcategoryId,
-                  label: resolveSubcategoryName(categoryId, subcategoryId, model),
-                  total: round2(sub.total),
-                }),
-              )
-              .sort(sortBySubRow),
-          }
+        ? { subRows: buildSubRows(categoryId, bucket, model) }
         : {}),
     };
     rows.push(row);
   }
   return rows.sort(sortByRow);
+}
+
+// SPEC-030 FR7 — a category whose movements ALL lack a subcategory would emit a
+// single "Unclassified" child that merely restates its parent row. Emit no
+// children in that case: the parent already carries the whole amount, and the
+// echo is pure noise in a board-facing document. A category that MIXES
+// classified and unclassified movements keeps its Unclassified bucket, where it
+// carries real information (and is needed for the children to sum to the
+// parent).
+function buildSubRows(
+  categoryId: string | null,
+  bucket: BreakdownBucket,
+  model: ReadModel,
+): CategoryBreakdownSubRow[] {
+  if (bucket.bySub.size === 1 && bucket.bySub.has(null)) return [];
+  return [...bucket.bySub]
+    .map(
+      ([subcategoryId, sub]): CategoryBreakdownSubRow => ({
+        subcategoryId,
+        label: resolveSubcategoryName(categoryId, subcategoryId, model),
+        total: round2(sub.total),
+      }),
+    )
+    .sort(sortBySubRow);
 }
 
 // Deterministic ordering (NFR6): largest magnitude first, then label, then id.
@@ -487,6 +501,10 @@ function sortBySubRow(a: CategoryBreakdownSubRow, b: CategoryBreakdownSubRow): n
  * category. Classification uses the first-class `Transaction.type`. Split
  * children are normalised via `effectiveAmounts` (each child attributed to its
  * own category/subcategory but the parent's income/expense direction).
+ *
+ * A category whose movements all lack a subcategory emits NO subRows rather
+ * than a lone "Unclassified" child that would just restate the parent — see
+ * `buildSubRows`.
  *
  * Amounts in a category flagged `isInternalTransfer` are EXCLUDED from both
  * tables: moving money between the organisation's own accounts is neither

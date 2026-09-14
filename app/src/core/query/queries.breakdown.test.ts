@@ -312,6 +312,62 @@ describe('getCategoryBreakdownInRange — classification & reconciliation', () =
     expect(nested.expense[0]!.subRows).toHaveLength(1);
   });
 
+  it('emits no subRows when every movement in a category lacks a subcategory', () => {
+    seed([
+      account(ACC1, 0, 0),
+      category(CAT_EXPENSE, 'Professional services', 0),
+      tx({ date: '2024-04-01', type: 'expense', amount: 300, categoryId: CAT_EXPENSE }),
+      tx({ date: '2024-05-01', type: 'expense', amount: 200, categoryId: CAT_EXPENSE }),
+    ]);
+
+    const bd = getCategoryBreakdownInRange('2024-01-01', '2024-12-31', 'category-subcategory');
+    const row = bd.expense.find((r) => r.categoryId === CAT_EXPENSE)!;
+
+    // A lone "Unclassified" child would only restate the parent — drop it.
+    expect(row.subRows).toEqual([]);
+    // ...without disturbing the amount that reconciles to the table TOTAL.
+    expect(row.total).toBe(500);
+  });
+
+  it('keeps the Unclassified child when a category mixes classified and unclassified', () => {
+    seed([
+      account(ACC1, 0, 0),
+      category(CAT_EXPENSE, 'Events', 0),
+      subcategory(SUB_A, CAT_EXPENSE, 'Madrid'),
+      tx({
+        date: '2024-04-01',
+        type: 'expense',
+        amount: 300,
+        categoryId: CAT_EXPENSE,
+        subcategoryId: SUB_A,
+      }),
+      tx({ date: '2024-05-01', type: 'expense', amount: 200, categoryId: CAT_EXPENSE }),
+    ]);
+
+    const bd = getCategoryBreakdownInRange('2024-01-01', '2024-12-31', 'category-subcategory');
+    const row = bd.expense.find((r) => r.categoryId === CAT_EXPENSE)!;
+
+    expect(row.subRows).toHaveLength(2);
+    expect(row.subRows!.find((s) => s.subcategoryId === null)?.total).toBe(200);
+    // Children must still sum to the parent.
+    expect(row.subRows!.reduce((a, s) => a + s.total, 0)).toBe(row.total);
+  });
+
+  it('emits no subRows under the uncategorised parent row', () => {
+    seed([
+      account(ACC1, 0, 0),
+      tx({ date: '2024-04-01', type: 'income', amount: 120, categoryId: null }),
+    ]);
+
+    const bd = getCategoryBreakdownInRange('2024-01-01', '2024-12-31', 'category-subcategory');
+    const row = bd.income.find((r) => r.categoryId === null)!;
+
+    // "Unclassified → Unclassified" is doubly redundant.
+    expect(row.label).toBeNull();
+    expect(row.subRows).toEqual([]);
+    expect(row.total).toBe(120);
+  });
+
   it('empty range returns empty line items', () => {
     seed([account(ACC1, 0, 0), tx({ date: '2023-12-31', type: 'income', amount: 100 })]);
 
