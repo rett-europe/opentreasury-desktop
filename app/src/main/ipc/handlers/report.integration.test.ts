@@ -49,6 +49,9 @@ const reconciliation: RangeReconciliation = {
   opening: 32162.93,
   credits: 9506.21,
   debits: 8647.5,
+  internalTransfersIn: 0,
+  internalTransfersOut: 0,
+  internalTransfersNet: 0,
   closing: 33021.64,
 };
 
@@ -210,7 +213,15 @@ describe('report:build', () => {
   it('refuses a reconciliation that does not tie out (FR20)', async () => {
     const handlers = createReportHandlers(
       makeDeps({
-        getReconciliation: () => ({ opening: 100, credits: 50, debits: 10, closing: 999 }),
+        getReconciliation: () => ({
+          opening: 100,
+          credits: 50,
+          debits: 10,
+          internalTransfersIn: 0,
+          internalTransfersOut: 0,
+          internalTransfersNet: 0,
+          closing: 999,
+        }),
       }),
     );
     const res = await handlers.build(fakeEvent(1) as never, validBuild);

@@ -131,7 +131,7 @@ describe('reportModelSchema', () => {
       scopeLabel: 'Todas las cuentas',
       credits: { rows: [], total: 0 },
       debits: { rows: [], total: 0 },
-      reconciliation: { opening: 0, credits: 0, debits: 0, closing: 0 },
+      reconciliation: { opening: 0, credits: 0, debits: 0, internalTransfersNet: 0, closing: 0 },
       period: { kind: 'calendar-year', start: '2024-01-01', end: '2024-12-31', year: 2024 },
       signatures: {
         treasurer: { name: '', role: '', place: '' },

@@ -50,6 +50,7 @@ export function AddCategoryModal({
   const [name, setName] = useState('');
   const [color, setColor] = useState<string | null>(null);
   const [kind, setKind] = useState<CategoryKind | null>(null);
+  const [isInternalTransfer, setIsInternalTransfer] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -60,10 +61,12 @@ export function AddCategoryModal({
         setName(record.name);
         setColor(record.color ?? null);
         setKind(record.kind ?? null);
+        setIsInternalTransfer(record.isInternalTransfer === true);
       } else {
         setName('');
         setColor(null);
         setKind(null);
+        setIsInternalTransfer(false);
       }
       setErrors({});
       setGeneralError(null);
@@ -103,10 +106,12 @@ export function AddCategoryModal({
           name: trimmedName,
           color: color ?? undefined,
           ...(kind !== null ? { kind } : {}),
+          isInternalTransfer,
         });
         const updated: CategoryRecord = {
           ...record,
           name: trimmedName,
+          isInternalTransfer,
           ...(color !== null ? { color } : {}),
           ...(kind !== null ? { kind } : {}),
         };
@@ -118,6 +123,7 @@ export function AddCategoryModal({
         name: name.trim(),
         color: color ?? undefined,
         ...(kind !== null ? { kind } : {}),
+        ...(isInternalTransfer ? { isInternalTransfer } : {}),
       });
       if (!resp.ok) {
         applyServerError(resp);
@@ -130,6 +136,9 @@ export function AddCategoryModal({
         createdAt: resp.event.createdAt,
         ...(resp.event.color !== undefined ? { color: resp.event.color } : {}),
         ...(resp.event.kind !== undefined ? { kind: resp.event.kind } : {}),
+        ...(resp.event.isInternalTransfer !== undefined
+          ? { isInternalTransfer: resp.event.isInternalTransfer }
+          : {}),
       });
       onClose();
     } catch (err) {
@@ -137,7 +146,19 @@ export function AddCategoryModal({
     } finally {
       setSubmitting(false);
     }
-  }, [validate, name, color, kind, onSaved, onClose, applyServerError, mode, record, t]);
+  }, [
+    validate,
+    name,
+    color,
+    kind,
+    isInternalTransfer,
+    onSaved,
+    onClose,
+    applyServerError,
+    mode,
+    record,
+    t,
+  ]);
 
   return (
     <ConfigModalShell
@@ -214,6 +235,17 @@ export function AddCategoryModal({
             {t('configuracion.categorias.kind.hint')}
           </span>
         )}
+        <label className="ot-config-modal__checkbox-row">
+          <input
+            type="checkbox"
+            checked={isInternalTransfer}
+            onChange={(e) => setIsInternalTransfer(e.target.checked)}
+          />
+          {t('configuracion.categorias.internalTransfer.label')}
+        </label>
+        <span className="ot-config-modal__field-hint">
+          {t('configuracion.categorias.internalTransfer.hint')}
+        </span>
       </div>
 
       <div className="ot-config-modal__field">

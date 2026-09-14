@@ -24,6 +24,9 @@ const reconciliation: RangeReconciliation = {
   opening: 32162.93,
   credits: 9506.21,
   debits: 8647.5,
+  internalTransfersIn: 0,
+  internalTransfersOut: 0,
+  internalTransfersNet: 0,
   closing: 33021.64,
 };
 

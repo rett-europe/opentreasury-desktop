@@ -104,6 +104,19 @@ function renderReconciliation(model: ReportModel): string {
   const row = (label: string, value: string, cls = ''): string =>
     `<tr class="${cls}"><td class="label">${esc(label)}</td><td class="amt">${esc(value)}</td></tr>`;
 
+  // Net internal transfers are 0 in consolidated scope — omit the line rather
+  // than print a meaningless "±0,00". Per-account they carry real cash and the
+  // closing balance would not otherwise tie out, so the line is mandatory.
+  const transfersRow =
+    r.internalTransfersNet === 0
+      ? ''
+      : row(
+          copy.internalTransfersLineLabel,
+          formatEuroAmount(r.internalTransfersNet, {
+            sign: r.internalTransfersNet < 0 ? 'minus' : 'plus',
+          }),
+        );
+
   return `
     <section class="block recon" >
       <h2 class="caption">${esc(copy.reconciliationCaption)}</h2>
@@ -112,6 +125,7 @@ function renderReconciliation(model: ReportModel): string {
           ${row(model.locale === 'es' ? 'Saldo inicial' : 'Opening balance', formatEuroAmount(r.opening))}
           ${row(copy.creditsLineLabel, formatEuroAmount(r.credits, { sign: 'plus' }))}
           ${row(copy.debitsLineLabel, formatEuroAmount(r.debits, { sign: 'minus' }))}
+          ${transfersRow}
           ${row(model.locale === 'es' ? 'Saldo final' : 'Closing balance', formatEuroAmount(r.closing), 'closing')}
         </tbody>
       </table>

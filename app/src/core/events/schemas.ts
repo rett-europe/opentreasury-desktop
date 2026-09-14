@@ -177,6 +177,13 @@ export const configCategoryCreatedEventSchema = z.object({
   // updated Categorías prototype. Optional on the wire so pre-existing
   // NDJSON events replay cleanly.
   kind: z.enum(['income', 'expense']).optional(),
+  // 2026-09 — Internal-transfer marker. Movements in a flagged category are
+  // money moving between the organisation's OWN accounts: real cash for the
+  // account, but neither income nor expense for the organisation. The report
+  // queries keep them out of the credits/debits tables and surface them as a
+  // separate net reconciliation line. Optional on the wire so pre-existing
+  // NDJSON events replay cleanly (absent === false).
+  isInternalTransfer: z.boolean().optional(),
   // WI-23 — required. See configAccountCreatedEventSchema.sortOrder for
   // migration policy; Strategy 3 boot-guard refuses old events lacking it.
   sortOrder: z.number().int().nonnegative(),
@@ -273,6 +280,7 @@ export const configCategoryUpdatedEventSchema = z.object({
       name: z.string().min(1).optional(),
       color: z.string().optional(),
       kind: z.enum(['income', 'expense']).optional(),
+      isInternalTransfer: z.boolean().optional(),
     })
     .refine((c) => Object.keys(c).length > 0, { message: 'changes must be non-empty' }),
   updatedAt: z.string().datetime(),

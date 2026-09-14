@@ -179,8 +179,14 @@ export function createReportHandlers(deps: ReportHandlerDeps): ReportHandlers {
     );
     const reconciliation = getReconciliation(params.periodStart, params.periodEnd, accountId);
 
-    // FR20 — opening + credits − debits must tie to closing.
-    const expectedClosing = reconciliation.opening + reconciliation.credits - reconciliation.debits;
+    // FR20 — opening + credits − debits ± net internal transfers must tie to
+    // closing. The transfer term is 0 in consolidated scope; per-account it
+    // carries the real cash movement that the credits/debits tables exclude.
+    const expectedClosing =
+      reconciliation.opening +
+      reconciliation.credits -
+      reconciliation.debits +
+      reconciliation.internalTransfersNet;
     if (Math.abs(expectedClosing - reconciliation.closing) > RECONCILE_EPSILON) {
       return { ok: false, code: 'REPORT_RECONCILE_MISMATCH' };
     }

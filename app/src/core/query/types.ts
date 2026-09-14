@@ -84,6 +84,10 @@ export interface ConfigCategory {
   readonly name: string;
   readonly color?: string;
   readonly kind?: 'income' | 'expense';
+  // 2026-09 — Internal-transfer marker (money moved between the org's OWN
+  // accounts). Excluded from the report credits/debits tables and reported as
+  // a separate net reconciliation line. Absent === false.
+  readonly isInternalTransfer?: boolean;
   // WI-23 — required. Handler-assigned.
   readonly sortOrder: number;
   readonly createdAt: string;

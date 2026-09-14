@@ -69,6 +69,7 @@ export function selectCategories(model: ReadModel): CategoryRecord[] {
     subcategories: c.subcategories.map(projectSubcategory),
     ...(c.color !== undefined ? { color: c.color } : {}),
     ...(c.kind !== undefined ? { kind: c.kind } : {}),
+    ...(c.isInternalTransfer !== undefined ? { isInternalTransfer: c.isInternalTransfer } : {}),
     ...(c.archivedAt !== undefined ? { archivedAt: c.archivedAt } : {}),
   }));
 }

@@ -293,6 +293,7 @@
       "opening": "Saldo inicial",
       "creditsLine": "Ingresos",
       "debitsLine": "Gastos",
+      "internalTransfersLine": "Traspasos entre cuentas propias (neto)",
       "closing": "Saldo final",
       "signatures": "Firmas",
       "treasurer": "Tesorero",
@@ -953,6 +954,10 @@
         "income": "Ingreso",
         "expense": "Gasto",
         "hint": "Clasifica la categoría por dirección del movimiento."
+      },
+      "internalTransfer": {
+        "label": "Traspaso entre cuentas propias",
+        "hint": "Los movimientos de esta categoría se excluyen de ingresos y gastos del informe financiero: mover dinero entre cuentas de la organización no es ni ingreso ni gasto."
       },
       "filter": {
         "all": "Todas",

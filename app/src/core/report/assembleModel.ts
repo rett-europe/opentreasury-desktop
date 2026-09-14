@@ -106,6 +106,7 @@ export function assembleReportModel(input: AssembleReportInput): ReportModel {
       opening: input.reconciliation.opening,
       credits: input.reconciliation.credits,
       debits: input.reconciliation.debits,
+      internalTransfersNet: input.reconciliation.internalTransfersNet,
       closing: input.reconciliation.closing,
     },
     period: {

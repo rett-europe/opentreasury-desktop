@@ -28,6 +28,9 @@ const reconciliation: RangeReconciliation = {
   opening: 32162.93,
   credits: 9506.21,
   debits: 8647.5,
+  internalTransfersIn: 0,
+  internalTransfersOut: 0,
+  internalTransfersNet: 0,
   closing: 33021.64,
 };
 
@@ -108,6 +111,35 @@ describe('buildReportHtml', () => {
     expect(html).toContain('Saldo final');
     expect(html).toContain('class="closing"');
     expect(html).toContain('+9.506,21\u00A0€'); // credits line, plus prefix
+  });
+
+  it('omits the internal-transfer line when the net is zero (consolidated)', () => {
+    const html = buildReportHtml(model());
+    expect(html).not.toContain('Traspasos entre cuentas propias');
+  });
+
+  it('renders a signed internal-transfer line when the net is non-zero', () => {
+    const scoped = assembleReportModel({
+      breakdown,
+      reconciliation: {
+        ...reconciliation,
+        internalTransfersOut: 2591,
+        internalTransfersNet: -2591,
+        closing: reconciliation.closing - 2591,
+      },
+      org,
+      logoDataUrl: null,
+      periodKind: 'calendar-year',
+      periodStart: '2024-01-01',
+      periodEnd: '2024-12-31',
+      grouping: 'category',
+      locale: 'es',
+      generatedAtIso: '2025-01-15',
+    });
+    const html = buildReportHtml(scoped);
+    expect(html).toContain('Traspasos entre cuentas propias (neto)');
+    // Real minus sign + thin space, magnitude only (never a hyphen-minus).
+    expect(html).toContain('\u2212\u20092.591,00\u00A0€');
   });
 
   it('renders a two-column signature footer (treasurer left / auditor right) with no image', () => {

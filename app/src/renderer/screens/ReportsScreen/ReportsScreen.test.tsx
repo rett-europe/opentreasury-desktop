@@ -56,7 +56,13 @@ const MODEL: ReportModel = {
     ],
     total: 8647.5,
   },
-  reconciliation: { opening: 32162.93, credits: 9506.21, debits: 8647.5, closing: 33021.64 },
+  reconciliation: {
+    opening: 32162.93,
+    credits: 9506.21,
+    debits: 8647.5,
+    internalTransfersNet: 0,
+    closing: 33021.64,
+  },
   period: { kind: 'calendar-year', start: '2024-01-01', end: '2024-12-31', year: 2024 },
   signatures: {
     treasurer: { name: 'Pedro Rocha', role: 'Treasurer RSE', place: 'Spain, 14 Jun 2026' },
