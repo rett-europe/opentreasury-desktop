@@ -28,6 +28,7 @@ state per [`CHANGELOG.md`](../../CHANGELOG.md), which is authoritative for "what
 | [SPEC-028](./028-audit-and-evidence.md) | Audit & Evidence | Draft | ◐ Foundation only — tamper-evident chain + external timestamping shipped (v0.1.0-trial.3.15, Tiers 0–2). **Audit & Evidence viewer not yet shipped.** |
 | [SPEC-029](./029-invoice-attachments.md) | Invoice Attachments for Transactions | Draft | ✗ Not shipped (spec only) |
 | [SPEC-030](./030-financial-report.md) | Financial Report | Accepted | ✗ Not shipped (spec only) |
+| [SPEC-031](./031-mcp-server.md) | Local MCP Server for AI Agents | Draft | ✗ Not shipped (spec only) |
 
 Supporting design specs (not numbered feature specs): [Dataset Compatibility & Validation](./dataset-compatibility-validation.md) and its [Error Code Catalogue](./error-codes.md).
 
