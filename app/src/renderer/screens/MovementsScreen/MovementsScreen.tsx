@@ -543,6 +543,61 @@ export function MovementsScreen({
     setTimeout(() => setBulkSuccessMessage(null), 5000);
   }, [bulkApprove, clearSelection, loadAll, t]);
 
+  const flashBulkMessage = useCallback((msg: string) => {
+    setBulkSuccessMessage(msg);
+    setTimeout(() => setBulkSuccessMessage(null), 5000);
+  }, []);
+
+  const bulkSetType = useCallback(
+    async (type: 'income' | 'expense') => {
+      const ids = Array.from(selected);
+      if (ids.length === 0) return;
+      const label = t(`movements.bulk.setType.${type}`);
+      if (!window.confirm(t('movements.bulk.setType.confirm', { count: ids.length, label }))) {
+        return;
+      }
+      const result = await bulkUpdateTransactions({ ids, type, correlationId: newUlid() });
+      if (result.ok) {
+        clearSelection();
+        await loadAll();
+        flashBulkMessage(t('movements.bulk.setType.successToast', { count: result.updatedCount }));
+        return;
+      }
+      // eslint-disable-next-line no-console
+      console.error('bulk-set-type failures', result.failures);
+      flashBulkMessage(t('movements.bulk.setType.errorToast'));
+    },
+    [selected, clearSelection, loadAll, flashBulkMessage, t],
+  );
+
+  const bulkDelete = useCallback(async () => {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    if (!window.confirm(t('movements.bulk.delete.confirm', { count: ids.length }))) return;
+    let deleted = 0;
+    const failures: string[] = [];
+    for (const id of ids) {
+      const result = await deleteTransaction({ id });
+      if (result.ok) deleted += 1;
+      else failures.push(`${id}: ${result.error.message}`);
+    }
+    if (failures.length > 0) {
+      // eslint-disable-next-line no-console
+      console.error('bulk-delete failures', failures);
+    }
+    clearSelection();
+    await loadAll();
+    flashBulkMessage(
+      failures.length === 0
+        ? t('movements.bulk.delete.successToast', { count: deleted })
+        : t('movements.bulk.delete.partialToast', {
+            ok: deleted,
+            total: ids.length,
+            failed: failures.length,
+          }),
+    );
+  }, [selected, clearSelection, loadAll, flashBulkMessage, t]);
+
   const handleOpenModal = useCallback(() => {
     setIsModalOpen(true);
   }, []);
@@ -1052,6 +1107,8 @@ export function MovementsScreen({
         onClassify={openBulkClassify}
         onApprove={openBulkApprove}
         onAddLabel={openBulkAddLabel}
+        onSetType={bulkSetType}
+        onDelete={bulkDelete}
         onCancel={clearSelection}
       />
 

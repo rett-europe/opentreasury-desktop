@@ -288,6 +288,23 @@ describe('bulkUpdateTransactions', () => {
     if (!result.ok) return;
     expect(result.events[0]!.payload.tagIds).toEqual([TAG_ID2, TAG_ID3]);
   });
+
+  it('overrides type (income ↔ expense) while preserving amount', () => {
+    const tx1 = makeTx(TX1, { type: 'income', amount: 42 });
+
+    const result = bulkUpdateTransactions(
+      { ids: [TX1], type: 'expense', correlationId: CORRELATION },
+      createTestDeps({
+        now: () => new Date('2026-04-24T10:00:00Z'),
+        readModel: mockReadModel([tx1]),
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.events[0]!.payload.type).toBe('expense');
+    expect(result.events[0]!.payload.amount).toBe(42);
+  });
 });
 
 describe('bulkUpdateTransactions — empty-string ID regression', () => {

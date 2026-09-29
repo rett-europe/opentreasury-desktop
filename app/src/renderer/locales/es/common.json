@@ -684,6 +684,21 @@
       "failures": {
         "heading_one": "{{count}} actualización falló",
         "heading_other": "{{count}} actualizaciones fallaron"
+      },
+      "setType": {
+        "expense": "Marcar como gasto",
+        "income": "Marcar como ingreso",
+        "confirm": "¿Cambiar {{count}} movimiento(s) a «{{label}}»?",
+        "successToast_one": "{{count}} movimiento actualizado",
+        "successToast_other": "{{count}} movimientos actualizados",
+        "errorToast": "No se pudo cambiar el tipo. No se guardó ningún cambio."
+      },
+      "delete": {
+        "cta": "Eliminar",
+        "confirm": "¿Eliminar {{count}} movimiento(s)? Esta acción no se puede deshacer.",
+        "successToast_one": "{{count}} movimiento eliminado",
+        "successToast_other": "{{count}} movimientos eliminados",
+        "partialToast": "Eliminados {{ok}} de {{total}} ({{failed}} fallidos)"
       }
     },
     "range": {
