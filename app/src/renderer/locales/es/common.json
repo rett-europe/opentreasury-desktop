@@ -691,14 +691,16 @@
         "confirm": "¿Cambiar {{count}} movimiento(s) a «{{label}}»?",
         "successToast_one": "{{count}} movimiento actualizado",
         "successToast_other": "{{count}} movimientos actualizados",
-        "errorToast": "No se pudo cambiar el tipo. No se guardó ningún cambio."
+        "errorToast": "No se pudo cambiar el tipo. No se guardó ningún cambio.",
+        "title": "Cambiar tipo de movimiento"
       },
       "delete": {
         "cta": "Eliminar",
         "confirm": "¿Eliminar {{count}} movimiento(s)? Esta acción no se puede deshacer.",
         "successToast_one": "{{count}} movimiento eliminado",
         "successToast_other": "{{count}} movimientos eliminados",
-        "partialToast": "Eliminados {{ok}} de {{total}} ({{failed}} fallidos)"
+        "partialToast": "Eliminados {{ok}} de {{total}} ({{failed}} fallidos)",
+        "title": "Eliminar movimientos"
       }
     },
     "range": {
