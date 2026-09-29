@@ -382,6 +382,7 @@ export function createTransactionBulkUpdateHandler(
           parsed.data.subcategoryId === undefined ? undefined : parsed.data.subcategoryId || null,
         tagIds: parsed.data.tagIds,
         status: parsed.data.status,
+        type: parsed.data.type,
         correlationId: parsed.data.correlationId,
       };
 

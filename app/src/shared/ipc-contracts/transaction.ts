@@ -287,6 +287,7 @@ export const bulkUpdateTransactionRequestSchema = z.object({
   subcategoryId: nullableIdRequestField(),
   tagIds: z.array(z.string()).optional(),
   status: transactionStatusSchema.optional(),
+  type: z.enum(['income', 'expense']).optional(),
   correlationId: z.string().min(1),
 });
 

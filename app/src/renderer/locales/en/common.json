@@ -684,6 +684,23 @@
       "failures": {
         "heading_one": "{{count}} update failed",
         "heading_other": "{{count}} updates failed"
+      },
+      "setType": {
+        "expense": "Mark as expense",
+        "income": "Mark as income",
+        "confirm": "Change {{count}} transaction(s) to “{{label}}”?",
+        "successToast_one": "{{count}} transaction updated",
+        "successToast_other": "{{count}} transactions updated",
+        "errorToast": "Could not change the type. No changes were saved.",
+        "title": "Change transaction type"
+      },
+      "delete": {
+        "cta": "Delete",
+        "confirm": "Delete {{count}} transaction(s)? This cannot be undone.",
+        "successToast_one": "{{count}} transaction deleted",
+        "successToast_other": "{{count}} transactions deleted",
+        "partialToast": "Deleted {{ok}} of {{total}} ({{failed}} failed)",
+        "title": "Delete transactions"
       }
     },
     "range": {

@@ -19,6 +19,7 @@ import { EmptyState } from '../../components/EmptyState/index.js';
 import type { SortDirection } from '../../components/Table/index.js';
 import { AddTransactionModal } from '../../components/AddTransactionModal/index.js';
 import { TransactionDetailModal } from '../../components/TransactionDetailModal/index.js';
+import { ConfirmDialog } from '../../components/ConfirmDialog/index.js';
 import { BulkActionsBar } from '../../components/BulkActionsBar/index.js';
 import { BulkClassifyModal } from '../../components/BulkClassifyModal/index.js';
 import { BulkApproveConfirmModal } from '../../components/BulkApproveConfirmModal/index.js';
@@ -543,6 +544,80 @@ export function MovementsScreen({
     setTimeout(() => setBulkSuccessMessage(null), 5000);
   }, [bulkApprove, clearSelection, loadAll, t]);
 
+  const flashBulkMessage = useCallback((msg: string) => {
+    setBulkSuccessMessage(msg);
+    setTimeout(() => setBulkSuccessMessage(null), 5000);
+  }, []);
+
+  // Snapshot of the selection + action awaiting confirmation in ConfirmDialog
+  // (window.confirm is banned in the renderer — it freezes Electron inputs).
+  const [pendingBulkAction, setPendingBulkAction] = useState<
+    | { kind: 'setType'; type: 'income' | 'expense'; ids: string[] }
+    | { kind: 'delete'; ids: string[] }
+    | null
+  >(null);
+
+  const requestBulkSetType = useCallback(
+    (type: 'income' | 'expense') => {
+      const ids = Array.from(selected);
+      if (ids.length > 0) setPendingBulkAction({ kind: 'setType', type, ids });
+    },
+    [selected],
+  );
+
+  const requestBulkDelete = useCallback(() => {
+    const ids = Array.from(selected);
+    if (ids.length > 0) setPendingBulkAction({ kind: 'delete', ids });
+  }, [selected]);
+
+  const confirmPendingBulkAction = useCallback(async () => {
+    const action = pendingBulkAction;
+    if (!action) return;
+    setPendingBulkAction(null);
+    const { ids } = action;
+
+    if (action.kind === 'setType') {
+      const result = await bulkUpdateTransactions({
+        ids,
+        type: action.type,
+        correlationId: newUlid(),
+      });
+      if (result.ok) {
+        clearSelection();
+        await loadAll();
+        flashBulkMessage(t('movements.bulk.setType.successToast', { count: result.updatedCount }));
+        return;
+      }
+      // eslint-disable-next-line no-console
+      console.error('bulk-set-type failures', result.failures);
+      flashBulkMessage(t('movements.bulk.setType.errorToast'));
+      return;
+    }
+
+    let deleted = 0;
+    const failures: string[] = [];
+    for (const id of ids) {
+      const result = await deleteTransaction({ id });
+      if (result.ok) deleted += 1;
+      else failures.push(`${id}: ${result.error.message}`);
+    }
+    if (failures.length > 0) {
+      // eslint-disable-next-line no-console
+      console.error('bulk-delete failures', failures);
+    }
+    clearSelection();
+    await loadAll();
+    flashBulkMessage(
+      failures.length === 0
+        ? t('movements.bulk.delete.successToast', { count: deleted })
+        : t('movements.bulk.delete.partialToast', {
+            ok: deleted,
+            total: ids.length,
+            failed: failures.length,
+          }),
+    );
+  }, [pendingBulkAction, clearSelection, loadAll, flashBulkMessage, t]);
+
   const handleOpenModal = useCallback(() => {
     setIsModalOpen(true);
   }, []);
@@ -1052,7 +1127,38 @@ export function MovementsScreen({
         onClassify={openBulkClassify}
         onApprove={openBulkApprove}
         onAddLabel={openBulkAddLabel}
+        onSetType={requestBulkSetType}
+        onDelete={requestBulkDelete}
         onCancel={clearSelection}
+      />
+
+      <ConfirmDialog
+        isOpen={pendingBulkAction !== null}
+        variant={pendingBulkAction?.kind === 'delete' ? 'destructive' : 'default'}
+        title={
+          pendingBulkAction?.kind === 'delete'
+            ? t('movements.bulk.delete.title')
+            : t('movements.bulk.setType.title')
+        }
+        message={
+          pendingBulkAction?.kind === 'delete'
+            ? t('movements.bulk.delete.confirm', { count: pendingBulkAction.ids.length })
+            : pendingBulkAction?.kind === 'setType'
+              ? t('movements.bulk.setType.confirm', {
+                  count: pendingBulkAction.ids.length,
+                  label: t(`movements.bulk.setType.${pendingBulkAction.type}`),
+                })
+              : ''
+        }
+        confirmLabel={
+          pendingBulkAction?.kind === 'delete'
+            ? t('movements.bulk.delete.cta')
+            : pendingBulkAction?.kind === 'setType'
+              ? t(`movements.bulk.setType.${pendingBulkAction.type}`)
+              : t('common.save')
+        }
+        onConfirm={() => void confirmPendingBulkAction()}
+        onCancel={() => setPendingBulkAction(null)}
       />
 
       <BulkApproveConfirmModal

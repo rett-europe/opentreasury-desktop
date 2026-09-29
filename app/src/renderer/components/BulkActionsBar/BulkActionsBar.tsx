@@ -14,6 +14,10 @@ export interface BulkActionsBarProps {
   /** Opens the bulk add-label modal. Optional — callers that don't supply
    *  it hide the "Etiquetar" button. */
   readonly onAddLabel?: () => void;
+  /** Sets the type (income/expense) of every selected movement. Optional. */
+  readonly onSetType?: (type: 'income' | 'expense') => void;
+  /** Deletes every selected movement (after confirmation). Optional. */
+  readonly onDelete?: () => void;
   /** Clears the current selection (no modal). */
   readonly onCancel: () => void;
 }
@@ -37,6 +41,8 @@ export function BulkActionsBar({
   onClassify,
   onApprove,
   onAddLabel,
+  onSetType,
+  onDelete,
   onCancel,
 }: BulkActionsBarProps): JSX.Element | null {
   const { t } = useTranslation('common');
@@ -65,6 +71,21 @@ export function BulkActionsBar({
         <Button variant="ghost" size="sm" onClick={onCancel}>
           {t('movements.bulk.cancel')}
         </Button>
+        {onDelete && (
+          <Button variant="ghost" size="sm" onClick={onDelete}>
+            {t('movements.bulk.delete.cta')}
+          </Button>
+        )}
+        {onSetType && (
+          <>
+            <Button variant="secondary" size="sm" onClick={() => onSetType('expense')}>
+              {t('movements.bulk.setType.expense')}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => onSetType('income')}>
+              {t('movements.bulk.setType.income')}
+            </Button>
+          </>
+        )}
         {onApprove && (
           <Button variant="secondary" size="sm" onClick={onApprove}>
             {t('movements.bulk.approve.cta')}

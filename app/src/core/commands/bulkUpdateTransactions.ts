@@ -16,6 +16,7 @@ export interface BulkUpdateInput {
   readonly subcategoryId?: string | null | undefined;
   readonly tagIds?: readonly string[] | undefined;
   readonly status?: 'pending' | 'approved' | undefined;
+  readonly type?: TransactionType | undefined;
   readonly correlationId: string;
 }
 
@@ -78,7 +79,7 @@ export function bulkUpdateTransactions(
     const payload: TransactionUpdatedPayload = {
       id: existing.id,
       date: existing.date,
-      type: existing.type as TransactionType,
+      type: input.type ?? (existing.type as TransactionType),
       amount: existing.amount,
       currency: 'EUR',
       description: existing.description,
