@@ -23,6 +23,7 @@ const ACC2 = ulid('ACC2');
 const CAT_INCOME = ulid('CATI');
 const CAT_SHARED = ulid('CATS'); // appears on BOTH income and expense sides
 const CAT_EXPENSE = ulid('CATE');
+const CAT_TRANSFER = ulid('CATT'); // isInternalTransfer
 const SUB_A = ulid('SUBA');
 const SUB_B = ulid('SUBB');
 
@@ -47,6 +48,17 @@ function category(id: string, name: string, sortOrder: number): DomainEvent {
     id,
     name,
     sortOrder,
+    createdAt: '2023-01-01T00:00:00.000Z',
+  } as DomainEvent;
+}
+
+function transferCategory(id: string, name: string, sortOrder: number): DomainEvent {
+  return {
+    type: 'CategoryCreated',
+    id,
+    name,
+    sortOrder,
+    isInternalTransfer: true,
     createdAt: '2023-01-01T00:00:00.000Z',
   } as DomainEvent;
 }
@@ -300,6 +312,62 @@ describe('getCategoryBreakdownInRange — classification & reconciliation', () =
     expect(nested.expense[0]!.subRows).toHaveLength(1);
   });
 
+  it('emits no subRows when every movement in a category lacks a subcategory', () => {
+    seed([
+      account(ACC1, 0, 0),
+      category(CAT_EXPENSE, 'Professional services', 0),
+      tx({ date: '2024-04-01', type: 'expense', amount: 300, categoryId: CAT_EXPENSE }),
+      tx({ date: '2024-05-01', type: 'expense', amount: 200, categoryId: CAT_EXPENSE }),
+    ]);
+
+    const bd = getCategoryBreakdownInRange('2024-01-01', '2024-12-31', 'category-subcategory');
+    const row = bd.expense.find((r) => r.categoryId === CAT_EXPENSE)!;
+
+    // A lone "Unclassified" child would only restate the parent — drop it.
+    expect(row.subRows).toEqual([]);
+    // ...without disturbing the amount that reconciles to the table TOTAL.
+    expect(row.total).toBe(500);
+  });
+
+  it('keeps the Unclassified child when a category mixes classified and unclassified', () => {
+    seed([
+      account(ACC1, 0, 0),
+      category(CAT_EXPENSE, 'Events', 0),
+      subcategory(SUB_A, CAT_EXPENSE, 'Madrid'),
+      tx({
+        date: '2024-04-01',
+        type: 'expense',
+        amount: 300,
+        categoryId: CAT_EXPENSE,
+        subcategoryId: SUB_A,
+      }),
+      tx({ date: '2024-05-01', type: 'expense', amount: 200, categoryId: CAT_EXPENSE }),
+    ]);
+
+    const bd = getCategoryBreakdownInRange('2024-01-01', '2024-12-31', 'category-subcategory');
+    const row = bd.expense.find((r) => r.categoryId === CAT_EXPENSE)!;
+
+    expect(row.subRows).toHaveLength(2);
+    expect(row.subRows!.find((s) => s.subcategoryId === null)?.total).toBe(200);
+    // Children must still sum to the parent.
+    expect(row.subRows!.reduce((a, s) => a + s.total, 0)).toBe(row.total);
+  });
+
+  it('emits no subRows under the uncategorised parent row', () => {
+    seed([
+      account(ACC1, 0, 0),
+      tx({ date: '2024-04-01', type: 'income', amount: 120, categoryId: null }),
+    ]);
+
+    const bd = getCategoryBreakdownInRange('2024-01-01', '2024-12-31', 'category-subcategory');
+    const row = bd.income.find((r) => r.categoryId === null)!;
+
+    // "Unclassified → Unclassified" is doubly redundant.
+    expect(row.label).toBeNull();
+    expect(row.subRows).toEqual([]);
+    expect(row.total).toBe(120);
+  });
+
   it('empty range returns empty line items', () => {
     seed([account(ACC1, 0, 0), tx({ date: '2023-12-31', type: 'income', amount: 100 })]);
 
@@ -390,5 +458,175 @@ describe('getReconciliationForRange — opening/closing', () => {
     expect(rec.debits).toBe(kpis.expense);
     expect(rec.credits).toBe(sumRows(bd.income));
     expect(rec.debits).toBe(sumRows(bd.expense));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Internal transfers (money moved between the organisation's OWN accounts).
+//
+// Both legs of a transfer are real transactions, so they used to land in the
+// report as an income line AND an expense line of the same size — inflating
+// credits and debits by the transfer amount while the closing balance still
+// looked right. Flagging the category keeps them out of the income/expense
+// tables and reports them as a separate net reconciliation line.
+// ---------------------------------------------------------------------------
+describe('internal transfers — excluded from income/expense, reported net', () => {
+  /** ACC1 → ACC2, 2591,00 — the exact shape of the real-world RSE case. */
+  function seedTransferPair(): void {
+    seed([
+      account(ACC1, 10000, 0),
+      account(ACC2, 5000, 1),
+      category(CAT_INCOME, 'Donations', 0),
+      category(CAT_EXPENSE, 'Event organization', 1),
+      transferCategory(CAT_TRANSFER, 'Transfer between RSE accounts', 2),
+      tx({ date: '2024-03-10', type: 'income', amount: 4650, categoryId: CAT_INCOME }),
+      tx({
+        date: '2024-05-20',
+        type: 'expense',
+        amount: 1000,
+        accountId: ACC2,
+        categoryId: CAT_EXPENSE,
+      }),
+      // The transfer: out of ACC1, into ACC2.
+      tx({
+        date: '2024-07-01',
+        type: 'expense',
+        amount: 2591,
+        accountId: ACC1,
+        categoryId: CAT_TRANSFER,
+      }),
+      tx({
+        date: '2024-07-01',
+        type: 'income',
+        amount: 2591,
+        accountId: ACC2,
+        categoryId: CAT_TRANSFER,
+      }),
+    ]);
+  }
+
+  it('keeps both legs out of the consolidated breakdown tables', () => {
+    seedTransferPair();
+
+    const bd = getCategoryBreakdownInRange('2024-01-01', '2024-12-31', 'category');
+
+    expect(bd.income.map((r) => r.categoryId)).not.toContain(CAT_TRANSFER);
+    expect(bd.expense.map((r) => r.categoryId)).not.toContain(CAT_TRANSFER);
+    expect(sumRows(bd.income)).toBe(4650);
+    expect(sumRows(bd.expense)).toBe(1000);
+  });
+
+  it('reports the transfer as a separate net line that is ZERO consolidated', () => {
+    seedTransferPair();
+
+    const rec = getReconciliationForRange('2024-01-01', '2024-12-31');
+
+    expect(rec.credits).toBe(4650);
+    expect(rec.debits).toBe(1000);
+    expect(rec.internalTransfersIn).toBe(2591);
+    expect(rec.internalTransfersOut).toBe(2591);
+    expect(rec.internalTransfersNet).toBe(0);
+  });
+
+  it('leaves the closing balance identical to raw cash (consolidated)', () => {
+    seedTransferPair();
+
+    const rec = getReconciliationForRange('2024-01-01', '2024-12-31');
+    const kpis = getRangeKPIs('2024-01-01', '2024-12-31');
+
+    // Raw cash view still counts both legs...
+    expect(kpis.income).toBe(4650 + 2591);
+    expect(kpis.expense).toBe(1000 + 2591);
+    // ...and produces the same closing balance the report reports.
+    expect(rec.opening).toBe(15000);
+    expect(rec.closing).toBe(15000 + 4650 - 1000);
+    expect(rec.closing).toBe(rec.opening + kpis.income - kpis.expense);
+  });
+
+  it('ties out per account, where a transfer IS real cash movement', () => {
+    seedTransferPair();
+
+    const out = getReconciliationForRange('2024-01-01', '2024-12-31', ACC1);
+    expect(out.credits).toBe(4650);
+    expect(out.debits).toBe(0);
+    expect(out.internalTransfersNet).toBe(-2591);
+    expect(out.closing).toBe(out.opening + out.credits - out.debits + out.internalTransfersNet);
+    expect(out.closing).toBe(10000 + 4650 - 2591);
+
+    const into = getReconciliationForRange('2024-01-01', '2024-12-31', ACC2);
+    expect(into.internalTransfersNet).toBe(2591);
+    expect(into.closing).toBe(
+      into.opening + into.credits - into.debits + into.internalTransfersNet,
+    );
+    expect(into.closing).toBe(5000 - 1000 + 2591);
+  });
+
+  it('still counts pre-period transfers in the opening balance', () => {
+    seed([
+      account(ACC1, 1000, 0),
+      account(ACC2, 0, 1),
+      transferCategory(CAT_TRANSFER, 'Transfer', 0),
+      tx({
+        date: '2023-06-01',
+        type: 'expense',
+        amount: 400,
+        accountId: ACC1,
+        categoryId: CAT_TRANSFER,
+      }),
+    ]);
+
+    const rec = getReconciliationForRange('2024-01-01', '2024-12-31', ACC1);
+    // Cash left the account last year — the opening balance must reflect it.
+    expect(rec.opening).toBe(600);
+    expect(rec.internalTransfersNet).toBe(0);
+    expect(rec.closing).toBe(600);
+  });
+
+  it('excludes a split CHILD assigned to a transfer category', () => {
+    const parentId = ulid('TXSP');
+    seed([
+      account(ACC1, 0, 0),
+      category(CAT_EXPENSE, 'Office expenses', 0),
+      transferCategory(CAT_TRANSFER, 'Transfer', 1),
+      tx({ id: parentId, date: '2024-04-01', type: 'expense', amount: 300, accountId: ACC1 }),
+      split(parentId, [
+        { amountCents: 10000, categoryId: CAT_EXPENSE },
+        { amountCents: 20000, categoryId: CAT_TRANSFER },
+      ]),
+    ]);
+
+    const bd = getCategoryBreakdownInRange('2024-01-01', '2024-12-31', 'category');
+    const rec = getReconciliationForRange('2024-01-01', '2024-12-31');
+
+    expect(bd.expense.map((r) => r.categoryId)).not.toContain(CAT_TRANSFER);
+    expect(sumRows(bd.expense)).toBe(100);
+    expect(rec.debits).toBe(100);
+    expect(rec.internalTransfersOut).toBe(200);
+    expect(rec.closing).toBe(-300);
+  });
+
+  it('honours the flag being toggled on later via CategoryUpdated', () => {
+    seed([
+      account(ACC1, 0, 0),
+      category(CAT_TRANSFER, 'Transfer', 0),
+      tx({ date: '2024-04-01', type: 'expense', amount: 500, categoryId: CAT_TRANSFER }),
+    ]);
+
+    expect(getReconciliationForRange('2024-01-01', '2024-12-31').debits).toBe(500);
+
+    seed([
+      {
+        type: 'CategoryUpdated',
+        id: nextEnv(),
+        categoryId: CAT_TRANSFER,
+        changes: { isInternalTransfer: true },
+        updatedAt: '2024-09-01T00:00:00.000Z',
+      } as DomainEvent,
+    ]);
+
+    const rec = getReconciliationForRange('2024-01-01', '2024-12-31');
+    expect(rec.debits).toBe(0);
+    expect(rec.internalTransfersOut).toBe(500);
+    expect(rec.closing).toBe(-500);
   });
 });

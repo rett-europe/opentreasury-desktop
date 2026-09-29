@@ -136,6 +136,9 @@ export function applyEvent(event: DomainEvent): void {
         subcategories: [],
         ...(event.color !== undefined ? { color: event.color } : {}),
         ...(event.kind !== undefined ? { kind: event.kind } : {}),
+        ...(event.isInternalTransfer !== undefined
+          ? { isInternalTransfer: event.isInternalTransfer }
+          : {}),
       };
       readModel = {
         ...readModel,
@@ -220,6 +223,9 @@ export function applyEvent(event: DomainEvent): void {
         ...(event.changes.name !== undefined ? { name: event.changes.name } : {}),
         ...(event.changes.color !== undefined ? { color: event.changes.color } : {}),
         ...(event.changes.kind !== undefined ? { kind: event.changes.kind } : {}),
+        ...(event.changes.isInternalTransfer !== undefined
+          ? { isInternalTransfer: event.changes.isInternalTransfer }
+          : {}),
       };
       const next = [...readModel.configCategories];
       next[idx] = patched;

@@ -107,6 +107,7 @@ export interface UpdateCategoryChanges {
   readonly name?: string | undefined;
   readonly color?: string | undefined;
   readonly kind?: CategoryKind | undefined;
+  readonly isInternalTransfer?: boolean | undefined;
 }
 
 export interface UpdateTagChanges {

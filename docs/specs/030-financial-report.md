@@ -145,6 +145,10 @@ the number format.
   level, each category breaks out into its subcategory line items (matching the
   template's per-event expense breakdown) with the category as a subtotal header.
   Uncategorised movements group under "Unclassified" within their `type`'s table.
+  A category whose movements **all** lack a subcategory renders **no** child rows at
+  all — a lone "Unclassified" child would only restate its parent and adds nothing to a
+  board-facing document. A category that *mixes* classified and unclassified movements
+  still shows its "Unclassified" child, so the children always sum to the parent.
   **Both levels MUST still reconcile to the same period totals** for the selected account
   scope (`getRangeKPIs(from, to)` for all-accounts/consolidated mode; the account-scoped
   income/expense from `getAccountBalancesInRange(from, to)` for single-account mode) —
@@ -165,7 +169,8 @@ the number format.
     **report year** (the period's year, or the range for custom periods). *(Resolved
     2026-06-14 — Pedro: label with the report year.)*
   - **"Balance of account 31.12.{year}"** — the **closing balance**
-    = `opening + credits − debits`. The arithmetic MUST tie out exactly
+    = `opening + credits − debits + net internal transfers` (the last term is zero for a
+    consolidated report; see FR22). The arithmetic MUST tie out exactly
     (`32.162,93 + 9.506,21 − 8.647,50 = 33.021,64`). **Source settled — no Open
     Question.**
 - **FR9 — Signature footer (printed blocks only — no in-app signing).** The PDF prints
@@ -225,9 +230,9 @@ the number format.
 - **FR19 — Locale-aware copy.** All user-visible strings and the report body honour the
   active locale (ES primary, EN pilot-ready), per the M0 i18n foundation.
 - **FR20 — Reconciliation guarantee.** The generator MUST assert
-  `opening + Σcredits − |Σdebits| == closing` before producing output; a mismatch
-  (e.g. floating-point drift, missing movements) blocks generation with a diagnostic
-  rather than emitting an unbalanced statement. Money math uses the existing
+  `opening + Σcredits − |Σdebits| + Σinternal-transfers-net == closing` before producing
+  output; a mismatch (e.g. floating-point drift, missing movements) blocks generation with
+  a diagnostic rather than emitting an unbalanced statement. Money math uses the existing
   integer-minor-unit / decimal discipline used by Saldo, not native floats.
 - **FR21 — Account scope (consolidated by default, single-account optional).** The
   generation screen offers an **account scope** control: **All accounts (consolidated)**
@@ -236,6 +241,30 @@ the number format.
   that account's own `openingBalance`-derived opening/closing balances. Backed by
   `getAccountBalancesInRange` per account. *(Resolved 2026-06-14 — Pedro: multi-account
   with single-account option.)*
+- **FR22 — Internal transfers are excluded from credits and debits.** A category may be
+  flagged **`isInternalTransfer`** in Configuración → Categorías, marking movements that
+  move money between the organisation's **own accounts**. Both legs of such a transfer are
+  real transactions, but the organisation neither earned nor spent the money — counting
+  them inflates the credits TOTAL and the debits TOTAL by the same amount. The report
+  therefore:
+  - **excludes** flagged movements from both the credits and debits tables and their
+    TOTALs (`getCategoryBreakdownInRange`, `getReconciliationForRange`);
+  - **includes** them in the **opening balance** for periods where they already settled —
+    cash that moved is cash that moved;
+  - reports the period's net as an explicit **"Transfers between own accounts (net)" /
+    "Traspasos entre cuentas propias (neto)"** reconciliation line, so the movement stays
+    **disclosed** rather than silently dropped.
+
+  That net line is **zero in consolidated scope** (both legs are in scope and cancel) and
+  is **rendered only when non-zero**. Under **single-account scope** it is non-zero and
+  carries the real cash movement, which is what keeps the FR20 tie-out exact for a
+  per-account statement. The flag is optional on the wire (absent === `false`) so
+  pre-existing NDJSON event logs replay unchanged.
+
+  > **Note —** with the flag in use, the report's credits/debits subtotals intentionally
+  > **diverge** from the Panel screen's `getRangeKPIs`, which continues to report raw cash
+  > movement. The Panel answers *"what moved?"*; the report answers *"what did we earn and
+  > spend?"*
 
 ### 4.2 Non-functional
 
@@ -535,6 +564,10 @@ SPEC-027 security envelope. It introduces **no new cryptographic primitive**.
   (FR6, FR21).
 - [ ] **AC5** — `category-subcategory` grouping breaks a category into its subcategory
   line items with a category subtotal; `category` grouping does not (FR7).
+- [ ] **AC5b** — Under `category-subcategory` grouping, a category whose movements all
+  lack a subcategory renders no child rows (no redundant "Unclassified" echo), while a
+  category mixing classified and unclassified movements still renders its "Unclassified"
+  child and its children sum to the parent subtotal (FR7).
 - [ ] **AC6** — The header renders org name/logo, legal registration line, address,
   email, and the localized title; the footer renders both signatory blocks
   (name/role/place/date line + a blank signature area) with **no embedded signature
@@ -609,7 +642,8 @@ reflects each resolution.
 > amount sign and **not** `category.kind`. (See FR6.)
 > **(b) Opening / closing balance source** — opening = the event-sourced
 > `ConfigAccount.openingBalance` + the running net of all transactions before the
-> period start; closing = `opening + credits − debits`. (See FR8, §6.2.)
+> period start; closing = `opening + credits − debits + net internal transfers`.
+> (See FR8, FR22, §6.2.)
 
 1. **Output format / generator.** **Resolved (2026-06-14):** **PDF only** in v1, via a
    main-process **HTML template printed to PDF** with Electron `webContents.printToPDF`.

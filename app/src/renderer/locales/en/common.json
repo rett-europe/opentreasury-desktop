@@ -293,6 +293,7 @@
       "opening": "Opening balance",
       "creditsLine": "Credits",
       "debitsLine": "Debits",
+      "internalTransfersLine": "Transfers between own accounts (net)",
       "closing": "Closing balance",
       "signatures": "Signatures",
       "treasurer": "Treasurer",
@@ -953,6 +954,10 @@
         "income": "Income",
         "expense": "Expense",
         "hint": "Classify the category by movement direction."
+      },
+      "internalTransfer": {
+        "label": "Transfer between own accounts",
+        "hint": "Movements in this category are excluded from the financial report's income and expenses: moving money between the organization's own accounts is neither income nor expense."
       },
       "filter": {
         "all": "All",

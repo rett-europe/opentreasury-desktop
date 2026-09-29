@@ -109,6 +109,15 @@ export const reportReconciliationSchema = z
     opening: z.number(),
     credits: z.number(),
     debits: z.number(),
+    /**
+     * Net money moved between the organisation's OWN accounts in the period
+     * (`in − out`). Excluded from `credits`/`debits` because an internal
+     * transfer is neither income nor expense. Always 0 in consolidated scope
+     * (both legs cancel); non-zero when the report is scoped to one account,
+     * where the transfer is real cash. Keeps
+     * `opening + credits − debits + internalTransfersNet === closing`.
+     */
+    internalTransfersNet: z.number(),
     closing: z.number(),
   })
   .strict();

@@ -21,6 +21,8 @@ export interface ReportCopy {
   readonly closingLabelPrefix: string;
   readonly creditsLineLabel: string; // reconciliation "Credits {year}"
   readonly debitsLineLabel: string;
+  /** Reconciliation line for net movement between the org's own accounts. */
+  readonly internalTransfersLineLabel: string;
   readonly periodConnector: string; // " – "
   readonly pageLabel: (n: number, m: number) => string;
   readonly signatureTreasurer: string;
@@ -42,6 +44,7 @@ const ES: ReportCopy = {
   closingLabelPrefix: 'Saldo de la cuenta',
   creditsLineLabel: 'Ingresos',
   debitsLineLabel: 'Gastos',
+  internalTransfersLineLabel: 'Traspasos entre cuentas propias (neto)',
   periodConnector: ' – ',
   pageLabel: (n, m) => `Página ${n} de ${m}`,
   signatureTreasurer: 'Tesorero/a',
@@ -62,6 +65,7 @@ const EN: ReportCopy = {
   closingLabelPrefix: 'Balance of account',
   creditsLineLabel: 'Credits',
   debitsLineLabel: 'Debits',
+  internalTransfersLineLabel: 'Transfers between own accounts (net)',
   periodConnector: ' – ',
   pageLabel: (n, m) => `Page ${n} of ${m}`,
   signatureTreasurer: 'Treasurer',

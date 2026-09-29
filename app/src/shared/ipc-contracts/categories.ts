@@ -48,6 +48,8 @@ export const categoryCreatedEventSchema = z.object({
   name: z.string().min(1),
   color: z.string().optional(),
   kind: categoryKindSchema.optional(),
+  // 2026-09 — Internal-transfer marker. See core/events/schemas.ts.
+  isInternalTransfer: z.boolean().optional(),
   // WI-23 — required; see core/events/schemas.ts.
   sortOrder: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
@@ -60,6 +62,7 @@ export const categoryChangesSchema = z
     name: z.string().min(1).optional(),
     color: z.string().optional(),
     kind: categoryKindSchema.optional(),
+    isInternalTransfer: z.boolean().optional(),
   })
   .refine((c) => Object.values(c).some((v) => v !== undefined), {
     message: 'changes must be non-empty',
@@ -188,6 +191,10 @@ export const categoryRecordSchema = z.object({
   name: z.string().min(1),
   color: z.string().optional(),
   kind: categoryKindSchema.optional(),
+  // 2026-09 — Movements in a flagged category are transfers between the
+  // organisation's own accounts: kept out of the financial report's
+  // credits/debits tables and reported as a net reconciliation line.
+  isInternalTransfer: z.boolean().optional(),
   // WI-23 — required on the wire record (projection always supplies it).
   sortOrder: z.number().int().nonnegative(),
   createdAt: z.string().datetime(),
@@ -208,6 +215,7 @@ export const createCategoryRequestSchema = z.object({
   name: z.string(),
   color: z.string().optional(),
   kind: categoryKindSchema.optional(),
+  isInternalTransfer: z.boolean().optional(),
 });
 
 export type CreateCategoryRequest = z.infer<typeof createCategoryRequestSchema>;

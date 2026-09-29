@@ -391,6 +391,22 @@ export function getMonthlyIncomeExpense(): MonthlyIncomeExpense[] {
 
 export type CategoryBreakdownGrouping = 'category' | 'category-subcategory';
 
+/**
+ * Set of category ids flagged `isInternalTransfer` — money moved between the
+ * organisation's own accounts. Built once per query so the hot loop is O(1).
+ */
+function internalTransferCategoryIds(model: ReadModel): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const category of model.configCategories) {
+    if (category.isInternalTransfer === true) ids.add(category.id);
+  }
+  return ids;
+}
+
+function isInternalTransfer(categoryId: string | null, transferIds: ReadonlySet<string>): boolean {
+  return categoryId !== null && transferIds.has(categoryId);
+}
+
 export interface CategoryBreakdownSubRow {
   readonly subcategoryId: string | null;
   // null → renderer i18n "Unclassified" (subcategory-less tx in subcategory mode)
@@ -433,22 +449,36 @@ function buildRows(
       label: resolveCategoryName(categoryId, model),
       total: round2(bucket.total),
       ...(grouping === 'category-subcategory'
-        ? {
-            subRows: [...bucket.bySub]
-              .map(
-                ([subcategoryId, sub]): CategoryBreakdownSubRow => ({
-                  subcategoryId,
-                  label: resolveSubcategoryName(categoryId, subcategoryId, model),
-                  total: round2(sub.total),
-                }),
-              )
-              .sort(sortBySubRow),
-          }
+        ? { subRows: buildSubRows(categoryId, bucket, model) }
         : {}),
     };
     rows.push(row);
   }
   return rows.sort(sortByRow);
+}
+
+// SPEC-030 FR7 — a category whose movements ALL lack a subcategory would emit a
+// single "Unclassified" child that merely restates its parent row. Emit no
+// children in that case: the parent already carries the whole amount, and the
+// echo is pure noise in a board-facing document. A category that MIXES
+// classified and unclassified movements keeps its Unclassified bucket, where it
+// carries real information (and is needed for the children to sum to the
+// parent).
+function buildSubRows(
+  categoryId: string | null,
+  bucket: BreakdownBucket,
+  model: ReadModel,
+): CategoryBreakdownSubRow[] {
+  if (bucket.bySub.size === 1 && bucket.bySub.has(null)) return [];
+  return [...bucket.bySub]
+    .map(
+      ([subcategoryId, sub]): CategoryBreakdownSubRow => ({
+        subcategoryId,
+        label: resolveSubcategoryName(categoryId, subcategoryId, model),
+        total: round2(sub.total),
+      }),
+    )
+    .sort(sortBySubRow);
 }
 
 // Deterministic ordering (NFR6): largest magnitude first, then label, then id.
@@ -472,11 +502,25 @@ function sortBySubRow(a: CategoryBreakdownSubRow, b: CategoryBreakdownSubRow): n
  * children are normalised via `effectiveAmounts` (each child attributed to its
  * own category/subcategory but the parent's income/expense direction).
  *
- * Per-table subtotals reconcile exactly to the Panel screen:
- *   - consolidated (accountId omitted): sum(income rows) === getRangeKPIs.income
- *     and sum(expense rows) === getRangeKPIs.expense
- *   - single account: reconciles to that account's row in
- *     getAccountBalancesInRange(from, to)
+ * A category whose movements all lack a subcategory emits NO subRows rather
+ * than a lone "Unclassified" child that would just restate the parent — see
+ * `buildSubRows`.
+ *
+ * Amounts in a category flagged `isInternalTransfer` are EXCLUDED from both
+ * tables: moving money between the organisation's own accounts is neither
+ * income nor expense, and counting both legs inflates credits and debits by
+ * the same amount. `getReconciliationForRange` reports them separately as a
+ * net line so the cash arithmetic still ties out.
+ *
+ * Per-table subtotals reconcile exactly to `getReconciliationForRange` over
+ * the same range and scope:
+ *   - consolidated (accountId omitted): sum(income rows) === reconciliation.credits
+ *     and sum(expense rows) === reconciliation.debits
+ *   - single account: the same identity scoped to that account
+ *
+ * NOTE: with internal-transfer categories in play these subtotals intentionally
+ * DIVERGE from the Panel screen's `getRangeKPIs`, which still reports raw cash
+ * movement.
  *
  * @param from     inclusive start date (YYYY-MM-DD)
  * @param to       inclusive end date (YYYY-MM-DD)
@@ -490,6 +534,7 @@ export function getCategoryBreakdownInRange(
   accountId?: string,
 ): CategoryBreakdown {
   const model = getReadModel();
+  const transferIds = internalTransferCategoryIds(model);
 
   const incomeByCategory = new Map<string | null, BreakdownBucket>();
   const expenseByCategory = new Map<string | null, BreakdownBucket>();
@@ -502,6 +547,8 @@ export function getCategoryBreakdownInRange(
 
     const target = tx.type === 'income' ? incomeByCategory : expenseByCategory;
     for (const ea of effectiveAmounts(tx, model)) {
+      // Internal transfers are not income/expense — see the doc comment.
+      if (isInternalTransfer(ea.categoryId, transferIds)) continue;
       let bucket = target.get(ea.categoryId);
       if (!bucket) {
         bucket = { total: 0, bySub: new Map() };
@@ -523,11 +570,20 @@ export function getCategoryBreakdownInRange(
 // ---------------------------------------------------------------------------
 // SPEC-030 FR8/FR20 — Opening-balance reconciliation.
 //
-// opening  = Σ ConfigAccount.openingBalance (in scope)
-//          + net(income − expense) of all transactions dated BEFORE `from`
-// credits  = income in range (positive magnitude)
-// debits   = expense in range (positive magnitude)
-// closing  = opening + credits − debits
+// opening            = Σ ConfigAccount.openingBalance (in scope)
+//                    + net(income − expense) of ALL transactions dated BEFORE
+//                      `from` (internal transfers included — cash is cash)
+// credits            = income in range, EXCLUDING internal-transfer categories
+// debits             = expense in range, EXCLUDING internal-transfer categories
+// internalTransfersIn/Out = the excluded legs, reported separately
+// closing            = opening + credits − debits + (in − out)
+//
+// The `internalTransfers*` terms net to ZERO in consolidated scope (both legs
+// are in scope and cancel) and are non-zero when scoped to a single account,
+// where a transfer IS real cash movement. Keeping them as an explicit line is
+// what lets the credits/debits tables report true income/expense without
+// breaking the FR20 tie-out — and keeps the transfer disclosed rather than
+// silently dropped.
 //
 // Scope: a single account when accountId is provided, otherwise all accounts
 // summed (consolidated). The arithmetic ties out exactly on cents.
@@ -537,6 +593,12 @@ export interface RangeReconciliation {
   readonly opening: number;
   readonly credits: number;
   readonly debits: number;
+  /** Internal-transfer money IN, in range and in scope (positive magnitude). */
+  readonly internalTransfersIn: number;
+  /** Internal-transfer money OUT, in range and in scope (positive magnitude). */
+  readonly internalTransfersOut: number;
+  /** `internalTransfersIn − internalTransfersOut`. Zero in consolidated scope. */
+  readonly internalTransfersNet: number;
   readonly closing: number;
 }
 
@@ -554,6 +616,7 @@ export function getReconciliationForRange(
   accountId?: string,
 ): RangeReconciliation {
   const model = getReadModel();
+  const transferIds = internalTransferCategoryIds(model);
 
   const inScope = (account: ConfigAccount): boolean =>
     accountId === undefined || account.id === accountId;
@@ -566,6 +629,8 @@ export function getReconciliationForRange(
   let priorNet = 0; // net of transactions strictly before `from`
   let credits = 0;
   let debits = 0;
+  let transfersIn = 0;
+  let transfersOut = 0;
   for (const tx of model.transactions) {
     if (accountId !== undefined && tx.accountId !== accountId) continue;
     const before = tx.date < from;
@@ -573,7 +638,11 @@ export function getReconciliationForRange(
     if (!before && !inRange) continue;
     for (const ea of effectiveAmounts(tx, model)) {
       if (before) {
+        // The opening balance is raw cash — transfers count here.
         priorNet += tx.type === 'income' ? ea.amount : -ea.amount;
+      } else if (isInternalTransfer(ea.categoryId, transferIds)) {
+        if (tx.type === 'income') transfersIn += ea.amount;
+        else transfersOut += ea.amount;
       } else {
         if (tx.type === 'income') credits += ea.amount;
         else debits += ea.amount;
@@ -584,11 +653,17 @@ export function getReconciliationForRange(
   const openingRounded = round2(opening + priorNet);
   const creditsRounded = round2(credits);
   const debitsRounded = round2(debits);
+  const transfersInRounded = round2(transfersIn);
+  const transfersOutRounded = round2(transfersOut);
+  const transfersNet = round2(transfersInRounded - transfersOutRounded);
 
   return {
     opening: openingRounded,
     credits: creditsRounded,
     debits: debitsRounded,
-    closing: round2(openingRounded + creditsRounded - debitsRounded),
+    internalTransfersIn: transfersInRounded,
+    internalTransfersOut: transfersOutRounded,
+    internalTransfersNet: transfersNet,
+    closing: round2(openingRounded + creditsRounded - debitsRounded + transfersNet),
   };
 }

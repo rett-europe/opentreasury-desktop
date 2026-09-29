@@ -120,6 +120,7 @@ export function createCategoriesCreateHandler(
 
       const color = parsed.data.color?.trim();
       const kind = parsed.data.kind;
+      const isInternalTransfer = parsed.data.isInternalTransfer;
       // WI-23 — handler-assigned sortOrder. Categories globally ordered
       // across income + expense (Trinity renders two filtered lists that
       // each stay sorted by the global sortOrder).
@@ -133,6 +134,7 @@ export function createCategoriesCreateHandler(
         createdAt: deps.now().toISOString(),
         ...(color !== undefined && color.length > 0 ? { color } : {}),
         ...(kind !== undefined ? { kind } : {}),
+        ...(isInternalTransfer !== undefined ? { isInternalTransfer } : {}),
       };
 
       await appendAndApply(deps, event);

@@ -29,7 +29,13 @@ const model: ReportModel = {
   scopeLabel: 'Todas las cuentas',
   credits: { rows: [{ label: 'Cuotas', amount: 9506.21 }], total: 9506.21 },
   debits: { rows: [{ label: 'Suministros', amount: 8647.5 }], total: 8647.5 },
-  reconciliation: { opening: 32162.93, credits: 9506.21, debits: 8647.5, closing: 33021.64 },
+  reconciliation: {
+    opening: 32162.93,
+    credits: 9506.21,
+    debits: 8647.5,
+    internalTransfersNet: 0,
+    closing: 33021.64,
+  },
   period: { kind: 'calendar-year', start: '2024-01-01', end: '2024-12-31', year: 2024 },
   signatures: {
     treasurer: { name: 'Ana Tesorera', role: 'Tesorera', place: 'Madrid' },

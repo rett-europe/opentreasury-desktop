@@ -109,6 +109,23 @@ export function ReportPreview({ model }: ReportPreviewProps): JSX.Element {
               {signed(reconciliation.debits, '−')}
             </dd>
           </div>
+          {/* Net internal transfers are 0 in consolidated scope (both legs
+              cancel) — the line only appears when it carries meaning. */}
+          {reconciliation.internalTransfersNet !== 0 ? (
+            <div className="ot-report-preview__recon-row">
+              <dt>{t('report.preview.internalTransfersLine')}</dt>
+              <dd
+                className={`ot-report-preview__amount ot-report-preview__amount--${
+                  reconciliation.internalTransfersNet < 0 ? 'debit' : 'credit'
+                }`}
+              >
+                {signed(
+                  reconciliation.internalTransfersNet,
+                  reconciliation.internalTransfersNet < 0 ? '−' : '+',
+                )}
+              </dd>
+            </div>
+          ) : null}
           <div className="ot-report-preview__recon-row ot-report-preview__recon-row--closing">
             <dt>{t('report.preview.closing')}</dt>
             <dd className="ot-report-preview__amount">{fmt(reconciliation.closing)}</dd>
