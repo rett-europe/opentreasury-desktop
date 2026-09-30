@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Profile } from '../../../shared/ipc-contracts/profile.js';
+import type { McpStatusResponse } from '../../../shared/ipc-contracts/mcp.js';
 import type { ConfigSetDataDirErrorCode } from '../../../shared/ipc-contracts/config.js';
 import {
   DATE_FORMATS,
@@ -82,6 +83,7 @@ export function PreferencesScreen(): JSX.Element {
 
   // App version
   const [appVersion, setAppVersion] = useState<string>('0.0.0');
+  const [mcpStatus, setMcpStatus] = useState<McpStatusResponse | null>(null);
 
   // Profile state
   const [profileState, setProfileState] = useState<ProfileState>('idle');
@@ -169,6 +171,49 @@ export function PreferencesScreen(): JSX.Element {
       }
     })();
   }, []);
+
+  // Load MCP status on mount
+  useEffect(() => {
+    if (!window.opentreasury.mcp) return;
+    void window.opentreasury.mcp
+      .getStatus()
+      .then(setMcpStatus)
+      .catch((err) => console.error('[PreferencesScreen] Failed to load MCP status:', err));
+  }, []);
+
+  const copyText = useCallback(async (value: string) => {
+    await navigator.clipboard.writeText(value);
+  }, []);
+
+  const [mcpError, setMcpError] = useState(false);
+  const runMcp = useCallback(async (call: () => Promise<McpStatusResponse>) => {
+    try {
+      setMcpStatus(await call());
+      setMcpError(false);
+    } catch (err) {
+      console.error('[PreferencesScreen] MCP settings update failed:', err);
+      setMcpError(true);
+    }
+  }, []);
+  const setMcpEnabled = useCallback(
+    async (enabled: boolean) => {
+      const api = window.opentreasury.mcp;
+      if (api) await runMcp(() => api.setEnabled(enabled));
+    },
+    [runMcp],
+  );
+  const setMcpOptions = useCallback(
+    async (options: { allowWrites?: boolean; allowDelete?: boolean }) => {
+      const api = window.opentreasury.mcp;
+      if (api) await runMcp(() => api.setOptions(options));
+    },
+    [runMcp],
+  );
+
+  const regenerateMcpToken = useCallback(async () => {
+    const api = window.opentreasury.mcp;
+    if (api) await runMcp(() => api.regenerateToken());
+  }, [runMcp]);
 
   // Load app version on mount
   useEffect(() => {
@@ -729,6 +774,93 @@ export function PreferencesScreen(): JSX.Element {
                 {t('preferences.dataFolder.restarting')}
               </p>
             )}
+          </div>
+        </section>
+
+        <section className="ot-preferences__card">
+          <h2 className="ot-preferences__card-title">{t('preferences.mcp.title')}</h2>
+          <div className="ot-preferences__card-content">
+            <p className="ot-preferences__note ot-preferences__note--info">
+              {t('preferences.mcp.description')}
+            </p>
+            <label className="ot-preferences__label">
+              <input
+                type="checkbox"
+                checked={mcpStatus?.enabled ?? false}
+                onChange={(e) => void setMcpEnabled(e.target.checked)}
+              />{' '}
+              {t('preferences.mcp.enable')}
+            </label>
+            <label className="ot-preferences__label">
+              <input
+                type="checkbox"
+                checked={mcpStatus?.allowWrites ?? false}
+                onChange={(e) => void setMcpOptions({ allowWrites: e.target.checked })}
+              />{' '}
+              {t('preferences.mcp.allowWrites')}
+            </label>
+            <label className="ot-preferences__label">
+              <input
+                type="checkbox"
+                checked={mcpStatus?.allowDelete ?? false}
+                disabled={!mcpStatus?.allowWrites}
+                onChange={(e) => void setMcpOptions({ allowDelete: e.target.checked })}
+              />{' '}
+              {t('preferences.mcp.allowDelete')}
+            </label>
+            {mcpError && (
+              <p className="ot-preferences__note" role="alert">
+                {t('preferences.mcp.saveError')}
+              </p>
+            )}
+            <div className="ot-preferences__field">
+              <span className="ot-preferences__label">{t('preferences.mcp.status')}</span>
+              <code className="ot-preferences__code">
+                {mcpStatus?.running ? t('preferences.mcp.running') : t('preferences.mcp.stopped')}
+              </code>
+            </div>
+            <div className="ot-preferences__field">
+              <span className="ot-preferences__label">{t('preferences.mcp.token')}</span>
+              <code className="ot-preferences__code">
+                {mcpStatus?.token
+                  ? `${mcpStatus.token.slice(0, 8)}••••${mcpStatus.token.slice(-8)}`
+                  : '—'}
+              </code>
+              <div className="ot-preferences__button-group">
+                <button
+                  type="button"
+                  className="ot-preferences__button ot-preferences__button--secondary"
+                  disabled={!mcpStatus?.token}
+                  onClick={() => void copyText(mcpStatus?.token ?? '')}
+                >
+                  {t('preferences.mcp.copyToken')}
+                </button>
+                <button
+                  type="button"
+                  className="ot-preferences__button ot-preferences__button--secondary"
+                  onClick={() => void regenerateMcpToken()}
+                >
+                  {t('preferences.mcp.regenerate')}
+                </button>
+              </div>
+            </div>
+            <div className="ot-preferences__field">
+              <span className="ot-preferences__label">{t('preferences.mcp.config')}</span>
+              <textarea
+                className="ot-preferences__input"
+                rows={8}
+                readOnly
+                value={mcpStatus?.configSnippet ?? ''}
+              />
+              <button
+                type="button"
+                className="ot-preferences__button ot-preferences__button--secondary"
+                onClick={() => void copyText(mcpStatus?.configSnippet ?? '')}
+              >
+                {t('preferences.mcp.copyConfig')}
+              </button>
+            </div>
+            <p className="ot-preferences__note">{t('preferences.mcp.privacy')}</p>
           </div>
         </section>
 

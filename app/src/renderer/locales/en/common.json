@@ -1723,6 +1723,23 @@
     "about": {
       "title": "About",
       "version": "Version {{version}}"
+    },
+    "mcp": {
+      "title": "AI agents (MCP)",
+      "description": "Allow local AI agents to read OpenTreasury data through a local-only MCP server. The app must be running and unlocked.",
+      "enable": "Enable local MCP server",
+      "status": "Server status",
+      "running": "Running",
+      "stopped": "Stopped",
+      "token": "Access token",
+      "copyToken": "Copy token",
+      "regenerate": "Regenerate token",
+      "config": "Client config snippet",
+      "copyConfig": "Copy config",
+      "privacy": "Data you share with an agent may be sent by that agent to its model provider.",
+      "allowWrites": "Allow agents to edit transactions (changes are set to pending for your review)",
+      "allowDelete": "Allow agents to delete pending transactions",
+      "saveError": "Could not save the AI agent settings. Please try again."
     }
   },
   "settings": {
