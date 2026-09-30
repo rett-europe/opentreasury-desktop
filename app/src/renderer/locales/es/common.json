@@ -1723,6 +1723,23 @@
     "about": {
       "title": "Acerca de",
       "version": "Versión {{version}}"
+    },
+    "mcp": {
+      "title": "Agentes de IA (MCP)",
+      "description": "Permite que agentes locales de IA lean datos de OpenTreasury mediante un servidor MCP solo local. La app debe estar abierta y desbloqueada.",
+      "enable": "Activar servidor MCP local",
+      "status": "Estado del servidor",
+      "running": "En ejecución",
+      "stopped": "Detenido",
+      "token": "Token de acceso",
+      "copyToken": "Copiar token",
+      "regenerate": "Regenerar token",
+      "config": "Fragmento de configuración del cliente",
+      "copyConfig": "Copiar configuración",
+      "privacy": "Los datos que compartas con un agente pueden ser enviados por ese agente a su proveedor de modelo.",
+      "allowWrites": "Permitir que los agentes editen transacciones (los cambios quedan pendientes para tu revisión)",
+      "allowDelete": "Permitir que los agentes eliminen transacciones pendientes",
+      "saveError": "No se pudo guardar la configuración de agentes IA. Inténtalo de nuevo."
     }
   },
   "settings": {

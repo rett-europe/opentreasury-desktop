@@ -50,7 +50,7 @@ export interface TestCommandDeps {
   datasetId: string;
   actorDeviceId: string;
   actorUserId: string;
-  actorIdentitySource: 'local' | 'aad';
+  actorIdentitySource: 'local' | 'aad' | 'mcp';
   dekVersion?: number;
 }
 
@@ -104,7 +104,7 @@ export interface CreateTestDepsOptions {
   /**
    * Identity source. Defaults to `'local'`.
    */
-  actorIdentitySource?: 'local' | 'aad';
+  actorIdentitySource?: 'local' | 'aad' | 'mcp';
   /**
    * DEK version. Defaults to `1`.
    */

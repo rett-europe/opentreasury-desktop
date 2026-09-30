@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Read-only local MCP server (SPEC-031 Phase 1).** Adds an opt-in Preferences card, token-gated local named-pipe/socket bridge, bundled stdio launcher, and read-only tools for transactions, categories, tags, and accounts.
+- **MCP write tools (SPEC-031 Phase 2).** Adds separate opt-ins for agent edits and pending deletes, plus `classify_transactions`, `set_transaction_type`, `update_transactions`, and gated `delete_transactions`. Agent writes reuse the transaction command/event-log path, force `pending`, reject approved movements, and audit with `actorIdentitySource: mcp`.
+
 ## [0.1.0-trial.3.21] — Enriched audit change-history detail
 
 Makes the Audit & Evidence "Change history" lane readable at a glance: each row now carries a meaningful one-line summary, related bulk actions collapse into a single row, and the underlying financial figures stay hidden until you ask for them. Existing trial datasets open normally — no migration.

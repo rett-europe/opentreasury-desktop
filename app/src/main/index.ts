@@ -14,6 +14,7 @@ import {
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { registerIpcHandlers } from './ipc/handlers.js';
+import { startMcpServerIfNeeded, stopMcpServer } from './mcp/server.js';
 import { initializeApp } from './bootstrap.js';
 import { isHeadlessSeedRequested, runHeadlessSeed } from './headlessSeed.js';
 
@@ -212,11 +213,16 @@ if (isHeadlessSeedRequested()) {
       // Continue to register IPC handlers so the renderer can query boot status
     }
     registerIpcHandlers(ipcMain);
+    await startMcpServerIfNeeded();
     createMainWindow();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
     });
+  });
+
+  app.on('before-quit', () => {
+    void stopMcpServer();
   });
 
   app.on('window-all-closed', () => {

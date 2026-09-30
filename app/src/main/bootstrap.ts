@@ -871,6 +871,9 @@ export async function installEncryptedEventLog(deviceId: string, mk: Uint8Array)
     );
   }
 
+  // Start MCP after unlock when enabled. Fire-and-forget; tools stay read-only.
+  void import('./mcp/server.js').then(({ startMcpServerIfNeeded }) => startMcpServerIfNeeded());
+
   // SPEC-028 WI-2 — fire a best-effort "on unlock" anchor now that the read
   // model is hydrated. Fire-and-forget: never block install on anchoring.
   fireUnlockAnchor();
@@ -999,6 +1002,7 @@ export function lockWorkspaceAfterIntegrityFailure(): void {
     anchorScheduler = null;
   }
   clearActiveWorkspace();
+  void import('./mcp/server.js').then(({ stopMcpServer }) => stopMcpServer());
 }
 
 /**

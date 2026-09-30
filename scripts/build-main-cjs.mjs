@@ -61,6 +61,20 @@ export async function buildMainCjs({ deleteJs = true } = {}) {
     if (existsSync(mapFile)) unlinkSync(mapFile);
   }
 
+  const launcherIn = resolve(root, 'app/src/mcp-launcher/index.ts');
+  const launcherOut = resolve(root, 'dist/mcp-launcher/index.cjs');
+  await build({
+    entryPoints: [launcherIn],
+    bundle: true,
+    format: 'cjs',
+    platform: 'node',
+    target: 'node20',
+    outfile: launcherOut,
+    logLevel: 'info',
+    sourcemap: true,
+    legalComments: 'none',
+  });
+
   return outFile;
 }
 

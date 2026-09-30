@@ -52,15 +52,16 @@ income" — the agent calls `set_transaction_type`.
 - FR5 — Write tools (all reuse existing commands; all batched with one `correlationId`):
   - `classify_transactions({ items: [{ id, categoryId, subcategoryId?, tagIds? }] })`
   - `set_transaction_type({ ids, type: 'income' | 'expense' })`
+  - `update_transactions({ items: [{ id, amount?, type?, date?, description?, details?, reference?, categoryId?, subcategoryId?, tagIds? }] })` — general pending-only patch for amount/type/date/description/details/reference/category edits, never approved transactions
   - `delete_transactions({ ids })` — **only advertised when the separate "Allow agents to
     delete" opt-in is on** (FR11).
 - FR6 — **Agent writes never approve.** Any transaction touched by an agent is forced to
   `status: 'pending'`. Approved transactions are rejected with `TX_LOCKED` (SPEC-025 edit rules
   apply unchanged). Agents may only reference **existing** categories/subcategories/tags;
   unknown ids are rejected with `NOT_FOUND` (no create tools in v1).
-- FR7 — Every agent write is recorded in the audit chain with `actorIdentitySource: 'mcp'` and
-  the client name reported at MCP `initialize`, so the Audit screen can show "by Claude Desktop".
-- FR8 — Settings allow **Read-only** mode (write tools not advertised).
+- FR7 — Every agent write is recorded in the audit chain with `actorIdentitySource: 'mcp'`.
+  If a compatible event field exists, also record the MCP `initialize` client name; otherwise do not add a new schema field.
+- FR8 — Settings allow **Read-only** mode (write tools not advertised) via an `allowWrites` toggle, default off and applied to new tool calls without restarting.
 - FR9 — The Movements screen shows a dismissible banner "N movements updated by an AI agent —
   review" linking to a pending filter for the latest `correlationId`.
 - FR10 — Server exposes an MCP **prompt** `categorize_pending` with guidance (use existing
@@ -79,7 +80,7 @@ income" — the agent calls `set_transaction_type`.
 
 ## 5. UX Notes
 
-- Preferences card: toggle, mode (Read-only / Propose changes), "Allow agents to delete
+- Preferences card: toggle, "Allow agents to edit transactions (changes are set to pending for your review)", "Allow agents to delete
   pending movements" opt-in, token (copy / regenerate),
   copy-paste config snippets for Copilot CLI, VS Code and Claude Desktop, "connected clients" list.
 - Review happens with existing bulk actions (classify, approve, set type, delete).
@@ -90,7 +91,7 @@ income" — the agent calls `set_transaction_type`.
 
 No new event types. Reuses `tx.updated` (with `correlationId`). Envelope `actorIdentitySource`
 enum extends from `['local', 'aad']` to `['local', 'aad', 'mcp']` — requires schema migration
-check (additive; readers must tolerate the new value).
+check (additive; readers must tolerate the new value). Phase 2 does not add an event field for MCP `clientInfo.name`; the existing event schema has no suitable optional client-name field, so audit attribution records the local user/device with `actorIdentitySource: 'mcp'`.
 
 ### 6.2 Read-model projections
 
@@ -107,6 +108,7 @@ None. Token stored in `userData/mcp.json` (non-dataset, never synced).
 | `mcp:getStatus` | renderer → main | — | `McpStatusResponse` |
 | `mcp:setEnabled` | renderer → main | `McpSetEnabledRequest` | `McpStatusResponse` |
 | `mcp:regenerateToken` | renderer → main | — | `McpStatusResponse` |
+| `mcp:setOptions` | renderer → main | `{ allowWrites?, allowDelete? }` | `McpStatusResponse` |
 
 The MCP server itself runs in **main**, calling core commands directly (same path as the
 `transaction:bulkUpdate` handler). All tool inputs validated with Zod at the MCP boundary.
@@ -173,3 +175,5 @@ The MCP server itself runs in **main**, calling core commands directly (same pat
 |---|---|---|---|
 | 2026-09-29 | Draft | Neo | Initial draft |
 | 2026-09-29 | Draft | Neo | Open questions resolved (stdio, existing categories only, opt-in pending-only delete, in-app suggest deferred) |
+| 2026-09-29 | Phase 1 (read-only) implemented | Copilot | Read-only MCP server, launcher, Preferences IPC/UI and tests added |
+| 2026-09-29 | Phase 2 (write tools) implemented | Copilot | Write-tool gating, MCP transaction classify/update/type/delete tools and tests added |

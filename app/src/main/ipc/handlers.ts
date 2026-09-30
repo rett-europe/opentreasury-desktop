@@ -4,6 +4,7 @@
 //
 // Scaffold only — only a ping handler wired.
 import type { IpcMain } from 'electron';
+import { getMcpStatus, setMcpEnabled, setMcpOptions, regenerateMcpToken } from '../mcp/server.js';
 import { IpcSchemas } from './schemas.js';
 import {
   IPC_PANEL_GET_ACCOUNTS,
@@ -312,6 +313,14 @@ import {
   IPC_APP_GET_VERSION,
   appGetVersionResponseSchema,
 } from '../../shared/ipc-contracts/app.js';
+import {
+  IPC_MCP_GET_STATUS,
+  IPC_MCP_SET_ENABLED,
+  IPC_MCP_SET_OPTIONS,
+  IPC_MCP_REGENERATE_TOKEN,
+  mcpSetOptionsRequestSchema,
+  mcpSetEnabledRequestSchema,
+} from '../../shared/ipc-contracts/mcp.js';
 import { createAppGetVersionHandler, buildProductionAppGetVersionDeps } from './handlers/app.js';
 import {
   IPC_WORKSPACE_DETECT,
@@ -492,6 +501,17 @@ export function registerIpcHandlers(ipcMain: IpcMain): void {
   // app:get-version exposes the application version from package.json. Lazy
   // handler creation matches the pattern for other Electron-dependent handlers.
   let appGetVersionHandler: ReturnType<typeof createAppGetVersionHandler> | null = null;
+  ipcMain.handle(IPC_MCP_GET_STATUS, async () => getMcpStatus());
+  ipcMain.handle(IPC_MCP_SET_ENABLED, async (_event, raw: unknown) => {
+    const parsed = mcpSetEnabledRequestSchema.parse(raw);
+    return setMcpEnabled(parsed.enabled);
+  });
+  ipcMain.handle(IPC_MCP_SET_OPTIONS, async (_event, raw: unknown) => {
+    const parsed = mcpSetOptionsRequestSchema.parse(raw);
+    return setMcpOptions(parsed);
+  });
+  ipcMain.handle(IPC_MCP_REGENERATE_TOKEN, async () => regenerateMcpToken());
+
   ipcMain.handle(IPC_APP_GET_VERSION, async (_event) => {
     if (appGetVersionHandler === null) {
       appGetVersionHandler = createAppGetVersionHandler(await buildProductionAppGetVersionDeps());
@@ -720,7 +740,7 @@ function registerDataIpcHandlers(ipcMain: IpcMain): void {
     actorDeviceId: getDeviceId(),
     // P1-1: Use profile.userId if available, otherwise block writes at IPC level
     actorUserId: profile?.userId ?? 'PROFILE_PENDING000000000',
-    actorIdentitySource: (profile?.identitySource ?? 'local') as 'local' | 'aad',
+    actorIdentitySource: (profile?.identitySource ?? 'local') as 'local' | 'aad' | 'mcp',
     dekVersion: 0,
   };
 

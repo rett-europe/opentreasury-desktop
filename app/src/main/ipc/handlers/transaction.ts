@@ -50,7 +50,7 @@ export interface TransactionCreateHandlerDeps {
   readonly datasetId: string;
   readonly actorDeviceId: string;
   readonly actorUserId: string; // P0-1 trial-readiness
-  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad' | 'mcp'; // P0-1 trial-readiness
   readonly dekVersion?: number;
   /** Override for tests — defaults to core reducer's applyEvent singleton. */
   readonly applyEvent?: typeof applyEvent;
@@ -145,7 +145,7 @@ export interface TransactionUpdateHandlerDeps {
   readonly datasetId: string;
   readonly actorDeviceId: string;
   readonly actorUserId: string; // P0-1 trial-readiness
-  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad' | 'mcp'; // P0-1 trial-readiness
   readonly dekVersion?: number;
   readonly applyEvent?: typeof applyEvent;
 }
@@ -258,7 +258,7 @@ export interface TransactionDeleteHandlerDeps {
   readonly datasetId: string;
   readonly actorDeviceId: string;
   readonly actorUserId: string; // P0-1 trial-readiness
-  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad' | 'mcp'; // P0-1 trial-readiness
   readonly dekVersion?: number;
   readonly applyEvent?: typeof applyEvent;
 }
@@ -341,7 +341,7 @@ export interface TransactionBulkUpdateHandlerDeps {
   readonly datasetId: string;
   readonly actorDeviceId: string;
   readonly actorUserId: string; // P0-1 trial-readiness
-  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad' | 'mcp'; // P0-1 trial-readiness
   readonly dekVersion?: number;
   readonly applyEvent?: typeof applyEvent;
 }
@@ -462,7 +462,7 @@ export interface TransactionBulkAddLabelHandlerDeps {
   readonly datasetId: string;
   readonly actorDeviceId: string;
   readonly actorUserId: string; // P0-1 trial-readiness
-  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad' | 'mcp'; // P0-1 trial-readiness
   readonly dekVersion?: number;
   readonly applyEvent?: typeof applyEvent;
 }

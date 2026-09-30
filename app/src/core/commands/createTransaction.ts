@@ -40,7 +40,7 @@ export interface CreateTransactionDeps {
   readonly datasetId: string; // ULID of the active dataset
   readonly actorDeviceId: string; // ULID of the current device
   readonly actorUserId: string; // ULID of the current user — P0-1 trial-readiness
-  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad' | 'mcp'; // P0-1 trial-readiness
   readonly dekVersion?: number; // defaults to 1 for M1.5
 }
 

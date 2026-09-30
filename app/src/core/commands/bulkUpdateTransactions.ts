@@ -27,7 +27,7 @@ export interface BulkUpdateDeps {
   readonly datasetId: string;
   readonly actorDeviceId: string;
   readonly actorUserId: string; // P0-1 trial-readiness
-  readonly actorIdentitySource: 'local' | 'aad'; // P0-1 trial-readiness
+  readonly actorIdentitySource: 'local' | 'aad' | 'mcp'; // P0-1 trial-readiness
   readonly dekVersion?: number;
 }
 

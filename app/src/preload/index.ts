@@ -296,6 +296,14 @@ import {
   type WorkspaceRecoverResponse,
   type WorkspaceLockResponse,
 } from '../shared/ipc-contracts/workspace.js';
+import {
+  IPC_MCP_GET_STATUS,
+  IPC_MCP_SET_ENABLED,
+  IPC_MCP_SET_OPTIONS,
+  IPC_MCP_REGENERATE_TOKEN,
+  type McpStatusResponse,
+  type McpSetOptionsRequest,
+} from '../shared/ipc-contracts/mcp.js';
 
 // Typed surface the renderer sees on `window.opentreasury`.
 // Keep this as narrow as possible — every method is an audited IPC boundary (C13).
@@ -658,6 +666,14 @@ const api = {
     getVersion: (): Promise<AppGetVersionResponse> => {
       return ipcRenderer.invoke(IPC_APP_GET_VERSION);
     },
+  },
+  mcp: {
+    getStatus: (): Promise<McpStatusResponse> => ipcRenderer.invoke(IPC_MCP_GET_STATUS),
+    setEnabled: (enabled: boolean): Promise<McpStatusResponse> =>
+      ipcRenderer.invoke(IPC_MCP_SET_ENABLED, { enabled }),
+    setOptions: (options: McpSetOptionsRequest): Promise<McpStatusResponse> =>
+      ipcRenderer.invoke(IPC_MCP_SET_OPTIONS, options),
+    regenerateToken: (): Promise<McpStatusResponse> => ipcRenderer.invoke(IPC_MCP_REGENERATE_TOKEN),
   },
   workspace: {
     detect: (req?: WorkspaceDetectRequest): Promise<WorkspaceDetectResponse> => {
