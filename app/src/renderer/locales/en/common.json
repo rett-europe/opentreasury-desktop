@@ -1636,7 +1636,7 @@
       "replaceLogo": "Replace logo",
       "removeLogo": "Remove logo",
       "treasurerLegend": "Treasurer signatory",
-      "auditorLegend": "External auditor signatory",
+      "auditorLegend": "Internal auditor signatory",
       "signatoryName": "Name",
       "signatoryRole": "Role",
       "signatoryPlace": "Place",

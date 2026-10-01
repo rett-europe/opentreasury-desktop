@@ -48,7 +48,7 @@ function fileToBase64(file: File): Promise<string> {
  * Organisation profile settings card (SPEC-030 WI-4). Captures the org details
  * that feed the Financial Report header (FR3) and signature footer (FR9):
  * org name, legal registration line, address, contact email, a logo, and two
- * signatory blocks (treasurer + external auditor). All fields are optional —
+ * signatory blocks (treasurer + internal auditor). All fields are optional —
  * the report screen allows at-generation overrides later.
  *
  * The logo is a non-sensitive branding asset persisted in userData (never the

@@ -148,7 +148,7 @@ describe('buildReportHtml', () => {
     expect(html).toContain('Ana Tesorera');
     expect(html).toContain('Beto Auditor');
     expect(html).toContain('Tesorero/a');
-    expect(html).toContain('Auditor/a externo/a');
+    expect(html).toContain('Auditor/a interno/a');
     // signature area is a ruled blank line, not an embedded image
     expect(html).toContain('class="sig-line"');
   });

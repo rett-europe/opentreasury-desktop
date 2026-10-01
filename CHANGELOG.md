@@ -7,10 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.22] — Local MCP server, bulk movement actions, report fixes
+
+Adds an opt-in local MCP server for AI agents and bulk actions on the Movements screen, and corrects the financial report. Existing trial datasets open normally — no migration.
+
 ### Added
 
-- **Read-only local MCP server (SPEC-031 Phase 1).** Adds an opt-in Preferences card, token-gated local named-pipe/socket bridge, bundled stdio launcher, and read-only tools for transactions, categories, tags, and accounts.
-- **MCP write tools (SPEC-031 Phase 2).** Adds separate opt-ins for agent edits and pending deletes, plus `classify_transactions`, `set_transaction_type`, `update_transactions`, and gated `delete_transactions`. Agent writes reuse the transaction command/event-log path, force `pending`, reject approved movements, and audit with `actorIdentitySource: mcp`.
+- **Read-only local MCP server (SPEC-031 Phase 1, PR #431).** Adds an opt-in Preferences card, token-gated local named-pipe/socket bridge, bundled stdio launcher, and read-only tools for transactions, categories, tags, and accounts.
+- **MCP write tools (SPEC-031 Phase 2, PR #431).** Adds separate opt-ins for agent edits and pending deletes, plus `classify_transactions`, `set_transaction_type`, `update_transactions`, and gated `delete_transactions`. Agent writes reuse the transaction command/event-log path, force `pending`, reject approved movements, and audit with `actorIdentitySource: mcp`.
+- **Bulk delete and bulk set type on Movements (PR #429).** Select several movements to delete them or mark them as income/expense in one action.
+
+### Fixed
+
+- **Report excludes internal transfers (PR #428).** Transfers between the organisation's own accounts no longer inflate the Credits and Debits tables of the financial report.
+- **Report signature block names the internal auditor.** The second signature column now reads "Internal auditor" / "Auditor/a interno/a", matching the statutes (Art. 11.1); the Preferences signatory heading is renamed to match.
 
 ## [0.1.0-trial.3.21] — Enriched audit change-history detail
 
