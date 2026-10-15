@@ -285,3 +285,179 @@ describe('buildExportRows — ordering', () => {
     expect(result.rows[0]!.id).toBe('01HTX0000000000000000012A');
   });
 });
+
+describe('buildExportRows — running balance + per-account summary (SPEC-027 §15)', () => {
+  const ACC2 = '01HACCOUNTZZZZZZZZZZZZZZZB';
+
+  it('seeds from the opening balance and includes movements before dateFrom', () => {
+    const result = buildExportRows(
+      model({
+        accounts: [account({ openingBalance: 1000 })],
+        transactions: [
+          tx({ id: '01HTX0000000000000000020A', date: '2024-12-15', type: 'income', amount: 200 }),
+          tx({ id: '01HTX0000000000000000021A', date: '2025-01-05', amount: 50.1 }),
+          tx({ id: '01HTX0000000000000000022A', date: '2025-01-06', type: 'income', amount: 0.2 }),
+        ],
+      }),
+      RANGE,
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rows.map((r) => r.balance)).toEqual([1149.9, 1150.1]);
+    expect(result.balances).toEqual([
+      {
+        account: 'Caja',
+        opening: 1200,
+        moneyIn: 0.2,
+        moneyOut: 50.1,
+        closing: 1150.1,
+        movementCount: 2,
+      },
+    ]);
+  });
+
+  it('keeps the real account balance when category filters hide movements', () => {
+    const result = buildExportRows(
+      model({
+        accounts: [account({ openingBalance: 500 })],
+        transactions: [
+          tx({
+            id: '01HTX0000000000000000023A',
+            date: '2025-02-01',
+            categoryId: CAT_B,
+            amount: 100,
+          }),
+          tx({
+            id: '01HTX0000000000000000024A',
+            date: '2025-02-02',
+            categoryId: CAT_A,
+            amount: 30,
+          }),
+        ],
+      }),
+      { ...RANGE, categoryIds: [CAT_A] },
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rows).toHaveLength(1);
+    // 500 − 100 (hidden) − 30 = 370
+    expect(result.rows[0]!.balance).toBe(370);
+    // Summary ignores category filters: both movements counted.
+    expect(result.balances[0]).toMatchObject({
+      opening: 500,
+      moneyOut: 130,
+      closing: 370,
+      movementCount: 2,
+    });
+  });
+
+  it('advances the balance per split child; the last child equals the post-movement balance', () => {
+    const parent = tx({ id: '01HTXSPLITPARENT000000002A', amount: 100, categoryId: null });
+    const splits = new Map<string, readonly TransactionSplit[]>([
+      [
+        parent.id,
+        [
+          {
+            splitId: '01HSPLIT0000000000000002BB',
+            parentTxId: parent.id,
+            amountCents: 4000,
+            categoryId: CAT_B,
+            subcategoryId: null,
+            comment: null,
+            sortOrder: 1,
+          },
+          {
+            splitId: '01HSPLIT0000000000000002AA',
+            parentTxId: parent.id,
+            amountCents: 6000,
+            categoryId: CAT_A,
+            subcategoryId: null,
+            comment: null,
+            sortOrder: 0,
+          },
+        ],
+      ],
+    ]);
+    const result = buildExportRows(
+      model({ accounts: [account({ openingBalance: 250 })], transactions: [parent], splits }),
+      RANGE,
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rows.map((r) => [r.id, r.balance])).toEqual([
+      ['01HSPLIT0000000000000002AA', 190],
+      ['01HSPLIT0000000000000002BB', 150],
+    ]);
+    expect(result.balances[0]).toMatchObject({ moneyOut: 100, closing: 150, movementCount: 1 });
+  });
+
+  it('tracks each account independently and lists selected accounts in sortOrder', () => {
+    const result = buildExportRows(
+      model({
+        accounts: [
+          account({ openingBalance: 100, sortOrder: 1 }),
+          account({ id: ACC2, name: 'Banco', openingBalance: 1000, sortOrder: 0 }),
+        ],
+        transactions: [
+          tx({ id: '01HTX0000000000000000025A', date: '2025-03-01', amount: 10 }),
+          tx({ id: '01HTX0000000000000000026A', date: '2025-03-02', accountId: ACC2, amount: 20 }),
+          tx({ id: '01HTX0000000000000000027A', date: '2025-03-03', amount: 5 }),
+        ],
+      }),
+      { ...RANGE, accountIds: [ACC, ACC2] },
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rows.map((r) => [r.account, r.balance])).toEqual([
+      ['Caja', 90],
+      ['Banco', 980],
+      ['Caja', 85],
+    ]);
+    expect(result.balances.map((b) => [b.account, b.closing])).toEqual([
+      ['Banco', 980],
+      ['Caja', 85],
+    ]);
+  });
+
+  it('includes a selected account with no movements in range (opening = closing)', () => {
+    const result = buildExportRows(
+      model({
+        accounts: [account({ openingBalance: 42 })],
+        transactions: [tx({ date: '2024-06-01', type: 'income', amount: 8 })],
+      }),
+      RANGE,
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rows).toHaveLength(0);
+    expect(result.balances).toEqual([
+      { account: 'Caja', opening: 50, moneyIn: 0, moneyOut: 0, closing: 50, movementCount: 0 },
+    ]);
+  });
+
+  it('without an account filter, summarises only accounts that produced rows', () => {
+    const result = buildExportRows(
+      model({
+        accounts: [account(), account({ id: ACC2, name: 'Banco', sortOrder: 1 })],
+        transactions: [
+          tx({ id: '01HTX0000000000000000028A', categoryId: CAT_A }),
+          tx({ id: '01HTX0000000000000000029A', accountId: ACC2, categoryId: CAT_B }),
+        ],
+      }),
+      { dateFrom: '2025-01-01', dateTo: '2025-12-31', categoryIds: [CAT_A] },
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.balances.map((b) => b.account)).toEqual(['Caja']);
+  });
+
+  it('ignores movements after dateTo for both rows and closing balance', () => {
+    const result = buildExportRows(
+      model({
+        accounts: [account({ openingBalance: 100 })],
+        transactions: [
+          tx({ id: '01HTX0000000000000000030A', date: '2025-06-01', amount: 10 }),
+          tx({ id: '01HTX0000000000000000031A', date: '2026-01-01', amount: 999 }),
+        ],
+      }),
+      RANGE,
+    );
+    if (!result.ok) throw new Error('expected ok');
+    expect(result.rows).toHaveLength(1);
+    expect(result.balances[0]!.closing).toBe(90);
+  });
+});

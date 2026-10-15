@@ -48,7 +48,7 @@ const ES: ReportCopy = {
   periodConnector: ' – ',
   pageLabel: (n, m) => `Página ${n} de ${m}`,
   signatureTreasurer: 'Tesorero/a',
-  signatureAuditor: 'Auditor/a externo/a',
+  signatureAuditor: 'Auditor/a interno/a',
   months: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
 };
 
@@ -69,7 +69,7 @@ const EN: ReportCopy = {
   periodConnector: ' – ',
   pageLabel: (n, m) => `Page ${n} of ${m}`,
   signatureTreasurer: 'Treasurer',
-  signatureAuditor: 'External auditor',
+  signatureAuditor: 'Internal auditor',
   months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 };
 

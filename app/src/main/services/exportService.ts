@@ -6,8 +6,8 @@
 // the dest-guard). CSV uses the shared `core/export/csv` encoder; XLSX uses the
 // exceljs streaming workbook writer so we never materialise the whole sheet.
 //
-// The amount column is written as a real number in XLSX and as a preference-
-// formatted (eu/us) string in CSV. The date column is a real (timezone-safe)
+// The amount and balance columns are written as real numbers in XLSX and as
+// preference-formatted (eu/us) strings in CSV. The date column is a real (timezone-safe)
 // Excel date in XLSX and preference-formatted (DMY/MDY/ISO) text in CSV. All
 // other columns are strings; text cells are protected from spreadsheet formula
 // injection (CSV via the encoder, XLSX via explicit string cells + the same
@@ -31,10 +31,14 @@ import { once } from 'node:events';
 import * as ExcelJS from 'exceljs';
 import { CSV_BOM, encodeCsvCells, encodeCsvHeader } from '../../core/export/csv.js';
 import {
+  BALANCE_SUMMARY_COLUMN_KEYS,
   EXPORT_COLUMN_KEYS,
+  balanceSummaryHeaders,
+  balanceSummaryNote,
   exportHeaders,
   exportRowCells,
   formatAmount,
+  type AccountBalanceSummary,
   type ExportColumnKey,
   type ExportLocale,
   type ExportRow,
@@ -48,6 +52,8 @@ import {
 import type { ExportFormat } from '../../shared/ipc-contracts/export.js';
 
 const SHEET_NAME = 'Movimientos';
+/** SPEC-027 §15 — per-account balance summary sheet (both locales). */
+const SUMMARY_SHEET_NAME = 'Saldos';
 
 /** Fixed, non-sensitive workbook metadata (FR30 allowlist). */
 const WORKBOOK_CREATOR = 'OpenTreasury';
@@ -126,6 +132,7 @@ const COLUMN_PRESENTATION: Record<ExportColumnKey, ColumnPresentation> = {
   subcategory: { width: 18, align: 'left', wrap: false },
   description: { width: 40, align: 'left', wrap: true },
   amount: { width: 14, align: 'right', wrap: false },
+  balance: { width: 14, align: 'right', wrap: false },
   currency: { width: 8, align: 'center', wrap: false },
   labels: { width: 24, align: 'left', wrap: true },
   reference: { width: 16, align: 'left', wrap: false },
@@ -155,6 +162,16 @@ function neutralizeText(value: string): string {
 
 export interface WriteExportParams {
   readonly rows: readonly ExportRow[];
+  /**
+   * SPEC-027 §15 — per-account balances for the exported date range. Written
+   * as the `Saldos` sheet in XLSX; CSV (single table) carries only the per-row
+   * `Saldo` column.
+   */
+  readonly summary: {
+    readonly dateFrom: string;
+    readonly dateTo: string;
+    readonly accounts: readonly AccountBalanceSummary[];
+  };
   readonly format: ExportFormat;
   readonly destPath: string;
   readonly locale: ExportLocale;
@@ -175,6 +192,7 @@ async function writeCsv(params: WriteExportParams, tmpPath: string): Promise<voi
   const total = params.rows.length;
   const dateIdx = EXPORT_COLUMN_KEYS.indexOf('date');
   const amountIdx = EXPORT_COLUMN_KEYS.indexOf('amount');
+  const balanceIdx = EXPORT_COLUMN_KEYS.indexOf('balance');
   try {
     const write = (chunk: string): Promise<void> | void => {
       if (!stream.write(chunk)) return once(stream, 'drain').then(() => undefined);
@@ -185,6 +203,7 @@ async function writeCsv(params: WriteExportParams, tmpPath: string): Promise<voi
       const cells = exportRowCells(row);
       cells[dateIdx] = formatExportDate(row.date, params.dateFormat);
       cells[amountIdx] = formatExportAmount(row.amount, params.numberFormat);
+      cells[balanceIdx] = formatExportAmount(row.balance, params.numberFormat);
       await write(encodeCsvCells(cells));
       done += 1;
       params.onProgress?.(done, total);
@@ -221,6 +240,7 @@ async function writeXlsx(params: WriteExportParams, tmpPath: string): Promise<vo
   // format is preference-independent for xlsx display; see XlsxFormat note).
   const fmt = xlsxFormatFor(params.dateFormat);
   const amountIdx = EXPORT_COLUMN_KEYS.indexOf('amount');
+  const balanceIdx = EXPORT_COLUMN_KEYS.indexOf('balance');
   const dateIdx = EXPORT_COLUMN_KEYS.indexOf('date');
 
   // FR27/FR28/FR29 — all styling is configured ONCE, column-level, before the
@@ -231,7 +251,7 @@ async function writeXlsx(params: WriteExportParams, tmpPath: string): Promise<vo
       width: p.width,
       style: { alignment: { horizontal: p.align, wrapText: p.wrap } },
     };
-    if (key === 'amount') column.style!.numFmt = fmt.amountNumFmt;
+    if (key === 'amount' || key === 'balance') column.style!.numFmt = fmt.amountNumFmt;
     if (key === 'date') column.style!.numFmt = fmt.dateNumFmt;
     return column;
   });
@@ -245,17 +265,21 @@ async function writeXlsx(params: WriteExportParams, tmpPath: string): Promise<vo
   });
   headerRow.getCell(dateIdx + 1).numFmt = 'General';
   headerRow.getCell(amountIdx + 1).numFmt = 'General';
+  headerRow.getCell(balanceIdx + 1).numFmt = 'General';
   headerRow.commit();
 
   const total = params.rows.length;
   let done = 0;
   for (const row of params.rows) {
-    const cells = exportRowCells(row).map((c, i) => (i === amountIdx ? c : neutralizeText(c)));
-    // Amount as a real number, Date as a real (TZ-safe) date cell, the rest as
-    // neutralized string cells. No per-cell styling here (NFR6) — the column-level
-    // numFmt set above governs the amount/date display.
+    const cells = exportRowCells(row).map((c, i) =>
+      i === amountIdx || i === balanceIdx ? c : neutralizeText(c),
+    );
+    // Amount/balance as real numbers, Date as a real (TZ-safe) date cell, the
+    // rest as neutralized string cells. No per-cell styling here (NFR6) — the
+    // column-level numFmt set above governs the amount/date display.
     const values = cells.map((c, i) => {
       if (i === amountIdx) return Number(formatAmount(row.amount));
+      if (i === balanceIdx) return Number(formatAmount(row.balance));
       if (i === dateIdx) return excelDateFromIso(row.date);
       return c;
     });
@@ -265,7 +289,71 @@ async function writeXlsx(params: WriteExportParams, tmpPath: string): Promise<vo
   }
 
   sheet.commit();
+  writeSummarySheet(workbook, params, fmt);
   await workbook.commit();
+}
+
+/**
+ * SPEC-027 §15 — `Saldos` sheet: one line per exported account with opening,
+ * money in, money out and closing balance for the date range, plus a short
+ * note telling the reader to tie the closing balance out against the bank.
+ */
+function writeSummarySheet(
+  workbook: ExcelJS.stream.xlsx.WorkbookWriter,
+  params: WriteExportParams,
+  fmt: XlsxFormat,
+): void {
+  const sheet = workbook.addWorksheet(SUMMARY_SHEET_NAME, {
+    views: [{ state: 'frozen', ySplit: 1 }],
+  });
+  sheet.columns = BALANCE_SUMMARY_COLUMN_KEYS.map((key) => {
+    if (key === 'account') {
+      return { width: 30, style: { alignment: { horizontal: 'left' } } };
+    }
+    if (key === 'movementCount') {
+      return { width: 14, style: { alignment: { horizontal: 'right' } } };
+    }
+    return {
+      width: 16,
+      style: { alignment: { horizontal: 'right' }, numFmt: fmt.amountNumFmt },
+    };
+  });
+
+  const headerRow = sheet.addRow(balanceSummaryHeaders(params.locale));
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: HEADER_FONT_ARGB } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_FILL_ARGB } };
+    cell.numFmt = 'General';
+  });
+  headerRow.commit();
+
+  for (const acc of params.summary.accounts) {
+    sheet
+      .addRow([
+        neutralizeText(acc.account),
+        Number(formatAmount(acc.opening)),
+        Number(formatAmount(acc.moneyIn)),
+        Number(formatAmount(acc.moneyOut)),
+        Number(formatAmount(acc.closing)),
+        acc.movementCount,
+      ])
+      .commit();
+  }
+
+  sheet.addRow([]).commit();
+  const note = balanceSummaryNote(
+    params.locale,
+    formatExportDate(params.summary.dateFrom, params.dateFormat),
+    formatExportDate(params.summary.dateTo, params.dateFormat),
+  );
+  for (const line of note) {
+    const noteRow = sheet.addRow([line]);
+    noteRow.getCell(1).font = { italic: true };
+    noteRow.getCell(1).alignment = { horizontal: 'left', wrapText: false };
+    noteRow.commit();
+  }
+
+  sheet.commit();
 }
 
 /**

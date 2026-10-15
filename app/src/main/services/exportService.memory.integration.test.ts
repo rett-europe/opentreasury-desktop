@@ -83,6 +83,7 @@ function* generateRows(n: number): Generator<ExportRow> {
       subcategory: 'Comida',
       description: `Movimiento número ${i} con una descripción razonablemente larga`,
       amount: (i % 2 === 0 ? 1 : -1) * (i + 0.5),
+      balance: 1000 + i,
       currency: 'EUR',
       labels: 'etiqueta-a;etiqueta-b',
       reference: `REF-${i}`,
@@ -124,6 +125,7 @@ describe('writeExport (XLSX) — 100k-row streaming memory budget', () => {
         format: 'xlsx',
         destPath,
         locale: 'es',
+        summary: { dateFrom: '2025-01-01', dateTo: '2025-01-28', accounts: [] },
         // Sample the GC'd live heap while the writer (and its style table) is
         // still reachable. A per-cell-styling regression grows the retained
         // style table and trips the budget here; transient spikes are GC'd away.

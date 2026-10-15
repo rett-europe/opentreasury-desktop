@@ -1636,7 +1636,7 @@
       "replaceLogo": "Reemplazar logotipo",
       "removeLogo": "Eliminar logotipo",
       "treasurerLegend": "Firmante tesorero/a",
-      "auditorLegend": "Firmante auditor/a externo/a",
+      "auditorLegend": "Firmante auditor/a interno/a",
       "signatoryName": "Nombre",
       "signatoryRole": "Cargo",
       "signatoryPlace": "Lugar",

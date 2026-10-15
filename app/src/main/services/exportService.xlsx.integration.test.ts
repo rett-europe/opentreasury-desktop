@@ -31,6 +31,7 @@ function fixtureRows(): ExportRow[] {
       subcategory: '',
       description: 'Nómina mensual con un texto largo que debería envolverse',
       amount: 1234.5,
+      balance: 2234.5,
       currency: 'EUR',
       labels: `${SECRET_LABEL};otra`,
       reference: 'REF-001',
@@ -46,6 +47,7 @@ function fixtureRows(): ExportRow[] {
       subcategory: 'Comida',
       description: 'Compra',
       amount: -42.99,
+      balance: 157.01,
       currency: 'EUR',
       labels: '',
       reference: '',
@@ -56,6 +58,29 @@ function fixtureRows(): ExportRow[] {
     },
   ];
 }
+
+const SUMMARY = {
+  dateFrom: '2024-01-01',
+  dateTo: '2025-12-31',
+  accounts: [
+    {
+      account: 'Cuenta corriente',
+      opening: 1000,
+      moneyIn: 1234.5,
+      moneyOut: 0,
+      closing: 2234.5,
+      movementCount: 1,
+    },
+    {
+      account: '=Tarjeta',
+      opening: 200,
+      moneyIn: 0,
+      moneyOut: 42.99,
+      closing: 157.01,
+      movementCount: 1,
+    },
+  ],
+};
 
 /** Minimal central-directory zip-entry reader (avoids adding a test dep). */
 function readZipEntry(buf: Buffer, name: string): string | null {
@@ -109,6 +134,7 @@ async function writeAndRead(
     locale,
     dateFormat,
     numberFormat,
+    summary: SUMMARY,
   });
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.readFile(destPath);
@@ -143,6 +169,7 @@ describe('writeExport (XLSX) — SPEC-027 §14 presentation', () => {
       subcategory: { width: 18, align: 'left', wrap: false },
       description: { width: 40, align: 'left', wrap: true },
       amount: { width: 14, align: 'right', wrap: false },
+      balance: { width: 14, align: 'right', wrap: false },
       currency: { width: 8, align: 'center', wrap: false },
       labels: { width: 24, align: 'left', wrap: true },
       reference: { width: 16, align: 'left', wrap: false },
@@ -223,6 +250,7 @@ describe('writeExport (XLSX) — SPEC-027 §14 presentation', () => {
       locale: 'es',
       dateFormat: 'DMY',
       numberFormat: 'eu',
+      summary: SUMMARY,
     });
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.readFile(destPath);
@@ -255,10 +283,44 @@ describe('writeExport (XLSX) — SPEC-027 §14 presentation', () => {
     expect(core).not.toContain('<cp:keywords>');
   });
 
-  it('uses the single Movimientos sheet for both locales', async () => {
+  it('writes Movimientos then the Saldos summary sheet for both locales', async () => {
     for (const locale of ['es', 'en'] as const) {
       const wb = await writeAndRead(locale);
-      expect(wb.worksheets.map((w) => w.name)).toEqual(['Movimientos']);
+      expect(wb.worksheets.map((w) => w.name)).toEqual(['Movimientos', 'Saldos']);
     }
+  });
+
+  it('SPEC-027 §15: running balance column is numeric with the amount format', async () => {
+    const wb = await writeAndRead('es');
+    const ws = wb.getWorksheet('Movimientos')!;
+    const balanceCol = EXPORT_COLUMN_KEYS.indexOf('balance') + 1;
+    expect(ws.getRow(1).getCell(balanceCol).value).toBe('Saldo');
+    expect(ws.getRow(1).getCell(balanceCol).numFmt).toBeFalsy();
+    const cell = ws.getRow(3).getCell(balanceCol);
+    expect(cell.type).toBe(ExcelJS.ValueType.Number);
+    expect(cell.value).toBe(157.01);
+    expect(cell.numFmt).toBe('#,##0.00');
+  });
+
+  it('SPEC-027 §15: Saldos sheet has a styled header, numeric totals and a note', async () => {
+    const wb = await writeAndRead('en', 'ISO');
+    const ws = wb.getWorksheet('Saldos')!;
+    expect(ws.views?.[0]).toMatchObject({ state: 'frozen', ySplit: 1 });
+    expect(ws.getRow(1).getCell(1).value).toBe('Account');
+    expect(ws.getRow(1).getCell(1).font?.bold).toBe(true);
+    expect(ws.getRow(2).values).toEqual([
+      undefined,
+      'Cuenta corriente',
+      1000,
+      1234.5,
+      0,
+      2234.5,
+      1,
+    ]);
+    expect(ws.getRow(2).getCell(2).numFmt).toBe('#,##0.00');
+    // Formula-injection guard applies to account names on the summary too.
+    expect(ws.getRow(3).getCell(1).value).toBe("'=Tarjeta");
+    expect(String(ws.getRow(5).getCell(1).value)).toContain('2024-01-01');
+    expect(String(ws.getRow(5).getCell(1).value)).toContain('2025-12-31');
   });
 });

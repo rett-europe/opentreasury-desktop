@@ -2,7 +2,7 @@
 //
 // Carries the organisation details that feed the Financial Report's header
 // (FR3) and signature footer (FR9): org name, legal registration line, address,
-// contact email, and two signatory blocks (treasurer + external auditor).
+// contact email, and two signatory blocks (treasurer + internal auditor).
 //
 // The org profile is a NON-SENSITIVE branding/identity record. It is persisted
 // in userData/org-profile.json (mirroring the user `profile.json` pattern) and
@@ -52,7 +52,7 @@ export const logoMetadataSchema = z.object({
 export type LogoMetadata = z.infer<typeof logoMetadataSchema>;
 
 // ---------------------------------------------------------------------------
-// Signatory block (treasurer + external auditor). All fields optional/empty —
+// Signatory block (treasurer + internal auditor). All fields optional/empty —
 // the report screen allows at-generation overrides later (FR3/FR9).
 // ---------------------------------------------------------------------------
 
