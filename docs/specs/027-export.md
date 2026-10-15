@@ -116,9 +116,9 @@ naming and format choice.
 - **FR10 — Format choice.** Card-style radio: **CSV** (default) or **Excel
   (.xlsx)**. CSV is UTF-8 with BOM, **semicolon-delimited** (`;`), RFC 4180-
   style quoting with `;` as the delimiter (fields containing `;`, quotes, or
-  newlines are quoted), CRLF line endings. XLSX is single-sheet, named
-  `Movimientos`, written via a **streaming** writer (Switch §2.3) so memory
-  stays bounded.
+  newlines are quoted), CRLF line endings. XLSX has a `Movimientos` data sheet
+  (plus the `Saldos` summary sheet added by §15), written via a **streaming**
+  writer (Switch §2.3) so memory stays bounded.
 - **FR11 — Exported columns (v1).** One row per movement (parent transaction
   OR child split, mirroring `decisions.md` line 913 *"ONE ROW PER CHILD —
   parent envelope not exported separately"*). Columns, in order:
@@ -131,13 +131,14 @@ naming and format choice.
   | 4 | `Subcategoría` | `Subcategory` | `subcategory.name` (blank if none) |
   | 5 | `Descripción` | `Description` | `tx.description` |
   | 6 | `Importe` | `Amount` | decimal, dot separator, no currency symbol; signed (negative = expense) |
-  | 7 | `Moneda` | `Currency` | ISO-4217 (currently always `EUR`) |
-  | 8 | `Etiquetas` | `Labels` | semicolon-separated tag names |
-  | 9 | `Referencia` | `Reference` | `tx.reference` (blank if none) |
-  | 10 | `Comentario` | `Comment` | `tx.comment` / split `comment` |
-  | 11 | `ID` | `Id` | the row's ULID — for traceability back to the workspace |
-  | 12 | `EsSplit` | `IsSplit` | `true` if the row is a split child, else `false` |
-  | 13 | `IDPadre` | `ParentId` | parent transaction ULID when `IsSplit=true`, else blank |
+  | 7 | `Saldo` | `Balance` | running account balance after this row (§15) |
+  | 8 | `Moneda` | `Currency` | ISO-4217 (currently always `EUR`) |
+  | 9 | `Etiquetas` | `Labels` | semicolon-separated tag names |
+  | 10 | `Referencia` | `Reference` | `tx.reference` (blank if none) |
+  | 11 | `Comentario` | `Comment` | `tx.comment` / split `comment` |
+  | 12 | `ID` | `Id` | the row's ULID — for traceability back to the workspace |
+  | 13 | `EsSplit` | `IsSplit` | `true` if the row is a split child, else `false` |
+  | 14 | `IDPadre` | `ParentId` | parent transaction ULID when `IsSplit=true`, else blank |
 
   Open Question 8 covers any additional fields (e.g., `Notes`,
   `ImportBatchId`).
@@ -835,6 +836,7 @@ this section restates the decisions Niobe is committing the spec to.
 | 2026-05-31 | In Review | Niobe | All 13 Open Questions resolved by Pedro. OQ5 (mandatory date-range + ≥1 additional filter) and OQ6 (FR14 warn→hard block) are requirement changes — Switch blessed the OQ6 hardening; Mouse/Trinity provided OQ5 UX+a11y. OQ13 (?q= pre-seed) dropped from scope. Moved Draft→In Review; reviewers Neo/Switch/Link. |
 | 2026-05-31 | Accepted | Neo · Switch · Link | **Reviewer-acceptance gate passed (In Review → Accepted), after merge to `main` (PR #349).** **Neo (architecture) — APPROVE-WITH-NITS:** read-model query reuses the existing Movements patterns (MovementRecord, SPEC-023 splits projection, date-range-query-extension + read-model-aggregation skills) with no parallel pipeline; consistent with ADR-001/002/003, the audit event-model (`audit.export`), and IPC-contract conventions (`export:prepare`/`export:run` Zod-at-boundary, token reconstruction in main). Nits: `export:progress` phase label `"encrypting"`→`"decrypting"`; clarify FR21 5s-cooldown vs OQ1 3/15min rate-limit precedence. **Switch (security) — APPROVE-WITH-NITS:** all 7 Option-A conditions (typed confirm, audit-first, rate-limit 3/15min, lockout 5→5min, no-logging-of-input, mnemonic zeroized, biometric→v1.1), FR14 encrypted-workspace hard-block, dual failure-audit (on-chain + local), `export.xlsx` enum addition, renderer isolation / no-plaintext / no-path-IPC, and PII-in-logs redaction are all faithfully reflected. Nits (pre-code-freeze): promote the 3/15min rate-limit and 5→5min lockout from the OQ1 resolution into normative FRs; ensure the crypto-spec §8.2 `export.xlsx` enum edit lands in the implementation PR; add an explicit AC for "never log the typed confirmation input". **Link (product) — APPROVE-WITH-NITS:** scope matches Pedro's verbatim brief and v1 boundaries — CSV/XLSX only, the five filters, mandatory date + ≥1 additional filter (FR23/AC18), 100k cap, biometric deferred to v1.1, #305 superseded/closable, out-of-scope boundaries honest. Nits: update vision.md §9 feature map (Export still listed v1.x), reserve PRD-027 in prd-plan.md, close UX-A/B/C before Mouse handoff. **No blocking items from any reviewer. SPEC-027 is cleared for implementation.** |
 | 2026-06-01 | Accepted (addendum) | Niobe · Mouse | **§14 "XLSX presentation (formatting)" added** as a small, post-ship formatting-polish addendum (the feature shipped with a raw, unstyled sheet via `useStyles:false`). Niobe + Mouse led design; Neo (streaming-style perf), Switch (metadata-leak constraint), Oracle (doc placement) consulted. Pedro confirmed two forks: append as §14 (not a new spec), and ship a **real Excel date cell now** (not deferred ISO text). Adds FR26–FR30, NFR6, AC20–AC25; flags issue #353 (configurable date/decimal preference) as a non-blocking dependency. No change to CSV output, IPC surface, columns (FR11), or security gate. |
+| 2026-06-02 | Accepted (addendum) | Pedro | **§15 "Running balance & per-account summary" added.** New FR11 column 7 `Saldo`/`Balance` (CSV + XLSX) derived at export time from account opening balances, and an XLSX `Saldos` sheet (opening / in / out / closing / count per account) for bank tie-out. Adds FR31–FR34, AC26–AC30; resolves §14.9 item 3. No IPC or security-gate change. |
 
 ## 14. XLSX Presentation (Formatting) — Addendum (2026-06-01)
 
@@ -877,13 +879,14 @@ safe to produce under the streaming writer at the 100 000-row cap.
   | 4 | `subcategory` | 18 | left | no |
   | 5 | `description` | 40 | left | **yes** |
   | 6 | `amount` | 14 | **right** | no |
-  | 7 | `currency` | 8 | center | no |
-  | 8 | `labels` | 24 | left | **yes** |
-  | 9 | `reference` | 16 | left | no |
-  | 10 | `comment` | 32 | left | **yes** |
-  | 11 | `id` | 28 | left | no |
-  | 12 | `isSplit` | 9 | center | no |
-  | 13 | `parentId` | 28 | left | no |
+  | 7 | `balance` (§15) | 14 | **right** | no |
+  | 8 | `currency` | 8 | center | no |
+  | 9 | `labels` | 24 | left | **yes** |
+  | 10 | `reference` | 16 | left | no |
+  | 11 | `comment` | 32 | left | **yes** |
+  | 12 | `id` | 28 | left | no |
+  | 13 | `isSplit` | 9 | center | no |
+  | 14 | `parentId` | 28 | left | no |
 
   Widths are advisory display hints; the underlying values are unchanged.
 - **FR28 — Amount number format.** The `Importe` / `Amount` cell stays a **real
@@ -966,6 +969,7 @@ loop. Until then, numeric formatting in the **CSV** path stays locale-independen
   and conflicts with the one-row-per-movement contract (FR11).
 - **Summary sheet** (row count, sum per currency, date-range banner). Cleaner
   than a totals row but is additional surface; deferred as a future enhancement.
+  *Superseded by §15 — a per-account `Saldos` balance sheet now ships.*
 - **Auto-fit (content-measured) column widths** — impossible under the streaming
   writer without buffering the whole sheet; fixed widths (FR27) are the v1
   answer.
@@ -975,8 +979,8 @@ loop. Until then, numeric formatting in the **CSV** path stays locale-independen
 
 - [ ] **AC20** — A successful XLSX export has a **frozen, bold header row** with
   white text on the `FF6D4D8C` fill; scrolling keeps the header visible (FR26).
-- [ ] **AC21** — Each of the 13 columns has the fixed width from the FR27 table;
-  Amount is right-aligned, Currency and IsSplit are centered, and Description,
+- [ ] **AC21** — Each of the 14 columns (13 + §15 `balance`) has the fixed width from the FR27 table;
+  Amount and Balance are right-aligned, Currency and IsSplit are centered, and Description,
   Labels and Comment wrap (FR27).
 - [ ] **AC22** — The Amount cell is a real number displayed as `#,##0.00` with a
   plain minus for negatives and **no** currency symbol; the stored numeric value
@@ -1016,4 +1020,50 @@ loop. Until then, numeric formatting in the **CSV** path stays locale-independen
    (matches the Spain-based audience). Defaulting to ISO for EN; revisit with
    #353.
 3. **Summary sheet appetite.** Whether a future summary sheet (§14.6) is wanted
-   at all — parked pending pilot feedback.
+   at all — parked pending pilot feedback. *Resolved by §15: Pedro asked for
+   per-account balances so the exporter can tie out against the bank.*
+
+## 15. Running Balance & Per-Account Summary — Addendum (2026-06-02)
+
+**Why.** The accounting firm that receives the export asks for the balance
+left in the account after each movement. Pedro also wants the person exporting
+to check the per-account balances against the bank: a mismatch means movements
+are missing (or the opening balance is wrong).
+
+**Decision.** The balance is **derived at export time** from each account's
+configured `openingBalance` (no per-transaction balance is stored — it would go
+stale on every edit, delete or back-dated import in the event-sourced model).
+
+- **FR31 — `Saldo` / `Balance` column.** Column 7 of FR11 carries the running
+  balance of the row's account immediately after that row. XLSX writes it as a
+  real number with the FR28 amount format; CSV formats it like `Importe`.
+- **FR32 — Ledger semantics.** Per account, the running balance starts from
+  `openingBalance` and walks **all** of that account's movements up to
+  `dateTo`, ordered by `date` then `createdAt` (stable). Movements before
+  `dateFrom` only advance the balance. Category/label filters **hide rows but
+  never change balances**. Internal transfers count (they move cash). Math is
+  in integer cents.
+- **FR33 — Splits.** Child rows advance the balance cumulatively in split
+  `sortOrder`; the last child equals the balance after the parent movement.
+- **FR34 — `Saldos` sheet (XLSX only).** After `Movimientos`, a second sheet
+  lists one row per account: `Cuenta`, `Saldo inicial` (at `dateFrom`),
+  `Entradas`, `Salidas`, `Saldo final` (at `dateTo`), `Movimientos` (count in
+  range, filters ignored), followed by a short note explaining how to compare
+  `Saldo final` with the bank statement. Accounts listed: the selected account
+  filter (even with zero rows), otherwise the accounts that produced rows,
+  in account `sortOrder`. Same header styling and formula-injection guard as
+  §14. CSV stays a single table (FR10) and carries only the FR31 column.
+- **Known limitation.** Imported batches share near-identical `createdAt`, so
+  within one day rows follow file order; intermediate same-day balances may
+  differ from the bank's ordering, but end-of-day and closing balances match.
+
+**Acceptance criteria.**
+
+- [x] **AC26** — Every exported row carries the account balance after it,
+  seeded from `openingBalance` and including pre-range movements (FR31/FR32).
+- [x] **AC27** — Category/label filters do not change any balance (FR32).
+- [x] **AC28** — Split children carry a cumulative balance ending at the
+  post-parent balance (FR33).
+- [x] **AC29** — The XLSX has `Movimientos` then `Saldos`; each summary row
+  satisfies `opening + in − out = closing` with numeric cells (FR34).
+- [x] **AC30** — The 100 000-row memory budget (AC25) still holds.

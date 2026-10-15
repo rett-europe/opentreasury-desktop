@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0-trial.3.22] — Local MCP server, bulk movement actions, report fixes
+## [0.1.0-trial.3.22] — Local MCP server, bulk movement actions, export balances, report fixes
 
-Adds an opt-in local MCP server for AI agents and bulk actions on the Movements screen, and corrects the financial report. Existing trial datasets open normally — no migration.
+Adds an opt-in local MCP server for AI agents, bulk actions on the Movements screen and running balances in exports, and corrects the financial report. Existing trial datasets open normally — no migration.
 
 ### Added
+
+- **Running balance in exports (SPEC-027 §15).** CSV and Excel exports gain a `Saldo` / `Balance` column with the account balance after each movement, derived from the account's opening balance. Excel exports add a `Saldos` sheet with the opening balance, money in, money out, closing balance and movement count per account, to compare against the bank statement.
 
 - **Read-only local MCP server (SPEC-031 Phase 1, PR #431).** Adds an opt-in Preferences card, token-gated local named-pipe/socket bridge, bundled stdio launcher, and read-only tools for transactions, categories, tags, and accounts.
 - **MCP write tools (SPEC-031 Phase 2, PR #431).** Adds separate opt-ins for agent edits and pending deletes, plus `classify_transactions`, `set_transaction_type`, `update_transactions`, and gated `delete_transactions`. Agent writes reuse the transaction command/event-log path, force `pending`, reject approved movements, and audit with `actorIdentitySource: mcp`.

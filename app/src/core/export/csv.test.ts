@@ -1,7 +1,7 @@
 // SPEC-027 — CSV formatting unit tests (Cypher).
 //
 // Locks the FR10/FR11 wire format: UTF-8 BOM, `;` delimiter, RFC4180 quoting,
-// CRLF line endings, 13-column order, and spreadsheet formula-injection
+// CRLF line endings, 14-column order, and spreadsheet formula-injection
 // hardening (with the numeric amount column exempt).
 
 import { describe, it, expect } from 'vitest';
@@ -16,6 +16,7 @@ function sampleRow(over: Partial<ExportRow> = {}): ExportRow {
     subcategory: '',
     description: 'Aporte mensual',
     amount: -300,
+    balance: 700,
     currency: 'EUR',
     labels: '',
     reference: '',
@@ -33,12 +34,12 @@ describe('encodeCsvHeader', () => {
     expect(line).toBe('a;b;c\r\n');
   });
 
-  it('emits exactly 13 columns for the FR11 header set', () => {
+  it('emits exactly 14 columns for the FR11 header set', () => {
     const headers = exportHeaders('es');
-    expect(headers).toHaveLength(13);
-    expect(EXPORT_COLUMN_KEYS).toHaveLength(13);
+    expect(headers).toHaveLength(14);
+    expect(EXPORT_COLUMN_KEYS).toHaveLength(14);
     const line = encodeCsvHeader(headers);
-    expect(line.trimEnd().split(';')).toHaveLength(13);
+    expect(line.trimEnd().split(';')).toHaveLength(14);
   });
 });
 
@@ -87,15 +88,15 @@ describe('encodeCsvCell formula-injection hardening', () => {
 });
 
 describe('encodeCsvRow', () => {
-  it('produces 13 `;`-separated fields ending in CRLF', () => {
+  it('produces 14 `;`-separated fields ending in CRLF', () => {
     const line = encodeCsvRow(sampleRow());
     expect(line.endsWith('\r\n')).toBe(true);
-    expect(line.trimEnd().split(';')).toHaveLength(13);
+    expect(line.trimEnd().split(';')).toHaveLength(14);
   });
 
   it('renders isSplit as the literal true/false', () => {
-    expect(encodeCsvRow(sampleRow({ isSplit: true })).split(';')[11]).toBe('true');
-    expect(encodeCsvRow(sampleRow({ isSplit: false })).split(';')[11]).toBe('false');
+    expect(encodeCsvRow(sampleRow({ isSplit: true })).split(';')[12]).toBe('true');
+    expect(encodeCsvRow(sampleRow({ isSplit: false })).split(';')[12]).toBe('false');
   });
 });
 

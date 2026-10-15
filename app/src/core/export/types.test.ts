@@ -2,7 +2,9 @@
 
 import { describe, it, expect } from 'vitest';
 import {
+  BALANCE_SUMMARY_COLUMN_KEYS,
   EXPORT_COLUMN_KEYS,
+  balanceSummaryHeaders,
   exportHeaders,
   exportRowCells,
   formatAmount,
@@ -10,7 +12,7 @@ import {
 } from './types.js';
 
 describe('exportHeaders', () => {
-  it('returns the 13 Spanish headers in FR11 order', () => {
+  it('returns the 14 Spanish headers in FR11 order', () => {
     expect(exportHeaders('es')).toEqual([
       'Fecha',
       'Cuenta',
@@ -18,6 +20,7 @@ describe('exportHeaders', () => {
       'Subcategoría',
       'Descripción',
       'Importe',
+      'Saldo',
       'Moneda',
       'Etiquetas',
       'Referencia',
@@ -28,7 +31,7 @@ describe('exportHeaders', () => {
     ]);
   });
 
-  it('returns the 13 English headers in FR11 order', () => {
+  it('returns the 14 English headers in FR11 order', () => {
     expect(exportHeaders('en')).toEqual([
       'Date',
       'Account',
@@ -36,6 +39,7 @@ describe('exportHeaders', () => {
       'Subcategory',
       'Description',
       'Amount',
+      'Balance',
       'Currency',
       'Labels',
       'Reference',
@@ -67,6 +71,7 @@ describe('exportRowCells', () => {
     subcategory: 'Mensual',
     description: 'Aporte',
     amount: -300,
+    balance: 1250.5,
     currency: 'EUR',
     labels: 'a;b',
     reference: 'REF1',
@@ -84,6 +89,7 @@ describe('exportRowCells', () => {
       'Mensual',
       'Aporte',
       '-300.00',
+      '1250.50',
       'EUR',
       'a;b',
       'REF1',
@@ -95,6 +101,20 @@ describe('exportRowCells', () => {
   });
 
   it('renders isSplit=false as the string "false"', () => {
-    expect(exportRowCells({ ...row, isSplit: false })[11]).toBe('false');
+    expect(exportRowCells({ ...row, isSplit: false })[12]).toBe('false');
+  });
+});
+
+describe('balanceSummaryHeaders', () => {
+  it('returns ES and EN summary headers aligned with the summary column keys', () => {
+    expect(balanceSummaryHeaders('es')).toEqual([
+      'Cuenta',
+      'Saldo inicial',
+      'Entradas',
+      'Salidas',
+      'Saldo final',
+      'Movimientos',
+    ]);
+    expect(balanceSummaryHeaders('en')).toHaveLength(BALANCE_SUMMARY_COLUMN_KEYS.length);
   });
 });

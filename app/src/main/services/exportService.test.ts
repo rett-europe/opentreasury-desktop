@@ -17,6 +17,7 @@ const ROW: ExportRow = {
   subcategory: '',
   description: '=formula-like',
   amount: -1234.56,
+  balance: 8765.44,
   currency: 'EUR',
   labels: 'Comida',
   reference: '',
@@ -24,6 +25,21 @@ const ROW: ExportRow = {
   id: '01HZZZZZZZZZZZZZZZZZZZZZZA',
   isSplit: false,
   parentId: '',
+};
+
+const SUMMARY = {
+  dateFrom: '2025-03-01',
+  dateTo: '2025-03-31',
+  accounts: [
+    {
+      account: 'Caja',
+      opening: 10000,
+      moneyIn: 0,
+      moneyOut: 1234.56,
+      closing: 8765.44,
+      movementCount: 1,
+    },
+  ],
 };
 
 async function readText(filename: string): Promise<string> {
@@ -50,6 +66,7 @@ describe('writeExport format preferences', () => {
 
     await writeExport({
       rows: [ROW],
+      summary: SUMMARY,
       format: 'csv',
       destPath: path.join(OUT_DIR, basename),
       locale: 'es',
@@ -59,7 +76,7 @@ describe('writeExport format preferences', () => {
 
     expect(basename).toContain('01-03-2025_31-03-2025');
     const written = await readText(basename);
-    expect(written).toContain("31/03/2025;Caja;Alimentación;;'=formula-like;-1234,56;EUR");
+    expect(written).toContain("31/03/2025;Caja;Alimentación;;'=formula-like;-1234,56;8765,44;EUR");
   });
 
   it('writes CSV content and a filename using US/ISO preferences', async () => {
@@ -72,6 +89,7 @@ describe('writeExport format preferences', () => {
 
     await writeExport({
       rows: [ROW],
+      summary: SUMMARY,
       format: 'csv',
       destPath: path.join(OUT_DIR, basename),
       locale: 'en',
@@ -81,13 +99,14 @@ describe('writeExport format preferences', () => {
 
     expect(basename).toContain('2025-03-01_2025-03-31');
     const written = await readText(basename);
-    expect(written).toContain("2025-03-31;Caja;Alimentación;;'=formula-like;-1234.56;EUR");
+    expect(written).toContain("2025-03-31;Caja;Alimentación;;'=formula-like;-1234.56;8765.44;EUR");
   });
 
   it('writes XLSX amounts as numbers and dates as real Excel dates (US/MDY preference)', async () => {
     const destPath = path.join(OUT_DIR, 'movements.xlsx');
     await writeExport({
       rows: [ROW],
+      summary: SUMMARY,
       format: 'xlsx',
       destPath,
       locale: 'en',
@@ -120,6 +139,7 @@ describe('writeExport format preferences', () => {
     const destPath = path.join(OUT_DIR, 'movements-eu.xlsx');
     await writeExport({
       rows: [ROW],
+      summary: SUMMARY,
       format: 'xlsx',
       destPath,
       locale: 'es',
@@ -141,5 +161,27 @@ describe('writeExport format preferences', () => {
     // text separator, while xlsx display separators follow the viewer's OS.
     expect(row.getCell(6).value).toBe(-1234.56);
     expect(row.getCell(6).numFmt).toBe('#,##0.00');
+
+    // SPEC-027 §15 — running balance is a real number next to the amount.
+    expect(row.getCell(7).type).toBe(ExcelJS.ValueType.Number);
+    expect(row.getCell(7).value).toBe(8765.44);
+    expect(row.getCell(7).numFmt).toBe('#,##0.00');
+
+    // SPEC-027 §15 — `Saldos` summary sheet: one line per account + a note.
+    expect(workbook.worksheets.map((w) => w.name)).toEqual(['Movimientos', 'Saldos']);
+    const saldos = workbook.getWorksheet('Saldos')!;
+    expect(saldos.getRow(1).values).toEqual([
+      undefined,
+      'Cuenta',
+      'Saldo inicial',
+      'Entradas',
+      'Salidas',
+      'Saldo final',
+      'Movimientos',
+    ]);
+    expect(saldos.getRow(2).values).toEqual([undefined, 'Caja', 10000, 0, 1234.56, 8765.44, 1]);
+    expect(saldos.getRow(2).getCell(5).numFmt).toBe('#,##0.00');
+    expect(String(saldos.getRow(4).getCell(1).value)).toContain('01/03/2025');
+    expect(String(saldos.getRow(5).getCell(1).value)).toContain('extracto bancario');
   });
 });

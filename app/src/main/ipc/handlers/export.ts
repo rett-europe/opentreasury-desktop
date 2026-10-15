@@ -277,6 +277,11 @@ export function createExportHandlers(deps: ExportHandlerDeps): ExportHandlers {
     try {
       await writeExport({
         rows: built.rows,
+        summary: {
+          dateFrom: pending.filters.dateFrom,
+          dateTo: pending.filters.dateTo,
+          accounts: built.balances,
+        },
         format: pending.format,
         destPath: pending.destPath,
         locale: pending.locale,

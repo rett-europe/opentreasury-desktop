@@ -18,6 +18,12 @@ export interface ExportRow {
   readonly description: string;
   /** Signed decimal euros (negative = expense). Number — writers format it. */
   readonly amount: number;
+  /**
+   * SPEC-027 §15 — running balance of the row's account immediately AFTER this
+   * row, in decimal euros. Computed from the account's opening balance plus
+   * EVERY movement of that account (filters never change it).
+   */
+  readonly balance: number;
   readonly currency: string; // ISO-4217, currently always EUR
   readonly labels: string; // semicolon-separated tag names
   readonly reference: string; // blank if none
@@ -35,6 +41,7 @@ export const EXPORT_COLUMN_KEYS = [
   'subcategory',
   'description',
   'amount',
+  'balance',
   'currency',
   'labels',
   'reference',
@@ -53,6 +60,7 @@ const HEADERS_ES: Record<ExportColumnKey, string> = {
   subcategory: 'Subcategoría',
   description: 'Descripción',
   amount: 'Importe',
+  balance: 'Saldo',
   currency: 'Moneda',
   labels: 'Etiquetas',
   reference: 'Referencia',
@@ -69,6 +77,7 @@ const HEADERS_EN: Record<ExportColumnKey, string> = {
   subcategory: 'Subcategory',
   description: 'Description',
   amount: 'Amount',
+  balance: 'Balance',
   currency: 'Currency',
   labels: 'Labels',
   reference: 'Reference',
@@ -100,6 +109,7 @@ export function exportRowCells(row: ExportRow): string[] {
     row.subcategory,
     row.description,
     formatAmount(row.amount),
+    formatAmount(row.balance),
     row.currency,
     row.labels,
     row.reference,
@@ -108,4 +118,79 @@ export function exportRowCells(row: ExportRow): string[] {
     row.isSplit ? 'true' : 'false',
     row.parentId,
   ];
+}
+
+// ---------------------------------------------------------------------------
+// SPEC-027 §15 — Per-account balance summary (XLSX `Saldos` sheet).
+//
+// One line per exported account so the person exporting can tie the closing
+// balance out against the bank statement. A mismatch means movements are
+// missing (or the account's opening balance is wrong). Figures cover ALL of the
+// account's movements in the date range, independent of category/label filters,
+// so `closing = opening + moneyIn − moneyOut` always holds.
+// ---------------------------------------------------------------------------
+
+export interface AccountBalanceSummary {
+  readonly account: string;
+  /** Balance at the start of `dateFrom` (decimal euros). */
+  readonly opening: number;
+  /** Money in during the range (positive decimal euros). */
+  readonly moneyIn: number;
+  /** Money out during the range (positive decimal euros). */
+  readonly moneyOut: number;
+  /** Balance at the end of `dateTo` (decimal euros). */
+  readonly closing: number;
+  /** Movements of the account in the range (parent transactions, all filters ignored). */
+  readonly movementCount: number;
+}
+
+export const BALANCE_SUMMARY_COLUMN_KEYS = [
+  'account',
+  'opening',
+  'moneyIn',
+  'moneyOut',
+  'closing',
+  'movementCount',
+] as const;
+
+export type BalanceSummaryColumnKey = (typeof BALANCE_SUMMARY_COLUMN_KEYS)[number];
+
+const SUMMARY_HEADERS_ES: Record<BalanceSummaryColumnKey, string> = {
+  account: 'Cuenta',
+  opening: 'Saldo inicial',
+  moneyIn: 'Entradas',
+  moneyOut: 'Salidas',
+  closing: 'Saldo final',
+  movementCount: 'Movimientos',
+};
+
+const SUMMARY_HEADERS_EN: Record<BalanceSummaryColumnKey, string> = {
+  account: 'Account',
+  opening: 'Opening balance',
+  moneyIn: 'Money in',
+  moneyOut: 'Money out',
+  closing: 'Closing balance',
+  movementCount: 'Movements',
+};
+
+export function balanceSummaryHeaders(locale: ExportLocale): string[] {
+  const map = locale === 'es' ? SUMMARY_HEADERS_ES : SUMMARY_HEADERS_EN;
+  return BALANCE_SUMMARY_COLUMN_KEYS.map((k) => map[k]);
+}
+
+/** Explanatory note written under the summary table (plain text). */
+export function balanceSummaryNote(
+  locale: ExportLocale,
+  dateFrom: string,
+  dateTo: string,
+): readonly string[] {
+  return locale === 'es'
+    ? [
+        `Saldos del ${dateFrom} al ${dateTo}, calculados con todos los movimientos de cada cuenta (sin aplicar filtros de categoría o etiqueta).`,
+        'Compare el saldo final con el extracto bancario. Si no coincide, faltan movimientos o el saldo inicial de la cuenta es incorrecto.',
+      ]
+    : [
+        `Balances from ${dateFrom} to ${dateTo}, computed from every movement of each account (category/label filters are not applied).`,
+        'Compare the closing balance with the bank statement. If it does not match, movements are missing or the account opening balance is wrong.',
+      ];
 }
