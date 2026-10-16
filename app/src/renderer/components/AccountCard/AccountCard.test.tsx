@@ -22,7 +22,7 @@ describe('AccountCard', () => {
     expect(screen.getByText(/12/)).toBeDefined();
   });
 
-  it('renders positive balance in green', () => {
+  it('renders a non-negative balance in neutral text, not green', () => {
     const { container } = render(
       <I18nextProvider i18n={i18n}>
         <AccountCard shortName="BBVA" color="#0075BE" transactionCount={12} balance={1500.5} />
@@ -30,7 +30,51 @@ describe('AccountCard', () => {
     );
     const balanceEl = container.querySelector('.ot-account-card__balance');
     expect(balanceEl?.className).not.toContain('--negative');
-    expect(balanceEl?.className).toContain('--positive');
+    expect(balanceEl?.className).toContain('--neutral');
+    expect(screen.getByText('Balance')).toBeDefined();
+  });
+
+  it('renders the period net below the balance with sign and direction', () => {
+    const { container, rerender } = render(
+      <I18nextProvider i18n={i18n}>
+        <AccountCard
+          shortName="BBVA"
+          color="#0075BE"
+          transactionCount={12}
+          balance={1500.5}
+          periodNet={240}
+        />
+      </I18nextProvider>,
+    );
+    const net = container.querySelector('.ot-account-card__net');
+    expect(net?.textContent).toContain('↑');
+    expect(net?.textContent).toContain('+');
+    expect(net?.textContent).toContain('in 90 days');
+    expect(net?.querySelector('.ot-account-card__net--positive')).not.toBeNull();
+
+    rerender(
+      <I18nextProvider i18n={i18n}>
+        <AccountCard
+          shortName="BBVA"
+          color="#0075BE"
+          transactionCount={12}
+          balance={1500.5}
+          periodNet={-80}
+        />
+      </I18nextProvider>,
+    );
+    const negNet = container.querySelector('.ot-account-card__net');
+    expect(negNet?.textContent).toContain('↓');
+    expect(negNet?.querySelector('.ot-account-card__net--negative')).not.toBeNull();
+  });
+
+  it('omits the period net line when periodNet is not provided', () => {
+    const { container } = render(
+      <I18nextProvider i18n={i18n}>
+        <AccountCard shortName="BBVA" color="#0075BE" transactionCount={12} balance={1500.5} />
+      </I18nextProvider>,
+    );
+    expect(container.querySelector('.ot-account-card__net')).toBeNull();
   });
 
   it('renders negative balance in red with negative class', () => {

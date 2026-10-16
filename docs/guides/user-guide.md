@@ -186,17 +186,17 @@ _**Figure 2:** The Dashboard shows your NGO name in the top bar ("Casa Esperanza
 
 - **Top bar:** Your NGO name appears in the header (e.g., "Casa Esperanza"), along with the current date and a language/theme switcher.
 - **KPI summary:** A banner at the top shows your **income**, **expenses**, and **net balance** for the last 90 days. This gives you a snapshot of whether you're in the black or red for the current period.
-- **Account activity cards:** Below the KPIs, you'll see one card per account (e.g., "CaixaBank – Operations", "BBVA – Restricted"). Each card shows:
+- **Account cards:** Below the KPIs, you'll see one card per account (e.g., "CaixaBank – Operations", "BBVA – Restricted"). Each card shows:
   - The account name and bank.
-  - How much income and expense flowed through that account in the last 90 days.
-  - The net balance (income minus expense).
-  - The number of transactions recorded for that account.
+  - The **current balance**: the opening balance configured in Configuración → Cuentas plus every movement recorded for that account. Negative balances are shown in red.
+  - The net flow (income minus expense) of the last 90 days, with an arrow showing whether money came in or went out.
+  - The number of transactions recorded for that account in the last 90 days.
 
 ### Why 90 days?
 
 Most NGOs have low transaction volumes—a 30-day window often shows little activity, making it hard to see patterns. A **90-day rolling window** gives you better visibility without the calendar-month cliff (where everything resets on the 1st of the month and leaves you with empty dashboards mid-month).
 
-> **Tip:** If an account shows "0 transactions" and zero balances, it means no activity in the last 90 days. This is normal for seasonal accounts or new accounts you've just created.
+> **Tip:** If an account shows "0 transactions", it means no activity in the last 90 days. Its current balance is still shown. This is normal for seasonal accounts or new accounts you've just created.
 
 ### What's next?
 

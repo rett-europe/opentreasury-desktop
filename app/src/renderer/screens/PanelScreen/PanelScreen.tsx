@@ -21,6 +21,7 @@ import type {
 import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/transaction.js';
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import * as panelApi from '../../services/panelApi.js';
+import { listAccounts } from '../../services/accountsApi.js';
 import { listCategories } from '../../services/categoriesApi.js';
 import { listTags } from '../../services/tagsApi.js';
 import { updateTransaction, deleteTransaction } from '../../services/transactionApi.js';
@@ -31,6 +32,9 @@ type PanelState = 'skeleton' | 'loaded' | 'error';
 interface PanelData {
   accounts: Account[];
   balances: AccountBalance[];
+  // Current balance per account = configured opening balance + all-time net
+  // (same formula as Configuración → Cuentas, so both screens agree).
+  currentBalances: Map<string, number>;
   kpis: GetRangeKPIsResponse['kpis'];
   sparklines: Map<string, GetAccountSparklinesResponse['sparkline']>;
   transactions: RecentTransaction[];
@@ -73,6 +77,8 @@ export function PanelScreen({
         tagsResp,
         monthlyResp,
         countsResp,
+        allTimeResp,
+        accountRecordsResp,
       ] = await Promise.all([
         panelApi.getAccounts(),
         panelApi.getAccountBalancesInRange(range.from, range.to),
@@ -82,7 +88,17 @@ export function PanelScreen({
         listTags(),
         panelApi.getMonthlyIncomeExpense(),
         panelApi.getAccountTransactionCountsInRange(range.from, range.to),
+        panelApi.getAccountBalances(),
+        listAccounts({ includeArchived: true }),
       ]);
+
+      const allTimeNet = new Map(allTimeResp.balances.map((b) => [b.accountId, b.net] as const));
+      const currentBalances = new Map<string, number>();
+      for (const rec of accountRecordsResp.accounts) {
+        const cents =
+          Math.round(rec.openingBalance * 100) + Math.round((allTimeNet.get(rec.id) ?? 0) * 100);
+        currentBalances.set(rec.id, cents / 100);
+      }
 
       const sparklinePromises = accountsResp.accounts.map((acc) =>
         panelApi.getAccountSparklines(acc.id).then((resp) => [acc.id, resp.sparkline] as const),
@@ -92,6 +108,7 @@ export function PanelScreen({
       setData({
         accounts: accountsResp.accounts,
         balances: balancesResp.balances,
+        currentBalances,
         kpis: kpisResp.kpis,
         sparklines: new Map(sparklineEntries),
         transactions: transactionsResp.transactions,
@@ -263,6 +280,7 @@ export function PanelScreen({
   const {
     accounts,
     balances,
+    currentBalances,
     kpis,
     sparklines,
     transactions,
@@ -280,7 +298,8 @@ export function PanelScreen({
       ...acc,
       displayName,
       transactionCount: txCount,
-      balance: balance?.net ?? 0,
+      balance: currentBalances.get(acc.id) ?? 0,
+      periodNet: balance?.net ?? 0,
       hasSparkline: sparkline && sparkline.months.length >= 3 ? true : false,
     };
   });
@@ -307,6 +326,7 @@ export function PanelScreen({
             color: string;
             transactionCount: number;
             balance: number;
+            periodNet: number;
             hasSparkline: boolean;
             onClick?: () => void;
           } = {
@@ -314,6 +334,7 @@ export function PanelScreen({
             color: acc.color ?? '#888888',
             transactionCount: acc.transactionCount,
             balance: acc.balance,
+            periodNet: acc.periodNet,
             hasSparkline: acc.hasSparkline,
           };
           if (onNavigateToMovementsWithAccount) {

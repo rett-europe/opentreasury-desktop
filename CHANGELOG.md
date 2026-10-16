@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.23] — Current balance on Dashboard account cards
+
+Dashboard account cards now show each account's real balance. Existing trial datasets open normally — no migration.
+
+### Changed
+
+- **Dashboard account cards show the current balance.** The main figure on each card is now the account's balance today: its configured opening balance plus all recorded movements, matching Configuración → Cuentas. The 90-day net flow now appears underneath with an up or down arrow. The section is now titled "Cuentas · Saldo actual". Before this change, the large number was the 90-day net and was easy to mistake for the balance.
+
 ## [0.1.0-trial.3.22] — Local MCP server, bulk movement actions, export balances, report fixes
 
 Adds an opt-in local MCP server for AI agents, bulk actions on the Movements screen and running balances in exports, and corrects the financial report. Existing trial datasets open normally — no migration.
