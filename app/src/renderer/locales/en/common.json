@@ -391,6 +391,7 @@
       "count_other": "{{count}} transactions · 90 days",
       "balance": "Balance",
       "periodNet": "in 90 days",
+      "trendLabel": "Balance over the last 12 months: from {{from}} to {{to}}",
       "clickLabel": "View {{name}} transactions"
     },
     "recent": {

@@ -87,22 +87,51 @@ describe('AccountCard', () => {
     expect(balanceEl?.className).toContain('--negative');
   });
 
-  it('renders sparkline placeholder when hasSparkline is true', () => {
+  it('renders a 12-month balance line in the account colour', () => {
     const { container } = render(
       <I18nextProvider i18n={i18n}>
         <AccountCard
           shortName="BBVA"
           color="#0075BE"
           transactionCount={12}
-          balance={1500.5}
-          hasSparkline
+          balance={1500}
+          balanceHistory={[1000, 1200, -100, 1500]}
         />
       </I18nextProvider>,
     );
-    expect(container.querySelector('.ot-account-card__sparkline-placeholder')).toBeDefined();
+    const svg = container.querySelector('svg.ot-account-card__spark');
+    expect(svg).not.toBeNull();
+    expect(svg?.getAttribute('role')).toBe('img');
+    expect(svg?.getAttribute('aria-label')).toContain('12 months');
+    const line = svg?.querySelector('polyline');
+    expect(line?.getAttribute('stroke')).toBe('#0075BE');
+    expect(line?.getAttribute('points')?.split(' ')).toHaveLength(4);
+    // Crosses zero → dashed zero reference line.
+    expect(svg?.querySelector('.ot-account-card__spark-zero')).not.toBeNull();
   });
 
-  it('does not render sparkline when hasSparkline is false', () => {
+  it('draws a flat line without a zero line when the balance never changes', () => {
+    const { container } = render(
+      <I18nextProvider i18n={i18n}>
+        <AccountCard
+          shortName="PayPal"
+          color="#E8622B"
+          transactionCount={0}
+          balance={0}
+          balanceHistory={[0, 0, 0]}
+        />
+      </I18nextProvider>,
+    );
+    const ys = container
+      .querySelector('polyline')
+      ?.getAttribute('points')
+      ?.split(' ')
+      .map((p) => p.split(',')[1]);
+    expect(new Set(ys).size).toBe(1);
+    expect(container.querySelector('.ot-account-card__spark-zero')).toBeNull();
+  });
+
+  it('omits the balance line without history', () => {
     const { container } = render(
       <I18nextProvider i18n={i18n}>
         <AccountCard
@@ -110,11 +139,29 @@ describe('AccountCard', () => {
           color="#00AA00"
           transactionCount={2}
           balance={100}
-          hasSparkline={false}
+          balanceHistory={[100]}
         />
       </I18nextProvider>,
     );
-    expect(container.querySelector('.ot-account-card__sparkline-placeholder')).toBeNull();
+    expect(container.querySelector('.ot-account-card__spark')).toBeNull();
+  });
+
+  it('shows a zero period net without arrow or colour', () => {
+    const { container } = render(
+      <I18nextProvider i18n={i18n}>
+        <AccountCard
+          shortName="PayPal"
+          color="#E8622B"
+          transactionCount={0}
+          balance={0}
+          periodNet={0}
+        />
+      </I18nextProvider>,
+    );
+    const net = container.querySelector('.ot-account-card__net');
+    expect(net?.textContent).not.toMatch(/[↑↓+]/);
+    expect(net?.querySelector('.ot-account-card__net--neutral')).not.toBeNull();
+    expect(net?.querySelector('.ot-account-card__net--positive')).toBeNull();
   });
 
   it('uses number preference independently of UI language', async () => {

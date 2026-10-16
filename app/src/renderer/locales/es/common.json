@@ -391,6 +391,7 @@
       "count_other": "{{count}} movimientos · 90 días",
       "balance": "Saldo",
       "periodNet": "en 90 días",
+      "trendLabel": "Saldo en los últimos 12 meses: de {{from}} a {{to}}",
       "clickLabel": "Ver movimientos de {{name}}"
     },
     "recent": {
