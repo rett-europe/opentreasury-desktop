@@ -380,15 +380,17 @@
       "view-all-movements": "View all transactions"
     },
     "sections": {
-      "accounts": "Account activity · Last 90 days",
+      "accounts": "Accounts · Current balance",
       "summary": "Last 90 days summary",
       "monthly-trend": "Income vs. Expense · Last 12 months",
       "recent": "Recent transactions"
     },
     "skeleton": "No transactions yet. Once you add some, your cashflow will appear here.",
     "card": {
-      "count_one": "{{count}} transaction",
-      "count_other": "{{count}} transactions",
+      "count_one": "{{count}} transaction · 90 days",
+      "count_other": "{{count}} transactions · 90 days",
+      "balance": "Balance",
+      "periodNet": "in 90 days",
       "clickLabel": "View {{name}} transactions"
     },
     "recent": {

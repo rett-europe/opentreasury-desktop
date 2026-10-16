@@ -380,15 +380,17 @@
       "view-all-movements": "Ver todos los movimientos"
     },
     "sections": {
-      "accounts": "Actividad por cuenta · Últimos 90 días",
+      "accounts": "Cuentas · Saldo actual",
       "summary": "Resumen de los últimos 90 días",
       "monthly-trend": "Ingresos vs. Gastos · Últimos 12 meses",
       "recent": "Últimos movimientos"
     },
     "skeleton": "Aún no hay movimientos. En cuanto registres alguno, verás aquí tu flujo de caja.",
     "card": {
-      "count_one": "{{count}} movimiento",
-      "count_other": "{{count}} movimientos",
+      "count_one": "{{count}} movimiento · 90 días",
+      "count_other": "{{count}} movimientos · 90 días",
+      "balance": "Saldo",
+      "periodNet": "en 90 días",
       "clickLabel": "Ver movimientos de {{name}}"
     },
     "recent": {

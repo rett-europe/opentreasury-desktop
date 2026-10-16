@@ -17,13 +17,41 @@
   border-radius: var(--radius-md);
 }
 
-/* Balance tone — mirrors the prototype's amount-income/amount-expense pattern
- * (panel.jsx applies `amountClass = negative ? 'amount-expense' : 'amount-income'`
- * to .ac-balance). Positive = green, negative = red. */
-.ot-account-card__balance--positive {
-  color: var(--color-income-default);
+/* Small uppercase caption above the balance ("Saldo" / "Balance"). */
+.ot-account-card__caption {
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+/* Balance tone — the balance is a stock, not a flow: neutral text, red only
+ * when the account is overdrawn. Green/red flow colouring lives on the
+ * period-net line below. */
+.ot-account-card__balance--neutral {
+  color: var(--color-text-primary);
 }
 .ot-account-card__balance--negative {
+  color: var(--color-expense-default);
+}
+
+/* Period net flow line ("↑ +1.240,00 € en 90 días"). */
+.ot-account-card__net {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-12);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.ot-account-card__net-arrow {
+  font-weight: var(--font-weight-semibold);
+  margin-right: 4px;
+}
+.ot-account-card__net--positive {
+  color: var(--color-income-default);
+}
+.ot-account-card__net--negative {
   color: var(--color-expense-default);
 }
 
