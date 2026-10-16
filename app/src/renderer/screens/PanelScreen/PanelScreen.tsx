@@ -22,6 +22,7 @@ import type { UpdateTransactionRequest } from '../../../shared/ipc-contracts/tra
 import type { CategoryRecord, TagRecord } from '../../types/config.js';
 import * as panelApi from '../../services/panelApi.js';
 import { listAccounts } from '../../services/accountsApi.js';
+import { monthEndBalances } from './balanceHistory.js';
 import { listCategories } from '../../services/categoriesApi.js';
 import { listTags } from '../../services/tagsApi.js';
 import { updateTransaction, deleteTransaction } from '../../services/transactionApi.js';
@@ -294,13 +295,17 @@ export function PanelScreen({
     const sparkline = sparklines.get(acc.id);
     const displayName = acc.accountLabel ?? acc.bankNameShort ?? acc.bankName;
     const txCount = accountTransactionCounts[acc.id] ?? 0;
+    const currentBalance = currentBalances.get(acc.id) ?? 0;
     return {
       ...acc,
       displayName,
       transactionCount: txCount,
-      balance: currentBalances.get(acc.id) ?? 0,
+      balance: currentBalance,
       periodNet: balance?.net ?? 0,
-      hasSparkline: sparkline && sparkline.months.length >= 3 ? true : false,
+      balanceHistory: monthEndBalances(
+        currentBalance,
+        (sparkline?.months ?? []).map((m) => m.net),
+      ),
     };
   });
 
@@ -327,7 +332,7 @@ export function PanelScreen({
             transactionCount: number;
             balance: number;
             periodNet: number;
-            hasSparkline: boolean;
+            balanceHistory: number[];
             onClick?: () => void;
           } = {
             shortName: acc.displayName,
@@ -335,7 +340,7 @@ export function PanelScreen({
             transactionCount: acc.transactionCount,
             balance: acc.balance,
             periodNet: acc.periodNet,
-            hasSparkline: acc.hasSparkline,
+            balanceHistory: acc.balanceHistory,
           };
           if (onNavigateToMovementsWithAccount) {
             cardProps.onClick = () => onNavigateToMovementsWithAccount({ accountId: acc.id });

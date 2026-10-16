@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-trial.3.24] — 12-month balance line on Dashboard account cards
+
+Each Dashboard account card now shows how its balance moved over the last year. Existing trial datasets open normally — no migration.
+
+### Changed
+
+- **Dashboard account cards show a 12-month balance line.** The empty grey box at the bottom of each card is now a small line chart, in the account's colour, of the balance at the end of each of the last 12 months. A dashed line marks zero when the balance goes negative. A 90-day net of zero is now shown in neutral text with no arrow; it used to be green with ↑.
+
 ## [0.1.0-trial.3.23] — Current balance on Dashboard account cards
 
 Dashboard account cards now show each account's real balance. Existing trial datasets open normally — no migration.

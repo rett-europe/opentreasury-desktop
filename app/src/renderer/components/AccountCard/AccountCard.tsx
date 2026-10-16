@@ -12,14 +12,35 @@ export interface AccountCardProps {
   readonly balance: number;
   /** Net flow (income − expense) over the Panel's rolling window. */
   readonly periodNet?: number;
-  readonly hasSparkline?: boolean;
+  /** Month-end balances, oldest first (last = current month). */
+  readonly balanceHistory?: readonly number[];
   readonly onClick?: () => void;
+}
+
+const SPARK_W = 100;
+const SPARK_H = 28;
+const SPARK_PAD = 2;
+
+function sparkGeometry(values: readonly number[]): {
+  line: string;
+  area: string;
+  zeroY: number | null;
+} {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min;
+  const y = (v: number): number =>
+    span === 0 ? SPARK_H / 2 : SPARK_PAD + ((max - v) / span) * (SPARK_H - SPARK_PAD * 2);
+  const pts = values.map((v, i) => [(i / (values.length - 1)) * SPARK_W, y(v)] as const);
+  const line = pts.map(([x, py]) => `${x.toFixed(2)},${py.toFixed(2)}`).join(' ');
+  const area = `M0,${SPARK_H} L${pts.map(([x, py]) => `${x.toFixed(2)},${py.toFixed(2)}`).join(' L')} L${SPARK_W},${SPARK_H} Z`;
+  return { line, area, zeroY: min < 0 && max > 0 ? y(0) : null };
 }
 
 /**
  * Account card for Panel — shows icon, name, tx count, the current balance
  * (neutral, red only when overdrawn), the period net flow (green/red with an
- * arrow), and a sparkline placeholder area.
+ * arrow), and a 12-month balance line in the account colour.
  */
 export function AccountCard({
   shortName,
@@ -27,15 +48,22 @@ export function AccountCard({
   transactionCount,
   balance,
   periodNet,
-  hasSparkline = false,
+  balanceHistory,
   onClick,
 }: AccountCardProps): JSX.Element {
   const { t } = useTranslation('common');
   const { formatCurrency } = useFormatters();
   const isNegative = balance < 0;
-  const netIsNegative = (periodNet ?? 0) < 0;
+  const netTone =
+    periodNet === undefined || periodNet === 0
+      ? 'neutral'
+      : periodNet < 0
+        ? 'negative'
+        : 'positive';
+  const netClass = `ot-account-card__net--${netTone}`;
   const signedNet =
     periodNet === undefined ? '' : `${periodNet > 0 ? '+' : ''}${formatCurrency(periodNet)}`;
+  const spark = balanceHistory && balanceHistory.length >= 2 ? sparkGeometry(balanceHistory) : null;
 
   const handleClick = (): void => {
     if (onClick) {
@@ -88,23 +116,46 @@ export function AccountCard({
       </div>
       {periodNet !== undefined && (
         <div className="ot-account-card__net">
-          <span
-            aria-hidden="true"
-            className={`ot-account-card__net-arrow ${netIsNegative ? 'ot-account-card__net--negative' : 'ot-account-card__net--positive'}`}
-          >
-            {netIsNegative ? '↓' : '↑'}
-          </span>
-          <span
-            className={
-              netIsNegative ? 'ot-account-card__net--negative' : 'ot-account-card__net--positive'
-            }
-          >
-            {signedNet}
-          </span>{' '}
-          {t('panel.card.periodNet')}
+          {netTone !== 'neutral' && (
+            <span aria-hidden="true" className={`ot-account-card__net-arrow ${netClass}`}>
+              {netTone === 'negative' ? '↓' : '↑'}
+            </span>
+          )}
+          <span className={netClass}>{signedNet}</span> {t('panel.card.periodNet')}
         </div>
       )}
-      {hasSparkline && <div className="ot-account-card__sparkline-placeholder" />}
+      {spark && balanceHistory && (
+        <svg
+          className="ot-account-card__spark"
+          viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+          preserveAspectRatio="none"
+          role="img"
+          aria-label={t('panel.card.trendLabel', {
+            from: formatCurrency(balanceHistory[0] ?? 0),
+            to: formatCurrency(balanceHistory[balanceHistory.length - 1] ?? 0),
+          })}
+        >
+          <path d={spark.area} fill={color} fillOpacity={0.1} stroke="none" />
+          {spark.zeroY !== null && (
+            <line
+              className="ot-account-card__spark-zero"
+              x1={0}
+              x2={SPARK_W}
+              y1={spark.zeroY}
+              y2={spark.zeroY}
+            />
+          )}
+          <polyline
+            points={spark.line}
+            fill="none"
+            stroke={color}
+            strokeWidth={1.75}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      )}
     </div>
   );
 }

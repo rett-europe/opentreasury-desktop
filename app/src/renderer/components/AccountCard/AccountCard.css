@@ -54,15 +54,24 @@
 .ot-account-card__net--negative {
   color: var(--color-expense-default);
 }
+.ot-account-card__net--neutral {
+  color: var(--color-text-secondary);
+}
 
-/* Optional sparkline placeholder. Kept minimal — the real sparkline is
- * tracked under WI-7 (coordination with Mouse). */
-.ot-account-card__sparkline-placeholder {
+/* 12-month balance line, tinted with the account colour (set inline). */
+.ot-account-card__spark {
+  display: block;
+  width: 100%;
   height: 28px;
   margin-top: var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-secondary);
-  opacity: 0.5;
+  overflow: visible;
+}
+.ot-account-card__spark-zero {
+  stroke: var(--color-text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.6;
 }
 
 /* Clickable variant (#227) — cursor + hover affordance.
