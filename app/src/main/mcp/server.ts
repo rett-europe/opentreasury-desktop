@@ -36,6 +36,7 @@ import {
   setTransactionType,
   updateTransactions,
   deleteTransactions,
+  createTransactions,
 } from './tools.js';
 
 class LineTransport implements Transport {
@@ -144,6 +145,36 @@ async function toolDefinitions() {
   const settings = await loadMcpSettings(userData());
   const writeTools = settings.allowWrites
     ? [
+        {
+          name: 'create_transactions',
+          description:
+            'Create new transactions in an existing account (EUR). Created transactions are always pending.',
+          inputSchema: toolSchema(
+            {
+              items: {
+                type: 'array',
+                minItems: 1,
+                maxItems: 200,
+                items: toolSchema(
+                  {
+                    accountId: { type: 'string' },
+                    date: { type: 'string', description: 'YYYY-MM-DD' },
+                    type: { type: 'string', enum: ['income', 'expense'] },
+                    amount: { type: 'number', exclusiveMinimum: 0 },
+                    description: { type: 'string', maxLength: 500 },
+                    details: { type: ['string', 'null'], maxLength: 1000 },
+                    reference: { type: ['string', 'null'], maxLength: 120 },
+                    categoryId: { type: ['string', 'null'] },
+                    subcategoryId: { type: ['string', 'null'] },
+                    tagIds: { type: 'array', items: { type: 'string' } },
+                  },
+                  ['accountId', 'date', 'type', 'amount', 'description'],
+                ),
+              },
+            },
+            ['items'],
+          ),
+        },
         {
           name: 'classify_transactions',
           description:
@@ -271,6 +302,7 @@ function createSdkServer(): Server {
       else if (name === 'list_accounts') result = listAccounts(model);
       else if (
         [
+          'create_transactions',
           'classify_transactions',
           'set_transaction_type',
           'update_transactions',
@@ -300,7 +332,9 @@ function createSdkServer(): Server {
             actorUserId: profile?.userId ?? 'PROFILE_PENDING000000000',
             dekVersion: 0,
           };
-          if (name === 'classify_transactions') result = await classifyTransactions(deps, args);
+          if (name === 'create_transactions') result = await createTransactions(deps, args);
+          else if (name === 'classify_transactions')
+            result = await classifyTransactions(deps, args);
           else if (name === 'set_transaction_type') result = await setTransactionType(deps, args);
           else if (name === 'update_transactions') result = await updateTransactions(deps, args);
           else result = await deleteTransactions(deps, args);
