@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ReadModel, Transaction } from '../../core/query/types.js';
 import {
   bulkUpdateTransactions,
+  createTransaction,
   deleteTransaction,
   updateTransaction,
   type UpdateTransactionInput,
@@ -62,6 +63,25 @@ export const updateTransactionsInputSchema = z.object({
     )
     .min(1)
     .max(500),
+});
+export const createTransactionsInputSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        accountId: z.string().min(1),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        type: z.enum(['income', 'expense']),
+        amount: z.number().positive(),
+        description: z.string().min(1).max(500),
+        details: z.string().max(1000).nullable().optional(),
+        reference: z.string().max(120).nullable().optional(),
+        categoryId: nullableId.optional(),
+        subcategoryId: nullableId.optional(),
+        tagIds: z.array(z.string().min(1)).optional(),
+      }),
+    )
+    .min(1)
+    .max(200),
 });
 export const deleteTransactionsInputSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(200),
@@ -258,6 +278,39 @@ export async function updateTransactions(deps: McpWriteDeps, raw: unknown): Prom
   }
   await appendAll(deps, events);
   return text({ updatedCount: events.length, correlationId, failures: [], skipped });
+}
+export async function createTransactions(deps: McpWriteDeps, raw: unknown): Promise<McpToolResult> {
+  const input = createTransactionsInputSchema.parse(raw);
+  const correlationId = deps.newId();
+  const failures: Failure[] = [];
+  input.items.forEach((item, i) => {
+    failures.push(...validateRefs(deps.readModel, { ...item, id: `items[${i}]` }));
+  });
+  if (failures.length) return text({ createdCount: 0, correlationId, failures }, true);
+  const events: DomainEvent[] = [];
+  for (const [i, item] of input.items.entries()) {
+    const r = createTransaction(
+      { ...item, currency: 'EUR', status: 'pending' },
+      { ...deps, actorIdentitySource: 'mcp' },
+    );
+    if (!r.ok)
+      return text(
+        {
+          createdCount: 0,
+          correlationId,
+          failures: [{ id: `items[${i}]`, code: r.error.code, message: r.error.message }],
+        },
+        true,
+      );
+    events.push(r.value);
+  }
+  await appendAll(deps, events);
+  return text({
+    createdCount: events.length,
+    correlationId,
+    ids: events.map((e) => (e.payload as { id: string }).id),
+    failures: [],
+  });
 }
 export async function deleteTransactions(deps: McpWriteDeps, raw: unknown): Promise<McpToolResult> {
   const input = deleteTransactionsInputSchema.parse(raw);

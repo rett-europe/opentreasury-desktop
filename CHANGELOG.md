@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- MCP: `create_transactions` tool (requires "allow writes"), completing CRUD. New transactions are always created as pending.
+
 ## [0.1.0-trial.3.24] — 12-month balance line on Dashboard account cards
 
 Each Dashboard account card now shows how its balance moved over the last year. Existing trial datasets open normally — no migration.

@@ -58,7 +58,7 @@ income" — the agent calls `set_transaction_type`.
 - FR6 — **Agent writes never approve.** Any transaction touched by an agent is forced to
   `status: 'pending'`. Approved transactions are rejected with `TX_LOCKED` (SPEC-025 edit rules
   apply unchanged). Agents may only reference **existing** categories/subcategories/tags;
-  unknown ids are rejected with `NOT_FOUND` (no create tools in v1).
+  unknown ids are rejected with `NOT_FOUND`. `create_transactions` (write-gated) adds new transactions to an existing account; they are always created as `pending`.
 - FR7 — Every agent write is recorded in the audit chain with `actorIdentitySource: 'mcp'`.
   If a compatible event field exists, also record the MCP `initialize` client name; otherwise do not add a new schema field.
 - FR8 — Settings allow **Read-only** mode (write tools not advertised) via an `allowWrites` toggle, default off and applied to new tool calls without restarting.
