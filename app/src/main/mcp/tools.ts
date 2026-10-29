@@ -288,9 +288,23 @@ export async function createTransactions(deps: McpWriteDeps, raw: unknown): Prom
   });
   if (failures.length) return text({ createdCount: 0, correlationId, failures }, true);
   const events: DomainEvent[] = [];
+  const ids: string[] = [];
   for (const [i, item] of input.items.entries()) {
     const r = createTransaction(
-      { ...item, currency: 'EUR', status: 'pending' },
+      {
+        accountId: item.accountId,
+        date: item.date,
+        type: item.type,
+        amount: item.amount,
+        currency: 'EUR',
+        description: item.description,
+        categoryId: item.categoryId ?? null,
+        subcategoryId: item.subcategoryId ?? null,
+        tagIds: item.tagIds ?? [],
+        status: 'pending',
+        reference: item.reference ?? null,
+        details: item.details ?? null,
+      },
       { ...deps, actorIdentitySource: 'mcp' },
     );
     if (!r.ok)
@@ -303,14 +317,10 @@ export async function createTransactions(deps: McpWriteDeps, raw: unknown): Prom
         true,
       );
     events.push(r.value);
+    ids.push(r.value.payload.id);
   }
   await appendAll(deps, events);
-  return text({
-    createdCount: events.length,
-    correlationId,
-    ids: events.map((e) => (e.payload as { id: string }).id),
-    failures: [],
-  });
+  return text({ createdCount: events.length, correlationId, ids, failures: [] });
 }
 export async function deleteTransactions(deps: McpWriteDeps, raw: unknown): Promise<McpToolResult> {
   const input = deleteTransactionsInputSchema.parse(raw);
