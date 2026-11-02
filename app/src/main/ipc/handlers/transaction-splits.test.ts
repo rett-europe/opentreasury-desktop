@@ -198,7 +198,9 @@ describe('transaction:split handler — MAX_SPLITS_PER_TX limit (SPEC-023 FR12)'
     expect(response.ok).toBe(false);
     if (response.ok) return;
     expect(response.error.code).toBe('SCHEMA_INVALID');
-    expect(response.error.message).toMatch(/too_big|Array must contain at most 20 element/i);
+    expect(response.error.message).toMatch(
+      /too_big|have <=20 items|Array must contain at most 20 element/i,
+    );
   });
 
   it('ensures MAX_SPLITS_PER_TX constant is 20 per spec', () => {
@@ -247,7 +249,9 @@ describe('transaction:split handler — SPLIT_COMMENT_MAX limit (SPEC-023 FR13)'
     expect(response.ok).toBe(false);
     if (response.ok) return;
     expect(response.error.code).toBe('SCHEMA_INVALID');
-    expect(response.error.message).toMatch(/String must contain at most 500 character/i);
+    expect(response.error.message).toMatch(
+      /have <=500 characters|String must contain at most 500 character/i,
+    );
   });
 
   it('ensures SPLIT_COMMENT_MAX constant is 500 per spec', () => {

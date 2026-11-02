@@ -32,20 +32,41 @@ function serveStatic(port, dir) {
     '.png': 'image/png',
   };
   const server = http.createServer((req, res) => {
-    const url = decodeURIComponent((req.url || '/').split('?')[0]);
-    const target = url === '/' ? '/OpenTreasury Prototype.html' : url;
-    const abs = path.join(dir, target);
+    let pathname;
+    try {
+      pathname = decodeURIComponent(new URL(req.url || '/', 'http://127.0.0.1').pathname);
+    } catch {
+      res.statusCode = 400;
+      res.end('bad request');
+      return;
+    }
+
+    const relativePath =
+      pathname === '/' ? 'OpenTreasury Prototype.html' : pathname.replace(/^[/\\]+/, '');
+    const root = path.resolve(dir);
+    const abs = path.resolve(root, relativePath);
+    const resolvedPath = path.relative(root, abs);
+    if (
+      resolvedPath === '..' ||
+      resolvedPath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(resolvedPath)
+    ) {
+      res.statusCode = 404;
+      res.end('not found');
+      return;
+    }
+
     fs.readFile(abs, (err, data) => {
       if (err) {
         res.statusCode = 404;
-        res.end('not found: ' + target);
+        res.end('not found');
         return;
       }
       res.setHeader('Content-Type', MIME[path.extname(abs).toLowerCase()] ?? 'text/plain');
       res.end(data);
     });
   });
-  return new Promise((resolve) => server.listen(port, () => resolve(server)));
+  return new Promise((resolve) => server.listen(port, '127.0.0.1', () => resolve(server)));
 }
 
 const PROTO_ROUTES = [
