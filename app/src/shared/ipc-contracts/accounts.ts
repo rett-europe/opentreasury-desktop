@@ -41,23 +41,35 @@ export const accountCreatedEventSchema = z.object({
 
 export type AccountCreatedEvent = z.infer<typeof accountCreatedEventSchema>;
 
-export const accountChangesSchema = z
-  .object({
-    name: z.string().min(1).optional(),
-    bankName: z.string().optional(),
-    label: z.string().optional(),
-    iban: z.string().optional(),
-    color: z.string().optional(),
-    isPaypal: z.boolean().optional(),
-    // Editable post-creation as of trial.3.13 (see the matching comment on
-    // configAccountUpdatedEventSchema). The handler validates `Number.isFinite`
-    // and no-op-strips when the new value equals the current, so no-op writes
-    // are still rejected.
-    openingBalance: z.number().optional(),
-  })
-  .refine((c) => Object.values(c).some((v) => v !== undefined), {
+const accountChangeFields = {
+  name: z.string().min(1).optional(),
+  bankName: z.string().optional(),
+  label: z.string().optional(),
+  iban: z.string().optional(),
+  color: z.string().optional(),
+  isPaypal: z.boolean().optional(),
+};
+
+const requireAccountChange = <T extends z.ZodRawShape>(schema: z.ZodObject<T>) =>
+  schema.refine((changes) => Object.values(changes).some((value) => value !== undefined), {
     message: 'changes must be non-empty',
   });
+
+export const accountChangesSchema = requireAccountChange(
+  z.object({
+    ...accountChangeFields,
+    // Keep event validation finite; input validation uses the companion schema below.
+    openingBalance: z.number().optional(),
+  }),
+);
+
+const accountChangesRequestSchema = requireAccountChange(
+  z.object({
+    ...accountChangeFields,
+    // Let the handler return OPENING_BALANCE_INVALID for NaN/Infinity.
+    openingBalance: z.custom<number>((value) => typeof value === 'number').optional(),
+  }),
+);
 
 export type AccountChanges = z.infer<typeof accountChangesSchema>;
 
@@ -134,7 +146,7 @@ export const createAccountRequestSchema = z.object({
   iban: z.string().optional(),
   color: z.string().optional(),
   isPaypal: z.boolean().optional(),
-  openingBalance: z.number().optional(),
+  openingBalance: z.custom<number>((value) => typeof value === 'number').optional(),
 });
 
 export type CreateAccountRequest = z.infer<typeof createAccountRequestSchema>;
@@ -203,7 +215,7 @@ export type ListAccountsResponse = AccountsListResponse;
 
 export const updateAccountRequestSchema = z.object({
   id: z.string().min(1),
-  changes: accountChangesSchema,
+  changes: accountChangesRequestSchema,
 });
 
 export type UpdateAccountRequest = z.infer<typeof updateAccountRequestSchema>;

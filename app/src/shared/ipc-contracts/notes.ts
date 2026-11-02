@@ -171,7 +171,7 @@ export type ListAllNotesRequest = z.infer<typeof listAllNotesRequestSchema>;
 export const listAllNotesResponseSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
-    notesByTxId: z.record(z.array(transactionNoteSchema)),
+    notesByTxId: z.record(z.string(), z.array(transactionNoteSchema)),
   }),
   z.object({ ok: z.literal(false), error: noteErrorSchema }),
 ]);

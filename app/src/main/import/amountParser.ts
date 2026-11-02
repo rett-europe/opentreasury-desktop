@@ -192,7 +192,7 @@ export function parseAmount(raw: unknown, options?: ParseAmountOptions): ParseAm
     // Both dots and commas present → rightmost is decimal
     if (dotIndex > commaIndex) {
       // Dot is decimal (US): 16,433.39
-      cleaned = working.replace(/,/g, '').replace('.', '.');
+      cleaned = working.replace(/,/g, '');
       detectedLocale = 'en';
     } else {
       // Comma is decimal (ES): 16.433,39

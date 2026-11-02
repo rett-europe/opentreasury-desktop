@@ -291,7 +291,7 @@ export const bulkUpdateTransactionRequestSchema = z.object({
   correlationId: z.string().min(1),
 });
 
-export type BulkUpdateTransactionRequest = z.infer<typeof bulkUpdateTransactionRequestSchema>;
+export type BulkUpdateTransactionRequest = z.input<typeof bulkUpdateTransactionRequestSchema>;
 
 // Dedicated code enum for bulk-update failures. Extends the single-update
 // codes with `EMPTY_IDS` (from the command) so the response schema accepts
