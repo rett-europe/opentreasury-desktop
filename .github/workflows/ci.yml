@@ -51,7 +51,8 @@ jobs:
 
   e2e-perf:
     name: e2e · perf gate (main only)
-    runs-on: ubuntu-latest
+    # Playwright 1.59.1 does not support Ubuntu 26.04 yet.
+    runs-on: ubuntu-24.04
     # Gate on main pushes only — PRs can be flakier on shared GH runners.
     # Revisit after a week of data; tighten to PR-blocking if stable.
     # Also runnable on demand via the Actions tab (workflow_dispatch) for
