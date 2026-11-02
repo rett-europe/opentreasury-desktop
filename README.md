@@ -50,26 +50,30 @@ your own data manually — use the dogfood scripts:
 The two folders are isolated — you can switch between demo and dogfood modes without losing either
 dataset. Under the hood: `OT_SEED=none` suppresses the seed, `OT_DATA_DIR=<name>` picks the folder.
 
-### What the current build ships (v0.1.0-trial.3.16)
+### What the current build ships (v1.0.0)
 
 - **Encrypted workspace + 12-word recovery** — XChaCha20-Poly1305 at rest; first-run setup
   (folder → recovery code → confirm) and silent daily unlock; device enrollment via the recovery
   code (SPEC-026).
-- **Panel / Dashboard** — 90-day activity overview.
+- **Panel / Dashboard** — account balances, 12-month balance history, and activity overview.
 - **Add Transaction** — manual entry with accounts, categories/subcategories, tags, and splits.
 - **Saldo** — category/subcategory balances with drilldown.
-- **Movements** — transaction list with date-range presets, filtering, splits, labels, and
-  free-text search (Ctrl/Cmd+K).
+- **Movements** — transaction list with date-range presets, filtering, splits, labels, bulk
+  actions, and free-text search (Ctrl/Cmd+K).
 - **Insights** — period selector with donut/bar breakdowns and category drilldowns.
+- **Financial Report** — printable annual or custom-period financial statements with
+  reconciliation and signature blocks.
 - **Export** — dedicated `/export` screen for filtered CSV/Excel output (account, category,
   date range, label); date-range-plus-one-filter gate, `;` CSV delimiter, locale-aware
   formatting, and a typed-confirmation authorization gate; the encrypted dataset never leaves
   the main process in plaintext (SPEC-027).
 - **Settings** — data-folder location, read-only mode, theme, and a merged "Language & format"
   card (language, date format, number format).
-- **Audit/integrity foundation** — tamper-evident, hash-chained audit log verified on unlock
-  (fail-closed → recovery) with external RFC-3161 timestamping; silent infrastructure, no
-  user-facing viewer yet (SPEC-028 Tiers 0–2).
+- **Audit & Evidence** — change history and signed audit records, backed by a tamper-evident,
+  hash-chained log verified on unlock (fail-closed → recovery) with external RFC-3161
+  timestamping.
+- **Local MCP server** — opt-in read tools and separately gated transaction write tools for
+  connected agents.
 
 Data is persisted as encrypted event-log files in the chosen data folder (OneDrive/SharePoint or
 local disk) — no backend server or database.
