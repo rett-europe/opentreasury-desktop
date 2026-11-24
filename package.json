@@ -45,7 +45,7 @@
     "argon2": "^0.44.0",
     "bip39": "^3.1.0",
     "exceljs": "^4.4.0",
-    "i18next": "^23.11.0",
+    "i18next": "^27.2.6",
     "i18next-browser-languagedetector": "^7.2.0",
     "lucide-react": "^1.8.0",
     "papaparse": "^5.5.3",
